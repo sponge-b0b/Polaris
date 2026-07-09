@@ -230,6 +230,7 @@ pyrightconfig.json
 # Repowise
 .repowise/
 .repowiseIgnore
+.mcp.json
 
 # Local vector/embedding caches for AI search
 .bge_data/

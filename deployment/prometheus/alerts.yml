@@ -1,0 +1,56 @@
+groups:
+  - name: polaris-observability-boundaries
+    rules:
+      - alert: PolarisApplicationServiceRetrySpike
+        expr: sum(increase(application_service_retries[5m])) >= 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Polaris application-service retries are elevated
+          description: At least five application-service retries occurred within five minutes.
+
+      - alert: PolarisApplicationServiceDegraded
+        expr: sum(increase(application_service_degraded[10m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Polaris application services are returning degraded results
+          description: At least one materially degraded service result occurred within ten minutes.
+
+      - alert: PolarisIntegrationClientRetrySpike
+        expr: sum(increase(integration_client_retries[5m])) >= 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Polaris integration-client retries are elevated
+          description: At least five internal client retries occurred within five minutes.
+
+      - alert: PolarisTelemetrySinkFailure
+        expr: sum(increase(telemetry_sink_failures[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Polaris telemetry delivery is failing
+          description: A telemetry sink failed to emit, flush, or shut down within five minutes.
+
+      - alert: PolarisConfigurationFailure
+        expr: (sum(increase(application_service_configuration_failures[10m])) or vector(0)) + (sum(increase(platform_bootstrap_configuration_failures[10m])) or vector(0)) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Polaris configuration validation failed
+          description: A service or platform bootstrap configuration failure occurred within ten minutes.
+
+      - alert: PolarisCallbackFailure
+        expr: (sum(increase(plugin_lifecycle_callback_failures[5m])) or vector(0)) + (sum(increase(runtime_lifecycle_callback_failures[5m])) or vector(0)) + (sum(increase(runtime_event_bus_subscriber_failures[5m])) or vector(0)) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Polaris callback execution failed
+          description: A plugin, runtime lifecycle, or EventBus callback failed within five minutes.

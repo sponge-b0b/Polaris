@@ -1,0 +1,455 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "icon": "external link",
+      "tags": [],
+      "targetBlank": true,
+      "title": "Jaeger UI",
+      "tooltip": "Open Polaris Jaeger",
+      "type": "link",
+      "url": "http://localhost:16686"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (workflow_name) (increase(workflow_executions_total[5m])) or vector(0)",
+          "legendFormat": "{{workflow_name}} started",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (workflow_name) (increase(workflow_executions_failed[5m])) or vector(0)",
+          "legendFormat": "{{workflow_name}} failed",
+          "refId": "B"
+        }
+      ],
+      "title": "Workflow Executions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (node_name) (increase(runtime_nodes_total[5m])) or vector(0)",
+          "legendFormat": "{{node_name}} started",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (node_name) (increase(runtime_nodes_failed[5m])) or vector(0)",
+          "legendFormat": "{{node_name}} failed",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (node_name) (increase(runtime_nodes_skipped[5m])) or vector(0)",
+          "legendFormat": "{{node_name}} skipped",
+          "refId": "C"
+        }
+      ],
+      "title": "Runtime Node Results",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, provider_name, operation) (rate(integration_provider_duration_seconds_bucket[5m]))) or vector(0)",
+          "legendFormat": "p95 {{provider_name}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Provider Call Latency p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider_name, operation) (increase(integration_provider_calls_total[5m])) or vector(0)",
+          "legendFormat": "{{provider_name}} {{operation}} total",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (provider_name, operation) (increase(integration_provider_calls_failed[5m])) or vector(0)",
+          "legendFormat": "{{provider_name}} {{operation}} failed",
+          "refId": "B"
+        }
+      ],
+      "title": "Provider Calls",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (source, level) (increase(telemetry_events_total[5m])) or vector(0)",
+          "legendFormat": "{{source}} {{level}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Telemetry Event Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(telemetry_retention_records_deleted[5m])) or vector(0)",
+          "legendFormat": "deleted",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(telemetry_retention_records_scanned[5m])) or vector(0)",
+          "legendFormat": "scanned",
+          "refId": "B"
+        }
+      ],
+      "title": "PostgreSQL Telemetry Retention Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service_name) (increase(application_service_retries[5m])) or vector(0)",
+          "legendFormat": "{{service_name}} retries",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (service_name) (increase(application_service_degraded[5m])) or vector(0)",
+          "legendFormat": "{{service_name}} degraded",
+          "refId": "B"
+        }
+      ],
+      "title": "Application Service Resilience",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service_name) (increase(application_service_configuration_failures[5m])) or vector(0)",
+          "legendFormat": "service {{service_name}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (component_name, outcome) (increase(platform_bootstrap_configuration_failures[5m])) or vector(0)",
+          "legendFormat": "bootstrap {{component_name}} {{outcome}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Configuration Failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider_name, component_name, operation) (increase(integration_client_retries[5m])) or vector(0)",
+          "legendFormat": "{{provider_name}} {{component_name}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Integration Client Retries",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "polaris-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (component_name, operation) (increase(telemetry_sink_failures[5m])) or vector(0)",
+          "legendFormat": "sink {{component_name}} {{operation}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (component_name, operation) (increase(plugin_lifecycle_callback_failures[5m])) or vector(0)",
+          "legendFormat": "plugin {{component_name}} {{operation}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (component_name, operation) (increase(runtime_lifecycle_callback_failures[5m])) or vector(0)",
+          "legendFormat": "runtime {{component_name}} {{operation}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (component_name, operation) (increase(runtime_event_bus_subscriber_failures[5m])) or vector(0)",
+          "legendFormat": "subscriber {{component_name}} {{operation}}",
+          "refId": "D"
+        }
+      ],
+      "title": "Telemetry and Callback Failures",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "polaris",
+    "telemetry",
+    "runtime"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Polaris Core Telemetry Overview",
+  "uid": "polaris-core-telemetry-overview",
+  "version": 2,
+  "weekStart": ""
+}

@@ -1,0 +1,146 @@
+name: polaris
+
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: polaris_postgres
+    restart: always
+
+    environment:
+      POSTGRES_USER: ${POLARIS_POSTGRES_USER:-polaris}
+      POSTGRES_PASSWORD: ${POLARIS_POSTGRES_PASSWORD:?Set POLARIS_POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POLARIS_POSTGRES_DB:-polaris}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    container_name: polaris_qdrant
+    restart: always
+
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  neo4j:
+      image: neo4j:5.26.27-community
+      container_name: polaris_neo4j
+
+      environment:
+        - NEO4J_AUTH=${NEO4J_AUTH:?Set NEO4J_AUTH in .env}
+
+      ports:
+        - "7474:7474" # Web HTTP Browser Port
+        - "7687:7687" # Bolt Bolt Driver Protocol
+
+      volumes:
+        - neo4j_data:/data
+        - neo4j_logs:/logs
+
+  bge-reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:cuda-1.9
+    container_name: polaris_bge_reranker
+
+    # Overwrite command with strict allocation and model overrides:
+    command: 
+      - --model-id
+      - /data                        # Explicitly read from the local mount
+      - --max-batch-tokens
+      - "4096"                       # Hard limit to prevent WSL VRAM freezes
+      - --max-concurrent-requests
+      - "64"                         # Restricts parallel thread scaling
+
+    ports:
+      - "8080:80"
+
+    volumes:
+      # Mount the local bge data folder straight into the container
+      - ./.bge_data:/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+    # This block handles the '--gpus all' flag configuration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: polaris_jaeger
+
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+    ports:
+      - "16686:16686" # Web UI portal
+      - "4317:4317"   # OTLP gRPC collector port
+      - "4318:4318"   # OTLP HTTP collector port
+
+    networks:
+      - monitoring_network
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: polaris_prometheus
+
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deployment/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090" # Web UI portal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - monitoring_network
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: polaris_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployment/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000" # Web UI portal
+    depends_on:
+      - prometheus
+      - jaeger
+    networks:
+      - monitoring_network
+
+networks:
+  monitoring_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  neo4j_data:
+  neo4j_logs:
+  prometheus_data:
+  grafana_data:

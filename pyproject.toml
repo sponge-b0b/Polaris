@@ -1,0 +1,165 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "application",
+    "config",
+    "core",
+    "domain",
+    "integration",
+    "intelligence",
+    "interfaces",
+    "mcp_server",
+    "web",
+    "workflows"
+]
+
+[project]
+name = "polaris"
+version = "0.1.0"
+readme = "README.md"
+description = "Polaris Portfolio Intelligence and Workflow Orchestration Platform"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.13.0",
+    "alpaca-py",
+    "alphavantage-api-client",
+    "asyncpg>=0.29.0",
+    "dishka",
+    "fastapi",
+    "feedparser",
+    "fredapi",
+    "graphifyy[ollama]",
+    "hypothesis",
+    "langchain",
+    "langgraph",
+    "massive",
+    "mypy",
+    "newsapi-python",
+    "numpy",
+    "ollama",
+    "openai",
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp",
+    "opentelemetry-sdk",
+    "pandas",
+    "psycopg2-binary>=2.9.9",
+    "pydantic-settings",
+    "pydantic>=2.7.0",
+    "pyright",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "python-dotenv",
+    "qdrant-client",
+    "reportlab",
+    "requests",
+    "ruff",
+    "sentence-transformers",
+    "sqlalchemy>=2.0.0",
+    "ta",
+    "types-reportlab",
+    "typer",
+    "uvicorn",
+    "vectorbt",
+    "yfinance",
+    "neo4j>=6.2.0",
+    "firecrawl-py>=4.28.2",
+    "litellm>=1.86.2",
+    "html5lib>=1.1",
+    "lxml>=6.1.1",
+    "httpx>=0.28.1",
+    "repowise>=0.16.0",
+    "pylint>=4.0.5",
+    "pytest-alembic>=0.12.1",
+    "flagembedding>=1.4.0",
+    "mcp>=1.27,<2",
+]
+
+[project.scripts]
+polaris = "interfaces.cli.main:main"
+polaris-mcp = "mcp_server.server:main"
+
+[tool.mypy]
+python_version = "3.12"
+explicit_package_bases = true
+
+# =============================================================================
+# MyPy type checking configuration settings
+# The below settings make MyPy behave like Pylance in basic mode except for #6.
+# Uncomment #6 to fully enable Pylance's basic mode.
+# =============================================================================
+
+# 1. Ignore missing type definitions in third-party libraries (Fixes Pylance's silence on imports)
+ignore_missing_imports = true
+
+# 2. Skip evaluating the inside of functions that don't have explicit type hints
+check_untyped_defs = false
+
+# 3. Allow functions without a return type annotation to return Any value
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# 4. Do not flag errors if a variable is implicitly treated as "Any"
+disallow_any_generics = false
+disallow_subclassing_any = false
+
+# 5. Prevent strict checking on optional/None values (Pylance basic allows mixing types with None)
+strict_optional = false
+
+# 6. Stop complaining about unused configuration flags or redundant casts
+#warn_unused_ignores = false
+#warn_redundant_casts = false
+#warn_return_any = false
+#warn_unused_configs = false
+
+exclude = [
+    '^venv/',
+    '^\.venv/',
+    '^\.repowise/',
+    '^\.git/',
+    '^__pycache__',
+    '^\.jscpd_report/',
+    '^\.mypy_cache/',
+    '^\.pytest_cache/',
+    '^\.ruff_cache/',
+    '^graphify-out/',
+    '^build/',
+]
+
+[tool.coverage.run]
+source = [
+    "application",
+    "config",
+    "core",
+    "domain",
+    "integration",
+    "intelligence",
+    "interfaces",
+    "mcp_server",
+    "web",
+    "workflows"
+]
+
+omit = [
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/examples/*",
+    "*/di.py",
+    "core/bootstrap/di_providers.py",
+    "core/workflow/bootstrap/workflow_module.py",
+    "intelligence/prompts/system/*.py",
+]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

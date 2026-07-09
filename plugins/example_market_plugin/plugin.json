@@ -1,0 +1,23 @@
+{
+  "plugin_name": "example_market_plugin",
+  "version": "1.0.0",
+  "description": "Example plugin package that contributes a runtime market node and workflow definition.",
+  "runtime_modules": [
+    "plugins.example_market_plugin.runtime_nodes"
+  ],
+  "workflow_modules": [
+    "plugins.example_market_plugin.workflows"
+  ],
+  "provider_modules": [],
+  "tags": [
+    "example",
+    "market",
+    "plugin"
+  ],
+  "enabled": true,
+  "include_imported_classes": false,
+  "metadata": {
+    "owner": "Polaris Capital Management",
+    "risk_level": "demo"
+  }
+}

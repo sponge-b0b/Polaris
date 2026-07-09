@@ -1,0 +1,305 @@
+{
+  "polaris_completed_run_get": {
+    "$defs": {
+      "CompletedRunSection": {
+        "enum": [
+          "workflow_inputs",
+          "node_outputs",
+          "errors",
+          "artifact_refs",
+          "trace_context"
+        ],
+        "title": "CompletedRunSection",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_completed_run_get``.",
+    "properties": {
+      "execution_id": {
+        "minLength": 1,
+        "title": "Execution Id",
+        "type": "string"
+      },
+      "include": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/CompletedRunSection"
+        },
+        "title": "Include",
+        "type": "array",
+        "uniqueItems": true
+      },
+      "node_names": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Node Names",
+        "type": "array"
+      },
+      "workflow_name": {
+        "minLength": 1,
+        "title": "Workflow Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "workflow_name",
+      "execution_id"
+    ],
+    "title": "CompletedRunGetRequest",
+    "type": "object"
+  },
+  "polaris_completed_runs_list": {
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_completed_runs_list``.",
+    "properties": {
+      "limit": {
+        "default": 20,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+      },
+      "offset": {
+        "default": 0,
+        "minimum": 0,
+        "title": "Offset",
+        "type": "integer"
+      },
+      "workflow_name": {
+        "minLength": 1,
+        "title": "Workflow Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "workflow_name"
+    ],
+    "title": "CompletedRunsListRequest",
+    "type": "object"
+  },
+  "polaris_rag_ask": {
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_rag_ask``.",
+    "properties": {
+      "agent_names": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Agent Names",
+        "type": "array"
+      },
+      "agent_types": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Agent Types",
+        "type": "array"
+      },
+      "allow_web": {
+        "default": false,
+        "title": "Allow Web",
+        "type": "boolean"
+      },
+      "as_of_end": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "As Of End"
+      },
+      "as_of_start": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "As Of Start"
+      },
+      "execution_id": {
+        "anyOf": [
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Execution Id"
+      },
+      "include_contexts": {
+        "default": false,
+        "title": "Include Contexts",
+        "type": "boolean"
+      },
+      "query": {
+        "minLength": 1,
+        "title": "Query",
+        "type": "string"
+      },
+      "regimes": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Regimes",
+        "type": "array"
+      },
+      "report_types": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Report Types",
+        "type": "array"
+      },
+      "runtime_id": {
+        "anyOf": [
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Runtime Id"
+      },
+      "source_tables": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Source Tables",
+        "type": "array"
+      },
+      "source_types": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Source Types",
+        "type": "array"
+      },
+      "symbols": {
+        "default": [],
+        "items": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Symbols",
+        "type": "array"
+      },
+      "top_k": {
+        "default": 8,
+        "minimum": 1,
+        "title": "Top K",
+        "type": "integer"
+      },
+      "workflow_name": {
+        "anyOf": [
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Workflow Name"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "title": "RagAskRequest",
+    "type": "object"
+  },
+  "polaris_rag_status": {
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_rag_status``.",
+    "properties": {
+      "include_details": {
+        "default": true,
+        "title": "Include Details",
+        "type": "boolean"
+      }
+    },
+    "title": "RagStatusRequest",
+    "type": "object"
+  },
+  "polaris_workflow_describe": {
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_workflow_describe``.",
+    "properties": {
+      "workflow_name": {
+        "minLength": 1,
+        "title": "Workflow Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "workflow_name"
+    ],
+    "title": "WorkflowDescribeRequest",
+    "type": "object"
+  },
+  "polaris_workflows_list": {
+    "additionalProperties": false,
+    "description": "Input contract for ``polaris_workflows_list``.",
+    "properties": {
+      "limit": {
+        "default": 50,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+      },
+      "offset": {
+        "default": 0,
+        "minimum": 0,
+        "title": "Offset",
+        "type": "integer"
+      },
+      "tag": {
+        "anyOf": [
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Tag"
+      }
+    },
+    "title": "WorkflowsListRequest",
+    "type": "object"
+  }
+}

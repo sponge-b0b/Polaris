@@ -14,7 +14,7 @@
 <h1 align="center">Polaris</h1>
 
 <p align="center">
-  <strong>A runtime-native AI intelligence platform for portfolio analysis, risk assessment, strategy synthesis, financial reporting, replay, RAG, and deterministic backtesting.</strong>
+  <strong>A runtime-native AI intelligence platform for portfolio analysis, risk assessment, strategy synthesis, and financial reporting.</strong>
 </p>
 
 <p align="center">

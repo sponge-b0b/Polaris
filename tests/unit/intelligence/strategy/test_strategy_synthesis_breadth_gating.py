@@ -85,24 +85,13 @@ async def test_strategy_synthesis_weak_breadth_lowers_execution_readiness() -> N
         in weak.outputs["recommendations"]
     )
 
-    # Golden characterization: preserve the established synthesis contract while
-    # policy calculations move out of the runtime node.
-    assert weak.outputs["directional_score"] == pytest.approx(0.33615284368929665)
-    assert weak.outputs["confidence"] == pytest.approx(0.5180648651306893)
-    assert weak.outputs["regime"] == "risk_on"
-    assert weak.outputs["features"]["uncertainty"] == pytest.approx(0.4819351348693107)
-    assert weak.outputs["features"]["execution_readiness"] == pytest.approx(
-        0.014148977629193149
+    assert weak.outputs["features"]["selection_status"] in {"selected", "degraded"}
+    assert weak.outputs["features"]["selected_perspective"] == "bull"
+    assert weak.outputs["features"]["strategy_hypothesis_evaluations"]
+    assert (
+        weak.outputs["features"]["hypothesis_posterior_weights"]["bull"]
+        > (weak.outputs["features"]["hypothesis_posterior_weights"]["bear"])
     )
-    assert weak.outputs["features"]["signal_quality"] == pytest.approx(
-        0.49078499594285585
-    )
-    assert weak.outputs["recommendations"] == [
-        "favor_long_exposure",
-        "allow_trend_following",
-        "require_breadth_confirmation_before_aggressive_allocation",
-        "reduce_execution_urgency_until_breadth_improves",
-    ]
     assert weak.outputs["directional_score"] != round(
         weak.outputs["directional_score"],
         4,
@@ -256,7 +245,32 @@ async def test_strategy_synthesis_emits_fallback_telemetry_for_missing_upstream(
 
     assert output.success is True
     assert output.execution_metadata["fallback"] is True
-    assert output.execution_metadata["reason"] == "missing_adaptive_weighting_engine"
+    assert (
+        output.execution_metadata["reason"]
+        == "missing_strategy_perspective_weighting_engine"
+    )
+    features = output.outputs["features"]
+    assert features["selection_status"] == "degraded"
+    assert features["selected_perspective"] is None
+    assert (
+        features["fallback_reason"] == "missing_strategy_perspective_weighting_engine"
+    )
+    assert features["hypothesis_posterior_disagreement"] == 1.0
+    assert [
+        evaluation["perspective"]
+        for evaluation in features["strategy_hypothesis_evaluations"]
+    ] == ["bull", "bear", "sideways"]
+    assert all(
+        evaluation["selection_status"] == "invalidated"
+        for evaluation in features["strategy_hypothesis_evaluations"]
+    )
+    assert "synthesis_input_unavailable" in features["degraded_reasons"]
+    assert "missing_perspective_weight" in features["degraded_reasons"]
+    assert "all_hypotheses_invalidated" in features["degraded_reasons"]
+    assert (
+        features["strategy_synthesis_decision"]["selection_status"]
+        == features["selection_status"]
+    )
 
     signal = telemetry.signal_named(
         "strategy_synthesis.fallback_output",
@@ -264,7 +278,7 @@ async def test_strategy_synthesis_emits_fallback_telemetry_for_missing_upstream(
     assert signal["agent_name"] == "strategy_synthesis_agent"
     assert signal["confidence"] == 0.25
     assert signal["payload"] == {
-        "reason": "missing_adaptive_weighting_engine",
+        "reason": "missing_strategy_perspective_weighting_engine",
         "fallback": True,
     }
     assert signal["context"].workflow_id == "morning_report"
@@ -275,6 +289,51 @@ async def test_strategy_synthesis_emits_fallback_telemetry_for_missing_upstream(
         "runtime_mode": "live",
         "telemetry_reason": "fallback_output",
     }
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_missing_hypothesis_uses_degraded_neutral_decision() -> (
+    None
+):
+    telemetry = _FakeTelemetry()
+    agent = _agent(telemetry=telemetry)
+    source_context = _context(breadth_state=MISSING_BREADTH)
+    node_outputs = dict(source_context.node_outputs)
+    node_outputs.pop("bear_agent")
+
+    output = await agent._execute(
+        source_context.model_copy(update={"node_outputs": node_outputs})
+    )
+
+    features = output.outputs["features"]
+
+    assert output.success is True
+    assert output.outputs["directional_score"] == 0.0
+    assert output.outputs["confidence"] == 0.25
+    assert output.outputs["regime"] == "neutral"
+    assert output.execution_metadata["fallback"] is True
+    assert output.execution_metadata["reason"] == "missing_bear_agent"
+    assert features["fallback_reason"] == "missing_bear_agent"
+    assert features["selection_status"] == "degraded"
+    assert features["selected_perspective"] is None
+    assert [
+        evaluation["perspective"]
+        for evaluation in features["strategy_hypothesis_evaluations"]
+    ] == ["bull", "bear", "sideways"]
+    assert all(
+        evaluation["selection_status"] == "invalidated"
+        for evaluation in features["strategy_hypothesis_evaluations"]
+    )
+    assert "missing_hypothesis" in features["degraded_reasons"]
+    assert "synthesis_input_unavailable" in features["degraded_reasons"]
+    assert "all_hypotheses_invalidated" in features["degraded_reasons"]
+    assert (
+        features["strategy_synthesis_decision"]["evaluations"]
+        == features["strategy_hypothesis_evaluations"]
+    )
+
+    signal = telemetry.signal_named("strategy_synthesis.fallback_output")
+    assert signal["payload"] == {"reason": "missing_bear_agent", "fallback": True}
 
 
 @pytest.mark.asyncio
@@ -410,7 +469,7 @@ def _context(
         workflow_id="morning_report",
         execution_id="exec-1",
         node_outputs={
-            "adaptive_weighting_engine": {
+            "strategy_perspective_weighting_engine": {
                 "outputs": {
                     "features": {
                         "bull_weight": 0.55,
@@ -449,5 +508,55 @@ def _context(
                     }
                 }
             },
+            "bull_agent": _hypothesis_node(
+                perspective="bull",
+                directional_bias=0.70,
+                hypothesis_strength=0.70,
+                confidence=0.80,
+                thesis="Bull hypothesis is strongest in the fixture.",
+            ),
+            "bear_agent": _hypothesis_node(
+                perspective="bear",
+                directional_bias=-0.35,
+                hypothesis_strength=0.35,
+                confidence=0.65,
+                thesis="Bear hypothesis is weaker in the fixture.",
+            ),
+            "sideways_agent": _hypothesis_node(
+                perspective="sideways",
+                directional_bias=0.0,
+                hypothesis_strength=0.40,
+                confidence=0.70,
+                thesis="Sideways hypothesis is plausible but not dominant.",
+            ),
         },
     )
+
+
+def _hypothesis_node(
+    *,
+    perspective: str,
+    directional_bias: float,
+    hypothesis_strength: float,
+    confidence: float,
+    thesis: str,
+) -> dict[str, object]:
+    return {
+        "outputs": {
+            "strategy_hypothesis": {
+                "perspective": perspective,
+                "thesis": thesis,
+                "directional_bias": directional_bias,
+                "hypothesis_strength": hypothesis_strength,
+                "confidence": confidence,
+                "supporting_evidence": [],
+                "contradicting_evidence": [],
+                "key_assumptions": [],
+                "invalidation_conditions": [],
+                "risks": [],
+                "recommendations": [],
+                "data_quality_flags": [],
+                "evidence_fingerprint": f"{perspective}-fixture",
+            }
+        }
+    }

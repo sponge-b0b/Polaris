@@ -42,7 +42,7 @@ class MarketEventsService(ApplicationService, ValidatingApplicationService):
     CONSUMERS:
     ----------
     - StrategySynthesisAgent  (PRIMARY)
-    - AdaptiveStrategyWeightingEngine
+    - StrategyPerspectiveWeightingEngine
     - RiskAggregatorAgent
     """
 

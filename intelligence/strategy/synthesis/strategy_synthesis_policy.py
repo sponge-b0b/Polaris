@@ -1,60 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from application.services.market_events.market_events_result import MarketEventsResult
 from core.utils.utils import _clamp
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
-    extract_technical_breadth_context,
 )
-
-DEFAULT_EVENT_SYMBOLS = frozenset(
-    {
-        "AAPL",
-        "AMZN",
-        "GOOG",
-        "GOOGL",
-        "META",
-        "MSFT",
-        "NVDA",
-        "TSLA",
-        "AVGO",
-        "JPM",
-        "V",
-        "MA",
-        "BRK-B",
-        "LLY",
-        "XOM",
-        "UNH",
-        "COST",
-        "WMT",
-        "AMD",
-        "NFLX",
-        "CRM",
-        "ORCL",
-        "ADBE",
-        "BAC",
-        "GS",
-        "MS",
-        "JNJ",
-        "ABBV",
-        "MRK",
-        "HD",
-        "LOW",
-        "TGT",
-        "CAT",
-        "GE",
-        "LIN",
-    }
+from intelligence.strategy.hypothesis.contracts import StrategyPerspective
+from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
+from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
+from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
+from intelligence.strategy.synthesis.contracts import StrategySynthesisDegradedReason
+from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
+from intelligence.strategy.synthesis.contracts import (
+    normalize_strategy_hypothesis_evaluations,
 )
-
-
-class MissingStrategySynthesisInput(ValueError):
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
 
 
 @dataclass(
@@ -124,6 +86,9 @@ class StrategySynthesisInputs:
     bull_weight: float
     bear_weight: float
     sideways_weight: float
+    bull_hypothesis: StrategyHypothesis
+    bear_hypothesis: StrategyHypothesis
+    sideways_hypothesis: StrategyHypothesis
     adjusted_risk_pressure: float
     composite_risk: float
     portfolio_scale_factor: float
@@ -132,54 +97,12 @@ class StrategySynthesisInputs:
     breadth_context: TechnicalBreadthContext
     symbol_constituents: frozenset[str]
 
-    @classmethod
-    def from_runtime_payloads(
-        cls,
-        *,
-        workflow_inputs: Mapping[str, Any],
-        node_outputs: Mapping[str, Any],
-    ) -> StrategySynthesisInputs:
-        weighting_output = _required_output(
-            node_outputs,
-            "adaptive_weighting_engine",
-        )
-        risk_output = _required_output(node_outputs, "risk_aggregator_agent")
-        portfolio_output = _required_output(node_outputs, "portfolio_state_builder")
-        technical_output = _required_output(node_outputs, "technical_agent")
-
-        weighting_features = _features(weighting_output)
-        risk_features = _features(risk_output)
-        portfolio_features = _features(portfolio_output)
-        technical_features = _features(technical_output)
-        technical_regime = _mapping(technical_features.get("regime"))
-
-        risk_pressure = float(risk_features.get("risk_pressure", 0.0))
-        return cls(
-            symbol=str(workflow_inputs.get("symbol", "SPY")),
-            event_lookahead_days=int(workflow_inputs.get("event_lookahead_days", 10)),
-            horizon=str(workflow_inputs.get("horizon", "3month")),
-            bull_weight=float(weighting_features.get("bull_weight", 0.33)),
-            bear_weight=float(weighting_features.get("bear_weight", 0.33)),
-            sideways_weight=float(weighting_features.get("sideways_weight", 0.34)),
-            adjusted_risk_pressure=float(
-                risk_features.get("adjusted_risk_pressure", risk_pressure)
-            ),
-            composite_risk=float(risk_features.get("composite_risk", 0.0)),
-            portfolio_scale_factor=float(portfolio_features.get("scale_factor", 1.0)),
-            portfolio_status=str(portfolio_features.get("status", "unknown")),
-            technical_regime=str(technical_regime.get("regime", "neutral")),
-            breadth_context=extract_technical_breadth_context(technical_output),
-            symbol_constituents=extract_symbol_constituents(
-                technical_features.get("market_context")
-            ),
-        )
-
 
 @dataclass(
     frozen=True,
     slots=True,
 )
-class StrategySynthesisDecision:
+class _RuntimeStrategySynthesisOutput:
     directional_score: float
     confidence: float
     regime: str
@@ -204,12 +127,29 @@ class StrategySynthesisDecision:
 def synthesize_strategy(
     inputs: StrategySynthesisInputs,
     market_events: StrategyMarketEvents,
-) -> StrategySynthesisDecision:
-    bull_weight, bear_weight, sideways_weight = normalize_weights(
+) -> _RuntimeStrategySynthesisOutput:
+    perspective_weights = normalize_weights(
         inputs.bull_weight,
         inputs.bear_weight,
         inputs.sideways_weight,
     )
+    evaluations = normalize_strategy_hypothesis_evaluations(
+        (
+            evaluate_strategy_hypothesis(
+                inputs.bull_hypothesis,
+                perspective_weight=perspective_weights[0],
+            ),
+            evaluate_strategy_hypothesis(
+                inputs.bear_hypothesis,
+                perspective_weight=perspective_weights[1],
+            ),
+            evaluate_strategy_hypothesis(
+                inputs.sideways_hypothesis,
+                perspective_weight=perspective_weights[2],
+            ),
+        )
+    )
+    bull_weight, bear_weight, sideways_weight = posterior_weights(evaluations)
     event_pressure = _clamp(
         market_events.market_pressure_score,
         lower=0.0,
@@ -260,6 +200,7 @@ def synthesize_strategy(
         event_volatility=event_volatility,
     )
     breadth_uncertainty_modifier = breadth_uncertainty(inputs.breadth_context)
+    posterior_disagreement = hypothesis_posterior_disagreement(evaluations)
     uncertainty = _clamp(
         calculate_uncertainty(
             net_bias=net_bias,
@@ -269,7 +210,8 @@ def synthesize_strategy(
             event_volatility=event_volatility,
         )
         + breadth_uncertainty_modifier
-        + event_uncertainty_modifier,
+        + event_uncertainty_modifier
+        + (posterior_disagreement * 0.15),
         lower=0.0,
         upper=1.0,
     )
@@ -308,9 +250,26 @@ def synthesize_strategy(
         upper=1.0,
     )
 
+    selected_hypothesis = selected_strategy_hypothesis(
+        evaluations=evaluations,
+        inputs=inputs,
+    )
+    degraded_reasons = synthesis_degraded_reasons(
+        evaluations=evaluations,
+        confidence=confidence,
+        market_events=market_events,
+        inputs=inputs,
+    )
+    thesis = synthesis_thesis(
+        selected_hypothesis=selected_hypothesis,
+        degraded_reasons=degraded_reasons,
+    )
+
+    hypothesis_signals = synthesis_hypothesis_signals(evaluations, selected_hypothesis)
     signals = deduplicate(
         [
             posture,
+            *hypothesis_signals,
             f"bull_weight:{bull_weight:.3f}",
             f"bear_weight:{bear_weight:.3f}",
             f"sideways_weight:{sideways_weight:.3f}",
@@ -340,6 +299,7 @@ def synthesize_strategy(
     risks = deduplicate(
         [
             *risks,
+            *hypothesis_risks(selected_hypothesis, degraded_reasons),
             *event_context_risks(market_events),
             *event_risks(
                 event_pressure=event_pressure,
@@ -352,6 +312,7 @@ def synthesize_strategy(
     recommendations = deduplicate(
         [
             *posture_recommendations(posture, confidence),
+            *hypothesis_recommendations(selected_hypothesis, degraded_reasons),
             *event_recommendations(
                 event_pressure=event_pressure,
                 event_bias=event_bias,
@@ -361,14 +322,27 @@ def synthesize_strategy(
         ]
     )
 
-    return StrategySynthesisDecision(
+    decision = StrategySynthesisDecision.from_evaluations(
+        evaluations=evaluations,
         directional_score=net_bias,
         confidence=confidence,
         regime=posture,
         uncertainty=uncertainty,
+        thesis=thesis,
         signals=tuple(signals),
         risks=tuple(risks),
         recommendations=tuple(recommendations),
+        degraded_reasons=tuple(degraded_reasons),
+    )
+
+    return _RuntimeStrategySynthesisOutput(
+        directional_score=net_bias,
+        confidence=confidence,
+        regime=posture,
+        uncertainty=uncertainty,
+        signals=decision.signals,
+        risks=decision.risks,
+        recommendations=decision.recommendations,
         features={
             "symbol": inputs.symbol,
             "bull_weight": bull_weight,
@@ -405,21 +379,236 @@ def synthesize_strategy(
             "breadth_execution_readiness_modifier": breadth_readiness_modifier,
             "breadth_signal_quality_modifier": breadth_quality_modifier,
             "breadth_risk_flags": list(inputs.breadth_context.risk_flags()),
+            "strategy_synthesis_decision": decision.to_dict(),
+            "strategy_hypothesis_evaluations": [
+                evaluation.to_dict() for evaluation in decision.evaluations
+            ],
+            "hypothesis_candidate_scores": {
+                evaluation.perspective.value: evaluation.candidate_score
+                for evaluation in decision.evaluations
+            },
+            "hypothesis_posterior_weights": {
+                evaluation.perspective.value: evaluation.posterior_weight
+                for evaluation in decision.evaluations
+            },
+            "hypothesis_posterior_disagreement": posterior_disagreement,
+            "selected_hypothesis": (
+                None if selected_hypothesis is None else selected_hypothesis.to_dict()
+            ),
+            "selected_perspective": (
+                None
+                if decision.selected_perspective is None
+                else decision.selected_perspective.value
+            ),
+            "selection_status": decision.selection_status.value,
+            "degraded_reasons": [reason.value for reason in decision.degraded_reasons],
+            "thesis": decision.thesis,
         },
     )
 
 
-def extract_symbol_constituents(market_context: Any) -> frozenset[str]:
-    source = _mapping(market_context)
-    raw_symbols = source.get("top_50_constituents")
-    if not isinstance(raw_symbols, (list, tuple, set, frozenset)):
-        return DEFAULT_EVENT_SYMBOLS
-    symbols = frozenset(
-        symbol.strip().upper()
-        for symbol in raw_symbols
-        if isinstance(symbol, str) and symbol.strip()
+def evaluate_strategy_hypothesis(
+    hypothesis: StrategyHypothesis,
+    *,
+    perspective_weight: float,
+) -> StrategyHypothesisEvaluation:
+    """Evaluate one hypothesis with the canonical pure candidate-score formula."""
+
+    normalized_weight = _clamp(perspective_weight, lower=0.0, upper=1.0)
+    contradiction_burden = hypothesis_contradiction_burden(hypothesis)
+    assumption_support = hypothesis_assumption_support(hypothesis)
+    candidate_score = 0.0
+    if not hypothesis.invalidated:
+        candidate_score = _clamp(
+            normalized_weight
+            * hypothesis.hypothesis_strength
+            * hypothesis.confidence
+            * assumption_support
+            * (1.0 - contradiction_burden),
+            lower=0.0,
+            upper=1.0,
+        )
+
+    return StrategyHypothesisEvaluation(
+        perspective=hypothesis.perspective,
+        perspective_weight=normalized_weight,
+        contradiction_burden=contradiction_burden,
+        assumption_support=assumption_support,
+        invalidated=hypothesis.invalidated,
+        candidate_score=candidate_score,
+        posterior_weight=0.0,
+        rank=0,
+        selection_status=StrategySynthesisSelectionStatus.CANDIDATE,
+        degraded_reasons=(
+            (StrategySynthesisDegradedReason.DATA_QUALITY_DEGRADED,)
+            if hypothesis.data_quality_flags
+            else ()
+        ),
     )
-    return symbols or DEFAULT_EVENT_SYMBOLS
+
+
+def hypothesis_contradiction_burden(hypothesis: StrategyHypothesis) -> float:
+    if not hypothesis.contradicting_evidence:
+        return 0.0
+    total = sum(
+        evidence.strength * evidence.reliability
+        for evidence in hypothesis.contradicting_evidence
+    )
+    return _clamp(
+        total / len(hypothesis.contradicting_evidence),
+        lower=0.0,
+        upper=1.0,
+    )
+
+
+def hypothesis_assumption_support(hypothesis: StrategyHypothesis) -> float:
+    if not hypothesis.key_assumptions:
+        return 1.0
+    total = sum(assumption.confidence for assumption in hypothesis.key_assumptions)
+    return _clamp(total / len(hypothesis.key_assumptions), lower=0.0, upper=1.0)
+
+
+def posterior_weights(
+    evaluations: tuple[StrategyHypothesisEvaluation, ...],
+) -> tuple[float, float, float]:
+    by_perspective = {evaluation.perspective: evaluation for evaluation in evaluations}
+    bull = by_perspective[StrategyPerspective.BULL].posterior_weight
+    bear = by_perspective[StrategyPerspective.BEAR].posterior_weight
+    sideways = by_perspective[StrategyPerspective.SIDEWAYS].posterior_weight
+    if bull + bear + sideways <= 0.0:
+        return 0.0, 0.0, 1.0
+    return bull, bear, sideways
+
+
+def hypothesis_posterior_disagreement(
+    evaluations: tuple[StrategyHypothesisEvaluation, ...],
+) -> float:
+    valid_posteriors = tuple(
+        evaluation.posterior_weight
+        for evaluation in evaluations
+        if not evaluation.invalidated
+    )
+    if not valid_posteriors:
+        return 1.0
+    return _clamp(1.0 - max(valid_posteriors), lower=0.0, upper=1.0)
+
+
+def selected_strategy_hypothesis(
+    *,
+    evaluations: tuple[StrategyHypothesisEvaluation, ...],
+    inputs: StrategySynthesisInputs,
+) -> StrategyHypothesis | None:
+    selected = tuple(
+        evaluation
+        for evaluation in evaluations
+        if evaluation.selection_status is StrategySynthesisSelectionStatus.SELECTED
+    )
+    if len(selected) != 1:
+        return None
+    return hypothesis_by_perspective(inputs)[selected[0].perspective]
+
+
+def hypothesis_by_perspective(
+    inputs: StrategySynthesisInputs,
+) -> dict[StrategyPerspective, StrategyHypothesis]:
+    return {
+        StrategyPerspective.BULL: inputs.bull_hypothesis,
+        StrategyPerspective.BEAR: inputs.bear_hypothesis,
+        StrategyPerspective.SIDEWAYS: inputs.sideways_hypothesis,
+    }
+
+
+def synthesis_degraded_reasons(
+    *,
+    evaluations: tuple[StrategyHypothesisEvaluation, ...],
+    confidence: float,
+    market_events: StrategyMarketEvents,
+    inputs: StrategySynthesisInputs,
+) -> list[StrategySynthesisDegradedReason]:
+    reasons: list[StrategySynthesisDegradedReason] = []
+    if all(evaluation.invalidated for evaluation in evaluations):
+        reasons.append(StrategySynthesisDegradedReason.ALL_HYPOTHESES_INVALIDATED)
+    if any(
+        evaluation.selection_status is StrategySynthesisSelectionStatus.TIED
+        for evaluation in evaluations
+    ):
+        reasons.append(StrategySynthesisDegradedReason.TIED_CANDIDATES)
+    if confidence <= 0.35:
+        reasons.append(StrategySynthesisDegradedReason.LOW_CONFIDENCE)
+    if market_events.event_error:
+        reasons.append(StrategySynthesisDegradedReason.DATA_QUALITY_DEGRADED)
+    if any(
+        hypothesis.data_quality_flags
+        for hypothesis in hypothesis_by_perspective(inputs).values()
+    ):
+        reasons.append(StrategySynthesisDegradedReason.DATA_QUALITY_DEGRADED)
+    return list(dict.fromkeys(reasons))
+
+
+def synthesis_thesis(
+    *,
+    selected_hypothesis: StrategyHypothesis | None,
+    degraded_reasons: list[StrategySynthesisDegradedReason],
+) -> str:
+    if selected_hypothesis is None:
+        if degraded_reasons:
+            reasons = ", ".join(reason.value for reason in degraded_reasons)
+            return f"Strategy synthesis is degraded because {reasons}."
+        return "Strategy synthesis did not identify a dominant hypothesis."
+    if degraded_reasons:
+        reasons = ", ".join(reason.value for reason in degraded_reasons)
+        return f"{selected_hypothesis.thesis} Synthesis is degraded by {reasons}."
+    return selected_hypothesis.thesis
+
+
+def synthesis_hypothesis_signals(
+    evaluations: tuple[StrategyHypothesisEvaluation, ...],
+    selected_hypothesis: StrategyHypothesis | None,
+) -> list[str]:
+    signals = [
+        f"{evaluation.perspective.value}_candidate_score:{evaluation.candidate_score:.3f}"
+        for evaluation in evaluations
+    ]
+    if selected_hypothesis is not None:
+        signals.append(
+            f"selected_strategy_hypothesis:{selected_hypothesis.perspective.value}"
+        )
+    if any(
+        evaluation.selection_status is StrategySynthesisSelectionStatus.TIED
+        for evaluation in evaluations
+    ):
+        signals.append("strategy_hypothesis_tie")
+    if all(evaluation.invalidated for evaluation in evaluations):
+        signals.append("all_strategy_hypotheses_invalidated")
+    return signals
+
+
+def hypothesis_risks(
+    selected_hypothesis: StrategyHypothesis | None,
+    degraded_reasons: list[StrategySynthesisDegradedReason],
+) -> list[str]:
+    risks: list[str] = []
+    if selected_hypothesis is not None:
+        risks.extend(selected_hypothesis.risks)
+    if StrategySynthesisDegradedReason.TIED_CANDIDATES in degraded_reasons:
+        risks.append("tied_strategy_hypotheses")
+    if StrategySynthesisDegradedReason.ALL_HYPOTHESES_INVALIDATED in degraded_reasons:
+        risks.append("no_valid_strategy_hypothesis")
+    if StrategySynthesisDegradedReason.LOW_CONFIDENCE in degraded_reasons:
+        risks.append("low_hypothesis_synthesis_confidence")
+    return risks
+
+
+def hypothesis_recommendations(
+    selected_hypothesis: StrategyHypothesis | None,
+    degraded_reasons: list[StrategySynthesisDegradedReason],
+) -> list[str]:
+    recommendations: list[str] = []
+    if selected_hypothesis is not None:
+        recommendations.extend(selected_hypothesis.recommendations)
+    if degraded_reasons:
+        recommendations.append("require_human_review_of_strategy_hypotheses")
+    return recommendations
 
 
 def normalize_weights(
@@ -733,23 +922,3 @@ def posture_recommendations(posture: str, confidence: float) -> list[str]:
 
 def deduplicate(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
-
-
-def _required_output(
-    node_outputs: Mapping[str, Any],
-    node_name: str,
-) -> Mapping[str, Any]:
-    output = node_outputs.get(node_name)
-    if not isinstance(output, Mapping) or output.get("outputs", {}) is None:
-        raise MissingStrategySynthesisInput(f"missing_{node_name}")
-    return output
-
-
-def _features(output: Mapping[str, Any]) -> Mapping[str, Any]:
-    return _mapping(_mapping(output.get("outputs")).get("features"))
-
-
-def _mapping(value: Any) -> Mapping[str, Any]:
-    if isinstance(value, Mapping):
-        return value
-    return {}

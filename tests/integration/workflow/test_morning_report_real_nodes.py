@@ -59,7 +59,7 @@ async def test_morning_report_runs_real_intelligence_nodes(
         "risk_signal_builder",
         "risk_aggregator_agent",
         "attribution_engine",
-        "adaptive_weighting_engine",
+        "strategy_perspective_weighting_engine",
         "bull_agent",
         "bear_agent",
         "sideways_agent",
@@ -176,7 +176,7 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
     assert result.steps[0].timestamp == datetime(2026, 1, 1, tzinfo=timezone.utc)
     assert result.steps[0].workflow_run_id == "backtest-real-golden-step-000000"
     assert tuple(result.steps[0].node_outputs) == (
-        "adaptive_weighting_engine",
+        "strategy_perspective_weighting_engine",
         "attribution_engine",
         "bear_agent",
         "bull_agent",

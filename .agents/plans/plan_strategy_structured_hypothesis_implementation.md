@@ -12,7 +12,7 @@
       ├── BullHypothesisAgent
       ├── BearHypothesisAgent
       ├── SidewaysHypothesisAgent
-      └── StrategyPriorWeightingEngine
+      └── StrategyPerspectiveWeightingEngine
               ↓
   StrategySynthesisAgent
               ↓
@@ -101,13 +101,13 @@
 
   Invalidation conditions are machine-evaluable and include the source field, comparison operator, threshold, current value, and breached status.
 
-  ### Prior weighting
+  ### Perspective weighting
 
-  Refactor AdaptiveStrategyWeightingEngine into StrategyPriorWeightingEngine.
+  Refactor AdaptiveStrategyWeightingEngine into StrategyPerspectiveWeightingEngine.
 
   It will:
 
-  - produce prior bull, bear, and sideways probabilities
+  - produce perspective bull, bear, and sideways probabilities
   - operate from the shared evidence context
   - run independently of the three hypotheses
   - preserve full numeric precision
@@ -126,7 +126,7 @@
       average support score for key assumptions
 
   candidate_score =
-      prior_weight
+      perspective_weight
       × hypothesis_strength
       × confidence
       × assumption_support
@@ -143,7 +143,7 @@
   - confidence and uncertainty
   - execution readiness
   - signal quality
-  - prior and posterior perspective weights
+  - pre-synthesis and posterior perspective weights
   - evaluations of all three hypotheses
   - selected hypothesis
   - decisive evidence
@@ -232,19 +232,19 @@
 
   Verification: Sideways strength can be high while directional bias remains exactly zero.
 
-  ### Step 10 — Refactor prior weighting
+  ### Step 10 — Refactor perspective weighting
 
-  - Rename AdaptiveStrategyWeightingEngine to StrategyPriorWeightingEngine.
+  - Rename AdaptiveStrategyWeightingEngine to StrategyPerspectiveWeightingEngine.
   - Consume StrategyEvidenceContext.
-  - Return full-precision typed prior weights that sum to one.
+  - Return full-precision typed perspective weights that sum to one.
   - Remove generic downstream graph-vote behavior and internal rounding.
 
-  Verification: Prior weights are deterministic, normalized, and independent of hypothesis results.
+  Verification: Perspective weights are deterministic, normalized, and independent of hypothesis results.
 
   ### Step 11 — Add synthesis evaluation contracts
 
   - Implement StrategyHypothesisEvaluation and StrategySynthesisDecision.
-  - Include prior weight, contradiction burden, assumption support, invalidation state, candidate score, posterior weight, rank, and selection status.
+  - Include perspective weight, contradiction burden, assumption support, invalidation state, candidate score, posterior weight, rank, and selection status.
   - Add typed degraded-decision reasons.
 
   Verification: Contract tests cover normalization, all-invalidated hypotheses, ties, and serialization.
@@ -262,7 +262,7 @@
 
   ### Step 13 — Refactor StrategySynthesisAgent
 
-  - Decode the evidence context, priors, and three hypotheses from runtime outputs.
+  - Decode the evidence context, perspective weights, and three hypotheses from runtime outputs.
   - Delegate comparison to the pure synthesis policy.
   - Serialize the typed decision at the runtime boundary.
   - Emit a degraded neutral decision when mandatory inputs are missing.
@@ -276,7 +276,7 @@
   analytical and risk nodes
       ↓
   StrategyEvidenceBuilder
-      ├── StrategyPriorWeightingEngine
+      ├── StrategyPerspectiveWeightingEngine
       ├── BullHypothesisAgent
       ├── BearHypothesisAgent
       └── SidewaysHypothesisAgent
@@ -285,7 +285,7 @@
               ↓
   PortfolioManagerAgent
 
-  - Remove obsolete dependencies between prior weighting and perspective agents.
+  - Remove obsolete dependencies between perspective weighting and perspective agents.
   - Keep analytical risk upstream of synthesis.
   - Keep ExecutionRiskGuard downstream of portfolio construction and trade packaging.
 
@@ -320,7 +320,7 @@
 
   ### Step 17 — Extend deterministic backtesting verification
 
-  - Add assertion paths for hypotheses, evidence, assumptions, invalidations, priors, posteriors, and selected strategy.
+  - Add assertion paths for hypotheses, evidence, assumptions, invalidations, perspective weights, posteriors, and selected strategy.
   - Add deterministic bullish, bearish, sideways, conflict, missing-data, and invalidation scenarios.
   - Ensure replaying identical evidence produces byte-equivalent strategy decisions after canonical serialization.
 
@@ -417,7 +417,7 @@
   - structured hypotheses instead of debate
   - shared immutable evidence context
   - no agent-to-agent communication
-  - prior versus posterior weighting
+  - pre-synthesis perspective weighting versus posterior weighting
   - synthesis as the only hypothesis-comparison authority
   - risk placement before synthesis and execution risk after packaging
   - workflow evidence versus canonical persistence versus RAG projection
@@ -431,7 +431,7 @@
   Run focused tests for:
   - all three hypothesis agents
   - evidence builder
-  - prior weighting
+  - perspective weighting
   - synthesis
   - workflow graph
   - portfolio manager
@@ -652,3 +652,253 @@ Result:
 - Full strategy unit test scope passed: `99 passed`.
 - Graphify was updated after Python changes.
 - Note: existing `StrategySynthesisAgent` still retrieves market events directly until its later refactor step removes that transitional duplication.
+
+### Step 7 — Refactor the Bull agent
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/hypothesis.py` with the immutable `StrategyHypothesis` contract for complete perspective-level strategy hypotheses.
+- Added `intelligence/strategy/bull/bull_hypothesis_policy.py` as the deterministic bull-hypothesis policy that consumes `StrategyEvidenceContext` instead of raw runtime node-output dictionaries.
+- Refactored `BullAgent` so it requires the `strategy_evidence_builder` output and no longer independently parses sentiment, technical, fundamental, news, or risk runtime payloads.
+- Preserved the existing bull runtime output shape for downstream compatibility while adding a typed serialized `strategy_hypothesis` payload.
+- Modeled supporting evidence, contradicting evidence, explicit key assumptions, hard invalidation conditions, data-quality flags, hypothesis strength, confidence, and evidence fingerprints.
+- Updated breadth strategy fixtures so the bull agent is exercised through the shared evidence context while bear and sideways fixtures remain unchanged for their later steps.
+- Added focused bull-hypothesis policy coverage for complete output construction, required evidence-builder input, deterministic serialized replay, opposing evidence, hard invalidations, and missing optional-input quality flags.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/bull intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --fix`
+- `uv run ruff format intelligence/strategy/bull intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run mypy intelligence/strategy/bull intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed.
+- Scoped MyPy passed: `Success: no issues found in 12 source files`.
+- Focused bull/breadth strategy tests passed: `9 passed`.
+- Full strategy unit test scope passed: `104 passed`.
+- Graphify was updated after Python changes.
+- Repowise identified `intelligence/strategy/bull/bull_agent.py` as a churn-heavy hotspot, so this step kept the refactor surgical and did not modify bear, sideways, or synthesis logic beyond test fixture setup.
+
+### Step 8 — Refactor the Bear agent
+
+Completed:
+
+- Added `intelligence/strategy/bear/bear_hypothesis_policy.py` as the deterministic bear-hypothesis policy that consumes `StrategyEvidenceContext` instead of raw runtime node-output dictionaries.
+- Refactored `BearAgent` so it requires the `strategy_evidence_builder` output and no longer independently parses sentiment, technical, fundamental, news, or risk runtime payloads.
+- Preserved the existing bear runtime output shape while adding a typed serialized `strategy_hypothesis` payload.
+- Modeled bearish direction as negative `directional_score` while keeping `hypothesis_strength` and `features.bear_score` positive.
+- Modeled supporting evidence, contradicting bullish evidence, explicit key assumptions, hard invalidation conditions, data-quality flags, confidence, and evidence fingerprints.
+- Added focused bear-hypothesis policy coverage for complete output construction, required evidence-builder input, deterministic serialized replay, bullish contradictory evidence, hard invalidations, and missing optional-input quality flags.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/bear intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --fix`
+- `uv run ruff format intelligence/strategy/bear intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run mypy intelligence/strategy/bear intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed.
+- Scoped MyPy passed: `Success: no issues found in 12 source files`.
+- Focused bear/breadth strategy tests passed: `9 passed`.
+- Full strategy unit test scope passed: `109 passed`.
+- Graphify was updated after Python changes.
+- Repowise identified `intelligence/strategy/bear/bear_agent.py` as a churn-heavy hotspot, so this step kept the refactor surgical and did not modify sideways or synthesis logic.
+
+### Step 9 — Refactor the Sideways agent
+
+Completed:
+
+- Added `intelligence/strategy/sideways/sideways_hypothesis_policy.py` as the deterministic sideways-hypothesis policy that consumes `StrategyEvidenceContext` instead of raw runtime node-output dictionaries.
+- Refactored `SidewaysAgent` so it requires the `strategy_evidence_builder` output and no longer independently parses sentiment, technical, fundamental, news, or risk runtime payloads.
+- Preserved the existing sideways runtime output shape while adding a typed serialized `strategy_hypothesis` payload.
+- Separated sideways conviction from market direction: `hypothesis_strength` and `features.sideways_score` carry sideways strength, while canonical `directional_score` and `directional_bias` are exactly `0.0`.
+- Modeled trend breakout, volatility expansion, sentiment directional breakout, and technical directional breakout as explicit hard invalidation conditions.
+- Added focused sideways-hypothesis policy coverage for complete output construction, required evidence-builder input, deterministic serialized replay, breakout invalidations, and missing optional-input quality flags.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/sideways intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --fix`
+- `uv run ruff format intelligence/strategy/sideways intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run mypy intelligence/strategy/sideways intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_breadth_strategy_agents.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed.
+- Scoped MyPy passed: `Success: no issues found in 12 source files`.
+- Focused sideways/breadth strategy tests passed: `9 passed`.
+- Full strategy unit test scope passed: `114 passed`.
+- Graphify was updated after Python changes.
+- Repowise identified `intelligence/strategy/sideways/sideways_agent.py` as a churn-heavy hotspot, so this step kept the refactor surgical and did not modify synthesis or perspective-weighting logic.
+
+### Step 10 — Refactor perspective weighting
+
+Completed:
+
+- Renamed the strategy weighting runtime node from `AdaptiveStrategyWeightingEngine` to `StrategyPerspectiveWeightingEngine` and moved the implementation to `intelligence/strategy/weighting/strategy_perspective_weighting_engine.py`.
+- Added the immutable typed `StrategyPerspectiveWeights` contract with full-precision bull, bear, and sideways perspective weights, confidence, evidence fingerprint, and deterministic feature metadata.
+- Refactored perspective weighting to consume only `StrategyEvidenceContext` from the `strategy_evidence_builder` output.
+- Removed generic graph-vote behavior from the perspective-weighting node; the node now produces pre-hypothesis perspective weights only.
+- Preserved full internal precision with no `round()` calls and normalized weights so `bull_weight + bear_weight + sideways_weight == 1.0` within the typed contract tolerance.
+- Updated strategy DI, the morning-report workflow graph, and strategy synthesis input validation to use the new `strategy_perspective_weighting_engine` node name.
+- Updated the public future-architecture documentation reference from `AdaptiveStrategyWeightingEngine` to `StrategyPerspectiveWeightingEngine`.
+- Added deterministic perspective-weighting tests proving normalization, repeatability, evidence-context consumption, independence from hypothesis outputs, and sideways-perspective behavior.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/weighting intelligence/strategy/di.py workflows/definitions/reports/morning_report.py intelligence/strategy/synthesis/strategy_synthesis_policy.py application/services/market_events/market_events_service.py docs/platform_future_architecture.md tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py --fix`
+- `uv run ruff format intelligence/strategy/weighting intelligence/strategy/di.py workflows/definitions/reports/morning_report.py intelligence/strategy/synthesis/strategy_synthesis_policy.py application/services/market_events/market_events_service.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py`
+- `uv run mypy intelligence/strategy/weighting intelligence/strategy/hypothesis intelligence/strategy/di.py workflows/definitions/reports/morning_report.py intelligence/strategy/synthesis/strategy_synthesis_policy.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `POLARIS_POSTGRES_USER=placeholder POLARIS_POSTGRES_PASSWORD=placeholder POLARIS_POSTGRES_HOST=localhost POLARIS_POSTGRES_PORT=5432 POLARIS_POSTGRES_DB=placeholder uv run pytest --collect-only -q tests/integration/workflow/test_morning_report_real_nodes.py`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed.
+- Scoped MyPy passed: `Success: no issues found in 16 source files`.
+- Focused perspective-weighting and synthesis tests passed: `19 passed`.
+- Full strategy unit test scope passed: `119 passed`.
+- Integration workflow test collection passed: `2 tests collected`.
+- Attempted the full morning-report workflow integration test with placeholder PostgreSQL configuration, but it did not complete after roughly 107 seconds and was interrupted while waiting inside runtime event emission. This appears to be an existing integration/runtime event completion issue rather than a Step 10 perspective-weighting failure; no live-service test was required for this step.
+- Graphify was updated after Python changes.
+
+### Step 11 — Add synthesis evaluation contracts
+
+Completed:
+
+- Renamed the Step 10 weighting contract and runtime node from the interim pre-synthesis weighting terminology to `StrategyPerspectiveWeightingEngine` / `StrategyPerspectiveWeights`.
+- Updated the runtime node name, workflow dependency, DI binding, synthesis input validation, output contract, tests, and public future-architecture documentation to use `strategy_perspective_weighting_engine` and `strategy_perspective_weights`.
+- Renamed the Dishka provider method to `provide_perspective_weighting_agent` so production names consistently describe perspective weighting rather than generic weighting.
+- Added `intelligence/strategy/synthesis/contracts.py` with immutable typed `StrategyHypothesisEvaluation` and `StrategySynthesisDecision` contracts.
+- Added typed `StrategySynthesisSelectionStatus` and `StrategySynthesisDegradedReason` enums for selected, rejected, invalidated, tied, and degraded decisions.
+- Added deterministic evaluation normalization that ranks candidates, assigns posterior weights, handles all-invalidated candidates, and marks tied top candidates as degraded.
+- Renamed the existing runtime synthesis policy output class to `_RuntimeStrategySynthesisOutput` so the new canonical `StrategySynthesisDecision` contract can be introduced without changing Step 12 synthesis behavior early.
+- Added focused contract tests for posterior normalization, all-invalidated decisions, tied candidates, and deterministic serialization/replay.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/weighting intelligence/strategy/synthesis intelligence/strategy/di.py workflows/definitions/reports/morning_report.py application/services/market_events/market_events_service.py docs/platform_future_architecture.md tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py --fix`
+- `uv run ruff format intelligence/strategy/weighting intelligence/strategy/synthesis intelligence/strategy/di.py workflows/definitions/reports/morning_report.py intelligence/strategy/synthesis/strategy_synthesis_policy.py application/services/market_events/market_events_service.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py`
+- `uv run mypy intelligence/strategy/weighting intelligence/strategy/synthesis intelligence/strategy/hypothesis intelligence/strategy/di.py workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/integration/workflow/test_morning_report_real_nodes.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed.
+- Scoped MyPy passed: `Success: no issues found in 20 source files`.
+- Focused synthesis/weighting/baseline/gating tests passed: `23 passed`.
+- Full strategy unit test scope passed: `123 passed`.
+- Graphify was updated after Python changes.
+- Repowise identified `intelligence/strategy/synthesis/strategy_synthesis_policy.py` as a churn-heavy hotspot, so this step introduced the canonical contracts in a separate module and limited policy changes to a safe class rename only.
+
+### Step 12 — Refactor the synthesis policy
+
+Completed:
+
+- Refactored `StrategySynthesisInputs.from_runtime_payloads()` so strategy synthesis now requires typed serialized `strategy_hypothesis` payloads from `bull_agent`, `bear_agent`, and `sideways_agent` in addition to the canonical `strategy_perspective_weighting_engine` output.
+- Added pure synthesis evaluation helpers that compute each hypothesis candidate score from the canonical formula: perspective weight × hypothesis strength × confidence × assumption support × `(1 - contradiction burden)`, with invalidated hypotheses receiving a zero candidate score.
+- Normalized hypothesis candidate scores into posterior weights and used those posterior weights as the base synthesis weights before the existing market-event, risk, portfolio, and breadth adjudication policies are applied.
+- Added posterior-disagreement uncertainty to the existing market uncertainty calculation so conflicting or diffuse hypotheses reduce confidence deterministically.
+- Added deterministic thesis, selected perspective, selection status, degraded reasons, candidate scores, posterior weights, selected hypothesis, and full `StrategySynthesisDecision` details into synthesis features.
+- Updated synthesis tests so mutating a Bull/Bear/Sideways hypothesis now changes synthesis evaluation and can change the selected strategy.
+- Updated breadth-gating and structured-baseline tests to include required typed hypothesis payloads and to assert the new hypothesis-driven synthesis feature contract.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/synthesis tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --fix`
+- `uv run ruff format intelligence/strategy/synthesis tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run mypy intelligence/strategy tests/unit/intelligence/strategy --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks passed and formatting completed.
+- Scoped MyPy passed: `Success: no issues found in 39 source files`.
+- Focused synthesis contract/gating/baseline tests passed: `18 passed`.
+- Full strategy unit test scope passed: `123 passed`.
+- Graphify was updated after Python changes.
+- Repowise identified `intelligence/strategy/synthesis/strategy_synthesis_policy.py` as churn-heavy, so this step kept the refactor limited to the synthesis policy and focused tests; no interface, persistence, or runtime contracts were changed.
+
+### Step 13 — Refactor StrategySynthesisAgent
+
+Completed:
+
+- Moved runtime payload decoding for strategy synthesis out of the pure synthesis policy and into `StrategySynthesisAgent`, so the agent owns the runtime boundary while `synthesize_strategy()` consumes typed `StrategySynthesisInputs`.
+- Required decoded runtime outputs from `strategy_perspective_weighting_engine`, `risk_aggregator_agent`, `portfolio_state_builder`, `technical_agent`, `bull_agent`, `bear_agent`, and `sideways_agent`.
+- Removed `StrategySynthesisInputs.from_runtime_payloads()` and the policy-level runtime helper functions so mandatory Bull/Bear/Sideways hypotheses cannot be silently skipped by the pure policy.
+- Added degraded neutral fallback serialization that emits a typed `StrategySynthesisDecision` with three invalidated Bull/Bear/Sideways evaluations when mandatory inputs are missing.
+- Added `intelligence/strategy/market_context.py` for shared symbol-constituent extraction and updated `StrategyEvidenceBuilder` plus `StrategySynthesisAgent` to use it, removing an inappropriate evidence-builder dependency on synthesis policy and fixing a circular import uncovered by Step 13 tests.
+- Expanded synthesis tests to assert missing upstream inputs and missing hypotheses produce a degraded neutral decision with all three evaluations serialized at the runtime boundary.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/market_context.py intelligence/strategy/synthesis/strategy_synthesis_agent.py intelligence/strategy/synthesis/strategy_synthesis_policy.py intelligence/strategy/hypothesis/evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --fix`
+- `uv run ruff format intelligence/strategy/market_context.py intelligence/strategy/synthesis/strategy_synthesis_agent.py intelligence/strategy/synthesis/strategy_synthesis_policy.py intelligence/strategy/hypothesis/evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py`
+- `uv run mypy intelligence/strategy tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `grep -R "from_runtime_payloads" -n intelligence tests application workflows --exclude-dir=__pycache__`
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Ruff checks and formatting passed.
+- Focused synthesis tests passed: `19 passed`.
+- Scoped MyPy passed: `Success: no issues found in 30 source files`.
+- Full strategy unit test scope passed: `124 passed`.
+- No source or test usages of `from_runtime_payloads` remain.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- Initial focused test execution exposed a circular import caused by `StrategyEvidenceBuilder` importing shared market-context behavior from synthesis policy. This was fixed by moving the shared helper to `intelligence/strategy/market_context.py`.
+- No live services were required.
+
+### Step 14 — Correct the workflow graph
+
+Completed:
+
+- Updated `MorningReportWorkflow` so `strategy_perspective_weighting_engine`, `bull_agent`, `bear_agent`, and `sideways_agent` are sibling nodes that depend only on `strategy_evidence_builder`.
+- Removed obsolete `strategy_perspective_weighting_engine` and direct `risk_aggregator_agent` dependencies from the Bull, Bear, and Sideways hypothesis agents; risk evidence remains upstream through `strategy_evidence_builder`.
+- Preserved `strategy_synthesis_agent` as the single downstream comparison authority requiring all three hypotheses, the perspective weights, portfolio state, risk aggregation, and technical context.
+- Preserved downstream portfolio and execution ordering: `portfolio_manager_agent` after synthesis, `trade_packager` after portfolio construction, and `execution_risk_guard` after trade packaging plus risk aggregation.
+- Strengthened workflow graph tests to assert exact strategy evidence, concurrent hypothesis/weighting, synthesis, portfolio, trade packaging, and execution guard dependencies.
+
+Verification:
+
+- `uv run ruff check workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py --fix`
+- `uv run ruff format workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_builder.py`
+- `uv run mypy workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `POLARIS_POSTGRES_USER=placeholder POLARIS_POSTGRES_PASSWORD=placeholder POLARIS_POSTGRES_HOST=localhost POLARIS_POSTGRES_PORT=5432 POLARIS_POSTGRES_DB=placeholder uv run pytest --collect-only -q tests/integration/workflow/test_morning_report_real_nodes.py`
+- `POLARIS_POSTGRES_USER=placeholder POLARIS_POSTGRES_PASSWORD=placeholder POLARIS_POSTGRES_HOST=localhost POLARIS_POSTGRES_PORT=5432 POLARIS_POSTGRES_DB=placeholder uv run python - <<'PY' ... PY` to inspect the live `MorningReportWorkflow().build_graph()` dependencies.
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Scoped Ruff checks and formatting passed.
+- Focused strategy evidence/workflow graph tests passed: `5 passed`.
+- Scoped MyPy passed: `Success: no issues found in 2 source files`.
+- Full strategy unit test scope passed: `126 passed`.
+- Morning-report workflow integration test collection passed: `2 tests collected`.
+- Direct workflow graph inspection confirmed the four post-evidence strategy nodes share the exact `("strategy_evidence_builder",)` dependency and can execute concurrently after evidence construction.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- No live services were required.

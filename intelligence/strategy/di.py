@@ -16,8 +16,8 @@ from intelligence.strategy.hypothesis.evidence_builder import (
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
-from intelligence.strategy.weighting.adaptive_weighting_engine import (
-    AdaptiveStrategyWeightingEngine,
+from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
+    StrategyPerspectiveWeightingEngine,
 )
 
 
@@ -77,10 +77,10 @@ class IntelligenceStrategyDIProvider(Provider):
             service_runner=service_runner,
         )
 
-    # Weighting Agent
+    # Strategy Perspective Weighting Agent
     @provide
-    def provide_weighting_agent(
+    def provide_perspective_weighting_agent(
         self,
-    ) -> AdaptiveStrategyWeightingEngine:
+    ) -> StrategyPerspectiveWeightingEngine:
 
-        return AdaptiveStrategyWeightingEngine()
+        return StrategyPerspectiveWeightingEngine()

@@ -135,14 +135,53 @@ def test_morning_report_wires_strategy_evidence_builder_before_strategy_agents()
         "sentiment_agent",
         "risk_aggregator_agent",
     )
-    assert "strategy_evidence_builder" in cast(
-        tuple[str, ...], nodes["bull_agent"]["dependencies"]
+
+    concurrent_strategy_nodes = (
+        "strategy_perspective_weighting_engine",
+        "bull_agent",
+        "bear_agent",
+        "sideways_agent",
     )
-    assert "strategy_evidence_builder" in cast(
-        tuple[str, ...], nodes["bear_agent"]["dependencies"]
+    for node_name in concurrent_strategy_nodes:
+        assert nodes[node_name]["dependencies"] == ("strategy_evidence_builder",)
+
+
+def test_morning_report_wires_strategy_synthesis_after_all_hypotheses() -> None:
+    nodes = _workflow_node_definitions()
+
+    assert nodes["strategy_synthesis_agent"]["dependencies"] == (
+        "strategy_perspective_weighting_engine",
+        "bull_agent",
+        "bear_agent",
+        "sideways_agent",
+        "risk_aggregator_agent",
+        "portfolio_state_builder",
+        "technical_agent",
     )
-    assert "strategy_evidence_builder" in cast(
-        tuple[str, ...], nodes["sideways_agent"]["dependencies"]
+    for upstream_name in (
+        "strategy_perspective_weighting_engine",
+        "bull_agent",
+        "bear_agent",
+        "sideways_agent",
+    ):
+        dependencies = cast(
+            tuple[str, ...], nodes["strategy_synthesis_agent"]["dependencies"]
+        )
+        assert upstream_name in dependencies
+
+
+def test_morning_report_keeps_portfolio_and_execution_after_synthesis() -> None:
+    nodes = _workflow_node_definitions()
+
+    assert nodes["portfolio_manager_agent"]["dependencies"] == (
+        "portfolio_state_builder",
+        "strategy_synthesis_agent",
+        "risk_aggregator_agent",
+    )
+    assert nodes["trade_packager"]["dependencies"] == ("portfolio_manager_agent",)
+    assert nodes["execution_risk_guard"]["dependencies"] == (
+        "trade_packager",
+        "risk_aggregator_agent",
     )
 
 

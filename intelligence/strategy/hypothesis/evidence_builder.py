@@ -14,9 +14,7 @@ from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
-from intelligence.strategy.synthesis.strategy_synthesis_policy import (
-    extract_symbol_constituents,
-)
+from intelligence.strategy.market_context import extract_symbol_constituents
 from intelligence.telemetry import telemetry_context_from_runtime
 
 

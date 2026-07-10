@@ -177,7 +177,7 @@ Purpose:
 * BearAgent
 * SidewaysAgent
 * StrategySynthesisAgent
-* AdaptiveStrategyWeightingEngine
+* StrategyPerspectiveWeightingEngine
 * SetupQualityScorer
 * SignalConflictResolver
 * ScenarioPlanner

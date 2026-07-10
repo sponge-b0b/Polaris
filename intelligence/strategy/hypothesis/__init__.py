@@ -7,6 +7,7 @@ from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
 from intelligence.strategy.hypothesis.evidence import StrategyInvalidationOperator
 from intelligence.strategy.hypothesis.evidence import evaluate_invalidation_operator
+from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "StrategyInvalidationCondition",
     "StrategyInvalidationOperator",
     "evaluate_invalidation_operator",
+    "StrategyHypothesis",
     "normalize_strategy_evidence_context",
     "Confidence",
     "DirectionalBias",

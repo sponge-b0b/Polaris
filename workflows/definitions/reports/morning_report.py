@@ -72,11 +72,11 @@ from intelligence.attribution.attribution_engine import (
 )
 
 # ============================================================
-# ADAPTIVE WEIGHTING ENGINE
+# STRATEGY PERSPECTIVE WEIGHTING ENGINE
 # ============================================================
 
-from intelligence.strategy.weighting.adaptive_weighting_engine import (
-    AdaptiveStrategyWeightingEngine,
+from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
+    StrategyPerspectiveWeightingEngine,
 )
 
 # ============================================================
@@ -299,15 +299,12 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 tags=("morning_report", "attribution"),
             ),
             # ====================================================
-            # WEIGHTING
+            # STRATEGY PERSPECTIVE WEIGHTING
             # ====================================================
             WorkflowNodeDefinition(
-                name="adaptive_weighting_engine",
-                node_type=AdaptiveStrategyWeightingEngine,
-                dependencies=(
-                    "attribution_engine",
-                    "risk_aggregator_agent",
-                ),
+                name="strategy_perspective_weighting_engine",
+                node_type=StrategyPerspectiveWeightingEngine,
+                dependencies=("strategy_evidence_builder",),
                 tags=("morning_report", "strategy"),
             ),
             # ====================================================
@@ -316,31 +313,19 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
             WorkflowNodeDefinition(
                 name="bull_agent",
                 node_type=BullAgent,
-                dependencies=(
-                    "adaptive_weighting_engine",
-                    "risk_aggregator_agent",
-                    "strategy_evidence_builder",
-                ),
+                dependencies=("strategy_evidence_builder",),
                 tags=("morning_report", "strategy"),
             ),
             WorkflowNodeDefinition(
                 name="bear_agent",
                 node_type=BearAgent,
-                dependencies=(
-                    "adaptive_weighting_engine",
-                    "risk_aggregator_agent",
-                    "strategy_evidence_builder",
-                ),
+                dependencies=("strategy_evidence_builder",),
                 tags=("morning_report", "strategy"),
             ),
             WorkflowNodeDefinition(
                 name="sideways_agent",
                 node_type=SidewaysAgent,
-                dependencies=(
-                    "adaptive_weighting_engine",
-                    "risk_aggregator_agent",
-                    "strategy_evidence_builder",
-                ),
+                dependencies=("strategy_evidence_builder",),
                 tags=("morning_report", "strategy"),
             ),
             # ====================================================
@@ -350,7 +335,7 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 name="strategy_synthesis_agent",
                 node_type=StrategySynthesisAgent,
                 dependencies=(
-                    "adaptive_weighting_engine",
+                    "strategy_perspective_weighting_engine",
                     "bull_agent",
                     "bear_agent",
                     "sideways_agent",

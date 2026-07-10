@@ -6,6 +6,9 @@ from core.runtime.state.runtime_context import RuntimeContext
 from intelligence.strategy.bear.bear_agent import BearAgent
 from intelligence.strategy.bull.bull_agent import BullAgent
 from intelligence.strategy.sideways.sideways_agent import SidewaysAgent
+from intelligence.strategy.hypothesis.normalization import (
+    normalize_strategy_evidence_context,
+)
 
 
 WEAK_BREADTH: dict[str, object] = {
@@ -206,42 +209,50 @@ def _context(
     technical_score: float,
     breadth_state: dict[str, object],
 ) -> RuntimeContext:
+    node_outputs: dict[str, object] = {
+        "sentiment_agent": {
+            "outputs": {
+                "directional_score": sentiment_score,
+                "confidence": 0.60,
+                "features": {
+                    "momentum": 0.10 if sentiment_score >= 0 else -0.10,
+                    "stability": 0.50,
+                    "divergence": {
+                        "avg_divergence": 0.0,
+                    },
+                },
+            }
+        },
+        "technical_agent": {
+            "outputs": {
+                "directional_score": technical_score,
+                "confidence": 0.60,
+                "features": {
+                    "regime": {
+                        "regime": "neutral",
+                    },
+                    "trend": {
+                        "trend_strength": 0.40,
+                    },
+                    "volatility": {
+                        "volatility_score": 0.30,
+                        "volatility_regime": "normal",
+                    },
+                    "breadth_state": breadth_state,
+                },
+            }
+        },
+    }
+    evidence_context = normalize_strategy_evidence_context(node_outputs)
+    node_outputs["strategy_evidence_builder"] = {
+        "outputs": {
+            "strategy_evidence_context": evidence_context.to_dict(),
+            "evidence_fingerprint": evidence_context.evidence_fingerprint(),
+        }
+    }
     return RuntimeContext(
         runtime_id="runtime-1",
         workflow_id="morning_report",
         execution_id="exec-1",
-        node_outputs={
-            "sentiment_agent": {
-                "outputs": {
-                    "directional_score": sentiment_score,
-                    "confidence": 0.60,
-                    "features": {
-                        "momentum": 0.10 if sentiment_score >= 0 else -0.10,
-                        "stability": 0.50,
-                        "divergence": {
-                            "avg_divergence": 0.0,
-                        },
-                    },
-                }
-            },
-            "technical_agent": {
-                "outputs": {
-                    "directional_score": technical_score,
-                    "confidence": 0.60,
-                    "features": {
-                        "regime": {
-                            "regime": "neutral",
-                        },
-                        "trend": {
-                            "trend_strength": 0.40,
-                        },
-                        "volatility": {
-                            "volatility_score": 0.30,
-                            "volatility_regime": "normal",
-                        },
-                        "breadth_state": breadth_state,
-                    },
-                }
-            },
-        },
+        node_outputs=node_outputs,
     )

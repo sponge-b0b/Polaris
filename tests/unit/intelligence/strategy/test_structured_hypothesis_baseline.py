@@ -36,7 +36,7 @@ NO_BREADTH: dict[str, object] = {"has_breadth_data": False}
 
 
 @pytest.mark.asyncio
-async def test_current_strategy_synthesis_ignores_perspective_agent_outputs() -> None:
+async def test_strategy_synthesis_uses_perspective_hypotheses() -> None:
     agent = _strategy_agent()
     baseline_context = _strategy_context(
         bull_weight=0.70,
@@ -47,20 +47,26 @@ async def test_current_strategy_synthesis_ignores_perspective_agent_outputs() ->
         update={
             "node_outputs": {
                 **baseline_context.node_outputs,
-                "bull_agent": _perspective_output(
-                    directional_score=-1.0,
-                    confidence=0.01,
-                    regime="hard_bearish_override",
+                "bull_agent": _hypothesis_output(
+                    perspective="bull",
+                    directional_bias=0.05,
+                    hypothesis_strength=0.05,
+                    confidence=0.20,
+                    thesis="Bull case is weak in the mutation.",
                 ),
-                "bear_agent": _perspective_output(
-                    directional_score=1.0,
+                "bear_agent": _hypothesis_output(
+                    perspective="bear",
+                    directional_bias=-0.95,
+                    hypothesis_strength=0.95,
                     confidence=0.99,
-                    regime="hard_bullish_override",
+                    thesis="Bear case dominates in the mutation.",
                 ),
-                "sideways_agent": _perspective_output(
-                    directional_score=0.0,
-                    confidence=1.0,
-                    regime="high_conviction_sideways_override",
+                "sideways_agent": _hypothesis_output(
+                    perspective="sideways",
+                    directional_bias=0.0,
+                    hypothesis_strength=0.10,
+                    confidence=0.30,
+                    thesis="Sideways case is weak in the mutation.",
                 ),
             }
         }
@@ -69,9 +75,10 @@ async def test_current_strategy_synthesis_ignores_perspective_agent_outputs() ->
     baseline = await agent._execute(baseline_context)
     mutated = await agent._execute(mutated_context)
 
-    assert mutated.outputs == baseline.outputs
-    assert mutated.execution_metadata == baseline.execution_metadata
-    assert baseline.outputs["regime"] == "strong_risk_on"
+    assert baseline.outputs["features"]["selected_perspective"] == "bull"
+    assert mutated.outputs["features"]["selected_perspective"] == "bear"
+    assert mutated.outputs["directional_score"] < baseline.outputs["directional_score"]
+    assert mutated.outputs != baseline.outputs
 
 
 @pytest.mark.asyncio
@@ -81,9 +88,8 @@ async def test_current_strategy_synthesis_ignores_perspective_agent_outputs() ->
         "bull_weight",
         "bear_weight",
         "sideways_weight",
-        "expected_directional_score",
-        "expected_confidence",
-        "expected_regime",
+        "expected_selected_perspective",
+        "expected_direction",
     ),
     (
         (
@@ -91,26 +97,23 @@ async def test_current_strategy_synthesis_ignores_perspective_agent_outputs() ->
             0.70,
             0.10,
             0.20,
-            0.5885423108318698,
-            0.773845697182576,
-            "strong_risk_on",
+            "bull",
+            "positive",
         ),
         (
             "bearish",
             0.10,
             0.70,
             0.20,
-            -0.6044445520346655,
-            0.7803824832360986,
-            "strong_risk_off",
+            "bear",
+            "negative",
         ),
         (
             "sideways",
             0.20,
             0.20,
             0.60,
-            -0.007112788503411238,
-            0.4394280737407461,
+            "sideways",
             "neutral",
         ),
     ),
@@ -120,9 +123,8 @@ async def test_current_strategy_synthesis_deterministic_fixture_shape(
     bull_weight: float,
     bear_weight: float,
     sideways_weight: float,
-    expected_directional_score: float,
-    expected_confidence: float,
-    expected_regime: str,
+    expected_selected_perspective: str,
+    expected_direction: str,
 ) -> None:
     del scenario_name
     output = await _strategy_agent()._execute(
@@ -142,7 +144,7 @@ async def test_current_strategy_synthesis_deterministic_fixture_shape(
         "recommendations",
         "features",
     }
-    assert set(output.outputs["features"]) == {
+    assert {
         "symbol",
         "bull_weight",
         "bear_weight",
@@ -174,12 +176,26 @@ async def test_current_strategy_synthesis_deterministic_fixture_shape(
         "breadth_execution_readiness_modifier",
         "breadth_signal_quality_modifier",
         "breadth_risk_flags",
-    }
-    assert output.outputs["directional_score"] == pytest.approx(
-        expected_directional_score
+        "strategy_synthesis_decision",
+        "strategy_hypothesis_evaluations",
+        "hypothesis_candidate_scores",
+        "hypothesis_posterior_weights",
+        "hypothesis_posterior_disagreement",
+        "selected_hypothesis",
+        "selected_perspective",
+        "selection_status",
+        "degraded_reasons",
+        "thesis",
+    } <= set(output.outputs["features"])
+    assert output.outputs["features"]["selected_perspective"] == (
+        expected_selected_perspective
     )
-    assert output.outputs["confidence"] == pytest.approx(expected_confidence)
-    assert output.outputs["regime"] == expected_regime
+    if expected_direction == "positive":
+        assert output.outputs["directional_score"] > 0.0
+    elif expected_direction == "negative":
+        assert output.outputs["directional_score"] < 0.0
+    else:
+        assert abs(output.outputs["directional_score"]) < 0.20
     assert output.outputs["features"]["symbol"] == "SPY"
     assert output.outputs["features"]["market_event_constituents"] == [
         "AAPL",
@@ -372,7 +388,7 @@ def _strategy_context(
         execution_id="exec-structured-baseline",
         workflow_inputs={"symbol": "SPY"},
         node_outputs={
-            "adaptive_weighting_engine": {
+            "strategy_perspective_weighting_engine": {
                 "outputs": {
                     "features": {
                         "bull_weight": bull_weight,
@@ -409,6 +425,27 @@ def _strategy_context(
                     }
                 }
             },
+            "bull_agent": _hypothesis_output(
+                perspective="bull",
+                directional_bias=0.80,
+                hypothesis_strength=0.80,
+                confidence=0.90,
+                thesis="Bull hypothesis has high support.",
+            ),
+            "bear_agent": _hypothesis_output(
+                perspective="bear",
+                directional_bias=-0.80,
+                hypothesis_strength=0.80,
+                confidence=0.90,
+                thesis="Bear hypothesis has high support.",
+            ),
+            "sideways_agent": _hypothesis_output(
+                perspective="sideways",
+                directional_bias=0.0,
+                hypothesis_strength=0.80,
+                confidence=0.90,
+                thesis="Sideways hypothesis has high support.",
+            ),
         },
     )
 
@@ -459,24 +496,31 @@ def _portfolio_context() -> RuntimeContext:
     )
 
 
-def _perspective_output(
+def _hypothesis_output(
     *,
-    directional_score: float,
+    perspective: str,
+    directional_bias: float,
+    hypothesis_strength: float,
     confidence: float,
-    regime: str,
+    thesis: str,
 ) -> dict[str, object]:
     return {
         "outputs": {
-            "directional_score": directional_score,
-            "confidence": confidence,
-            "regime": regime,
-            "signals": [f"{regime}_signal"],
-            "risks": [f"{regime}_risk"],
-            "recommendations": [f"{regime}_recommendation"],
-            "features": {
-                "score": directional_score,
-                "force_marker": regime,
-            },
+            "strategy_hypothesis": {
+                "perspective": perspective,
+                "thesis": thesis,
+                "directional_bias": directional_bias,
+                "hypothesis_strength": hypothesis_strength,
+                "confidence": confidence,
+                "supporting_evidence": [],
+                "contradicting_evidence": [],
+                "key_assumptions": [],
+                "invalidation_conditions": [],
+                "risks": [],
+                "recommendations": [],
+                "data_quality_flags": [],
+                "evidence_fingerprint": f"{perspective}-baseline-fixture",
+            }
         }
     }
 

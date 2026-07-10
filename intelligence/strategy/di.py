@@ -1,3 +1,5 @@
+from typing import Any
+
 from dishka import Provider, Scope, provide
 
 from application.services.base import ServiceRunner
@@ -8,6 +10,9 @@ from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from intelligence.strategy.bear.bear_agent import BearAgent
 from intelligence.strategy.bull.bull_agent import BullAgent
 from intelligence.strategy.sideways.sideways_agent import SidewaysAgent
+from intelligence.strategy.hypothesis.evidence_builder import (
+    StrategyEvidenceBuilder,
+)
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
@@ -49,7 +54,7 @@ class IntelligenceStrategyDIProvider(Provider):
     def provide_synthesis_agent(
         self,
         events_service: MarketEventsService,
-        service_runner: ServiceRunner,
+        service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
     ) -> StrategySynthesisAgent:
 
@@ -57,6 +62,19 @@ class IntelligenceStrategyDIProvider(Provider):
             events_service=events_service,
             service_runner=service_runner,
             intelligence_telemetry=intelligence_telemetry,
+        )
+
+    # Strategy Evidence Builder
+    @provide
+    def provide_strategy_evidence_builder(
+        self,
+        events_service: MarketEventsService,
+        service_runner: ServiceRunner[Any, Any],
+    ) -> StrategyEvidenceBuilder:
+
+        return StrategyEvidenceBuilder(
+            events_service=events_service,
+            service_runner=service_runner,
         )
 
     # Weighting Agent

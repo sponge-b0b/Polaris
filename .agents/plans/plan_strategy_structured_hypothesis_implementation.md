@@ -482,3 +482,173 @@
   - PostgreSQL is the system of record for projected strategy hypotheses and decisions.
   - Synthesis decisions are the primary RAG records; hypotheses provide supporting and competing-case lineage.
   - Live PostgreSQL, Neo4j, Qdrant, or other service-dependent verification will only run after notifying the user that the service is required.
+
+## Step Results
+
+### Step 1 — Establish the current behavioral baseline
+
+Completed:
+
+- Added `tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py` characterization coverage.
+- Proved the current `StrategySynthesisAgent` output is unchanged when `bull_agent`, `bear_agent`, and `sideways_agent` runtime outputs are injected and materially changed, exposing the disconnected-hypothesis defect without changing production behavior.
+- Captured deterministic current synthesis fixtures for bullish, bearish, and sideways weighting scenarios.
+- Captured current runtime output shapes for strategy synthesis and portfolio management.
+- Captured current morning-report action-plan rendering shape.
+- Captured current backtest result serialization shape with strategy node output embedded in a deterministic backtest step.
+
+Verification:
+
+- `uv run ruff format tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run ruff check tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --fix`
+- `uv run mypy tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+
+Result:
+
+- Focused strategy tests passed: `18 passed`.
+- No production behavior was changed.
+
+### Step 2 — Add the strategy perspective and scalar contracts
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/contracts.py` as the canonical home for structured-hypothesis scalar contracts.
+- Added `StrategyPerspective` with the three independent perspectives: `bull`, `bear`, and `sideways`.
+- Added constrained validation helpers for directional bias, hypothesis strength, confidence, evidence strength, and evidence reliability.
+- Added `StrategyJsonScalar` and validation for JSON-compatible scalar observed values and invalidation thresholds.
+- Added package exports through `intelligence/strategy/hypothesis/__init__.py`.
+- Added unit tests proving invalid perspectives, out-of-range numeric values, non-finite values, booleans-as-numeric values, and non-scalar evidence values are rejected.
+
+Verification:
+
+- `uv run ruff format intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py`
+- `uv run ruff check intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py --fix`
+- `uv run mypy intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py --explicit-package-bases`
+- `uv run python -m pytest -q tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py`
+- `uv run python -m pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Focused hypothesis contract tests passed: `54 passed`.
+- Full strategy unit test scope passed: `72 passed`.
+- Graphify was updated after Python changes.
+
+### Step 3 — Add structured evidence contracts
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/evidence.py` with immutable typed evidence contracts:
+  - `StrategyEvidenceItem`
+  - `StrategyAssumption`
+  - `StrategyInvalidationCondition`
+  - `StrategyInvalidationOperator`
+- Added deterministic `to_dict()`, `from_dict()`, and `to_canonical_json()` serialization paths for each evidence contract.
+- Added deterministic invalidation comparison operators without executable callbacks or dynamic predicate functions.
+- Validated evidence IDs, sources, names, descriptions, scalar observed values, scalar thresholds, perspective values, confidence, strength, reliability, and numeric comparison compatibility.
+- Exported the new evidence contracts through `intelligence/strategy/hypothesis/__init__.py`.
+- Added focused unit coverage for round trips, canonical JSON stability, immutability, invalid perspectives, invalid scalar values, invalid thresholds, invalid operators, and comparison behavior.
+
+Verification:
+
+- `uv run ruff format intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_evidence_contracts.py`
+- `uv run ruff check intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_evidence_contracts.py --fix`
+- `uv run mypy intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py tests/unit/intelligence/strategy/test_strategy_hypothesis_evidence_contracts.py --explicit-package-bases`
+- `uv run python -m pytest -q tests/unit/intelligence/strategy/test_strategy_hypothesis_evidence_contracts.py`
+- `uv run python -m pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Focused structured evidence contract tests passed: `14 passed`.
+- Full strategy unit test scope passed: `86 passed`.
+- Graphify was updated after Python changes.
+
+### Step 4 — Add StrategyEvidenceContext
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/context.py` with immutable typed shared context contracts:
+  - `StrategyEvidenceContext`
+  - `StrategyEvidenceInputQuality`
+  - `StrategyEvidenceInputStatus`
+- Defined required versus optional evidence collections using typed `StrategyEvidenceItem` objects.
+- Added explicit input-quality flags for available, degraded, and missing upstream evidence inputs so missing inputs are represented as first-class typed data instead of absent dictionary keys.
+- Added deterministic canonical serialization and SHA-256 evidence fingerprint generation.
+- Normalized evidence and input-quality ordering during construction so equivalent context payloads produce identical canonical JSON and fingerprints regardless of input order.
+- Added helpers for evidence lookup and required-input missing/degraded status detection.
+- Exported the new context contracts through `intelligence/strategy/hypothesis/__init__.py`.
+- Added focused unit coverage for round trips, fingerprint stability, explicit missing/degraded input flags, duplicate evidence ID rejection, immutability, and missing-reason validation.
+
+Verification:
+
+- `uv run ruff format intelligence/strategy/hypothesis/context.py intelligence/strategy/hypothesis/__init__.py tests/unit/intelligence/strategy/test_strategy_evidence_context.py`
+- `uv run ruff check intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_evidence_context.py --fix`
+- `uv run mypy intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_hypothesis_contracts.py tests/unit/intelligence/strategy/test_strategy_hypothesis_evidence_contracts.py tests/unit/intelligence/strategy/test_strategy_evidence_context.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_context.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Focused evidence-context tests passed: `6 passed`.
+- Full strategy unit test scope passed: `92 passed`.
+- Graphify was updated after Python changes.
+
+### Step 5 — Implement the evidence-context normalization policy
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/normalization.py` as the shared runtime-boundary parsing policy for structured strategy evidence.
+- Normalized required `sentiment_agent` and `technical_agent` runtime outputs into typed `StrategyEvidenceItem` records exactly once.
+- Normalized optional macro, fundamental, news, risk, portfolio, and market-event inputs into optional typed evidence when present.
+- Reused the existing technical breadth extraction helper so canonical breadth fields become typed strategy evidence without reintroducing legacy breadth parsing.
+- Added explicit input-quality flags for available, degraded, and missing required/optional inputs.
+- Preserved full internal numeric precision; no rounding or persistence behavior was added.
+- Exported `normalize_strategy_evidence_context` through `intelligence/strategy/hypothesis/__init__.py`.
+- Added focused unit coverage proving bullish, bearish, and sideways fixtures normalize into stable typed contexts with deterministic fingerprints.
+
+Verification:
+
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_normalization.py`
+- `uv run ruff check intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_evidence_normalization.py --fix`
+- `uv run ruff format intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_evidence_normalization.py`
+- `uv run mypy intelligence/strategy/hypothesis tests/unit/intelligence/strategy/test_strategy_evidence_normalization.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Focused evidence-normalization tests passed: `4 passed`.
+- Full strategy unit test scope passed: `96 passed`.
+- Graphify was updated after Python changes.
+
+### Step 6 — Add StrategyEvidenceBuilder as a runtime node
+
+Completed:
+
+- Added `intelligence/strategy/hypothesis/evidence_builder.py` as the runtime node that builds one shared `StrategyEvidenceContext` from canonical upstream node outputs.
+- Retrieved market events through `MarketEventsService` via the existing `ServiceRunner` application-service boundary and propagated runtime telemetry context into the service request.
+- Adapted typed `MarketEventsResult` into the normalized market-event evidence shape without adding persistence or a parallel client/provider path.
+- Returned a serialized `strategy_evidence_context`, stable `evidence_fingerprint`, required-input status flags, and market-events availability status through `RuntimeNodeOutput`.
+- Treated market-events failures as optional degraded evidence so strategy evidence generation can continue with explicit quality flags.
+- Wired `StrategyEvidenceBuilder` through `IntelligenceStrategyDIProvider`.
+- Added the `strategy_evidence_builder` node to the morning-report workflow after risk aggregation and before the perspective strategy agents.
+- Added the evidence-builder dependency to the bull, bear, and sideways strategy agents so later steps can switch those agents to the shared context without changing graph ordering again.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/hypothesis/evidence_builder.py intelligence/strategy/hypothesis/__init__.py intelligence/strategy/di.py workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py --fix`
+- `uv run ruff format intelligence/strategy/hypothesis/evidence_builder.py intelligence/strategy/hypothesis/__init__.py intelligence/strategy/di.py workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py`
+- `uv run mypy intelligence/strategy/hypothesis intelligence/strategy/di.py workflows/definitions/reports/morning_report.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_builder.py`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run graphify update .`
+
+Result:
+
+- Focused evidence-builder tests passed: `3 passed`.
+- Full strategy unit test scope passed: `99 passed`.
+- Graphify was updated after Python changes.
+- Note: existing `StrategySynthesisAgent` still retrieves market events directly until its later refactor step removes that transitional duplication.

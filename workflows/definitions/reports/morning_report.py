@@ -55,6 +55,10 @@ from intelligence.strategy.sideways.sideways_agent import (
     SidewaysAgent,
 )
 
+from intelligence.strategy.hypothesis.evidence_builder import (
+    StrategyEvidenceBuilder,
+)
+
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
@@ -263,6 +267,22 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 tags=("morning_report", "risk"),
             ),
             # ====================================================
+            # STRATEGY EVIDENCE
+            # ====================================================
+            WorkflowNodeDefinition(
+                name="strategy_evidence_builder",
+                node_type=StrategyEvidenceBuilder,
+                dependencies=(
+                    "portfolio_state_builder",
+                    "fundamental_agent",
+                    "technical_agent",
+                    "news_agent",
+                    "sentiment_agent",
+                    "risk_aggregator_agent",
+                ),
+                tags=("morning_report", "strategy"),
+            ),
+            # ====================================================
             # ATTRIBUTION
             # ====================================================
             WorkflowNodeDefinition(
@@ -299,6 +319,7 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 dependencies=(
                     "adaptive_weighting_engine",
                     "risk_aggregator_agent",
+                    "strategy_evidence_builder",
                 ),
                 tags=("morning_report", "strategy"),
             ),
@@ -308,6 +329,7 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 dependencies=(
                     "adaptive_weighting_engine",
                     "risk_aggregator_agent",
+                    "strategy_evidence_builder",
                 ),
                 tags=("morning_report", "strategy"),
             ),
@@ -317,6 +339,7 @@ class MorningReportWorkflow(WorkflowGraphDefinition):
                 dependencies=(
                     "adaptive_weighting_engine",
                     "risk_aggregator_agent",
+                    "strategy_evidence_builder",
                 ),
                 tags=("morning_report", "strategy"),
             ),

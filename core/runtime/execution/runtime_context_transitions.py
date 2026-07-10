@@ -64,6 +64,8 @@ class RuntimeContextTransitions:
             emitted_events=list(output.emitted_events),
             errors=list(output.errors),
             execution_metadata=metadata,
+            output_contract=output.output_contract,
+            output_schema_version=output.output_schema_version,
         )
 
     @staticmethod

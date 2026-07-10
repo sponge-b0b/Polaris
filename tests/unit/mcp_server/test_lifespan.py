@@ -39,7 +39,9 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
             assert overwrite is True
 
     observability_manager = ObservabilityManager()
+    event_bus = object()
     runtime = SimpleNamespace(
+        event_bus=event_bus,
         facade=FakeFacade(),
         observability_manager=observability_manager,
     )
@@ -80,6 +82,22 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
         lambda: list(workflows),
     )
 
+    def fake_subscribe_default_workflow_output_projection(
+        *,
+        event_bus: object,
+        observability_manager: ObservabilityManager | None = None,
+    ) -> bool:
+        assert event_bus is runtime.event_bus
+        assert observability_manager is runtime.observability_manager
+        lifecycle.append("projection_subscribed")
+        return True
+
+    monkeypatch.setattr(
+        lifespan_module,
+        "subscribe_default_workflow_output_projection",
+        fake_subscribe_default_workflow_output_projection,
+    )
+
     async with mcp_application_lifespan(server) as context:
         assert isinstance(context, McpApplicationContext)
         assert context.container is container
@@ -89,6 +107,7 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
         assert lifecycle == [
             "container_bound",
             "runtime_resolved",
+            "projection_subscribed",
             "workflow_0_registered",
             "workflow_1_registered",
         ]

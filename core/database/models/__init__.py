@@ -50,6 +50,7 @@ from core.database.models.recommendations import TradeSetupModel
 from core.database.models.recommendations import WatchlistItemModel
 from core.database.models.portfolio_state import PortfolioStateHistoryModel
 from core.database.models.portfolio_state import PortfolioStateLatestModel
+from core.database.models.projections import WorkflowOutputProjectionJobModel
 from core.database.models.reports import ReportArtifactModel
 from core.database.models.reports import ReportPublicationModel
 from core.database.models.reports import ReportModel
@@ -122,6 +123,7 @@ __all__ = [
     "AgentSignalModel",
     "PortfolioStateHistoryModel",
     "PortfolioStateLatestModel",
+    "WorkflowOutputProjectionJobModel",
     "ReportSectionModel",
     "ReportPublicationModel",
     "ReportModel",

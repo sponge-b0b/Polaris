@@ -70,6 +70,8 @@ class ArtifactManager:
             emitted_events=list(output.emitted_events),
             errors=list(output.errors),
             execution_metadata=dict(output.execution_metadata),
+            output_contract=output.output_contract,
+            output_schema_version=output.output_schema_version,
         )
 
         return updated_context, updated_output

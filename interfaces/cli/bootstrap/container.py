@@ -17,6 +17,9 @@ from core.telemetry.emitters.bootstrap_configuration_telemetry import (
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     emergency_log_configuration_failure,
 )
+from application.projections.workflow_outputs import (
+    subscribe_default_workflow_output_projection,
+)
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     WorkflowBootstrapResult,
@@ -89,6 +92,10 @@ async def cli_runtime_scope(
         workflow_config=_workflow_bootstrap_config(cli_settings),
     ) as request_container:
         runtime = request_container.get(WorkflowBootstrapResult)
+        subscribe_default_workflow_output_projection(
+            event_bus=runtime.event_bus,
+            observability_manager=runtime.observability_manager,
+        )
         for workflow in get_builtin_workflows():
             await runtime.facade.register_workflow_async(
                 workflow_definition=workflow,

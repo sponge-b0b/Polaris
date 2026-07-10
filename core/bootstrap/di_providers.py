@@ -11,6 +11,9 @@ from dishka import Container
 from dishka import Provider
 
 from application.persistence.di import ApplicationPersistenceDIProvider
+from application.projections.workflow_outputs.di import (
+    WorkflowOutputProjectionDIProvider,
+)
 from application.services.di import AppServicesDIProvider
 from config.settings import Settings
 from core.bootstrap.app_container import build_app_container
@@ -59,6 +62,7 @@ def _base_providers(
         workflow_provider or WorkflowInfrastructureProvider(),
         AppServicesDIProvider(),
         ApplicationPersistenceDIProvider(),
+        WorkflowOutputProjectionDIProvider(),
         BacktestingProvidersDIProvider(),
         CoreLLMsDIProvider(),
         storage_provider,

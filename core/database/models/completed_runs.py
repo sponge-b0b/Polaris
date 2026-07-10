@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Boolean
+from sqlalchemy import CheckConstraint
 from sqlalchemy import DateTime
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
@@ -26,6 +27,10 @@ class CompletedWorkflowRunModel(Base):
         UniqueConstraint(
             "execution_id",
             name="uq_completed_workflow_runs_execution_id",
+        ),
+        CheckConstraint(
+            "execution_mode IN ('normal', 'replay', 'backtest', 'simulated')",
+            name="ck_completed_workflow_runs_execution_mode",
         ),
     )
 
@@ -62,6 +67,12 @@ class CompletedWorkflowRunModel(Base):
         Boolean,
         nullable=False,
         index=True,
+    )
+    execution_mode: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        default="normal",
+        server_default="normal",
     )
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
@@ -155,6 +166,11 @@ Index(
 )
 
 Index(
+    "idx_completed_runs_execution_mode",
+    CompletedWorkflowRunModel.execution_mode,
+)
+
+Index(
     "idx_completed_runs_created_at",
     CompletedWorkflowRunModel.created_at,
 )
@@ -192,6 +208,16 @@ class CompletedWorkflowNodeOutputModel(Base):
     )
     node_type: Mapped[str | None] = mapped_column(
         String,
+        nullable=True,
+        index=True,
+    )
+    output_contract: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        index=True,
+    )
+    output_schema_version: Mapped[int | None] = mapped_column(
+        Integer,
         nullable=True,
         index=True,
     )
@@ -259,6 +285,12 @@ Index(
 Index(
     "idx_completed_node_outputs_execution_id",
     CompletedWorkflowNodeOutputModel.execution_id,
+)
+
+Index(
+    "idx_completed_node_outputs_contract_version",
+    CompletedWorkflowNodeOutputModel.output_contract,
+    CompletedWorkflowNodeOutputModel.output_schema_version,
 )
 
 

@@ -11,6 +11,9 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
+from application.projections.workflow_outputs import (
+    subscribe_default_workflow_output_projection,
+)
 
 if TYPE_CHECKING:
     from dishka import AsyncContainer
@@ -47,6 +50,10 @@ async def mcp_application_lifespan(
 
     try:
         runtime = await container.get(WorkflowBootstrapResult)
+        subscribe_default_workflow_output_projection(
+            event_bus=runtime.event_bus,
+            observability_manager=runtime.observability_manager,
+        )
         for workflow in _get_builtin_workflows():
             await runtime.facade.register_workflow_async(
                 workflow_definition=workflow,

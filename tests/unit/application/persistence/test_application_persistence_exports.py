@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import importlib
+import os
 import inspect
 from collections.abc import Sequence
 from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
+
+os.environ.setdefault(
+    "POLARIS_DATABASE_URL", "postgresql+asyncpg://localhost/polaris_test"
+)
 
 import application.persistence as persistence
 from core.storage.persistence.query import PersistenceListResult
@@ -29,6 +34,7 @@ _DOMAIN_MODULES = (
     "application.persistence.reports",
     "application.persistence.retention",
     "application.persistence.sentiment",
+    "application.persistence.strategy",
     "application.persistence.telemetry",
     "application.persistence.validation",
     "application.persistence.workflow_audit",

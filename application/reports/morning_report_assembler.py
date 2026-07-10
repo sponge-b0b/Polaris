@@ -2146,6 +2146,51 @@ class MorningReportAssembler:
                 "execution_readiness",
             ),
         )
+        strategy_decision = safe_mapping(
+            strategy_features.get(
+                "strategy_synthesis_decision",
+            )
+        )
+        selected_hypothesis = safe_mapping(
+            strategy_features.get(
+                "selected_hypothesis",
+            )
+        )
+        selected_strategy = format_regime(
+            first_text(
+                strategy_decision.get(
+                    "selected_perspective",
+                ),
+                strategy_features.get(
+                    "selected_perspective",
+                ),
+                selected_hypothesis.get(
+                    "perspective",
+                ),
+                fallback="Unresolved",
+            ),
+            fallback="Unresolved",
+        )
+        selection_status = format_regime(
+            first_text(
+                strategy_decision.get(
+                    "selection_status",
+                ),
+                strategy_features.get(
+                    "selection_status",
+                ),
+                fallback="Not Evaluated",
+            ),
+            fallback="Not Evaluated",
+        )
+        synthesis_confidence = first_score(
+            strategy_decision.get(
+                "confidence",
+            ),
+            strategy.get(
+                "confidence",
+            ),
+        )
 
         summary = (
             "This action plan is decision support only. It does not authorize or execute trades. "
@@ -2185,6 +2230,65 @@ class MorningReportAssembler:
                 ),
             )
 
+        strategy_case_rows = self._strategy_case_comparison_rows(
+            strategy_features=strategy_features,
+            strategy_decision=strategy_decision,
+        )
+        tables: list[ReportTable] = []
+        if strategy_case_rows:
+            tables.append(
+                ReportTable(
+                    title="Strategy Case Comparison",
+                    rows=strategy_case_rows,
+                )
+            )
+        tables.append(
+            ReportTable(
+                title="Action Inputs",
+                rows=(
+                    ReportTableRow(
+                        label="Entry Bias",
+                        value=format_score(
+                            first_score(
+                                trade.get(
+                                    "directional_score",
+                                ),
+                                trade_intent.get(
+                                    "entry_bias",
+                                ),
+                            ),
+                        ),
+                    ),
+                    ReportTableRow(
+                        label="Stop Distance",
+                        value=format_score(
+                            first_score(
+                                trade_intent.get(
+                                    "stop_distance",
+                                ),
+                                trade_features.get(
+                                    "stop_distance",
+                                ),
+                            ),
+                        ),
+                    ),
+                    ReportTableRow(
+                        label="Take-Profit Distance",
+                        value=format_score(
+                            first_score(
+                                trade_intent.get(
+                                    "take_profit_distance",
+                                ),
+                                trade_features.get(
+                                    "take_profit_distance",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
+
         return ReportSection(
             title="Recommended Action Plan",
             summary=summary,
@@ -2192,6 +2296,21 @@ class MorningReportAssembler:
                 ReportMetric(
                     label="Strategy Posture",
                     value=strategy_posture,
+                ),
+                ReportMetric(
+                    label="Selected Strategy",
+                    value=selected_strategy,
+                ),
+                ReportMetric(
+                    label="Synthesis Status",
+                    value=selection_status,
+                ),
+                ReportMetric(
+                    label="Synthesis Confidence",
+                    value=format_confidence(
+                        synthesis_confidence,
+                    ),
+                    raw_value=synthesis_confidence,
                 ),
                 ReportMetric(
                     label="Portfolio Status",
@@ -2254,6 +2373,16 @@ class MorningReportAssembler:
                     label="Governance",
                     text="Human approval remains required before any trading or allocation action.",
                 ),
+                *self._strategy_rationale_bullets(
+                    strategy=strategy,
+                    strategy_features=strategy_features,
+                    strategy_decision=strategy_decision,
+                    selected_hypothesis=selected_hypothesis,
+                    selected_strategy=selected_strategy,
+                    selection_status=selection_status,
+                    synthesis_confidence=synthesis_confidence,
+                    execution_readiness=execution_readiness,
+                ),
             ),
             risks=self._combined_humanized_bullets(
                 trade.get(
@@ -2265,52 +2394,366 @@ class MorningReportAssembler:
                 limit=5,
             ),
             recommendations=recommendations,
-            tables=(
-                ReportTable(
-                    title="Action Inputs",
-                    rows=(
-                        ReportTableRow(
-                            label="Entry Bias",
-                            value=format_score(
-                                first_score(
-                                    trade.get(
-                                        "directional_score",
-                                    ),
-                                    trade_intent.get(
-                                        "entry_bias",
-                                    ),
-                                ),
-                            ),
-                        ),
-                        ReportTableRow(
-                            label="Stop Distance",
-                            value=format_score(
-                                first_score(
-                                    trade_intent.get(
-                                        "stop_distance",
-                                    ),
-                                    trade_features.get(
-                                        "stop_distance",
-                                    ),
-                                ),
-                            ),
-                        ),
-                        ReportTableRow(
-                            label="Take-Profit Distance",
-                            value=format_score(
-                                first_score(
-                                    trade_intent.get(
-                                        "take_profit_distance",
-                                    ),
-                                    trade_features.get(
-                                        "take_profit_distance",
-                                    ),
-                                ),
-                            ),
-                        ),
+            tables=tuple(
+                tables,
+            ),
+        )
+
+    def _strategy_case_comparison_rows(
+        self,
+        *,
+        strategy_features: dict[str, Any],
+        strategy_decision: dict[str, Any],
+    ) -> tuple[ReportTableRow, ...]:
+        evaluations = self._mapping_sequence(
+            strategy_decision.get(
+                "evaluations",
+            )
+        ) or self._mapping_sequence(
+            strategy_features.get(
+                "strategy_hypothesis_evaluations",
+            )
+        )
+        if not evaluations:
+            return ()
+
+        posterior_weights = safe_mapping(
+            strategy_features.get(
+                "hypothesis_posterior_weights",
+            )
+        )
+        candidate_scores = safe_mapping(
+            strategy_features.get(
+                "hypothesis_candidate_scores",
+            )
+        )
+        evaluations_by_perspective = {
+            first_text(
+                evaluation.get(
+                    "perspective",
+                )
+            ).lower(): evaluation
+            for evaluation in evaluations
+        }
+
+        rows: list[ReportTableRow] = []
+        for perspective in (
+            "bull",
+            "bear",
+            "sideways",
+        ):
+            evaluation = evaluations_by_perspective.get(
+                perspective,
+                {},
+            )
+            posterior_weight = first_score(
+                evaluation.get(
+                    "posterior_weight",
+                ),
+                posterior_weights.get(
+                    perspective,
+                ),
+            )
+            candidate_score = first_score(
+                evaluation.get(
+                    "candidate_score",
+                ),
+                candidate_scores.get(
+                    perspective,
+                ),
+            )
+            status = format_regime(
+                first_text(
+                    evaluation.get(
+                        "selection_status",
                     ),
+                    fallback="not_available",
+                ),
+                fallback="Not Available",
+            )
+            rank = first_score(
+                evaluation.get(
+                    "rank",
+                )
+            )
+            rank_text = (
+                "N/A"
+                if rank is None
+                else str(
+                    int(
+                        rank,
+                    )
+                )
+            )
+            rows.append(
+                ReportTableRow(
+                    label=f"{format_regime(perspective)} Case",
+                    value=(
+                        f"Posterior {format_confidence(posterior_weight)} | "
+                        f"Candidate {format_score(candidate_score)} | "
+                        f"Rank {rank_text} | Status {status}"
+                    ),
+                )
+            )
+
+        return tuple(
+            rows,
+        )
+
+    def _strategy_rationale_bullets(
+        self,
+        *,
+        strategy: dict[str, Any],
+        strategy_features: dict[str, Any],
+        strategy_decision: dict[str, Any],
+        selected_hypothesis: dict[str, Any],
+        selected_strategy: str,
+        selection_status: str,
+        synthesis_confidence: float | None,
+        execution_readiness: float | None,
+    ) -> tuple[ReportBullet, ...]:
+        thesis = first_text(
+            selected_hypothesis.get(
+                "thesis",
+            ),
+            strategy_decision.get(
+                "thesis",
+            ),
+            strategy_features.get(
+                "thesis",
+            ),
+            fallback="No selected thesis was available from the strategy synthesis output.",
+        )
+        narrative = first_text(
+            strategy.get(
+                "llm_response",
+            ),
+            strategy_features.get(
+                "llm_response",
+            ),
+            strategy_features.get(
+                "narrative",
+            ),
+        )
+        degraded_reasons = safe_list(
+            strategy_decision.get(
+                "degraded_reasons",
+            )
+        ) or safe_list(
+            strategy_features.get(
+                "degraded_reasons",
+            )
+        )
+        unresolved_conflicts = (
+            self._strategy_items_text(
+                degraded_reasons,
+                fallback="No unresolved synthesis conflicts were reported.",
+            )
+            if degraded_reasons
+            else "No unresolved synthesis conflicts were reported."
+        )
+
+        risks_text = self._strategy_items_text(
+            selected_hypothesis.get(
+                "risks",
+            ),
+            strategy_decision.get(
+                "risks",
+            ),
+            strategy.get(
+                "risks",
+            ),
+            fallback="No strategy-specific risks were provided.",
+        )
+
+        bullets = [
+            ReportBullet(
+                label="Selected thesis",
+                text=thesis,
+            ),
+            ReportBullet(
+                label="Posture and confidence",
+                text=(
+                    f"Selected strategy is {selected_strategy.lower()} with "
+                    f"{selection_status.lower()} synthesis status, "
+                    f"{format_confidence(synthesis_confidence)} synthesis confidence, "
+                    f"and {format_confidence(execution_readiness)} execution readiness."
                 ),
             ),
+            ReportBullet(
+                label="Decisive supporting evidence",
+                text=self._strategy_items_text(
+                    selected_hypothesis.get(
+                        "supporting_evidence",
+                    ),
+                    fallback="No decisive supporting evidence was provided.",
+                ),
+            ),
+            ReportBullet(
+                label="Material contradictory evidence",
+                text=self._strategy_items_text(
+                    selected_hypothesis.get(
+                        "contradicting_evidence",
+                    ),
+                    fallback="No material contradictory evidence was provided.",
+                ),
+            ),
+            ReportBullet(
+                label="Key assumptions",
+                text=self._strategy_items_text(
+                    selected_hypothesis.get(
+                        "key_assumptions",
+                    ),
+                    fallback="No explicit key assumptions were provided.",
+                ),
+            ),
+            ReportBullet(
+                label="Invalidation conditions",
+                text=self._strategy_items_text(
+                    selected_hypothesis.get(
+                        "invalidation_conditions",
+                    ),
+                    fallback="No explicit invalidation conditions were provided.",
+                ),
+            ),
+            ReportBullet(
+                label="Unresolved conflicts",
+                text=unresolved_conflicts,
+            ),
+            ReportBullet(
+                label="Risks and execution readiness",
+                text=(
+                    f"Execution readiness is {format_confidence(execution_readiness)}. "
+                    f"Material risks: {risks_text}"
+                ),
+            ),
+        ]
+        if narrative:
+            bullets.append(
+                ReportBullet(
+                    label="Complete strategy narrative",
+                    text=narrative,
+                )
+            )
+
+        return tuple(
+            bullets,
+        )
+
+    def _strategy_items_text(
+        self,
+        *values: Any,
+        fallback: str,
+    ) -> str:
+        items: list[str] = []
+        for value in values:
+            items.extend(
+                self._strategy_item_text(
+                    item,
+                )
+                for item in self._strategy_item_values(
+                    value,
+                )
+            )
+
+        cleaned = tuple(dict.fromkeys(item for item in items if item))
+        if not cleaned:
+            return fallback
+
+        return "; ".join(
+            cleaned,
+        )
+
+    def _strategy_item_values(
+        self,
+        value: Any,
+    ) -> tuple[Any, ...]:
+        if value is None:
+            return ()
+        if isinstance(
+            value,
+            (list, tuple),
+        ):
+            return tuple(
+                value,
+            )
+        return (value,)
+
+    def _strategy_item_text(
+        self,
+        value: Any,
+    ) -> str:
+        mapping = safe_mapping(
+            value,
+        )
+        if mapping:
+            description = first_text(
+                mapping.get(
+                    "description",
+                ),
+                mapping.get(
+                    "explanation",
+                ),
+                mapping.get(
+                    "name",
+                ),
+                mapping.get(
+                    "source",
+                ),
+            )
+            score = first_score(
+                mapping.get(
+                    "strength",
+                ),
+                mapping.get(
+                    "confidence",
+                ),
+                mapping.get(
+                    "reliability",
+                ),
+            )
+            qualifier = f" ({format_confidence(score)})" if score is not None else ""
+            if {
+                "observed_value",
+                "operator",
+                "threshold",
+            }.issubset(mapping):
+                invalidated = self._format_bool(
+                    self._first_bool(
+                        mapping.get(
+                            "invalidated",
+                        )
+                    )
+                )
+                return (
+                    f"{description or 'Condition'}: observed "
+                    f"{mapping.get('observed_value')} {mapping.get('operator')} "
+                    f"{mapping.get('threshold')} | invalidated {invalidated}"
+                )
+            if description:
+                return f"{description}{qualifier}"
+            return str(
+                mapping,
+            )
+
+        text = str(
+            value,
+        ).strip()
+        return self._humanize_token(
+            text,
+        )
+
+    def _mapping_sequence(
+        self,
+        value: Any,
+    ) -> tuple[dict[str, Any], ...]:
+        if not isinstance(
+            value,
+            (list, tuple),
+        ):
+            return ()
+        return tuple(
+            mapping for mapping in (safe_mapping(item) for item in value) if mapping
         )
 
     def _run_errors(

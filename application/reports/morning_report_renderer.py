@@ -215,7 +215,7 @@ class MorningReportMarkdownRenderer:
             "",
         ]
         for bullet in bullets:
-            text = self._escape_text(
+            text = self._preserve_text(
                 bullet.text,
             )
             if bullet.label:
@@ -277,6 +277,12 @@ class MorningReportMarkdownRenderer:
             )
             + "\n"
         )
+
+    def _preserve_text(
+        self,
+        value: str,
+    ) -> str:
+        return value.strip()
 
     def _escape_text(
         self,

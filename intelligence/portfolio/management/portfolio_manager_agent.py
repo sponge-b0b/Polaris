@@ -1,9 +1,61 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
+from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
+
+
+def _required_mapping(value: object, field_name: str) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{field_name} must be a mapping.")
+    return {str(key): mapped_value for key, mapped_value in value.items()}
+
+
+def _optional_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): mapped_value for key, mapped_value in value.items()}
+
+
+def _required_float(value: object, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise TypeError(f"{field_name} must be numeric.")
+    return float(value)
+
+
+def _synthesis_decision_from_features(
+    features: Mapping[str, object],
+) -> StrategySynthesisDecision:
+    raw_decision = features.get("strategy_synthesis_decision")
+    if not isinstance(raw_decision, Mapping):
+        raise ValueError(
+            "portfolio_manager_agent requires "
+            "strategy_synthesis_agent.features.strategy_synthesis_decision."
+        )
+    return StrategySynthesisDecision.from_dict(
+        {str(key): mapped_value for key, mapped_value in raw_decision.items()}
+    )
+
+
+def _posterior_allocation(
+    decision: StrategySynthesisDecision,
+) -> dict[str, float]:
+    allocation = {"bull": 0.0, "bear": 0.0, "sideways": 0.0}
+    for evaluation in decision.evaluations:
+        allocation[evaluation.perspective.value] = evaluation.posterior_weight
+    return allocation
+
+
+def _synthesis_allows_execution(decision: StrategySynthesisDecision) -> bool:
+    return (
+        decision.selection_status is StrategySynthesisSelectionStatus.SELECTED
+        and decision.selected_perspective is not None
+        and not decision.degraded_reasons
+    )
 
 
 class PortfolioManagerAgent(RuntimeNode):
@@ -54,105 +106,109 @@ class PortfolioManagerAgent(RuntimeNode):
         # UPSTREAM RESULTS
         # ========================================================
 
-        synthesis_result = context.node_outputs["strategy_synthesis_agent"].get(
-            "outputs", {}
+        synthesis_result = _required_mapping(
+            context.node_outputs["strategy_synthesis_agent"].get("outputs", {}),
+            "strategy_synthesis_agent.outputs",
         )
 
-        risk_result = context.node_outputs["risk_aggregator_agent"].get("outputs", {})
+        risk_result = _required_mapping(
+            context.node_outputs["risk_aggregator_agent"].get("outputs", {}),
+            "risk_aggregator_agent.outputs",
+        )
 
         # ========================================================
         # SYNTHESIS OUTPUTS
         # ========================================================
 
-        bull_weight = float(
-            synthesis_result.get("features", {}).get(
-                "bull_weight",
-                0.33,
-            )
+        synthesis_features = _required_mapping(
+            synthesis_result.get("features", {}),
+            "strategy_synthesis_agent.outputs.features",
         )
+        synthesis_decision = _synthesis_decision_from_features(synthesis_features)
+        synthesis_allows_execution = _synthesis_allows_execution(synthesis_decision)
 
-        bear_weight = float(
-            synthesis_result.get("features", {}).get(
-                "bear_weight",
-                0.33,
-            )
+        selected_perspective = (
+            None
+            if synthesis_decision.selected_perspective is None
+            else synthesis_decision.selected_perspective.value
         )
+        selection_status = synthesis_decision.selection_status.value
+        synthesis_degraded_reasons = [
+            reason.value for reason in synthesis_decision.degraded_reasons
+        ]
 
-        sideways_weight = float(
-            synthesis_result.get("features", {}).get(
-                "sideways_weight",
-                0.34,
-            )
-        )
+        posture = synthesis_decision.regime
 
-        posture = synthesis_result.get("regime", "neutral")
+        synthesis_confidence = synthesis_decision.confidence
 
-        synthesis_confidence = float(synthesis_result.get("confidence", 0.0))
-
-        directional_score = float(synthesis_result.get("directional_score", 0.0))
+        directional_score = synthesis_decision.directional_score
 
         # ========================================================
         # TARGET ALLOCATION VECTOR
         # ========================================================
 
-        target_allocation = {
-            "bull": bull_weight,
-            "bear": bear_weight,
-            "sideways": sideways_weight,
-        }
+        target_allocation = _posterior_allocation(synthesis_decision)
 
         # ========================================================
         # RISK STATE
         # ========================================================
 
-        composite_risk = float(
-            risk_result.get("features", {}).get("composite_risk", 0.0)
+        risk_features = _optional_mapping(risk_result.get("features"))
+
+        composite_risk = _required_float(
+            risk_features.get("composite_risk", 0.0), "composite_risk"
         )
 
-        risk_pressure = float(risk_result.get("features", {}).get("risk_pressure", 0.0))
-
-        stability_score = float(
-            risk_result.get("features", {}).get("stability_score", 0.0)
+        risk_pressure = _required_float(
+            risk_features.get("risk_pressure", 0.0), "risk_pressure"
         )
 
-        risk_regime = risk_result.get("features", {}).get("risk_regime")
+        stability_score = _required_float(
+            risk_features.get("stability_score", 0.0), "stability_score"
+        )
+
+        risk_regime = risk_features.get("risk_regime")
 
         # ========================================================
         # PORTFOLIO V2 RISK CONTEXT
         # ========================================================
 
-        portfolio_output = context.node_outputs.get(
-            "portfolio_state_builder",
-            {},
+        portfolio_output = _optional_mapping(
+            context.node_outputs.get(
+                "portfolio_state_builder",
+                {},
+            )
         )
 
-        portfolio_features = (
-            portfolio_output.get("outputs", {}).get("features", {})
-            if portfolio_output
-            else {}
+        portfolio_outputs = _optional_mapping(portfolio_output.get("outputs"))
+        portfolio_features = _optional_mapping(portfolio_outputs.get("features"))
+
+        portfolio_risk_features = _optional_mapping(
+            portfolio_features.get("risk_features")
         )
 
-        portfolio_risk_features = portfolio_features.get("risk_features", {}) or {}
-
-        portfolio_heat = float(
+        portfolio_heat = _required_float(
             portfolio_risk_features.get(
                 "portfolio_heat",
                 0.0,
-            )
+            ),
+            "portfolio_heat",
         )
 
-        risk_intensity = float(
+        risk_intensity = _required_float(
             portfolio_risk_features.get(
                 "risk_intensity",
                 0.0,
-            )
+            ),
+            "risk_intensity",
         )
 
-        margin_utilization_ratio = float(
+        margin_utilization_ratio = _required_float(
             portfolio_risk_features.get(
                 "margin_utilization_ratio",
                 0.0,
-            )
+            ),
+            "margin_utilization_ratio",
         )
 
         account_restricted = any(
@@ -208,6 +264,8 @@ class PortfolioManagerAgent(RuntimeNode):
             risk_pressure=risk_pressure,
             stability_score=stability_score,
         )
+        if not synthesis_allows_execution:
+            execution_status = "rejected"
 
         # ========================================================
         # CAPITAL SCALE FACTOR
@@ -249,17 +307,15 @@ class PortfolioManagerAgent(RuntimeNode):
 
         result = dict(
             directional_score=directional_score,
-            confidence=round(
-                confidence,
-                4,
-            ),
+            confidence=confidence,
             regime=portfolio_regime,
             signals=[
                 execution_status,
                 posture,
                 risk_regime,
-                f"drift_{round(total_drift, 4)}",
-                f"scale_{round(scale_factor, 4)}",
+                f"drift_{total_drift}",
+                f"scale_{scale_factor}",
+                f"synthesis_{selection_status}",
             ],
             risks=[
                 (
@@ -284,6 +340,11 @@ class PortfolioManagerAgent(RuntimeNode):
                     if margin_utilization_ratio > 0.60
                     else "margin_utilization_normal"
                 ),
+                (
+                    "synthesis_selected"
+                    if synthesis_allows_execution
+                    else "synthesis_unresolved"
+                ),
             ],
             recommendations=[
                 (
@@ -300,6 +361,11 @@ class PortfolioManagerAgent(RuntimeNode):
                     "respect_account_restrictions"
                     if account_restricted
                     else "account_restrictions_clear"
+                ),
+                (
+                    "strategy_synthesis_selected"
+                    if synthesis_allows_execution
+                    else "resolve_strategy_synthesis_before_execution"
                 ),
             ],
             features={
@@ -326,6 +392,14 @@ class PortfolioManagerAgent(RuntimeNode):
                 "risk_intensity": risk_intensity,
                 "margin_utilization_ratio": margin_utilization_ratio,
                 "account_restricted": account_restricted,
+                # =================================================
+                # SYNTHESIS DECISION
+                # =================================================
+                "selected_perspective": selected_perspective,
+                "selection_status": selection_status,
+                "synthesis_degraded_reasons": synthesis_degraded_reasons,
+                "hypothesis_posterior_weights": target_allocation,
+                "synthesis_execution_blocked": not synthesis_allows_execution,
             },
         )
 

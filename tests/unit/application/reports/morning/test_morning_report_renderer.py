@@ -7,6 +7,9 @@ from tests.unit.application.reports.morning.test_morning_report_assembler import
     FULL_MACRO_LLM_RESPONSE,
 )
 from tests.unit.application.reports.morning.test_morning_report_assembler import (
+    FULL_STRATEGY_LLM_RESPONSE,
+)
+from tests.unit.application.reports.morning.test_morning_report_assembler import (
     _complete_workflow_result,
 )
 
@@ -36,6 +39,9 @@ def test_renderer_outputs_professional_sections_without_raw_runtime_json() -> No
 
     assert FULL_MACRO_LLM_RESPONSE in rendered
     assert "END_OF_FULL_LLM_RESPONSE" in rendered
+    assert FULL_STRATEGY_LLM_RESPONSE in rendered
+    assert "Strategy Case Comparison" in rendered
+    assert "Selected thesis" in rendered
     assert "Runtime Node Outputs" not in rendered
     assert "```json" not in rendered
     assert "node_outputs" not in rendered

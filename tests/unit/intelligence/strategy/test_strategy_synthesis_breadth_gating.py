@@ -14,6 +14,7 @@ from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from core.telemetry.tracing.trace_context import TraceContext
 from core.telemetry.observability import ObservabilityManager
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
@@ -335,6 +336,26 @@ async def test_strategy_synthesis_missing_hypothesis_uses_degraded_neutral_decis
     signal = telemetry.signal_named("strategy_synthesis.fallback_output")
     assert signal["payload"] == {"reason": "missing_bear_agent", "fallback": True}
 
+    missing = telemetry.signal_named("strategy_synthesis.missing_mandatory_hypothesis")
+    assert missing["payload"] == {
+        "symbol": "SPY",
+        "reason": "missing_bear_agent",
+        "fallback": True,
+        "degraded_reasons": [
+            "all_hypotheses_invalidated",
+            "missing_hypothesis",
+            "synthesis_input_unavailable",
+        ],
+    }
+    degraded = telemetry.signal_named("strategy_synthesis.degraded_neutral")
+    assert degraded["payload"]["symbol"] == "SPY"
+    assert degraded["payload"]["fallback"] is True
+    assert degraded["payload"]["selection_status"] == "degraded"
+    completed = telemetry.signal_named("strategy_synthesis.completed")
+    assert completed["payload"]["fallback"] is True
+    assert completed["payload"]["latency_seconds"] >= 0.0
+    assert len(telemetry.signals_named("strategy_synthesis.degraded_neutral")) == 1
+
 
 @pytest.mark.asyncio
 async def test_strategy_synthesis_emits_low_confidence_telemetry() -> None:
@@ -364,6 +385,122 @@ async def test_strategy_synthesis_emits_low_confidence_telemetry() -> None:
         "runtime_mode": "live",
         "telemetry_reason": "low_confidence",
     }
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_emits_completion_and_disagreement_with_trace() -> (
+    None
+):
+    telemetry = _FakeTelemetry()
+    agent = _agent(telemetry=telemetry)
+    source_context = _context(breadth_state=MISSING_BREADTH)
+    node_outputs = dict(source_context.node_outputs)
+    node_outputs["strategy_perspective_weighting_engine"] = {
+        "outputs": {
+            "features": {
+                "bull_weight": 0.33,
+                "bear_weight": 0.33,
+                "sideways_weight": 0.34,
+            }
+        }
+    }
+    for node_name in ("bull_agent", "bear_agent", "sideways_agent"):
+        hypothesis = cast(
+            dict[str, object],
+            cast(
+                dict[str, object],
+                cast(dict[str, object], node_outputs[node_name])["outputs"],
+            )["strategy_hypothesis"],
+        )
+        hypothesis["hypothesis_strength"] = 0.60
+        hypothesis["confidence"] = 0.60
+
+    context = source_context.model_copy(
+        update={
+            "node_outputs": node_outputs,
+            "trace_context": TraceContext(
+                trace_id="trace-1",
+                span_id="span-1",
+                parent_span_id="parent-1",
+                correlation_id="corr-1",
+                workflow_id="morning_report",
+                execution_id="exec-1",
+                runtime_id="runtime-1",
+                node_name="strategy_synthesis_agent",
+                attributes={"tenant": "unit-test"},
+            ),
+        }
+    )
+
+    output = await agent._execute(context)
+
+    assert output.success is True
+    completed = telemetry.signal_named("strategy_synthesis.completed")
+    assert completed["payload"]["symbol"] == "SPY"
+    assert completed["payload"]["latency_seconds"] >= 0.0
+    assert completed["payload"]["fallback"] is False
+    assert completed["context"].trace_id == "trace-1"
+    assert completed["context"].span_id == "span-1"
+    assert completed["context"].parent_span_id == "parent-1"
+    assert completed["context"].correlation_id == "corr-1"
+    assert completed["context"].attributes == {
+        "tenant": "unit-test",
+        "runtime_mode": "live",
+        "telemetry_reason": "synthesis_completed",
+    }
+    assert len(telemetry.signals_named("strategy_synthesis.completed")) == 1
+
+    disagreement = telemetry.signal_named(
+        "strategy_synthesis.high_hypothesis_disagreement"
+    )
+    assert (
+        disagreement["payload"]["hypothesis_posterior_disagreement"]
+        >= disagreement["payload"]["threshold"]
+    )
+    assert disagreement["context"].trace_id == "trace-1"
+    assert (
+        len(telemetry.signals_named("strategy_synthesis.high_hypothesis_disagreement"))
+        == 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_emits_hypothesis_invalidation_once() -> None:
+    telemetry = _FakeTelemetry()
+    agent = _agent(telemetry=telemetry)
+    source_context = _context(breadth_state=MISSING_BREADTH)
+    node_outputs = dict(source_context.node_outputs)
+    bull_output = cast(dict[str, object], node_outputs["bull_agent"])
+    bull_outputs = cast(dict[str, object], bull_output["outputs"])
+    bull_hypothesis = cast(dict[str, object], bull_outputs["strategy_hypothesis"])
+    bull_hypothesis["invalidation_conditions"] = [
+        {
+            "condition_id": "bull-invalidated",
+            "perspective": "bull",
+            "description": "Fixture condition invalidates the bull hypothesis.",
+            "observed_value": 1.0,
+            "operator": "gte",
+            "threshold": 0.5,
+            "evidence_id": None,
+        }
+    ]
+
+    output = await agent._execute(
+        source_context.model_copy(update={"node_outputs": node_outputs})
+    )
+
+    assert output.success is True
+    signal = telemetry.signal_named("strategy_synthesis.hypothesis_invalidated")
+    assert signal["payload"]["symbol"] == "SPY"
+    assert signal["payload"]["invalidated_perspectives"] == ["bull"]
+    assert signal["payload"]["invalidation_count"] == 1
+    assert signal["context"].attributes == {
+        "runtime_mode": "live",
+        "telemetry_reason": "hypothesis_invalidated",
+    }
+    assert (
+        len(telemetry.signals_named("strategy_synthesis.hypothesis_invalidated")) == 1
+    )
 
 
 class _NoEventsProvider:
@@ -425,6 +562,14 @@ class _FakeTelemetry:
                 "payload": dict(payload or {}),
             }
         )
+
+    def signals_named(
+        self,
+        signal_name: str,
+    ) -> list[dict[str, Any]]:
+        return [
+            signal for signal in self.signals if signal["signal_name"] == signal_name
+        ]
 
     def signal_named(
         self,

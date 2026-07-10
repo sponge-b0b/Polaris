@@ -77,6 +77,12 @@ from application.persistence.retention import RetentionPlanningFilters
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.sentiment import SentimentSnapshotPersistenceFilters
 from application.persistence.sentiment import SentimentSourcePersistenceFilters
+from application.persistence.strategy import (
+    StrategyHypothesisEvaluationPersistenceFilters,
+)
+from application.persistence.strategy import StrategyHypothesisPersistenceFilters
+from application.persistence.strategy import StrategyPersistenceService
+from application.persistence.strategy import StrategySynthesisDecisionPersistenceFilters
 from application.persistence.telemetry import AgentMetricPersistenceFilters
 from application.persistence.telemetry import ProviderMetricPersistenceFilters
 from application.persistence.telemetry import TelemetryEventPersistenceFilters
@@ -145,6 +151,10 @@ __all__ = [
     "SentimentSnapshotPersistenceFilters",
     "SentimentSourcePersistenceFilters",
     "SignalAttributionPersistenceFilters",
+    "StrategyHypothesisEvaluationPersistenceFilters",
+    "StrategyHypothesisPersistenceFilters",
+    "StrategyPersistenceService",
+    "StrategySynthesisDecisionPersistenceFilters",
     "TechnicalAnalysisSnapshotPersistenceFilters",
     "TelemetryEventPersistenceFilters",
     "TelemetryMetricPersistenceFilters",

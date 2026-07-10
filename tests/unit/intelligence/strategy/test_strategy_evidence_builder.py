@@ -15,6 +15,7 @@ from application.services.market_events.market_events_result import MarketEvents
 from application.services.market_events.market_events_service import MarketEventsService
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from intelligence.strategy.hypothesis import StrategyEvidenceInputStatus
 from intelligence.strategy.hypothesis.evidence_builder import StrategyEvidenceBuilder
 
@@ -52,12 +53,56 @@ class _CapturingServiceRunner:
         )
 
 
-def test_strategy_evidence_builder_returns_shared_evidence_context() -> None:
-    runner = _CapturingServiceRunner(result=_market_events_result())
-    builder = StrategyEvidenceBuilder(
+class _FakeTelemetry:
+    def __init__(self) -> None:
+        self.signals: list[dict[str, Any]] = []
+
+    async def emit_agent_signal(
+        self,
+        *,
+        agent_name: str,
+        signal_name: str,
+        confidence: float | None,
+        context: object | None = None,
+        attributes: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self.signals.append(
+            {
+                "agent_name": agent_name,
+                "signal_name": signal_name,
+                "confidence": confidence,
+                "context": context,
+                "attributes": dict(attributes or {}),
+                "payload": dict(payload or {}),
+            }
+        )
+
+    def signal_named(self, signal_name: str) -> dict[str, Any]:
+        for signal in self.signals:
+            if signal["signal_name"] == signal_name:
+                return signal
+        raise AssertionError(f"No signal named {signal_name} was emitted.")
+
+
+def _builder(
+    runner: _CapturingServiceRunner,
+    *,
+    telemetry: _FakeTelemetry | None = None,
+) -> StrategyEvidenceBuilder:
+    return StrategyEvidenceBuilder(
         events_service=cast(MarketEventsService, object()),
         service_runner=cast(ServiceRunner[Any, Any], runner),
+        intelligence_telemetry=cast(
+            IntelligenceTelemetry,
+            telemetry or _FakeTelemetry(),
+        ),
     )
+
+
+def test_strategy_evidence_builder_returns_shared_evidence_context() -> None:
+    runner = _CapturingServiceRunner(result=_market_events_result())
+    builder = _builder(runner)
 
     output = _run_builder(builder, _runtime_context())
 
@@ -96,10 +141,8 @@ def test_strategy_evidence_builder_returns_shared_evidence_context() -> None:
 
 def test_strategy_evidence_builder_degrades_optional_market_events() -> None:
     runner = _CapturingServiceRunner(error=RuntimeError("market events unavailable"))
-    builder = StrategyEvidenceBuilder(
-        events_service=cast(MarketEventsService, object()),
-        service_runner=cast(ServiceRunner[Any, Any], runner),
-    )
+    telemetry = _FakeTelemetry()
+    builder = _builder(runner, telemetry=telemetry)
 
     output = _run_builder(builder, _runtime_context())
 
@@ -119,6 +162,28 @@ def test_strategy_evidence_builder_degrades_optional_market_events() -> None:
     assert market_events_quality["reason"] == (
         "market_events output did not contain strategy evidence fields."
     )
+
+    signal = telemetry.signal_named("strategy_evidence_context.degraded")
+    assert signal["agent_name"] == "strategy_evidence_builder"
+    assert signal["confidence"] == 0.25
+    assert signal["payload"]["symbol"] == "SPY"
+    assert signal["payload"]["market_events_status"] == "degraded"
+    assert signal["payload"]["missing_required_inputs"] is False
+    assert signal["payload"]["degraded_required_inputs"] is False
+    assert signal["payload"]["required_evidence_count"] > 0
+    assert signal["payload"]["optional_evidence_count"] >= 0
+    degraded_input_quality = {
+        item["input_name"]: item for item in signal["payload"]["input_quality"]
+    }
+    assert degraded_input_quality["market_events"] == market_events_quality
+    assert signal["context"].workflow_id == "morning_report"
+    assert signal["context"].execution_id == "execution-1"
+    assert signal["context"].runtime_id == "runtime-1"
+    assert signal["context"].node_name == "strategy_evidence_builder"
+    assert signal["context"].attributes == {
+        "runtime_mode": "live",
+        "telemetry_reason": "evidence_context_degraded",
+    }
 
 
 def test_morning_report_wires_strategy_evidence_builder_before_strategy_agents() -> (

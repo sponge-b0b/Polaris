@@ -15,6 +15,13 @@ FULL_TECHNICAL_LLM_RESPONSE = (
 )
 
 
+FULL_STRATEGY_LLM_RESPONSE = (
+    "Strategy synthesis full narrative line one.\n\n"
+    "Strategy synthesis full narrative line two with complete rationale. "
+    "END_OF_FULL_STRATEGY_LLM_RESPONSE"
+)
+
+
 def test_assembler_extracts_portfolio_intelligence_risk_and_action_sections() -> None:
     document = MorningReportAssembler().assemble(
         _complete_workflow_result(),
@@ -129,6 +136,63 @@ def test_assembler_extracts_portfolio_intelligence_risk_and_action_sections() ->
         _metric_value(document.recommended_action_plan, "Strategy Posture")
         == "Selective Risk On"
     )
+    assert (
+        _metric_value(document.recommended_action_plan, "Selected Strategy") == "Bull"
+    )
+    assert (
+        _metric_value(document.recommended_action_plan, "Synthesis Status")
+        == "Selected"
+    )
+    assert (
+        _metric_value(document.recommended_action_plan, "Synthesis Confidence")
+        == "73.0%"
+    )
+    assert (
+        _bullet_text(document.recommended_action_plan, "Selected thesis")
+        == "Bull case thesis with broad confirmation."
+    )
+    assert (
+        _bullet_text(document.recommended_action_plan, "Complete strategy narrative")
+        == FULL_STRATEGY_LLM_RESPONSE
+    )
+    assert "Trend confirms upside" in _bullet_text(
+        document.recommended_action_plan,
+        "Decisive supporting evidence",
+    )
+    assert "Breadth is not yet decisive" in _bullet_text(
+        document.recommended_action_plan,
+        "Material contradictory evidence",
+    )
+    assert "Rates remain stable" in _bullet_text(
+        document.recommended_action_plan,
+        "Key assumptions",
+    )
+    assert "breadth_score stays above 0.35" in _bullet_text(
+        document.recommended_action_plan,
+        "Invalidation conditions",
+    )
+    assert "No unresolved synthesis conflicts" in _bullet_text(
+        document.recommended_action_plan,
+        "Unresolved conflicts",
+    )
+    assert (
+        _table_value(
+            document.recommended_action_plan,
+            "Strategy Case Comparison",
+            "Bull Case",
+        )
+        == "Posterior 62.0% | Candidate 0.67 | Rank 1 | Status Selected"
+    )
+    assert "Posterior 18.0%" in _table_value(
+        document.recommended_action_plan,
+        "Strategy Case Comparison",
+        "Bear Case",
+    )
+    assert "Posterior 20.0%" in _table_value(
+        document.recommended_action_plan,
+        "Strategy Case Comparison",
+        "Sideways Case",
+    )
     assert any(
         "human review" in bullet.text
         for bullet in document.recommended_action_plan.recommendations
@@ -177,6 +241,21 @@ def _metric_value(
             return metric.value
 
     raise AssertionError(f"missing metric: {label}")
+
+
+def _bullet_text(
+    section: object,
+    label: str,
+) -> str:
+    bullets = getattr(
+        section,
+        "bullets",
+    )
+    for bullet in bullets:
+        if bullet.label == label:
+            return bullet.text
+
+    raise AssertionError(f"missing bullet: {label}")
 
 
 def _table_value(
@@ -433,10 +512,116 @@ def _complete_workflow_result() -> dict[str, object]:
                     "outputs": {
                         "confidence": 0.73,
                         "regime": "selective_risk_on",
+                        "llm_response": FULL_STRATEGY_LLM_RESPONSE,
                         "features": {
                             "posture": "selective_risk_on",
                             "execution_readiness": 0.69,
                             "portfolio_scale_factor": 0.6,
+                            "selected_perspective": "bull",
+                            "selection_status": "selected",
+                            "hypothesis_candidate_scores": {
+                                "bull": 0.67,
+                                "bear": 0.19,
+                                "sideways": 0.22,
+                            },
+                            "hypothesis_posterior_weights": {
+                                "bull": 0.62,
+                                "bear": 0.18,
+                                "sideways": 0.20,
+                            },
+                            "selected_hypothesis": {
+                                "perspective": "bull",
+                                "thesis": "Bull case thesis with broad confirmation.",
+                                "supporting_evidence": [
+                                    {
+                                        "name": "technical_trend",
+                                        "explanation": "Trend confirms upside",
+                                        "strength": 0.81,
+                                    },
+                                ],
+                                "contradicting_evidence": [
+                                    {
+                                        "name": "breadth_confirmation",
+                                        "explanation": "Breadth is not yet decisive",
+                                        "strength": 0.37,
+                                    },
+                                ],
+                                "key_assumptions": [
+                                    {
+                                        "description": "Rates remain stable",
+                                        "confidence": 0.72,
+                                    },
+                                ],
+                                "invalidation_conditions": [
+                                    {
+                                        "description": "breadth_score stays above 0.35",
+                                        "observed_value": 0.64,
+                                        "operator": "<",
+                                        "threshold": 0.35,
+                                        "invalidated": False,
+                                    },
+                                ],
+                                "risks": [
+                                    "chasing_extended_prices",
+                                ],
+                            },
+                            "strategy_synthesis_decision": {
+                                "selected_perspective": "bull",
+                                "selection_status": "selected",
+                                "directional_score": 0.58,
+                                "confidence": 0.73,
+                                "regime": "selective_risk_on",
+                                "uncertainty": 0.27,
+                                "evaluations": [
+                                    {
+                                        "perspective": "bull",
+                                        "perspective_weight": 0.60,
+                                        "contradiction_burden": 0.10,
+                                        "assumption_support": 0.90,
+                                        "invalidated": False,
+                                        "candidate_score": 0.67,
+                                        "posterior_weight": 0.62,
+                                        "rank": 1,
+                                        "selection_status": "selected",
+                                        "degraded_reasons": [],
+                                    },
+                                    {
+                                        "perspective": "bear",
+                                        "perspective_weight": 0.20,
+                                        "contradiction_burden": 0.35,
+                                        "assumption_support": 0.55,
+                                        "invalidated": False,
+                                        "candidate_score": 0.19,
+                                        "posterior_weight": 0.18,
+                                        "rank": 3,
+                                        "selection_status": "rejected",
+                                        "degraded_reasons": [],
+                                    },
+                                    {
+                                        "perspective": "sideways",
+                                        "perspective_weight": 0.20,
+                                        "contradiction_burden": 0.25,
+                                        "assumption_support": 0.65,
+                                        "invalidated": False,
+                                        "candidate_score": 0.22,
+                                        "posterior_weight": 0.20,
+                                        "rank": 2,
+                                        "selection_status": "rejected",
+                                        "degraded_reasons": [],
+                                    },
+                                ],
+                                "degraded_reasons": [],
+                                "thesis": "Bull case thesis with broad confirmation.",
+                                "signals": [
+                                    "risk_on",
+                                ],
+                                "risks": [
+                                    "late_cycle_momentum",
+                                ],
+                                "recommendations": [
+                                    "add_exposure_selectively",
+                                ],
+                            },
                         },
                         "recommendations": [
                             "add_exposure_selectively",

@@ -65,6 +65,9 @@ from core.database.models.telemetry import TelemetryMetricModel
 from core.database.models.telemetry import TelemetryTraceModel
 from core.database.models.telemetry import WorkflowMetricModel
 from core.database.models.sentiment import SentimentSourceModel
+from core.database.models.strategy import StrategyHypothesisEvaluationModel
+from core.database.models.strategy import StrategyHypothesisModel
+from core.database.models.strategy import StrategySynthesisDecisionModel
 from core.database.models.runtime import WorkflowEventModel
 from core.database.models.runtime import WorkflowNodeRunModel
 from core.database.models.runtime import WorkflowRunModel
@@ -86,6 +89,9 @@ __all__ = [
     "NewsAnalysisSnapshotModel",
     "SentimentSnapshotModel",
     "SentimentSourceModel",
+    "StrategySynthesisDecisionModel",
+    "StrategyHypothesisModel",
+    "StrategyHypothesisEvaluationModel",
     "MarketBreadthSnapshotModel",
     "MarketContextSnapshotModel",
     "MarketEventSnapshotModel",

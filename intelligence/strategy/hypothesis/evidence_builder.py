@@ -9,6 +9,9 @@ from application.services.market_events.market_events_request import MarketEvent
 from application.services.market_events.market_events_result import MarketEventsResult
 from application.services.market_events.market_events_service import MarketEventsService
 from core.runtime.contracts.runtime_node import RuntimeNode
+from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from intelligence.strategy.hypothesis.normalization import (
@@ -30,9 +33,11 @@ class StrategyEvidenceBuilder(RuntimeNode):
         *,
         events_service: MarketEventsService,
         service_runner: ServiceRunner[Any, Any],
+        intelligence_telemetry: IntelligenceTelemetry,
     ) -> None:
         self.events_service = events_service
         self.service_runner = service_runner
+        self.intelligence_telemetry = intelligence_telemetry
 
     async def _execute(
         self,
@@ -54,6 +59,17 @@ class StrategyEvidenceBuilder(RuntimeNode):
             as_of=as_of,
         )
         evidence_fingerprint = evidence_context.evidence_fingerprint()
+
+        if _has_evidence_degradation(
+            evidence_context=evidence_context,
+            market_events_status=market_events_status,
+        ):
+            await self._emit_evidence_degradation_telemetry(
+                context=context,
+                evidence_context=evidence_context,
+                evidence_fingerprint=evidence_fingerprint,
+                market_events_status=market_events_status,
+            )
 
         return RuntimeNodeOutput.success_output(
             outputs={
@@ -117,6 +133,56 @@ class StrategyEvidenceBuilder(RuntimeNode):
             ), "degraded"
 
         return _available_market_events_output(service_result.result), "available"
+
+    async def _emit_evidence_degradation_telemetry(
+        self,
+        *,
+        context: RuntimeContext,
+        evidence_context: StrategyEvidenceContext,
+        evidence_fingerprint: str,
+        market_events_status: str,
+    ) -> None:
+        degraded_inputs = tuple(
+            quality
+            for quality in evidence_context.input_quality
+            if quality.status is not StrategyEvidenceInputStatus.AVAILABLE
+        )
+        await self.intelligence_telemetry.emit_agent_signal(
+            agent_name=self.node_name,
+            signal_name="strategy_evidence_context.degraded",
+            confidence=(0.0 if evidence_context.has_missing_required_inputs else 0.25),
+            context=telemetry_context_from_runtime(
+                context,
+                node_name=self.node_name,
+                attributes={"telemetry_reason": "evidence_context_degraded"},
+            ),
+            payload={
+                "symbol": evidence_context.symbol,
+                "evidence_fingerprint": evidence_fingerprint,
+                "market_events_status": market_events_status,
+                "missing_required_inputs": (
+                    evidence_context.has_missing_required_inputs
+                ),
+                "degraded_required_inputs": (
+                    evidence_context.has_degraded_required_inputs
+                ),
+                "required_evidence_count": len(evidence_context.required_evidence),
+                "optional_evidence_count": len(evidence_context.optional_evidence),
+                "input_quality": [quality.to_dict() for quality in degraded_inputs],
+            },
+        )
+
+
+def _has_evidence_degradation(
+    *,
+    evidence_context: StrategyEvidenceContext,
+    market_events_status: str,
+) -> bool:
+    return (
+        market_events_status == "degraded"
+        or evidence_context.has_missing_required_inputs
+        or evidence_context.has_degraded_required_inputs
+    )
 
 
 def _available_market_events_output(

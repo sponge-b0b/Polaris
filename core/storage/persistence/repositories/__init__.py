@@ -57,6 +57,9 @@ from core.storage.persistence.repositories.postgres_runtime_persistence_reposito
 from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (
     PostgresTelemetryPersistenceRepository,
 )
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (
+    PostgresStrategyPersistenceRepository,
+)
 from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
     PostgresWorkflowOutputProjectionJobRepository,
 )
@@ -80,6 +83,7 @@ __all__ = [
     "PostgresReportPersistenceRepository",
     "PostgresRuntimePersistenceRepository",
     "PostgresSentimentPersistenceRepository",
+    "PostgresStrategyPersistenceRepository",
     "PostgresTelemetryPersistenceRepository",
     "PostgresWorkflowOutputProjectionJobRepository",
 ]

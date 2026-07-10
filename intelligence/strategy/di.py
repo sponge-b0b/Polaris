@@ -70,11 +70,13 @@ class IntelligenceStrategyDIProvider(Provider):
         self,
         events_service: MarketEventsService,
         service_runner: ServiceRunner[Any, Any],
+        intelligence_telemetry: IntelligenceTelemetry,
     ) -> StrategyEvidenceBuilder:
 
         return StrategyEvidenceBuilder(
             events_service=events_service,
             service_runner=service_runner,
+            intelligence_telemetry=intelligence_telemetry,
         )
 
     # Strategy Perspective Weighting Agent

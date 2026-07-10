@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any
 from typing import Mapping
 
@@ -28,6 +29,9 @@ from intelligence.strategy.synthesis.strategy_synthesis_policy import (
 from intelligence.telemetry import telemetry_context_from_runtime
 
 
+HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD = 0.50
+
+
 class MissingStrategySynthesisInput(ValueError):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -54,16 +58,30 @@ class StrategySynthesisAgent(RuntimeNode):
         self,
         context: RuntimeContext,
     ) -> RuntimeNodeOutput:
+        started_at = perf_counter()
         try:
             inputs = _strategy_synthesis_inputs_from_runtime(context)
         except MissingStrategySynthesisInput as exc:
-            return await self._fallback_output(context=context, reason=exc.reason)
+            return await self._fallback_output(
+                context=context,
+                reason=exc.reason,
+                latency_seconds=perf_counter() - started_at,
+            )
 
         market_events = await self._get_market_events(
             inputs=inputs,
             context=context,
         )
         synthesis_output = synthesize_strategy(inputs, market_events)
+        latency_seconds = perf_counter() - started_at
+
+        await self._emit_synthesis_operational_telemetry(
+            context=context,
+            symbol=inputs.symbol,
+            features=synthesis_output.features,
+            confidence=synthesis_output.confidence,
+            latency_seconds=latency_seconds,
+        )
 
         if synthesis_output.confidence <= 0.40:
             await self._emit_low_confidence_telemetry(
@@ -184,6 +202,7 @@ class StrategySynthesisAgent(RuntimeNode):
         *,
         context: RuntimeContext,
         reason: str,
+        latency_seconds: float,
     ) -> RuntimeNodeOutput:
         await self.intelligence_telemetry.emit_agent_signal(
             agent_name=self.node_name,
@@ -197,6 +216,12 @@ class StrategySynthesisAgent(RuntimeNode):
             payload={"reason": reason, "fallback": True},
         )
         decision = _degraded_neutral_decision(reason)
+        await self._emit_fallback_operational_telemetry(
+            context=context,
+            decision=decision,
+            reason=reason,
+            latency_seconds=latency_seconds,
+        )
         return RuntimeNodeOutput.success_output(
             outputs={
                 "directional_score": decision.directional_score,
@@ -237,6 +262,175 @@ class StrategySynthesisAgent(RuntimeNode):
                 "fallback": True,
                 "reason": reason,
             },
+        )
+
+    async def _emit_synthesis_operational_telemetry(
+        self,
+        *,
+        context: RuntimeContext,
+        symbol: str,
+        features: Mapping[str, Any],
+        confidence: float,
+        latency_seconds: float,
+    ) -> None:
+        evaluations = _mapping_sequence(features.get("strategy_hypothesis_evaluations"))
+        invalidated_perspectives = tuple(
+            str(evaluation.get("perspective"))
+            for evaluation in evaluations
+            if evaluation.get("invalidated") is True
+            and evaluation.get("perspective") is not None
+        )
+        if invalidated_perspectives:
+            await self._emit_synthesis_signal(
+                context=context,
+                signal_name="strategy_synthesis.hypothesis_invalidated",
+                telemetry_reason="hypothesis_invalidated",
+                confidence=confidence,
+                payload={
+                    "symbol": symbol,
+                    "invalidated_perspectives": list(invalidated_perspectives),
+                    "invalidation_count": len(invalidated_perspectives),
+                },
+            )
+
+        disagreement = _float_value(
+            features.get("hypothesis_posterior_disagreement"),
+            default=0.0,
+        )
+        if disagreement >= HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD:
+            await self._emit_synthesis_signal(
+                context=context,
+                signal_name="strategy_synthesis.high_hypothesis_disagreement",
+                telemetry_reason="high_hypothesis_disagreement",
+                confidence=confidence,
+                payload={
+                    "symbol": symbol,
+                    "hypothesis_posterior_disagreement": disagreement,
+                    "threshold": HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD,
+                    "posterior_weights": dict(
+                        _mapping(features.get("hypothesis_posterior_weights"))
+                    ),
+                    "selected_perspective": _optional_string_value(
+                        features.get("selected_perspective")
+                    ),
+                },
+            )
+
+        degraded_reasons = _string_sequence(features.get("degraded_reasons"))
+        selected_perspective = _optional_string_value(
+            features.get("selected_perspective")
+        )
+        selection_status = _string_value(
+            features.get("selection_status"),
+            default="unknown",
+        )
+        if selection_status == "degraded" and selected_perspective is None:
+            await self._emit_synthesis_signal(
+                context=context,
+                signal_name="strategy_synthesis.degraded_neutral",
+                telemetry_reason="degraded_neutral_synthesis",
+                confidence=confidence,
+                payload={
+                    "symbol": symbol,
+                    "fallback": False,
+                    "selection_status": selection_status,
+                    "selected_perspective": selected_perspective,
+                    "degraded_reasons": list(degraded_reasons),
+                },
+            )
+
+        await self._emit_synthesis_signal(
+            context=context,
+            signal_name="strategy_synthesis.completed",
+            telemetry_reason="synthesis_completed",
+            confidence=confidence,
+            payload={
+                "symbol": symbol,
+                "latency_seconds": latency_seconds,
+                "fallback": False,
+                "selection_status": selection_status,
+                "selected_perspective": selected_perspective,
+                "degraded_reasons": list(degraded_reasons),
+            },
+        )
+
+    async def _emit_fallback_operational_telemetry(
+        self,
+        *,
+        context: RuntimeContext,
+        decision: StrategySynthesisDecision,
+        reason: str,
+        latency_seconds: float,
+    ) -> None:
+        symbol = _string_value(context.workflow_inputs.get("symbol"), default="SPY")
+        degraded_reasons = tuple(
+            degraded_reason.value for degraded_reason in decision.degraded_reasons
+        )
+        if StrategySynthesisDegradedReason.MISSING_HYPOTHESIS in (
+            decision.degraded_reasons
+        ):
+            await self._emit_synthesis_signal(
+                context=context,
+                signal_name="strategy_synthesis.missing_mandatory_hypothesis",
+                telemetry_reason="missing_mandatory_hypothesis",
+                confidence=0.0,
+                payload={
+                    "symbol": symbol,
+                    "reason": reason,
+                    "fallback": True,
+                    "degraded_reasons": list(degraded_reasons),
+                },
+            )
+
+        await self._emit_synthesis_signal(
+            context=context,
+            signal_name="strategy_synthesis.degraded_neutral",
+            telemetry_reason="degraded_neutral_synthesis",
+            confidence=decision.confidence,
+            payload={
+                "symbol": symbol,
+                "reason": reason,
+                "fallback": True,
+                "selection_status": decision.selection_status.value,
+                "selected_perspective": None,
+                "degraded_reasons": list(degraded_reasons),
+            },
+        )
+        await self._emit_synthesis_signal(
+            context=context,
+            signal_name="strategy_synthesis.completed",
+            telemetry_reason="synthesis_completed",
+            confidence=decision.confidence,
+            payload={
+                "symbol": symbol,
+                "latency_seconds": latency_seconds,
+                "reason": reason,
+                "fallback": True,
+                "selection_status": decision.selection_status.value,
+                "selected_perspective": None,
+                "degraded_reasons": list(degraded_reasons),
+            },
+        )
+
+    async def _emit_synthesis_signal(
+        self,
+        *,
+        context: RuntimeContext,
+        signal_name: str,
+        telemetry_reason: str,
+        confidence: float,
+        payload: dict[str, Any],
+    ) -> None:
+        await self.intelligence_telemetry.emit_agent_signal(
+            agent_name=self.node_name,
+            signal_name=signal_name,
+            confidence=confidence,
+            context=telemetry_context_from_runtime(
+                context,
+                node_name=self.node_name,
+                attributes={"telemetry_reason": telemetry_reason},
+            ),
+            payload=payload,
         )
 
 
@@ -342,6 +536,40 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
         return value
     return {}
+
+
+def _mapping_sequence(value: Any) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, Mapping))
+
+
+def _float_value(value: Any, *, default: float) -> float:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    return default
+
+
+def _string_value(value: Any, *, default: str) -> str:
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text or default
+
+
+def _optional_string_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _string_sequence(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(item) for item in value if item is not None)
 
 
 def _degraded_neutral_decision(reason: str) -> StrategySynthesisDecision:

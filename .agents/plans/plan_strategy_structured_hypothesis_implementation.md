@@ -902,3 +902,217 @@ Result:
 - Graphify was updated after Python changes.
 - `git diff --check` passed.
 - No live services were required.
+
+### Step 15 — Update the portfolio manager
+
+Completed:
+
+- Updated `PortfolioManagerAgent` to require and deserialize the canonical `strategy_synthesis_decision` emitted by `StrategySynthesisAgent` instead of treating legacy Bull/Bear/Sideways weights as the portfolio decision contract.
+- Changed portfolio target allocation to use posterior weights from the selected synthesis decision evaluations.
+- Changed portfolio directional intent to use the selected synthesis decision `directional_score`, preserving sideways neutrality even when a sideways hypothesis has high posterior strength.
+- Added synthesis readiness gating so degraded, unresolved, unselected, or reason-bearing synthesis decisions force portfolio execution status to `rejected` and scale factor to `0.0`.
+- Added first-class portfolio output features for selected perspective, selection status, degraded reasons, posterior weights, and synthesis execution blocking.
+- Removed remaining `round()` usage from the touched portfolio manager output path so internal precision is preserved.
+- Preserved broker independence; the portfolio manager still consumes runtime node outputs only and does not call providers, clients, or broker APIs.
+- Expanded portfolio-manager tests to cover account restrictions, selected-decision precedence over legacy synthesis fields, sideways neutrality, and degraded synthesis rejection.
+- Updated the structured-hypothesis baseline fixture to include the required canonical synthesis decision payload and expected portfolio feature shape.
+
+Verification:
+
+- `uv run ruff check intelligence/portfolio/management/portfolio_manager_agent.py tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --fix`
+- `uv run ruff format intelligence/portfolio/management/portfolio_manager_agent.py tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run mypy intelligence/portfolio/management/portfolio_manager_agent.py tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run mypy . --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py`
+- `uv run ruff check .`
+- `uv run ruff format --check .`
+- `uv run graphify update .`
+
+Result:
+
+- Scoped Ruff checks and formatting passed.
+- Scoped MyPy passed: `Success: no issues found in 3 source files`.
+- Focused portfolio/structured-baseline tests passed: `10 passed`.
+- Full project MyPy passed: `Success: no issues found in 1188 source files`.
+- Strategy unit tests plus the portfolio manager tests passed: `129 passed`.
+- Full Ruff check and format check passed.
+- Graphify was updated after Python changes.
+- A broader `tests/unit/intelligence/portfolio` collection attempt was intentionally not used as a Step 15 gate because unrelated `test_portfolio_state_builder.py` collection requires database configuration and fails when `POLARIS_DATABASE_URL` or PostgreSQL component variables are unset.
+- No live services were required for the completed Step 15 verification.
+
+### Step 16 — Update professional report rendering
+
+Completed:
+
+- Extended the morning report recommended action plan with structured strategy synthesis content sourced from the canonical `strategy_synthesis_decision` and `selected_hypothesis` payloads.
+- Added first-class report metrics for selected strategy, synthesis status, and synthesis confidence while preserving existing posture, portfolio, trade, guard, scale, quality, and readiness metrics.
+- Added a Bull/Bear/Sideways strategy case-comparison table showing posterior weight, candidate score, rank, and selection status for each hypothesis case.
+- Added labeled report bullets for selected thesis, posture/confidence, decisive supporting evidence, material contradictory evidence, key assumptions, invalidation conditions, unresolved conflicts, and risks/execution readiness.
+- Preserved the complete strategy LLM narrative when present by carrying it into the typed report and adjusting Markdown bullet rendering so narrative text is not truncated or whitespace-collapsed.
+- Expanded assembler and renderer tests to validate the structured strategy rationale, case-comparison rows, and complete untruncated strategy narrative.
+- Updated the structured-hypothesis baseline report-shape test to reflect the new professional strategy metrics.
+
+Verification:
+
+- `uv run ruff check application/reports/morning_report_assembler.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --fix`
+- `uv run ruff format application/reports/morning_report_assembler.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run pytest -q tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run ruff check application/reports/morning_report_renderer.py tests/unit/application/reports/morning/test_morning_report_renderer.py --fix`
+- `uv run ruff format application/reports/morning_report_renderer.py tests/unit/application/reports/morning/test_morning_report_renderer.py`
+- `uv run pytest -q tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/application/reports/morning/test_morning_report_renderer.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run mypy application/reports/morning_report_assembler.py application/reports/morning_report_renderer.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/application/reports/morning/test_morning_report_renderer.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/reports/morning tests/unit/interfaces/cli/output/test_workflow_output_renderer.py tests/unit/interfaces/cli/output/test_pdf_output_renderer.py tests/unit/intelligence/strategy`
+- `uv run ruff check .`
+- `uv run ruff format --check .`
+- `uv run mypy . --explicit-package-bases`
+- `uv run graphify update .`
+
+Result:
+
+- Focused Ruff checks and formatting passed.
+- Focused assembler, renderer, and structured-baseline tests passed: `11 passed`.
+- Scoped MyPy passed: `Success: no issues found in 5 source files`.
+- Broader report, CLI output, PDF output, and strategy unit scopes passed: `144 passed`.
+- Full project Ruff check and format check passed.
+- Full project MyPy passed: `Success: no issues found in 1188 source files`.
+- Graphify was updated after Python changes.
+- Repowise identified `application/reports/morning_report_assembler.py` as a churn-heavy hotspot, so this step stayed within the report assembler/renderer boundary and focused tests rather than refactoring adjacent persistence, RAG, or CLI output layers.
+- No live services were required.
+
+### Step 17 — Extend deterministic backtesting verification
+
+Completed:
+
+- Expanded the deterministic backtesting golden fixture so `strategy_synthesis_agent` emits the canonical structured-hypothesis payload used by downstream runtime consumers.
+- Added deterministic verification assertions for strategy synthesis decisions, selected perspective, selection status, hypothesis evaluations, posterior weights, candidate scores, selected hypothesis evidence, contradictory evidence, assumptions, and invalidation conditions.
+- Added deterministic scenario coverage for bullish, bearish, sideways, conflict, missing-data, and invalidation cases.
+- Added replay assertions that compare canonical JSON serialization of the strategy decision across repeated deterministic workflow executions.
+- Kept the change test-focused; no production runtime, service, provider, or persistence code was changed for this step.
+
+Verification:
+
+- `POLARIS_POSTGRES_PASSWORD=placeholder UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/services/backtesting/test_backtest_verification.py`
+- `uv run ruff check tests/unit/application/services/backtesting/test_backtest_verification.py --fix`
+- `uv run ruff format tests/unit/application/services/backtesting/test_backtest_verification.py`
+- `POLARIS_POSTGRES_PASSWORD=placeholder UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/services/backtesting/test_backtest_verification.py`
+- `POLARIS_POSTGRES_PASSWORD=placeholder UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/services/backtesting`
+- `uv run mypy tests/unit/application/services/backtesting/test_backtest_verification.py --explicit-package-bases`
+- `POLARIS_POSTGRES_PASSWORD=placeholder UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/services/backtesting tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused deterministic backtesting verification tests passed: `9 passed`.
+- Full backtesting service unit scope passed: `24 passed`.
+- Backtesting plus structured-hypothesis baseline tests passed: `31 passed`.
+- Scoped MyPy passed: `Success: no issues found in 1 source file`.
+- Ruff check and formatting passed for the changed test file.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- No live services were required. The test collection imports PostgreSQL settings, so verification used a non-secret placeholder PostgreSQL password environment variable without opening a database connection.
+
+### Step 18 — Add observability at canonical boundaries
+
+Completed:
+
+- Added canonical intelligence telemetry emission for strategy evidence-context degradation in `StrategyEvidenceBuilder`.
+- Wired `StrategyEvidenceBuilder` through DI with the existing `IntelligenceTelemetry` emitter instead of introducing a new telemetry system.
+- Added one-shot strategy synthesis operational telemetry for hypothesis invalidation, missing mandatory hypotheses, high hypothesis disagreement, degraded neutral synthesis, and synthesis completion latency.
+- Preserved runtime-node lifecycle telemetry as the normal execution source of truth; the new events are cause-specific operational/degradation signals only.
+- Preserved existing low-confidence, data-quality, and fallback telemetry while adding the Step 18 canonical event coverage.
+- Added trace-correlated tests for synthesis completion and high-disagreement events.
+- Added tests for evidence-context degradation telemetry, missing mandatory hypothesis telemetry, degraded neutral fallback telemetry, and hypothesis invalidation telemetry.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/hypothesis/evidence_builder.py intelligence/strategy/di.py intelligence/strategy/synthesis/strategy_synthesis_agent.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py --fix`
+- `uv run ruff format intelligence/strategy/hypothesis/evidence_builder.py intelligence/strategy/di.py intelligence/strategy/synthesis/strategy_synthesis_agent.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py`
+- `uv run mypy intelligence/strategy/hypothesis/evidence_builder.py intelligence/strategy/di.py intelligence/strategy/synthesis/strategy_synthesis_agent.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy`
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy . --explicit-package-bases`
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused evidence/synthesis telemetry tests passed: `15 passed`.
+- Full strategy unit test scope passed: `128 passed`.
+- Scoped MyPy passed: `Success: no issues found in 5 source files`.
+- Full project MyPy passed: `Success: no issues found in 1188 source files`.
+- Full project Ruff check and formatting passed.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- No live services were required.
+
+### Step 19 — Add canonical strategy persistence records
+
+Completed:
+
+- Added first-class SQLAlchemy models for strategy hypotheses, synthesis decisions, and hypothesis evaluations in `core/database/models/strategy.py`.
+- Added canonical typed persistence records, bundle/result contracts, deterministic ID helpers, and a repository protocol under `core/storage/persistence/strategy/`.
+- Added a PostgreSQL repository adapter and serializer that keep strategy internals typed and serialize structured evidence, assumptions, invalidations, degraded reasons, and metadata only at the persistence boundary.
+- Added an application-layer `StrategyPersistenceService` with typed filters for hypotheses, decisions, and evaluation lineage.
+- Updated persistence/model exports so the new strategy persistence boundary is discoverable without exporting repository or model infrastructure through the application boundary.
+- Added focused tests covering immutable typed records, ID generation, serialization round trips, repository idempotent upserts/rollback/listing/bundle reads, application service filters, and persistence export contracts.
+- Did not add direct writes from runtime nodes or analytical services; workflow-output projection remains deferred to Step 21.
+- Did not add Alembic migrations or run PostgreSQL-backed tests; schema migration work remains deferred to Step 20.
+
+Verification:
+
+- `uv run ruff check core/database/models/strategy.py core/storage/persistence/strategy core/storage/persistence/serializers/strategy_persistence_serializer.py core/storage/persistence/repositories/postgres_strategy_persistence_repository.py application/persistence/strategy tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_strategy_persistence_repository.py tests/unit/core/storage/persistence/strategy_fixtures.py tests/unit/application/persistence/strategy/test_strategy_persistence_service.py --fix`
+- `uv run ruff format core/database/models/strategy.py core/storage/persistence/strategy core/storage/persistence/serializers/strategy_persistence_serializer.py core/storage/persistence/repositories/postgres_strategy_persistence_repository.py application/persistence/strategy tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_strategy_persistence_repository.py tests/unit/core/storage/persistence/strategy_fixtures.py tests/unit/application/persistence/strategy/test_strategy_persistence_service.py`
+- `uv run pytest -q tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_strategy_persistence_repository.py tests/unit/application/persistence/strategy/test_strategy_persistence_service.py tests/unit/application/persistence/test_application_persistence_exports.py`
+- `uv run mypy core/database/models/strategy.py core/storage/persistence/strategy core/storage/persistence/serializers/strategy_persistence_serializer.py core/storage/persistence/repositories/postgres_strategy_persistence_repository.py application/persistence/strategy tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_strategy_persistence_repository.py tests/unit/core/storage/persistence/strategy_fixtures.py tests/unit/application/persistence/strategy/test_strategy_persistence_service.py --explicit-package-bases`
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy . --explicit-package-bases`
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused strategy persistence unit tests passed: `27 passed`.
+- Scoped MyPy passed: `Success: no issues found in 13 source files`.
+- Full project Ruff check and formatting passed.
+- Full project MyPy passed: `Success: no issues found in 1201 source files`.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- No live services were required for Step 19. PostgreSQL-backed migration verification is intentionally deferred to Step 20.
+
+### Step 20 — Add the database migration
+
+Completed:
+
+- Added Alembic revision `f2a3b4c5d6e7` for the canonical strategy persistence schema.
+- Created the `strategy_hypotheses`, `strategy_synthesis_decisions`, and `strategy_hypothesis_evaluations` tables.
+- Added first-class workflow lineage, runtime lineage, node, timestamp, symbol, horizon, perspective, status, rank, and evidence-fingerprint columns rather than generic compatibility aliases.
+- Added indexes for execution/node lookup, symbol/horizon/as-of lookup, status/confidence lookup, perspective/fingerprint lookup, decision/perspective lineage, and symbol/rank evaluation ordering.
+- Added explicit foreign-key lineage from hypothesis evaluations to synthesis decisions with cascade deletion and from evaluations to hypotheses with nullable set-null preservation.
+- Added a targeted database migration contract test that verifies the strategy schema columns, indexes, and foreign-key lineage after migrating to the new revision.
+- Removed temporary command-output files used while validating PostgreSQL connectivity so no local connection details remain in generated artifacts.
+
+Verification:
+
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy . --explicit-package-bases`
+- `uv run alembic heads`
+- PostgreSQL-backed migration contract tests with `POLARIS_TEST_DATABASE_URL` supplied from the running local PostgreSQL container environment.
+- `uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Full Ruff check passed.
+- Full Ruff formatting completed with no file changes.
+- Full project MyPy passed: `Success: no issues found in 1202 source files`.
+- Alembic has a single head: `f2a3b4c5d6e7`.
+- PostgreSQL-backed migration contract tests passed: `7 passed`.
+- Graphify was updated after Python changes.
+- `git diff --check` passed.
+- PostgreSQL was the only live service required for this step; it was already running.

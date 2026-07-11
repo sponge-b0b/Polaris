@@ -90,8 +90,8 @@ async def test_strategy_synthesis_weak_breadth_lowers_execution_readiness() -> N
     assert weak.outputs["features"]["selected_perspective"] == "bull"
     assert weak.outputs["features"]["strategy_hypothesis_evaluations"]
     assert (
-        weak.outputs["features"]["hypothesis_posterior_weights"]["bull"]
-        > (weak.outputs["features"]["hypothesis_posterior_weights"]["bear"])
+        weak.outputs["features"]["hypothesis_synthesis_weights"]["bull"]
+        > (weak.outputs["features"]["hypothesis_synthesis_weights"]["bear"])
     )
     assert weak.outputs["directional_score"] != round(
         weak.outputs["directional_score"],
@@ -256,7 +256,7 @@ async def test_strategy_synthesis_emits_fallback_telemetry_for_missing_upstream(
     assert (
         features["fallback_reason"] == "missing_strategy_perspective_weighting_engine"
     )
-    assert features["hypothesis_posterior_disagreement"] == 1.0
+    assert features["hypothesis_synthesis_disagreement"] == 1.0
     assert [
         evaluation["perspective"]
         for evaluation in features["strategy_hypothesis_evaluations"]
@@ -454,7 +454,7 @@ async def test_strategy_synthesis_emits_completion_and_disagreement_with_trace()
         "strategy_synthesis.high_hypothesis_disagreement"
     )
     assert (
-        disagreement["payload"]["hypothesis_posterior_disagreement"]
+        disagreement["payload"]["hypothesis_synthesis_disagreement"]
         >= disagreement["payload"]["threshold"]
     )
     assert disagreement["context"].trace_id == "trace-1"

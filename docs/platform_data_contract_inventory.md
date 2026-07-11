@@ -103,7 +103,7 @@ slot is the boundary between the runner and the use-case-specific typed result.
 | Fundamental, technical, news, and sentiment agents | Directional score, confidence, regime, signals, risks, recommendations, features, optional full LLM response | Immutable agent-family signal model with typed component collections | 1 for emitted signal/decision; 2 for derived features | Agent signal history, including complete reasoning and LLM text when emitted | `RuntimeNodeOutput.outputs`, PostgreSQL, telemetry/report projections | Agents commonly construct raw dictionaries first instead of serializing typed signals at the runtime boundary |
 | Drawdown, exposure, and volatility risk agents | Risk score/severity, confidence, risk regime, breaches, mitigations, sizing guidance, features | Immutable risk signal hierarchy | 1 | Agent/risk signal history and portfolio risk snapshots | Runtime and persistence serialization | `integration.contracts.risk.RiskSignalContract` is mutable, weakly typed, and owned by the wrong layer |
 | Risk signal builder and aggregator | Normalized risk packets, aggregate risk, constraints, recommendations | Typed risk packet and aggregate result | 1 | Risk signal and portfolio risk persistence | Runtime/persistence boundary | Generic mappings and lists conceal stable component types |
-| Regime agents and strategy synthesis | Regime perspectives, strategy weights, directional result, confidence, risks, recommendations, fallback provenance | Immutable strategy signal and typed perspective/weight records | 1; weighting calculations are class 2 but emitted decision is class 1 | Agent signal and recommendation history | Runtime/persistence/report boundary | `StrategySignalResult` is mutable and contains mutable lists, generic features, and `Any` LLM data; fallback status is not a first-class result field everywhere |
+| Regime agents and strategy synthesis | Shared evidence context, perspective hypotheses, strategy weights, directional result, confidence, risks, recommendations, fallback provenance | Immutable `StrategyEvidenceContext`, `StrategyHypothesis`, `StrategyPerspectiveWeights`, and `StrategySynthesisDecision` records | 1; weighting calculations are class 2 but emitted decision is class 1 | Strategy hypothesis, synthesis decision, evaluation, and recommendation history | Runtime/persistence/report boundary | Legacy generic strategy signal contract has been removed; remaining boundary mappings should stay limited to runtime serialization and persistence projection |
 | Portfolio manager | Allocation intent, target weights, rebalance intent, constraints, risk context | Typed allocation/portfolio intent | 1 | Allocation/recommendation/portfolio state history | Runtime/persistence boundary | Dictionary-first node output and overlap with competing portfolio state contracts |
 | Trade packager | Trade package, sizing, order proposal, rationale, risk annotations | Immutable broker-agnostic trade package and proposal records | 1 | Recommendation/trade setup history | Runtime/persistence/external broker boundary | Internal dictionaries and internal rounding reduce contract safety and precision |
 | Execution risk guard | Approval outcome, rejection/resize/defer reason, validated package, breaches | Typed execution-risk decision | 1 | Recommendation outcome/audit history | Runtime/persistence/execution boundary | Result serialization is valid at the node edge, but the internal package and decision path must remain typed |
@@ -138,9 +138,10 @@ gate and migration/serialization compatibility analysis.
 - Move or replace the mutable risk contract currently under
   `integration/contracts/risk/` with an immutable domain risk model. Integration
   must not own intelligence-domain output contracts.
-- Make `StrategySignalResult` immutable and replace mutable lists, generic feature
-  dictionaries, and `Any` LLM data with typed immutable values or a clearly named
-  serialized boundary payload.
+- Keep strategy ownership on the structured-hypothesis contracts: shared evidence
+  context, perspective hypotheses, pre-synthesis perspective weights, synthesis
+  decisions, and persistence/projected records. Do not reintroduce a generic
+  strategy signal result as a compatibility contract.
 
 ## Persistence coverage audit
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import replace
@@ -177,6 +178,13 @@ class RagGraphEntityExtractor:
                         relationship_type=relationship_type,
                     )
                 )
+
+        _append_strategy_relationships(
+            document=document,
+            primary_id=primary_id,
+            nodes=nodes,
+            relationships=relationships,
+        )
 
         return GraphProjection(
             document_id=document.document_id,
@@ -504,6 +512,254 @@ class Neo4jGraphRetriever:
         return tuple(contexts)
 
 
+def _append_strategy_relationships(
+    *,
+    document: RagDocumentRecord,
+    primary_id: str,
+    nodes: list[GraphNode],
+    relationships: list[GraphRelationship],
+) -> None:
+    if document.source_table == "strategy_synthesis_decisions":
+        _append_strategy_decision_relationships(
+            document=document,
+            primary_id=primary_id,
+            nodes=nodes,
+            relationships=relationships,
+        )
+        return
+    if document.source_table == "strategy_hypotheses":
+        _append_strategy_hypothesis_evidence_relationships(
+            hypothesis_node_id=primary_id,
+            metadata=document.metadata,
+            source_id=document.source_id,
+            nodes=nodes,
+            relationships=relationships,
+        )
+
+
+def _append_strategy_decision_relationships(
+    *,
+    document: RagDocumentRecord,
+    primary_id: str,
+    nodes: list[GraphNode],
+    relationships: list[GraphRelationship],
+) -> None:
+    selected_hypothesis_id = _metadata_string(
+        document.metadata,
+        "selected_hypothesis_id",
+    )
+    evaluations_by_hypothesis = {
+        hypothesis_id: evaluation
+        for evaluation in _metadata_objects(document.metadata, "related_evaluations")
+        if (hypothesis_id := _metadata_object_string(evaluation, "hypothesis_id"))
+    }
+    for hypothesis in _metadata_objects(document.metadata, "related_hypotheses"):
+        hypothesis_id = _metadata_object_string(hypothesis, "hypothesis_id")
+        if hypothesis_id is None:
+            continue
+        hypothesis_node_id = f"strategy_hypothesis:{hypothesis_id}"
+        nodes.append(
+            GraphNode(
+                node_id=hypothesis_node_id,
+                node_type=GraphNodeType.STRATEGY,
+                properties=_strategy_hypothesis_node_properties(hypothesis),
+            )
+        )
+        evaluation = evaluations_by_hypothesis.get(hypothesis_id, {})
+        relationships.append(
+            GraphRelationship(
+                start_node_id=primary_id,
+                end_node_id=hypothesis_node_id,
+                relationship_type=GraphRelationshipType.DECISION_EVALUATED_HYPOTHESIS,
+                properties=_strategy_relationship_properties(evaluation),
+            )
+        )
+        if hypothesis_id == selected_hypothesis_id:
+            relationships.append(
+                GraphRelationship(
+                    start_node_id=primary_id,
+                    end_node_id=hypothesis_node_id,
+                    relationship_type=(
+                        GraphRelationshipType.DECISION_SELECTED_HYPOTHESIS
+                    ),
+                    properties=_strategy_relationship_properties(evaluation),
+                )
+            )
+        _append_strategy_hypothesis_evidence_relationships(
+            hypothesis_node_id=hypothesis_node_id,
+            metadata=hypothesis,
+            source_id=hypothesis_id,
+            nodes=nodes,
+            relationships=relationships,
+        )
+
+
+def _append_strategy_hypothesis_evidence_relationships(
+    *,
+    hypothesis_node_id: str,
+    metadata: JsonObject,
+    source_id: str,
+    nodes: list[GraphNode],
+    relationships: list[GraphRelationship],
+) -> None:
+    for index, evidence in enumerate(
+        _metadata_objects(metadata, "supporting_evidence"),
+        start=1,
+    ):
+        node_id = _strategy_evidence_node_id(source_id, "supporting", index)
+        nodes.append(_strategy_evidence_node(node_id, evidence, "supporting_evidence"))
+        relationships.append(
+            GraphRelationship(
+                start_node_id=hypothesis_node_id,
+                end_node_id=node_id,
+                relationship_type=GraphRelationshipType.HYPOTHESIS_SUPPORTED_BY,
+            )
+        )
+    for index, evidence in enumerate(
+        _metadata_objects(metadata, "contradicting_evidence"),
+        start=1,
+    ):
+        node_id = _strategy_evidence_node_id(source_id, "contradicting", index)
+        nodes.append(
+            _strategy_evidence_node(node_id, evidence, "contradicting_evidence")
+        )
+        relationships.append(
+            GraphRelationship(
+                start_node_id=hypothesis_node_id,
+                end_node_id=node_id,
+                relationship_type=GraphRelationshipType.HYPOTHESIS_CONTRADICTED_BY,
+            )
+        )
+    for index, condition in enumerate(
+        _metadata_objects(metadata, "invalidation_conditions"),
+        start=1,
+    ):
+        node_id = _strategy_evidence_node_id(source_id, "invalidation", index)
+        nodes.append(
+            _strategy_evidence_node(node_id, condition, "invalidation_condition")
+        )
+        relationships.append(
+            GraphRelationship(
+                start_node_id=hypothesis_node_id,
+                end_node_id=node_id,
+                relationship_type=GraphRelationshipType.HYPOTHESIS_INVALIDATED_BY,
+            )
+        )
+
+
+def _strategy_hypothesis_node_properties(metadata: JsonObject) -> JsonObject:
+    hypothesis_id = _metadata_object_string(metadata, "hypothesis_id") or "unknown"
+    perspective = _metadata_object_string(metadata, "perspective")
+    symbol = _metadata_object_string(metadata, "symbol")
+    return {
+        "strategy_entity_type": "hypothesis",
+        "source_table": "strategy_hypotheses",
+        "source_id": hypothesis_id,
+        "title": f"Strategy Hypothesis {hypothesis_id}",
+        "symbol": symbol,
+        "perspective": perspective,
+        "confidence": _metadata_object_scalar(metadata, "confidence"),
+        "hypothesis_strength": _metadata_object_scalar(
+            metadata,
+            "hypothesis_strength",
+        ),
+        "directional_bias": _metadata_object_scalar(metadata, "directional_bias"),
+        "invalidated": _metadata_object_scalar(metadata, "invalidated"),
+        "search_text": " ".join(
+            part
+            for part in (
+                "strategy hypothesis",
+                symbol,
+                perspective,
+                hypothesis_id,
+            )
+            if part
+        ).lower(),
+    }
+
+
+def _strategy_evidence_node(
+    node_id: str,
+    metadata: JsonObject,
+    entity_type: str,
+) -> GraphNode:
+    title = _strategy_evidence_title(metadata, entity_type)
+    return GraphNode(
+        node_id=node_id,
+        node_type=GraphNodeType.STRATEGY,
+        properties={
+            "strategy_entity_type": entity_type,
+            "title": title,
+            "source": _metadata_object_string(metadata, "source"),
+            "name": _metadata_object_string(metadata, "name"),
+            "description": _metadata_object_string(metadata, "description"),
+            "claim": _metadata_object_string(metadata, "claim"),
+            "condition": _metadata_object_string(metadata, "condition"),
+            "operator": _metadata_object_string(metadata, "operator"),
+            "observed_value": _metadata_object_scalar(metadata, "observed_value"),
+            "threshold": _metadata_object_scalar(metadata, "threshold"),
+            "search_text": f"{entity_type} {title}".lower(),
+        },
+    )
+
+
+def _strategy_evidence_title(metadata: JsonObject, fallback: str) -> str:
+    for key in ("name", "description", "claim", "condition"):
+        value = _metadata_object_string(metadata, key)
+        if value is not None:
+            return value
+    return fallback.replace("_", " ").title()
+
+
+def _strategy_evidence_node_id(
+    source_id: str,
+    kind: str,
+    index: int,
+) -> str:
+    return f"strategy_evidence:{_slug(source_id)}:{kind}:{index}"
+
+
+def _strategy_relationship_properties(metadata: JsonObject) -> JsonObject:
+    return {
+        key: value
+        for key in (
+            "evaluation_id",
+            "perspective",
+            "perspective_weight",
+            "synthesis_weight",
+            "candidate_score",
+            "contradiction_burden",
+            "assumption_support",
+            "rank",
+            "selection_status",
+            "invalidated",
+        )
+        if (value := _metadata_object_scalar(metadata, key)) is not None
+    }
+
+
+def _metadata_objects(metadata: JsonObject, key: str) -> tuple[JsonObject, ...]:
+    value = metadata.get(key)
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return ()
+    return tuple(item for item in value if isinstance(item, Mapping))
+
+
+def _metadata_object_string(metadata: JsonObject, key: str) -> str | None:
+    value = metadata.get(key)
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _metadata_object_scalar(metadata: JsonObject, key: str) -> JsonValue:
+    value = metadata.get(key)
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    return None
+
+
 def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:
     table = document.source_table
     if table == "agent_signals":
@@ -528,6 +784,8 @@ def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:
         return GraphNodeType.NEWS_THEME
     if table == "sentiment_snapshots":
         return GraphNodeType.SENTIMENT_SNAPSHOT
+    if table in {"strategy_synthesis_decisions", "strategy_hypotheses"}:
+        return GraphNodeType.STRATEGY
     if table.startswith("backtest_"):
         return GraphNodeType.STRATEGY
     return GraphNodeType.REPORT

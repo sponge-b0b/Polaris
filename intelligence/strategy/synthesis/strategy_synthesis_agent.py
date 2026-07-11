@@ -247,11 +247,11 @@ class StrategySynthesisAgent(RuntimeNode):
                         evaluation.perspective.value: evaluation.candidate_score
                         for evaluation in decision.evaluations
                     },
-                    "hypothesis_posterior_weights": {
-                        evaluation.perspective.value: evaluation.posterior_weight
+                    "hypothesis_synthesis_weights": {
+                        evaluation.perspective.value: evaluation.synthesis_weight
                         for evaluation in decision.evaluations
                     },
-                    "hypothesis_posterior_disagreement": 1.0,
+                    "hypothesis_synthesis_disagreement": 1.0,
                     "selected_hypothesis": None,
                     "selected_perspective": None,
                     "selection_status": decision.selection_status.value,
@@ -304,7 +304,7 @@ class StrategySynthesisAgent(RuntimeNode):
             )
 
         disagreement = _float_value(
-            features.get("hypothesis_posterior_disagreement"),
+            features.get("hypothesis_synthesis_disagreement"),
             default=0.0,
         )
         if disagreement >= HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD:
@@ -315,10 +315,10 @@ class StrategySynthesisAgent(RuntimeNode):
                 confidence=confidence,
                 payload={
                     "symbol": symbol,
-                    "hypothesis_posterior_disagreement": disagreement,
+                    "hypothesis_synthesis_disagreement": disagreement,
                     "threshold": HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD,
-                    "posterior_weights": dict(
-                        _mapping(features.get("hypothesis_posterior_weights"))
+                    "synthesis_weights": dict(
+                        _mapping(features.get("hypothesis_synthesis_weights"))
                     ),
                     "selected_perspective": _optional_string_value(
                         features.get("selected_perspective")
@@ -592,7 +592,7 @@ def _degraded_neutral_decision(reason: str) -> StrategySynthesisDecision:
             assumption_support=0.0,
             invalidated=True,
             candidate_score=0.0,
-            posterior_weight=0.0,
+            synthesis_weight=0.0,
             rank=index,
             selection_status=StrategySynthesisSelectionStatus.INVALIDATED,
             degraded_reasons=degraded_reasons,

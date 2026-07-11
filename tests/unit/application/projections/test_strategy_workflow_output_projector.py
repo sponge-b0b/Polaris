@@ -271,7 +271,7 @@ def _decision_payload() -> dict[str, object]:
                 "assumption_support": 0.8,
                 "invalidated": False,
                 "candidate_score": 0.74,
-                "posterior_weight": 1.0,
+                "synthesis_weight": 1.0,
                 "rank": 1,
                 "selection_status": "selected",
                 "degraded_reasons": [],

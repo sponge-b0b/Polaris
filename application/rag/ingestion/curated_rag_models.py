@@ -22,6 +22,8 @@ from core.storage.persistence.recommendations import RecommendationRationaleReco
 from core.storage.persistence.recommendations import RecommendationRecord
 from core.storage.persistence.reports import ReportRecord
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
+from core.storage.persistence.strategy import StrategyHypothesisRecord
+from core.storage.persistence.strategy import StrategyPersistenceBundle
 
 CuratedRagSource: TypeAlias = (
     ReportRecord
@@ -41,6 +43,8 @@ CuratedRagSource: TypeAlias = (
     | BacktestPortfolioSnapshotRecord
     | BacktestMetricRecord
     | BacktestArtifactRecord
+    | StrategyHypothesisRecord
+    | StrategyPersistenceBundle
 )
 
 

@@ -97,7 +97,7 @@ def strategy_evaluation() -> StrategyHypothesisEvaluationRecord:
         assumption_support=0.777654321098,
         invalidated=False,
         candidate_score=0.695678901234,
-        posterior_weight=0.684567890123,
+        synthesis_weight=0.684567890123,
         rank=1,
         selection_status="selected",
         evidence_fingerprint="fingerprint-1",
@@ -106,7 +106,7 @@ def strategy_evaluation() -> StrategyHypothesisEvaluationRecord:
         horizon="swing",
         as_of=timestamp(),
         degraded_reasons=("market_events_partial",),
-        metadata={"selection_reason": "highest_posterior_weight"},
+        metadata={"selection_reason": "highest_synthesis_weight"},
     )
 
 

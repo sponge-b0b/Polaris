@@ -46,6 +46,7 @@ from application.rag.ingestion.rag_source_loaders import PortfolioRagSourceLoade
 from application.rag.ingestion.rag_source_loaders import RecommendationRagSourceLoader
 from application.rag.ingestion.rag_source_loaders import ReportRagSourceLoader
 from application.rag.ingestion.rag_source_loaders import SentimentRagSourceLoader
+from application.rag.ingestion.rag_source_loaders import StrategyRagSourceLoader
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
 from application.rag.quality.rag_quality_service import RagQualityService
 from application.rag.retrieval.rag_retriever import RagRetriever
@@ -83,6 +84,9 @@ from core.storage.persistence.repositories.postgres_report_persistence_repositor
 )
 from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (
     PostgresSentimentPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (
+    PostgresStrategyPersistenceRepository,
 )
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
@@ -340,6 +344,7 @@ class RagApplicationDIProvider(Provider):
         sentiment_repository: PostgresSentimentPersistenceRepository,
         portfolio_repository: PostgresPortfolioExpansionPersistenceRepository,
         backtest_repository: PostgresBacktestPersistenceRepository,
+        strategy_repository: PostgresStrategyPersistenceRepository,
     ) -> CuratedRagSourceLoaderRegistry:
         return CuratedRagSourceLoaderRegistry(
             (
@@ -352,6 +357,7 @@ class RagApplicationDIProvider(Provider):
                 SentimentRagSourceLoader(sentiment_repository),
                 PortfolioRagSourceLoader(portfolio_repository),
                 BacktestRagSourceLoader(backtest_repository),
+                StrategyRagSourceLoader(strategy_repository),
             )
         )
 

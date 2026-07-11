@@ -149,7 +149,7 @@ def synthesize_strategy(
             ),
         )
     )
-    bull_weight, bear_weight, sideways_weight = posterior_weights(evaluations)
+    bull_weight, bear_weight, sideways_weight = synthesis_weights(evaluations)
     event_pressure = _clamp(
         market_events.market_pressure_score,
         lower=0.0,
@@ -200,7 +200,7 @@ def synthesize_strategy(
         event_volatility=event_volatility,
     )
     breadth_uncertainty_modifier = breadth_uncertainty(inputs.breadth_context)
-    posterior_disagreement = hypothesis_posterior_disagreement(evaluations)
+    synthesis_disagreement = hypothesis_synthesis_disagreement(evaluations)
     uncertainty = _clamp(
         calculate_uncertainty(
             net_bias=net_bias,
@@ -211,7 +211,7 @@ def synthesize_strategy(
         )
         + breadth_uncertainty_modifier
         + event_uncertainty_modifier
-        + (posterior_disagreement * 0.15),
+        + (synthesis_disagreement * 0.15),
         lower=0.0,
         upper=1.0,
     )
@@ -387,11 +387,11 @@ def synthesize_strategy(
                 evaluation.perspective.value: evaluation.candidate_score
                 for evaluation in decision.evaluations
             },
-            "hypothesis_posterior_weights": {
-                evaluation.perspective.value: evaluation.posterior_weight
+            "hypothesis_synthesis_weights": {
+                evaluation.perspective.value: evaluation.synthesis_weight
                 for evaluation in decision.evaluations
             },
-            "hypothesis_posterior_disagreement": posterior_disagreement,
+            "hypothesis_synthesis_disagreement": synthesis_disagreement,
             "selected_hypothesis": (
                 None if selected_hypothesis is None else selected_hypothesis.to_dict()
             ),
@@ -436,7 +436,7 @@ def evaluate_strategy_hypothesis(
         assumption_support=assumption_support,
         invalidated=hypothesis.invalidated,
         candidate_score=candidate_score,
-        posterior_weight=0.0,
+        synthesis_weight=0.0,
         rank=0,
         selection_status=StrategySynthesisSelectionStatus.CANDIDATE,
         degraded_reasons=(
@@ -468,29 +468,29 @@ def hypothesis_assumption_support(hypothesis: StrategyHypothesis) -> float:
     return _clamp(total / len(hypothesis.key_assumptions), lower=0.0, upper=1.0)
 
 
-def posterior_weights(
+def synthesis_weights(
     evaluations: tuple[StrategyHypothesisEvaluation, ...],
 ) -> tuple[float, float, float]:
     by_perspective = {evaluation.perspective: evaluation for evaluation in evaluations}
-    bull = by_perspective[StrategyPerspective.BULL].posterior_weight
-    bear = by_perspective[StrategyPerspective.BEAR].posterior_weight
-    sideways = by_perspective[StrategyPerspective.SIDEWAYS].posterior_weight
+    bull = by_perspective[StrategyPerspective.BULL].synthesis_weight
+    bear = by_perspective[StrategyPerspective.BEAR].synthesis_weight
+    sideways = by_perspective[StrategyPerspective.SIDEWAYS].synthesis_weight
     if bull + bear + sideways <= 0.0:
         return 0.0, 0.0, 1.0
     return bull, bear, sideways
 
 
-def hypothesis_posterior_disagreement(
+def hypothesis_synthesis_disagreement(
     evaluations: tuple[StrategyHypothesisEvaluation, ...],
 ) -> float:
-    valid_posteriors = tuple(
-        evaluation.posterior_weight
+    valid_synthesis_weights = tuple(
+        evaluation.synthesis_weight
         for evaluation in evaluations
         if not evaluation.invalidated
     )
-    if not valid_posteriors:
+    if not valid_synthesis_weights:
         return 1.0
-    return _clamp(1.0 - max(valid_posteriors), lower=0.0, upper=1.0)
+    return _clamp(1.0 - max(valid_synthesis_weights), lower=0.0, upper=1.0)
 
 
 def selected_strategy_hypothesis(

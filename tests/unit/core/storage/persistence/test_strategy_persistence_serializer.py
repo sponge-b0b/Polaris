@@ -73,6 +73,6 @@ def test_strategy_serializer_round_trips_evaluation_lineage() -> None:
     assert record.evaluation_id == "decision-1:evaluation:bull"
     assert record.decision_id == "decision-1"
     assert record.hypothesis_id == "hypothesis-1"
-    assert record.posterior_weight == 0.684567890123
+    assert record.synthesis_weight == 0.684567890123
     assert record.degraded_reasons == ("market_events_partial",)
     assert record.lineage.execution_id == "exec-1"

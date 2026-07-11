@@ -48,7 +48,7 @@ class StrategyHypothesisEvaluation:
     assumption_support: float
     invalidated: bool
     candidate_score: float
-    posterior_weight: float
+    synthesis_weight: float
     rank: int
     selection_status: StrategySynthesisSelectionStatus
     degraded_reasons: tuple[StrategySynthesisDegradedReason, ...] = ()
@@ -85,8 +85,8 @@ class StrategyHypothesisEvaluation:
         )
         object.__setattr__(
             self,
-            "posterior_weight",
-            _validate_unit_interval(self.posterior_weight, "posterior_weight"),
+            "synthesis_weight",
+            _validate_unit_interval(self.synthesis_weight, "synthesis_weight"),
         )
         object.__setattr__(self, "rank", _validate_rank(self.rank))
         object.__setattr__(
@@ -103,7 +103,7 @@ class StrategyHypothesisEvaluation:
     def with_outcome(
         self,
         *,
-        posterior_weight: float,
+        synthesis_weight: float,
         rank: int,
         selection_status: StrategySynthesisSelectionStatus,
         degraded_reasons: tuple[StrategySynthesisDegradedReason, ...] | None = None,
@@ -115,7 +115,7 @@ class StrategyHypothesisEvaluation:
             assumption_support=self.assumption_support,
             invalidated=self.invalidated,
             candidate_score=self.candidate_score,
-            posterior_weight=posterior_weight,
+            synthesis_weight=synthesis_weight,
             rank=rank,
             selection_status=selection_status,
             degraded_reasons=(
@@ -131,7 +131,7 @@ class StrategyHypothesisEvaluation:
             "assumption_support": self.assumption_support,
             "invalidated": self.invalidated,
             "candidate_score": self.candidate_score,
-            "posterior_weight": self.posterior_weight,
+            "synthesis_weight": self.synthesis_weight,
             "rank": self.rank,
             "selection_status": self.selection_status.value,
             "degraded_reasons": [reason.value for reason in self.degraded_reasons],
@@ -148,7 +148,7 @@ class StrategyHypothesisEvaluation:
             assumption_support=_required_float(payload, "assumption_support"),
             invalidated=_required_bool(payload, "invalidated"),
             candidate_score=_required_float(payload, "candidate_score"),
-            posterior_weight=_required_float(payload, "posterior_weight"),
+            synthesis_weight=_required_float(payload, "synthesis_weight"),
             rank=_required_int(payload, "rank"),
             selection_status=_parse_selection_status(
                 _required_string(payload, "selection_status")
@@ -334,7 +334,7 @@ class StrategySynthesisDecision:
 def normalize_strategy_hypothesis_evaluations(
     evaluations: tuple[StrategyHypothesisEvaluation, ...],
 ) -> tuple[StrategyHypothesisEvaluation, ...]:
-    """Rank evaluations and normalize valid candidate scores into posteriors."""
+    """Rank evaluations and normalize valid candidate scores into synthesis weights."""
 
     if not evaluations:
         raise ValueError("evaluations must not be empty.")
@@ -365,7 +365,7 @@ def normalize_strategy_hypothesis_evaluations(
     if not valid:
         return tuple(
             evaluation.with_outcome(
-                posterior_weight=0.0,
+                synthesis_weight=0.0,
                 rank=rank_by_perspective[evaluation.perspective],
                 selection_status=StrategySynthesisSelectionStatus.INVALIDATED,
                 degraded_reasons=_append_unique_reason(
@@ -378,20 +378,20 @@ def normalize_strategy_hypothesis_evaluations(
 
     score_total = sum(evaluation.candidate_score for evaluation in valid)
     if score_total <= 0.0:
-        posterior_by_perspective = {
+        synthesis_by_perspective = {
             evaluation.perspective: 1.0 / len(valid) for evaluation in valid
         }
     else:
-        posterior_by_perspective = {
+        synthesis_by_perspective = {
             evaluation.perspective: evaluation.candidate_score / score_total
             for evaluation in valid
         }
 
-    max_posterior = max(posterior_by_perspective.values())
+    max_synthesis = max(synthesis_by_perspective.values())
     top_perspectives = frozenset(
         perspective
-        for perspective, posterior in posterior_by_perspective.items()
-        if isclose(posterior, max_posterior, rel_tol=0.0, abs_tol=1e-12)
+        for perspective, synthesis in synthesis_by_perspective.items()
+        if isclose(synthesis, max_synthesis, rel_tol=0.0, abs_tol=1e-12)
     )
     tied = len(top_perspectives) > 1
 
@@ -401,14 +401,14 @@ def normalize_strategy_hypothesis_evaluations(
         if evaluation.invalidated:
             normalized.append(
                 evaluation.with_outcome(
-                    posterior_weight=0.0,
+                    synthesis_weight=0.0,
                     rank=rank,
                     selection_status=StrategySynthesisSelectionStatus.INVALIDATED,
                 )
             )
             continue
 
-        posterior_weight = posterior_by_perspective[evaluation.perspective]
+        synthesis_weight = synthesis_by_perspective[evaluation.perspective]
         is_top = evaluation.perspective in top_perspectives
         if tied and is_top:
             status = StrategySynthesisSelectionStatus.TIED
@@ -424,7 +424,7 @@ def normalize_strategy_hypothesis_evaluations(
             reasons = evaluation.degraded_reasons
         normalized.append(
             evaluation.with_outcome(
-                posterior_weight=posterior_weight,
+                synthesis_weight=synthesis_weight,
                 rank=rank,
                 selection_status=status,
                 degraded_reasons=reasons,

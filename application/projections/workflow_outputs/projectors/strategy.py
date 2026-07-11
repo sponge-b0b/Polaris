@@ -420,7 +420,7 @@ def _evaluation_records(
                 assumption_support=evaluation.assumption_support,
                 invalidated=evaluation.invalidated,
                 candidate_score=evaluation.candidate_score,
-                posterior_weight=evaluation.posterior_weight,
+                synthesis_weight=evaluation.synthesis_weight,
                 rank=evaluation.rank,
                 selection_status=evaluation.selection_status.value,
                 evidence_fingerprint=(

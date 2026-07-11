@@ -162,6 +162,135 @@ def test_entity_extractor_maps_news_themes_and_risk_constraints() -> None:
     )
 
 
+def test_entity_extractor_projects_strategy_decision_hypothesis_graph() -> None:
+    document = _document(
+        source_table="strategy_synthesis_decisions",
+        source_id="decision-1",
+        source_type="strategy_synthesis_decision",
+        metadata={
+            "symbol": "SPY",
+            "selected_perspective": "bull",
+            "selected_hypothesis_id": "hypothesis-bull",
+            "selection_status": "selected",
+            "related_hypothesis_ids": ["hypothesis-bull", "hypothesis-bear"],
+            "related_hypotheses": [
+                {
+                    "hypothesis_id": "hypothesis-bull",
+                    "symbol": "SPY",
+                    "perspective": "bull",
+                    "confidence": 0.82,
+                    "hypothesis_strength": 0.76,
+                    "directional_bias": 0.65,
+                    "invalidated": False,
+                    "supporting_evidence": [
+                        {
+                            "source": "technical",
+                            "name": "breadth expansion",
+                            "description": "breadth expanded across sectors",
+                        }
+                    ],
+                    "contradicting_evidence": [
+                        {
+                            "source": "macro",
+                            "name": "macro risk",
+                            "description": "macro risk remains elevated",
+                        }
+                    ],
+                    "invalidation_conditions": [
+                        {
+                            "name": "50dma break",
+                            "condition": "SPY closes below 50dma",
+                            "operator": "less_than",
+                            "threshold": 500.0,
+                        }
+                    ],
+                },
+                {
+                    "hypothesis_id": "hypothesis-bear",
+                    "symbol": "SPY",
+                    "perspective": "bear",
+                    "confidence": 0.35,
+                    "hypothesis_strength": 0.32,
+                    "directional_bias": -0.4,
+                    "invalidated": False,
+                },
+            ],
+            "related_evaluations": [
+                {
+                    "evaluation_id": "evaluation-bull",
+                    "hypothesis_id": "hypothesis-bull",
+                    "perspective": "bull",
+                    "perspective_weight": 0.5,
+                    "synthesis_weight": 0.7,
+                    "candidate_score": 0.75,
+                    "contradiction_burden": 0.1,
+                    "assumption_support": 0.8,
+                    "rank": 1,
+                    "selection_status": "selected",
+                    "invalidated": False,
+                }
+            ],
+        },
+    )
+
+    projection = RagGraphEntityExtractor().extract(document)
+
+    relationship_types = {
+        relationship.relationship_type for relationship in projection.relationships
+    }
+    assert GraphRelationshipType.DECISION_EVALUATED_HYPOTHESIS in relationship_types
+    assert GraphRelationshipType.DECISION_SELECTED_HYPOTHESIS in relationship_types
+    assert GraphRelationshipType.HYPOTHESIS_SUPPORTED_BY in relationship_types
+    assert GraphRelationshipType.HYPOTHESIS_CONTRADICTED_BY in relationship_types
+    assert GraphRelationshipType.HYPOTHESIS_INVALIDATED_BY in relationship_types
+    assert {node.node_id for node in projection.nodes} >= {
+        "strategy_hypothesis:hypothesis-bull",
+        "strategy_hypothesis:hypothesis-bear",
+        "strategy_evidence:hypothesis-bull:supporting:1",
+        "strategy_evidence:hypothesis-bull:contradicting:1",
+        "strategy_evidence:hypothesis-bull:invalidation:1",
+    }
+    selected_relationship = next(
+        relationship
+        for relationship in projection.relationships
+        if relationship.relationship_type
+        is GraphRelationshipType.DECISION_SELECTED_HYPOTHESIS
+    )
+    assert selected_relationship.end_node_id == "strategy_hypothesis:hypothesis-bull"
+    assert selected_relationship.properties["synthesis_weight"] == 0.7
+
+
+def test_entity_extractor_projects_standalone_strategy_hypothesis_evidence() -> None:
+    document = _document(
+        source_table="strategy_hypotheses",
+        source_id="hypothesis-bull",
+        source_type="strategy_hypothesis",
+        metadata={
+            "symbol": "SPY",
+            "perspective": "bull",
+            "supporting_evidence": [
+                {"name": "breadth expansion", "description": "breadth expanded"}
+            ],
+            "contradicting_evidence": [
+                {"name": "macro risk", "description": "macro risk remains elevated"}
+            ],
+            "invalidation_conditions": [
+                {"name": "50dma break", "condition": "SPY closes below 50dma"}
+            ],
+        },
+    )
+
+    projection = RagGraphEntityExtractor().extract(document)
+
+    assert {
+        relationship.relationship_type for relationship in projection.relationships
+    } >= {
+        GraphRelationshipType.HYPOTHESIS_SUPPORTED_BY,
+        GraphRelationshipType.HYPOTHESIS_CONTRADICTED_BY,
+        GraphRelationshipType.HYPOTHESIS_INVALIDATED_BY,
+    }
+
+
 @pytest.mark.asyncio
 async def test_graph_processor_queues_processes_and_rebuilds_from_postgres_jobs() -> (
     None

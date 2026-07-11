@@ -22,7 +22,7 @@ async def test_portfolio_manager_rejects_restricted_account_state() -> None:
                 directional_score=0.25,
                 confidence=0.80,
                 regime="risk_on",
-                posterior_weights={
+                synthesis_weights={
                     StrategyPerspective.BULL: 0.50,
                     StrategyPerspective.BEAR: 0.20,
                     StrategyPerspective.SIDEWAYS: 0.30,
@@ -58,7 +58,7 @@ async def test_portfolio_manager_uses_selected_decision_not_legacy_weights() -> 
                 directional_score=0.0,
                 confidence=0.86,
                 regime="sideways",
-                posterior_weights={
+                synthesis_weights={
                     StrategyPerspective.BULL: 0.05,
                     StrategyPerspective.BEAR: 0.10,
                     StrategyPerspective.SIDEWAYS: 0.85,
@@ -82,7 +82,7 @@ async def test_portfolio_manager_uses_selected_decision_not_legacy_weights() -> 
         "bear": 0.10,
         "sideways": 0.85,
     }
-    assert features["hypothesis_posterior_weights"] == features["target_allocation"]
+    assert features["hypothesis_synthesis_weights"] == features["target_allocation"]
     assert features["selected_perspective"] == "sideways"
     assert features["selection_status"] == "selected"
     assert features["synthesis_execution_blocked"] is False
@@ -99,7 +99,7 @@ async def test_portfolio_manager_rejects_degraded_synthesis_decision() -> None:
                 directional_score=0.0,
                 confidence=0.42,
                 regime="neutral",
-                posterior_weights={
+                synthesis_weights={
                     StrategyPerspective.BULL: 0.34,
                     StrategyPerspective.BEAR: 0.33,
                     StrategyPerspective.SIDEWAYS: 0.33,
@@ -184,7 +184,7 @@ def _decision_payload(
     directional_score: float,
     confidence: float,
     regime: str,
-    posterior_weights: dict[StrategyPerspective, float],
+    synthesis_weights: dict[StrategyPerspective, float],
     selection_status: StrategySynthesisSelectionStatus = (
         StrategySynthesisSelectionStatus.SELECTED
     ),
@@ -193,7 +193,7 @@ def _decision_payload(
     evaluations = tuple(
         _evaluation(
             perspective=perspective,
-            posterior_weight=posterior_weights[perspective],
+            synthesis_weight=synthesis_weights[perspective],
             rank=rank,
             selected_perspective=selected_perspective,
             decision_status=selection_status,
@@ -227,7 +227,7 @@ def _decision_payload(
 def _evaluation(
     *,
     perspective: StrategyPerspective,
-    posterior_weight: float,
+    synthesis_weight: float,
     rank: int,
     selected_perspective: StrategyPerspective | None,
     decision_status: StrategySynthesisSelectionStatus,
@@ -242,12 +242,12 @@ def _evaluation(
         evaluation_status = StrategySynthesisSelectionStatus.REJECTED
     return StrategyHypothesisEvaluation(
         perspective=perspective,
-        perspective_weight=posterior_weight,
+        perspective_weight=synthesis_weight,
         contradiction_burden=0.0,
         assumption_support=1.0,
         invalidated=invalidated,
-        candidate_score=posterior_weight,
-        posterior_weight=posterior_weight,
+        candidate_score=synthesis_weight,
+        synthesis_weight=synthesis_weight,
         rank=rank,
         selection_status=evaluation_status,
         degraded_reasons=degraded_reasons if invalidated else (),

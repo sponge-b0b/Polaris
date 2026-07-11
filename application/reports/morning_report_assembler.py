@@ -2417,9 +2417,9 @@ class MorningReportAssembler:
         if not evaluations:
             return ()
 
-        posterior_weights = safe_mapping(
+        synthesis_weights = safe_mapping(
             strategy_features.get(
-                "hypothesis_posterior_weights",
+                "hypothesis_synthesis_weights",
             )
         )
         candidate_scores = safe_mapping(
@@ -2446,11 +2446,11 @@ class MorningReportAssembler:
                 perspective,
                 {},
             )
-            posterior_weight = first_score(
+            synthesis_weight = first_score(
                 evaluation.get(
-                    "posterior_weight",
+                    "synthesis_weight",
                 ),
-                posterior_weights.get(
+                synthesis_weights.get(
                     perspective,
                 ),
             )
@@ -2489,7 +2489,7 @@ class MorningReportAssembler:
                 ReportTableRow(
                     label=f"{format_regime(perspective)} Case",
                     value=(
-                        f"Posterior {format_confidence(posterior_weight)} | "
+                        f"Synthesis {format_confidence(synthesis_weight)} | "
                         f"Candidate {format_score(candidate_score)} | "
                         f"Rank {rank_text} | Status {status}"
                     ),

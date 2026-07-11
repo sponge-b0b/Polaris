@@ -293,7 +293,7 @@ def _golden_scenario(
                 expected="bull",
             ),
             BacktestExpectedOutcome(
-                target="strategy.strategy_synthesis_decision.evaluations.0.posterior_weight",
+                target="strategy.strategy_synthesis_decision.evaluations.0.synthesis_weight",
                 expectation_type="equals",
                 expected="0.62",
             ),
@@ -303,7 +303,7 @@ def _golden_scenario(
                 expected="0.22",
             ),
             BacktestExpectedOutcome(
-                target="strategy.hypothesis_posterior_weights.bull",
+                target="strategy.hypothesis_synthesis_weights.bull",
                 expectation_type="equals",
                 expected="0.62",
             ),
@@ -381,7 +381,7 @@ def _strategy_case_expected_outcomes(
             expected=expected_selected,
         ),
         BacktestExpectedOutcome(
-            target="strategy.hypothesis_posterior_weights.bull",
+            target="strategy.hypothesis_synthesis_weights.bull",
             expectation_type="equals",
             expected="0.62" if expected_selected == "bull" else "0.20",
         ),
@@ -503,13 +503,13 @@ def _strategy_output_for_case(case_name: str) -> dict[str, Any]:
     status = str(case_config["selection_status"])
     degraded_reasons = tuple(case_config["degraded_reasons"])
     candidate_scores = dict(case_config["candidate_scores"])
-    posterior_weights = dict(case_config["posterior_weights"])
+    synthesis_weights = dict(case_config["synthesis_weights"])
     invalidated_perspectives = tuple(case_config["invalidated_perspectives"])
     evaluations = _strategy_evaluations(
         selected_perspective=selected_perspective,
         status=status,
         candidate_scores=candidate_scores,
-        posterior_weights=posterior_weights,
+        synthesis_weights=synthesis_weights,
         invalidated_perspectives=invalidated_perspectives,
     )
     selected_hypothesis = (
@@ -540,7 +540,7 @@ def _strategy_output_for_case(case_name: str) -> dict[str, Any]:
                 "strategy_synthesis_decision": decision,
                 "strategy_hypothesis_evaluations": evaluations,
                 "hypothesis_candidate_scores": candidate_scores,
-                "hypothesis_posterior_weights": posterior_weights,
+                "hypothesis_synthesis_weights": synthesis_weights,
                 "selected_hypothesis": selected_hypothesis,
                 "selected_perspective": selected_perspective,
                 "selection_status": status,
@@ -561,7 +561,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "bullish",
             "uncertainty": "0.20",
             "candidate_scores": {"bull": "0.74", "bear": "0.22", "sideways": "0.32"},
-            "posterior_weights": {"bull": "0.62", "bear": "0.18", "sideways": "0.20"},
+            "synthesis_weights": {"bull": "0.62", "bear": "0.18", "sideways": "0.20"},
             "degraded_reasons": (),
             "invalidated_perspectives": (),
             "thesis": "Bullish hypothesis selected from deterministic trend evidence.",
@@ -574,7 +574,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "bearish",
             "uncertainty": "0.22",
             "candidate_scores": {"bull": "0.20", "bear": "0.72", "sideways": "0.30"},
-            "posterior_weights": {"bull": "0.20", "bear": "0.60", "sideways": "0.20"},
+            "synthesis_weights": {"bull": "0.20", "bear": "0.60", "sideways": "0.20"},
             "degraded_reasons": (),
             "invalidated_perspectives": (),
             "thesis": "Bearish hypothesis selected from deterministic downside evidence.",
@@ -587,7 +587,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "sideways",
             "uncertainty": "0.30",
             "candidate_scores": {"bull": "0.28", "bear": "0.25", "sideways": "0.69"},
-            "posterior_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.60"},
+            "synthesis_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.60"},
             "degraded_reasons": (),
             "invalidated_perspectives": (),
             "thesis": "Sideways hypothesis selected from deterministic range evidence.",
@@ -600,7 +600,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "conflicted",
             "uncertainty": "0.60",
             "candidate_scores": {"bull": "0.50", "bear": "0.50", "sideways": "0.20"},
-            "posterior_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.20"},
+            "synthesis_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.20"},
             "degraded_reasons": ("tied_candidates",),
             "invalidated_perspectives": (),
             "thesis": "No strategy selected because deterministic evidence is tied.",
@@ -613,7 +613,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "insufficient_data",
             "uncertainty": "0.65",
             "candidate_scores": {"bull": "0.00", "bear": "0.00", "sideways": "0.00"},
-            "posterior_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.20"},
+            "synthesis_weights": {"bull": "0.20", "bear": "0.20", "sideways": "0.20"},
             "degraded_reasons": ("missing_hypothesis",),
             "invalidated_perspectives": (),
             "thesis": "No strategy selected because deterministic evidence is missing.",
@@ -626,7 +626,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "regime": "bearish",
             "uncertainty": "0.24",
             "candidate_scores": {"bull": "0.80", "bear": "0.66", "sideways": "0.30"},
-            "posterior_weights": {"bull": "0.20", "bear": "0.58", "sideways": "0.22"},
+            "synthesis_weights": {"bull": "0.20", "bear": "0.58", "sideways": "0.22"},
             "degraded_reasons": (),
             "invalidated_perspectives": ("bull",),
             "thesis": "Bearish hypothesis selected after bullish hypothesis invalidation.",
@@ -640,7 +640,7 @@ def _strategy_evaluations(
     selected_perspective: object,
     status: str,
     candidate_scores: Mapping[str, object],
-    posterior_weights: Mapping[str, object],
+    synthesis_weights: Mapping[str, object],
     invalidated_perspectives: tuple[object, ...],
 ) -> list[dict[str, Any]]:
     evaluations: list[dict[str, Any]] = []
@@ -657,8 +657,8 @@ def _strategy_evaluations(
                 "perspective": perspective,
                 "rank": rank,
                 "candidate_score": candidate_scores[perspective],
-                "posterior_weight": posterior_weights[perspective],
-                "perspective_weight": posterior_weights[perspective],
+                "synthesis_weight": synthesis_weights[perspective],
+                "perspective_weight": synthesis_weights[perspective],
                 "likelihood_score": candidate_scores[perspective],
                 "evidence_score": candidate_scores[perspective],
                 "risk_adjustment": "0.05",

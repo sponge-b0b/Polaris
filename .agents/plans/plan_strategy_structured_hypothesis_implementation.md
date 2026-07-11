@@ -132,7 +132,7 @@
       × assumption_support
       × (1 - contradiction_burden)
 
-  A hypothesis with a breached hard invalidation condition receives a candidate score of zero. Candidate scores are normalized into posterior perspective weights.
+  A hypothesis with a breached hard invalidation condition receives a candidate score of zero. Candidate scores are normalized into synthesis perspective weights.
 
   Synthesis then applies existing risk, breadth, volatility, market-event, and portfolio constraints without duplicating evidence already incorporated by the hypotheses.
 
@@ -143,7 +143,7 @@
   - confidence and uncertainty
   - execution readiness
   - signal quality
-  - pre-synthesis and posterior perspective weights
+  - pre-synthesis and synthesis perspective weights
   - evaluations of all three hypotheses
   - selected hypothesis
   - decisive evidence
@@ -244,7 +244,7 @@
   ### Step 11 — Add synthesis evaluation contracts
 
   - Implement StrategyHypothesisEvaluation and StrategySynthesisDecision.
-  - Include perspective weight, contradiction burden, assumption support, invalidation state, candidate score, posterior weight, rank, and selection status.
+  - Include perspective weight, contradiction burden, assumption support, invalidation state, candidate score, synthesis weight, rank, and selection status.
   - Add typed degraded-decision reasons.
 
   Verification: Contract tests cover normalization, all-invalidated hypotheses, ties, and serialization.
@@ -253,9 +253,9 @@
 
   - Make the policy require Bull, Bear, and Sideways hypotheses.
   - Apply the canonical candidate-score formula.
-  - Normalize scores into posterior weights.
+  - Normalize scores into synthesis weights.
   - Retain valid existing breadth, risk, market-event, and portfolio constraints as adjudication policies.
-  - Compute uncertainty from posterior disagreement and existing market uncertainty.
+  - Compute uncertainty from synthesis disagreement and existing market uncertainty.
   - Generate deterministic thesis and decision explanations; do not give an LLM decision authority.
 
   Verification: Modifying any hypothesis changes its evaluation and can change the selected strategy.
@@ -293,7 +293,7 @@
 
   ### Step 15 — Update the portfolio manager
 
-  - Consume the selected synthesis decision and posterior weights.
+  - Consume the selected synthesis decision and synthesis weights.
   - Use directional_bias, not hypothesis strength, for allocation direction.
   - Reject execution readiness when synthesis is degraded or materially unresolved.
   - Preserve broker independence.
@@ -320,7 +320,7 @@
 
   ### Step 17 — Extend deterministic backtesting verification
 
-  - Add assertion paths for hypotheses, evidence, assumptions, invalidations, perspective weights, posteriors, and selected strategy.
+  - Add assertion paths for hypotheses, evidence, assumptions, invalidations, perspective weights, synthesis weights, and selected strategy.
   - Add deterministic bullish, bearish, sideways, conflict, missing-data, and invalidation scenarios.
   - Ensure replaying identical evidence produces byte-equivalent strategy decisions after canonical serialization.
 
@@ -417,7 +417,7 @@
   - structured hypotheses instead of debate
   - shared immutable evidence context
   - no agent-to-agent communication
-  - pre-synthesis perspective weighting versus posterior weighting
+  - pre-synthesis perspective weighting versus synthesis weighting
   - synthesis as the only hypothesis-comparison authority
   - risk placement before synthesis and execution risk after packaging
   - workflow evidence versus canonical persistence versus RAG projection
@@ -467,7 +467,7 @@
   - Synthesis explicitly evaluates all three hypotheses.
   - Missing hypotheses produce an explicit degraded decision.
   - Identical inputs produce identical hypotheses and synthesis decisions.
-  - Portfolio construction consumes posterior decision weights.
+  - Portfolio construction consumes synthesis decision weights.
   - Reports explain the selected and rejected cases.
   - Strategy persistence has one canonical writer through workflow-output projection.
   - Curated RAG records originate from typed PostgreSQL records, not raw runtime dictionaries.
@@ -783,9 +783,9 @@ Completed:
 - Renamed the Dishka provider method to `provide_perspective_weighting_agent` so production names consistently describe perspective weighting rather than generic weighting.
 - Added `intelligence/strategy/synthesis/contracts.py` with immutable typed `StrategyHypothesisEvaluation` and `StrategySynthesisDecision` contracts.
 - Added typed `StrategySynthesisSelectionStatus` and `StrategySynthesisDegradedReason` enums for selected, rejected, invalidated, tied, and degraded decisions.
-- Added deterministic evaluation normalization that ranks candidates, assigns posterior weights, handles all-invalidated candidates, and marks tied top candidates as degraded.
+- Added deterministic evaluation normalization that ranks candidates, assigns synthesis weights, handles all-invalidated candidates, and marks tied top candidates as degraded.
 - Renamed the existing runtime synthesis policy output class to `_RuntimeStrategySynthesisOutput` so the new canonical `StrategySynthesisDecision` contract can be introduced without changing Step 12 synthesis behavior early.
-- Added focused contract tests for posterior normalization, all-invalidated decisions, tied candidates, and deterministic serialization/replay.
+- Added focused contract tests for synthesis normalization, all-invalidated decisions, tied candidates, and deterministic serialization/replay.
 
 Verification:
 
@@ -811,9 +811,9 @@ Completed:
 
 - Refactored `StrategySynthesisInputs.from_runtime_payloads()` so strategy synthesis now requires typed serialized `strategy_hypothesis` payloads from `bull_agent`, `bear_agent`, and `sideways_agent` in addition to the canonical `strategy_perspective_weighting_engine` output.
 - Added pure synthesis evaluation helpers that compute each hypothesis candidate score from the canonical formula: perspective weight × hypothesis strength × confidence × assumption support × `(1 - contradiction burden)`, with invalidated hypotheses receiving a zero candidate score.
-- Normalized hypothesis candidate scores into posterior weights and used those posterior weights as the base synthesis weights before the existing market-event, risk, portfolio, and breadth adjudication policies are applied.
-- Added posterior-disagreement uncertainty to the existing market uncertainty calculation so conflicting or diffuse hypotheses reduce confidence deterministically.
-- Added deterministic thesis, selected perspective, selection status, degraded reasons, candidate scores, posterior weights, selected hypothesis, and full `StrategySynthesisDecision` details into synthesis features.
+- Normalized hypothesis candidate scores into synthesis weights and used those synthesis weights as the base synthesis weights before the existing market-event, risk, portfolio, and breadth adjudication policies are applied.
+- Added synthesis-disagreement uncertainty to the existing market uncertainty calculation so conflicting or diffuse hypotheses reduce confidence deterministically.
+- Added deterministic thesis, selected perspective, selection status, degraded reasons, candidate scores, synthesis weights, selected hypothesis, and full `StrategySynthesisDecision` details into synthesis features.
 - Updated synthesis tests so mutating a Bull/Bear/Sideways hypothesis now changes synthesis evaluation and can change the selected strategy.
 - Updated breadth-gating and structured-baseline tests to include required typed hypothesis payloads and to assert the new hypothesis-driven synthesis feature contract.
 
@@ -908,10 +908,10 @@ Result:
 Completed:
 
 - Updated `PortfolioManagerAgent` to require and deserialize the canonical `strategy_synthesis_decision` emitted by `StrategySynthesisAgent` instead of treating legacy Bull/Bear/Sideways weights as the portfolio decision contract.
-- Changed portfolio target allocation to use posterior weights from the selected synthesis decision evaluations.
-- Changed portfolio directional intent to use the selected synthesis decision `directional_score`, preserving sideways neutrality even when a sideways hypothesis has high posterior strength.
+- Changed portfolio target allocation to use synthesis weights from the selected synthesis decision evaluations.
+- Changed portfolio directional intent to use the selected synthesis decision `directional_score`, preserving sideways neutrality even when a sideways hypothesis has high synthesis strength.
 - Added synthesis readiness gating so degraded, unresolved, unselected, or reason-bearing synthesis decisions force portfolio execution status to `rejected` and scale factor to `0.0`.
-- Added first-class portfolio output features for selected perspective, selection status, degraded reasons, posterior weights, and synthesis execution blocking.
+- Added first-class portfolio output features for selected perspective, selection status, degraded reasons, synthesis weights, and synthesis execution blocking.
 - Removed remaining `round()` usage from the touched portfolio manager output path so internal precision is preserved.
 - Preserved broker independence; the portfolio manager still consumes runtime node outputs only and does not call providers, clients, or broker APIs.
 - Expanded portfolio-manager tests to cover account restrictions, selected-decision precedence over legacy synthesis fields, sideways neutrality, and degraded synthesis rejection.
@@ -947,7 +947,7 @@ Completed:
 
 - Extended the morning report recommended action plan with structured strategy synthesis content sourced from the canonical `strategy_synthesis_decision` and `selected_hypothesis` payloads.
 - Added first-class report metrics for selected strategy, synthesis status, and synthesis confidence while preserving existing posture, portfolio, trade, guard, scale, quality, and readiness metrics.
-- Added a Bull/Bear/Sideways strategy case-comparison table showing posterior weight, candidate score, rank, and selection status for each hypothesis case.
+- Added a Bull/Bear/Sideways strategy case-comparison table showing synthesis weight, candidate score, rank, and selection status for each hypothesis case.
 - Added labeled report bullets for selected thesis, posture/confidence, decisive supporting evidence, material contradictory evidence, key assumptions, invalidation conditions, unresolved conflicts, and risks/execution readiness.
 - Preserved the complete strategy LLM narrative when present by carrying it into the typed report and adjusting Markdown bullet rendering so narrative text is not truncated or whitespace-collapsed.
 - Expanded assembler and renderer tests to validate the structured strategy rationale, case-comparison rows, and complete untruncated strategy narrative.
@@ -985,7 +985,7 @@ Result:
 Completed:
 
 - Expanded the deterministic backtesting golden fixture so `strategy_synthesis_agent` emits the canonical structured-hypothesis payload used by downstream runtime consumers.
-- Added deterministic verification assertions for strategy synthesis decisions, selected perspective, selection status, hypothesis evaluations, posterior weights, candidate scores, selected hypothesis evidence, contradictory evidence, assumptions, and invalidation conditions.
+- Added deterministic verification assertions for strategy synthesis decisions, selected perspective, selection status, hypothesis evaluations, synthesis weights, candidate scores, selected hypothesis evidence, contradictory evidence, assumptions, and invalidation conditions.
 - Added deterministic scenario coverage for bullish, bearish, sideways, conflict, missing-data, and invalidation cases.
 - Added replay assertions that compare canonical JSON serialization of the strategy decision across repeated deterministic workflow executions.
 - Kept the change test-focused; no production runtime, service, provider, or persistence code was changed for this step.
@@ -1149,3 +1149,177 @@ Notes:
 
 - This completes the coordinated projection handoff from the structured-hypothesis plan into the canonical curated-record projection plan.
 - No separate strategy-owned projection coordinator, subscriber, job table, retry path, or legacy generic strategy payload was introduced.
+
+### Step 22 — Extend curated RAG projection
+
+Completed on 2026-07-11.
+
+Completed:
+
+- Added strategy hypotheses and strategy synthesis persistence bundles to the typed curated RAG source contract.
+- Made `StrategyPersistenceBundle` the primary curated RAG source for `strategy_synthesis_decisions`, with the persisted synthesis decision owning the RAG document identity.
+- Attached evaluated hypotheses and evaluations inside the primary decision document as attributable related records, including hypothesis IDs, rankings, synthesis weights, candidate scores, and selection status.
+- Added first-class RAG text sections for “why,” “why not,” key assumptions, invalidation conditions, supporting evidence, contradicting evidence, risks, recommendations, and decision lineage.
+- Added standalone strategy hypothesis RAG rendering for directly eligible `strategy_hypotheses` records.
+- Added `StrategyRagSourceLoader` and Dishka wiring so curated RAG ingestion resolves persisted strategy records through the strategy persistence repository rather than raw runtime payloads or generic metadata.
+- Added focused tests for primary decision-document attribution, standalone hypothesis RAG content, and strategy source-loader routing.
+
+Verification:
+
+- `uv run ruff check application/rag/ingestion/curated_rag_models.py application/rag/ingestion/curated_rag_structured_sources.py application/rag/ingestion/rag_source_loaders.py application/rag/di.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py --fix`
+- `uv run ruff format application/rag/ingestion/curated_rag_models.py application/rag/ingestion/curated_rag_structured_sources.py application/rag/ingestion/rag_source_loaders.py application/rag/di.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py`
+- `uv run pytest -q tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py tests/unit/application/rag/test_curated_rag_document_builder.py`
+- `uv run mypy application/rag/ingestion application/rag/di.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py --explicit-package-bases`
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused RAG curated-source and source-loader tests passed: `39 passed`.
+- Scoped MyPy passed: `Success: no issues found in 14 source files`.
+- Focused Ruff check and formatting passed.
+- Graphify update completed successfully after Python changes.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for Step 22.
+- Step 23 remains responsible for explicit graph relationships; Step 22 only makes the curated strategy RAG documents and source loading strategy-aware.
+
+### Step 23 — Add graph relationships
+
+Completed:
+
+- Extended the canonical RAG graph relationship contract with explicit strategy relationship types:
+  - `DECISION_EVALUATED_HYPOTHESIS`
+  - `DECISION_SELECTED_HYPOTHESIS`
+  - `HYPOTHESIS_SUPPORTED_BY`
+  - `HYPOTHESIS_CONTRADICTED_BY`
+  - `HYPOTHESIS_INVALIDATED_BY`
+- Added the same relationship whitelist to the Neo4j client boundary so graph upserts remain enum/allow-list driven rather than accepting arbitrary relationship strings.
+- Mapped `strategy_synthesis_decisions` and `strategy_hypotheses` curated records to canonical `Strategy` graph nodes.
+- Extended strategy curated RAG metadata with typed, first-class projection fields for selected hypotheses, related hypotheses, related evaluations, supporting evidence, contradictions, and invalidation conditions.
+- Added graph projection logic that links synthesis decisions to evaluated/selected hypotheses and links hypotheses to support, contradiction, and invalidation evidence nodes without direct strategy-to-Neo4j access.
+- Added unit coverage for strategy decision graph payloads, standalone hypothesis evidence payloads, and Neo4j relationship template allow-list support.
+
+Verification:
+
+- `uv run ruff check application/rag/projections/graph_projection.py application/rag/ingestion/curated_rag_structured_sources.py integration/providers/rag/graph_projection_models.py integration/clients/rag/neo4j_rag_client.py tests/unit/application/rag/test_graph_projection.py tests/unit/integration/clients/rag/test_neo4j_rag_client.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py --fix`
+- `uv run ruff format application/rag/projections/graph_projection.py application/rag/ingestion/curated_rag_structured_sources.py integration/providers/rag/graph_projection_models.py integration/clients/rag/neo4j_rag_client.py tests/unit/application/rag/test_graph_projection.py tests/unit/integration/clients/rag/test_neo4j_rag_client.py`
+- `uv run pytest -q tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py tests/unit/application/rag/test_curated_rag_document_builder.py tests/unit/application/rag/test_graph_projection.py tests/unit/integration/clients/rag/test_neo4j_rag_client.py`
+- `uv run mypy application/rag/projections/graph_projection.py application/rag/ingestion/curated_rag_structured_sources.py application/rag/ingestion/rag_source_loaders.py application/rag/ingestion/curated_rag_models.py application/rag/di.py integration/providers/rag/graph_projection_models.py integration/clients/rag/neo4j_rag_client.py tests/unit/application/rag/test_graph_projection.py tests/unit/integration/clients/rag/test_neo4j_rag_client.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_rag_source_loaders.py --explicit-package-bases`
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused RAG graph and curated-source tests passed: `49 passed`.
+- Scoped MyPy passed: `Success: no issues found in 11 source files`.
+- Focused Ruff check and formatting passed.
+- Graphify update completed after Python changes.
+- `git diff --check` passed.
+
+Notes:
+
+- No live Neo4j service test was run for this step; verification stayed at the required unit projection/client payload boundary.
+- Repowise identified `application/rag/projections/graph_projection.py`, `application/rag/ingestion/curated_rag_structured_sources.py`, and `integration/clients/rag/neo4j_rag_client.py` as churn-heavy hotspots, so the implementation was kept to the Step 23 graph-projection contract only.
+
+### Step 24 — Remove obsolete strategy contracts and paths
+
+Completed:
+
+- Removed the unused generic `StrategySignalResult` contract from `domain/strategy/models/strategy_signal_result.py` after exact-reference audit confirmed no canonical consumer in source, docs, or tests.
+- Added `strategy_evidence_context_from_node_outputs()` as the single canonical runtime-boundary loader for the `StrategyEvidenceContext` emitted by `StrategyEvidenceBuilder`.
+- Refactored Bull, Bear, Sideways, and `StrategyPerspectiveWeightingEngine` nodes to use the canonical loader and removed their duplicate local dictionary parser helpers.
+- Confirmed there were no remaining source/docs/test references to the old `StrategyPriorWeightingEngine`, `StrategyPriorWeights`, `strategy_prior_weighting`, or `prior_weight` names.
+- Updated `docs/platform_data_contract_inventory.md` so strategy ownership reflects structured-hypothesis contracts instead of a removed generic signal result.
+
+Verification:
+
+- `uv run ruff check intelligence/strategy/bull/bull_agent.py intelligence/strategy/bear/bear_agent.py intelligence/strategy/sideways/sideways_agent.py intelligence/strategy/weighting/strategy_perspective_weighting_engine.py intelligence/strategy/hypothesis/runtime.py intelligence/strategy/hypothesis/__init__.py tests/unit/intelligence/strategy/test_strategy_evidence_context.py docs/platform_data_contract_inventory.md --fix`
+- `uv run ruff format intelligence/strategy/bull/bull_agent.py intelligence/strategy/bear/bear_agent.py intelligence/strategy/sideways/sideways_agent.py intelligence/strategy/weighting/strategy_perspective_weighting_engine.py intelligence/strategy/hypothesis/runtime.py intelligence/strategy/hypothesis/__init__.py tests/unit/intelligence/strategy/test_strategy_evidence_context.py`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_evidence_context.py tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_structured_hypothesis_baseline.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py`
+- `uv run mypy intelligence/strategy/bull/bull_agent.py intelligence/strategy/bear/bear_agent.py intelligence/strategy/sideways/sideways_agent.py intelligence/strategy/weighting/strategy_perspective_weighting_engine.py intelligence/strategy/hypothesis/runtime.py intelligence/strategy/hypothesis/__init__.py tests/unit/intelligence/strategy/test_strategy_evidence_context.py --explicit-package-bases`
+- Exact-reference searches across source, docs, and tests for removed generic strategy contracts and old engine names.
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Focused strategy tests passed: `40 passed`.
+- Scoped MyPy passed: `Success: no issues found in 7 source files`.
+- Focused Ruff check and formatting passed.
+- Exact source/docs/test searches found no remaining legacy generic strategy contract or old weighting-engine names.
+- Graphify update completed after Python changes.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for Step 24.
+- The only remaining strategy evidence parser is the new canonical runtime-boundary loader; duplicate per-consumer parsers were removed from the perspective nodes.
+
+### Step 25 — Document the architectural decision
+
+Completed:
+
+- Added `docs/decisions/adr-007-structured-strategy-hypotheses.md` documenting structured hypotheses instead of debate as the canonical strategy architecture.
+- Documented the strategy lifecycle from canonical analytical node outputs through `StrategyEvidenceBuilder`, `StrategyEvidenceContext`, pre-synthesis perspective weighting, Bull/Bear/Sideways hypotheses, synthesis, portfolio management, trade packaging, and execution risk.
+- Documented the authority boundaries: no agent-to-agent debate, no perspective voting, pre-synthesis perspective weights are not final selection, and `StrategySynthesisAgent` is the only hypothesis-comparison authority.
+- Documented the deterministic candidate-score formula, invalidation behavior, synthesis weighting, degraded neutral behavior, and risk placement before synthesis versus execution risk after trade packaging.
+- Documented runtime evidence versus canonical persistence versus RAG/graph projections, including the canonical persisted strategy records and projection boundaries.
+- Updated `docs/platform_architecture_ownership_ledger.md` with explicit strategy ownership rows for evidence context, pre-synthesis perspective weights, perspective hypotheses, and synthesis decisions/evaluations.
+
+Verification:
+
+- `uv run ruff check docs/decisions/adr-007-structured-strategy-hypotheses.md docs/platform_architecture_ownership_ledger.md --fix`
+- `git diff --check`
+- Exact documentation search for the key structured-hypothesis contracts and ownership terms.
+
+Result:
+
+- Documentation and ledger now describe the same implemented strategy lifecycle and ownership boundaries.
+- Ruff reported no Python files under the documentation paths and completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No production code changed in Step 25.
+- No live services were required.
+
+### Post-Step 25 — Canonical synthesis-weight terminology cleanup
+
+Completed:
+
+- Replaced the former strategy evaluation weight terminology with canonical `synthesis_weight` terminology across source, tests, migrations, and documentation.
+- Renamed runtime/output feature keys to `hypothesis_synthesis_weights` and `hypothesis_synthesis_disagreement`.
+- Updated strategy persistence models, serializers, repositories, database models, RAG structured sources, graph projections, morning report rendering, portfolio consumption, and backtest verification fixtures to use `synthesis_weight`.
+- Updated the fresh strategy persistence migration to create `synthesis_weight` directly.
+- Added a destructive cleanup migration that renames the existing live database column to `synthesis_weight` when upgrading an already-created database.
+- Regenerated Graphify output from scratch so generated code-graph artifacts no longer contain the retired terminology.
+
+Verification:
+
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy application/projections/workflow_outputs/projectors/strategy.py application/rag/ingestion/curated_rag_structured_sources.py application/rag/projections/graph_projection.py application/reports/morning_report_assembler.py core/database/models/strategy.py core/storage/persistence/repositories/postgres_strategy_persistence_repository.py core/storage/persistence/serializers/strategy_persistence_serializer.py core/storage/persistence/strategy/strategy_persistence_models.py intelligence/portfolio/management/portfolio_manager_agent.py intelligence/strategy/synthesis/contracts.py intelligence/strategy/synthesis/strategy_synthesis_agent.py intelligence/strategy/synthesis/strategy_synthesis_policy.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py tests/unit/application/projections/test_strategy_workflow_output_projector.py tests/unit/application/persistence/strategy/test_strategy_persistence_service.py tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/rag/test_graph_projection.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/application/services/backtesting/test_backtest_verification.py`
+- Live PostgreSQL migration verification through `.env` credentials: `uv run pytest -q tests/database/test_migrations.py --tb=short`
+- Live PostgreSQL migration apply/check through `.env` credentials: `uv run alembic upgrade head`; `uv run alembic check`
+- Live PostgreSQL schema inspection confirmed only the canonical `synthesis_weight` column remains on `strategy_hypothesis_evaluations`.
+- Full repository exact terminology search found no remaining retired terminology outside excluded virtualenv/git internals.
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Result:
+
+- Ruff passed for the repository.
+- Scoped MyPy passed: `Success: no issues found in 13 source files`.
+- Focused unit tests passed: `71 passed`.
+- Database migration contract tests passed: `7 passed`.
+- Alembic upgrade/check passed with `No new upgrade operations detected` after the migration applied.
+- Full terminology search passed with no remaining matches.
+
+Notes:
+
+- No commit was created as part of this cleanup.
+- The initial hard-coded local database credentials attempted during verification were rejected by PostgreSQL; verification was rerun successfully using the repository `.env` database configuration without writing credentials to source files.

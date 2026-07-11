@@ -135,3 +135,6 @@ def test_cypher_templates_only_accept_typed_graph_enums() -> None:
     assert "relationship:SUPPORTS" in relationship_upsert_query(
         GraphRelationshipType.SUPPORTS.value
     )
+    assert "relationship:DECISION_SELECTED_HYPOTHESIS" in relationship_upsert_query(
+        GraphRelationshipType.DECISION_SELECTED_HYPOTHESIS.value
+    )

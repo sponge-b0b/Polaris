@@ -15,6 +15,7 @@ from core.storage.persistence.rag import RagSourceEligibilityRecord
 from core.storage.persistence.recommendations import RecommendationPersistenceRepository
 from core.storage.persistence.reports import ReportPersistenceRepository
 from core.storage.persistence.sentiment import SentimentPersistenceRepository
+from core.storage.persistence.strategy import StrategyPersistenceRepository
 
 
 class CuratedRagSourceLoader(Protocol):
@@ -247,6 +248,23 @@ class PortfolioRagSourceLoader:
             "allocation_snapshot_id",
             eligibility.source_id,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class StrategyRagSourceLoader:
+    repository: StrategyPersistenceRepository
+
+    @property
+    def source_tables(self) -> tuple[str, ...]:
+        return ("strategy_hypotheses", "strategy_synthesis_decisions")
+
+    async def load(
+        self,
+        eligibility: RagSourceEligibilityRecord,
+    ) -> CuratedRagSource | None:
+        if eligibility.source_table == "strategy_hypotheses":
+            return await self.repository.get_hypothesis(eligibility.source_id)
+        return await self.repository.get_decision_bundle(eligibility.source_id)
 
 
 @dataclass(frozen=True, slots=True)

@@ -190,7 +190,7 @@ class StrategyHypothesisEvaluationRecord:
     assumption_support: float
     invalidated: bool
     candidate_score: float
-    posterior_weight: float
+    synthesis_weight: float
     rank: int
     selection_status: str
     evidence_fingerprint: str
@@ -257,7 +257,7 @@ class StrategyHypothesisEvaluationRecord:
             ("contradiction_burden", self.contradiction_burden),
             ("assumption_support", self.assumption_support),
             ("candidate_score", self.candidate_score),
-            ("posterior_weight", self.posterior_weight),
+            ("synthesis_weight", self.synthesis_weight),
         ):
             _require_score_range(value, field_name)
         if self.rank < 0:

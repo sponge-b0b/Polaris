@@ -45,12 +45,12 @@ def _synthesis_decision_from_features(
     )
 
 
-def _posterior_allocation(
+def _synthesis_allocation(
     decision: StrategySynthesisDecision,
 ) -> dict[str, float]:
     allocation = {"bull": 0.0, "bear": 0.0, "sideways": 0.0}
     for evaluation in decision.evaluations:
-        allocation[evaluation.perspective.value] = evaluation.posterior_weight
+        allocation[evaluation.perspective.value] = evaluation.synthesis_weight
     return allocation
 
 
@@ -151,7 +151,7 @@ class PortfolioManagerAgent(RuntimeNode):
         # TARGET ALLOCATION VECTOR
         # ========================================================
 
-        target_allocation = _posterior_allocation(synthesis_decision)
+        target_allocation = _synthesis_allocation(synthesis_decision)
 
         # ========================================================
         # RISK STATE
@@ -402,7 +402,7 @@ class PortfolioManagerAgent(RuntimeNode):
                 "selected_perspective": selected_perspective,
                 "selection_status": selection_status,
                 "synthesis_degraded_reasons": synthesis_degraded_reasons,
-                "hypothesis_posterior_weights": target_allocation,
+                "hypothesis_synthesis_weights": target_allocation,
                 "synthesis_execution_blocked": not synthesis_allows_execution,
             },
         )

@@ -36,6 +36,10 @@ from core.storage.persistence.rag import RagSourceEligibilityRecord
 from core.storage.persistence.recommendations import RecommendationRationaleRecord
 from core.storage.persistence.recommendations import RecommendationRecord
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
+from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
+from core.storage.persistence.strategy import StrategyHypothesisRecord
+from core.storage.persistence.strategy import StrategyPersistenceBundle
+from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
 
 
 def _timestamp() -> datetime:
@@ -343,6 +347,226 @@ def test_structured_curated_sources_build_deterministic_human_readable_chunks(
     assert expected_text.lower() in first.document.content_text.lower()
     assert first.chunks
     assert first.embedding_jobs
+
+
+def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypothesis_attribution() -> (
+    None
+):
+    bundle = _strategy_bundle()
+    builder = CuratedRagDocumentBuilder()
+    options = CuratedRagBuildOptions(
+        max_chunk_characters=10_000,
+        queue_embedding_jobs=True,
+    )
+    eligibility = _eligibility(
+        source_table="strategy_synthesis_decisions",
+        source_id=bundle.decision.decision_id,
+        source_type="strategy_synthesis_decision",
+    )
+
+    result = builder.build_from_source(
+        bundle,
+        options=options,
+        source_eligibility=eligibility,
+    )
+
+    assert result.document.source_table == "strategy_synthesis_decisions"
+    assert result.document.source_id == bundle.decision.decision_id
+    assert result.document.source_type == "strategy_synthesis_decision"
+    assert result.document.metadata["source_kind"] == "strategy_synthesis_decision"
+    assert result.document.metadata["related_hypothesis_ids"] == [
+        hypothesis.hypothesis_id for hypothesis in bundle.hypotheses
+    ]
+    assert "## Why This Decision" in result.document.content_text
+    assert "## Evaluated Hypotheses" in result.document.content_text
+    assert "## Why Not / Contradictions" in result.document.content_text
+    assert "## What Would Invalidate This Decision" in result.document.content_text
+    assert "SPY closes below 50dma" in result.document.content_text
+    assert "breadth expanded across sectors" in result.document.content_text
+    assert "macro risk remains elevated" in result.document.content_text
+    assert all(
+        chunk.metadata["source_table"] == "strategy_synthesis_decisions"
+        and chunk.metadata["source_record_id"] == bundle.decision.decision_id
+        and chunk.metadata["related_hypothesis_ids"]
+        == [hypothesis.hypothesis_id for hypothesis in bundle.hypotheses]
+        for chunk in result.chunks
+    )
+    assert result.embedding_jobs
+
+
+def test_strategy_hypothesis_builds_attributable_why_why_not_and_invalidation_content() -> (
+    None
+):
+    hypothesis = _strategy_hypothesis()
+    builder = CuratedRagDocumentBuilder()
+    options = CuratedRagBuildOptions(
+        max_chunk_characters=10_000,
+        queue_embedding_jobs=True,
+    )
+    eligibility = _eligibility(
+        source_table="strategy_hypotheses",
+        source_id=hypothesis.hypothesis_id,
+        source_type="strategy_hypothesis",
+    )
+
+    result = builder.build_from_source(
+        hypothesis,
+        options=options,
+        source_eligibility=eligibility,
+    )
+
+    assert result.document.source_table == "strategy_hypotheses"
+    assert result.document.source_id == hypothesis.hypothesis_id
+    assert result.document.source_type == "strategy_hypothesis"
+    assert result.document.metadata["source_kind"] == "strategy_hypothesis"
+    assert result.document.metadata["perspective"] == "bull"
+    assert "## Why This Hypothesis" in result.document.content_text
+    assert "## Why Not / Contradictions" in result.document.content_text
+    assert "## Key Assumptions" in result.document.content_text
+    assert "## What Would Invalidate This Decision" in result.document.content_text
+    assert "breadth expanded across sectors" in result.document.content_text
+    assert "macro risk remains elevated" in result.document.content_text
+    assert "SPY closes below 50dma" in result.document.content_text
+    assert result.embedding_jobs
+
+
+def _strategy_bundle() -> StrategyPersistenceBundle:
+    decision = StrategySynthesisDecisionRecord(
+        decision_id="strategy-decision-1",
+        symbol="SPY",
+        selection_status="selected",
+        selected_perspective="bull",
+        directional_score=0.62,
+        confidence=0.78,
+        regime="risk_on",
+        uncertainty=0.22,
+        thesis="Bull perspective is selected because breadth and trend evidence dominate unresolved macro risks.",
+        evidence_fingerprint="fingerprint-1",
+        created_at=_timestamp(),
+        lineage=_lineage(),
+        horizon="swing",
+        signals=("breadth confirmation", "trend persistence"),
+        risks=("macro risk remains elevated",),
+        recommendations=("maintain constructive exposure",),
+    )
+    hypotheses = (
+        _strategy_hypothesis(
+            perspective="bull",
+            hypothesis_id="hypothesis-bull",
+            thesis="Bullish continuation is supported by stronger participation and trend confirmation.",
+        ),
+        _strategy_hypothesis(
+            perspective="bear",
+            hypothesis_id="hypothesis-bear",
+            thesis="Bearish reversal would require macro risk to overpower breadth confirmation.",
+            directional_bias=-0.55,
+            hypothesis_strength=0.41,
+            confidence=0.46,
+        ),
+        _strategy_hypothesis(
+            perspective="sideways",
+            hypothesis_id="hypothesis-sideways",
+            thesis="Sideways consolidation remains possible if breadth stalls without a volatility break.",
+            directional_bias=0.0,
+            hypothesis_strength=0.37,
+            confidence=0.44,
+        ),
+    )
+    evaluations = (
+        _strategy_evaluation("bull", "hypothesis-bull", rank=1, status="selected"),
+        _strategy_evaluation("bear", "hypothesis-bear", rank=2, status="rejected"),
+        _strategy_evaluation(
+            "sideways",
+            "hypothesis-sideways",
+            rank=3,
+            status="rejected",
+        ),
+    )
+    return StrategyPersistenceBundle(
+        decision=decision,
+        hypotheses=hypotheses,
+        evaluations=evaluations,
+    )
+
+
+def _strategy_hypothesis(
+    *,
+    perspective: str = "bull",
+    hypothesis_id: str = "hypothesis-bull",
+    thesis: str = "Bullish continuation is supported by stronger participation and trend confirmation.",
+    directional_bias: float = 0.65,
+    hypothesis_strength: float = 0.74,
+    confidence: float = 0.81,
+) -> StrategyHypothesisRecord:
+    return StrategyHypothesisRecord(
+        hypothesis_id=hypothesis_id,
+        symbol="SPY",
+        perspective=perspective,
+        thesis=thesis,
+        directional_bias=directional_bias,
+        hypothesis_strength=hypothesis_strength,
+        confidence=confidence,
+        evidence_fingerprint="fingerprint-1",
+        created_at=_timestamp(),
+        lineage=_lineage(),
+        horizon="swing",
+        supporting_evidence=(
+            {
+                "claim": "breadth expanded across sectors",
+                "source": "technical_analysis_service",
+            },
+        ),
+        contradicting_evidence=(
+            {
+                "claim": "macro risk remains elevated",
+                "source": "macro_service",
+            },
+        ),
+        key_assumptions=(
+            {
+                "assumption": "breadth persists through the next session",
+                "source": "strategy_evidence_context",
+            },
+        ),
+        invalidation_conditions=(
+            {
+                "condition": "SPY closes below 50dma",
+                "threshold": "50dma",
+                "source": "technical_analysis_service",
+            },
+        ),
+        risks=("macro risk remains elevated",),
+        recommendations=("monitor breadth confirmation",),
+        data_quality_flags=("complete_evidence_context",),
+    )
+
+
+def _strategy_evaluation(
+    perspective: str,
+    hypothesis_id: str,
+    *,
+    rank: int,
+    status: str,
+) -> StrategyHypothesisEvaluationRecord:
+    return StrategyHypothesisEvaluationRecord(
+        evaluation_id=f"strategy-decision-1:evaluation:{perspective}",
+        decision_id="strategy-decision-1",
+        symbol="SPY",
+        perspective=perspective,
+        perspective_weight=0.5 if perspective == "bull" else 0.25,
+        contradiction_burden=0.2,
+        assumption_support=0.8,
+        invalidated=False,
+        candidate_score=0.7 if perspective == "bull" else 0.4,
+        synthesis_weight=0.55 if perspective == "bull" else 0.225,
+        rank=rank,
+        selection_status=status,
+        evidence_fingerprint="fingerprint-1",
+        created_at=_timestamp(),
+        lineage=_lineage(),
+        hypothesis_id=hypothesis_id,
+        horizon="swing",
+    )
 
 
 def test_structured_source_timestamp_rejects_missing_domain_timestamp() -> None:

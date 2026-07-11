@@ -49,7 +49,7 @@ def test_strategy_evaluation_record_preserves_decision_lineage_and_rank() -> Non
     assert record.decision_id == "decision-1"
     assert record.hypothesis_id == "hypothesis-1"
     assert record.rank == 1
-    assert record.posterior_weight == 0.684567890123
+    assert record.synthesis_weight == 0.684567890123
     assert record.degraded_reasons == ("market_events_partial",)
 
 

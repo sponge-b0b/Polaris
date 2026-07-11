@@ -11,6 +11,9 @@ from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
+from intelligence.strategy.hypothesis.runtime import (
+    strategy_evidence_context_from_node_outputs,
+)
 from intelligence.strategy.hypothesis.contracts import Confidence
 from intelligence.strategy.hypothesis.contracts import DirectionalBias
 from intelligence.strategy.hypothesis.contracts import EvidenceReliability
@@ -38,6 +41,7 @@ __all__ = [
     "evaluate_invalidation_operator",
     "StrategyHypothesis",
     "normalize_strategy_evidence_context",
+    "strategy_evidence_context_from_node_outputs",
     "Confidence",
     "DirectionalBias",
     "EvidenceReliability",

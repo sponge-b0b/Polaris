@@ -235,7 +235,7 @@ class StrategyHypothesisEvaluationModel(Base):
     assumption_support: Mapped[float] = mapped_column(Float, nullable=False)
     invalidated: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
     candidate_score: Mapped[float] = mapped_column(Float, nullable=False)
-    posterior_weight: Mapped[float] = mapped_column(Float, nullable=False)
+    synthesis_weight: Mapped[float] = mapped_column(Float, nullable=False)
     rank: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     selection_status: Mapped[str] = mapped_column(String, nullable=False, index=True)
     evidence_fingerprint: Mapped[str] = mapped_column(

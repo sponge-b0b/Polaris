@@ -290,7 +290,7 @@ def upgrade() -> None:
         sa.Column("assumption_support", sa.Float(), nullable=False),
         sa.Column("invalidated", sa.Boolean(), nullable=False),
         sa.Column("candidate_score", sa.Float(), nullable=False),
-        sa.Column("posterior_weight", sa.Float(), nullable=False),
+        sa.Column("synthesis_weight", sa.Float(), nullable=False),
         sa.Column("rank", sa.Integer(), nullable=False),
         sa.Column("selection_status", sa.String(), nullable=False),
         sa.Column("evidence_fingerprint", sa.String(), nullable=False),

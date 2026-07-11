@@ -10,7 +10,7 @@ from intelligence.strategy.synthesis import StrategySynthesisSelectionStatus
 from intelligence.strategy.synthesis import normalize_strategy_hypothesis_evaluations
 
 
-def test_strategy_hypothesis_evaluations_normalize_to_posteriors_and_selection() -> (
+def test_strategy_hypothesis_evaluations_normalize_to_synthesis_weights_and_selection() -> (
     None
 ):
     evaluations = normalize_strategy_hypothesis_evaluations(
@@ -26,16 +26,16 @@ def test_strategy_hypothesis_evaluations_normalize_to_posteriors_and_selection()
     assert by_perspective[StrategyPerspective.BULL].selection_status is (
         StrategySynthesisSelectionStatus.SELECTED
     )
-    assert by_perspective[StrategyPerspective.BULL].posterior_weight == pytest.approx(
+    assert by_perspective[StrategyPerspective.BULL].synthesis_weight == pytest.approx(
         0.60
     )
-    assert by_perspective[StrategyPerspective.BEAR].posterior_weight == pytest.approx(
+    assert by_perspective[StrategyPerspective.BEAR].synthesis_weight == pytest.approx(
         0.20
     )
-    assert by_perspective[StrategyPerspective.SIDEWAYS].posterior_weight == (
+    assert by_perspective[StrategyPerspective.SIDEWAYS].synthesis_weight == (
         pytest.approx(0.20)
     )
-    assert sum(item.posterior_weight for item in evaluations) == pytest.approx(1.0)
+    assert sum(item.synthesis_weight for item in evaluations) == pytest.approx(1.0)
     assert by_perspective[StrategyPerspective.BULL].rank == 1
     assert by_perspective[StrategyPerspective.BEAR].rank == 2
     assert by_perspective[StrategyPerspective.SIDEWAYS].rank == 2
@@ -64,7 +64,7 @@ def test_strategy_synthesis_decision_marks_all_invalidated_as_degraded() -> None
         evaluation.selection_status is StrategySynthesisSelectionStatus.INVALIDATED
         for evaluation in decision.evaluations
     )
-    assert sum(item.posterior_weight for item in decision.evaluations) == 0.0
+    assert sum(item.synthesis_weight for item in decision.evaluations) == 0.0
 
 
 def test_strategy_synthesis_decision_models_tied_candidates_as_degraded() -> None:
@@ -133,7 +133,7 @@ def _evaluation(
         assumption_support=0.85,
         invalidated=invalidated,
         candidate_score=score,
-        posterior_weight=0.0,
+        synthesis_weight=0.0,
         rank=0,
         selection_status=StrategySynthesisSelectionStatus.CANDIDATE,
     )

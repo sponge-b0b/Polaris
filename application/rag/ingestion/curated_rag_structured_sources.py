@@ -38,6 +38,8 @@ from core.storage.persistence.rag import new_rag_document_id
 from core.storage.persistence.recommendations import RecommendationRationaleRecord
 from core.storage.persistence.recommendations import RecommendationRecord
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
+from core.storage.persistence.strategy import StrategyHypothesisRecord
+from core.storage.persistence.strategy import StrategyPersistenceBundle
 
 
 StructuredCuratedRagSource = (
@@ -56,6 +58,8 @@ StructuredCuratedRagSource = (
     | BacktestPortfolioSnapshotRecord
     | BacktestMetricRecord
     | BacktestArtifactRecord
+    | StrategyHypothesisRecord
+    | StrategyPersistenceBundle
 )
 
 
@@ -299,6 +303,55 @@ _STRUCTURED_SOURCE_SPECS: tuple[StructuredSourceSpec, ...] = (
         ),
     ),
     StructuredSourceSpec(
+        record_type=StrategyHypothesisRecord,
+        source_table="strategy_hypotheses",
+        source_type="strategy_hypothesis",
+        source_kind="strategy_hypothesis",
+        id_attribute="hypothesis_id",
+        timestamp_attribute="created_at",
+        title_prefix="Strategy Hypothesis",
+        headline_attributes=("symbol", "perspective", "horizon"),
+        summary_attributes=(
+            "thesis",
+            "directional_bias",
+            "hypothesis_strength",
+            "confidence",
+            "invalidated",
+            "evidence_fingerprint",
+            "risks",
+            "recommendations",
+            "data_quality_flags",
+        ),
+        content_attributes=(
+            "supporting_evidence",
+            "contradicting_evidence",
+            "key_assumptions",
+            "invalidation_conditions",
+        ),
+    ),
+    StructuredSourceSpec(
+        record_type=StrategyPersistenceBundle,
+        source_table="strategy_synthesis_decisions",
+        source_type="strategy_synthesis_decision",
+        source_kind="strategy_synthesis_decision",
+        id_attribute="decision_id",
+        timestamp_attribute="created_at",
+        title_prefix="Strategy Synthesis Decision",
+        headline_attributes=("symbol", "selected_perspective", "selection_status"),
+        summary_attributes=(
+            "thesis",
+            "directional_score",
+            "confidence",
+            "uncertainty",
+            "regime",
+            "evidence_fingerprint",
+            "signals",
+            "risks",
+            "recommendations",
+            "degraded_reasons",
+        ),
+    ),
+    StructuredSourceSpec(
         record_type=BacktestRunRecord,
         source_table="backtest_runs",
         source_type="backtest_summary",
@@ -516,22 +569,34 @@ def structured_source_title(
     spec = require_structured_source_spec(
         source,
     )
-    suffix_parts = [
-        _stringify_value(
-            getattr(
-                source,
-                attribute,
+    if isinstance(source, StrategyPersistenceBundle):
+        decision = source.decision
+        suffix_parts = tuple(
+            part
+            for part in (
+                decision.symbol,
+                decision.selected_perspective,
+                decision.selection_status,
+            )
+            if _has_renderable_value(part)
+        )
+    else:
+        suffix_parts = tuple(
+            _stringify_value(
+                getattr(
+                    source,
+                    attribute,
+                )
+            )
+            for attribute in spec.headline_attributes
+            if _has_renderable_value(
+                getattr(
+                    source,
+                    attribute,
+                    None,
+                )
             )
         )
-        for attribute in spec.headline_attributes
-        if _has_renderable_value(
-            getattr(
-                source,
-                attribute,
-                None,
-            )
-        )
-    ]
     if suffix_parts:
         return f"{spec.title_prefix} - {' / '.join(suffix_parts[:3])}"
     return spec.title_prefix
@@ -540,6 +605,11 @@ def structured_source_title(
 def render_structured_source_text(
     source: StructuredCuratedRagSource,
 ) -> str:
+    if isinstance(source, StrategyPersistenceBundle):
+        return _render_strategy_decision_bundle_text(source)
+    if isinstance(source, StrategyHypothesisRecord):
+        return _render_strategy_hypothesis_text(source)
+
     spec = require_structured_source_spec(
         source,
     )
@@ -652,6 +722,11 @@ def structured_source_metadata(
 def structured_source_metadata_core(
     source: StructuredCuratedRagSource,
 ) -> dict[str, JsonValue]:
+    if isinstance(source, StrategyPersistenceBundle):
+        return _strategy_decision_bundle_metadata_core(source)
+    if isinstance(source, StrategyHypothesisRecord):
+        return _strategy_hypothesis_metadata_core(source)
+
     metadata: dict[str, JsonValue] = {}
     lineage = getattr(
         source,
@@ -689,6 +764,11 @@ def structured_source_metadata_core(
         "technical_regime",
         "breadth_regime",
         "sentiment_regime",
+        "perspective",
+        "selected_perspective",
+        "selection_status",
+        "horizon",
+        "evidence_fingerprint",
     ):
         if not hasattr(
             source,
@@ -709,6 +789,8 @@ def structured_source_metadata_core(
 def structured_source_id(
     source: StructuredCuratedRagSource,
 ) -> str:
+    if isinstance(source, StrategyPersistenceBundle):
+        return source.decision.decision_id
     spec = require_structured_source_spec(
         source,
     )
@@ -723,26 +805,30 @@ def structured_source_id(
 def structured_source_timestamp(
     source: StructuredCuratedRagSource,
 ) -> datetime:
-    spec = require_structured_source_spec(
-        source,
-    )
-    value = getattr(
-        source,
-        spec.timestamp_attribute,
-        None,
-    )
+    if isinstance(source, StrategyPersistenceBundle):
+        value = source.decision.created_at
+        timestamp_attribute = "decision.created_at"
+    else:
+        spec = require_structured_source_spec(
+            source,
+        )
+        value = getattr(
+            source,
+            spec.timestamp_attribute,
+            None,
+        )
+        timestamp_attribute = spec.timestamp_attribute
     if not isinstance(
         value,
         datetime,
     ):
         raise ValueError(
-            f"{type(source).__name__}.{spec.timestamp_attribute} must contain "
+            f"{type(source).__name__}.{timestamp_attribute} must contain "
             "a domain timestamp."
         )
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(
-            f"{type(source).__name__}.{spec.timestamp_attribute} must be "
-            "timezone-aware."
+            f"{type(source).__name__}.{timestamp_attribute} must be timezone-aware."
         )
     return value
 
@@ -750,8 +836,16 @@ def structured_source_timestamp(
 def structured_workflow_name(
     source: StructuredCuratedRagSource,
 ) -> str | None:
+    lineage_source: object = (
+        source.decision
+        if isinstance(
+            source,
+            StrategyPersistenceBundle,
+        )
+        else source
+    )
     direct = getattr(
-        source,
+        lineage_source,
         "workflow_name",
         None,
     )
@@ -761,7 +855,7 @@ def structured_workflow_name(
     ):
         return direct
     lineage = getattr(
-        source,
+        lineage_source,
         "lineage",
         None,
     )
@@ -776,8 +870,16 @@ def structured_workflow_name(
 def structured_execution_id(
     source: StructuredCuratedRagSource,
 ) -> str | None:
+    lineage_source: object = (
+        source.decision
+        if isinstance(
+            source,
+            StrategyPersistenceBundle,
+        )
+        else source
+    )
     lineage = getattr(
-        source,
+        lineage_source,
         "lineage",
         None,
     )
@@ -792,8 +894,16 @@ def structured_execution_id(
 def structured_runtime_id(
     source: StructuredCuratedRagSource,
 ) -> str | None:
+    lineage_source: object = (
+        source.decision
+        if isinstance(
+            source,
+            StrategyPersistenceBundle,
+        )
+        else source
+    )
     lineage = getattr(
-        source,
+        lineage_source,
         "lineage",
         None,
     )
@@ -808,8 +918,16 @@ def structured_runtime_id(
 def structured_node_name(
     source: StructuredCuratedRagSource,
 ) -> str | None:
+    lineage_source: object = (
+        source.decision
+        if isinstance(
+            source,
+            StrategyPersistenceBundle,
+        )
+        else source
+    )
     lineage = getattr(
-        source,
+        lineage_source,
         "lineage",
         None,
     )
@@ -824,6 +942,19 @@ def structured_node_name(
 def structured_source_has_meaningful_content(
     source: StructuredCuratedRagSource,
 ) -> bool:
+    if isinstance(source, StrategyPersistenceBundle):
+        decision = source.decision
+        return any(
+            (
+                bool(decision.thesis.strip()),
+                bool(decision.signals),
+                bool(decision.risks),
+                bool(decision.recommendations),
+                bool(source.hypotheses),
+                bool(source.evaluations),
+            )
+        )
+
     spec = require_structured_source_spec(
         source,
     )
@@ -846,6 +977,8 @@ def structured_source_has_meaningful_content(
 def structured_source_has_rationale(
     source: StructuredCuratedRagSource,
 ) -> bool:
+    if isinstance(source, StrategyPersistenceBundle | StrategyHypothesisRecord):
+        return True
     if isinstance(
         source,
         RecommendationRationaleRecord,
@@ -877,6 +1010,9 @@ def structured_source_has_rationale(
 def structured_source_quality_score(
     source: StructuredCuratedRagSource,
 ) -> float | None:
+    if isinstance(source, StrategyPersistenceBundle):
+        return source.decision.confidence
+
     for attribute in (
         "confidence",
         "setup_quality",
@@ -924,6 +1060,316 @@ def _spec_for_source(
         ):
             return spec
     return None
+
+
+def _render_strategy_decision_bundle_text(
+    source: StrategyPersistenceBundle,
+) -> str:
+    decision = source.decision
+    evaluations_by_perspective = {
+        evaluation.perspective: evaluation for evaluation in source.evaluations
+    }
+    hypotheses_by_perspective = {
+        hypothesis.perspective: hypothesis for hypothesis in source.hypotheses
+    }
+    lines = [
+        f"# {structured_source_title(source)}",
+        "",
+        "## Source Lineage",
+        "",
+        "Source Table: strategy_synthesis_decisions",
+        "Source Type: strategy_synthesis_decision",
+        f"Source ID: {decision.decision_id}",
+        f"Timestamp: {decision.created_at.isoformat()}",
+    ]
+    _append_optional_line(lines, "Workflow", structured_workflow_name(source))
+    _append_optional_line(lines, "Execution ID", structured_execution_id(source))
+    _append_optional_line(lines, "Runtime ID", structured_runtime_id(source))
+    _append_optional_line(lines, "Node", structured_node_name(source))
+    lines.extend(
+        [
+            "",
+            "## Decision Summary",
+            "",
+            f"- Symbol: {decision.symbol}",
+            f"- Selected Perspective: {decision.selected_perspective or 'none'}",
+            f"- Selection Status: {decision.selection_status}",
+            f"- Regime: {decision.regime}",
+            f"- Directional Score: {decision.directional_score}",
+            f"- Confidence: {decision.confidence}",
+            f"- Uncertainty: {decision.uncertainty}",
+            f"- Evidence Fingerprint: {decision.evidence_fingerprint}",
+            f"- Horizon: {decision.horizon or 'unspecified'}",
+            "",
+            "## Why This Decision",
+            "",
+            decision.thesis,
+        ]
+    )
+    _append_string_items(lines, "Signals", decision.signals)
+    _append_string_items(lines, "Recommendations", decision.recommendations)
+    _append_string_items(lines, "Risks", decision.risks)
+    _append_string_items(lines, "Degraded Reasons", decision.degraded_reasons)
+    lines.extend(["", "## Evaluated Hypotheses", ""])
+    for hypothesis in sorted(
+        source.hypotheses,
+        key=lambda item: item.perspective,
+    ):
+        evaluation = evaluations_by_perspective.get(hypothesis.perspective)
+        selected_marker = (
+            " selected"
+            if hypothesis.perspective == decision.selected_perspective
+            else ""
+        )
+        lines.append(
+            f"### {hypothesis.perspective.title()} Hypothesis{selected_marker}"
+        )
+        lines.append("")
+        lines.append(hypothesis.thesis)
+        lines.append("")
+        lines.append(f"- Hypothesis ID: {hypothesis.hypothesis_id}")
+        lines.append(f"- Confidence: {hypothesis.confidence}")
+        lines.append(f"- Strength: {hypothesis.hypothesis_strength}")
+        lines.append(f"- Directional Bias: {hypothesis.directional_bias}")
+        lines.append(f"- Invalidated: {hypothesis.invalidated}")
+        if evaluation is not None:
+            lines.append(f"- Perspective Weight: {evaluation.perspective_weight}")
+            lines.append(f"- Synthesis Weight: {evaluation.synthesis_weight}")
+            lines.append(f"- Candidate Score: {evaluation.candidate_score}")
+            lines.append(f"- Contradiction Burden: {evaluation.contradiction_burden}")
+            lines.append(f"- Assumption Support: {evaluation.assumption_support}")
+            lines.append(f"- Rank: {evaluation.rank}")
+            lines.append(f"- Evaluation Status: {evaluation.selection_status}")
+        _append_evidence_items(
+            lines,
+            "Supporting Evidence",
+            hypothesis.supporting_evidence,
+        )
+        _append_evidence_items(
+            lines,
+            "Why Not / Contradictions",
+            hypothesis.contradicting_evidence,
+        )
+        _append_evidence_items(
+            lines,
+            "Key Assumptions",
+            hypothesis.key_assumptions,
+        )
+        _append_evidence_items(
+            lines,
+            "What Would Invalidate This Decision",
+            hypothesis.invalidation_conditions,
+        )
+        _append_string_items(lines, "Hypothesis Risks", hypothesis.risks)
+    missing_evaluations = tuple(
+        evaluation
+        for perspective, evaluation in evaluations_by_perspective.items()
+        if perspective not in hypotheses_by_perspective
+    )
+    if missing_evaluations:
+        lines.extend(["", "## Evaluation Lineage Without Hypothesis Record", ""])
+        for evaluation in missing_evaluations:
+            lines.append(
+                f"- {evaluation.perspective}: synthesis={evaluation.synthesis_weight}, "
+                f"candidate_score={evaluation.candidate_score}, "
+                f"status={evaluation.selection_status}"
+            )
+    return "\n".join(lines)
+
+
+def _render_strategy_hypothesis_text(
+    source: StrategyHypothesisRecord,
+) -> str:
+    lines = [
+        f"# {structured_source_title(source)}",
+        "",
+        "## Source Lineage",
+        "",
+        "Source Table: strategy_hypotheses",
+        "Source Type: strategy_hypothesis",
+        f"Source ID: {source.hypothesis_id}",
+        f"Timestamp: {source.created_at.isoformat()}",
+    ]
+    _append_optional_line(lines, "Workflow", structured_workflow_name(source))
+    _append_optional_line(lines, "Execution ID", structured_execution_id(source))
+    _append_optional_line(lines, "Runtime ID", structured_runtime_id(source))
+    _append_optional_line(lines, "Node", structured_node_name(source))
+    lines.extend(
+        [
+            "",
+            "## Hypothesis Summary",
+            "",
+            f"- Symbol: {source.symbol}",
+            f"- Perspective: {source.perspective}",
+            f"- Horizon: {source.horizon or 'unspecified'}",
+            f"- Directional Bias: {source.directional_bias}",
+            f"- Strength: {source.hypothesis_strength}",
+            f"- Confidence: {source.confidence}",
+            f"- Invalidated: {source.invalidated}",
+            f"- Evidence Fingerprint: {source.evidence_fingerprint}",
+            "",
+            "## Why This Hypothesis",
+            "",
+            source.thesis,
+        ]
+    )
+    _append_evidence_items(lines, "Supporting Evidence", source.supporting_evidence)
+    _append_evidence_items(
+        lines, "Why Not / Contradictions", source.contradicting_evidence
+    )
+    _append_evidence_items(lines, "Key Assumptions", source.key_assumptions)
+    _append_evidence_items(
+        lines,
+        "What Would Invalidate This Decision",
+        source.invalidation_conditions,
+    )
+    _append_string_items(lines, "Risks", source.risks)
+    _append_string_items(lines, "Recommendations", source.recommendations)
+    _append_string_items(lines, "Data Quality Flags", source.data_quality_flags)
+    return "\n".join(lines)
+
+
+def _strategy_decision_bundle_metadata_core(
+    source: StrategyPersistenceBundle,
+) -> dict[str, JsonValue]:
+    decision = source.decision
+    selected_hypothesis_id = _selected_strategy_hypothesis_id(source)
+    metadata: dict[str, JsonValue] = {}
+    metadata.update(
+        cast(
+            dict[str, JsonValue],
+            decision.lineage.as_dict(),
+        )
+    )
+    metadata.update(
+        {
+            "symbol": decision.symbol,
+            "selected_perspective": decision.selected_perspective,
+            "selected_hypothesis_id": selected_hypothesis_id,
+            "selection_status": decision.selection_status,
+            "horizon": decision.horizon,
+            "confidence": decision.confidence,
+            "regime": decision.regime,
+            "evidence_fingerprint": decision.evidence_fingerprint,
+            "hypothesis_count": len(source.hypotheses),
+            "evaluation_count": len(source.evaluations),
+            "related_hypothesis_ids": [
+                hypothesis.hypothesis_id for hypothesis in source.hypotheses
+            ],
+            "related_hypothesis_perspectives": [
+                hypothesis.perspective for hypothesis in source.hypotheses
+            ],
+            "related_hypotheses": [
+                _strategy_hypothesis_graph_metadata(hypothesis)
+                for hypothesis in source.hypotheses
+            ],
+            "related_evaluations": [
+                _strategy_evaluation_graph_metadata(evaluation)
+                for evaluation in source.evaluations
+            ],
+        }
+    )
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def _strategy_hypothesis_metadata_core(
+    source: StrategyHypothesisRecord,
+) -> dict[str, JsonValue]:
+    metadata: dict[str, JsonValue] = {}
+    metadata.update(
+        cast(
+            dict[str, JsonValue],
+            source.lineage.as_dict(),
+        )
+    )
+    metadata.update(_strategy_hypothesis_graph_metadata(source))
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def _selected_strategy_hypothesis_id(
+    source: StrategyPersistenceBundle,
+) -> str | None:
+    selected_perspective = source.decision.selected_perspective
+    if selected_perspective is None:
+        return None
+    for hypothesis in source.hypotheses:
+        if hypothesis.perspective == selected_perspective:
+            return hypothesis.hypothesis_id
+    for evaluation in source.evaluations:
+        if evaluation.perspective == selected_perspective:
+            return evaluation.hypothesis_id
+    return None
+
+
+def _strategy_hypothesis_graph_metadata(
+    source: StrategyHypothesisRecord,
+) -> dict[str, JsonValue]:
+    return cast(
+        dict[str, JsonValue],
+        {
+            "hypothesis_id": source.hypothesis_id,
+            "symbol": source.symbol,
+            "perspective": source.perspective,
+            "horizon": source.horizon,
+            "confidence": source.confidence,
+            "hypothesis_strength": source.hypothesis_strength,
+            "directional_bias": source.directional_bias,
+            "invalidated": source.invalidated,
+            "evidence_fingerprint": source.evidence_fingerprint,
+            "supporting_evidence": _json_object_list(source.supporting_evidence),
+            "contradicting_evidence": _json_object_list(source.contradicting_evidence),
+            "invalidation_conditions": _json_object_list(
+                source.invalidation_conditions
+            ),
+        },
+    )
+
+
+def _strategy_evaluation_graph_metadata(source: object) -> dict[str, JsonValue]:
+    return cast(
+        dict[str, JsonValue],
+        {
+            "evaluation_id": getattr(source, "evaluation_id"),
+            "hypothesis_id": getattr(source, "hypothesis_id"),
+            "perspective": getattr(source, "perspective"),
+            "perspective_weight": getattr(source, "perspective_weight"),
+            "contradiction_burden": getattr(source, "contradiction_burden"),
+            "assumption_support": getattr(source, "assumption_support"),
+            "invalidated": getattr(source, "invalidated"),
+            "candidate_score": getattr(source, "candidate_score"),
+            "synthesis_weight": getattr(source, "synthesis_weight"),
+            "rank": getattr(source, "rank"),
+            "selection_status": getattr(source, "selection_status"),
+        },
+    )
+
+
+def _json_object_list(items: tuple[JsonObject, ...]) -> list[JsonObject]:
+    return [dict(item) for item in items]
+
+
+def _append_evidence_items(
+    lines: list[str],
+    title: str,
+    items: tuple[JsonObject, ...],
+) -> None:
+    if not items:
+        return
+    lines.extend(["", f"## {title}", ""])
+    for index, item in enumerate(items, start=1):
+        rendered = _render_value(item)
+        lines.append(f"{index}. {rendered}")
+
+
+def _append_string_items(
+    lines: list[str],
+    title: str,
+    items: tuple[str, ...],
+) -> None:
+    if not items:
+        return
+    lines.extend(["", f"## {title}", ""])
+    lines.extend(f"- {item}" for item in items)
 
 
 def _append_attribute_section(

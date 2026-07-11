@@ -181,14 +181,14 @@ def test_assembler_extracts_portfolio_intelligence_risk_and_action_sections() ->
             "Strategy Case Comparison",
             "Bull Case",
         )
-        == "Posterior 62.0% | Candidate 0.67 | Rank 1 | Status Selected"
+        == "Synthesis 62.0% | Candidate 0.67 | Rank 1 | Status Selected"
     )
-    assert "Posterior 18.0%" in _table_value(
+    assert "Synthesis 18.0%" in _table_value(
         document.recommended_action_plan,
         "Strategy Case Comparison",
         "Bear Case",
     )
-    assert "Posterior 20.0%" in _table_value(
+    assert "Synthesis 20.0%" in _table_value(
         document.recommended_action_plan,
         "Strategy Case Comparison",
         "Sideways Case",
@@ -524,7 +524,7 @@ def _complete_workflow_result() -> dict[str, object]:
                                 "bear": 0.19,
                                 "sideways": 0.22,
                             },
-                            "hypothesis_posterior_weights": {
+                            "hypothesis_synthesis_weights": {
                                 "bull": 0.62,
                                 "bear": 0.18,
                                 "sideways": 0.20,
@@ -580,7 +580,7 @@ def _complete_workflow_result() -> dict[str, object]:
                                         "assumption_support": 0.90,
                                         "invalidated": False,
                                         "candidate_score": 0.67,
-                                        "posterior_weight": 0.62,
+                                        "synthesis_weight": 0.62,
                                         "rank": 1,
                                         "selection_status": "selected",
                                         "degraded_reasons": [],
@@ -592,7 +592,7 @@ def _complete_workflow_result() -> dict[str, object]:
                                         "assumption_support": 0.55,
                                         "invalidated": False,
                                         "candidate_score": 0.19,
-                                        "posterior_weight": 0.18,
+                                        "synthesis_weight": 0.18,
                                         "rank": 3,
                                         "selection_status": "rejected",
                                         "degraded_reasons": [],
@@ -604,7 +604,7 @@ def _complete_workflow_result() -> dict[str, object]:
                                         "assumption_support": 0.65,
                                         "invalidated": False,
                                         "candidate_score": 0.22,
-                                        "posterior_weight": 0.20,
+                                        "synthesis_weight": 0.20,
                                         "rank": 2,
                                         "selection_status": "rejected",
                                         "degraded_reasons": [],

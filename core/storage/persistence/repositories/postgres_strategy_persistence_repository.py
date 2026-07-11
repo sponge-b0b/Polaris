@@ -310,7 +310,7 @@ def _upsert_evaluation_statement(record: StrategyHypothesisEvaluationRecord) -> 
             "assumption_support": excluded.assumption_support,
             "invalidated": excluded.invalidated,
             "candidate_score": excluded.candidate_score,
-            "posterior_weight": excluded.posterior_weight,
+            "synthesis_weight": excluded.synthesis_weight,
             "rank": excluded.rank,
             "selection_status": excluded.selection_status,
             "evidence_fingerprint": excluded.evidence_fingerprint,

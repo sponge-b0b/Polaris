@@ -8,6 +8,9 @@ from intelligence.strategy.hypothesis import StrategyEvidenceContext
 from intelligence.strategy.hypothesis import StrategyEvidenceInputQuality
 from intelligence.strategy.hypothesis import StrategyEvidenceInputStatus
 from intelligence.strategy.hypothesis import StrategyEvidenceItem
+from intelligence.strategy.hypothesis import (
+    strategy_evidence_context_from_node_outputs,
+)
 from intelligence.strategy.hypothesis import StrategyPerspective
 
 
@@ -182,3 +185,36 @@ def test_context_and_quality_flags_are_immutable_and_validate_missing_reason() -
         )
     with pytest.raises(ValueError):
         StrategyEvidenceContext(symbol=" ", required_evidence=())
+
+
+def test_evidence_context_loads_from_canonical_builder_output() -> None:
+    context = StrategyEvidenceContext(
+        symbol="SPY",
+        required_evidence=(
+            _evidence("technical.trend", 0.62, (StrategyPerspective.BULL,)),
+        ),
+    )
+
+    restored = strategy_evidence_context_from_node_outputs(
+        {
+            "strategy_evidence_builder": {
+                "outputs": {"strategy_evidence_context": context.to_dict()}
+            }
+        },
+        consumer_name="TestConsumer",
+    )
+
+    assert restored == context
+
+
+def test_evidence_context_rejects_missing_builder_payload() -> None:
+    with pytest.raises(
+        ValueError, match="TestConsumer requires 'strategy_evidence_builder'"
+    ):
+        strategy_evidence_context_from_node_outputs({}, consumer_name="TestConsumer")
+
+    with pytest.raises(ValueError, match="to produce 'strategy_evidence_context'"):
+        strategy_evidence_context_from_node_outputs(
+            {"strategy_evidence_builder": {"outputs": {}}},
+            consumer_name="TestConsumer",
+        )

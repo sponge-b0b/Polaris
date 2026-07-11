@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Mapping
-
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -10,7 +8,9 @@ from domain.workflow_outputs import (
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
 from intelligence.strategy.bull.bull_hypothesis_policy import build_bull_hypothesis
-from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.runtime import (
+    strategy_evidence_context_from_node_outputs,
+)
 
 
 class BullAgent(RuntimeNode):
@@ -28,8 +28,9 @@ class BullAgent(RuntimeNode):
         self,
         context: RuntimeContext,
     ) -> RuntimeNodeOutput:
-        evidence_context = _strategy_evidence_context_from_runtime(
+        evidence_context = strategy_evidence_context_from_node_outputs(
             context.node_outputs,
+            consumer_name="BullAgent",
         )
         decision = build_bull_hypothesis(evidence_context)
 
@@ -46,39 +47,3 @@ class BullAgent(RuntimeNode):
             output_contract=STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
             output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
-
-
-def _strategy_evidence_context_from_runtime(
-    node_outputs: Mapping[str, object],
-) -> StrategyEvidenceContext:
-    raw_output = node_outputs.get("strategy_evidence_builder")
-    if raw_output is None:
-        raise ValueError(
-            "BullAgent requires 'strategy_evidence_builder' in node_outputs."
-        )
-
-    outputs = _unwrap_outputs(raw_output)
-    payload = outputs.get("strategy_evidence_context")
-    if not isinstance(payload, Mapping):
-        raise ValueError(
-            "BullAgent requires 'strategy_evidence_builder' to produce "
-            "'strategy_evidence_context'."
-        )
-
-    return StrategyEvidenceContext.from_dict(_mapping_to_dict(payload))
-
-
-def _unwrap_outputs(raw_output: object) -> Mapping[str, object]:
-    object_outputs = getattr(raw_output, "outputs", None)
-    if isinstance(object_outputs, Mapping):
-        return object_outputs
-    if isinstance(raw_output, Mapping):
-        nested_outputs = raw_output.get("outputs")
-        if isinstance(nested_outputs, Mapping):
-            return nested_outputs
-        return raw_output
-    return {}
-
-
-def _mapping_to_dict(value: Mapping[object, object]) -> dict[str, object]:
-    return {str(key): mapped_value for key, mapped_value in value.items()}

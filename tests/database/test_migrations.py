@@ -377,7 +377,7 @@ def test_strategy_persistence_migration_creates_canonical_schema(
         "assumption_support",
         "invalidated",
         "candidate_score",
-        "posterior_weight",
+        "synthesis_weight",
         "rank",
         "selection_status",
         "evidence_fingerprint",

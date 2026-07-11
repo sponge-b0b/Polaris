@@ -163,7 +163,7 @@ async def test_strategy_persistence_service_persists_typed_bundle() -> None:
     assert (
         repository.bundle.hypotheses[0].supporting_evidence[0]["source"] == "technical"
     )
-    assert repository.bundle.evaluations[0].posterior_weight == 0.684567890123
+    assert repository.bundle.evaluations[0].synthesis_weight == 0.684567890123
 
 
 @pytest.mark.asyncio

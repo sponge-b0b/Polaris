@@ -10,6 +10,10 @@ from application.services.market_events.market_events_result import MarketEvents
 from application.services.market_events.market_events_service import MarketEventsService
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
 from core.runtime.state.runtime_context import RuntimeContext
@@ -86,8 +90,8 @@ class StrategyEvidenceBuilder(RuntimeNode):
                 "optional_evidence_count": len(evidence_context.optional_evidence),
                 "market_events_status": market_events_status,
             },
-            output_contract="StrategyEvidenceContext",
-            output_schema_version=1,
+            output_contract=STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     async def _market_events_output(

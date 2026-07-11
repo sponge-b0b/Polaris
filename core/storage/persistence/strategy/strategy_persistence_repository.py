@@ -10,6 +10,9 @@ from core.storage.persistence.strategy.strategy_persistence_models import (
     StrategyHypothesisRecord,
 )
 from core.storage.persistence.strategy.strategy_persistence_models import (
+    StrategyHypothesisPersistenceResult,
+)
+from core.storage.persistence.strategy.strategy_persistence_models import (
     StrategyPersistenceBundle,
 )
 from core.storage.persistence.strategy.strategy_persistence_models import (
@@ -27,6 +30,11 @@ class StrategyPersistenceRepository(Protocol):
         self,
         bundle: StrategyPersistenceBundle,
     ) -> StrategyPersistenceResult: ...
+
+    async def persist_hypotheses(
+        self,
+        hypotheses: Sequence[StrategyHypothesisRecord],
+    ) -> StrategyHypothesisPersistenceResult: ...
 
     async def get_hypothesis(
         self,

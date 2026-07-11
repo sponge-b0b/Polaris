@@ -3,6 +3,10 @@ from typing import Any
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 from integration.adapters.risk import risk_runtime_adapter
@@ -116,12 +120,12 @@ class RiskSignalBuilder(RuntimeNode):
         # ========================================================
 
         risk_contract = RiskSignalContract(
-            volatility_risk=round(volatility_risk_val, 4),
-            drawdown_risk=round(drawdown_risk_val, 4),
-            exposure_risk=round(exposure_risk_val, 4),
-            composite_risk=round(composite_risk, 4),
-            risk_pressure=round(risk_pressure, 4),
-            stability_score=round(stability_score, 4),
+            volatility_risk=volatility_risk_val,
+            drawdown_risk=drawdown_risk_val,
+            exposure_risk=exposure_risk_val,
+            composite_risk=composite_risk,
+            risk_pressure=risk_pressure,
+            stability_score=stability_score,
             risk_regime="unclassified",
             risk_bias="neutral",
             recommendations=[],
@@ -142,6 +146,8 @@ class RiskSignalBuilder(RuntimeNode):
             node_name=self.node_name,
             node_type=self.node_type,
             contract=risk_contract,
+            output_contract=RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     def extract_risk(

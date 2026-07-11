@@ -1,6 +1,10 @@
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from integration.adapters.risk import risk_runtime_adapter
 from intelligence.risk.breadth_annotations import annotate_risk_runtime_output
 from intelligence.risk.volatility.volatility_risk_policy import (
@@ -25,6 +29,8 @@ class VolatilityRiskAgent(RuntimeNode):
             node_name=self.node_name,
             node_type=self.node_type,
             contract=decision.to_contract(),
+            output_contract=RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
         return annotate_risk_runtime_output(
             runtime_output=runtime_output,

@@ -209,9 +209,6 @@ class WorkflowOutputProjectionService:
         node_output: CompletedNodeOutputRecord,
         request: WorkflowOutputProjectionRequest,
     ) -> WorkflowOutputProjectionOutcome:
-        del (
-            bundle
-        )  # Reserved for future projector context without changing service API.
         source_fingerprint = calculate_workflow_output_source_fingerprint(
             run=run,
             node_output=node_output,
@@ -276,6 +273,7 @@ class WorkflowOutputProjectionService:
                     run=run,
                     node_output=node_output,
                     source_fingerprint=source_fingerprint,
+                    bundle=bundle,
                     lineage=build_workflow_output_projection_lineage(
                         run=run,
                         node_output=node_output,

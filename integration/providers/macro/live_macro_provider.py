@@ -4,6 +4,7 @@ import logging
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from domain.macro.models import MacroDataSnapshot
+from domain.macro.models import MacroIndicatorObservation
 from integration.clients.macro.fred_macro_client import (
     FredMacroClient,
     FredSeriesObservation,
@@ -12,16 +13,16 @@ from integration.providers.provider_telemetry import record_provider_call
 
 logger = logging.getLogger(__name__)
 
-_MACRO_SERIES: tuple[tuple[str, str], ...] = (
-    ("cpi", "CPIAUCSL"),
-    ("core_cpi", "CPILFESL"),
-    ("pce", "PCEPI"),
-    ("fed_funds_rate", "FEDFUNDS"),
-    ("treasury_2y", "DGS2"),
-    ("treasury_10y", "DGS10"),
-    ("unemployment_rate", "UNRATE"),
-    ("m2_money_supply", "M2SL"),
-    ("vix", "VIXCLS"),
+_MACRO_SERIES: tuple[tuple[str, str, str], ...] = (
+    ("cpi", "CPIAUCSL", "inflation"),
+    ("core_cpi", "CPILFESL", "inflation"),
+    ("pce", "PCEPI", "inflation"),
+    ("fed_funds_rate", "FEDFUNDS", "rates"),
+    ("treasury_2y", "DGS2", "rates"),
+    ("treasury_10y", "DGS10", "rates"),
+    ("unemployment_rate", "UNRATE", "labor"),
+    ("m2_money_supply", "M2SL", "liquidity"),
+    ("vix", "VIXCLS", "volatility"),
 )
 
 
@@ -48,7 +49,7 @@ class LiveMacroProvider:
 
     async def _load_macro_snapshot(self) -> MacroDataSnapshot:
         observations = await self.macro_client.get_latest_observations(
-            tuple(series_id for _, series_id in _MACRO_SERIES)
+            tuple(series_id for _, series_id, _ in _MACRO_SERIES)
         )
         observations_by_id = {
             observation.series_id: observation for observation in observations
@@ -56,7 +57,8 @@ class LiveMacroProvider:
 
         values: dict[str, float | None] = {}
         failed_fields: list[str] = []
-        for field_name, series_id in _MACRO_SERIES:
+        indicator_observations: list[MacroIndicatorObservation] = []
+        for field_name, series_id, indicator_category in _MACRO_SERIES:
             observation = observations_by_id.get(series_id)
             if observation is None:
                 observation = FredSeriesObservation(
@@ -68,6 +70,20 @@ class LiveMacroProvider:
 
             values[field_name] = observation.value
             if not observation.failed:
+                if (
+                    observation.value is not None
+                    and observation.observation_timestamp is not None
+                ):
+                    indicator_observations.append(
+                        MacroIndicatorObservation(
+                            indicator_name=field_name,
+                            value=observation.value,
+                            observation_timestamp=observation.observation_timestamp,
+                            source="fred",
+                            indicator_category=indicator_category,
+                            region="US",
+                        )
+                    )
                 continue
 
             failed_fields.append(field_name)
@@ -95,4 +111,5 @@ class LiveMacroProvider:
             m2_money_supply=values["m2_money_supply"],
             vix=values["vix"],
             failed_fields=tuple(failed_fields),
+            observations=tuple(indicator_observations),
         )

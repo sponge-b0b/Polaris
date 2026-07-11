@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+from datetime import datetime
 from typing import Any, Dict, List
 
 from core.llm.llm_service import LLMService
@@ -21,6 +23,10 @@ from application.services.base import ServiceRequest
 from application.services.base import ServiceRunner
 from application.services.news.news_request import NewsRequest
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    NEWS_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 class NewsAgent(RuntimeNode):
@@ -109,6 +115,7 @@ class NewsAgent(RuntimeNode):
             raise RuntimeError("News service returned no result data.")
 
         articles = news_result.result.to_list()
+        observed_at = datetime.now(UTC)
 
         # ========================================================
         # LLM CONTEXT
@@ -153,6 +160,11 @@ class NewsAgent(RuntimeNode):
         if not isinstance(llm_response, Dict) or "error" in llm_response:
             return RuntimeNodeOutput.success_output(
                 outputs=dict(
+                    observed_at=observed_at.isoformat(),
+                    news_source="NewsService",
+                    symbol=str(symbol),
+                    query=str(query),
+                    news_articles=articles,
                     directional_score=0.0,
                     confidence=0.0,
                     regime="llm_inference_failure",
@@ -179,9 +191,12 @@ class NewsAgent(RuntimeNode):
                             "query": query,
                             "articles_retrieved": len(articles),
                             "failure": True,
+                            "quality_status": "degraded",
                         }
                     ),
                 },
+                output_contract=NEWS_ANALYSIS_OUTPUT_CONTRACT,
+                output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
             )
 
         # ========================================================
@@ -248,6 +263,11 @@ class NewsAgent(RuntimeNode):
         # ========================================================
 
         result = dict(
+            observed_at=observed_at.isoformat(),
+            news_source="NewsService",
+            symbol=str(symbol),
+            query=str(query),
+            news_articles=articles,
             directional_score=directional_score,
             confidence=confidence,
             regime=market_relevance,
@@ -288,9 +308,12 @@ class NewsAgent(RuntimeNode):
                         "symbol": symbol,
                         "query": query,
                         "articles_retrieved": len(articles),
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=NEWS_ANALYSIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================
@@ -388,7 +411,7 @@ class NewsAgent(RuntimeNode):
             min(confidence, 1.0),
         )
 
-        return round(confidence, 4)
+        return confidence
 
     # ============================================================
     # BUILD LLM CONTEXT

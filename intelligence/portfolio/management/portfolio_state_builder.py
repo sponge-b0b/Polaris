@@ -13,6 +13,10 @@ from application.services.portfolio.portfolio_request import (
     PortfolioAnalysisRequest,
 )
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    PORTFOLIO_STATE_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.telemetry import telemetry_context_from_runtime
 from intelligence.portfolio.management.portfolio_state_policy import (
     build_portfolio_state_decision,
@@ -135,5 +139,8 @@ class PortfolioStateBuilder(RuntimeNode):
                 "confidence": 1.0,
                 "symbol": symbol,
                 "position_count": decision.position_count,
+                "quality_status": "normal",
             },
+            output_contract=PORTFOLIO_STATE_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )

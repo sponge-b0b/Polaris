@@ -9,6 +9,7 @@ from typing import Iterable
 
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
 from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.storage.persistence.completed_run_archive import CompletedRunBundle
 from core.storage.persistence.lineage import PersistenceLineage
 
 
@@ -58,6 +59,7 @@ class WorkflowOutputProjectorRequest:
     run: CompletedRunRecord
     node_output: CompletedNodeOutputRecord
     source_fingerprint: str
+    bundle: CompletedRunBundle | None = None
     lineage: PersistenceLineage = field(default_factory=PersistenceLineage)
     requested_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     force_reproject: bool = False

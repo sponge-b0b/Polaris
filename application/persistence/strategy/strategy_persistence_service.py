@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from core.storage.persistence.query import PersistenceListResult
 from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
+from core.storage.persistence.strategy import StrategyHypothesisPersistenceResult
 from core.storage.persistence.strategy import StrategyHypothesisRecord
 from core.storage.persistence.strategy import StrategyPersistenceBundle
 from core.storage.persistence.strategy import StrategyPersistenceRepository
@@ -63,6 +64,12 @@ class StrategyPersistenceService:
         bundle: StrategyPersistenceBundle,
     ) -> StrategyPersistenceResult:
         return await self._repository.persist_strategy_bundle(bundle)
+
+    async def persist_hypotheses(
+        self,
+        hypotheses: Sequence[StrategyHypothesisRecord],
+    ) -> StrategyHypothesisPersistenceResult:
+        return await self._repository.persist_hypotheses(tuple(hypotheses))
 
     async def persist(
         self,

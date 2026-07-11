@@ -5,6 +5,10 @@ from typing import Mapping
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.sideways.sideways_hypothesis_policy import (
     build_sideways_hypothesis,
@@ -41,8 +45,8 @@ class SidewaysAgent(RuntimeNode):
                 "hypothesis_strength": decision.hypothesis.hypothesis_strength,
                 "invalidated": decision.hypothesis.invalidated,
             },
-            output_contract="StrategyHypothesis",
-            output_schema_version=1,
+            output_contract=STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
 

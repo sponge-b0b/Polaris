@@ -5,6 +5,10 @@ from typing import Any, List
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    EXECUTION_RISK_DECISION_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 from integration.contracts.risk.risk_signal_contract import (
     RiskSignalContract,
@@ -354,4 +358,6 @@ class ExecutionRiskGuard(RuntimeNode):
             node_name=self.node_name,
             node_type=self.node_type,
             contract=updated_contract,
+            output_contract=EXECUTION_RISK_DECISION_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )

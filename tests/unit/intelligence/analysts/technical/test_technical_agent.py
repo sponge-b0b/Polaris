@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+from datetime import datetime
 from typing import Any
 from typing import cast
 
@@ -61,6 +63,7 @@ async def test_technical_agent_preserves_expanded_breadth_outputs() -> None:
                 "trace_scope": "runtime_node",
             },
         ),
+        created_at=datetime(2026, 7, 10, 13, 30, tzinfo=UTC),
         workflow_inputs={
             "symbol": "SPY",
             "days": 365,
@@ -72,6 +75,8 @@ async def test_technical_agent_preserves_expanded_breadth_outputs() -> None:
     )
 
     assert output.success is True
+    assert output.outputs["observed_at"] == "2026-07-10T13:30:00+00:00"
+    assert output.outputs["market_universe"] == "sp500"
     features = output.outputs["features"]
     assert features["breadth"]["breadth_regime"] == "weak_breadth"
     assert features["market_context"]["advances_count"] == 180

@@ -7,6 +7,9 @@ from core.storage.persistence.strategy.strategy_persistence_models import (
     StrategyHypothesisRecord,
 )
 from core.storage.persistence.strategy.strategy_persistence_models import (
+    StrategyHypothesisPersistenceResult,
+)
+from core.storage.persistence.strategy.strategy_persistence_models import (
     StrategyPersistenceBundle,
 )
 from core.storage.persistence.strategy.strategy_persistence_models import (
@@ -31,6 +34,7 @@ from core.storage.persistence.strategy.strategy_persistence_repository import (
 __all__ = [
     "StrategyHypothesisEvaluationRecord",
     "StrategyHypothesisRecord",
+    "StrategyHypothesisPersistenceResult",
     "StrategyPersistenceBundle",
     "StrategyPersistenceRepository",
     "StrategyPersistenceResult",

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from domain.workflow_outputs import STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT
 
 import ast
 import asyncio
@@ -110,7 +111,7 @@ def test_strategy_evidence_builder_returns_shared_evidence_context() -> None:
         dict[str, object], output.outputs["strategy_evidence_context"]
     )
     assert output.success is True
-    assert output.output_contract == "StrategyEvidenceContext"
+    assert output.output_contract == STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT
     assert (
         output.outputs["evidence_fingerprint"]
         == evidence_context["evidence_fingerprint"]

@@ -3,12 +3,17 @@ from __future__ import annotations
 import pytest
 
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.workflow_outputs import STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT
+from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
 from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     StrategyPerspectiveWeightingEngine,
+)
+from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
+    StrategyPerspectiveWeights,
 )
 from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     calculate_strategy_perspective_weights,
@@ -27,8 +32,8 @@ async def test_strategy_perspective_weighting_engine_uses_shared_evidence_contex
     features = output.outputs["features"]
     perspective_weights = output.outputs["strategy_perspective_weights"]
     assert output.outputs["directional_score"] == 0.0
-    assert output.output_contract == "StrategyPerspectiveWeights"
-    assert output.output_schema_version == 1
+    assert output.output_contract == STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT
+    assert output.output_schema_version == WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
     assert output.execution_metadata["evidence_fingerprint"] == (
         evidence_context.evidence_fingerprint()
     )
@@ -69,6 +74,28 @@ def test_strategy_perspective_weights_are_deterministic_and_normalized() -> None
         pytest.approx(1.0)
     )
     assert first.bear_weight > first.bull_weight
+
+
+def test_strategy_perspective_weights_from_dict_round_trips_boundary_payload() -> None:
+    weights = StrategyPerspectiveWeights.from_dict(
+        {
+            "bull_weight": 0.50,
+            "bear_weight": 0.25,
+            "sideways_weight": 0.25,
+            "confidence": 0.77,
+            "evidence_fingerprint": "fingerprint-1",
+            "features": {"source": "test"},
+        }
+    )
+
+    assert weights.to_dict() == {
+        "bull_weight": 0.50,
+        "bear_weight": 0.25,
+        "sideways_weight": 0.25,
+        "confidence": 0.77,
+        "evidence_fingerprint": "fingerprint-1",
+        "features": {"source": "test"},
+    }
 
 
 @pytest.mark.asyncio

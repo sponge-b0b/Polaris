@@ -17,6 +17,9 @@ def to_runtime_output(
     node_name: str,
     node_type: str,
     contract: RiskSignalContract,
+    *,
+    output_contract: str | None = None,
+    output_schema_version: int | None = None,
 ) -> RuntimeNodeOutput:
 
     # ============================================================
@@ -36,10 +39,10 @@ def to_runtime_output(
     # ============================================================
 
     signals = [
-        f"risk_pressure:{contract.risk_pressure:.3f}",
-        f"volatility:{contract.volatility_risk:.3f}",
-        f"drawdown:{contract.drawdown_risk:.3f}",
-        f"exposure:{contract.exposure_risk:.3f}",
+        f"risk_pressure:{contract.risk_pressure}",
+        f"volatility:{contract.volatility_risk}",
+        f"drawdown:{contract.drawdown_risk}",
+        f"exposure:{contract.exposure_risk}",
     ]
 
     # ============================================================
@@ -111,7 +114,9 @@ def to_runtime_output(
         execution_metadata={
             "node_name": node_name,
             "node_type": node_type,
-            "confidence": (confidence),
-            **({}),
+            "confidence": confidence,
+            "quality_status": "normal",
         },
+        output_contract=output_contract,
+        output_schema_version=output_schema_version,
     )

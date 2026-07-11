@@ -11,6 +11,10 @@ from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context,
 )
@@ -102,7 +106,10 @@ class StrategySynthesisAgent(RuntimeNode):
                 "portfolio_constrained": True,
                 "event_aware": True,
                 "symbol": inputs.symbol,
+                "quality_status": "normal",
             },
+            output_contract=STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     async def _get_market_events(
@@ -261,7 +268,10 @@ class StrategySynthesisAgent(RuntimeNode):
                 "confidence": decision.confidence,
                 "fallback": True,
                 "reason": reason,
+                "quality_status": "fallback",
             },
+            output_contract=STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     async def _emit_synthesis_operational_telemetry(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from domain.workflow_outputs import RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT
+from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 from core.runtime.state.runtime_context import RuntimeContext
 from intelligence.risk.volatility.volatility_risk_agent import VolatilityRiskAgent
 from intelligence.risk.volatility.volatility_risk_policy import (
@@ -66,6 +68,8 @@ async def test_volatility_risk_agent_adds_weak_breadth_pressure() -> None:
     assert features["base_composite_risk"] == pytest.approx(0.2897833333333333)
     assert features["composite_risk"] == pytest.approx(0.38978333333333326)
     assert features["stability_score"] == pytest.approx(0.6102166666666667)
+    assert output.output_contract == RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT
+    assert output.output_schema_version == WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
     assert features["composite_risk"] != round(
         features["composite_risk"],
         4,

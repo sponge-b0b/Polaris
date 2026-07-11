@@ -1,4 +1,6 @@
 from __future__ import annotations
+from domain.workflow_outputs import STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT
+from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 
 import pytest
 
@@ -34,8 +36,8 @@ async def test_sideways_agent_produces_complete_structured_hypothesis() -> None:
     assert hypothesis["supporting_evidence"]
     assert hypothesis["key_assumptions"]
     assert hypothesis["invalidation_conditions"]
-    assert output.output_contract == "StrategyHypothesis"
-    assert output.output_schema_version == 1
+    assert output.output_contract == STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT
+    assert output.output_schema_version == WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
     assert output.execution_metadata["evidence_fingerprint"] == (
         evidence_context.evidence_fingerprint()
     )

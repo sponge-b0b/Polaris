@@ -14,7 +14,6 @@ from sqlalchemy import inspect
 from sqlalchemy import text
 
 from core.database.base import Base
-from core.database.postgres import create_database_engine
 from core.storage.persistence.health import PersistenceHealthCheckCategory
 from core.storage.persistence.health import PersistenceHealthCheckResult
 from core.storage.persistence.health import PersistenceHealthReport
@@ -359,6 +358,8 @@ class HealthPersistenceService:
 
 
 async def _check_database_connectivity() -> None:
+    from core.database.postgres import create_database_engine
+
     engine = create_database_engine()
     try:
         async with engine.connect() as connection:
@@ -370,6 +371,8 @@ async def _check_database_connectivity() -> None:
 
 
 async def _load_database_tables() -> tuple[str, ...]:
+    from core.database.postgres import create_database_engine
+
     engine = create_database_engine()
     try:
         async with engine.connect() as connection:
@@ -388,6 +391,8 @@ async def _load_database_tables() -> tuple[str, ...]:
 
 
 async def _load_current_alembic_revision() -> str | None:
+    from core.database.postgres import create_database_engine
+
     engine = create_database_engine()
     try:
         async with engine.connect() as connection:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+from datetime import datetime
 from typing import Any, Dict
 
 from core.llm.llm_service import LLMService
@@ -22,6 +24,10 @@ from application.services.sentiment.sentiment_request import (
     SentimentSnapshotRequest,
 )
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 class SentimentAgent(RuntimeNode):
@@ -104,6 +110,7 @@ class SentimentAgent(RuntimeNode):
             raise RuntimeError("Sentiment service returned no result data.")
 
         sentiment_data = sentiment_result.result
+        observed_at = datetime.now(UTC)
 
         sentiment = sentiment_data.sentiment
         features = sentiment_data.features
@@ -241,7 +248,7 @@ class SentimentAgent(RuntimeNode):
         momentum = features.get("momentum")
 
         if momentum is not None:
-            signals.append(f"momentum_{round(momentum, 3)}")
+            signals.append(f"momentum_{momentum}")
 
         # ========================================================
         # RISKS
@@ -309,19 +316,19 @@ class SentimentAgent(RuntimeNode):
         # ========================================================
 
         result = dict(
-            directional_score=round(
-                directional_score,
-                4,
-            ),
-            confidence=round(
-                confidence,
-                4,
-            ),
+            observed_at=observed_at.isoformat(),
+            sentiment_source="SentimentService",
+            sentiment_universe="single_symbol",
+            symbol=str(symbol),
+            directional_score=directional_score,
+            confidence=confidence,
             regime=regime,
             signals=signals,
             risks=risks,
             recommendations=recommendations,
             features=result_features,
+            sentiment_snapshot=sentiment,
+            sentiment_source_data=sentiment_data.to_dict(),
             llm_response={
                 "summary": llm_response.get("summary", ""),
                 "sentiment_bias": llm_response.get(
@@ -363,21 +370,18 @@ class SentimentAgent(RuntimeNode):
             execution_metadata={
                 "node_name": self.node_name,
                 "node_type": self.node_type,
-                "confidence": (
-                    round(
-                        confidence,
-                        4,
-                    )
-                ),
+                "confidence": confidence,
                 **(
                     {
                         "symbol": symbol,
                         "deterministic_regime": regime,
                         "sentiment_snapshot": sentiment,
-                        "raw_sentiment_data": sentiment_data.to_dict(),
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================

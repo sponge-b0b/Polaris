@@ -24,6 +24,10 @@ from application.services.technical.technical_request import (
     TechnicalAnalysisRequest,
 )
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    TECHNICAL_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 class TechnicalAgent(RuntimeNode):
@@ -280,8 +284,8 @@ class TechnicalAgent(RuntimeNode):
             f"trend:{trend_direction}",
             f"momentum:{momentum_state}",
             f"macd:{macd_state}",
-            f"confidence:{confidence:.3f}",
-            f"directional_score:{directional_score:.3f}",
+            f"confidence:{confidence}",
+            f"directional_score:{directional_score}",
         ]
 
         signals.extend(
@@ -344,15 +348,13 @@ class TechnicalAgent(RuntimeNode):
         # BUILD RESULT
         # ========================================================
 
+        observed_at = context.simulation_time or context.created_at
+
         result = dict(
-            directional_score=round(
-                directional_score,
-                4,
-            ),
-            confidence=round(
-                confidence,
-                4,
-            ),
+            observed_at=observed_at.isoformat(),
+            market_universe="sp500",
+            directional_score=directional_score,
+            confidence=confidence,
             regime=regime.get(
                 "regime",
                 "neutral",
@@ -377,10 +379,7 @@ class TechnicalAgent(RuntimeNode):
                 # CORE SERVICE OUTPUTS
                 # ====================================================
                 "symbol": symbol,
-                "technical_score": round(
-                    directional_score,
-                    4,
-                ),
+                "technical_score": directional_score,
                 "snapshot": snapshot,
                 "trend": trend,
                 "volatility": volatility,
@@ -391,14 +390,8 @@ class TechnicalAgent(RuntimeNode):
                 "regime": {
                     **regime,
                     # synthesis-critical fields
-                    "execution_readiness": round(
-                        execution_readiness,
-                        4,
-                    ),
-                    "signal_quality": round(
-                        signal_quality,
-                        4,
-                    ),
+                    "execution_readiness": execution_readiness,
+                    "signal_quality": signal_quality,
                 },
                 # ====================================================
                 # SECONDARY INTERPRETATION
@@ -459,19 +452,17 @@ class TechnicalAgent(RuntimeNode):
             execution_metadata={
                 "node_name": self.node_name,
                 "node_type": self.node_type,
-                "confidence": (
-                    round(
-                        confidence,
-                        4,
-                    )
-                ),
+                "confidence": confidence,
                 **(
                     {
                         "source": "TechnicalService",
                         "symbol": symbol,
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=TECHNICAL_ANALYSIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================
@@ -726,9 +717,9 @@ class TechnicalAgent(RuntimeNode):
 
         return [
             f"breadth:{breadth_state.get('breadth_regime', 'neutral')}",
-            f"breadth_score:{_safe_float(breadth_state.get('breadth_score')):.3f}",
-            f"participation:{_safe_float(breadth_state.get('participation_score')):.3f}",
-            f"mcclellan:{_safe_float(breadth_state.get('mcclellan_score')):.3f}",
+            f"breadth_score:{_safe_float(breadth_state.get('breadth_score'))}",
+            f"participation:{_safe_float(breadth_state.get('participation_score'))}",
+            f"mcclellan:{_safe_float(breadth_state.get('mcclellan_score'))}",
             f"price_ad_divergence:{str(bool(breadth_state.get('price_ad_divergence'))).lower()}",
         ]
 

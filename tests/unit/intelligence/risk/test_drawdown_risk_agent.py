@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from domain.workflow_outputs import RISK_DRAWDOWN_SIGNAL_OUTPUT_CONTRACT
+from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 from core.runtime.state.runtime_context import RuntimeContext
 from intelligence.risk.drawdown.drawdown_risk_agent import DrawdownRiskAgent
 
@@ -42,3 +44,5 @@ async def test_drawdown_risk_agent_consumes_canonical_v2_drawdown_percent() -> N
     assert features["margin_utilization_ratio"] == 0.30
     assert features["account_health"] == "watch"
     assert output.outputs["regime"] == "elevated"
+    assert output.output_contract == RISK_DRAWDOWN_SIGNAL_OUTPUT_CONTRACT
+    assert output.output_schema_version == WORKFLOW_OUTPUT_SCHEMA_VERSION_V1

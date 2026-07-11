@@ -270,14 +270,14 @@ def synthesize_strategy(
         [
             posture,
             *hypothesis_signals,
-            f"bull_weight:{bull_weight:.3f}",
-            f"bear_weight:{bear_weight:.3f}",
-            f"sideways_weight:{sideways_weight:.3f}",
-            f"net_bias:{net_bias:.3f}",
-            f"risk_pressure:{inputs.adjusted_risk_pressure:.3f}",
-            f"event_pressure:{event_pressure:.3f}",
+            f"bull_weight:{bull_weight}",
+            f"bear_weight:{bear_weight}",
+            f"sideways_weight:{sideways_weight}",
+            f"net_bias:{net_bias}",
+            f"risk_pressure:{inputs.adjusted_risk_pressure}",
+            f"event_pressure:{event_pressure}",
             f"event_bias:{event_bias}",
-            f"event_volatility:{event_volatility:.3f}",
+            f"event_volatility:{event_volatility}",
             f"technical_regime:{inputs.technical_regime}",
             f"portfolio_status:{inputs.portfolio_status}",
             *event_context_signals(market_events),
@@ -566,7 +566,7 @@ def synthesis_hypothesis_signals(
     selected_hypothesis: StrategyHypothesis | None,
 ) -> list[str]:
     signals = [
-        f"{evaluation.perspective.value}_candidate_score:{evaluation.candidate_score:.3f}"
+        f"{evaluation.perspective.value}_candidate_score:{evaluation.candidate_score}"
         for evaluation in evaluations
     ]
     if selected_hypothesis is not None:

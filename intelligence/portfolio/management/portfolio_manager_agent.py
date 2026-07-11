@@ -5,6 +5,10 @@ from collections.abc import Mapping
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
 from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
 
@@ -417,9 +421,12 @@ class PortfolioManagerAgent(RuntimeNode):
                     {
                         "execution_status": execution_status,
                         "portfolio_regime": portfolio_regime,
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================

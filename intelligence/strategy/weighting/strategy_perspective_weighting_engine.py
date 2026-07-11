@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from typing import Mapping
+from typing import Self
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.contracts import validate_confidence
 
@@ -43,6 +49,21 @@ class StrategyPerspectiveWeights:
             "evidence_fingerprint": self.evidence_fingerprint,
             "features": dict(self.features),
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Self:
+        features = payload.get("features")
+        return cls(
+            bull_weight=_required_float(payload.get("bull_weight"), "bull_weight"),
+            bear_weight=_required_float(payload.get("bear_weight"), "bear_weight"),
+            sideways_weight=_required_float(
+                payload.get("sideways_weight"),
+                "sideways_weight",
+            ),
+            confidence=_required_float(payload.get("confidence"), "confidence"),
+            evidence_fingerprint=str(payload.get("evidence_fingerprint", "")),
+            features=dict(features) if isinstance(features, Mapping) else {},
+        )
 
 
 class StrategyPerspectiveWeightingEngine(RuntimeNode):
@@ -89,8 +110,8 @@ class StrategyPerspectiveWeightingEngine(RuntimeNode):
                 "confidence": perspective_weights.confidence,
                 "evidence_fingerprint": perspective_weights.evidence_fingerprint,
             },
-            output_contract="StrategyPerspectiveWeights",
-            output_schema_version=1,
+            output_contract=STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
 
@@ -326,3 +347,9 @@ def _validate_weight(value: float) -> float:
 
 def _clamp_01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
+
+
+def _required_float(value: object, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise TypeError(f"{field_name} must be numeric.")
+    return float(value)

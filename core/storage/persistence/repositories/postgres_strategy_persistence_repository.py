@@ -16,6 +16,7 @@ from core.storage.persistence.serializers.strategy_persistence_serializer import
     StrategyPersistenceSerializer,
 )
 from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
+from core.storage.persistence.strategy import StrategyHypothesisPersistenceResult
 from core.storage.persistence.strategy import StrategyHypothesisRecord
 from core.storage.persistence.strategy import StrategyPersistenceBundle
 from core.storage.persistence.strategy import StrategyPersistenceResult
@@ -47,6 +48,28 @@ class PostgresStrategyPersistenceRepository(StrategyPersistenceRepository):
         return StrategyPersistenceResult.succeeded(
             decision_id=bundle.decision.decision_id,
             records_persisted=1 + len(bundle.hypotheses) + len(bundle.evaluations),
+        )
+
+    async def persist_hypotheses(
+        self,
+        hypotheses: Sequence[StrategyHypothesisRecord],
+    ) -> StrategyHypothesisPersistenceResult:
+        records = tuple(hypotheses)
+        if not records:
+            return StrategyHypothesisPersistenceResult.failed(
+                "No strategy hypotheses supplied for persistence."
+            )
+        try:
+            for hypothesis in records:
+                await self._session.execute(_upsert_hypothesis_statement(hypothesis))
+            await self._session.commit()
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            return StrategyHypothesisPersistenceResult.failed(str(exc))
+
+        return StrategyHypothesisPersistenceResult.succeeded(
+            hypothesis_ids=tuple(record.hypothesis_id for record in records),
+            records_persisted=len(records),
         )
 
     async def get_hypothesis(

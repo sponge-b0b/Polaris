@@ -94,9 +94,9 @@ class PortfolioDecisionEngine:
         return {
             "symbol": symbol,
             "direction": direction,
-            "conviction": round(conviction, 3),
-            "suggested_position_size": round(position_size, 4),
-            "risk_multiplier": round(risk_multiplier, 3),
+            "conviction": conviction,
+            "suggested_position_size": position_size,
+            "risk_multiplier": risk_multiplier,
             "strategy_breakdown": strategy_breakdown,
             "reasoning": reasoning,
             "risk_notes": risk_notes,

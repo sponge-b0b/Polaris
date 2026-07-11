@@ -6,6 +6,10 @@ from typing import Any, Dict
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    ATTRIBUTION_EXPLANATION_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 class AttributionEngine(RuntimeNode):
@@ -105,26 +109,11 @@ class AttributionEngine(RuntimeNode):
         # ========================================================
 
         contribution_map = {
-            "technical": round(
-                technical_score,
-                4,
-            ),
-            "fundamental": round(
-                fundamental_score,
-                4,
-            ),
-            "sentiment": round(
-                sentiment_score,
-                4,
-            ),
-            "news": round(
-                news_score,
-                4,
-            ),
-            "risk": round(
-                risk_score,
-                4,
-            ),
+            "technical": technical_score,
+            "fundamental": fundamental_score,
+            "sentiment": sentiment_score,
+            "news": news_score,
+            "risk": risk_score,
         }
 
         # ========================================================
@@ -171,7 +160,7 @@ class AttributionEngine(RuntimeNode):
         signals = [
             "attribution_generated",
             f"dominant_driver:{dominant_driver}",
-            f"agreement:{round(agreement_score, 2)}",
+            f"agreement:{agreement_score}",
         ]
 
         # ========================================================
@@ -204,10 +193,7 @@ class AttributionEngine(RuntimeNode):
 
         result = dict(
             directional_score=0.0,
-            confidence=round(
-                attribution_confidence,
-                4,
-            ),
+            confidence=attribution_confidence,
             regime=attribution_regime,
             signals=signals,
             risks=risks,
@@ -215,14 +201,8 @@ class AttributionEngine(RuntimeNode):
             features={
                 "contribution_map": contribution_map,
                 "dominant_driver": dominant_driver,
-                "dominant_driver_strength": round(
-                    dominant_score,
-                    4,
-                ),
-                "agreement_score": round(
-                    agreement_score,
-                    4,
-                ),
+                "dominant_driver_strength": dominant_score,
+                "agreement_score": agreement_score,
                 "agent_count": len(contribution_map),
             },
         )
@@ -236,19 +216,17 @@ class AttributionEngine(RuntimeNode):
             execution_metadata={
                 "node_name": self.node_name,
                 "node_type": self.node_type,
-                "confidence": (
-                    round(
-                        attribution_confidence,
-                        4,
-                    )
-                ),
+                "confidence": attribution_confidence,
                 **(
                     {
                         "engine": "AttributionEngine",
                         "purpose": "explainability",
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=ATTRIBUTION_EXPLANATION_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================

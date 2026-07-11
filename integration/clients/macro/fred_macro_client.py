@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import UTC
+from datetime import datetime
 from typing import Any, cast
 
 import httpx
@@ -18,6 +20,7 @@ class FredSeriesObservation:
 
     series_id: str
     value: float | None
+    observation_timestamp: datetime | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -135,6 +138,7 @@ class FredMacroClient:
         return FredSeriesObservation(
             series_id=series_id,
             value=float(value),
+            observation_timestamp=self._parse_observation_timestamp(latest.get("date")),
         )
 
     def _request_params(
@@ -150,6 +154,18 @@ class FredMacroClient:
             "sort_order": "desc",
             "limit": limit,
         }
+
+    @staticmethod
+    def _parse_observation_timestamp(value: object) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+        clean_value = value.strip()
+        if not clean_value:
+            return None
+        try:
+            return datetime.fromisoformat(clean_value).replace(tzinfo=UTC)
+        except ValueError:
+            return None
 
     @staticmethod
     def _safe_error_message(error: Exception) -> str:

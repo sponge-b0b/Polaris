@@ -265,6 +265,48 @@ class StrategyHypothesisEvaluationRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class StrategyHypothesisPersistenceResult:
+    """Typed result for standalone strategy hypothesis persistence."""
+
+    success: bool
+    records_persisted: int = 0
+    hypothesis_ids: tuple[str, ...] = ()
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.records_persisted < 0:
+            raise ValueError("records_persisted cannot be negative.")
+        object.__setattr__(self, "hypothesis_ids", tuple(self.hypothesis_ids))
+        if self.success and self.error is not None:
+            raise ValueError("successful persistence results cannot include an error.")
+        if self.success and not self.hypothesis_ids:
+            raise ValueError(
+                "successful hypothesis persistence requires hypothesis_ids."
+            )
+        if not self.success:
+            require_non_empty_identifier(self.error, "error")
+
+    @classmethod
+    def succeeded(
+        cls,
+        *,
+        hypothesis_ids: tuple[str, ...],
+        records_persisted: int | None = None,
+    ) -> StrategyHypothesisPersistenceResult:
+        return cls(
+            success=True,
+            hypothesis_ids=hypothesis_ids,
+            records_persisted=len(hypothesis_ids)
+            if records_persisted is None
+            else records_persisted,
+        )
+
+    @classmethod
+    def failed(cls, error: str) -> StrategyHypothesisPersistenceResult:
+        return cls(success=False, error=error)
+
+
+@dataclass(frozen=True, slots=True)
 class StrategyPersistenceBundle:
     """Atomic strategy persistence payload for hypotheses, decision, and lineage."""
 

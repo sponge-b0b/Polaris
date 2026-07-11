@@ -12,6 +12,10 @@ from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import (
+    MACRO_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.prompts.system.fundamental_agent_prompt import (
     FUNDAMENTAL_AGENT_SYSTEM_PROMPT,
 )
@@ -129,8 +133,11 @@ class FundamentalAgent(RuntimeNode):
                 "Observe rate expectations sensitivity",
             ]
 
+            macro_analysis = macro_data.to_dict()
+            observed_at = context.simulation_time or context.created_at
+
             features = {
-                "macro_state": macro_data.to_dict(),
+                "macro_state": macro_analysis,
                 "fundamental_summary": {
                     "fed": macro_data.fed_analysis,
                     "inflation": macro_data.inflation_analysis,
@@ -142,6 +149,10 @@ class FundamentalAgent(RuntimeNode):
             output_data = {
                 "agent_name": self.node_name,
                 "agent_type": self.node_type,
+                "observed_at": observed_at.isoformat(),
+                "macro_source": "MacroService",
+                "macro_region": "US",
+                "macro_analysis": macro_analysis,
                 "directional_score": directional_score,
                 "confidence": confidence,
                 "regime": regime,
@@ -173,7 +184,10 @@ class FundamentalAgent(RuntimeNode):
                     "agent_type": self.node_type,
                     "regime": regime,
                     "confidence": confidence,
+                    "quality_status": "normal",
                 },
+                output_contract=MACRO_ANALYSIS_OUTPUT_CONTRACT,
+                output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
             )
 
         except Exception as error:

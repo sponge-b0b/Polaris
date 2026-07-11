@@ -1137,3 +1137,221 @@ Notes:
 - No live services were required for this step.
 - The helpers do not create random IDs for workflow-output-derived records; future projectors should use these helpers, or equivalent domain-specific deterministic helpers, whenever the projected record is derived from archived workflow evidence.
 - Domain projectors were not implemented in this step. Step 12 remains gated by the structured-hypothesis plan as documented above.
+
+### Step 12 — Normalize projectable node output contracts
+
+Completed on 2026-07-10.
+
+- Added canonical workflow-output contract constants under `domain.workflow_outputs` so projectable node outputs resolve by stable `output_contract` plus `output_schema_version` instead of legacy names or payload inspection.
+- Updated morning-report projectable nodes to set explicit contract identity and schema version at the `RuntimeNodeOutput` boundary:
+  - portfolio state and portfolio allocation intent
+  - fundamental, technical, news, and sentiment analysis
+  - drawdown, exposure, volatility, aggregate-input, aggregate, and execution-risk signals
+  - attribution explanation
+  - strategy evidence context, perspective weights, bull/bear/sideways hypotheses, and strategy synthesis
+  - trade recommendation packaging
+- Kept strategy output normalization governed by the finalized structured-hypothesis contracts; no generic legacy strategy payload was added or preserved.
+- Extended the risk runtime adapter to carry explicit output contract identity and preserve it through breadth annotation wrapping.
+- Added typed boundary decoding for `RiskSignalContract` and `StrategyPerspectiveWeights` and made `RiskSignalContract` immutable with `frozen=True, slots=True`.
+- Moved sentiment persistence-relevant source data from execution metadata into first-class output fields (`sentiment_snapshot` and `sentiment_source_data`) while leaving execution metadata for operational context and quality state.
+- Added first-class quality-state metadata for normal and degraded projectable outputs where applicable.
+- Removed runtime/intelligence numeric rounding and fixed-width numeric formatting from projectable output paths so projection receives full-precision values. Presentation rounding remains a renderer concern.
+- Removed persistence-oriented contract markers from serialized output payloads where they belonged on `RuntimeNodeOutput` identity fields instead.
+- Added focused tests for structured strategy contract constants, risk contract decoding/immutability, and risk output contract preservation.
+
+Verification:
+
+- `uv run ruff check <step-12-paths> --fix`
+- `uv run ruff format <step-12-paths>`
+- `uv run mypy <step-12-paths> --explicit-package-bases`
+- `uv run pytest -q tests/unit/integration/test_risk_signal_contract.py tests/unit/intelligence/risk/test_drawdown_risk_agent.py tests/unit/intelligence/risk/test_exposure_risk_agent.py tests/unit/intelligence/risk/test_volatility_risk_agent.py tests/unit/intelligence/strategy/test_bear_hypothesis_policy.py tests/unit/intelligence/strategy/test_bull_hypothesis_policy.py tests/unit/intelligence/strategy/test_sideways_hypothesis_policy.py tests/unit/intelligence/strategy/test_strategy_evidence_builder.py tests/unit/intelligence/strategy/test_strategy_perspective_weighting_engine.py tests/unit/intelligence/strategy/test_strategy_synthesis_contracts.py tests/unit/intelligence/strategy/test_strategy_synthesis_breadth_gating.py`
+- `POLARIS_POSTGRES_PASSWORD=<local-test-placeholder> uv run pytest -q tests/unit/intelligence/analysts/fundamental/test_fundamental_agent.py tests/unit/intelligence/analysts/technical/test_technical_agent.py tests/unit/intelligence/analysts/technical/test_technical_breadth_context.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/intelligence/execution/test_execution_risk_guard.py tests/unit/intelligence/execution/test_trade_packager_breadth.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/application/projections`
+- `git diff --check`
+- `uv run graphify update .`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 36 source files`.
+- Focused risk and strategy tests passed: `50 passed`.
+- Focused analyst, portfolio, execution, morning-report, and projection tests passed: `64 passed`.
+- `git diff --check` passed.
+- Graphify update completed successfully with no code-graph topology changes after the final precision cleanup.
+
+Notes:
+
+- No live services were required for this step.
+- Projection projectors were intentionally not implemented in this step; Step 13 remains the first domain projector step.
+- Repowise flagged technical, news, sentiment, and risk aggregation files as higher-churn/hotspot areas during preflight, so the implementation stayed surgical and limited to output-contract normalization, precision preservation, and boundary decoding.
+
+### Step 13 — Implement the technical and market projector
+
+Completed on 2026-07-10.
+
+- Added `TechnicalMarketWorkflowOutputProjector` under `application/projections/workflow_outputs/projectors/`.
+- Registered the technical market projector against the canonical `polaris.market.technical_analysis` workflow-output contract and schema version `1`.
+- Projected eligible `technical_agent` workflow evidence into typed market records through `MarketPersistenceService`:
+  - `TechnicalAnalysisSnapshotRecord`
+  - `MarketContextSnapshotRecord`
+  - `MarketBreadthSnapshotRecord`
+- Kept OHLCV, indicator, and market-event records out of this projector because the current technical node output does not contain complete canonical source data for those record types.
+- Added first-class `observed_at` and `market_universe` fields to `technical_agent` output so the projector does not mine timestamps or universe identity from generic metadata.
+- Wired `MarketPersistenceService` and `PostgresMarketPersistenceRepository` through the application persistence DI provider.
+- Updated workflow-output projection DI and the PostgreSQL projection coordinator so a request/session-scoped market persistence service is used when projection events run.
+- Deferred PostgreSQL engine creation in the persistence health service until health checks execute, avoiding import-time database settings requirements in projection unit tests.
+- Added focused unit coverage for successful market projection, deterministic projected record IDs, missing first-class timestamp skip behavior, canonical projector registration, DI registry wiring, bootstrap idempotency, and technical-agent first-class output fields.
+
+Verification:
+
+- `uv run ruff check application/persistence/health/health_persistence_service.py application/projections/workflow_outputs/projectors application/projections/workflow_outputs/bootstrap.py application/projections/workflow_outputs/di.py application/persistence/di.py intelligence/analysts/technical/technical_agent.py tests/unit/application/projections/test_market_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/technical/test_technical_agent.py --fix`
+- `uv run ruff format application/persistence/health/health_persistence_service.py application/projections/workflow_outputs/projectors application/projections/workflow_outputs/bootstrap.py application/projections/workflow_outputs/di.py application/persistence/di.py intelligence/analysts/technical/technical_agent.py tests/unit/application/projections/test_market_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/technical/test_technical_agent.py`
+- `uv run mypy application/projections/workflow_outputs application/persistence/di.py application/persistence/health/health_persistence_service.py intelligence/analysts/technical/technical_agent.py tests/unit/application/projections/test_market_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/technical/test_technical_agent.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_market_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/technical/test_technical_agent.py`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 18 source files`.
+- Focused projector/DI/bootstrap/technical-agent tests passed: `10 passed`.
+- Projection test suite passed: `49 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- The projector skips archived outputs that lack first-class `observed_at`, `market_universe`, or symbol identity rather than reconstructing provider facts from metadata.
+- Step 14 can now implement macro projection using the same pattern: typed output contract eligibility, first-class source fields, deterministic projected IDs, and the canonical application persistence service for the target durable records.
+
+### Step 14 — Implement macro projection
+
+Completed on 2026-07-10.
+
+- Added `MacroAnalysisWorkflowOutputProjector` under `application/projections/workflow_outputs/projectors/`.
+- Registered the macro projector against the canonical `polaris.macro.analysis` workflow-output contract and schema version `1`.
+- Projected eligible `fundamental_agent` macro workflow evidence into typed macro records through `MacroPersistenceService`:
+  - `MacroObservationRecord`
+  - `MacroRegimeSnapshotRecord`
+  - `EconomicCalendarEventRecord`, only when first-class calendar events are present in the output.
+- Added first-class macro output fields to the fundamental agent output boundary:
+  - `observed_at`
+  - `macro_source`
+  - `macro_region`
+  - `macro_analysis`
+- Added `MacroIndicatorObservation` to the typed macro domain snapshot so provider observations can flow through the service and node output without reconstructing facts from scalar summaries or narrative LLM text.
+- Updated the FRED macro client/provider path to preserve source observation timestamps and emit typed macro observations when a vendor observation has both a value and timestamp.
+- Wired `MacroPersistenceService` and `PostgresMacroPersistenceRepository` through application persistence DI and the PostgreSQL workflow-output projection coordinator.
+- Kept macro observation projection limited to explicit typed observations under `macro_analysis.macro_data.observations`; scalar macro snapshot fields are not converted into observations by inference.
+- Added focused tests for macro projection success, deterministic projected record IDs, missing timestamp skip behavior, canonical registration, DI wiring, and fundamental-agent macro output fields.
+
+Verification:
+
+- `uv run ruff check domain/macro/models domain/workflow_outputs application/projections/workflow_outputs/projectors application/projections/workflow_outputs/bootstrap.py application/projections/workflow_outputs/di.py application/persistence/di.py integration/clients/macro/fred_macro_client.py integration/providers/macro/live_macro_provider.py intelligence/analysts/fundamental/fundamental_agent.py tests/unit/application/projections/test_macro_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/fundamental/test_fundamental_agent.py --fix`
+- `uv run ruff format domain/macro/models domain/workflow_outputs application/projections/workflow_outputs/projectors application/projections/workflow_outputs/bootstrap.py application/projections/workflow_outputs/di.py application/persistence/di.py integration/clients/macro/fred_macro_client.py integration/providers/macro/live_macro_provider.py intelligence/analysts/fundamental/fundamental_agent.py tests/unit/application/projections/test_macro_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/fundamental/test_fundamental_agent.py`
+- `uv run mypy domain/macro/models domain/workflow_outputs application/projections/workflow_outputs application/persistence/di.py integration/clients/macro/fred_macro_client.py integration/providers/macro/live_macro_provider.py intelligence/analysts/fundamental/fundamental_agent.py tests/unit/application/projections/test_macro_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/fundamental/test_fundamental_agent.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_macro_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/intelligence/analysts/fundamental/test_fundamental_agent.py tests/unit/integration/providers/macro/test_macro_providers.py tests/unit/integration/clients/macro/test_fred_macro_client.py`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run pytest -q tests/unit/application/persistence/macro tests/unit/core/database/test_macro_persistence_models.py tests/unit/core/storage/persistence/test_macro_persistence_contracts.py tests/unit/core/storage/persistence/test_macro_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_macro_persistence_repository.py tests/unit/integration/providers/macro/test_macro_providers.py tests/unit/integration/clients/macro/test_fred_macro_client.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 24 source files`.
+- Focused macro/projector/fundamental-agent tests passed: `16 passed`.
+- Projection test suite passed: `53 passed`.
+- Macro persistence/provider/client contract tests passed: `51 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- Plain `pytest` is not available on the shell PATH in this environment, so verification used `uv run pytest`.
+- Economic calendar events are projected only from explicit `economic_calendar_events` output entries. The current production fundamental agent does not synthesize those events, so none are fabricated from macro analysis text.
+- Macro observation records are sourced from typed provider observations only; the projector does not derive observations from scalar macro fields, summaries, or LLM narrative content.
+
+### Step 15 — Implement news and sentiment projectors
+
+Completed on 2026-07-10.
+
+- Added `NewsAnalysisWorkflowOutputProjector` and registered it against `polaris.news.analysis` schema version `1`.
+- Projected eligible `news_agent` workflow evidence through `NewsPersistenceService` into:
+  - `NewsArticleRecord`, only when the source article has canonical source identity, title, published timestamp, and `id` or `url`
+  - `NewsAnalysisSnapshotRecord`, when the analysis output is not degraded
+- Added `SentimentSnapshotWorkflowOutputProjector` and registered it against `polaris.sentiment.snapshot` schema version `1`.
+- Projected eligible `sentiment_agent` workflow evidence through `SentimentPersistenceService` into:
+  - `SentimentSnapshotRecord`
+  - `SentimentSourceRecord`, only when a provider/source entry has source identity and timestamp
+- Updated `news_agent` output boundaries with first-class `observed_at`, `news_source`, `symbol`, `query`, and `news_articles` fields so the projector does not mine canonical identity or timestamps from generic metadata.
+- Updated `sentiment_agent` output boundaries with first-class `observed_at`, `sentiment_source`, `sentiment_universe`, and `symbol` fields.
+- Wired `NewsPersistenceService`, `SentimentPersistenceService`, `PostgresNewsPersistenceRepository`, and `PostgresSentimentPersistenceRepository` through application persistence DI and the PostgreSQL workflow-output projection coordinator.
+- Extended projection DI registry wiring for news and sentiment projector registrations.
+- Added focused projector tests for success, deterministic eligibility behavior, snapshot-only/source-only edge cases, missing timestamp skips, and canonical registrations.
+- Added output-boundary tests for news and sentiment agents' first-class projection fields.
+
+Verification:
+
+- `uv run ruff check <step-15-paths> --fix`
+- `uv run ruff format <step-15-paths>`
+- `uv run mypy <step-15-paths> --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_news_workflow_output_projector.py tests/unit/application/projections/test_sentiment_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/application/projections/test_workflow_output_projection_bootstrap.py tests/unit/application/projections/test_macro_workflow_output_projector.py tests/unit/application/projections/test_market_workflow_output_projector.py tests/unit/intelligence/research/test_news_sentiment_output_contracts.py`
+- `uv run pytest -q tests/unit/application/projections tests/unit/intelligence/research/test_news_sentiment_output_contracts.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 12 source files`.
+- Focused projector/DI/bootstrap/output-boundary tests passed: `23 passed`.
+- Projection suite plus news/sentiment output-boundary tests passed: `64 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- Repowise flagged the news persistence service, sentiment persistence service, news agent, and sentiment agent as churn-heavy/hotspot areas, so the change stayed surgical and used narrow projector/DI/test additions instead of broad service rewrites.
+- Degraded news outputs do not create analysis snapshots; they can still persist eligible source article records. Sentiment source records are persisted only when source identity and timestamp are present; otherwise the sentiment snapshot is persisted without source records.
+
+### Steps 16–17 — Coordinated strategy/recommendation projection stage
+
+Completed on 2026-07-10.
+
+Checked off as one coordinated implementation stage with Strategy Step 21.
+
+- Added canonical workflow-output projectors for risk/agent signals and execution-risk decisions.
+- Added strategy-specific projection for Bull, Bear, Sideways, and strategy synthesis outputs through first-class strategy persistence records instead of generic legacy signal payloads.
+- Added downstream recommendation projection mappings while preserving distinct meanings:
+  - strategy synthesis maps to `strategy_recommendation`;
+  - portfolio allocation intent maps to `allocation_intent`;
+  - trade packaging maps to `trade_proposal` and `TradeSetupRecord`;
+  - execution-risk guard output remains an execution/risk decision signal, not a recommendation or realized outcome.
+- Extended projector requests with the completed-run bundle so synthesis projection can relate sibling hypothesis node outputs without creating a parallel strategy projector coordinator or legacy payload merger.
+- Added `AgentSignalPersistenceService` and wired agent-signal, strategy, and recommendation persistence services through application persistence DI and the PostgreSQL projection bootstrap.
+- Kept projection as a completed-run workflow-output concern; runtime nodes and analytical services do not write curated strategy or recommendation records directly.
+
+Verification:
+
+- `uv run ruff check application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py application/projections/workflow_outputs core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections --fix`
+- `uv run ruff format application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py application/projections/workflow_outputs core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run mypy application/projections/workflow_outputs application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections --explicit-package-bases`
+- `timeout 90s uv run graphify update .`
+
+Result:
+
+- Focused Ruff passed after one automatic fix.
+- Projection unit suite passed: `66 passed`.
+- Focused MyPy passed: `Success: no issues found in 40 source files`.
+- Graphify update completed successfully after Python changes.
+
+Notes:
+
+- No live external services were required for this coordinated stage.
+- The implementation intentionally does not create `RecommendationOutcomeRecord` or `WatchlistItemRecord` without explicit realized outcome/watchlist evidence in workflow outputs.

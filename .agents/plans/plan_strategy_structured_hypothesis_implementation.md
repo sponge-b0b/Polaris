@@ -1116,3 +1116,36 @@ Result:
 - Graphify was updated after Python changes.
 - `git diff --check` passed.
 - PostgreSQL was the only live service required for this step; it was already running.
+
+### Step 21 — Add workflow-output projection
+
+Completed on 2026-07-10.
+
+Checked off as one coordinated implementation stage with Projection Steps 16–17.
+
+- Registered the strategy hypothesis and synthesis output contracts with the canonical workflow-output projection registry.
+- Implemented strategy-specific projectors for Bull, Bear, Sideways, and synthesis outputs through the existing projection coordinator and bootstrap path.
+- Projected successful hypothesis node outputs into `StrategyHypothesisRecord` through `StrategyPersistenceService.persist_hypotheses`.
+- Projected synthesis output into `StrategySynthesisDecisionRecord` and related `StrategyHypothesisEvaluationRecord` entries, preserving execution/node lineage and evidence fingerprints.
+- Added downstream strategy recommendation mapping from synthesis output without collapsing allocation intent, trade proposal, execution-risk decision, or realized outcome into the same semantic record.
+- Kept runtime evidence and canonical business records separate; strategy nodes still produce workflow evidence and do not write persistence records directly.
+
+Verification:
+
+- `uv run ruff check application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py application/projections/workflow_outputs core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections --fix`
+- `uv run ruff format application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py application/projections/workflow_outputs core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run mypy application/projections/workflow_outputs application/persistence/agent_signals application/persistence/di.py application/persistence/strategy/strategy_persistence_service.py core/storage/persistence/strategy core/storage/persistence/repositories/postgres_strategy_persistence_repository.py tests/unit/application/projections --explicit-package-bases`
+- `timeout 90s uv run graphify update .`
+
+Result:
+
+- Focused Ruff passed after one automatic fix.
+- Projection unit suite passed: `66 passed`.
+- Focused MyPy passed: `Success: no issues found in 40 source files`.
+- Graphify update completed successfully after Python changes.
+
+Notes:
+
+- This completes the coordinated projection handoff from the structured-hypothesis plan into the canonical curated-record projection plan.
+- No separate strategy-owned projection coordinator, subscriber, job table, retry path, or legacy generic strategy payload was introduced.

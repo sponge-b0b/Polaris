@@ -5,6 +5,10 @@ from typing import Mapping
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.bull.bull_hypothesis_policy import build_bull_hypothesis
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 
@@ -39,8 +43,8 @@ class BullAgent(RuntimeNode):
                 "hypothesis_strength": decision.hypothesis.hypothesis_strength,
                 "invalidated": decision.hypothesis.invalidated,
             },
-            output_contract="StrategyHypothesis",
-            output_schema_version=1,
+            output_contract=STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
 

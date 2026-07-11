@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+from datetime import datetime
 from typing import Any, cast
 
 import pytest
@@ -8,6 +10,9 @@ from application.services.base import ServiceResult, ServiceRunner
 from application.services.macro.macro_result import MacroAnalysisResult
 from application.services.macro.macro_service import MacroService
 from core.llm.llm_service import LLMService
+from domain.macro.models import MacroDataSnapshot
+from domain.macro.models import MacroIndicatorObservation
+from domain.workflow_outputs import MACRO_ANALYSIS_OUTPUT_CONTRACT
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from intelligence.analysts.fundamental.fundamental_agent import FundamentalAgent
@@ -24,7 +29,27 @@ class _MacroRunner:
             request_id=str(getattr(request, "request_id", "request-1")),
             request_name="MacroAnalysisRequest",
             result=MacroAnalysisResult(
-                macro_data=None,
+                macro_data=MacroDataSnapshot(
+                    cpi=3.2,
+                    core_cpi=2.9,
+                    pce=2.4,
+                    fed_funds_rate=4.5,
+                    treasury_2y=4.2,
+                    treasury_10y=4.8,
+                    unemployment_rate=3.9,
+                    m2_money_supply=21_500_000.0,
+                    vix=14.0,
+                    observations=(
+                        MacroIndicatorObservation(
+                            indicator_name="cpi",
+                            value=3.2,
+                            observation_timestamp=datetime(2026, 6, 1, tzinfo=UTC),
+                            source="fred",
+                            indicator_category="inflation",
+                            region="US",
+                        ),
+                    ),
+                ),
                 inflation_analysis={"inflation_regime": "disinflationary"},
                 fed_analysis={"fed_stance": "dovish"},
                 liquidity_analysis={"liquidity_regime": "high_liquidity"},
@@ -76,13 +101,21 @@ async def test_fundamental_agent_uses_canonical_macro_result_fields() -> None:
             runtime_id="runtime-1",
             workflow_id="morning_report",
             execution_id="execution-1",
+            created_at=datetime(2026, 7, 10, 13, 30, tzinfo=UTC),
         )
     )
 
     assert output.success is True
+    assert output.output_contract == MACRO_ANALYSIS_OUTPUT_CONTRACT
     assert output.outputs["regime"] == "risk_on_expansion"
     assert output.outputs["directional_score"] == 1.0
     assert output.outputs["confidence"] == pytest.approx(0.85)
+    assert output.outputs["observed_at"] == "2026-07-10T13:30:00+00:00"
+    assert output.outputs["macro_source"] == "MacroService"
+    assert output.outputs["macro_region"] == "US"
+    macro_analysis = output.outputs["macro_analysis"]
+    assert macro_analysis["macro_data"]["observations"][0]["source"] == "fred"
+    assert macro_analysis == output.outputs["features"]["macro_state"]
     assert output.outputs["signals"] == [
         "fed:dovish",
         "liquidity:high_liquidity",
@@ -105,6 +138,7 @@ async def test_fundamental_agent_emits_degraded_telemetry_for_llm_fallback() -> 
             runtime_id="runtime-1",
             workflow_id="morning_report",
             execution_id="execution-1",
+            created_at=datetime(2026, 7, 10, 13, 30, tzinfo=UTC),
         )
     )
 

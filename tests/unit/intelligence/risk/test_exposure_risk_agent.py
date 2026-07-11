@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from domain.workflow_outputs import RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT
+from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 from core.runtime.state.runtime_context import RuntimeContext
 from intelligence.risk.exposure.exposure_risk_agent import ExposureRiskAgent
 
@@ -60,3 +62,5 @@ async def test_exposure_risk_agent_prefers_v2_portfolio_risk_fields() -> None:
     assert features["exposure_risk"] == 0.81
     assert output.outputs["regime"] == "critical"
     assert "overexposure" in output.outputs["risks"]
+    assert output.output_contract == RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT
+    assert output.output_schema_version == WORKFLOW_OUTPUT_SCHEMA_VERSION_V1

@@ -5,6 +5,10 @@ from typing import Any
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.workflow_outputs import (
+    TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
@@ -212,10 +216,10 @@ class TradePackager(RuntimeNode):
 
         signals = [
             f"direction:{direction}",
-            f"entry_bias:{round(entry_bias, 4)}",
-            f"trend_score:{round(trend_score, 4)}",
-            f"sentiment_score:{round(sentiment_score, 4)}",
-            f"risk_pressure:{round(risk_pressure, 4)}",
+            f"entry_bias:{entry_bias}",
+            f"trend_score:{trend_score}",
+            f"sentiment_score:{sentiment_score}",
+            f"risk_pressure:{risk_pressure}",
         ]
 
         signals = self._deduplicate(
@@ -345,9 +349,12 @@ class TradePackager(RuntimeNode):
                     {
                         "symbol": symbol,
                         "direction": direction,
+                        "quality_status": "normal",
                     }
                 ),
             },
+            output_contract=TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
+            output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         )
 
     # ============================================================
@@ -394,8 +401,8 @@ class TradePackager(RuntimeNode):
         take_profit = (1.5 + abs(trend_score)) * volatility_factor
 
         return (
-            round(stop, 4),
-            round(take_profit, 4),
+            stop,
+            take_profit,
         )
 
     # ============================================================

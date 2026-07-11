@@ -18,8 +18,8 @@ def breadth_signal_tags(
 
     return [
         f"breadth:{breadth_context.breadth_regime}",
-        f"breadth_risk:{breadth_context.breadth_risk_score:.3f}",
-        f"breadth_confirmation:{breadth_context.confirmation_score:.3f}",
+        f"breadth_risk:{breadth_context.breadth_risk_score}",
+        f"breadth_confirmation:{breadth_context.confirmation_score}",
         f"price_ad_divergence:{str(breadth_context.price_ad_divergence).lower()}",
     ]
 
@@ -52,4 +52,6 @@ def annotate_risk_runtime_output(
     return RuntimeNodeOutput.success_output(
         outputs=outputs,
         execution_metadata=runtime_output.execution_metadata,
+        output_contract=runtime_output.output_contract,
+        output_schema_version=runtime_output.output_schema_version,
     )

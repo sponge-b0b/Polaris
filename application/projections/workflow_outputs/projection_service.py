@@ -4,11 +4,11 @@ import hashlib
 import json
 import logging
 import uuid
-from time import perf_counter
 from dataclasses import replace
 from datetime import UTC
 from datetime import datetime
 from enum import Enum
+from time import perf_counter
 from typing import Mapping
 from typing import Sequence
 from typing import cast
@@ -25,11 +25,11 @@ from application.projections.workflow_outputs.projection_eligibility import (
 from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputQualityStatus,
 )
-from application.projections.workflow_outputs.projection_models import (
-    CompletedRunProjectionSummary,
-)
 from application.projections.workflow_outputs.projection_identity import (
     build_workflow_output_projection_lineage,
+)
+from application.projections.workflow_outputs.projection_models import (
+    CompletedRunProjectionSummary,
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
@@ -48,6 +48,9 @@ from application.projections.workflow_outputs.projection_registry import (
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
+)
+from application.projections.workflow_outputs.projection_telemetry import (
+    WorkflowOutputProjectionTelemetry,
 )
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
@@ -88,6 +91,7 @@ class WorkflowOutputProjectionService:
             eligibility_policy or WorkflowOutputProjectionEligibilityPolicy()
         )
         self._observability_manager = observability_manager
+        self._telemetry = WorkflowOutputProjectionTelemetry(observability_manager)
 
     async def project_completed_run(
         self,
@@ -95,7 +99,7 @@ class WorkflowOutputProjectionService:
     ) -> CompletedRunProjectionSummary:
         """Project every eligible output in one archived completed workflow run."""
         started_at = perf_counter()
-        missing_trace_context = self._create_trace_context(
+        missing_trace_context = self._telemetry.create_trace_context(
             workflow_id=None,
             execution_id=request.execution_id,
             runtime_id=None,
@@ -114,39 +118,32 @@ class WorkflowOutputProjectionService:
                     "execution_id": request.execution_id,
                 },
             )
-            await self._emit_projection_error(
-                event_type="workflow_output_projection.completed_run_not_found",
-                trace_context=missing_trace_context,
-                payload={
-                    "workflow_name": request.workflow_name,
-                    "execution_id": request.execution_id,
-                    "run_id": request.run_id,
-                    "duration_seconds": perf_counter() - started_at,
-                },
-            )
-            raise CompletedRunProjectionNotFoundError(
+            error = CompletedRunProjectionNotFoundError(
                 "Completed run archive not found for "
                 f"workflow={request.workflow_name!r}, "
                 f"execution={request.execution_id!r}."
             )
+            await self._telemetry.emit_run_failed(
+                request=request,
+                error=error,
+                duration_seconds=perf_counter() - started_at,
+                trace_context=missing_trace_context,
+                reason="completed_run_not_found",
+            )
+            raise error
 
         run = bundle.run
-        trace_context = self._create_trace_context(
+        trace_context = self._telemetry.create_trace_context(
             workflow_id=run.workflow_id,
             execution_id=run.execution_id,
             runtime_id=run.runtime_id,
             run_id=run.run_id,
             attributes={"workflow_name": run.workflow_name},
         )
-        await self._emit_projection_info(
-            event_type="workflow_output_projection.completed_run_started",
+        await self._telemetry.emit_run_started(
+            run=run,
+            node_output_count=len(bundle.node_outputs),
             trace_context=trace_context,
-            payload={
-                "workflow_name": run.workflow_name,
-                "execution_id": run.execution_id,
-                "run_id": run.run_id,
-                "node_output_count": len(bundle.node_outputs),
-            },
         )
         outcomes: list[WorkflowOutputProjectionOutcome] = []
         for node_output in bundle.node_outputs:
@@ -156,6 +153,7 @@ class WorkflowOutputProjectionService:
                     bundle=bundle,
                     node_output=node_output,
                     request=request,
+                    run_trace_context=trace_context,
                 )
             )
 
@@ -183,21 +181,10 @@ class WorkflowOutputProjectionService:
                 "duration_seconds": duration_seconds,
             },
         )
-        self._record_summary_metrics(summary=summary, duration_seconds=duration_seconds)
-        await self._emit_projection_info(
-            event_type="workflow_output_projection.completed_run_finished",
+        await self._telemetry.emit_run_completed(
+            summary=summary,
+            duration_seconds=duration_seconds,
             trace_context=trace_context,
-            payload={
-                "workflow_name": summary.workflow_name,
-                "execution_id": summary.execution_id,
-                "run_id": summary.run_id,
-                "total_jobs": summary.total_jobs,
-                "succeeded_jobs": summary.succeeded_jobs,
-                "failed_jobs": summary.failed_jobs,
-                "skipped_jobs": summary.skipped_jobs,
-                "records_written": summary.records_written,
-                "duration_seconds": duration_seconds,
-            },
         )
         return summary
 
@@ -208,6 +195,7 @@ class WorkflowOutputProjectionService:
         bundle: CompletedRunBundle,
         node_output: CompletedNodeOutputRecord,
         request: WorkflowOutputProjectionRequest,
+        run_trace_context: TraceContext | None,
     ) -> WorkflowOutputProjectionOutcome:
         source_fingerprint = calculate_workflow_output_source_fingerprint(
             run=run,
@@ -225,18 +213,44 @@ class WorkflowOutputProjectionService:
         )
         registration = _registration_from_decision(decision)
         if not decision.eligible or registration is None:
-            return _skipped_outcome(
+            outcome = _skipped_outcome(
                 decision=decision,
                 node_output=node_output,
                 source_fingerprint=source_fingerprint,
             )
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                skip_reason=decision.skip_reason.value
+                if decision.skip_reason
+                else None,
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=outcome.projector_name,
+                ),
+            )
+            return outcome
 
         if request.dry_run:
-            return _dry_run_outcome(
+            outcome = _dry_run_outcome(
                 registration=registration,
                 node_output=node_output,
                 source_fingerprint=source_fingerprint,
             )
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                skip_reason="dry_run",
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=registration.projector_name,
+                ),
+            )
+            return outcome
 
         job = await self._projection_job_repository.create_job(
             _new_projection_job_record(
@@ -251,10 +265,23 @@ class WorkflowOutputProjectionService:
             is WorkflowOutputProjectionJobStatus.SUCCEEDED
             and not request.force_reproject
         ):
-            return _already_succeeded_outcome(
+            outcome = _already_succeeded_outcome(
                 job=job,
                 node_output=node_output,
             )
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                job=job,
+                skip_reason="already_succeeded",
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=registration.projector_name,
+                ),
+            )
+            return outcome
 
         claim_statuses = _claimable_statuses(force_reproject=request.force_reproject)
         claimed_job = await self._projection_job_repository.claim_job(
@@ -262,10 +289,37 @@ class WorkflowOutputProjectionService:
             statuses=claim_statuses,
         )
         if claimed_job is None:
-            return _not_claimed_outcome(
+            outcome = _not_claimed_outcome(
                 job=job,
                 node_output=node_output,
             )
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                job=job,
+                skip_reason="not_claimed",
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=registration.projector_name,
+                ),
+            )
+            return outcome
+
+        projector_trace_context = _projector_trace_context(
+            run_trace_context=run_trace_context,
+            node_name=node_output.node_name,
+            projector_name=registration.projector_name,
+        )
+        projector_started_at = perf_counter()
+        await self._telemetry.emit_projector_started(
+            run=run,
+            node_output=node_output,
+            registration=registration,
+            job=claimed_job,
+            trace_context=projector_trace_context,
+        )
 
         try:
             outcome = await registration.projector.project(
@@ -302,32 +356,7 @@ class WorkflowOutputProjectionService:
                 claimed_job.projection_job_id,
                 error=error_message,
             )
-            self._record_projector_failure_metric(
-                projector_name=registration.projector_name,
-                node_name=node_output.node_name,
-            )
-            await self._emit_projection_error(
-                event_type="workflow_output_projection.projector_failed",
-                trace_context=self._create_trace_context(
-                    workflow_id=run.workflow_id,
-                    execution_id=run.execution_id,
-                    runtime_id=run.runtime_id,
-                    run_id=run.run_id,
-                    node_name=node_output.node_name,
-                    attributes={"projector_name": registration.projector_name},
-                ),
-                payload={
-                    "workflow_name": run.workflow_name,
-                    "execution_id": run.execution_id,
-                    "run_id": run.run_id,
-                    "node_name": node_output.node_name,
-                    "projector_name": registration.projector_name,
-                    "projection_job_id": claimed_job.projection_job_id,
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                },
-            )
-            return WorkflowOutputProjectionOutcome(
+            outcome = WorkflowOutputProjectionOutcome(
                 status=WorkflowOutputProjectionStatus.FAILED,
                 projector_name=registration.projector_name,
                 node_name=node_output.node_name,
@@ -341,14 +370,35 @@ class WorkflowOutputProjectionService:
                 started_at=claimed_job.started_at,
                 completed_at=datetime.now(UTC),
             )
+            await self._telemetry.emit_projector_failed(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                registration=registration,
+                job=claimed_job,
+                error=exc,
+                duration_seconds=perf_counter() - projector_started_at,
+                trace_context=projector_trace_context,
+            )
+            return outcome
 
-        return await self._persist_projector_outcome(
+        persisted_outcome = await self._persist_projector_outcome(
             outcome=outcome,
             job=claimed_job,
             registration=registration,
             node_output=node_output,
             source_fingerprint=source_fingerprint,
         )
+        await self._emit_projector_outcome_telemetry(
+            run=run,
+            node_output=node_output,
+            outcome=persisted_outcome,
+            registration=registration,
+            job=claimed_job,
+            duration_seconds=perf_counter() - projector_started_at,
+            trace_context=projector_trace_context,
+        )
+        return persisted_outcome
 
     async def _persist_projector_outcome(
         self,
@@ -384,126 +434,48 @@ class WorkflowOutputProjectionService:
         )
         return normalized
 
-    def _record_summary_metrics(
+    async def _emit_projector_outcome_telemetry(
         self,
         *,
-        summary: CompletedRunProjectionSummary,
+        run: CompletedRunRecord,
+        node_output: CompletedNodeOutputRecord,
+        outcome: WorkflowOutputProjectionOutcome,
+        registration: WorkflowOutputProjectorRegistration,
+        job: WorkflowOutputProjectionJobRecord,
         duration_seconds: float,
+        trace_context: TraceContext | None,
     ) -> None:
-        if self._observability_manager is None:
+        status = cast(WorkflowOutputProjectionStatus, outcome.status)
+        if status is WorkflowOutputProjectionStatus.SUCCEEDED:
+            await self._telemetry.emit_projector_completed(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                job=job,
+                duration_seconds=duration_seconds,
+                trace_context=trace_context,
+            )
             return
-        attributes = {
-            "workflow_name": summary.workflow_name,
-            "execution_id": summary.execution_id,
-            "run_id": summary.run_id,
-        }
-        try:
-            self._observability_manager.increment(
-                "workflow_output_projection.runs.total",
-                attributes=attributes,
+        if status is WorkflowOutputProjectionStatus.SKIPPED:
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=outcome,
+                job=job,
+                skip_reason=outcome.message,
+                duration_seconds=duration_seconds,
+                trace_context=trace_context,
             )
-            self._observability_manager.increment(
-                "workflow_output_projection.jobs.succeeded",
-                value=float(summary.succeeded_jobs),
-                attributes=attributes,
-            )
-            self._observability_manager.increment(
-                "workflow_output_projection.jobs.failed",
-                value=float(summary.failed_jobs),
-                attributes=attributes,
-            )
-            self._observability_manager.increment(
-                "workflow_output_projection.jobs.skipped",
-                value=float(summary.skipped_jobs),
-                attributes=attributes,
-            )
-            self._observability_manager.observe(
-                "workflow_output_projection.run.duration_seconds",
-                value=duration_seconds,
-                attributes=attributes,
-            )
-        except Exception:  # noqa: BLE001 - telemetry must never break projection.
-            logger.exception("workflow_output_projection.metrics_failed")
-
-    def _record_projector_failure_metric(
-        self,
-        *,
-        projector_name: str,
-        node_name: str,
-    ) -> None:
-        if self._observability_manager is None:
             return
-        try:
-            self._observability_manager.increment(
-                "workflow_output_projection.projector.failures",
-                attributes={
-                    "projector_name": projector_name,
-                    "node_name": node_name,
-                },
-            )
-        except Exception:  # noqa: BLE001 - telemetry must never break projection.
-            logger.exception("workflow_output_projection.metrics_failed")
-
-    def _create_trace_context(
-        self,
-        *,
-        workflow_id: str | None,
-        execution_id: str,
-        runtime_id: str | None,
-        run_id: str | None,
-        node_name: str | None = None,
-        attributes: Mapping[str, object] | None = None,
-    ) -> TraceContext | None:
-        if self._observability_manager is None:
-            return None
-        return self._observability_manager.create_trace_context(
-            workflow_id=workflow_id,
-            execution_id=execution_id,
-            runtime_id=runtime_id,
-            node_name=node_name,
-            attributes={
-                "run_id": run_id,
-                **dict(attributes or {}),
-            },
+        await self._telemetry.emit_projector_failed(
+            run=run,
+            node_output=node_output,
+            outcome=outcome,
+            registration=registration,
+            job=job,
+            duration_seconds=duration_seconds,
+            trace_context=trace_context,
         )
-
-    async def _emit_projection_info(
-        self,
-        *,
-        event_type: str,
-        trace_context: TraceContext | None,
-        payload: dict[str, object],
-    ) -> None:
-        if self._observability_manager is None:
-            return
-        try:
-            await self._observability_manager.info(
-                event_type=event_type,
-                source="application.workflow_output_projection",
-                payload=payload,
-                trace_context=trace_context,
-            )
-        except Exception:  # noqa: BLE001 - telemetry must never break projection.
-            logger.exception("workflow_output_projection.telemetry_emit_failed")
-
-    async def _emit_projection_error(
-        self,
-        *,
-        event_type: str,
-        trace_context: TraceContext | None,
-        payload: dict[str, object],
-    ) -> None:
-        if self._observability_manager is None:
-            return
-        try:
-            await self._observability_manager.error(
-                event_type=event_type,
-                source="application.workflow_output_projection",
-                payload=payload,
-                trace_context=trace_context,
-            )
-        except Exception:  # noqa: BLE001 - telemetry must never break projection.
-            logger.exception("workflow_output_projection.telemetry_emit_failed")
 
 
 def calculate_workflow_output_source_fingerprint(
@@ -742,4 +714,18 @@ def _normalize_outcome(
         job_id=job.projection_job_id,
         started_at=outcome.started_at or job.started_at,
         completed_at=outcome.completed_at or datetime.now(UTC),
+    )
+
+
+def _projector_trace_context(
+    *,
+    run_trace_context: TraceContext | None,
+    node_name: str,
+    projector_name: str,
+) -> TraceContext | None:
+    if run_trace_context is None:
+        return None
+    return run_trace_context.child(
+        node_name=node_name,
+        attributes={"projector_name": projector_name},
     )

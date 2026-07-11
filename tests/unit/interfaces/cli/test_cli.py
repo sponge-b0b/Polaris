@@ -190,3 +190,19 @@ def test_morning_report_help_describes_default_control_and_file_formats() -> Non
     assert "--progress" not in result.output
     assert "--interactive-control" not in result.output
     assert "format: console" not in result.output.lower()
+
+
+def test_cli_registers_completed_runs_alias() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        create_app(),
+        [
+            "completed-runs",
+            "--help",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "projection-status" in result.output
+    assert "reconcile-projections" in result.output

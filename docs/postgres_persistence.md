@@ -160,6 +160,50 @@ Access completed-run history through the async `WorkflowFacade` completed-run
 APIs or the `polaris runs` CLI commands. Application and CLI callers should not
 query the archive tables directly.
 
+## Workflow-output projection to curated records
+
+Completed runs are the broad execution archive. Curated domain records are the
+narrow, typed, queryable business memory. The transition between the two is the
+workflow-output projection layer:
+
+```text
+RuntimeNodeOutput
+    → completed-run archive
+    → registered workflow-output projector
+    → typed curated domain record
+    → owning application persistence service
+    → PostgreSQL domain table
+    → optional RAG document, Qdrant vector, and Neo4j graph projection
+```
+
+This separation keeps runtime evidence, canonical business records, retrieval
+artifacts, and graph/vector indexes from becoming competing sources of truth.
+A node output is not a curated record merely because it was serialized in a
+successful workflow. It becomes one only when an explicit projector supports its
+`output_contract`, `output_schema_version`, authoritative source node, required
+fields, deterministic identity, timestamp strategy, lineage policy, and
+execution mode.
+
+Application services and intelligence nodes do not persist workflow-derived
+business facts directly. They return typed results to the workflow; the
+completed-run archive stores the evidence; registered projectors perform
+idempotent post-run curation through the owning persistence service. This
+prevents duplicate writers, partial writes from failed workflows, and hidden
+metadata-only schemas.
+
+RAG records remain downstream of curated PostgreSQL records. `rag_documents`,
+`rag_chunks`, and projection jobs are PostgreSQL-managed retrieval records.
+Qdrant and Neo4j are rebuildable projections from those records and must never
+be used as canonical storage or as an input to rewrite domain history.
+
+Live, replay, simulated, and backtest runs must stay distinguishable through
+first-class execution-mode lineage. Projectors may reject or quarantine outputs
+whose execution mode is unsupported for the target record family.
+
+See `docs/platform_architecture_ownership_ledger.md` for the full projector
+registration, eligibility, retry, reconciliation, idempotency, and lineage
+contract.
+
 ## Migration inventory
 
 Current PostgreSQL persistence migrations are:
@@ -554,9 +598,9 @@ below is satisfied.
   that must be gated.
 - [ ] Future RAG pipelines read through typed application services or curated
   RAG builders, not ad hoc SQL.
-- [ ] Future vector/graph write paths are downstream projections with replay,
-  telemetry, audit, and rebuild-readiness criteria defined before
-  implementation.
+- [ ] Vector/graph write paths remain downstream projections with replay,
+  telemetry, audit, lineage, idempotency, and rebuild-readiness criteria defined
+  before implementation or expansion.
 - [ ] No V3 persistence service writes directly to Qdrant, Chroma, Neo4j, or any
   embedding/vector/graph runtime.
 

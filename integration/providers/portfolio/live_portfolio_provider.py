@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.providers.portfolio.portfolio_provider import (
@@ -33,7 +33,7 @@ class LivePortfolioProvider(PortfolioProvider):
     # ACCOUNT
     # ============================================================
 
-    async def get_account(self) -> Dict[str, Any]:
+    async def get_account(self) -> dict[str, Any]:
 
         return await record_provider_call(
             self.telemetry,
@@ -46,7 +46,7 @@ class LivePortfolioProvider(PortfolioProvider):
     # POSITIONS
     # ============================================================
 
-    async def get_positions(self) -> List[Dict[str, Any]]:
+    async def get_positions(self) -> list[dict[str, Any]]:
 
         return await record_provider_call(
             self.telemetry,
@@ -59,11 +59,25 @@ class LivePortfolioProvider(PortfolioProvider):
     # PORTFOLIO HISTORY
     # ============================================================
 
-    async def get_portfolio_history(self) -> Dict[str, Any]:
+    async def get_portfolio_history(
+        self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
+    ) -> dict[str, Any]:
+        async def call() -> dict[str, Any]:
+            return await self.portfolio_client.get_portfolio_history(
+                period=period,
+                timeframe=timeframe,
+            )
 
         return await record_provider_call(
             self.telemetry,
             self.__class__.__name__,
             "get_portfolio_history",
-            self.portfolio_client.get_portfolio_history,
+            call,
+            attributes={
+                "period": period,
+                "timeframe": timeframe,
+            },
         )

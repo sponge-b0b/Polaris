@@ -62,6 +62,8 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
 
     class FakeRuntime:
         facade = FakeFacade()
+        event_bus = object()
+        observability_manager = object()
         config = type(
             "Config",
             (),
@@ -91,6 +93,11 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
         cli_container,
         "get_builtin_workflows",
         lambda: (),
+    )
+    monkeypatch.setattr(
+        cli_container,
+        "subscribe_default_workflow_output_projection",
+        lambda **_: None,
     )
 
     with pytest.raises(RuntimeError, match="scope failure"):

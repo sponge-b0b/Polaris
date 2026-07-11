@@ -15,6 +15,7 @@ from intelligence.strategy.hypothesis.contracts import validate_hypothesis_stren
 from intelligence.strategy.hypothesis.evidence import StrategyAssumption
 from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
+from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,11 +235,7 @@ def _required_string_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[str, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return tuple(_list_string(item, field_name) for item in value)
 
 
@@ -270,11 +267,7 @@ def _required_list(
     payload: dict[str, object],
     field_name: str,
 ) -> list[dict[str, object]]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return [_list_mapping(item, field_name) for item in value]
 
 

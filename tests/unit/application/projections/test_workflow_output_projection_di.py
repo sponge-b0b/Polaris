@@ -6,6 +6,7 @@ from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
+from application.persistence.portfolio import PortfolioPersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
@@ -16,6 +17,10 @@ from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.macro import MacroPersistenceRepository
 from core.storage.persistence.market import MarketPersistenceRepository
 from core.storage.persistence.news import NewsPersistenceRepository
+from core.storage.persistence.portfolio import PortfolioExpansionPersistenceRepository
+from core.storage.persistence.portfolio.portfolio_state_repository import (
+    PortfolioStateRepository,
+)
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
 from core.storage.persistence.recommendations import RecommendationPersistenceRepository
 from core.storage.persistence.sentiment import SentimentPersistenceRepository
@@ -47,6 +52,14 @@ class _FakeNewsRepository:
     pass
 
 
+class _FakePortfolioExpansionRepository:
+    pass
+
+
+class _FakePortfolioStateRepository:
+    pass
+
+
 class _FakeRecommendationRepository:
     pass
 
@@ -73,6 +86,15 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
     news_persistence_service = NewsPersistenceService(
         cast(NewsPersistenceRepository, _FakeNewsRepository()),
     )
+    portfolio_persistence_service = PortfolioPersistenceService(
+        cast(
+            PortfolioExpansionPersistenceRepository, _FakePortfolioExpansionRepository()
+        ),
+        state_repository=cast(
+            PortfolioStateRepository,
+            _FakePortfolioStateRepository(),
+        ),
+    )
     recommendation_persistence_service = RecommendationPersistenceService(
         cast(RecommendationPersistenceRepository, _FakeRecommendationRepository()),
     )
@@ -87,6 +109,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         macro_persistence_service,
         market_persistence_service,
         news_persistence_service,
+        portfolio_persistence_service,
         recommendation_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,
@@ -113,6 +136,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
     )
     assert registry.supported_schema_versions("polaris.news.analysis") == (1,)
     assert registry.supported_schema_versions("polaris.sentiment.snapshot") == (1,)
+    assert registry.supported_schema_versions("polaris.portfolio.state") == (1,)
     assert registry.supported_schema_versions("polaris.risk.drawdown_signal") == (1,)
     assert registry.supported_schema_versions("polaris.strategy.synthesis") == (1,)
     assert registry.supported_schema_versions(

@@ -7,6 +7,7 @@ from json import dumps
 from typing import Self
 
 from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
+from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
 class StrategyEvidenceInputStatus(str, Enum):
@@ -274,11 +275,7 @@ def _required_bool(payload: dict[str, object], field_name: str) -> bool:
 def _required_string_tuple(
     payload: dict[str, object], field_name: str
 ) -> tuple[str, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return tuple(_list_string(item, field_name) for item in value)
 
 
@@ -286,11 +283,7 @@ def _required_evidence_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[StrategyEvidenceItem, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return tuple(
         StrategyEvidenceItem.from_dict(_list_mapping(item, field_name))
         for item in value
@@ -301,11 +294,7 @@ def _required_input_quality_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[StrategyEvidenceInputQuality, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return tuple(
         StrategyEvidenceInputQuality.from_dict(_list_mapping(item, field_name))
         for item in value

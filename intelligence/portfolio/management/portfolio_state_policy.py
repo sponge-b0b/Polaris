@@ -65,6 +65,7 @@ class PortfolioStateDecision:
     equity_state: dict[str, Any]
     positions_state: dict[str, Any]
     risk_features: dict[str, Any]
+    projection_payload: dict[str, Any]
     position_count: int
     drawdown_percent: float
 
@@ -80,7 +81,7 @@ class PortfolioStateDecision:
         if self.drawdown_percent >= 0.10:
             risks.append("deep_drawdown_risk")
 
-        return {
+        outputs = {
             "directional_score": 0.0,
             "confidence": 1.0,
             "regime": self.portfolio_state.get("portfolio_regime", "unknown"),
@@ -101,6 +102,8 @@ class PortfolioStateDecision:
                 "risk_features": self.risk_features,
             },
         }
+        outputs.update(self.projection_payload)
+        return outputs
 
 
 def build_portfolio_state_decision(
@@ -181,6 +184,7 @@ def build_portfolio_state_decision(
         equity_state=normalized_equity_state,
         positions_state=normalized_positions_state,
         risk_features=risk_features,
+        projection_payload=portfolio.to_dict(),
         position_count=position_count,
         drawdown_percent=drawdown_percent,
     )

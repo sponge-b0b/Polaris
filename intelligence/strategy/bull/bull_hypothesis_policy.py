@@ -2,18 +2,68 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Mapping
-
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
-from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
+from intelligence.strategy.hypothesis.policy_support import (
+    breadth_context_from_evidence,
+)
+from intelligence.strategy.hypothesis.policy_support import clamp_01
+from intelligence.strategy.hypothesis.policy_support import data_quality_flags
+from intelligence.strategy.hypothesis.policy_support import deduplicate_values
+from intelligence.strategy.hypothesis.policy_support import evidence_for_perspective
+from intelligence.strategy.hypothesis.policy_support import evidence_reliability
+from intelligence.strategy.hypothesis.policy_support import numeric_evidence_value
+from intelligence.strategy.hypothesis.policy_support import string_evidence_value
+from intelligence.strategy.hypothesis.breadth import BreadthMessageRule
+from intelligence.strategy.hypothesis.breadth import breadth_messages
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.evidence import StrategyAssumption
 from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
 from intelligence.strategy.hypothesis.evidence import StrategyInvalidationOperator
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
+
+
+_BULL_BREADTH_SIGNAL_RULES = (
+    BreadthMessageRule(
+        lambda context: context.is_strong,
+        "bullish_breadth_confirmation",
+    ),
+    BreadthMessageRule(
+        lambda context: context.is_weak,
+        "weak_breadth_not_confirming_bullish_setup",
+    ),
+)
+_BULL_BREADTH_RISK_RULES = (
+    BreadthMessageRule(
+        lambda context: context.is_weak,
+        "breadth_not_confirming_bullish_setup",
+    ),
+    BreadthMessageRule(
+        lambda context: context.leadership_score <= -0.25,
+        "narrow_leadership_risk",
+    ),
+    BreadthMessageRule(
+        lambda context: context.price_ad_divergence,
+        "price_ad_divergence_risk",
+    ),
+)
+_BULL_BREADTH_RECOMMENDATION_RULES = (
+    BreadthMessageRule(
+        lambda context: context.is_weak,
+        "wait_for_breadth_confirmation",
+    ),
+    BreadthMessageRule(
+        lambda context: context.price_ad_divergence,
+        "avoid_aggressive_long_exposure_until_divergence_resolves",
+    ),
+    BreadthMessageRule(
+        lambda context: context.is_strong,
+        "breadth_confirms_bullish_setup",
+    ),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,27 +92,31 @@ def build_bull_hypothesis(
 ) -> BullHypothesisDecision:
     evidence = evidence_context.evidence_by_id()
 
-    sentiment_score = _numeric_value(evidence, "sentiment.directional_score")
-    sentiment_confidence = _reliability(evidence, "sentiment.directional_score")
+    sentiment_score = numeric_evidence_value(evidence, "sentiment.directional_score")
+    sentiment_confidence = evidence_reliability(evidence, "sentiment.directional_score")
     bullish_sentiment = max(0.0, sentiment_score)
-    momentum = _numeric_value(evidence, "sentiment.momentum")
-    stability = _numeric_value(evidence, "sentiment.stability")
-    divergence = _numeric_value(evidence, "sentiment.divergence")
+    momentum = numeric_evidence_value(evidence, "sentiment.momentum")
+    stability = numeric_evidence_value(evidence, "sentiment.stability")
+    divergence = numeric_evidence_value(evidence, "sentiment.divergence")
 
-    technical_score = _numeric_value(evidence, "technical.directional_score")
-    technical_confidence = _reliability(evidence, "technical.directional_score")
+    technical_score = numeric_evidence_value(evidence, "technical.directional_score")
+    technical_confidence = evidence_reliability(evidence, "technical.directional_score")
     technical_bullishness = max(0.0, technical_score)
-    technical_regime = _string_value(evidence, "technical.regime", default="neutral")
-    trend_strength = _numeric_value(evidence, "technical.trend_strength")
-    volatility_score = _numeric_value(evidence, "technical.volatility_score")
-    breadth_context = _breadth_context_from_evidence(evidence)
+    technical_regime = string_evidence_value(
+        evidence, "technical.regime", default="neutral"
+    )
+    trend_strength = numeric_evidence_value(evidence, "technical.trend_strength")
+    volatility_score = numeric_evidence_value(evidence, "technical.volatility_score")
+    breadth_context = breadth_context_from_evidence(evidence)
 
     fundamental_bullishness = max(
         0.0,
-        _numeric_value(evidence, "fundamental.directional_score"),
+        numeric_evidence_value(evidence, "fundamental.directional_score"),
     )
-    news_bullishness = max(0.0, _numeric_value(evidence, "news.directional_score"))
-    risk_pressure = _numeric_value(evidence, "risk.pressure")
+    news_bullishness = max(
+        0.0, numeric_evidence_value(evidence, "news.directional_score")
+    )
+    risk_pressure = numeric_evidence_value(evidence, "risk.pressure")
 
     score = (
         (bullish_sentiment * 0.30)
@@ -87,15 +141,15 @@ def build_bull_hypothesis(
 
     breadth_score_modifier = _breadth_score_modifier(breadth_context)
     breadth_confidence_modifier = _breadth_confidence_modifier(breadth_context)
-    score = _clamp_01(score + breadth_score_modifier)
+    score = clamp_01(score + breadth_score_modifier)
 
-    confidence = _clamp_01(
+    confidence = clamp_01(
         (sentiment_confidence * 0.40)
         + (technical_confidence * 0.60)
         + breadth_confidence_modifier
     )
 
-    signals = _deduplicate(
+    signals = deduplicate_values(
         tuple(
             signal
             for signal, enabled in (
@@ -112,7 +166,7 @@ def build_bull_hypothesis(
         + _breadth_signals(breadth_context)
     )
 
-    risks = _deduplicate(
+    risks = deduplicate_values(
         (
             "bull_trap_risk",
             "overextension_risk",
@@ -122,7 +176,7 @@ def build_bull_hypothesis(
         + _breadth_risks(breadth_context)
     )
 
-    recommendations = _deduplicate(
+    recommendations = deduplicate_values(
         (
             "scale_into_strength",
             "avoid_chasing_extended_moves",
@@ -132,15 +186,17 @@ def build_bull_hypothesis(
         + _breadth_recommendations(breadth_context)
     )
 
-    supporting_evidence = _evidence_for_perspective(
+    supporting_evidence = evidence_for_perspective(
         evidence_context,
+        StrategyPerspective.BULL,
         support=True,
     )
-    contradicting_evidence = _evidence_for_perspective(
+    contradicting_evidence = evidence_for_perspective(
         evidence_context,
+        StrategyPerspective.BULL,
         support=False,
     )
-    data_quality_flags = _data_quality_flags(evidence_context)
+    quality_flags = data_quality_flags(evidence_context)
     assumptions = _bull_assumptions(score, confidence, supporting_evidence)
     invalidations = _bull_invalidations(
         sentiment_score=sentiment_score,
@@ -162,7 +218,7 @@ def build_bull_hypothesis(
         invalidation_conditions=invalidations,
         risks=risks,
         recommendations=recommendations,
-        data_quality_flags=data_quality_flags,
+        data_quality_flags=quality_flags,
         evidence_fingerprint=evidence_context.evidence_fingerprint(),
     )
 
@@ -204,30 +260,6 @@ def build_bull_hypothesis(
     )
 
 
-def _evidence_for_perspective(
-    evidence_context: StrategyEvidenceContext,
-    *,
-    support: bool,
-) -> tuple[StrategyEvidenceItem, ...]:
-    perspective = StrategyPerspective.BULL
-    return tuple(
-        item
-        for item in evidence_context.all_evidence
-        if perspective in (item.supports if support else item.contradicts)
-    )
-
-
-def _data_quality_flags(
-    evidence_context: StrategyEvidenceContext,
-) -> tuple[str, ...]:
-    flags = [
-        f"{quality.input_name}:{quality.status.value}"
-        for quality in evidence_context.input_quality
-        if quality.status is not StrategyEvidenceInputStatus.AVAILABLE
-    ]
-    return tuple(flags)
-
-
 def _bull_assumptions(
     score: float,
     confidence: float,
@@ -239,14 +271,14 @@ def _bull_assumptions(
             assumption_id="bull.continuation_requires_positive_evidence",
             perspective=StrategyPerspective.BULL,
             description="Bullish posture requires positive evidence to remain persistent.",
-            confidence=_clamp_01(confidence),
+            confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="bull.strength_requires_follow_through",
             perspective=StrategyPerspective.BULL,
             description="Bullish strength assumes trend and sentiment follow-through do not fail.",
-            confidence=_clamp_01(score),
+            confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
     )
@@ -313,47 +345,6 @@ def _bull_thesis(
     return "Bull hypothesis is weak because positive evidence is limited."
 
 
-def _breadth_context_from_evidence(
-    evidence: Mapping[str, StrategyEvidenceItem],
-) -> TechnicalBreadthContext:
-    if "technical.breadth.confirmation_score" not in evidence:
-        return TechnicalBreadthContext.unavailable()
-
-    confirmation_score = _numeric_value(
-        evidence, "technical.breadth.confirmation_score"
-    )
-    risk_pressure = _numeric_value(evidence, "technical.breadth.risk_pressure")
-    participation_score = _numeric_value(
-        evidence, "technical.breadth.participation_score"
-    )
-    leadership_score = _numeric_value(evidence, "technical.breadth.leadership_score")
-    return TechnicalBreadthContext(
-        has_breadth_data=True,
-        breadth_regime=_breadth_regime(confirmation_score),
-        risk_regime=_risk_regime(risk_pressure),
-        breadth_score=confirmation_score,
-        breadth_risk_score=risk_pressure,
-        participation_score=participation_score,
-        leadership_score=leadership_score,
-    )
-
-
-def _breadth_regime(confirmation_score: float) -> str:
-    if confirmation_score >= 0.25:
-        return "strong_breadth"
-    if confirmation_score <= -0.25:
-        return "weak_breadth"
-    return "neutral_breadth"
-
-
-def _risk_regime(risk_pressure: float) -> str:
-    if risk_pressure >= 0.65:
-        return "elevated"
-    if risk_pressure <= 0.40:
-        return "stable"
-    return "neutral"
-
-
 def _breadth_score_modifier(
     breadth_context: TechnicalBreadthContext,
 ) -> float:
@@ -389,92 +380,20 @@ def _breadth_confidence_modifier(
 def _breadth_signals(
     breadth_context: TechnicalBreadthContext,
 ) -> tuple[str, ...]:
-    if not breadth_context.has_breadth_data:
-        return ()
-
-    signals = [f"breadth:{breadth_context.breadth_regime}"]
-    if breadth_context.is_strong:
-        signals.append("bullish_breadth_confirmation")
-    if breadth_context.is_weak:
-        signals.append("weak_breadth_not_confirming_bullish_setup")
-    return tuple(signals)
+    return breadth_messages(
+        breadth_context,
+        _BULL_BREADTH_SIGNAL_RULES,
+        include_regime=True,
+    )
 
 
 def _breadth_risks(
     breadth_context: TechnicalBreadthContext,
 ) -> tuple[str, ...]:
-    if not breadth_context.has_breadth_data:
-        return ()
-
-    risks: list[str] = []
-    if breadth_context.is_weak:
-        risks.append("breadth_not_confirming_bullish_setup")
-    if breadth_context.leadership_score <= -0.25:
-        risks.append("narrow_leadership_risk")
-    if breadth_context.price_ad_divergence:
-        risks.append("price_ad_divergence_risk")
-    return tuple(risks)
+    return breadth_messages(breadth_context, _BULL_BREADTH_RISK_RULES)
 
 
 def _breadth_recommendations(
     breadth_context: TechnicalBreadthContext,
 ) -> tuple[str, ...]:
-    if not breadth_context.has_breadth_data:
-        return ()
-
-    recommendations: list[str] = []
-    if breadth_context.is_weak:
-        recommendations.append("wait_for_breadth_confirmation")
-    if breadth_context.price_ad_divergence:
-        recommendations.append(
-            "avoid_aggressive_long_exposure_until_divergence_resolves"
-        )
-    if breadth_context.is_strong:
-        recommendations.append("breadth_confirms_bullish_setup")
-    return tuple(recommendations)
-
-
-def _numeric_value(
-    evidence: Mapping[str, StrategyEvidenceItem],
-    evidence_id: str,
-    *,
-    default: float = 0.0,
-) -> float:
-    item = evidence.get(evidence_id)
-    if item is None or isinstance(item.observed_value, bool):
-        return default
-    if isinstance(item.observed_value, (int, float)):
-        return float(item.observed_value)
-    return default
-
-
-def _string_value(
-    evidence: Mapping[str, StrategyEvidenceItem],
-    evidence_id: str,
-    *,
-    default: str,
-) -> str:
-    item = evidence.get(evidence_id)
-    if item is None or not isinstance(item.observed_value, str):
-        return default
-    return item.observed_value
-
-
-def _reliability(
-    evidence: Mapping[str, StrategyEvidenceItem],
-    evidence_id: str,
-    *,
-    default: float = 0.0,
-) -> float:
-    item = evidence.get(evidence_id)
-    if item is None:
-        return default
-    return item.reliability
-
-
-def _deduplicate(values: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(values))
-
-
-def _clamp_01(value: float) -> float:
-    return max(0.0, min(1.0, float(value)))
+    return breadth_messages(breadth_context, _BULL_BREADTH_RECOMMENDATION_RULES)

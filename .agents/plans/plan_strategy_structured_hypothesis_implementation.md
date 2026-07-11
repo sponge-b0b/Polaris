@@ -1323,3 +1323,86 @@ Notes:
 
 - No commit was created as part of this cleanup.
 - The initial hard-coded local database credentials attempted during verification were rejected by PostgreSQL; verification was rerun successfully using the repository `.env` database configuration without writing credentials to source files.
+
+### Step 26 — Run focused regression verification
+
+Completed on 2026-07-11.
+
+- Ran focused strategy regression coverage for the structured-hypothesis implementation:
+  - Bull, Bear, and Sideways hypothesis agents and policies.
+  - Shared strategy evidence context normalization and `StrategyEvidenceBuilder`.
+  - `StrategyPerspectiveWeightingEngine` and typed perspective weights.
+  - Strategy synthesis contracts, policy, breadth gating, missing-input degradation, and selected-decision behavior.
+  - Morning-report workflow graph wiring and real-node integration coverage.
+  - Portfolio-manager consumption of the selected synthesis decision.
+  - Morning-report assembly/rendering of structured strategy sections.
+  - Deterministic backtesting contracts, verification, metrics, simulated portfolio ledger, and backtest CLI command coverage.
+  - Intelligence telemetry/observability architecture coverage for the strategy boundary.
+  - Strategy persistence, serialization, workflow-output projection, and RAG compatibility coverage.
+- Ran the full workflow-output projection unit suite to ensure strategy projection remained compatible with the broader projection registry and coordinator.
+
+Verification:
+
+- `POLARIS_POSTGRES_PASSWORD=dummy timeout 180s uv run pytest -q tests/unit/intelligence/strategy tests/unit/intelligence/portfolio/test_portfolio_manager_agent.py tests/unit/application/reports/morning/test_morning_report_assembler.py tests/unit/application/reports/morning/test_morning_report_renderer.py tests/unit/application/services/backtesting tests/unit/interfaces/cli/test_backtest_command.py tests/unit/telemetry/test_integration_intelligence_telemetry.py tests/unit/telemetry/test_observability_architecture.py tests/unit/application/projections/test_strategy_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_service.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py tests/unit/core/storage/persistence/test_strategy_persistence_contracts.py tests/unit/core/storage/persistence/test_strategy_persistence_serializer.py tests/unit/core/storage/persistence/test_postgres_strategy_persistence_repository.py tests/integration/workflow/test_morning_report_real_nodes.py`
+- `POLARIS_POSTGRES_PASSWORD=dummy timeout 120s uv run pytest -q tests/unit/application/projections`
+- `git diff --check`
+
+Results:
+
+- Focused strategy regression suite passed: `215 passed, 1 warning`.
+- Full projection unit suite passed: `82 passed`.
+- `git diff --check` passed.
+
+Notes:
+
+- No production code changes were required for this step.
+- No live services were required; the placeholder `POLARIS_POSTGRES_PASSWORD=dummy` was used only to satisfy settings import validation and no database connection string or secret was written to source, tests, plans, or documentation.
+- The warning is from the installed `websockets.legacy` package deprecation path and is unrelated to the strategy implementation.
+
+### Step 27 — Run final quality and architecture checks
+
+Completed on 2026-07-11.
+
+Changes made during the gate:
+
+- Added shared strategy hypothesis helpers to remove newly surfaced duplicate policy plumbing:
+  - `intelligence/strategy/hypothesis/breadth.py`
+  - `intelligence/strategy/hypothesis/serialization.py`
+  - `intelligence/strategy/hypothesis/policy_support.py`
+- Refactored Bull, Bear, and Sideways hypothesis policies to use shared breadth-message rules, shared evidence lookup helpers, shared breadth-context construction, shared evidence reliability lookup, and shared deterministic utility helpers.
+- Refactored strategy hypothesis and synthesis deserialization to use the shared serialized-list boundary helper.
+- Kept perspective-specific scoring, assumptions, invalidations, risks, recommendations, and thesis construction in the perspective policy files.
+
+Verification:
+
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy . --explicit-package-bases`
+- `uv run pytest -q`
+- `uv run pylint --disable=all --enable=duplicate-code --recursive=y .`
+- `npx jscpd . --output /tmp/jscpd-step27-report-final`
+- Repowise health review for strategy policy, helper, and synthesis files.
+- Repowise blast-radius review for the strategy helper/policy/contract changes.
+- Repowise dead-code scan scoped to `intelligence/strategy`.
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Ruff passed: `All checks passed`; formatting left `1224 files` unchanged on the final run.
+- MyPy passed: `Success: no issues found in 1221 source files`.
+- Full pytest passed: `2102 passed, 22 skipped, 5 warnings`.
+- Focused strategy regression also passed after the helper extraction: `131 passed`.
+- Pylint duplicate-code still reports existing repo-wide duplicate-code findings and exits with `R0801`, but the newly surfaced strategy breadth/list-helper duplication was reduced through shared helpers. Remaining examples are broader existing patterns such as persistence upsert dictionaries, telemetry enum/context mirrors, runtime result serialization, live/backtest provider wrappers, and repeated runtime-node success-output boilerplate.
+- JSCPD completed successfully with exit `0`; final report found `268` clones and `4.82%` duplicated lines, down from the earlier Step 27 run of `273` clones and `4.94%` duplicated lines.
+- Repowise health did not surface a new strategy regression beyond the existing synthesis-agent observations: one medium duplicate/import-style finding and two low primitive-parameter findings in telemetry helper methods.
+- Repowise blast-radius review reported no downstream breakage or missing co-change requirements for the strategy helper/policy/contract changes.
+- Repowise dead-code scan found no high-confidence dead code in `intelligence/strategy`; it reported one medium-confidence pre-existing unused export candidate: `StrategyEvolutionEngine`.
+- Graphify update completed: `17612 nodes`, `83245 edges`, `555 communities`.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for Step 27.
+- The placeholder environment value used for settings import validation was not written to source, tests, plans, or documentation as a real credential.
+- Remaining duplicate-code findings are broader platform stabilization candidates and were not refactored here to avoid broad unrelated cleanup during the final strategy gate.

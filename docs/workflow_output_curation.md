@@ -15,7 +15,9 @@ The completed-run archive preserves the complete replay and audit boundary. Cura
 ```text
 Workflow node output
     ↓
-Gate 1: Is this a durable domain fact?
+Completed-run archive for broad runtime evidence
+    ↓
+Gate 1: Is this a durable domain fact with a registered projector?
     ↓
 Curated PostgreSQL record
     ↓
@@ -28,11 +30,15 @@ Gate 3: Which projections are appropriate?
 Qdrant and/or Neo4j
 ```
 
-These are three separate decisions:
+These are three separate decisions after archival:
 
 1. Whether workflow output deserves a first-class curated record.
 2. Whether that record has value as retrieval context.
 3. Whether it belongs in semantic search, graph retrieval, both, or neither.
+
+Archival is broad and automatic at workflow completion. Curation is narrow and
+policy-driven through registered projectors. Retrieval projections are narrower
+still and must be reproducible from PostgreSQL.
 
 PostgreSQL remains the system of record. Qdrant and Neo4j are rebuildable projections, not competing sources of truth.
 

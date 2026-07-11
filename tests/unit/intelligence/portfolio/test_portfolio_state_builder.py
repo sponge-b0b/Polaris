@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+from datetime import datetime
 from typing import Any
 from typing import cast
 
@@ -11,6 +13,7 @@ from application.services.portfolio.portfolio_service import PortfolioService
 from application.services.portfolio.portfolio_result import PortfolioAnalysisResult
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.portfolio.models.portfolio_state import PortfolioState
 from intelligence.portfolio.management.portfolio_state_builder import (
     PortfolioStateBuilder,
 )
@@ -55,6 +58,26 @@ async def test_portfolio_state_builder_surfaces_v2_portfolio_state_fields() -> N
     positions_state = features["positions_state"]
     equity_state = features["equity_state"]
     risk_features = features["risk_features"]
+
+    assert output.outputs["canonical_portfolio_state"]["account_id"] == "account-1"
+    assert output.outputs["positions"] == [
+        {
+            "symbol": "SPY",
+            "market_value": 70_000.0,
+            "exposure_weight": 0.70,
+        },
+        {
+            "symbol": "AAPL",
+            "market_value": 15_000.0,
+            "exposure_weight": 0.15,
+        },
+    ]
+    assert output.outputs["exposures"]["gross_exposure"] == 0.85
+    assert output.outputs["risk_metrics"]["risk_intensity"] == 0.33
+    assert output.outputs["allocation_data"]["asset_class_exposure"] == {
+        "equity": 0.85,
+    }
+    assert output.outputs["provider_source"] == "test-provider"
 
     assert portfolio_state["positions"] == [
         {
@@ -144,6 +167,39 @@ class _FakeServiceRunner:
                 portfolio_state=self.state["portfolio_state"],
                 positions_state=self.state["positions_state"],
                 equity_state=self.state["equity_state"],
+                canonical_portfolio_state=_canonical_portfolio_state(),
+                positions=(
+                    {
+                        "symbol": "SPY",
+                        "market_value": 70_000.0,
+                        "exposure_weight": 0.70,
+                    },
+                    {
+                        "symbol": "AAPL",
+                        "market_value": 15_000.0,
+                        "exposure_weight": 0.15,
+                    },
+                ),
+                exposures={
+                    "gross_exposure": 0.85,
+                    "net_exposure": 0.85,
+                    "sector_exposure": {"ETF": 0.70, "Technology": 0.15},
+                    "asset_class_exposure": {"equity": 0.85},
+                },
+                risk_metrics={
+                    "risk_intensity": 0.33,
+                    "drawdown_percent": 0.05,
+                },
+                allocation_data={
+                    "asset_class_exposure": {"equity": 0.85},
+                },
+                current_equity=100_000.0,
+                peak_equity=105_000.0,
+                drawdown_absolute=5_000.0,
+                drawdown_percent=0.05,
+                provider_source="test-provider",
+                history_period="1A",
+                history_timeframe="1D",
             ),
         )
 
@@ -282,3 +338,30 @@ def _portfolio_payload() -> dict[str, Any]:
             ],
         },
     }
+
+
+def _canonical_portfolio_state() -> PortfolioState:
+    return PortfolioState(
+        account_id="account-1",
+        timestamp=datetime(2026, 7, 10, 13, 30, tzinfo=UTC),
+        equity=100_000.0,
+        peak_equity=105_000.0,
+        portfolio_value=100_000.0,
+        cash=15_000.0,
+        buying_power=40_000.0,
+        last_equity=99_000.0,
+        cash_ratio=0.15,
+        buying_power_ratio=0.40,
+        drawdown_absolute=5_000.0,
+        drawdown_percent=0.05,
+        gross_exposure=0.85,
+        net_exposure=0.85,
+        long_exposure=0.85,
+        short_exposure=0.0,
+        leverage=1.0,
+        risk_intensity=0.33,
+        sector_exposure={"ETF": 0.70, "Technology": 0.15},
+        asset_class_exposure={"equity": 0.85},
+        risk_signals={"portfolio_risk_normal": True},
+        snapshot_id="snapshot-1",
+    )

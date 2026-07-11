@@ -142,6 +142,36 @@ def test_policy_skips_unknown_contract_and_schema_version() -> None:
     )
 
 
+def test_policy_explicitly_excludes_report_and_backtest_persistence_boundaries() -> (
+    None
+):
+    cases = (
+        (
+            "polaris.report.morning_report_document",
+            WorkflowOutputProjectionSkipReason.REPORT_PERSISTENCE_BOUNDARY,
+            "MorningReportPersistenceService",
+        ),
+        (
+            "polaris.backtest.result_bundle",
+            WorkflowOutputProjectionSkipReason.BACKTEST_PERSISTENCE_BOUNDARY,
+            "BacktestPersistenceService",
+        ),
+    )
+
+    for output_contract, skip_reason, owning_service in cases:
+        decision = _policy().evaluate(
+            WorkflowOutputProjectionEligibilityContext(
+                run=_run(),
+                node_output=_node(output_contract=output_contract),
+            ),
+            _registry(),
+        )
+
+        assert decision.skipped is True
+        assert decision.skip_reason is skip_reason
+        assert owning_service in str(decision.message)
+
+
 def test_policy_uses_node_name_only_as_additional_validation() -> None:
     decision = _policy().evaluate(
         WorkflowOutputProjectionEligibilityContext(

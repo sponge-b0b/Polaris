@@ -15,6 +15,7 @@ from intelligence.strategy.hypothesis.contracts import validate_confidence
 from intelligence.strategy.hypothesis.contracts import validate_evidence_strength
 from intelligence.strategy.hypothesis.contracts import validate_reliability
 from intelligence.strategy.hypothesis.contracts import validate_strategy_json_scalar
+from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
 class StrategyInvalidationOperator(str, Enum):
@@ -350,23 +351,18 @@ def _required_float(payload: dict[str, object], field_name: str) -> float:
 def _required_string_tuple(
     payload: dict[str, object], field_name: str
 ) -> tuple[str, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
-    return tuple(_validate_non_empty(item, field_name) for item in value)
+    value = require_serialized_list(payload, field_name)
+    return tuple(
+        _validate_non_empty(_list_string(item, field_name), field_name)
+        for item in value
+    )
 
 
 def _required_perspective_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[StrategyPerspective, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     return tuple(
         parse_strategy_perspective(_list_string(item, field_name)) for item in value
     )

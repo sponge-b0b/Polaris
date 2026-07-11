@@ -12,6 +12,7 @@ from application.projections.workflow_outputs import WorkflowOutputProjectionOut
 from application.projections.workflow_outputs import WorkflowOutputProjectionRegistry
 from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
 from application.projections.workflow_outputs import WorkflowOutputProjectionService
+from application.projections.workflow_outputs import WorkflowOutputProjectionTelemetry
 from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
 from application.projections.workflow_outputs import WorkflowOutputProjectorRegistration
 from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
@@ -29,6 +30,8 @@ from core.storage.persistence.projections import ProjectionJobClaim
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
 from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
 from core.storage.persistence.lineage import PersistenceLineage
+from core.telemetry.observability import ObservabilityManager
+from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 
 
 @dataclass(slots=True)
@@ -235,6 +238,90 @@ async def test_project_completed_run_creates_claims_invokes_projector_and_marks_
 
 
 @pytest.mark.asyncio
+async def test_project_completed_run_emits_projection_telemetry() -> None:
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    observability = ObservabilityManager()
+    sink = InMemoryTelemetrySink()
+    observability.add_sink(sink)
+    service = _service(
+        projector=projector,
+        repository=repository,
+        observability_manager=observability,
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    event_types = [event.event_type for event in sink.events]
+    assert summary.success is True
+    assert "workflow_output_projection.completed_run_started" in event_types
+    assert "workflow_output_projection.projector_started" in event_types
+    assert "workflow_output_projection.projector_completed" in event_types
+    assert "workflow_output_projection.completed_run_finished" in event_types
+    projector_completed = next(
+        event
+        for event in sink.events
+        if event.event_type == "workflow_output_projection.projector_completed"
+    )
+    assert projector_completed.duration_seconds is not None
+    assert projector_completed.attributes["projector_name"] == "technical_projector"
+    assert projector_completed.attributes["parent_span_id"] is not None
+    metric_names = {point.name for point in observability.metrics_store.points()}
+    assert "workflow_output_projection.records.persisted" in metric_names
+    assert "workflow_output_projection.jobs.retry_count" in metric_names
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_emits_unsupported_contract_telemetry() -> None:
+    repository = FakeProjectionJobRepository()
+    observability = ObservabilityManager()
+    sink = InMemoryTelemetrySink()
+    observability.add_sink(sink)
+    service = WorkflowOutputProjectionService(
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(_node(output_contract="polaris.unsupported.contract"),)
+            )
+        ),
+        projection_job_repository=repository,
+        registry=WorkflowOutputProjectionRegistry(()),
+        observability_manager=observability,
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    event_types = [event.event_type for event in sink.events]
+    metric_names = {point.name for point in observability.metrics_store.points()}
+    assert summary.skipped_jobs == 1
+    assert "workflow_output_projection.projector_skipped" in event_types
+    assert "workflow_output_projection.unsupported_contracts.total" in metric_names
+
+
+def test_projection_telemetry_records_stale_job_recovery_metric() -> None:
+    observability = ObservabilityManager()
+    telemetry = WorkflowOutputProjectionTelemetry(observability)
+
+    telemetry.record_stale_jobs_recovered(
+        recovered_count=3,
+        attributes={"workflow_name": "morning_report"},
+    )
+
+    points = observability.metrics_store.points()
+    assert points[-1].name == "workflow_output_projection.jobs.stale_recovered"
+    assert points[-1].value == 3.0
+
+
+@pytest.mark.asyncio
 async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_source() -> (
     None
 ):
@@ -262,10 +349,78 @@ async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_s
 
 
 @pytest.mark.asyncio
+async def test_project_completed_run_skips_report_and_backtest_boundary_outputs_without_jobs() -> (
+    None
+):
+    report_projector = StubProjector(projector_name="report_projector")
+    backtest_projector = StubProjector(projector_name="backtest_projector")
+    repository = FakeProjectionJobRepository()
+    service = WorkflowOutputProjectionService(
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(
+                        node_name="morning_report_renderer",
+                        output_contract="polaris.report.morning_report_document",
+                        outputs={"markdown": "# Morning Report"},
+                    ),
+                    _node(
+                        node_name="backtest_runner",
+                        output_contract="polaris.backtest.result_bundle",
+                        outputs={"backtest_run_id": "backtest-1"},
+                    ),
+                )
+            )
+        ),
+        projection_job_repository=repository,
+        registry=WorkflowOutputProjectionRegistry(
+            (
+                WorkflowOutputProjectorRegistration(
+                    projector_name="report_projector",
+                    output_contract="polaris.report.morning_report_document",
+                    output_schema_version=1,
+                    projector=report_projector,
+                    supported_node_names=("morning_report_renderer",),
+                ),
+                WorkflowOutputProjectorRegistration(
+                    projector_name="backtest_projector",
+                    output_contract="polaris.backtest.result_bundle",
+                    output_schema_version=1,
+                    projector=backtest_projector,
+                    supported_node_names=("backtest_runner",),
+                ),
+            )
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.skipped_jobs == 2
+    assert summary.succeeded_jobs == 0
+    assert repository.created == []
+    assert report_projector.calls == 0
+    assert backtest_projector.calls == 0
+    assert "MorningReportPersistenceService" in str(summary.outcomes[0].message)
+    assert "BacktestPersistenceService" in str(summary.outcomes[1].message)
+
+
+@pytest.mark.asyncio
 async def test_project_completed_run_records_projector_failure_and_continues() -> None:
     projector = StubProjector(should_raise=True)
     repository = FakeProjectionJobRepository()
-    service = _service(projector=projector, repository=repository)
+    observability = ObservabilityManager()
+    sink = InMemoryTelemetrySink()
+    observability.add_sink(sink)
+    service = _service(
+        projector=projector,
+        repository=repository,
+        observability_manager=observability,
+    )
 
     summary = await service.project_completed_run(
         WorkflowOutputProjectionRequest(
@@ -280,6 +435,79 @@ async def test_project_completed_run_records_projector_failure_and_continues() -
     assert repository.failed
     assert "RuntimeError" in repository.failed[0][1]
     assert summary.outcomes[0].error_type == "RuntimeError"
+    event_types = [event.event_type for event in sink.events]
+    metric_names = {point.name for point in observability.metrics_store.points()}
+    assert "workflow_output_projection.projector_failed" in event_types
+    assert "workflow_output_projection.completed_run_failed" in event_types
+    assert "workflow_output_projection.runs.failed" in metric_names
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_isolates_projector_failure_and_projects_remaining_nodes() -> (
+    None
+):
+    failing_projector = StubProjector(should_raise=True)
+    news_projector = StubProjector(
+        projector_name="news_projector",
+        records_written=3,
+    )
+    repository = FakeProjectionJobRepository()
+    service = WorkflowOutputProjectionService(
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(
+                        node_name="technical_agent",
+                        output_contract="polaris.market.technical_analysis",
+                    ),
+                    _node(
+                        node_name="news_agent",
+                        output_contract="polaris.news.analysis",
+                        outputs={"headline_count": 4},
+                    ),
+                )
+            )
+        ),
+        projection_job_repository=repository,
+        registry=WorkflowOutputProjectionRegistry(
+            (
+                WorkflowOutputProjectorRegistration(
+                    projector_name=failing_projector.projector_name,
+                    output_contract="polaris.market.technical_analysis",
+                    output_schema_version=1,
+                    projector=failing_projector,
+                    supported_node_names=("technical_agent",),
+                ),
+                WorkflowOutputProjectorRegistration(
+                    projector_name=news_projector.projector_name,
+                    output_contract="polaris.news.analysis",
+                    output_schema_version=1,
+                    projector=news_projector,
+                    supported_node_names=("news_agent",),
+                ),
+            )
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.success is False
+    assert summary.total_jobs == 2
+    assert summary.failed_jobs == 1
+    assert summary.succeeded_jobs == 1
+    assert summary.records_written == 3
+    assert failing_projector.calls == 1
+    assert news_projector.calls == 1
+    assert len(repository.created) == 2
+    assert len(repository.failed) == 1
+    assert len(repository.succeeded) == 1
+    assert summary.outcomes[0].status is WorkflowOutputProjectionStatus.FAILED
+    assert summary.outcomes[1].status is WorkflowOutputProjectionStatus.SUCCEEDED
 
 
 @pytest.mark.asyncio
@@ -331,10 +559,14 @@ async def test_project_completed_run_force_reprojects_terminal_job() -> None:
 async def test_project_completed_run_missing_archive_raises_not_found() -> None:
     repository = FakeProjectionJobRepository()
     archive = FakeCompletedRunArchive(bundle=None)
+    observability = ObservabilityManager()
+    sink = InMemoryTelemetrySink()
+    observability.add_sink(sink)
     service = WorkflowOutputProjectionService(
         completed_run_archive=archive,
         projection_job_repository=repository,
         registry=_registry(StubProjector()),
+        observability_manager=observability,
     )
 
     with pytest.raises(CompletedRunProjectionNotFoundError):
@@ -344,6 +576,11 @@ async def test_project_completed_run_missing_archive_raises_not_found() -> None:
                 execution_id="missing",
             )
         )
+
+    event_types = [event.event_type for event in sink.events]
+    metric_names = {point.name for point in observability.metrics_store.points()}
+    assert "workflow_output_projection.completed_run_not_found" in event_types
+    assert "workflow_output_projection.archives.missing" in metric_names
 
 
 def test_source_fingerprint_is_deterministic_and_changes_with_output_data() -> None:
@@ -366,11 +603,13 @@ def _service(
     projector: StubProjector,
     repository: FakeProjectionJobRepository,
     bundle: CompletedRunBundle | None = None,
+    observability_manager: ObservabilityManager | None = None,
 ) -> WorkflowOutputProjectionService:
     return WorkflowOutputProjectionService(
         completed_run_archive=FakeCompletedRunArchive(bundle or _bundle()),
         projection_job_repository=repository,
         registry=_registry(projector),
+        observability_manager=observability_manager,
     )
 
 
@@ -429,6 +668,9 @@ def _run(
 
 def _node(
     *,
+    node_name: str = "technical_agent",
+    output_contract: str | None = "polaris.market.technical_analysis",
+    output_schema_version: int | None = 1,
     outputs: JsonObject | None = None,
 ) -> CompletedNodeOutputRecord:
     return CompletedNodeOutputRecord(
@@ -436,10 +678,10 @@ def _node(
         run_id="run-1",
         workflow_name="morning_report",
         execution_id="exec-1",
-        node_name="technical_agent",
+        node_name=node_name,
         node_type="runtime_node",
-        output_contract="polaris.market.technical_analysis",
-        output_schema_version=1,
+        output_contract=output_contract,
+        output_schema_version=output_schema_version,
         status="succeeded",
         success=True,
         outputs=outputs or {"technical_score": 0.8},

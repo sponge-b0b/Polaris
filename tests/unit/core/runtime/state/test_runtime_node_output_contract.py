@@ -47,3 +47,23 @@ def test_runtime_node_output_rejects_invalid_contract_identity() -> None:
             output_contract="polaris.market.technical_analysis",
             output_schema_version=0,
         )
+
+
+def test_runtime_node_output_factories_preserve_contract_identity() -> None:
+    failure = RuntimeNodeOutput.failure_output(
+        errors=[{"message": "provider unavailable"}],
+        output_contract="polaris.market.technical_analysis",
+        output_schema_version=1,
+    )
+    skipped = RuntimeNodeOutput.skipped_output(
+        reason="policy denied",
+        output_contract="polaris.portfolio.state",
+        output_schema_version=2,
+    )
+
+    assert RuntimeNodeOutput.from_dict(failure.to_dict()) == failure
+    assert RuntimeNodeOutput.from_dict(skipped.to_dict()) == skipped
+    assert failure.output_contract == "polaris.market.technical_analysis"
+    assert failure.output_schema_version == 1
+    assert skipped.output_contract == "polaris.portfolio.state"
+    assert skipped.output_schema_version == 2

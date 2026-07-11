@@ -235,14 +235,19 @@ class SimulatedPortfolioProvider(PortfolioProvider):
     # PORTFOLIO HISTORY
     # ============================================================
 
-    async def get_portfolio_history(self) -> dict[str, Any]:
+    async def get_portfolio_history(
+        self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
+    ) -> dict[str, Any]:
         return {
             "timestamp": list(self._history_timestamps),
             "equity": list(self._history_equity),
             "profit_loss": list(self._history_profit_loss),
             "profit_loss_pct": list(self._history_profit_loss_pct),
             "base_value": self.initial_capital,
-            "timeframe": "1D",
+            "timeframe": timeframe,
             "cashflow": {},
         }
 

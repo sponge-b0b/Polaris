@@ -38,13 +38,23 @@ _LATEST_UPDATE_FIELD_NAMES = tuple(
     for field_name in _LATEST_INSERT_FIELD_NAMES
     if field_name != "account_id"
 )
+_LATEST_COLUMN_KEYS_BY_FIELD_NAME = {
+    attribute.key: attribute.columns[0].key
+    for attribute in PortfolioStateLatestModel.__mapper__.column_attrs
+}
+
+
+def _latest_column_key(
+    field_name: str,
+) -> str:
+    return _LATEST_COLUMN_KEYS_BY_FIELD_NAME[field_name]
 
 
 def _latest_values(
     model: PortfolioStateLatestModel,
 ) -> dict[str, Any]:
     return {
-        field_name: getattr(model, field_name)
+        _latest_column_key(field_name): getattr(model, field_name)
         for field_name in _LATEST_INSERT_FIELD_NAMES
     }
 
@@ -83,7 +93,9 @@ class PostgresPortfolioStateRepository(PortfolioStateRepository):
             index_elements=["account_id"],
             set_={
                 **{
-                    field_name: latest_values[field_name]
+                    _latest_column_key(field_name): latest_values[
+                        _latest_column_key(field_name)
+                    ]
                     for field_name in _LATEST_UPDATE_FIELD_NAMES
                 },
                 "updated_at": func.now(),

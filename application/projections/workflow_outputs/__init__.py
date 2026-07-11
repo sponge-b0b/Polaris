@@ -57,6 +57,15 @@ from application.projections.workflow_outputs.projection_identity import (
 from application.projections.workflow_outputs.projection_identity import (
     build_workflow_output_projection_lineage,
 )
+from application.projections.workflow_outputs.projection_operations import (
+    WorkflowOutputProjectionOperationsService,
+)
+from application.projections.workflow_outputs.projection_operations import (
+    WorkflowOutputProjectionStatusRequest,
+)
+from application.projections.workflow_outputs.projection_operations import (
+    WorkflowOutputProjectionStatusResult,
+)
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
 )
@@ -92,6 +101,9 @@ from application.projections.workflow_outputs.projection_service import (
 )
 from application.projections.workflow_outputs.projection_service import (
     calculate_workflow_output_source_fingerprint,
+)
+from application.projections.workflow_outputs.projection_telemetry import (
+    WorkflowOutputProjectionTelemetry,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionRegistry,
@@ -131,11 +143,15 @@ __all__ = [
     "build_workflow_output_projection_lineage",
     "CompletedRunProjectionNotFoundError",
     "CompletedRunProjectionSummary",
+    "WorkflowOutputProjectionOperationsService",
+    "WorkflowOutputProjectionStatusRequest",
+    "WorkflowOutputProjectionStatusResult",
     "WorkflowOutputProjectionOutcome",
     "WorkflowOutputProjectionReconciliationRequest",
     "WorkflowOutputProjectionReconciliationResult",
     "WorkflowOutputProjectionRegistry",
     "WorkflowOutputProjectionService",
+    "WorkflowOutputProjectionTelemetry",
     "WorkflowOutputProjectionRequest",
     "WorkflowOutputProjectorRequest",
     "WorkflowOutputProjectionResolution",

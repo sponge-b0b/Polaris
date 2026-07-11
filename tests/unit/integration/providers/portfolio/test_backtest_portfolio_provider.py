@@ -37,3 +37,19 @@ async def test_backtest_portfolio_provider_exposes_simulated_v2_fields() -> None
     assert positions[0]["asset_class"] == "equity"
     assert positions[0]["sector"] == "simulated"
     assert positions[0]["beta"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_backtest_portfolio_provider_accepts_history_window() -> None:
+    simulated_provider = SimulatedPortfolioProvider(initial_capital=100000.0)
+    backtest_provider = BacktestPortfolioProvider(
+        portfolio_provider=simulated_provider,
+    )
+
+    history = await backtest_provider.get_portfolio_history(
+        period="1A",
+        timeframe="1D",
+    )
+
+    assert history["timeframe"] == "1D"
+    assert history["equity"] == pytest.approx([100000.0])

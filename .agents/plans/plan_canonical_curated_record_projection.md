@@ -190,7 +190,7 @@
 
   | Node | Source object before serialization | Current runtime output shape | Proposed contract | Target curated record types | Persistence owner | Missing fields / blockers | Eligibility |
   | --- | --- | --- | --- | --- | --- | --- |
-  | `portfolio_state_builder` | `PortfolioAnalysisResult` -> `PortfolioStateDecision` | Generic signal envelope with `features.portfolio_state`, `features.equity_state`, `features.positions_state`, `features.risk_features` | `polaris.portfolio.state` v1 | Portfolio records via `PortfolioPersistenceService` | `PortfolioAnalysisResult` currently omits equity-history points and provider/source timeframe from the returned typed result; `PortfolioService` still reads/writes portfolio persistence directly for peak-equity/history. | Projectable after Steps 18-20 refactor the service result and remove direct service persistence. |
+  | `portfolio_state_builder` | `PortfolioAnalysisResult` -> `PortfolioStateDecision` | Canonical portfolio-state output with first-class state, positions, exposures, risk, allocation, equity history, provider, period, and timeframe fields | `polaris.portfolio.state` v1 | Portfolio records via workflow-output projector and `PortfolioPersistenceService` | Steps 18-20 completed the service-result refactor, portfolio projector, and direct service-persistence removal. | Projectable. |
   | `fundamental_agent` | `MacroAnalysisResult` plus deterministic scoring | Generic signal envelope (`directional_score`, `confidence`, `regime`, `signals`, `risks`, `recommendations`, `features`) | `polaris.agent.fundamental_signal` v1 | Agent signal/intelligence persistence | Needs stable timestamp/source lineage in the output contract before durable projection. Macro observations should come from macro service output, not LLM narrative. | Projectable once contract identity and decoder exist. |
   | `technical_agent` | `TechnicalAnalysisResult` plus `TechnicalSignal`-style mapping | Generic signal envelope with technical `features` including snapshot, market context, trend, volatility, breadth, raw/calibrated regime | `polaris.market.technical_analysis` v1 | `MarketPersistenceService` | Needs a typed boundary decoder and first-class observation timestamp/source fields; existing output is the best technical/market projection source. | Projectable. |
   | `news_agent` | News provider articles plus LLM analysis | Generic signal envelope; failure path returns successful degraded output with `features.error` | `polaris.news.analysis` v1 | `NewsPersistenceService` | Source articles require canonical source/vendor IDs and timestamps. LLM failure output must be skipped unless target schema has quality/status fields. | Conditionally projectable; degraded/fallback outputs must be policy-gated. |
@@ -835,6 +835,7 @@ Results:
 
 - Focused model tests passed: `5 passed`.
 - Focused MyPy passed: `Success: no issues found in 3 source files`.
+- Export and operation-lifecycle MyPy passed: `Success: no issues found in 2 source files`.
 - Migration tests were discovered but skipped because `POLARIS_TEST_DATABASE_URL` was not configured for this command.
 - Graphify update completed successfully.
 
@@ -1355,3 +1356,431 @@ Notes:
 
 - No live external services were required for this coordinated stage.
 - The implementation intentionally does not create `RecommendationOutcomeRecord` or `WatchlistItemRecord` without explicit realized outcome/watchlist evidence in workflow outputs.
+
+### Step 18 — Refactor the portfolio analysis result
+
+Completed on 2026-07-11.
+
+- Expanded `PortfolioAnalysisResult` so the portfolio workflow output now carries the persistence-relevant portfolio facts needed by the upcoming projector:
+  - canonical `PortfolioState`
+  - normalized positions
+  - exposure summary
+  - risk metrics
+  - allocation data
+  - current equity
+  - equity-history point records
+  - peak equity and drawdown values
+  - provider source, history period, and history timeframe
+- Updated `PortfolioService` to request an explicit `1A` / `1D` portfolio-history window instead of relying on the provider default.
+- Changed peak-equity calculation to derive from authoritative provider history plus current account equity. The service no longer reads the latest persisted portfolio state for that calculation.
+- Kept direct portfolio persistence in place for now because Step 20 removes it only after the Step 19 projector is implemented and verified.
+- Updated the portfolio provider protocol and live/backtest/simulated provider implementations to accept explicit portfolio-history `period` and `timeframe` parameters.
+- Updated the Alpaca portfolio client to pass an explicit `GetPortfolioHistoryRequest` to Alpaca when fetching portfolio history.
+- Extended focused tests to verify explicit history-window propagation, provider/client behavior, serialization of the expanded result, and provider-history-derived peak equity.
+
+Verification:
+
+- `uv run ruff check application/services/portfolio/portfolio_result.py application/services/portfolio/portfolio_service.py integration/clients/portfolio/alpaca_portfolio_client.py integration/providers/backtesting/portfolio/simulated_portfolio_provider.py integration/providers/portfolio/backtest_portfolio_provider.py integration/providers/portfolio/live_portfolio_provider.py integration/providers/portfolio/portfolio_provider.py tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/integration/clients/portfolio/test_alpaca_portfolio_client.py tests/unit/integration/providers/portfolio/test_backtest_portfolio_provider.py --fix`
+- `uv run ruff format application/services/portfolio/portfolio_result.py application/services/portfolio/portfolio_service.py integration/clients/portfolio/alpaca_portfolio_client.py integration/providers/backtesting/portfolio/simulated_portfolio_provider.py integration/providers/portfolio/backtest_portfolio_provider.py integration/providers/portfolio/live_portfolio_provider.py integration/providers/portfolio/portfolio_provider.py tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/integration/clients/portfolio/test_alpaca_portfolio_client.py tests/unit/integration/providers/portfolio/test_backtest_portfolio_provider.py`
+- `uv run mypy application/services/portfolio integration/providers/portfolio integration/providers/backtesting/portfolio integration/clients/portfolio tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/integration/clients/portfolio/test_alpaca_portfolio_client.py tests/unit/integration/providers/portfolio/test_backtest_portfolio_provider.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py tests/unit/integration/clients/portfolio/test_alpaca_portfolio_client.py tests/unit/integration/providers/portfolio/test_backtest_portfolio_provider.py tests/unit/integration/providers/backtesting/portfolio/test_simulated_portfolio_provider.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 20 source files`.
+- Focused portfolio service/provider/client tests passed: `18 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- Repowise health/risk checks flagged `PortfolioService` as a churn-heavy hotspot, so the implementation stayed scoped to the Step 18 service-result and provider-history contract. The direct persistence removal remains deferred to Step 20 after the portfolio projector exists.
+
+### Step 19 — Implement the portfolio projector
+
+Completed on 2026-07-11.
+
+- Added `PortfolioStateWorkflowOutputProjector` under `application/projections/workflow_outputs/projectors/`.
+- Registered the portfolio projector against the canonical `polaris.portfolio.state` workflow-output contract and schema version `1`.
+- Projected eligible `portfolio_state_builder` workflow evidence through `PortfolioPersistenceService` into:
+  - canonical portfolio state snapshot/latest state
+  - position history records
+  - latest position records
+  - equity history point records
+  - exposure snapshot records
+  - risk snapshot records
+  - allocation snapshot records
+- Updated `PortfolioStateDecision` so the portfolio-state builder emits the Step 18 expanded portfolio result fields at the runtime output boundary for explicit projector consumption.
+- Wired `PortfolioPersistenceService`, `PostgresPortfolioExpansionPersistenceRepository`, and `PostgresPortfolioStateRepository` through workflow-output projection DI and the PostgreSQL projection bootstrap.
+- Added focused tests for successful portfolio projection, deterministic projected IDs, missing canonical-state skip behavior, canonical projector registration, DI registry wiring, and portfolio-state-builder projection payload output.
+
+Verification:
+
+- `uv run ruff check application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/projectors/__init__.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py intelligence/portfolio/management/portfolio_state_policy.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py --fix`
+- `uv run ruff format application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/projectors/__init__.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py intelligence/portfolio/management/portfolio_state_policy.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py`
+- `uv run ruff check application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/projectors/__init__.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py intelligence/portfolio/management/portfolio_state_policy.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py`
+- `uv run ruff format --check application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/projectors/__init__.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py intelligence/portfolio/management/portfolio_state_policy.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py`
+- `uv run mypy application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/projectors/__init__.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py intelligence/portfolio/management/portfolio_state_policy.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py`
+- `uv run pytest -q tests/unit/application/projections tests/unit/intelligence/portfolio/test_portfolio_state_builder.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the focused files are formatted.
+- Focused MyPy passed: `Success: no issues found in 8 source files`.
+- Focused portfolio projector/DI/builder tests passed: `6 passed`.
+- Projection suite plus portfolio-state-builder tests passed: `71 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- Direct `PortfolioService` persistence intentionally remains in place until Step 20, now that the portfolio projector exists and is verified.
+- The projector uses deterministic projected IDs keyed by completed-run lineage, account identity, source timestamp, and stable portfolio sub-record keys so one workflow run produces one repeatable curated portfolio record set.
+
+### Step 20 — Remove direct persistence from PortfolioService
+
+Completed on 2026-07-11.
+
+- Removed `PortfolioPersistenceService` from `PortfolioService` construction and request execution.
+- Removed direct portfolio-state snapshot writes from `PortfolioService`.
+- Removed direct equity-history expansion writes from `PortfolioService`.
+- Confirmed the service no longer reads persisted portfolio state for peak-equity calculation; peak equity remains derived from current account equity plus authoritative provider portfolio history.
+- Kept `PortfolioService` focused on provider orchestration, normalization, deterministic calculation, and returning the expanded typed `PortfolioAnalysisResult` for the `PortfolioStateBuilder` node output.
+- Updated application service DI so `PortfolioService` depends only on the portfolio provider.
+- Updated service tests and canonical service-entrypoint tests to instantiate and verify `PortfolioService` without persistence dependencies.
+- Updated the architecture ownership ledger to reflect that portfolio state/equity history are now written through workflow-output projection, not directly by the service.
+
+Verification:
+
+- `uv run ruff check application/services/portfolio/portfolio_service.py application/services/di.py tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/application/services/test_service_stabilization.py application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py --fix`
+- `uv run ruff format application/services/portfolio/portfolio_service.py application/services/di.py tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/application/services/test_service_stabilization.py application/projections/workflow_outputs/projectors/portfolio.py application/projections/workflow_outputs/di.py application/projections/workflow_outputs/bootstrap.py`
+- `uv run mypy application/services/portfolio application/services/di.py tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/application/services/test_service_stabilization.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/application/services/test_service_stabilization.py tests/unit/intelligence/portfolio/test_portfolio_state_builder.py tests/unit/application/projections/test_portfolio_workflow_output_projector.py tests/unit/application/projections/test_workflow_output_projection_di.py`
+- `uv run graphify update .`
+- `git diff --check`
+- `rg "portfolio_persistence_service|PortfolioPersistenceService|persist_state_snapshot|persist_expansion_records|get_latest_state" application/services/portfolio application/services/di.py tests/unit/application/services --glob '!**/__pycache__/**'`
+
+Results:
+
+- Focused Ruff passed and the focused files are formatted.
+- Focused MyPy passed: `Success: no issues found in 12 source files`.
+- Focused service, portfolio-state-builder, and portfolio-projection tests passed: `35 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+- Source scan found no remaining direct portfolio persistence dependency or write/read call in `PortfolioService`, service DI, or application-service unit tests.
+
+Notes:
+
+- No live services were required for this step.
+- Portfolio repositories and tables remain intact because they are now the curated portfolio projection targets used by `PortfolioStateWorkflowOutputProjector`.
+- Completed-run archival remains separate from curated portfolio persistence: the workflow archive stores runtime evidence, and the projector converts eligible `portfolio_state_builder` evidence into deterministic portfolio records.
+
+### Step 21 — Preserve report and backtest persistence boundaries
+
+Completed on 2026-07-11.
+
+- Added explicit workflow-output projection skip reasons for existing persistence-owner boundaries:
+  - `REPORT_PERSISTENCE_BOUNDARY` for `polaris.report.*` contracts owned by `MorningReportPersistenceService`.
+  - `BACKTEST_PERSISTENCE_BOUNDARY` for `polaris.backtest.*` contracts owned by `BacktestPersistenceService`.
+- Updated the projection eligibility policy so report documents and backtest result bundles are skipped before registry/projector resolution, preventing accidental duplicate projection even if a future generic projector registration is added.
+- Preserved the existing non-production execution-mode gate for `backtest` and `simulated` completed runs.
+- Added eligibility-policy coverage proving report and backtest contracts are explicitly excluded with ownership-aware messages.
+- Added projection-service duplicate-prevention coverage proving enabled workflow projection creates no projection jobs and invokes no report/backtest projectors for report/backtest boundary contracts.
+
+Verification:
+
+- `uv run ruff check application/projections/workflow_outputs/projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_service.py --fix`
+- `uv run ruff format application/projections/workflow_outputs/projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_service.py`
+- `uv run mypy application/projections/workflow_outputs/projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_service.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_workflow_output_projection_eligibility.py tests/unit/application/projections/test_workflow_output_projection_service.py`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the focused files are formatted.
+- Focused MyPy passed: `Success: no issues found in 3 source files`.
+- Focused eligibility/service tests passed: `18 passed`.
+- Full unit projection suite passed: `72 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- This step intentionally did not add report or backtest projectors. Morning reports and backtest bundles remain owned by their dedicated persistence services, while workflow-output projection only handles eligible curated domain records.
+
+### Step 22 — Add projection telemetry
+
+Completed on 2026-07-11.
+
+- Added `WorkflowOutputProjectionTelemetry` as a projection-specific telemetry boundary instead of reusing application-service or RAG telemetry emitters.
+- Wired `WorkflowOutputProjectionService` to emit projection run lifecycle events:
+  - `workflow_output_projection.completed_run_started`
+  - `workflow_output_projection.completed_run_finished`
+  - `workflow_output_projection.completed_run_failed`
+  - `workflow_output_projection.completed_run_not_found`
+- Wired projector lifecycle telemetry for eligible and skipped node outputs:
+  - `workflow_output_projection.projector_started`
+  - `workflow_output_projection.projector_completed`
+  - `workflow_output_projection.projector_skipped`
+  - `workflow_output_projection.projector_failed`
+- Added projection metrics for run count, run latency, projector latency, persisted record counts by record type, retry count, unsupported contracts/schema versions, missing archives, and stale-job recovery count.
+- Preserved workflow run trace context by creating child projector trace contexts for per-node projection work.
+- Updated OpenTelemetry operation lifecycle mapping so workflow-output projection events resolve to valid completed-run and projector operation spans.
+- Added focused unit coverage for successful telemetry emission, failed projection-run telemetry, unsupported-contract skip telemetry, missing archive telemetry, and stale-job recovery metrics.
+
+Verification:
+
+- `uv run ruff check application/projections/workflow_outputs/projection_telemetry.py application/projections/workflow_outputs/projection_service.py application/projections/workflow_outputs/__init__.py core/telemetry/tracing/operation_lifecycle.py tests/unit/application/projections/test_workflow_output_projection_service.py --fix`
+- `uv run ruff format application/projections/workflow_outputs/projection_telemetry.py application/projections/workflow_outputs/projection_service.py application/projections/workflow_outputs/__init__.py core/telemetry/tracing/operation_lifecycle.py tests/unit/application/projections/test_workflow_output_projection_service.py`
+- `uv run mypy application/projections/workflow_outputs/projection_telemetry.py application/projections/workflow_outputs/projection_service.py tests/unit/application/projections/test_workflow_output_projection_service.py --explicit-package-bases`
+- `uv run mypy application/projections/workflow_outputs/__init__.py core/telemetry/tracing/operation_lifecycle.py --explicit-package-bases`
+- `uv run pytest -q tests/unit/application/projections/test_workflow_output_projection_service.py tests/unit/application/projections/test_workflow_output_projection_di.py`
+- `uv run pytest -q tests/unit/application/projections`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the focused files are formatted.
+- Focused MyPy passed: `Success: no issues found in 3 source files`.
+- Export and operation-lifecycle MyPy passed: `Success: no issues found in 2 source files`.
+- Focused projection service/DI tests passed: `12 passed`.
+- Full unit projection suite passed: `75 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- Stale-job recovery telemetry is exposed on the projection telemetry boundary for upcoming operational commands; no stale-job recovery orchestration was added in this step.
+
+### Step 23 — Add operational commands
+
+Completed on 2026-07-11.
+
+- Added `WorkflowOutputProjectionOperationsService` as the canonical application boundary for completed-run projection operations instead of putting repository orchestration directly in the CLI.
+- Added typed operation requests/results for projection status, one-run projection, failed/stale retry, and missing-projection reconciliation.
+- Added `polaris completed-runs` as a CLI alias for the existing completed-run command group while preserving the existing `polaris runs` command path.
+- Added completed-run projection commands:
+  - `polaris completed-runs projection-status`
+  - `polaris completed-runs project`
+  - `polaris completed-runs retry-projection`
+  - `polaris completed-runs reconcile-projections`
+- Kept CLI commands as thin async boundaries using `run_cli_async()` and Dishka request scopes through `application_request_scope()`.
+- Supported dry-run behavior for one-run projection, retry, and reconciliation operations.
+- Supported stale running projection-job recovery through the operations service and projection-job repository.
+- Added unit coverage for projection operation orchestration and CLI command wiring.
+
+Verification:
+
+- `uv run ruff check application/projections/workflow_outputs/projection_operations.py application/projections/workflow_outputs/projection_models.py application/projections/workflow_outputs/__init__.py application/projections/workflow_outputs/di.py interfaces/cli/commands/completed_runs_command.py interfaces/cli/app.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/application/projections/test_workflow_output_projection_models.py tests/unit/interfaces/cli/test_completed_runs_command.py`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run mypy application/projections/workflow_outputs/projection_operations.py application/projections/workflow_outputs/projection_models.py application/projections/workflow_outputs/__init__.py application/projections/workflow_outputs/di.py interfaces/cli/commands/completed_runs_command.py interfaces/cli/app.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/application/projections/test_workflow_output_projection_models.py tests/unit/interfaces/cli/test_completed_runs_command.py --explicit-package-bases`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run pytest -q tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/application/projections/test_workflow_output_projection_models.py tests/unit/application/projections/test_workflow_output_projection_di.py tests/unit/interfaces/cli/test_completed_runs_command.py tests/unit/interfaces/cli/test_cli.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed.
+- Focused MyPy passed: `Success: no issues found in 9 source files`.
+- Focused projection-operation and CLI tests passed: `26 passed`.
+- Graphify update completed successfully with no code-graph topology changes detected.
+- `git diff --check` passed.
+
+Notes:
+
+- No live external services were required for this step.
+- The first focused pytest collection without a placeholder PostgreSQL password hit the expected settings import guard. The verification rerun used `POLARIS_POSTGRES_PASSWORD=dummy`; no live database connection was used and no secret was written to source.
+- Reconciliation currently treats the repository's missing-run result set as the scanned candidate set, keeping the implementation surgical and avoiding new completed-run repository query surface in this step.
+
+### Step 24 — Add unit coverage
+
+Completed on 2026-07-11.
+
+- Strengthened runtime-output contract tests to verify success, failure, and skipped factory outputs all serialize and deserialize canonical output contract identity and schema versions.
+- Added explicit projection-service failure-isolation coverage proving one failing projector records a failed outcome/job while a later eligible node output still invokes its projector, succeeds, and reports its persisted record count.
+- Expanded projection-operations coverage for dry-run retry behavior so dry runs inspect matching jobs without recovering stale jobs or invoking projection.
+- Expanded reconciliation coverage for since/until window filtering and enqueue-enabled projection of missing completed runs.
+- Added request validation coverage for invalid projection status, non-positive operation limits, and invalid reconciliation windows.
+- Added CLI alias coverage proving the `completed-runs` command group exposes the projection operations alongside the existing `runs` path.
+- Re-ran the broader existing Step 24-relevant suites covering registry registration/resolution, unsupported contracts and schema versions, eligibility policy decisions, deterministic fingerprints and record IDs, projection job state transitions, portfolio projector mapping, individual persistence-service calls, portfolio peak-equity calculation from provider history, and direct portfolio persistence removal.
+
+Verification:
+
+- `uv run ruff check tests/unit/core/runtime/state/test_runtime_node_output_contract.py tests/unit/application/projections/test_workflow_output_projection_service.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/interfaces/cli/test_cli.py --fix`
+- `uv run ruff format tests/unit/core/runtime/state/test_runtime_node_output_contract.py tests/unit/application/projections/test_workflow_output_projection_service.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/interfaces/cli/test_cli.py`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run mypy tests/unit/core/runtime/state/test_runtime_node_output_contract.py tests/unit/application/projections/test_workflow_output_projection_service.py tests/unit/application/projections/test_workflow_output_projection_operations.py tests/unit/interfaces/cli/test_cli.py --explicit-package-bases`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run pytest -q tests/unit/core/runtime/state/test_runtime_node_output_contract.py tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_workflow_output_projection_job_repository.py tests/unit/application/projections tests/unit/application/services/portfolio/test_portfolio_service.py tests/unit/application/services/test_canonical_service_entrypoints.py tests/unit/application/services/test_service_stabilization.py tests/unit/interfaces/cli/test_completed_runs_command.py tests/unit/interfaces/cli/test_cli.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the changed test files are formatted.
+- Focused MyPy passed: `Success: no issues found in 4 source files`.
+- Focused Step 24 unit coverage suite passed: `151 passed, 1 warning`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- The pytest warning is from the installed `websockets.legacy` package deprecation path and is unrelated to workflow-output projection behavior.
+- The placeholder `POLARIS_POSTGRES_PASSWORD=dummy` was used only to satisfy settings import validation during unit-test collection; no database connection was opened and no secret was written to source.
+
+### Step 25 — Add PostgreSQL integration coverage
+
+Completed on 2026-07-11.
+
+- Added live PostgreSQL integration coverage for the workflow-output projection boundary in `tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py`.
+- Covered normal completed-run projection from persisted workflow evidence into curated portfolio tables.
+- Verified projection-job creation and terminal success status for successful eligible node outputs.
+- Verified reprocessing the same completed run without `force_reproject` skips the already-succeeded projection job and does not duplicate portfolio state, position, exposure, risk, allocation, or equity-history rows.
+- Verified backtest completed runs are treated as non-production workflow evidence and do not create projection jobs or populate live curated portfolio tables.
+- Verified projector failure isolation: a failing downstream projector records a failed job/outcome while valid successful upstream portfolio output still persists curated records.
+- Verified failed projection jobs can be retried through the operations service and transition to succeeded without creating extra jobs.
+- Verified stale running jobs can be recovered to failed, retried, and completed successfully through the operations service.
+- Reused the canonical PostgreSQL completed-run archive, projection-job repository, workflow-output projection service, projection operations service, and portfolio persistence repositories; no parallel test-only persistence path was introduced.
+
+Verification:
+
+- `uv run ruff check tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py --fix`
+- `uv run ruff format tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run mypy tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py --explicit-package-bases`
+- `POLARIS_POSTGRES_PASSWORD=dummy timeout 30s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py`
+- `POLARIS_POSTGRES_PASSWORD=dummy timeout 30s uv run pytest -q tests/database/test_migrations.py`
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the new integration test file is formatted.
+- Focused MyPy passed: `Success: no issues found in 1 source file`.
+- PostgreSQL workflow-output projection integration test collection passed with expected live-test skips: `3 skipped` because `POLARIS_TEST_DATABASE_URL` is not set in the current Codex environment.
+- Migration contract test collection passed with expected live-test skips: `7 skipped` because `POLARIS_TEST_DATABASE_URL` is not set in the current Codex environment.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No secret or authenticated PostgreSQL connection string was written to source, tests, plans, or documentation.
+- I confirmed `POLARIS_TEST_DATABASE_URL` is not available in this shell, and the configured application settings do not currently expose a usable PostgreSQL URL to derive the test URL without a password. To run this coverage live, export `POLARIS_TEST_DATABASE_URL` in the shell and rerun the two pytest commands above.
+- The migration coverage for blank upgrade and ORM metadata matching remains in `tests/database/test_migrations.py`; Step 25 added projection-specific PostgreSQL coverage rather than duplicating pytest-alembic migration assertions.
+
+### Step 26 — Verify RAG compatibility
+
+Completed on 2026-07-11.
+
+- Added focused RAG compatibility coverage in `tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py`.
+- Verified newly projected portfolio risk and allocation records become typed structured curated RAG sources and satisfy the existing default eligibility rule as curated analytical summaries.
+- Verified raw completed-run node-output/runtime records remain ineligible under the raw-runtime eligibility rule and cannot be passed to the curated RAG document builder as arbitrary payloads.
+- Verified the portfolio RAG ingestion operation starts from eligible canonical PostgreSQL source records, resolves typed portfolio records through the curated source-loader registry, and passes `require_source_eligibility=True` into the ingestion boundary.
+- Verified the projection package and projection-job repository do not import or call RAG services, Qdrant, Neo4j, embedding, or reranking concerns.
+- Verified projection retry replays only the canonical projection operation and does not trigger RAG ingestion or projection side effects.
+
+Verification:
+
+- `uv run ruff check tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py --fix`
+- `uv run ruff format tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py`
+- `timeout 60s uv run mypy tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py --explicit-package-bases`
+- `timeout 60s uv run pytest -q tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py`
+- `timeout 60s uv run pytest -q tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py tests/unit/application/rag/test_curated_rag_structured_sources.py tests/unit/application/projections/test_workflow_output_projection_operations.py`
+- `timeout 120s uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Focused Ruff passed and the new test file is formatted.
+- Focused MyPy passed: `Success: no issues found in 1 source file`.
+- New Step 26 unit tests passed: `6 passed`.
+- Broader RAG/projection compatibility suite passed: `30 passed`.
+- Graphify update completed successfully.
+- `git diff --check` passed.
+
+Notes:
+
+- No live services were required for this step.
+- This step intentionally added compatibility coverage only; no production RAG or projection code changes were needed.
+
+### Step 27 — Run full quality gates
+
+Completed on 2026-07-11.
+
+- Ran Repowise health and blast-radius checks for the projection/runtime/persistence surface touched by the workflow-output projection plan.
+- Ran the required quality gates in order and resolved projection-plan regressions discovered by the gates.
+- Updated morning-report integration expectations for the canonical `strategy_evidence_builder` node and the structured-hypothesis strategy outputs now produced by the workflow.
+- Updated the CLI runtime-scope failure test so the projection subscription boundary is isolated from the scope-closing assertion.
+- Documented the new projection telemetry/logging boundary in the observability architecture allowlist.
+- Updated migration contract tests after the migration squash so they validate the upgraded schema as a black-box final state instead of referencing removed historical revision IDs.
+- Fixed `PostgresPortfolioStateRepository` latest-state upserts to use actual database column keys for renamed ORM attributes, preventing invalid `cash_ratio` and `risk_signals` insert/update columns while preserving the typed domain attribute names.
+
+Verification:
+
+- `uv run ruff check . --fix`
+- `uv run ruff format .`
+- `uv run mypy . --explicit-package-bases`
+- `POLARIS_POSTGRES_PASSWORD=dummy uv run pytest -q`
+- `source .env; POLARIS_TEST_DATABASE_URL=<derived from POLARIS_DATABASE_URL> uv run pytest -q tests/database/test_migrations.py`
+- `source .env; POLARIS_TEST_DATABASE_URL=<derived from POLARIS_DATABASE_URL> uv run pytest -q tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py`
+- `uv run graphify update .`
+- `git diff --check`
+
+Results:
+
+- Ruff check passed: `All checks passed!`.
+- Ruff format passed; final run reported `1221 files left unchanged`.
+- MyPy passed: `Success: no issues found in 1218 source files`.
+- Full pytest passed: `2102 passed, 22 skipped, 5 warnings`.
+- Live PostgreSQL migration tests passed: `7 passed, 8 warnings`.
+- Live PostgreSQL workflow-output projection integration tests passed: `3 passed`.
+- Graphify update completed successfully: `17568 nodes, 83041 edges, 562 communities`.
+- `git diff --check` passed.
+
+Repowise notes:
+
+- Projection service and repository surfaces remain feature-active/churn-aware, so follow-on work should stay surgical.
+- `core/storage/persistence/repositories/postgres_portfolio_state_repository.py` reports high health with a small import-block duplication signal and no downstream blast-radius warnings.
+- `tests/database/test_migrations.py` and `tests/integration/workflow/test_morning_report_real_nodes.py` remain churn-heavy test hotspots, but the Step 27 changes are test-contract updates required by the current architecture and migration squash.
+
+Notes:
+
+- PostgreSQL was required for the live migration and projection integration checks; no database password or authenticated connection string was written to source, tests, plans, or documentation.
+- The placeholder `POLARIS_POSTGRES_PASSWORD=dummy` was used only for non-live unit/full-suite settings import validation. Live PostgreSQL tests derived their test URL from the local `.env` at command execution time without printing the secret.
+- The full pytest warnings are from third-party deprecations/user warnings and are unrelated to the projection implementation.
+
+### Step 28 — Document the canonical persistence architecture
+
+Completed on 2026-07-11.
+
+- Expanded `docs/platform_architecture_ownership_ledger.md` with a canonical workflow-output projection contract that distinguishes runtime node output, completed-run archive records, curated domain records, RAG documents, Qdrant vector projections, and Neo4j graph projections.
+- Documented output contract and schema-version requirements, projector registration, projection eligibility, live/replay/simulated/backtest isolation, retry/reconciliation behavior, idempotency, lineage, and safe projectable-node onboarding.
+- Replaced stale ownership-ledger architectural-gap language with current watch items that reflect the implemented workflow-output projection route and remaining audit concerns.
+- Added `docs/postgres_persistence.md` guidance explaining how completed-run evidence becomes curated PostgreSQL records and why RAG documents, Qdrant, and Neo4j remain downstream projections.
+- Updated `docs/workflow_output_curation.md` so the canonical data flow explicitly includes the completed-run archive before projector-driven curation.
+
+Verification:
+
+- `rg -n "not yet|Future vector/graph|PortfolioService currently reads|Peak-equity calculation still|persisted by the service" docs/platform_architecture_ownership_ledger.md docs/postgres_persistence.md docs/workflow_output_curation.md || true`
+- `git diff --check`
+- `git status --short`
+
+Results:
+
+- Stale architecture-gap references for the completed projection work were removed from the ownership ledger and PostgreSQL persistence docs.
+- `git diff --check` passed.
+- No Python files were changed for this documentation-only step, so Ruff, MyPy, pytest, live services, and Graphify were not required.
+
+Notes:
+
+- Existing uncommitted production and test changes from prior projection-plan steps remain in the worktree and were not committed as part of this step.

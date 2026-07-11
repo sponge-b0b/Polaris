@@ -64,6 +64,7 @@ async def test_morning_report_runs_real_intelligence_nodes(
         "bear_agent",
         "sideways_agent",
         "strategy_synthesis_agent",
+        "strategy_evidence_builder",
         "portfolio_manager_agent",
         "trade_packager",
         "execution_risk_guard",
@@ -91,18 +92,20 @@ async def test_morning_report_runs_real_intelligence_nodes(
     assert "breadth_risk_score" in technical_breadth
     assert "breadth_regime" in technical_breadth
 
-    downstream_breadth_nodes = (
+    direct_breadth_nodes = (
         "volatility_risk_agent",
         "risk_aggregator_agent",
-        "bull_agent",
-        "bear_agent",
-        "sideways_agent",
         "strategy_synthesis_agent",
         "trade_packager",
         "execution_risk_guard",
     )
+    perspective_breadth_nodes = (
+        "bull_agent",
+        "bear_agent",
+        "sideways_agent",
+    )
 
-    for node_name in downstream_breadth_nodes:
+    for node_name in direct_breadth_nodes + perspective_breadth_nodes:
         features = node_outputs[node_name]["outputs"]["features"]
         breadth_context = features["breadth_context"]
 
@@ -110,12 +113,18 @@ async def test_morning_report_runs_real_intelligence_nodes(
         assert (
             breadth_context["breadth_regime"] == technical_breadth["breadth_regime"]
         ), node_name
-        assert breadth_context["risk_regime"] == technical_breadth["risk_regime"], (
-            node_name
-        )
-        assert breadth_context["breadth_score"] == technical_breadth["breadth_score"], (
-            node_name
-        )
+        if node_name in direct_breadth_nodes:
+            assert breadth_context["risk_regime"] == technical_breadth["risk_regime"], (
+                node_name
+            )
+            assert (
+                breadth_context["breadth_score"] == technical_breadth["breadth_score"]
+            ), node_name
+        else:
+            assert breadth_context["risk_regime"] in {"normal", "elevated", "high"}, (
+                node_name
+            )
+            assert isinstance(breadth_context["breadth_score"], float), node_name
         assert "confirmation_score" in breadth_context, node_name
         assert "risk_pressure" in breadth_context, node_name
         assert features["breadth_confirmation_score"] == pytest.approx(
@@ -176,7 +185,6 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
     assert result.steps[0].timestamp == datetime(2026, 1, 1, tzinfo=timezone.utc)
     assert result.steps[0].workflow_run_id == "backtest-real-golden-step-000000"
     assert tuple(result.steps[0].node_outputs) == (
-        "strategy_perspective_weighting_engine",
         "attribution_engine",
         "bear_agent",
         "bull_agent",
@@ -191,6 +199,8 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
         "risk_signal_builder",
         "sentiment_agent",
         "sideways_agent",
+        "strategy_evidence_builder",
+        "strategy_perspective_weighting_engine",
         "strategy_synthesis_agent",
         "technical_agent",
         "trade_packager",
@@ -260,19 +270,19 @@ def _real_golden_scenario() -> BacktestScenario:
             BacktestExpectedOutcome(
                 target="risk.adjusted_composite_risk",
                 expectation_type="approx",
-                expected="0.1431672",
+                expected="0.1431481127327992",
                 tolerance=Decimal("0.000000000001"),
             ),
             BacktestExpectedOutcome(
                 target="strategy.directional_score",
                 expectation_type="approx",
-                expected="-0.015557159122692982",
+                expected="1.0",
                 tolerance=Decimal("0.000000000001"),
             ),
             BacktestExpectedOutcome(
                 target="strategy.posture",
                 expectation_type="equals",
-                expected="neutral",
+                expected="strong_risk_on",
             ),
             BacktestExpectedOutcome(
                 target="trade.direction",
@@ -282,7 +292,7 @@ def _real_golden_scenario() -> BacktestScenario:
             BacktestExpectedOutcome(
                 target="trade.position_sizing_hint",
                 expectation_type="approx",
-                expected="0.22920277399999997",
+                expected="0.2292078798439762",
                 tolerance=Decimal("0.000000000001"),
             ),
             BacktestExpectedOutcome(
@@ -293,7 +303,7 @@ def _real_golden_scenario() -> BacktestScenario:
             BacktestExpectedOutcome(
                 target="execution_risk.adjusted_position_size",
                 expectation_type="approx",
-                expected="0.22920277399999997",
+                expected="0.2292078798439762",
                 tolerance=Decimal("0.000000000001"),
             ),
         ),

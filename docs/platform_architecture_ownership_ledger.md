@@ -87,9 +87,9 @@ The application persistence service is the canonical database write boundary.
 | News articles | Typed normalized article identity and source record | News provider normalization, exposed by News service/node | Workflow-output projector → `NewsPersistenceService` → `news_articles` | Article text may support RAG under content/security policy | **Target contract.** Vendor response dictionaries and report copies are not separate articles |
 | News analysis | Typed news assessment referencing source articles | News Agent | Workflow-output projector → `NewsPersistenceService` → `news_analysis_snapshots` | Strong Qdrant candidate; Neo4j links analysis to articles, symbols, and decisions | **Target contract.** Report assembler must reference, not repersist, the analysis |
 | Sentiment observations and assessment | Typed provider observations and canonical sentiment result | Sentiment service/agent authoritative output | Workflow-output projector → `SentimentPersistenceService` → `sentiment_sources`, `sentiment_snapshots` | Embed explanatory assessment when useful; numeric source rows remain SQL-first | **Target contract.** No legacy field vocabulary or duplicate sentiment snapshots from consumers |
-| Portfolio state | `domain.portfolio.models.PortfolioState` and typed position/exposure/risk components | `PortfolioStateBuilder` | Workflow-output projector → `PortfolioPersistenceService` → portfolio state/history/latest and expansion records | Curated portfolio/risk narratives may be embedded; high-volume positions/equity points remain SQL-first; graph lineage is useful | **Known gap.** `PortfolioService` currently persists state directly. It must not remain a competing writer after projection adoption |
-| Portfolio equity history | Typed normalized equity-history point collection returned through the portfolio analysis result | Portfolio service normalizes provider history; `PortfolioStateBuilder` emits it as part of the authoritative portfolio result | Workflow-output projector → `PortfolioPersistenceService` → normalized equity-history records | PostgreSQL-only by default; summaries may contribute to a curated portfolio document | **Known gap.** History is currently persisted inside `PortfolioService` and omitted from its result. Do not store a duplicate opaque history blob |
-| Peak equity | Derived field on the canonical portfolio result using current account equity and authoritative portfolio history | Portfolio analysis calculation | Persist only as part of the projected canonical portfolio state | May appear in curated portfolio/risk narrative; not a standalone embedding | **Known gap.** Do not read previously persisted state solely to calculate peak equity when provider history is sufficient |
+| Portfolio state | `domain.portfolio.models.PortfolioState` and typed position/exposure/risk components | `PortfolioStateBuilder` | Workflow-output projector → `PortfolioPersistenceService` → portfolio state/history/latest and expansion records | Curated portfolio/risk narratives may be embedded; high-volume positions/equity points remain SQL-first; graph lineage is useful | **Implemented target.** `PortfolioService` computes and returns typed portfolio facts only; it must not write curated portfolio records directly |
+| Portfolio equity history | Typed normalized equity-history point collection returned through the portfolio analysis result | Portfolio service normalizes provider history; `PortfolioStateBuilder` emits it as part of the authoritative portfolio result | Workflow-output projector → `PortfolioPersistenceService` → normalized equity-history records | PostgreSQL-only by default; summaries may contribute to a curated portfolio document | **Implemented target.** Equity history is returned through the portfolio result and projected by the workflow-output projector; do not store a duplicate opaque history blob |
+| Peak equity | Derived field on the canonical portfolio result using current account equity and authoritative portfolio history | Portfolio analysis calculation | Persist only as part of the projected canonical portfolio state | May appear in curated portfolio/risk narrative; not a standalone embedding | **Implemented target.** Do not read previously persisted state solely to calculate peak equity when provider history is sufficient |
 | Fundamental assessment | Immutable typed fundamental signal and supporting reasoning | Fundamental Agent | Workflow-output projector → agent signal/intelligence persistence | Strong Qdrant candidate; graph links to symbol, evidence, strategy, and recommendation | Do not persist raw LLM text as if it were the validated assessment; preserve raw response separately with lineage |
 | Technical assessment | Immutable typed technical signal referencing technical source facts | Technical Agent | Workflow-output projector → agent signal/intelligence persistence | Strong Qdrant candidate; graph links to source technical records and decisions | Do not duplicate underlying market observations in the signal record |
 | Sentiment assessment | Immutable typed sentiment signal referencing source sentiment records | Sentiment Agent | Workflow-output projector → agent signal/intelligence persistence | Qdrant and lineage graph when explanatory | Do not create a second canonical sentiment snapshot |
@@ -123,6 +123,10 @@ The application persistence service is the canonical database write boundary.
 
 ## Workflow-output projection contract
 
+Workflow-output projection is the canonical bridge from completed workflow
+evidence to curated PostgreSQL domain records. It is not part of runtime
+execution, not RAG ingestion, and not report rendering.
+
 The canonical target flow for workflow-produced business facts is:
 
 ```text
@@ -132,26 +136,134 @@ Provider/client boundary data
     → RuntimeNodeOutput serialization
     → completed RuntimeContext archive
     → registered workflow-output projector
-    → typed curated record
+    → typed curated domain record
     → domain application persistence service
     → PostgreSQL
-    → optional RAG eligibility and derived projections
+    → optional RAG document, vector projection, and graph projection
 ```
 
-Each projector must declare:
+### Persistence tiers
+
+| Tier | What it is | Canonical owner/writer | Stored in | May feed | Must not be |
+| --- | --- | --- | --- | --- | --- |
+| Runtime node output | Serialized workflow evidence produced by a runtime node for downstream nodes, replay inspection, and audit | Producing `RuntimeNode` through `RuntimeNodeOutput` and runtime persistence subscribers | Runtime context, checkpoints, completed-run node-output rows | Completed-run archive and registered projectors | A direct domain-table writer, RAG document, or long-lived business aggregate |
+| Completed-run archive | Immutable terminal execution evidence after a workflow finishes | Runtime completion/archive boundary | `completed_workflow_runs`, `completed_workflow_node_outputs`, `completed_run_artifacts` | Deterministic projection, inspection, diagnostics, and report history | A replay checkpoint, mutable business record, or query-optimized domain store |
+| Curated domain record | Validated first-class business fact with typed fields, lineage, deterministic identity, and business timestamp | Registered projector invoking the owning domain application persistence service | Domain PostgreSQL tables | SQL queries, reports, attribution, RAG eligibility, graph/vector projections | A raw runtime dump, metadata-only pseudo-schema, or duplicate writer output |
+| RAG document | Retrieval-ready representation derived from an eligible curated PostgreSQL record | RAG ingestion/build operations | PostgreSQL RAG document and chunk tables | Embedding jobs, reranking, answer citations, graph projection | Raw node output, telemetry, provider payload, or arbitrary LLM-selected content |
+| Vector projection | Dense/sparse retrieval projection generated from RAG chunks and embedding jobs | RAG embedding/projection operations | Qdrant collections | Semantic retrieval and hybrid fusion | A system of record, canonical document store, or source for domain writes |
+| Graph projection | Relationship projection generated from canonical lineage and RAG/domain records | RAG graph projection operations | Neo4j | Multi-hop retrieval, provenance traversal, relationship explanation | A system of record, ad hoc Cypher write path, or substitute for PostgreSQL lineage |
+
+### Output contracts and schema versioning
+
+A projectable runtime output must expose a stable `output_contract` and
+`output_schema_version`. A projector supports explicit contract/version pairs
+only. Unsupported versions are rejected, quarantined, or left archive-only; they
+must not be coerced through best-effort dictionary parsing.
+
+Schema evolution is deliberate:
+
+- add or rename canonical fields through typed models and Alembic migrations;
+- keep backward compatibility only when explicitly approved with a removal path;
+- never hide stable business fields in generic `metadata` because a migration is
+  inconvenient;
+- preserve full numeric precision and full LLM/report text at persistence
+  boundaries.
+
+### Projector registration and eligibility
+
+Each projector must be registered through the workflow-output projection catalog
+and declare:
 
 - supported output contract and schema version;
 - authoritative source node or producer family;
-- target record type and persistence service;
+- target record type and owning application persistence service;
 - required fields and quality policy;
 - deterministic identity and business timestamp strategy;
-- workflow, execution, node, provider, model, and source lineage rules;
+- workflow, execution, node, provider, model, source, and parent-record lineage;
 - supported live, replay, simulated, and backtest modes;
-- PostgreSQL, Qdrant, and Neo4j eligibility;
-- retry, rejection, quarantine, and idempotency behavior.
+- PostgreSQL, RAG-document, Qdrant, and Neo4j eligibility;
+- retry, rejection, quarantine, reconciliation, and idempotency behavior.
 
-A generic serializer, report renderer, LLM, or arbitrary node-name condition may
-not decide curation ownership.
+Projection eligibility is a typed platform policy. A generic serializer, report
+renderer, LLM, arbitrary node-name condition, or interface command may not decide
+curation ownership.
+
+### Live, simulated, replay, and backtest isolation
+
+Execution mode is first-class lineage. Live operational records, replayed
+records, simulated records, and deterministic backtest records must not become
+indistinguishable in PostgreSQL, RAG documents, Qdrant, or Neo4j.
+
+A projector must either:
+
+1. explicitly support the incoming execution mode and persist the mode on the
+   curated record or lineage; or
+2. reject/quarantine the output as ineligible for that record family.
+
+Backtest and simulated outputs may use the same runtime and service contracts as
+live workflows, but their curated records and projections must remain filterable
+so they do not pollute live operational history or customer-facing retrieval.
+
+### Retry, reconciliation, idempotency, and lineage
+
+Projection may run after workflow completion, during repair, or during explicit
+reconciliation. Therefore every projector must be idempotent.
+
+Required behavior:
+
+- calculate deterministic record identities from stable workflow, node, source,
+  domain, timestamp, and schema-version fields;
+- use repository/application persistence upserts only at the canonical writer;
+- record lineage from curated records back to workflow execution, node output,
+  source provider/model, and parent domain records;
+- treat missing required identity, timestamp, or lineage fields as quality
+  failures rather than inventing fallbacks;
+- allow safe reprocessing without duplicate domain records, duplicate RAG
+  documents, duplicate vector points, or duplicate graph edges;
+- expose rejections and failures through telemetry, audit, and operator-visible
+  diagnostics.
+
+### Why services and nodes do not persist directly
+
+Analytical services and intelligence nodes produce typed facts. They do not own
+workflow completion, retry timing, replay/reprojection semantics, cross-record
+lineage, or duplicate-writer prevention.
+
+Direct persistence from services or nodes is prohibited for workflow-derived
+business facts because it:
+
+- creates competing writers for the same durable concept;
+- can persist partial results from failed or canceled workflows;
+- bypasses execution-mode isolation and projection eligibility;
+- couples analysis code to database schema evolution;
+- makes retry/reconciliation non-deterministic;
+- encourages metadata-only persistence instead of first-class fields;
+- duplicates data that already exists in the completed-run archive.
+
+Persistence is valid inside a service only when the service's explicit use case
+is persistence, publication, ingestion, reconciliation, retention, audit, or
+projection.
+
+### Adding a projectable node safely
+
+Before adding a new projectable node or promoting a new field to durable memory:
+
+1. Define the authoritative typed output model and owner.
+2. Set a stable `output_contract` and `output_schema_version` on the
+   `RuntimeNodeOutput`.
+3. Ensure the completed-run archive preserves the full source evidence.
+4. Add or extend first-class PostgreSQL fields through SQLAlchemy and Alembic
+   when the concept is canonical.
+5. Register a projector with explicit required fields, identity, timestamp,
+   lineage, quality policy, and execution-mode eligibility.
+6. Route writes through the owning application persistence service; do not write
+   repositories directly from the node.
+7. Add unit tests for eligibility, rejection, idempotency, and lineage.
+8. Add integration coverage when PostgreSQL records, RAG documents, Qdrant
+   points, or Neo4j relationships are produced.
+9. Declare RAG, vector, and graph eligibility only after the curated PostgreSQL
+   record exists.
+10. Update this ledger and the relevant architecture documentation.
 
 ## Approved direct-persistence use cases
 
@@ -191,26 +303,25 @@ Before changing a model, service, node, repository, schema, or projector, answer
 If ownership is ambiguous or two components claim to be authoritative, stop and
 resolve the ledger before implementation.
 
-## Known architectural gaps
+## Known architectural watch items
 
-The following gaps are intentionally visible and must not be normalized as
-canonical behavior:
+The following watch items remain intentionally visible and must not be
+normalized into new architectural patterns:
 
-1. `PortfolioService` currently reads and writes portfolio persistence while
-   acting as an analytical workflow service.
-2. Portfolio equity history is persisted by the service but is not returned as
-   part of the authoritative typed service result and node output.
-3. Peak-equity calculation still depends on previously persisted portfolio state
-   even though authoritative provider history is available.
-4. The canonical workflow-output-to-curated-record projection layer is not yet
-   the universal persistence route for workflow-produced domain facts.
-5. Several application service result wrappers and intelligence results still
-   carry dictionary-first internal payloads rather than complete immutable typed
-   contracts.
-6. Some curated persistence paths predate the ownership ledger and require a
+1. The workflow-output-to-curated-record projection layer is the required route
+   for workflow-produced domain facts. New workflow-derived persistence must add
+   a registered projector instead of writing from analytical services or nodes.
+2. Several older application service result wrappers and intelligence results may
+   still carry dictionary-first internal payloads rather than complete immutable
+   typed contracts. Convert them directly when touched for feature work.
+3. Some curated persistence paths predate this ledger and require a
    writer-by-writer audit before they can be declared compliant.
+4. New stable business fields must become typed model fields and schema columns;
+   generic `metadata` may only hold incidental boundary context.
+5. Projection and RAG expansion must preserve execution-mode isolation so
+   simulated, replay, and backtest records cannot contaminate live history.
 
-These gaps should be resolved through direct conformance, not compatibility
+These items should be resolved through direct conformance, not compatibility
 wrappers or additional duplicate persistence paths.
 
 ## Ledger maintenance rule

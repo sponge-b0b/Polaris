@@ -32,6 +32,12 @@ _ALLOWED_DIRECT_OPERATIONAL_LOGGING: dict[Path, frozenset[str]] = {
         {"critical", "exception"}
     ),
     Path("core/workflow/execution/workflow_engine.py"): frozenset({"exception"}),
+    Path("application/projections/workflow_outputs/projection_service.py"): frozenset(
+        {"exception", "warning"}
+    ),
+    Path("application/projections/workflow_outputs/projection_telemetry.py"): frozenset(
+        {"exception"}
+    ),
     Path("integration/clients/market_data/yfinance_data_client.py"): frozenset(
         {"warning"}
     ),

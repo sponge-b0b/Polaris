@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Iterable
 
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
+from core.storage.persistence.projections import MissingProjectionRunRecord
 from core.storage.persistence.completed_run_archive import CompletedRunRecord
 from core.storage.persistence.completed_run_archive import CompletedRunBundle
 from core.storage.persistence.lineage import PersistenceLineage
@@ -226,6 +227,7 @@ class WorkflowOutputProjectionRetryRequest:
     limit: int | None = None
     requested_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     dry_run: bool = False
+    stale_running_started_before: datetime | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -261,6 +263,7 @@ class WorkflowOutputProjectionRetryResult:
     requested: WorkflowOutputProjectionRetryRequest
     matched_jobs: int
     retried_jobs: int
+    recovered_stale_running_jobs: int = 0
     summaries: tuple[CompletedRunProjectionSummary, ...] = ()
 
     def __post_init__(self) -> None:
@@ -270,6 +273,8 @@ class WorkflowOutputProjectionRetryResult:
             raise ValueError("retried_jobs cannot be negative.")
         if self.retried_jobs > self.matched_jobs:
             raise ValueError("retried_jobs cannot exceed matched_jobs.")
+        if self.recovered_stale_running_jobs < 0:
+            raise ValueError("recovered_stale_running_jobs cannot be negative.")
         object.__setattr__(self, "summaries", tuple(self.summaries))
 
 
@@ -315,6 +320,7 @@ class WorkflowOutputProjectionReconciliationResult:
     scanned_runs: int
     missing_projection_runs: int
     enqueued_jobs: int = 0
+    missing_runs: tuple[MissingProjectionRunRecord, ...] = ()
     summaries: tuple[CompletedRunProjectionSummary, ...] = ()
 
     def __post_init__(self) -> None:
@@ -326,6 +332,7 @@ class WorkflowOutputProjectionReconciliationResult:
             raise ValueError("enqueued_jobs cannot be negative.")
         if self.missing_projection_runs > self.scanned_runs:
             raise ValueError("missing_projection_runs cannot exceed scanned_runs.")
+        object.__setattr__(self, "missing_runs", tuple(self.missing_runs))
         object.__setattr__(self, "summaries", tuple(self.summaries))
 
 

@@ -7,7 +7,6 @@ from integration.providers.market_events.market_events_provider import (
 )
 from integration.providers.news.news_provider import NewsProvider
 from integration.providers.portfolio.portfolio_provider import PortfolioProvider
-from application.persistence.portfolio import PortfolioPersistenceService
 from integration.providers.sentiment.sentiment_provider import SentimentProvider
 from core.runtime.policies.policy_engine import PolicyEngine
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
@@ -125,12 +124,10 @@ class AppServicesDIProvider(Provider):
     def provide_portfolio_service(
         self,
         portfolio_provider: PortfolioProvider,
-        portfolio_persistence_service: PortfolioPersistenceService,
     ) -> PortfolioService:
 
         return PortfolioService(
             portfolio_provider=portfolio_provider,
-            portfolio_persistence_service=portfolio_persistence_service,
         )
 
     # ====================================================

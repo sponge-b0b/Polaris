@@ -62,7 +62,6 @@ from intelligence.research.sentiment.sentiment_agent import SentimentAgent
         (
             PortfolioService(
                 portfolio_provider=cast(Any, object()),
-                portfolio_persistence_service=cast(Any, object()),
             ),
             "PortfolioAnalysisRequest",
         ),
@@ -468,7 +467,6 @@ async def test_portfolio_service_propagates_provider_failure() -> None:
     with pytest.raises(RuntimeError, match="portfolio unavailable"):
         await PortfolioService(
             portfolio_provider=cast(Any, _FailingPortfolioProvider()),
-            portfolio_persistence_service=cast(Any, object()),
         ).run(ServiceRequest(payload=PortfolioAnalysisRequest()))
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Final
 from typing import cast
 
 from application.projections.workflow_outputs.projection_registry import (
@@ -49,6 +50,12 @@ class WorkflowOutputProjectionSkipReason(str, Enum):
     UNSUPPORTED_SCHEMA_VERSION = "unsupported_schema_version"
     UNSUPPORTED_NODE_NAME = "unsupported_node_name"
     QUALITY_STATUS_NOT_PERSISTABLE = "quality_status_not_persistable"
+    REPORT_PERSISTENCE_BOUNDARY = "report_persistence_boundary"
+    BACKTEST_PERSISTENCE_BOUNDARY = "backtest_persistence_boundary"
+
+
+_REPORT_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.report.",)
+_BACKTEST_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.backtest.",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +132,10 @@ class WorkflowOutputProjectionEligibilityPolicy:
                 f"Projection is skipped for {execution_mode.value} runs.",
             )
 
+        boundary_decision = _persistence_boundary_decision(node_output)
+        if boundary_decision is not None:
+            return boundary_decision
+
         if node_output.status.strip().lower() == "skipped":
             return _skipped(
                 node_output,
@@ -171,6 +182,34 @@ class WorkflowOutputProjectionEligibilityPolicy:
             resolution=resolution,
             message="Workflow node output is eligible for projection.",
         )
+
+
+def _persistence_boundary_decision(
+    node_output: CompletedNodeOutputRecord,
+) -> WorkflowOutputProjectionEligibilityDecision | None:
+    output_contract = node_output.output_contract
+    if output_contract is None:
+        return None
+    cleaned_contract = output_contract.strip()
+    if cleaned_contract.startswith(_REPORT_OUTPUT_CONTRACT_PREFIXES):
+        return _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.REPORT_PERSISTENCE_BOUNDARY,
+            (
+                "Projection is skipped for report documents because "
+                "MorningReportPersistenceService owns report persistence."
+            ),
+        )
+    if cleaned_contract.startswith(_BACKTEST_OUTPUT_CONTRACT_PREFIXES):
+        return _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.BACKTEST_PERSISTENCE_BOUNDARY,
+            (
+                "Projection is skipped for backtest result bundles because "
+                "BacktestPersistenceService owns backtest persistence."
+            ),
+        )
+    return None
 
 
 def _skipped_for_resolution(

@@ -100,6 +100,18 @@ from application.projections.workflow_outputs.projectors.agent_signals import (
 from application.projections.workflow_outputs.projectors.agent_signals import (
     build_risk_signal_projector_registrations,
 )
+from application.projections.workflow_outputs.projectors.portfolio import (
+    PORTFOLIO_STATE_PROJECTOR_NAME,
+)
+from application.projections.workflow_outputs.projectors.portfolio import (
+    PORTFOLIO_STATE_PROJECTOR_NODE_NAMES,
+)
+from application.projections.workflow_outputs.projectors.portfolio import (
+    PortfolioStateWorkflowOutputProjector,
+)
+from application.projections.workflow_outputs.projectors.portfolio import (
+    build_portfolio_state_projector_registration,
+)
 from application.projections.workflow_outputs.projectors.recommendations import (
     PortfolioAllocationIntentWorkflowOutputProjector,
 )
@@ -121,10 +133,14 @@ from application.projections.workflow_outputs.projectors.strategy import (
 
 __all__ = [
     "AgentSignalWorkflowOutputProjector",
+    "PORTFOLIO_STATE_PROJECTOR_NAME",
+    "PORTFOLIO_STATE_PROJECTOR_NODE_NAMES",
     "PortfolioAllocationIntentWorkflowOutputProjector",
+    "PortfolioStateWorkflowOutputProjector",
     "StrategyHypothesisWorkflowOutputProjector",
     "StrategySynthesisWorkflowOutputProjector",
     "TradeRecommendationWorkflowOutputProjector",
+    "build_portfolio_state_projector_registration",
     "build_recommendation_projector_registrations",
     "build_risk_signal_projector_registrations",
     "build_strategy_projector_registrations",

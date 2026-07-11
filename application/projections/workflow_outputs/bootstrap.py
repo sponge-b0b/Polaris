@@ -14,6 +14,7 @@ from application.projections.workflow_outputs.projection_eligibility import (
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
+from application.persistence.portfolio import PortfolioPersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
@@ -40,6 +41,7 @@ from application.projections.workflow_outputs.projectors import (
     build_recommendation_projector_registrations,
     build_risk_signal_projector_registrations,
     build_news_analysis_projector_registration,
+    build_portfolio_state_projector_registration,
     build_sentiment_snapshot_projector_registration,
     build_strategy_projector_registrations,
     build_technical_market_projector_registration,
@@ -62,6 +64,12 @@ from core.storage.persistence.repositories.postgres_market_persistence_repositor
 )
 from core.storage.persistence.repositories.postgres_news_persistence_repository import (
     PostgresNewsPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+    PostgresPortfolioExpansionPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_portfolio_state_repository import (
+    PostgresPortfolioStateRepository,
 )
 from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (
     PostgresRecommendationPersistenceRepository,
@@ -140,6 +148,10 @@ class PostgresWorkflowOutputProjectionCoordinator:
         news_persistence_service = NewsPersistenceService(
             PostgresNewsPersistenceRepository(session),
         )
+        portfolio_persistence_service = PortfolioPersistenceService(
+            PostgresPortfolioExpansionPersistenceRepository(session),
+            state_repository=PostgresPortfolioStateRepository(session),
+        )
         recommendation_persistence_service = RecommendationPersistenceService(
             PostgresRecommendationPersistenceRepository(session),
         )
@@ -163,6 +175,9 @@ class PostgresWorkflowOutputProjectionCoordinator:
                 ),
                 build_sentiment_snapshot_projector_registration(
                     sentiment_persistence_service,
+                ),
+                build_portfolio_state_projector_registration(
+                    portfolio_persistence_service,
                 ),
                 *build_risk_signal_projector_registrations(
                     agent_signal_persistence_service,

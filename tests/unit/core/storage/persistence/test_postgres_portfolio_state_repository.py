@@ -91,14 +91,21 @@ async def test_persist_snapshot_upserts_all_v2_latest_fields() -> None:
     )
     update_segment = compiled.split("DO UPDATE SET", maxsplit=1)[1]
 
-    for field in fields(PortfolioState):
-        assert field.name in compiled
-        if field.name != "account_id":
-            assert field.name in update_segment
+    expected_sql_names = {field.name for field in fields(PortfolioState)} | {
+        "cash_pct",
+        "risk_signals_payload",
+    }
+    expected_sql_names.discard("cash_ratio")
+    expected_sql_names.discard("risk_signals")
+
+    for field_name in expected_sql_names:
+        assert field_name in compiled
+        if field_name != "account_id":
+            assert field_name in update_segment
 
     assert "sector_exposure" in update_segment
     assert "asset_class_exposure" in update_segment
-    assert "risk_signals" in update_segment
+    assert "risk_signals_payload" in update_segment
     assert "shorting_enabled" in update_segment
     assert "updated_at = now()" in update_segment
 

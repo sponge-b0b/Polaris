@@ -52,3 +52,52 @@ async def test_get_full_portfolio_snapshot_resolves_async_methods(
     assert not hasattr(snapshot["account"], "__await__")
     assert not hasattr(snapshot["positions"], "__await__")
     assert not hasattr(snapshot["portfolio"], "__await__")
+
+
+class _FakePortfolioHistory:
+    def model_dump(
+        self,
+        *,
+        mode: str,
+    ) -> dict[str, Any]:
+        assert mode == "json"
+        return {
+            "timestamp": [1],
+            "equity": [100000.0],
+            "profit_loss": [0.0],
+            "profit_loss_pct": [0.0],
+            "timeframe": "1D",
+        }
+
+
+class _CapturingTradingClient:
+    def __init__(self) -> None:
+        self.period: str | None = None
+        self.timeframe: str | None = None
+
+    def get_portfolio_history(
+        self,
+        *,
+        history_filter: object,
+    ) -> _FakePortfolioHistory:
+        self.period = str(getattr(history_filter, "period"))
+        self.timeframe = str(getattr(history_filter, "timeframe"))
+        return _FakePortfolioHistory()
+
+
+@pytest.mark.asyncio
+async def test_get_portfolio_history_requests_explicit_period_and_timeframe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client_without_init()
+    trading_client = _CapturingTradingClient()
+    monkeypatch.setattr(client, "client", trading_client, raising=False)
+
+    history = await client.get_portfolio_history(
+        period="1A",
+        timeframe="1D",
+    )
+
+    assert history["equity"] == [100000.0]
+    assert trading_client.period == "1A"
+    assert trading_client.timeframe == "1D"

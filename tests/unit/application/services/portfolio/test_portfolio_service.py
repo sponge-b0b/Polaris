@@ -1,26 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
-from typing import cast
 
 import pytest
 
-from application.persistence.portfolio import PortfolioPersistenceService
 from application.services.base import ServiceRequest
 from application.services.portfolio.portfolio_request import (
     PortfolioAnalysisRequest,
 )
 from application.services.portfolio.portfolio_service import PortfolioService
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceResult
-from core.storage.persistence.serializers.portfolio_state_serializer import (
-    PortfolioStateSerializer,
-)
-from domain.portfolio.models.portfolio_state import PortfolioState
 
 
 class SparsePortfolioProvider:
+    def __init__(self) -> None:
+        self.history_requests: list[dict[str, str]] = []
+
     @property
     def source(self) -> str:
         return "sparse"
@@ -33,11 +27,25 @@ class SparsePortfolioProvider:
     async def get_positions(self) -> list[dict[str, Any]]:
         return []
 
-    async def get_portfolio_history(self) -> dict[str, Any]:
+    async def get_portfolio_history(
+        self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
+    ) -> dict[str, Any]:
+        self.history_requests.append(
+            {
+                "period": period,
+                "timeframe": timeframe,
+            }
+        )
         return {}
 
 
 class RepresentativePortfolioProvider:
+    def __init__(self) -> None:
+        self.history_requests: list[dict[str, str]] = []
+
     @property
     def source(self) -> str:
         return "alpaca"
@@ -89,135 +97,36 @@ class RepresentativePortfolioProvider:
             }
         ]
 
-    async def get_portfolio_history(self) -> dict[str, Any]:
+    async def get_portfolio_history(
+        self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
+    ) -> dict[str, Any]:
+        self.history_requests.append(
+            {
+                "period": period,
+                "timeframe": timeframe,
+            }
+        )
         return {
             "timestamp": [1780689600],
-            "equity": [100000.0],
+            "equity": [125000.0],
             "profit_loss": [5000.0],
             "profit_loss_pct": [0.05],
             "base_value": 95000.0,
-            "timeframe": "1D",
+            "timeframe": timeframe,
             "cashflow": {},
         }
 
 
-class SerializingPortfolioRepository:
-    def __init__(self) -> None:
-        self.persisted_state: PortfolioState | None = None
-        self.persisted_history_state: PortfolioState | None = None
-        self.latest_state: PortfolioState | None = None
-
-    async def get_latest(
-        self,
-        account_id: str,
-    ) -> PortfolioState | None:
-        if self.latest_state is None:
-            return None
-        if self.latest_state.account_id == account_id:
-            return self.latest_state
-        return None
-
-    async def persist_snapshot(
-        self,
-        state: PortfolioState,
-    ) -> None:
-        latest_model = PortfolioStateSerializer.to_latest_model(
-            state,
-        )
-        history_model = PortfolioStateSerializer.to_history_model(
-            state,
-        )
-        self.persisted_state = PortfolioStateSerializer.from_latest_model(
-            latest_model,
-        )
-        self.persisted_history_state = PortfolioStateSerializer.from_history_model(
-            history_model,
-        )
-        self.latest_state = self.persisted_state
-
-    async def get_history(
-        self,
-        account_id: str,
-        start: datetime,
-        end: datetime,
-    ) -> list[PortfolioState]:
-        if self.persisted_history_state is None:
-            return []
-        if self.persisted_history_state.account_id != account_id:
-            return []
-        if not start <= self.persisted_history_state.timestamp <= end:
-            return []
-        return [
-            self.persisted_history_state,
-        ]
-
-
-class CapturingPortfolioRepository:
-    def __init__(self) -> None:
-        self.persisted_state: PortfolioState | None = None
-
-    async def get_latest(
-        self,
-        account_id: str,
-    ) -> None:
-        assert account_id == "acct-123"
-        return None
-
-    async def persist_snapshot(
-        self,
-        state: PortfolioState,
-    ) -> None:
-        self.persisted_state = state
-
-    async def get_history(
-        self,
-        account_id: str,
-        start: datetime,
-        end: datetime,
-    ) -> list[PortfolioState]:
-        return []
-
-
-class CapturingPortfolioExpansionRepository:
-    def __init__(self) -> None:
-        self.bundle: PortfolioExpansionPersistenceBundle | None = None
-
-    async def persist_portfolio_expansion_bundle(
-        self,
-        bundle: PortfolioExpansionPersistenceBundle,
-    ) -> PortfolioExpansionPersistenceResult:
-        self.bundle = bundle
-        account_id = (
-            bundle.equity_history_points[0].account_id
-            if bundle.equity_history_points
-            else "empty-portfolio-expansion-bundle"
-        )
-        return PortfolioExpansionPersistenceResult.succeeded(
-            account_id=account_id,
-            records_persisted=len(bundle.equity_history_points),
-        )
-
-
-def _persistence_service(
-    state_repository: object,
-) -> tuple[PortfolioPersistenceService, CapturingPortfolioExpansionRepository]:
-    expansion_repository = CapturingPortfolioExpansionRepository()
-    return (
-        PortfolioPersistenceService(
-            cast(Any, expansion_repository),
-            cast(Any, state_repository),
-        ),
-        expansion_repository,
-    )
-
-
 @pytest.mark.asyncio
-async def test_portfolio_service_persists_fully_mapped_v2_state() -> None:
-    repository = CapturingPortfolioRepository()
-    persistence_service, expansion_repository = _persistence_service(repository)
+async def test_portfolio_service_returns_fully_mapped_v2_state_without_persisting() -> (
+    None
+):
+    provider = RepresentativePortfolioProvider()
     service = PortfolioService(
-        portfolio_provider=RepresentativePortfolioProvider(),
-        portfolio_persistence_service=persistence_service,
+        portfolio_provider=provider,
     )
 
     result = await service.run(
@@ -229,16 +138,42 @@ async def test_portfolio_service_persists_fully_mapped_v2_state() -> None:
     )
 
     assert result.success is True
-    state = repository.persisted_state
+    assert result.result is not None
+    assert provider.history_requests == [
+        {
+            "period": "1A",
+            "timeframe": "1D",
+        }
+    ]
+    assert result.result.current_equity == pytest.approx(100000.0)
+    assert result.result.peak_equity == pytest.approx(125000.0)
+    assert result.result.drawdown_absolute == pytest.approx(25000.0)
+    assert result.result.drawdown_percent == pytest.approx(0.2)
+    assert result.result.provider_source == "alpaca"
+    assert result.result.history_period == "1A"
+    assert result.result.history_timeframe == "1D"
+    assert result.result.canonical_portfolio_state is not None
+    assert result.result.canonical_portfolio_state.peak_equity == pytest.approx(
+        125000.0,
+    )
+    assert len(result.result.equity_history_points) == 1
+    assert result.result.exposures is not None
+    assert result.result.exposures["gross_exposure"] == pytest.approx(0.3)
+    assert result.result.risk_metrics is not None
+    assert result.result.risk_metrics["drawdown_percent"] == pytest.approx(0.2)
+    assert result.result.allocation_data is not None
+    assert result.result.allocation_data["positions"][0]["symbol"] == "SPY"
+    serialized = result.result.to_dict()
+    assert serialized["canonical_portfolio_state"]["account_id"] == "acct-123"
+    assert serialized["equity_history_points"][0]["source"] == "alpaca"
+    state = result.result.canonical_portfolio_state
     assert state is not None
-    assert expansion_repository.bundle is not None
-    assert len(expansion_repository.bundle.equity_history_points) == 1
-    history_point = expansion_repository.bundle.equity_history_points[0]
+    history_point = result.result.equity_history_points[0]
     assert history_point.account_id == "acct-123"
     assert history_point.source == "alpaca"
     assert history_point.timeframe == "1D"
     assert history_point.observed_at.isoformat() == "2026-06-05T20:00:00+00:00"
-    assert history_point.equity == 100000.0
+    assert history_point.equity == 125000.0
     assert history_point.profit_loss == 5000.0
     assert history_point.profit_loss_pct == 0.05
     assert history_point.base_value == 95000.0
@@ -246,6 +181,9 @@ async def test_portfolio_service_persists_fully_mapped_v2_state() -> None:
     assert state.account_id == "acct-123"
     assert state.schema_version == 2
     assert state.equity == pytest.approx(100000.0)
+    assert state.peak_equity == pytest.approx(125000.0)
+    assert state.drawdown_absolute == pytest.approx(25000.0)
+    assert state.drawdown_percent == pytest.approx(0.2)
     assert state.last_equity == pytest.approx(98000.0)
     assert state.cash_ratio == pytest.approx(0.6)
     assert state.buying_power_ratio == pytest.approx(1.2)
@@ -296,12 +234,9 @@ async def test_portfolio_service_persists_fully_mapped_v2_state() -> None:
 
 
 @pytest.mark.asyncio
-async def test_portfolio_service_v2_fields_survive_serializer_boundary() -> None:
-    repository = SerializingPortfolioRepository()
-    persistence_service, expansion_repository = _persistence_service(repository)
+async def test_portfolio_service_v2_fields_survive_result_serialization() -> None:
     service = PortfolioService(
         portfolio_provider=RepresentativePortfolioProvider(),
-        portfolio_persistence_service=persistence_service,
     )
 
     result = await service.run(
@@ -313,34 +248,30 @@ async def test_portfolio_service_v2_fields_survive_serializer_boundary() -> None
     )
 
     assert result.success is True
-    assert repository.persisted_state is not None
-    assert repository.persisted_history_state == repository.persisted_state
-
-    state = repository.persisted_state
-    assert state.account_id == "acct-123"
-    assert state.schema_version == 2
-    assert state.unrealized_intraday_pnl == pytest.approx(500.0)
-    assert state.margin_utilization_ratio == pytest.approx(0.1)
-    assert state.pattern_day_trader is True
-    assert state.trading_blocked is True
-    assert state.trade_suspended_by_user is True
-    assert state.shorting_enabled is False
-    assert state.sector_exposure == {
+    assert result.result is not None
+    serialized = result.result.to_dict()
+    state = serialized["canonical_portfolio_state"]
+    assert state["account_id"] == "acct-123"
+    assert state["schema_version"] == 2
+    assert state["unrealized_intraday_pnl"] == pytest.approx(500.0)
+    assert state["margin_utilization_ratio"] == pytest.approx(0.1)
+    assert state["pattern_day_trader"] is True
+    assert state["trading_blocked"] is True
+    assert state["trade_suspended_by_user"] is True
+    assert state["shorting_enabled"] is False
+    assert state["sector_exposure"] == {
         "technology": pytest.approx(0.3),
     }
-    assert state.asset_class_exposure == {
+    assert state["asset_class_exposure"] == {
         "equity": pytest.approx(0.3),
     }
-    assert state.risk_signals["directional_bias"] == "long"
+    assert state["risk_signals"]["directional_bias"] == "long"
 
 
 @pytest.mark.asyncio
 async def test_portfolio_service_defaults_missing_provider_data_safely() -> None:
-    repository = SerializingPortfolioRepository()
-    persistence_service, expansion_repository = _persistence_service(repository)
     service = PortfolioService(
         portfolio_provider=SparsePortfolioProvider(),
-        portfolio_persistence_service=persistence_service,
     )
 
     result = await service.run(
@@ -352,11 +283,11 @@ async def test_portfolio_service_defaults_missing_provider_data_safely() -> None
     )
 
     assert result.success is True
-    assert repository.persisted_state is not None
-    assert expansion_repository.bundle is not None
-    assert expansion_repository.bundle.equity_history_points == ()
+    assert result.result is not None
+    assert result.result.equity_history_points == ()
 
-    state = repository.persisted_state
+    state = result.result.canonical_portfolio_state
+    assert state is not None
     assert state.account_id == "acct-sparse"
     assert state.schema_version == 2
     assert state.equity == 0.0

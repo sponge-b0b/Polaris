@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from typing import cast
 
 import pandas as pd
 import pytest
-
-from application.persistence.portfolio import PortfolioPersistenceService
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceRepository
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceResult
 
 from application.services.base import ServiceRequest
 from application.services.macro.macro_request import MacroAnalysisRequest
@@ -51,11 +45,7 @@ from application.services.technical.technical_result import (
 from application.services.technical.technical_analysis_service import (
     TechnicalAnalysisService,
 )
-from core.storage.persistence.portfolio.portfolio_state_repository import (
-    PortfolioStateRepository,
-)
 from domain.macro.models import MacroDataSnapshot
-from domain.portfolio.models.portfolio_state import PortfolioState
 from domain.market.models import SP500Data
 from integration.providers.macro.macro_provider import MacroProvider
 from integration.providers.market_events.market_events_provider import (
@@ -242,45 +232,11 @@ class FakePortfolioProvider:
 
     async def get_portfolio_history(
         self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
     ) -> dict[str, Any]:
         return {}
-
-
-class FakePortfolioExpansionRepository:
-    async def persist_portfolio_expansion_bundle(
-        self,
-        bundle: PortfolioExpansionPersistenceBundle,
-    ) -> PortfolioExpansionPersistenceResult:
-        return PortfolioExpansionPersistenceResult.succeeded(
-            account_id=(
-                bundle.equity_history_points[0].account_id
-                if bundle.equity_history_points
-                else "empty-portfolio-expansion-bundle"
-            ),
-            records_persisted=len(bundle.equity_history_points),
-        )
-
-
-class FakePortfolioRepository:
-    async def get_latest(
-        self,
-        account_id: str,
-    ) -> None:
-        return None
-
-    async def persist_snapshot(
-        self,
-        state: Any,
-    ) -> None:
-        return None
-
-    async def get_history(
-        self,
-        account_id: str,
-        start: datetime,
-        end: datetime,
-    ) -> list[PortfolioState]:
-        return []
 
 
 class FakeSentimentProvider:
@@ -386,16 +342,6 @@ async def test_news_service_canonical_run() -> None:
 async def test_portfolio_service_canonical_run() -> None:
     service = PortfolioService(
         portfolio_provider=FakePortfolioProvider(),
-        portfolio_persistence_service=PortfolioPersistenceService(
-            expansion_repository=cast(
-                PortfolioExpansionPersistenceRepository,
-                FakePortfolioExpansionRepository(),
-            ),
-            state_repository=cast(
-                PortfolioStateRepository,
-                FakePortfolioRepository(),
-            ),
-        ),
     )
 
     result = await service.run(

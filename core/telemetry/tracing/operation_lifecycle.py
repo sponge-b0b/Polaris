@@ -7,6 +7,7 @@ _OPERATION_EVENT_PREFIXES = (
     "runtime.node.",
     "application.service.",
     "application.rag.operation.",
+    "workflow_output_projection.",
 )
 
 TERMINAL_OPERATION_EVENT_TYPES = frozenset(
@@ -22,6 +23,12 @@ TERMINAL_OPERATION_EVENT_TYPES = frozenset(
         "application.service.cancelled",
         "application.rag.operation.completed",
         "application.rag.operation.failed",
+        "workflow_output_projection.completed_run_finished",
+        "workflow_output_projection.completed_run_failed",
+        "workflow_output_projection.completed_run_not_found",
+        "workflow_output_projection.projector_completed",
+        "workflow_output_projection.projector_failed",
+        "workflow_output_projection.projector_skipped",
         "integration.provider.call",
         "integration.provider.cancelled",
     }
@@ -45,6 +52,10 @@ def resolve_operation_name(event: TelemetryEvent) -> str:
     event_type = event.event_type
     if event_type.startswith("integration.provider."):
         return "integration.provider.call"
+    if event_type.startswith("workflow_output_projection.projector_"):
+        return "workflow_output_projection.projector"
+    if event_type.startswith("workflow_output_projection.completed_run_"):
+        return "workflow_output_projection.completed_run"
     if event_type.startswith("workflow_control."):
         return "runtime.workflow"
     if event_type.startswith("workflow_progress.workflow_"):

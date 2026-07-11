@@ -44,6 +44,10 @@ def create_app() -> typer.Typer:
         name="runs",
     )
     app.add_typer(
+        completed_runs_app,
+        name="completed-runs",
+    )
+    app.add_typer(
         rag_app,
         name="rag",
     )

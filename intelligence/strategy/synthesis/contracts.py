@@ -12,6 +12,7 @@ from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.contracts import parse_strategy_perspective
 from intelligence.strategy.hypothesis.contracts import validate_confidence
 from intelligence.strategy.hypothesis.contracts import validate_directional_bias
+from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
 class StrategySynthesisSelectionStatus(str, Enum):
@@ -565,11 +566,7 @@ def _required_string_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[str, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     strings: list[str] = []
     for item in value:
         if not isinstance(item, str):
@@ -582,11 +579,7 @@ def _required_degraded_reason_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[StrategySynthesisDegradedReason, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     reasons: list[StrategySynthesisDegradedReason] = []
     for item in value:
         if not isinstance(item, str):
@@ -599,11 +592,7 @@ def _required_evaluation_tuple(
     payload: dict[str, object],
     field_name: str,
 ) -> tuple[StrategyHypothesisEvaluation, ...]:
-    if field_name not in payload:
-        raise KeyError(f"missing required field: {field_name}")
-    value = payload[field_name]
-    if not isinstance(value, list):
-        raise TypeError(f"{field_name} must be a list in serialized payloads.")
+    value = require_serialized_list(payload, field_name)
     evaluations: list[StrategyHypothesisEvaluation] = []
     for item in value:
         if not isinstance(item, dict):

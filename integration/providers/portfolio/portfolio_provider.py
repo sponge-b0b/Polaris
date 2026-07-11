@@ -1,4 +1,8 @@
-from typing import Protocol, Dict, List, Any, runtime_checkable
+from __future__ import annotations
+
+from typing import Any
+from typing import Protocol
+from typing import runtime_checkable
 
 
 @runtime_checkable
@@ -12,8 +16,13 @@ class PortfolioProvider(Protocol):
     @property
     def source(self) -> str: ...
 
-    async def get_account(self) -> Dict[str, Any]: ...
+    async def get_account(self) -> dict[str, Any]: ...
 
-    async def get_positions(self) -> List[Dict[str, Any]]: ...
+    async def get_positions(self) -> list[dict[str, Any]]: ...
 
-    async def get_portfolio_history(self) -> Dict[str, Any]: ...
+    async def get_portfolio_history(
+        self,
+        *,
+        period: str = "1A",
+        timeframe: str = "1D",
+    ) -> dict[str, Any]: ...

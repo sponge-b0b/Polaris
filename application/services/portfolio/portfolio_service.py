@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any
 from typing import TYPE_CHECKING
 from datetime import datetime, timezone
 
-from application.persistence.portfolio import PortfolioPersistenceService
 from core.storage.persistence.lineage import PersistenceLineage
 
 from core.utils.utils import (
@@ -47,6 +48,10 @@ from application.services.portfolio.portfolio_result import (
     PortfolioAnalysisResult,
 )
 
+PORTFOLIO_HISTORY_PERIOD = "1A"
+PORTFOLIO_HISTORY_TIMEFRAME = "1D"
+
+
 if TYPE_CHECKING:
     from integration.providers.portfolio.portfolio_provider import (
         PortfolioProvider,
@@ -60,14 +65,16 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
     ============================================================
     PURPOSE
     ============================================================
-    Canonical portfolio normalization + analytics node.
+    Canonical portfolio normalization + analytics service.
 
-    SINGLE SOURCE OF TRUTH FOR:
+    PRODUCES TYPED WORKFLOW OUTPUT DATA FOR:
         - portfolio state
         - equity state
         - normalized positions
         - exposure metrics
         - risk features
+
+    Portfolio persistence is owned by the workflow-output projection layer.
 
     ============================================================
     ARCHITECTURE
@@ -107,7 +114,6 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
     def __init__(
         self,
         portfolio_provider: PortfolioProvider,
-        portfolio_persistence_service: PortfolioPersistenceService,
     ) -> None:
 
         # ========================================================
@@ -115,7 +121,6 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
         # ========================================================
 
         self.portfolio_provider = portfolio_provider
-        self.portfolio_persistence_service = portfolio_persistence_service
 
     async def run(
         self,
@@ -169,7 +174,10 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
 
         raw_positions = await self.portfolio_provider.get_positions()
 
-        raw_portfolio_history = await self.portfolio_provider.get_portfolio_history()
+        raw_portfolio_history = await self.portfolio_provider.get_portfolio_history(
+            period=PORTFOLIO_HISTORY_PERIOD,
+            timeframe=PORTFOLIO_HISTORY_TIMEFRAME,
+        )
 
         # ========================================================
         # NORMALIZED POSITION STATE
@@ -181,24 +189,16 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
         )
 
         # ========================================================
-        # LOAD LATEST PORTFOLIO STATE
+        # EQUITY STATE
         # ========================================================
 
         account_id = _safe_str(
             _get_value(raw_account, "id"),
         )
-
-        portfolio_state = await self.portfolio_persistence_service.get_latest_state(
-            account_id=account_id
+        peak_equity = _peak_equity_from_provider_history(
+            raw_account=raw_account,
+            raw_portfolio_history=raw_portfolio_history,
         )
-
-        peak_equity = 0.0
-        if portfolio_state:
-            peak_equity = portfolio_state.peak_equity
-
-        # ========================================================
-        # EQUITY STATE
-        # ========================================================
 
         equity_response = portfolio_equity.execute_equity_analysis(
             raw_peak_equity=peak_equity,
@@ -222,34 +222,43 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
             lineage=lineage,
         )
 
-        # ========================================================
-        # SAVE PORTFOLIO STATE
-        # ========================================================
-
-        await self.portfolio_persistence_service.persist_state_snapshot(
-            self.to_portfolio_state(
-                account_id=account_id,
-                positions_state=positions_response,
-                equity_state=equity_response,
-                portfolio_state=portfolio_response,
-            )
+        canonical_portfolio_state = self.to_portfolio_state(
+            account_id=account_id,
+            positions_state=positions_response,
+            equity_state=equity_response,
+            portfolio_state=portfolio_response,
         )
-
-        equity_history_result = (
-            await self.portfolio_persistence_service.persist_expansion_records(
-                equity_history_points=equity_history_points,
-            )
-        )
-        if not equity_history_result.success:
-            raise RuntimeError(
-                "Portfolio equity history persistence failed: "
-                f"{equity_history_result.error}"
-            )
 
         return PortfolioAnalysisResult(
             portfolio_state=portfolio_response,
             positions_state=positions_response,
             equity_state=equity_response,
+            canonical_portfolio_state=canonical_portfolio_state,
+            positions=_positions_from_state(positions_response),
+            exposures=_exposures_from_state(
+                portfolio_state=portfolio_response,
+                positions_state=positions_response,
+                equity_state=equity_response,
+            ),
+            risk_metrics=_risk_metrics_from_state(
+                portfolio_state=portfolio_response,
+                positions_state=positions_response,
+                equity_state=equity_response,
+            ),
+            allocation_data=_allocation_data_from_state(
+                portfolio_state=portfolio_response,
+                positions_state=positions_response,
+            ),
+            current_equity=_safe_float(equity_response.get("equity")),
+            equity_history_points=equity_history_points,
+            peak_equity=_safe_float(equity_response.get("peak_equity")),
+            drawdown_absolute=_safe_float(
+                equity_response.get("drawdown_absolute"),
+            ),
+            drawdown_percent=_safe_float(equity_response.get("drawdown_percent")),
+            provider_source=self.portfolio_provider.source,
+            history_period=PORTFOLIO_HISTORY_PERIOD,
+            history_timeframe=_history_timeframe(raw_portfolio_history),
         )
 
     # ============================================================
@@ -435,6 +444,146 @@ def _sum_position_value(
         _safe_float(position.get(key))
         for position in positions
         if isinstance(position, dict)
+    )
+
+
+def _peak_equity_from_provider_history(
+    *,
+    raw_account: Any,
+    raw_portfolio_history: Mapping[str, Any],
+) -> float:
+    candidates = [
+        _safe_float(
+            _get_value(raw_account, "equity"),
+        )
+    ]
+    equity_series = raw_portfolio_history.get("equity")
+    if isinstance(equity_series, list):
+        candidates.extend(
+            _safe_float(value) for value in equity_series if not isinstance(value, bool)
+        )
+    return max(candidates, default=0.0)
+
+
+def _positions_from_state(
+    positions_state: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    positions = positions_state.get("positions", [])
+    if not isinstance(positions, list):
+        return ()
+    return tuple(
+        deepcopy(position) for position in positions if isinstance(position, dict)
+    )
+
+
+def _exposures_from_state(
+    *,
+    portfolio_state: dict[str, Any],
+    positions_state: dict[str, Any],
+    equity_state: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "gross_exposure": _safe_float(portfolio_state.get("gross_exposure")),
+        "net_exposure": _safe_float(portfolio_state.get("net_exposure")),
+        "long_exposure": _safe_float(portfolio_state.get("long_exposure")),
+        "short_exposure": _safe_float(portfolio_state.get("short_exposure")),
+        "leverage": _safe_float(portfolio_state.get("leverage")),
+        "gross_market_value": _safe_float(equity_state.get("gross_market_value")),
+        "net_market_value": _safe_float(equity_state.get("net_market_value")),
+        "long_market_value": _safe_float(equity_state.get("long_market_value")),
+        "short_market_value": _safe_float(equity_state.get("short_market_value")),
+        "positions_gross_exposure": _safe_float(
+            positions_state.get("gross_exposure"),
+        ),
+        "positions_net_exposure": _safe_float(
+            positions_state.get("net_exposure"),
+        ),
+        "sector_exposure": deepcopy(
+            _safe_dict(portfolio_state.get("sector_exposure")),
+        ),
+        "asset_class_exposure": deepcopy(
+            _safe_dict(portfolio_state.get("asset_class_exposure")),
+        ),
+    }
+
+
+def _risk_metrics_from_state(
+    *,
+    portfolio_state: dict[str, Any],
+    positions_state: dict[str, Any],
+    equity_state: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "drawdown_absolute": _safe_float(
+            equity_state.get("drawdown_absolute"),
+        ),
+        "drawdown_percent": _safe_float(equity_state.get("drawdown_percent")),
+        "concentration_score": _safe_float(
+            portfolio_state.get("concentration_score"),
+        ),
+        "diversification_score": _safe_float(
+            portfolio_state.get("diversification_score"),
+        ),
+        "beta_exposure": _safe_float(portfolio_state.get("beta_exposure")),
+        "beta_risk": _safe_float(portfolio_state.get("beta_risk")),
+        "portfolio_heat": _safe_float(portfolio_state.get("portfolio_heat")),
+        "risk_intensity": _safe_float(portfolio_state.get("risk_intensity")),
+        "concentration_risk": _safe_float(
+            positions_state.get("concentration_risk"),
+        ),
+        "leverage_risk": _safe_float(positions_state.get("leverage_risk")),
+        "margin_utilization_ratio": _safe_float(
+            equity_state.get("margin_utilization_ratio"),
+        ),
+        "account_health": _safe_str(
+            equity_state.get("account_health"),
+            default="unknown",
+        ),
+        "risk_signals": _merge_risk_signals(
+            equity_state=equity_state,
+            positions_state=positions_state,
+            portfolio_state=portfolio_state,
+        ),
+    }
+
+
+def _allocation_data_from_state(
+    *,
+    portfolio_state: dict[str, Any],
+    positions_state: dict[str, Any],
+) -> dict[str, Any]:
+    positions = _positions_from_state(positions_state)
+    return {
+        "positions": [
+            {
+                "symbol": position.get("symbol", ""),
+                "current_weight": _safe_float(
+                    position.get("exposure_weight"),
+                ),
+                "market_value": _safe_float(position.get("market_value")),
+                "asset_class": _safe_str(
+                    position.get("asset_class"),
+                    default="unknown",
+                ),
+                "sector": _safe_str(position.get("sector"), default="unknown"),
+            }
+            for position in positions
+        ],
+        "sector_exposure": deepcopy(
+            _safe_dict(portfolio_state.get("sector_exposure")),
+        ),
+        "asset_class_exposure": deepcopy(
+            _safe_dict(portfolio_state.get("asset_class_exposure")),
+        ),
+    }
+
+
+def _history_timeframe(
+    raw_portfolio_history: Mapping[str, Any],
+) -> str:
+    return _safe_str(
+        raw_portfolio_history.get("timeframe"),
+        default=PORTFOLIO_HISTORY_TIMEFRAME,
     )
 
 

@@ -1,14 +1,48 @@
 # PostgreSQL Persistence
 
-PostgreSQL is Polaris's canonical system-of-record for persisted platform data.
-Runtime artifacts, JSONL telemetry, Markdown reports, and vector indexes are
-secondary outputs used for local debugging, exports, search, replay support, or
-downstream projections. They are not the source of truth.
+PostgreSQL is Polaris's authoritative durable system of record. Runtime evidence,
+curated business records, projection queues, telemetry records, and operational
+history are persisted in PostgreSQL first. Qdrant, Neo4j, rendered reports,
+files, caches, dashboards, and local debug artifacts are downstream projections
+or artifacts and must not become competing authorities.
 
-## Local Postgres service
+## Canonical persistence architecture
 
-The repository already includes a compose-managed PostgreSQL service named
-`postgres`.
+The canonical persistence lifecycle is:
+
+```text
+Interface / workflow command
+    -> WorkflowFacade and WorkflowBootstrap
+    -> RuntimeEngine
+    -> RuntimeNodeOutput in RuntimeContext
+    -> completed-run archive in PostgreSQL
+    -> workflow-output projection policy
+    -> typed curated domain record
+    -> owning application persistence service
+    -> PostgreSQL domain table
+    -> optional RAG document/chunk records
+    -> optional Qdrant and Neo4j projections
+```
+
+Important ownership rules:
+
+- `RuntimeContext` and `RuntimeNodeOutput` are runtime evidence contracts, not
+  domain-record storage abstractions.
+- Completed runs preserve broad workflow evidence after execution.
+- Curated domain records are narrow, typed, queryable business memory.
+- Workflow outputs become curated records only through explicit registered
+  projectors.
+- Application services and intelligence nodes return typed results. They should
+  not persist workflow-derived facts directly unless persistence is the explicit
+  use case for that service.
+- PostgreSQL records are written through typed repositories and application
+  persistence services.
+- Qdrant and Neo4j are rebuildable retrieval projections from PostgreSQL RAG
+  records.
+
+## Local PostgreSQL service
+
+The repository includes a compose-managed PostgreSQL service named `postgres`.
 
 Start it from the repository root:
 
@@ -22,41 +56,40 @@ Check service status:
 docker compose ps postgres
 ```
 
-The compose defaults are:
+The compose-aligned local defaults are:
 
 ```text
 host: localhost
 port: 5432
 database: polaris
 user: polaris
-password: <required; load from the untracked .env file>
+password: <required; load from an untracked .env file or secret manager>
 ```
 
-Polaris derives the async SQLAlchemy URL at runtime from environment settings. Credentials must not be written into tracked documentation or source files.
+Credentials must not be written into tracked documentation, tests, plans, or
+source files.
 
 ## Environment variables
 
-Copy `.env.example` to the ignored `.env` file and set the required local service secrets before starting Docker Compose. Never commit `.env`.
-
 Database configuration is owned by `core.database.settings.PostgresSettings`.
-Use `POLARIS_DATABASE_URL` when a full connection string is available. If it is
-not set, Polaris derives the URL from the `POLARIS_POSTGRES_*` variables below.
+`POLARIS_DATABASE_URL` is the preferred full URL override. When it is not set,
+Polaris derives the async SQLAlchemy URL from `POLARIS_POSTGRES_*` variables.
 
-| Variable                                   | Default       | Notes                                                                                  |
-| ------------------------------------------ | ------------- | -------------------------------------------------------------------------------------- |
-| `POLARIS_DATABASE_URL`                       | unset         | Preferred full URL override. `postgresql://...` is normalized to the async driver form. |
-| `POLARIS_POSTGRES_HOST`                      | `localhost`   | Compose-compatible local host.                                                         |
-| `POLARIS_POSTGRES_PORT`                      | `5432`        | Must be an integer.                                                                    |
-| `POLARIS_POSTGRES_DB`                        | `polaris`       | Database name.                                                                         |
-| `POLARIS_POSTGRES_USER`                      | `polaris`       | Database user.                                                                         |
-| `POLARIS_POSTGRES_PASSWORD`                  | required      | Database password; store it only in the untracked `.env` file or a secret manager.     |
-| `POLARIS_POSTGRES_DRIVER`                    | `asyncpg`     | SQLAlchemy async driver suffix.                                                        |
-| `POLARIS_POSTGRES_ECHO`                      | `false`       | Enables SQLAlchemy SQL logging when truthy.                                            |
-| `POLARIS_POSTGRES_POOL_PRE_PING`             | `true`        | Enables SQLAlchemy pool pre-ping.                                                      |
-| `POLARIS_TEST_DATABASE_URL`                  | unset         | Required only for guarded PostgreSQL integration tests.                                |
-| `POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE` | unset / false | Enables morning-report persistence from the CLI when truthy.                           |
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `POLARIS_DATABASE_URL` | unset | Preferred full URL override. `postgresql://...` is normalized to the async driver form. |
+| `POLARIS_POSTGRES_HOST` | `localhost` | Compose-compatible local host. |
+| `POLARIS_POSTGRES_PORT` | `5432` | Must be an integer. |
+| `POLARIS_POSTGRES_DB` | `polaris` | Database name. |
+| `POLARIS_POSTGRES_USER` | `polaris` | Database user. |
+| `POLARIS_POSTGRES_PASSWORD` | required | Required when `POLARIS_DATABASE_URL` is not set. Store only in ignored local config or a secret manager. |
+| `POLARIS_POSTGRES_DRIVER` | `asyncpg` | SQLAlchemy async driver suffix. |
+| `POLARIS_POSTGRES_ECHO` | `false` | Enables SQLAlchemy SQL logging when truthy. |
+| `POLARIS_POSTGRES_POOL_PRE_PING` | `true` | Enables SQLAlchemy pool pre-ping. |
+| `POLARIS_TEST_DATABASE_URL` | unset | Required only for guarded PostgreSQL integration and migration tests. |
+| `POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE` | unset / false | Enables CLI morning-report persistence as a report artifact path when truthy. |
 
-Runtime workflow persistence is enabled through `WorkflowBootstrapConfig`:
+Runtime workflow persistence is enabled by `WorkflowBootstrapConfig`:
 
 ```python
 WorkflowBootstrapConfig(
@@ -65,12 +98,15 @@ WorkflowBootstrapConfig(
 )
 ```
 
-Keep it disabled for local workflows unless PostgreSQL is running and migrations
-have been applied.
+Keep runtime persistence disabled for local workflow experiments unless
+PostgreSQL is running and migrations have been applied.
 
 ## Migrations
 
-Install or synchronize dependencies with uv:
+Alembic is the canonical schema migration mechanism. Do not use
+`Base.metadata.create_all()` as the production schema path.
+
+Install or synchronize dependencies:
 
 ```bash
 uv sync
@@ -82,17 +118,11 @@ Apply all migrations to the configured database:
 uv run alembic upgrade head
 ```
 
-Inspect the current database revision:
+Inspect current and target revisions:
 
 ```bash
 uv run alembic current
-```
-
-Inspect migration heads and history:
-
-```bash
 uv run alembic heads
-uv run alembic history
 ```
 
 Generate a new migration only after updating SQLAlchemy models:
@@ -107,302 +137,163 @@ Development-only rollback of one revision:
 uv run alembic downgrade -1
 ```
 
-Do not use `Base.metadata.create_all()` as the production schema path. Alembic is
-the canonical schema migration mechanism.
+Migration files may be squashed during development. Documentation must describe
+schema ownership and validation contracts rather than maintaining migration-file
+inventories, which become stale after squashes.
 
-## Persistence data contract convention
+## Data contract convention
 
-PostgreSQL is the platform system-of-record for curated persisted data. ORM
-models should expose stable, canonical query fields as relational columns while
-preserving complete nested service, agent, and report outputs in explicit JSON or
-JSONB payload columns. This keeps common filters, joins, and lineage queries
-first-class without discarding the full source output needed for replay, audit,
-attribution, future RAG curation, and report reconstruction.
+PostgreSQL is a serialization boundary. It may store JSON/JSONB payloads, but
+those payloads must not become the primary internal platform contract.
 
 Rules:
 
-- Use canonical column names in ORM models and Alembic migrations.
+- Use canonical first-class columns for stable query dimensions, identity,
+  timestamps, status, lineage, and operational state.
+- Store complete nested source outputs in purpose-named JSON/JSONB payload
+  columns when the data is needed for replay, audit, attribution, report
+  reconstruction, or future curation but is not a stable relational dimension.
+- Do not promote arbitrary metadata into durable schema. Add typed fields when a
+  concept becomes canonical.
 - Do not preserve legacy schema names after a canonical replacement is approved.
-- Store full nested service/agent outputs in purpose-named payload columns when
-  the data is not a stable query dimension.
-- Treat persistence as a serialization boundary where JSON/JSONB payloads are
-  acceptable.
-- Keep internal application service and intelligence-agent contracts typed where
-  feasible; do not let persistence payload dictionaries become internal platform
-  contracts.
-- Preserve full numeric precision and full LLM/report text at the persistence
-  boundary. Rounding and truncation belong only in presentation renderers.
+- Preserve full numeric precision and full LLM/report text at persistence
+  boundaries. Rounding and truncation belong only in presentation renderers.
+- Keep internal service, intelligence, and runtime contracts typed. Do not let
+  persistence dictionaries leak back into core platform internals.
 
-## Completed run archive
-
-Completed workflow runs are PostgreSQL-backed historical records. They are
-stored for audit, inspection, CLI history commands, report/RAG curation inputs,
-and operational diagnostics after a workflow has finished.
-
-Completed runs are not replay checkpoints. Replay and resume behavior remains
-owned by the runtime checkpointing/replay systems; do not use completed-run
-history as a workflow resume source.
-
-The completed-run archive is PostgreSQL-only. Local-disk completed-run archival
-has been removed, and existing local JSON completed-run files are not imported
-automatically. If historical local JSON files need to be retained later, add an
-explicit one-time import tool instead of reintroducing local-disk archive writes.
-
-Completed-run archival uses these tables:
-
-| Table | Purpose |
-| --- | --- |
-| `completed_workflow_runs` | One canonical historical record per completed workflow execution. |
-| `completed_workflow_node_outputs` | Node-level output/error/status records for a completed workflow execution. |
-| `completed_run_artifacts` | Artifact metadata associated with a completed workflow execution. |
-
-Access completed-run history through the async `WorkflowFacade` completed-run
-APIs or the `polaris runs` CLI commands. Application and CLI callers should not
-query the archive tables directly.
-
-## Workflow-output projection to curated records
-
-Completed runs are the broad execution archive. Curated domain records are the
-narrow, typed, queryable business memory. The transition between the two is the
-workflow-output projection layer:
-
-```text
-RuntimeNodeOutput
-    → completed-run archive
-    → registered workflow-output projector
-    → typed curated domain record
-    → owning application persistence service
-    → PostgreSQL domain table
-    → optional RAG document, Qdrant vector, and Neo4j graph projection
-```
-
-This separation keeps runtime evidence, canonical business records, retrieval
-artifacts, and graph/vector indexes from becoming competing sources of truth.
-A node output is not a curated record merely because it was serialized in a
-successful workflow. It becomes one only when an explicit projector supports its
-`output_contract`, `output_schema_version`, authoritative source node, required
-fields, deterministic identity, timestamp strategy, lineage policy, and
-execution mode.
-
-Application services and intelligence nodes do not persist workflow-derived
-business facts directly. They return typed results to the workflow; the
-completed-run archive stores the evidence; registered projectors perform
-idempotent post-run curation through the owning persistence service. This
-prevents duplicate writers, partial writes from failed workflows, and hidden
-metadata-only schemas.
-
-RAG records remain downstream of curated PostgreSQL records. `rag_documents`,
-`rag_chunks`, and projection jobs are PostgreSQL-managed retrieval records.
-Qdrant and Neo4j are rebuildable projections from those records and must never
-be used as canonical storage or as an input to rewrite domain history.
-
-Live, replay, simulated, and backtest runs must stay distinguishable through
-first-class execution-mode lineage. Projectors may reject or quarantine outputs
-whose execution mode is unsupported for the target record family.
-
-See `docs/platform_architecture_ownership_ledger.md` for the full projector
-registration, eligibility, retry, reconciliation, idempotency, and lineage
-contract.
-
-## Migration inventory
-
-Current PostgreSQL persistence migrations are:
-
-| Revision file | Scope |
-| --- | --- |
-| `20260530_0001_add_runtime_persistence_tables.py` | Workflow runs, node runs, runtime events. |
-| `20260530_0002_add_report_persistence_tables.py` | Reports, report sections, report artifacts. |
-| `20260530_0003_add_agent_signal_persistence_table.py` | Agent signal records. |
-| `20260530_0004_add_rag_source_persistence_tables.py` | RAG documents, chunks, embedding jobs. |
-| `20260530_0005_add_persistence_lineage_links.py` | Cross-record lineage links. |
-| `20260530_0006_add_recommendation_persistence_tables.py` | Recommendations, rationales, outcomes, trade setups, watchlist items. |
-| `20260530_0007_add_portfolio_expansion_persistence_tables.py` | Position history/latest, exposure, risk, allocation snapshots. |
-| `20260530_0008_add_market_persistence_tables.py` | OHLCV, indicators, market context, technical snapshots, breadth snapshots. |
-| `20260530_0009_add_macro_persistence_tables.py` | Macro observations, macro regime snapshots, economic calendar events. |
-| `20260530_0010_add_news_persistence_tables.py` | News articles and news analysis snapshots. |
-| `20260530_0011_add_sentiment_persistence_tables.py` | Sentiment snapshots and sentiment sources. |
-| `20260530_0012_add_agent_intelligence_persistence_tables.py` | Agent reasoning, recommendations, and risk assessments. |
-| `20260530_0013_add_attribution_persistence_tables.py` | Attribution records, signal attribution, recommendation attribution. |
-| `20260530_0014_add_workflow_state_snapshot_persistence_table.py` | Workflow state snapshots. |
-| `20260530_0015_add_report_version_publication_tables.py` | Report versions and publications. |
-| `20260530_0016_add_telemetry_persistence_tables.py` | Operational telemetry events, metrics, traces, workflow/agent/provider metrics. |
-| `20260530_0017_add_persistence_audit_events.py` | Append-only audit events for persisted business records. |
-| `20260530_0018_add_rag_source_eligibility.py` | Metadata-only RAG source eligibility markers for canonical PostgreSQL records. |
-| `20260530_0019_add_persistence_retention_policies.py` | Retention policy metadata for dry-run lifecycle planning. |
-
-## Persistence tables and services
+## Core table families and owners
 
 Application persistence services expose typed use-case boundaries. Repository
-implementations remain infrastructure concerns under `core.storage.persistence`
-and should be injected rather than located dynamically. Existing application
-persistence services are the canonical read/write boundaries; do not create
-parallel query-service packages for the same domain.
+implementations live under `core.storage.persistence` and remain infrastructure
+concerns injected through DI. Callers should use the owning application service
+or canonical runtime/application boundary rather than ad hoc SQL.
 
-| Domain | Canonical PostgreSQL tables | Application service |
+| Domain | Canonical PostgreSQL tables | Owning boundary |
 | --- | --- | --- |
-| Runtime audit | `workflow_runs`, `workflow_node_runs`, `workflow_events`, `workflow_state_snapshots` | `WorkflowStateSnapshotPersistenceService` plus runtime event subscriber wiring. |
-| Reports | `reports`, `report_sections`, `report_artifacts`, `report_versions`, `report_publications` | `ReportPersistenceService` |
-| Agent signals | `agent_signals` | repository-level source for typed signal records |
+| Runtime execution | `workflow_runs`, `workflow_node_runs`, `workflow_events`, `workflow_state_snapshots` | Runtime persistence subscriber and `WorkflowStateSnapshotPersistenceService` |
+| Completed runs | `completed_workflow_runs`, `completed_workflow_node_outputs`, `completed_run_artifacts` | Completed-run archive accessed through `WorkflowFacade` and `polaris runs` |
+| Workflow-output projection queue | `workflow_output_projection_jobs` | Workflow-output projection operations, subscriber, and projectors |
+| Reports | `reports`, `report_sections`, `report_artifacts`, `report_versions`, `report_publications` | `ReportPersistenceService` and report-specific application services |
+| Agent signals | `agent_signals` | `AgentSignalPersistenceService` |
 | Agent intelligence | `agent_reasoning`, `agent_recommendations`, `agent_risk_assessments` | `AgentIntelligencePersistenceService` |
 | Recommendations | `recommendations`, `recommendation_rationales`, `recommendation_outcomes`, `trade_setups`, `watchlist_items` | `RecommendationPersistenceService` |
-| Portfolio | `portfolio_state_history`, `portfolio_state_latest`, `portfolio_positions_history`, `portfolio_positions_latest`, `portfolio_exposure_snapshots`, `portfolio_risk_snapshots`, `portfolio_allocation_snapshots` | `PortfolioPersistenceService` |
-| Market and technical | `market_ohlcv`, `market_indicators`, `market_context_snapshots`, `technical_analysis_snapshots`, `market_breadth_snapshots` | `MarketPersistenceService` |
+| Portfolio | `portfolio_state_history`, `portfolio_state_latest`, `portfolio_positions_history`, `portfolio_positions_latest`, `portfolio_exposure_snapshots`, `portfolio_risk_snapshots`, `portfolio_allocation_snapshots`, `portfolio_equity_history_points` | `PortfolioPersistenceService` |
+| Market, technical, and events | `market_ohlcv`, `market_indicators`, `market_context_snapshots`, `technical_analysis_snapshots`, `market_breadth_snapshots`, `market_event_snapshots` | `MarketPersistenceService` |
 | Macro | `macro_observations`, `macro_regime_snapshots`, `economic_calendar_events` | `MacroPersistenceService` |
 | News | `news_articles`, `news_analysis_snapshots` | `NewsPersistenceService` |
 | Sentiment | `sentiment_snapshots`, `sentiment_sources` | `SentimentPersistenceService` |
+| Strategy synthesis | `strategy_hypotheses`, `strategy_synthesis_decisions`, `strategy_hypothesis_evaluations` | `StrategyPersistenceService` |
 | Attribution | `attribution_records`, `signal_attribution`, `recommendation_attribution` | `AttributionPersistenceService` |
-| RAG source queue | `rag_documents`, `rag_chunks`, `rag_embedding_jobs` | `PostgresRagPersistenceRepository` and curated RAG application services |
-| RAG eligibility | `rag_source_eligibility` | `RagEligibilityPersistenceService` |
-| Operational telemetry | `telemetry_events`, `telemetry_metrics`, `telemetry_traces`, `workflow_metrics`, `agent_metrics`, `provider_metrics` | `TelemetryPersistenceService` |
 | Lineage | `persistence_lineage_links` | `LineagePersistenceService` |
 | Audit | `persistence_audit_events` | `AuditPersistenceService` |
 | Retention policy metadata | `persistence_retention_policies` | `RetentionPersistenceService` |
-| Health and diagnostics | database connectivity, Alembic revision state, `Base.metadata`, required table availability | `HealthPersistenceService`, `DiagnosticsPersistenceService` |
+| Telemetry | `telemetry_events`, `telemetry_metrics`, `telemetry_traces`, `workflow_metrics`, `agent_metrics`, `provider_metrics` | `TelemetryPersistenceService` and telemetry persistence sink |
+| Backtesting | `backtest_scenarios`, `backtest_runs`, `backtest_steps`, `backtest_portfolio_snapshots`, `backtest_fills`, `backtest_metrics`, `backtest_artifacts` | `BacktestPersistenceService` |
+| RAG source eligibility and records | `rag_source_eligibility`, `rag_documents`, `rag_chunks`, `rag_embedding_jobs`, `rag_graph_jobs`, `rag_query_logs`, `rag_answer_logs` | RAG eligibility persistence, curated RAG services, and RAG operation services |
+| Health and diagnostics | Database connectivity, Alembic state, `Base.metadata`, and required table availability | `HealthPersistenceService`, `DiagnosticsPersistenceService` |
 
-## V3 pre-RAG persistence architecture
+## Completed run archive
 
-V3 completes the PostgreSQL foundation before full RAG ingestion or embedding
-work begins. It hardens the existing persistence layer rather than introducing a
-new execution path.
+Completed workflow runs are PostgreSQL-backed historical records. They are used
+for audit, inspection, CLI history commands, report/RAG curation inputs, and
+operational diagnostics after a workflow has finished.
 
-V3 adds:
+Completed runs are not replay checkpoints. Replay and resume remain owned by the
+runtime checkpointing and replay systems.
 
-- shared query primitives and result envelopes;
-- relational lineage traversal over `persistence_lineage_links`;
-- non-destructive validation services for timestamps, scores, lineage, source
-  identity, and dedupe keys;
-- append-only audit event persistence;
-- idempotency review coverage and shared idempotency key helpers;
-- metadata-only RAG eligibility marking and optional curated RAG gating;
-- JSON-compatible export boundaries for selected typed records;
-- dry-run retention planning and advisory archive markers;
-- persistence health and diagnostics services;
-- aggregate migration coverage for all V3 tables.
+The completed-run archive is PostgreSQL-only. Local-disk completed-run archival
+has been removed. Existing local JSON completed-run files are not imported
+automatically; if they need retention later, add an explicit one-time import tool
+rather than reintroducing local-disk archive writes.
 
-V3 does not add:
+Completed-run access belongs behind the async `WorkflowFacade` completed-run APIs
+or `polaris runs` CLI commands. Application and CLI callers should not query
+archive tables directly.
 
-- vector-store writes;
-- graph-store writes;
-- embedding workers;
-- full RAG ingestion workflows;
-- FastAPI endpoints;
-- destructive retention execution;
-- direct provider-payload ingestion into RAG.
+## Workflow-output projection to curated records
 
-## Query primitives and result envelopes
+The workflow-output projection layer converts selected completed-run node outputs
+into canonical typed records. It is the boundary that prevents every serialized
+node field from becoming permanent business memory.
 
-Shared query contracts live under `core.storage.persistence.query` and provide
-reusable typed filters for pagination, sorting, timestamp ranges, workflow
-lineage, source identity, symbols, accounts, and common cross-domain query
-metadata.
+Projection requirements:
 
-Application services may expose `PersistenceListResult[T]` and
-`PersistenceReadResult[T]` siblings for result-envelope use cases while
-preserving existing typed sequence-returning read/list APIs. Envelopes preserve
-typed records internally and serialize only query metadata at the boundary.
+- explicit projector registration;
+- supported `output_contract` and `output_schema_version`;
+- authoritative source node;
+- deterministic record identity;
+- required fields and timestamp policy;
+- execution-mode handling;
+- lineage and attribution policy;
+- idempotent write behavior through the owning application persistence service;
+- retry/reconciliation through `workflow_output_projection_jobs`.
 
-## Lineage traversal
+A node output is not a curated record merely because it was produced by a
+successful workflow. Unsupported outputs remain completed-run evidence only.
+Projectors may reject, skip, or quarantine outputs whose schema, execution mode,
+or required fields are unsuitable for the target record family.
 
-Lineage remains relational and PostgreSQL-backed. `LineagePersistenceService`
-uses existing `persistence_lineage_links` records to trace upstream and
-downstream paths such as:
+See `docs/platform_architecture_ownership_ledger.md` and
+`docs/workflow_output_curation.md` for the ownership and curation rules.
+
+## RAG persistence and projections
+
+RAG is downstream of curated PostgreSQL records. PostgreSQL stores source
+eligibility, curated RAG documents, chunks, queue records, and query/answer audit
+logs. Qdrant and Neo4j are rebuildable retrieval projections.
+
+Canonical RAG flow:
 
 ```text
-report -> recommendation -> signal -> workflow/runtime lineage
+curated PostgreSQL record
+    -> eligibility decision in rag_source_eligibility
+    -> curated RAG document and chunks in PostgreSQL
+    -> rag_embedding_jobs and rag_graph_jobs
+    -> Qdrant dense/sparse vector projection
+    -> Neo4j graph projection
+    -> query and answer logs in PostgreSQL
 ```
 
-Traversal is bounded by typed request contracts with direction, depth, edge
-limits, and relationship filters. It does not introduce graph-store or vector
-abstractions.
-
-## Validation and data quality
-
-`ValidationPersistenceService` coordinates non-mutating validation checks over
-typed persistence records. Current checks cover:
-
-- generated, observed, published, and evaluated timestamp quality;
-- score ranges for confidence, risk, sentiment, directional, attribution, and
-  setup-quality scores;
-- expected lineage presence and outside-workflow warnings;
-- source identity and dedupe key availability.
-
-Validation returns typed issue/result records. It should warn rather than fail
-for records that are legitimately created outside workflow execution.
-
-## Audit events
-
-`AuditPersistenceService` persists append-only `PersistenceAuditEventRecord`
-entries in `persistence_audit_events`. Audit records identify the entity,
-action, actor/system source, timestamp, workflow/runtime lineage, and metadata.
-
-Audit emission from application persistence services is optional and non-fatal by
-default. Audit failures should not make a successful primary persistence write
-fail unless a future stricter policy explicitly requires that behavior.
-
-## Idempotency and deduplication
-
-Domain repositories should remain duplicate-safe by deterministic identifiers,
-natural keys, or upsert behavior where appropriate. Shared idempotency helpers
-under `core.storage.persistence.idempotency` provide reusable key construction
-for future domains.
-
-Current guidance:
-
-- recommendation parent/rationale/outcome/setup/watchlist writes use stable IDs
-  and duplicate-safe upserts;
-- latest portfolio rows upsert by account/symbol while history and snapshots
-  remain append/insert oriented;
-- market and macro fact records use source/symbol/timestamp-style keys;
-- news articles dedupe by source plus external id or URL;
-- sentiment snapshot IDs include source-aware context when available.
-
-## Export boundary
-
-`JsonPersistenceExportService` is the application boundary for JSON-compatible
-exports of selected typed persistence records. It serializes dataclasses and
-`as_dict()` records only at the explicit export boundary.
-
-Exports are not internal contracts. They should not replace typed application
-service inputs/outputs, and they should not write files unless a future explicit
-export destination implementation is added.
-
-Report-history export can combine a report bundle with linked recommendations,
-agent signals, agent-intelligence records, attribution records, and lineage paths
-when those services are supplied.
-
-## Retention and lifecycle planning
-
-Retention support is advisory in V3. `persistence_retention_policies` stores
-policy metadata only, and `RetentionPersistenceService` produces dry-run plans
-for candidate records.
+Current RAG source categories include reports, agent signals/intelligence,
+recommendations, strategy synthesis records, portfolio records, market/technical
+snapshots, macro snapshots, news summaries, sentiment summaries, attribution
+records, and backtest records when explicitly supported by source loaders and
+eligibility rules.
 
 Rules:
 
-- Do not physically delete canonical PostgreSQL records in V3.
-- Do not archive records automatically in V3.
-- Treat archive markers as advisory/audit-ready metadata only.
-- Any future destructive lifecycle action must go through policy, governance,
-  approval, telemetry, and audit boundaries.
+- Build RAG documents from persisted curated source records, not provider
+  payloads, raw runtime dumps, CLI output, JSONL telemetry, operational logs, or
+  vector-store state.
+- Preserve full report text, LLM reasoning, recommendation rationale, strategy
+  rationale, and attribution at the PostgreSQL boundary.
+- Store document text, chunks, metadata, source table, source id, source type,
+  and source content hash in PostgreSQL before projection.
+- Treat `rag_embedding_jobs` and `rag_graph_jobs` as durable PostgreSQL queue
+  records for downstream projection processors.
+- Treat Qdrant and Neo4j as rebuildable projections. Projection rebuilds must not
+  delete canonical PostgreSQL records.
+- Do not implement a second RAG ingestion, retrieval, ranking, graph, or
+  persistence stack in interfaces such as CLI or MCP.
 
-## Health and diagnostics
+Current RAG operations are exposed through `polaris rag ...` and canonical RAG
+application services. Background queue automation may be added later, but manual
+commands remain useful for local development, backfills, rebuilds, and recovery.
 
-`HealthPersistenceService` reports non-mutating persistence health across:
+## Runtime persistence
 
-- database connectivity;
-- Alembic current/head revision state;
-- SQLAlchemy `Base.metadata` model imports;
-- required table availability;
-- optional repository/service readiness probes.
+Runtime persistence subscribes to the canonical runtime `EventBus` when enabled
+by `WorkflowBootstrapConfig`. It writes workflow run, node run, and runtime event
+records into PostgreSQL without introducing a parallel execution path.
 
-`DiagnosticsPersistenceService` is a thin application boundary over health
-checks. It currently provides service-level diagnostics only; CLI/API rendering
-is a future boundary concern.
+Persisted runtime records support audit, operational status, progress history,
+and diagnostics. Raw runtime records are not curated RAG documents and should not
+be used as a direct resume source.
 
-## CLI/report persistence
+## Report persistence
 
-Morning report file output remains useful as a human artifact, but the curated
-report record in PostgreSQL is the canonical persisted report when persistence
-is enabled.
+Morning report files are human-facing artifacts. The PostgreSQL report record is
+the canonical persisted report when persistence is enabled.
 
 Example:
 
@@ -410,29 +301,19 @@ Example:
 POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE=1 polaris morning-report
 ```
 
-The CLI persists:
+Report persistence stores:
 
-- the full rendered Markdown report body;
+- rendered Markdown body;
 - structured report sections and metadata;
-- generated file artifact references.
+- generated artifact references.
 
-Generated files are stored as report artifacts. They should not be treated as the
-only system-of-record.
-
-## Runtime persistence
-
-When enabled via `WorkflowBootstrapConfig`, runtime persistence subscribes to the
-canonical runtime `EventBus` and projects workflow run, node run, and runtime
-event records into PostgreSQL. It does not introduce a parallel execution path
-and should not bypass `WorkflowFacade` or `WorkflowBootstrap`.
-
-Persisted runtime data supports replay, audit, CLI history, workflow status, and
-progress history. Raw runtime dumps are not valid RAG source documents.
+Generated files should be linked as report artifacts rather than treated as the
+only system of record.
 
 ## Telemetry persistence
 
 Telemetry persistence is operational observability storage. It is intentionally
-separate from curated intelligence/reporting records.
+separate from curated intelligence, reports, and RAG source records.
 
 Telemetry tables include:
 
@@ -445,168 +326,58 @@ Telemetry tables include:
 
 Rules:
 
-- Keep existing JSONL runtime telemetry intact until explicitly replaced.
-- Use `TelemetryPersistenceService` only as an opt-in application layer over
-  `TelemetryPersistenceRepository`.
-- Treat telemetry and raw runtime events as operational audit/observability
-  records, not curated RAG source documents.
-- Do not ingest raw telemetry payloads directly into vector stores.
+- Use telemetry persistence for observability, diagnostics, retention, and trace
+  correlation.
+- Telemetry persistence failures should be visible but non-fatal to otherwise
+  valid domain results.
+- Do not ingest raw telemetry records directly into RAG. If operational history
+  is ever useful for retrieval, create a typed curated summary first.
 
-## RAG source records, eligibility, and vector stores
+## Backtesting persistence
 
-RAG/vector/graph stores are downstream projections derived from curated,
-eligible PostgreSQL records.
+Backtesting uses the production runtime and service contracts. Persistence stores
+scenario definitions, run metadata, deterministic steps, portfolio snapshots,
+fills, metrics, and artifacts. Backtest records are durable evidence and may
+become RAG-eligible only through explicit typed source loaders and eligibility
+rules.
 
-Pre-RAG V3 canonical flow:
+The runtime remains unaware of live versus simulated execution mode. Execution
+mode belongs in first-class lineage and completed-run/projection records, not in
+parallel runtime state models.
 
-```text
-curated PostgreSQL records
-    -> metadata-only eligibility decision
-    -> rag_source_eligibility
-    -> optional curated document build when eligibility is required
-    -> rag_documents / rag_chunks in PostgreSQL
-    -> optional rag_embedding_jobs only when explicitly enabled
-    -> future embedding worker
-    -> Qdrant / Chroma / Neo4j derived indexes
-```
+## Query, lineage, validation, audit, and retention support
 
-Embedding job creation is opt-in during V3. The curated builder's default is to
-avoid queuing embedding jobs unless explicitly requested.
+The persistence layer includes cross-domain support services:
 
-Canonical RAG source categories are:
-
-| RAG source category | PostgreSQL sources |
-| --- | --- |
-| Reports | `reports`, `report_sections` |
-| Agent signals/intelligence | `agent_signals`, `agent_reasoning`, `agent_recommendations`, `agent_risk_assessments` |
-| Recommendations | `recommendations`, `trade_setups`, `watchlist_items`, `recommendation_rationales`, `recommendation_outcomes` |
-| Portfolio snapshots | `portfolio_state_history`, `portfolio_positions_history`, `portfolio_positions_latest`, `portfolio_exposure_snapshots`, `portfolio_risk_snapshots`, `portfolio_allocation_snapshots` |
-| Technical snapshots | `technical_analysis_snapshots` plus supporting market context/indicator records when needed |
-| Macro snapshots | `macro_regime_snapshots` plus supporting macro observations/calendar records when needed |
-| News summaries | `news_analysis_snapshots` with article references from `news_articles` |
-| Sentiment snapshots | `sentiment_snapshots` with supporting `sentiment_sources` |
-| Attribution references | `attribution_records`, `signal_attribution`, `recommendation_attribution` |
-
-Rules:
-
-- Build RAG documents from persisted curated source records, not provider
-  payloads, runtime dumps, CLI console output, JSONL telemetry, or vector-store
-  state.
-- Preserve full report text, LLM reasoning, recommendation rationale, and source
-  attribution; do not truncate at the persistence boundary.
-- Mark source eligibility in `rag_source_eligibility` before requiring gated
-  curated RAG builds.
-- Store document text, chunks, metadata, source table, source id, and source type
-  in PostgreSQL before any future vector-store write.
-- Treat `rag_documents`, `rag_chunks`, and explicitly queued
-  `rag_embedding_jobs` as the durable source/queue layer for downstream
-  embedding projection.
-- Treat Qdrant, Chroma, and Neo4j as rebuildable projections, not canonical
-  records.
-- Keep vector-store writes out of PostgreSQL persistence services. Embedding
-  workers should read curated RAG records and write derived indexes separately.
-- Raw workflow events, node runs, telemetry events, telemetry metrics, and traces
-  are excluded from canonical RAG sources unless a future curated summarization
-  service transforms them into typed domain records first.
-
-## Final pre-RAG readiness checklist
-
-Full RAG ingestion, embedding workers, vector-store writes, graph-store writes,
-retrieval APIs, or RAG orchestration workflows may begin only after every item
-below is satisfied.
-
-### Required PostgreSQL foundation
-
-- [ ] Alembic is at head and includes all persistence revisions through
-  `20260530_0019`.
-- [ ] `Base.metadata` imports all persistence models, including
-  `persistence_audit_events`, `rag_source_eligibility`, and
-  `persistence_retention_policies`.
-- [ ] Required V1, V2, and V3 PostgreSQL persistence tables exist in the target
-  database.
-- [ ] Application persistence services remain the canonical typed read/write
-  boundaries.
-- [ ] Repositories remain infrastructure concerns and are not queried directly
-  by future RAG workflows.
-
-### Canonical eligible source tables
-
-- [ ] Curated reports: `reports`, `report_sections`, `report_versions`, and
-  `report_artifacts`.
-- [ ] Recommendations: `recommendations`, `recommendation_rationales`,
-  `recommendation_outcomes`, `trade_setups`, and `watchlist_items`.
-- [ ] Agent intelligence: `agent_signals`, `agent_reasoning`,
-  `agent_recommendations`, and `agent_risk_assessments`.
-- [ ] Attribution: `attribution_records`, `signal_attribution`, and
-  `recommendation_attribution`.
-- [ ] Portfolio snapshots: `portfolio_state_history`,
-  `portfolio_positions_history`, `portfolio_positions_latest`,
-  `portfolio_exposure_snapshots`, `portfolio_risk_snapshots`, and
-  `portfolio_allocation_snapshots`.
-- [ ] Market and technical summaries: `technical_analysis_snapshots`,
-  `market_context_snapshots`, `market_breadth_snapshots`, and selected
-  `market_indicators` only when summarized or curated.
-- [ ] Macro summaries: `macro_regime_snapshots`, selected
-  `macro_observations`, and selected `economic_calendar_events`.
-- [ ] News summaries: `news_analysis_snapshots` with supporting
-  `news_articles` references.
-- [ ] Sentiment summaries: `sentiment_snapshots` with supporting
-  `sentiment_sources`.
-
-### Eligibility and quality rules
-
-- [ ] `rag_source_eligibility` marks each source by `source_table`,
-  `source_id`, and `source_type`.
-- [ ] Eligibility records include reviewed timestamp, reason, quality score,
-  and metadata.
-- [ ] Default rules keep curated reports, meaningful reasoning,
-  recommendations with rationale, and macro/technical/news/sentiment summaries
-  eligible by default.
-- [ ] Default rules keep raw runtime records, raw telemetry records, raw
-  provider payload/fact rows, operational errors, empty sources, and unknown
-  sources ineligible by default.
-- [ ] Validation checks have run for timestamps, score ranges, lineage, source
+- Query primitives and `PersistenceListResult[T]` / `PersistenceReadResult[T]`
+  envelopes for typed pagination, sorting, filtering, and metadata.
+- Relational lineage traversal over `persistence_lineage_links`.
+- Non-mutating validation checks for timestamps, score ranges, lineage, source
   identity, and dedupe keys.
-- [ ] Lineage links exist where source records were created from workflows or
-  derived from other persisted records.
-- [ ] Export and report-history paths preserve full report text, LLM reasoning,
-  rationales, and attribution without truncation.
+- Append-only audit events in `persistence_audit_events`.
+- Dry-run retention planning through `persistence_retention_policies`.
+- Health and diagnostics checks for connectivity, Alembic revision state,
+  metadata import, and required table availability.
 
-### Excluded data types
+Retention support is advisory unless a future destructive lifecycle plan adds
+policy, governance, approval, telemetry, and audit boundaries. Do not physically
+delete canonical records through retention services without that explicit path.
 
-- [ ] Do not ingest `workflow_runs`, `workflow_node_runs`, `workflow_events`,
-  or `workflow_state_snapshots` as raw RAG documents.
-- [ ] Do not ingest `telemetry_events`, `telemetry_metrics`,
-  `telemetry_traces`, `workflow_metrics`, `agent_metrics`, or
-  `provider_metrics` as raw RAG documents.
-- [ ] Do not ingest raw provider payloads, HTTP/SDK responses, raw CLI output,
-  operational logs, cache files, JSONL telemetry, or generated debug artifacts
-  directly.
-- [ ] Do not treat Qdrant, Chroma, Neo4j, or any vector/graph index as
-  canonical source data.
+## Excluded RAG and persistence sources
 
-### Pre-ingestion gates and no-vector/no-graph constraints
+The following are not canonical curated records and should not be ingested into
+RAG or treated as business system-of-record data without an explicit typed
+curation layer:
 
-- [ ] Health and diagnostics reports are healthy, or degraded items are
-  documented with an explicit remediation owner.
-- [ ] V3 migration coverage tests pass for audit, RAG eligibility, and
-  retention policy tables.
-- [ ] Application persistence, export, and API-readiness tests pass.
-- [ ] `queue_embedding_jobs` remains explicitly opt-in until a dedicated
-  embedding-worker plan is approved.
-- [ ] `require_source_eligibility` is explicitly enabled for curated RAG builds
-  that must be gated.
-- [ ] Future RAG pipelines read through typed application services or curated
-  RAG builders, not ad hoc SQL.
-- [ ] Vector/graph write paths remain downstream projections with replay,
-  telemetry, audit, lineage, idempotency, and rebuild-readiness criteria defined
-  before implementation or expansion.
-- [ ] No V3 persistence service writes directly to Qdrant, Chroma, Neo4j, or any
-  embedding/vector/graph runtime.
-
-If any checklist item fails, finish the persistence or data-quality gap before
-starting RAG ingestion, embedding execution, vector-store writes, or graph-store
-writes.
+- `workflow_runs`, `workflow_node_runs`, `workflow_events`, and raw
+  `workflow_state_snapshots`;
+- `completed_workflow_runs` and `completed_workflow_node_outputs` as raw dumps;
+- `telemetry_events`, `telemetry_metrics`, `telemetry_traces`,
+  `workflow_metrics`, `agent_metrics`, and `provider_metrics`;
+- raw provider payloads and HTTP/SDK responses;
+- raw CLI output;
+- operational logs, caches, JSONL telemetry, and generated debug artifacts;
+- Qdrant, Neo4j, or any vector/graph index state.
 
 ## Validation commands
 
@@ -616,22 +387,32 @@ Run focused persistence tests:
 uv run pytest -q tests/unit/core/database tests/unit/core/storage/persistence tests/unit/application/persistence
 ```
 
-Run focused V3 migration coverage:
-
-```bash
-uv run pytest -q tests/unit/core/database/test_postgres_persistence_v3_migration_coverage.py
-```
-
 Run application persistence integration tests with fakes:
 
 ```bash
 uv run pytest -q tests/integration/application/persistence
 ```
 
-Run guarded PostgreSQL integration tests after setting `POLARIS_TEST_DATABASE_URL`:
+Run guarded PostgreSQL integration tests after starting PostgreSQL and setting
+`POLARIS_TEST_DATABASE_URL` in your shell:
 
 ```bash
 uv run pytest -q tests/integration/core/storage/persistence
+```
+
+Run migration contract tests after starting PostgreSQL and setting
+`POLARIS_TEST_DATABASE_URL`:
+
+```bash
+uv run pytest -q tests/database
+```
+
+Run migration and metadata checks:
+
+```bash
+uv run alembic heads
+uv run alembic current
+uv run python -c "import core.database.models; print('database models import ok')"
 ```
 
 Run static checks for changed Python persistence code:
@@ -639,12 +420,4 @@ Run static checks for changed Python persistence code:
 ```bash
 uv run ruff check core/database core/storage/persistence application/persistence tests/unit/core/database tests/unit/core/storage/persistence tests/unit/application/persistence tests/integration/application/persistence
 uv run mypy --explicit-package-bases core/database core/storage/persistence application/persistence tests/unit/core/database tests/unit/core/storage/persistence tests/unit/application/persistence tests/integration/application/persistence
-```
-
-Run migration metadata checks:
-
-```bash
-uv run alembic heads
-uv run alembic history
-uv run python -c "import core.database.models; print('database models import ok')"
 ```

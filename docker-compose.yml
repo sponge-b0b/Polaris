@@ -17,6 +17,13 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    
+    # Health check so clients knows exactly when it is safe to connect
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POLARIS_POSTGRES_USER:-polaris}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   qdrant:
     image: qdrant/qdrant:v1.18.2
@@ -79,6 +86,26 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: polaris_langfuse
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Links directly to container alias over internal Docker networking
+      - DATABASE_URL=postgresql://${LANGFUSE_POSTGRES_USER:-langfuse}:${LANGFUSE_POSTGRES_PASSWORD}@postgres:5432/langfuse
+      # Alphanumeric keys for encrypting web browser dashboard sessions
+      - NEXTAUTH_SECRET=polaris_local_secret_session_string_123
+      - SALT=polaris_local_salt_string_456
+      - NEXTAUTH_URL=http://localhost:3000
+      - TELEMETRY_ENABLED=false
+      - LANGFUSE_ENABLE_OTEL=true
 
   jaeger:
     image: jaegertracing/all-in-one:1.57

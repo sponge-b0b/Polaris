@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any, Dict
 
+from application.observability import AiObservationStatus
+from application.observability import static_prompt_hash
 from core.llm.llm_service import LLMService
 
 from core.runtime.contracts.runtime_node import RuntimeNode
@@ -13,6 +16,11 @@ from core.utils.utils import _safe_float
 from intelligence.prompts.system.technical_agent_prompt import (
     TECHNICAL_AGENT_SYSTEM_PROMPT,
 )
+
+from intelligence.observability import IntelligenceAiObservabilityProjectorPort
+from intelligence.observability import IntelligenceAiObservabilityRecorder
+from intelligence.observability import llm_model_name
+from intelligence.observability import record_intelligence_generation_observation
 from intelligence.telemetry import telemetry_context_from_runtime
 
 from application.services.technical.technical_analysis_service import (
@@ -28,6 +36,9 @@ from domain.workflow_outputs import (
     TECHNICAL_ANALYSIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
+
+
+TECHNICAL_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(TECHNICAL_AGENT_SYSTEM_PROMPT)
 
 
 class TechnicalAgent(RuntimeNode):
@@ -69,12 +80,17 @@ class TechnicalAgent(RuntimeNode):
         technical_service: TechnicalAnalysisService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        ai_observability_projector: IntelligenceAiObservabilityProjectorPort
+        | None = None,
     ) -> None:
 
         self.llm_service = llm_service
         self.technical_service = technical_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
+        self.ai_observability = IntelligenceAiObservabilityRecorder(
+            ai_observability_projector
+        )
 
     # ============================================================
     # EXECUTE
@@ -234,6 +250,8 @@ class TechnicalAgent(RuntimeNode):
         # LLM INFERENCE
         # ========================================================
 
+        llm_started_at = perf_counter()
+        llm_status = AiObservationStatus.SUCCESS
         try:
             llm_response = self.llm_service.chat(
                 system_prompt=(TECHNICAL_AGENT_SYSTEM_PROMPT),
@@ -246,6 +264,7 @@ class TechnicalAgent(RuntimeNode):
                 ],
             )
         except Exception as error:
+            llm_status = AiObservationStatus.FAILED
             await self.intelligence_telemetry.emit_agent_degraded(
                 agent_name=self.node_name,
                 reason="llm_inference_failure",
@@ -265,6 +284,7 @@ class TechnicalAgent(RuntimeNode):
         # ========================================================
 
         if not isinstance(llm_response, dict) or "error" in llm_response:
+            llm_status = AiObservationStatus.DEGRADED
             llm_response = {
                 "outlook": trend_direction,
                 "summary": ("Technical analysis fallback mode."),
@@ -275,6 +295,32 @@ class TechnicalAgent(RuntimeNode):
                 "support_levels": [],
                 "resistance_levels": [],
             }
+
+        await record_intelligence_generation_observation(
+            self.ai_observability,
+            context=context,
+            node_name=self.node_name,
+            component_name="technical_llm_reasoning",
+            status=llm_status,
+            latency_seconds=perf_counter() - llm_started_at,
+            model_name=llm_model_name(self.llm_service),
+            provider_name="LLMService",
+            prompt_name="technical_agent_system_prompt",
+            prompt_version="static-v1",
+            prompt_hash=TECHNICAL_AGENT_SYSTEM_PROMPT_HASH,
+            input_shape=(
+                f"context_characters={len(llm_context)};"
+                f"breadth_fields={len(breadth)};"
+                f"market_context_fields={len(market_context)}"
+            ),
+            output_shape=f"response_keys={len(llm_response)}",
+            metadata={
+                "symbol": str(symbol),
+                "regime": str(regime.get("regime", "neutral")),
+                "confidence": confidence,
+                "fallback": llm_status is not AiObservationStatus.SUCCESS,
+            },
+        )
 
         # ========================================================
         # SIGNALS

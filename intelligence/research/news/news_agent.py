@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from datetime import UTC
 from datetime import datetime
+from time import perf_counter
 from typing import Any, Dict, List
 
+from application.observability import AiObservationStatus
+from application.observability import static_prompt_hash
 from core.llm.llm_service import LLMService
 
 
@@ -14,6 +17,11 @@ from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from intelligence.prompts.system.news_agent_prompt import (
     NEWS_AGENT_SYSTEM_PROMPT,
 )
+
+from intelligence.observability import IntelligenceAiObservabilityProjectorPort
+from intelligence.observability import IntelligenceAiObservabilityRecorder
+from intelligence.observability import llm_model_name
+from intelligence.observability import record_intelligence_generation_observation
 from intelligence.telemetry import telemetry_context_from_runtime
 
 from application.services.news.news_service import (
@@ -27,6 +35,9 @@ from domain.workflow_outputs import (
     NEWS_ANALYSIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
+
+
+NEWS_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(NEWS_AGENT_SYSTEM_PROMPT)
 
 
 class NewsAgent(RuntimeNode):
@@ -58,12 +69,17 @@ class NewsAgent(RuntimeNode):
         llm_service: LLMService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        ai_observability_projector: IntelligenceAiObservabilityProjectorPort
+        | None = None,
     ) -> None:
 
         self.news_service = news_service
         self.llm_service = llm_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
+        self.ai_observability = IntelligenceAiObservabilityRecorder(
+            ai_observability_projector
+        )
 
     # ============================================================
     # MAIN EXECUTION
@@ -127,6 +143,8 @@ class NewsAgent(RuntimeNode):
         # LLM INFERENCE
         # ========================================================
 
+        llm_started_at = perf_counter()
+        llm_status = AiObservationStatus.SUCCESS
         try:
             llm_response = self.llm_service.chat(
                 system_prompt=NEWS_AGENT_SYSTEM_PROMPT,
@@ -139,6 +157,7 @@ class NewsAgent(RuntimeNode):
                 ],
             )
         except Exception as error:
+            llm_status = AiObservationStatus.FAILED
             await self.intelligence_telemetry.emit_agent_degraded(
                 agent_name=self.node_name,
                 reason="llm_inference_failure",
@@ -158,6 +177,31 @@ class NewsAgent(RuntimeNode):
         # ========================================================
 
         if not isinstance(llm_response, Dict) or "error" in llm_response:
+            await record_intelligence_generation_observation(
+                self.ai_observability,
+                context=context,
+                node_name=self.node_name,
+                component_name="news_llm_reasoning",
+                status=AiObservationStatus.DEGRADED,
+                latency_seconds=perf_counter() - llm_started_at,
+                model_name=llm_model_name(self.llm_service),
+                provider_name="LLMService",
+                prompt_name="news_agent_system_prompt",
+                prompt_version="static-v1",
+                prompt_hash=NEWS_AGENT_SYSTEM_PROMPT_HASH,
+                input_shape=(
+                    f"context_characters={len(llm_context)};"
+                    f"article_count={len(articles)}"
+                ),
+                output_shape="fallback=true",
+                metadata={
+                    "symbol": str(symbol),
+                    "query": str(query),
+                    "article_count": len(articles),
+                    "fallback": True,
+                    "llm_failed": llm_status is AiObservationStatus.FAILED,
+                },
+            )
             return RuntimeNodeOutput.success_output(
                 outputs=dict(
                     observed_at=observed_at.isoformat(),
@@ -219,6 +263,32 @@ class NewsAgent(RuntimeNode):
         confidence = self._calculate_confidence(
             articles=articles,
             llm_response=llm_response,
+        )
+
+        await record_intelligence_generation_observation(
+            self.ai_observability,
+            context=context,
+            node_name=self.node_name,
+            component_name="news_llm_reasoning",
+            status=llm_status,
+            latency_seconds=perf_counter() - llm_started_at,
+            model_name=llm_model_name(self.llm_service),
+            provider_name="LLMService",
+            prompt_name="news_agent_system_prompt",
+            prompt_version="static-v1",
+            prompt_hash=NEWS_AGENT_SYSTEM_PROMPT_HASH,
+            input_shape=(
+                f"context_characters={len(llm_context)};article_count={len(articles)}"
+            ),
+            output_shape=f"response_keys={len(llm_response)}",
+            metadata={
+                "symbol": str(symbol),
+                "query": str(query),
+                "article_count": len(articles),
+                "market_relevance": market_relevance,
+                "confidence": confidence,
+                "fallback": False,
+            },
         )
 
         # ========================================================

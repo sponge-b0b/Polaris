@@ -8,6 +8,7 @@ from typing import cast
 
 import pytest
 
+from application.observability import AiObservationType
 from application.rag.generation import RagAnswerGenerator
 from application.rag.routing.query_routing_models import RagQueryModelExecution
 from application.rag.graphs import RagCorrectiveAction
@@ -42,6 +43,7 @@ from integration.providers.rag.answer_generation_provider import (
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationResult,
 )
+from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
 @pytest.mark.asyncio
@@ -259,6 +261,53 @@ async def test_rag_service_emits_observability_for_generation_and_log_persistenc
         point.name == "application.rag.operation.duration_seconds"
         for point in observability.metrics_store.points()
     )
+
+
+@pytest.mark.asyncio
+async def test_rag_service_projects_sanitized_ai_query_observation() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth.",
+        request_id="rag_query:service-ai-observability",
+        workflow_name="morning_report",
+        execution_id="exec-aiobs",
+        metadata={"trace_id": "trace-aiobs"},
+    )
+    context = _context(
+        context_id="chunk-aiobs",
+        text="SPY breadth improved with broad participation.",
+    )
+    projector = RecordingAiObservabilityProjector()
+    service = RagService(
+        pipeline=FakePipeline(
+            retriever=FakeRetriever(contexts=(context,)),
+            answer_generator=RagAnswerGenerator(
+                answer_provider=FakeAnswerProvider(
+                    result=RagAnswerGenerationResult(
+                        answer_text="SPY breadth improved with broad participation [C1].",
+                        model="unit-test-model",
+                        provider_name="unit-test-provider",
+                    )
+                )
+            ),
+        ),
+        repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        ai_observability_projector=projector,
+    )
+
+    result = await service.run(request)
+
+    assert result.status == "answered"
+    assert len(projector.observations) == 1
+    observation = projector.observations[0]
+    assert observation.observation_type is AiObservationType.RAG_QUERY
+    assert observation.name == "rag_query"
+    assert observation.correlation_ids.workflow_name == "morning_report"
+    assert observation.correlation_ids.execution_id == "exec-aiobs"
+    assert observation.correlation_ids.trace_id == "trace-aiobs"
+    assert observation.prompt is None
+    assert observation.response is None
+    assert observation.metadata["context_count"] == 1
+    assert "SPY breadth improved" not in repr(observation)
 
 
 @pytest.mark.asyncio

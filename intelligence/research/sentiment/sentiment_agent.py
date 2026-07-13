@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from datetime import UTC
 from datetime import datetime
+from time import perf_counter
 from typing import Any, Dict
 
+from application.observability import AiObservationStatus
+from application.observability import static_prompt_hash
 from core.llm.llm_service import LLMService
 
 from core.runtime.contracts.runtime_node import RuntimeNode
@@ -13,6 +16,11 @@ from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from intelligence.prompts.system.sentiment_agent_prompt import (
     SENTIMENT_AGENT_SYSTEM_PROMPT,
 )
+
+from intelligence.observability import IntelligenceAiObservabilityProjectorPort
+from intelligence.observability import IntelligenceAiObservabilityRecorder
+from intelligence.observability import llm_model_name
+from intelligence.observability import record_intelligence_generation_observation
 from intelligence.telemetry import telemetry_context_from_runtime
 
 from application.services.sentiment.sentiment_service import (
@@ -28,6 +36,9 @@ from domain.workflow_outputs import (
     SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
+
+
+SENTIMENT_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(SENTIMENT_AGENT_SYSTEM_PROMPT)
 
 
 class SentimentAgent(RuntimeNode):
@@ -63,12 +74,17 @@ class SentimentAgent(RuntimeNode):
         llm_service: LLMService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        ai_observability_projector: IntelligenceAiObservabilityProjectorPort
+        | None = None,
     ) -> None:
 
         self.sentiment_service = sentiment_service
         self.llm_service = llm_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
+        self.ai_observability = IntelligenceAiObservabilityRecorder(
+            ai_observability_projector
+        )
 
     # ============================================================
     # MAIN EXECUTION
@@ -159,6 +175,8 @@ class SentimentAgent(RuntimeNode):
         # LLM INFERENCE
         # ========================================================
 
+        llm_started_at = perf_counter()
+        llm_status = AiObservationStatus.SUCCESS
         try:
             llm_response = self.llm_service.chat(
                 system_prompt=(SENTIMENT_AGENT_SYSTEM_PROMPT),
@@ -171,6 +189,7 @@ class SentimentAgent(RuntimeNode):
                 ],
             )
         except Exception as error:
+            llm_status = AiObservationStatus.FAILED
             await self.intelligence_telemetry.emit_agent_degraded(
                 agent_name=self.node_name,
                 reason="llm_inference_failure",
@@ -190,6 +209,7 @@ class SentimentAgent(RuntimeNode):
         # ========================================================
 
         if not isinstance(llm_response, Dict) or "error" in llm_response:
+            llm_status = AiObservationStatus.DEGRADED
             llm_response = {
                 "summary": ("Sentiment interpretation unavailable."),
                 "sentiment_bias": regime,
@@ -222,6 +242,32 @@ class SentimentAgent(RuntimeNode):
         confidence = max(
             0.0,
             min(1.0, confidence),
+        )
+
+        await record_intelligence_generation_observation(
+            self.ai_observability,
+            context=context,
+            node_name=self.node_name,
+            component_name="sentiment_llm_reasoning",
+            status=llm_status,
+            latency_seconds=perf_counter() - llm_started_at,
+            model_name=llm_model_name(self.llm_service),
+            provider_name="LLMService",
+            prompt_name="sentiment_agent_system_prompt",
+            prompt_version="static-v1",
+            prompt_hash=SENTIMENT_AGENT_SYSTEM_PROMPT_HASH,
+            input_shape=(
+                f"context_characters={len(llm_context)};"
+                f"sentiment_fields={len(sentiment)};"
+                f"feature_fields={len(features)}"
+            ),
+            output_shape=f"response_keys={len(llm_response)}",
+            metadata={
+                "symbol": str(symbol),
+                "regime": str(regime),
+                "confidence": confidence,
+                "fallback": llm_status is not AiObservationStatus.SUCCESS,
+            },
         )
 
         # ========================================================

@@ -7,6 +7,19 @@ from typing import cast
 
 import pytest
 
+from application.observability import AiObservationType
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_HASH,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_NAME,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_VERSION,
+)
 from application.rag.routing.query_routing_models import RagAdaptiveTriage
 from application.rag.graphs import RagContextEvaluation
 from application.rag.graphs import RagContextQuality
@@ -26,6 +39,7 @@ from application.rag.contracts.rag_context import RagSource
 from application.rag.routing.query_routing_models import RagStandaloneQueryRewrite
 from application.rag.graphs import RagServiceGraph
 from application.rag.graphs import initial_rag_graph_state
+from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
 def test_initial_rag_graph_state_preserves_typed_request() -> None:
@@ -90,6 +104,70 @@ async def test_retrieval_route_runs_grounded_graph_stages() -> None:
         "self_rag_reflection",
         "post_processing_safety",
     ]
+
+
+@pytest.mark.asyncio
+async def test_rag_service_graph_projects_stage_ai_observations() -> None:
+    request = _request("ai-observability")
+    context = _context()
+    projector = RecordingAiObservabilityProjector()
+    graph = RagServiceGraph(
+        query_routing_service=FakeRoutingService(route=RagRetrievalRoute.RETRIEVAL),
+        retriever=FakeRetriever(batches=((context,),)),
+        answer_generator=FakeAnswerGenerator(),
+        ai_observability_projector=projector,
+    )
+
+    result = await graph.run(request)
+
+    assert result.status == "answered"
+    observations_by_name = {
+        observation.name: observation for observation in projector.observations
+    }
+    assert (
+        observations_by_name["input_security_guard"].observation_type
+        is AiObservationType.RAG_SECURITY
+    )
+    assert (
+        observations_by_name["memory_context"].observation_type
+        is AiObservationType.RAG_ROUTING
+    )
+    adaptive = observations_by_name["adaptive_classifier"]
+    assert adaptive.metadata["complexity"] == "moderate"
+    assert adaptive.prompt_reference is not None
+    assert adaptive.prompt_reference.prompt_hash == "hash-adaptive_triage"
+    assert (
+        observations_by_name["route_selection"].metadata["selected_route"]
+        == "retrieval"
+    )
+    assert (
+        observations_by_name["context_security_guard"].observation_type
+        is AiObservationType.RAG_SECURITY
+    )
+    assert (
+        observations_by_name["crag_evaluator"].observation_type
+        is AiObservationType.RAG_CRAG
+    )
+    secure_generation = observations_by_name["secure_generation"]
+    assert secure_generation.observation_type is AiObservationType.RAG_GENERATION
+    assert secure_generation.prompt_reference is not None
+    assert (
+        secure_generation.prompt_reference.prompt_name
+        == RAG_ANSWER_GENERATION_PROMPT_NAME
+    )
+    assert (
+        observations_by_name["self_rag_reflection"].observation_type
+        is AiObservationType.RAG_SELF_RAG
+    )
+    assert (
+        observations_by_name["answer_quality"].observation_type
+        is AiObservationType.RAG_ANSWER_QUALITY
+    )
+    assert all(observation.prompt is None for observation in projector.observations)
+    assert all(observation.response is None for observation in projector.observations)
+    assert "SPY breadth improved as participation widened" not in repr(
+        projector.observations
+    )
 
 
 @pytest.mark.asyncio
@@ -291,6 +369,12 @@ class FakeAnswerGenerator:
             answer_text="SPY breadth improved [C1].",
             contexts=contexts,
             confidence_score=0.9,
+            metadata={
+                "prompt_name": RAG_ANSWER_GENERATION_PROMPT_NAME,
+                "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION,
+                "prompt_hash": RAG_ANSWER_GENERATION_PROMPT_HASH,
+                "prompt_source": RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+            },
         )
 
 
@@ -336,6 +420,10 @@ def _execution(operation: str) -> RagQueryModelExecution:
         provider_name="unit-test-provider",
         duration_ms=1.0,
         success=True,
+        prompt_name=f"rag_{operation}_system_prompt",
+        prompt_version="static-v1",
+        prompt_hash=f"hash-{operation}",
+        prompt_source="polaris.source_controlled",
     )
 
 

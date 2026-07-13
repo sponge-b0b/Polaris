@@ -15,6 +15,7 @@ and verification intent rather than listing every test file.
 | RAG unit and boundary behavior | `uv run pytest -q tests/unit/application/rag tests/unit/integration/providers/rag tests/unit/integration/clients/rag` | None |
 | Live RAG projection and reranker checks | `uv run pytest -q tests/integration/rag` | Qdrant, Neo4j, and/or BGE reranker depending on file |
 | Observability contracts without live infrastructure | `uv run pytest -q tests/unit/telemetry tests/integration/telemetry/test_bootstrap_observability.py tests/integration/telemetry/test_opentelemetry_sink.py` | None |
+| Langfuse AI-observability contracts without live infrastructure | `uv run pytest -q tests/unit/application/observability tests/unit/config/test_langfuse_observability_settings.py` | None |
 | Live trace topology parity | `uv run pytest -q tests/integration/telemetry/test_live_trace_topology.py` | PostgreSQL, Jaeger/OTLP endpoint, and required env vars |
 | CLI contract checks | `uv run pytest -q tests/unit/interfaces/cli` | None |
 | MCP transport/tool boundary checks | `uv run pytest -q tests/unit/mcp_server tests/integration/mcp_server` | None for the current mocked transport contracts |
@@ -65,6 +66,9 @@ Important unit areas:
 - `tests/unit/application/rag/` — RAG service graph, retrieval, routing,
   quality, security, chunk/source loading, projection, operations, and package
   boundary contracts.
+- `tests/unit/application/observability/` — Langfuse AI-observability
+  contracts, projection mapping, durable export worker behavior, SDK adapter
+  mapping, dataset/evaluation dataset support, and import-boundary enforcement.
 - `tests/unit/core/database/` — SQLAlchemy model shape, settings, model coverage,
   and persistence table contracts. These are model-level tests and do not need a
   live database.
@@ -181,6 +185,7 @@ live-service tests as part of a routine unit-test loop.
 | Jaeger / OTLP | `jaeger` | UI `http://localhost:16686`; OTLP endpoint from env | `tests/integration/telemetry/test_live_trace_topology.py` |
 | Prometheus | `prometheus` | `http://localhost:9090` | Manual scrape/dashboard validation; current automated tests mostly use fakes/local exporters |
 | Grafana | `grafana` | `http://localhost:3000` | Manual dashboard validation; not required by the current automated tests |
+| Langfuse | external/self-hosted | configured by `POLARIS_LANGFUSE_HOST` | Optional live AI-observability smoke checks; unit tests use fakes and do not require Langfuse |
 
 Start only the services you need:
 
@@ -211,6 +216,11 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_TEST_DATABASE_URL` | `tests/database`, PostgreSQL persistence integration, live trace topology | Use a local test database. Keep credentials out of source, tests, docs, and plans. |
 | `POLARIS_TEST_JAEGER_URL` | `tests/integration/telemetry/test_live_trace_topology.py` | Usually the Jaeger query/UI base URL, for example `http://localhost:16686`. |
 | `POLARIS_TEST_OTEL_ENDPOINT` | `tests/integration/telemetry/test_live_trace_topology.py` | OTLP endpoint used by the test exporter. |
+| `POLARIS_LANGFUSE_HOST` | optional live Langfuse smoke checks and production export worker configuration | Self-hosted or approved Langfuse endpoint. |
+| `POLARIS_LANGFUSE_PUBLIC_KEY` | optional live Langfuse smoke checks and production export worker configuration | Keep in local shell state or a secrets manager. |
+| `POLARIS_LANGFUSE_SECRET_KEY` | optional live Langfuse smoke checks and production export worker configuration | Secret value; never commit or paste into tracked files. |
+| `POLARIS_LANGFUSE_ENVIRONMENT` | Langfuse projection metadata | Defaults to `development`. |
+| `POLARIS_LANGFUSE_RELEASE` | Langfuse projection metadata | Optional release/build identifier. |
 
 Example with redacted placeholders:
 
@@ -295,6 +305,37 @@ uv run pytest -q tests/integration/rag/test_bge_reranker.py
 `test_qdrant_collection_lifecycle.py` and `test_bge_reranker.py` skip when their
 service is unavailable. The Neo4j projection test expects Neo4j to be available;
 start Neo4j before running it.
+
+### Did Langfuse AI observability remain valid without a live Langfuse service?
+
+```bash
+uv run pytest -q \
+  tests/unit/application/observability \
+  tests/unit/config/test_langfuse_observability_settings.py
+```
+
+Use this after touching AI-observability contracts, Langfuse projection mapping,
+durable export jobs, SDK adapter code, capture policy, dataset/evaluation dataset
+support, or DI wiring. These tests use fakes and recording SDK clients; they do
+not require Langfuse, PostgreSQL, Qdrant, Neo4j, or BGE reranker.
+
+### Did a live Langfuse export path work?
+
+Only run live Langfuse checks when a Langfuse service is confirmed running and
+Langfuse environment variables are set in the shell. Live checks must use a local
+or approved test project and must not include production secrets or unredacted
+customer data.
+
+Current required setup:
+
+```bash
+export POLARIS_LANGFUSE_HOST="http://localhost:<langfuse-port>"
+export POLARIS_LANGFUSE_PUBLIC_KEY="<public-key>"
+export POLARIS_LANGFUSE_SECRET_KEY="<secret-key>"
+```
+
+The repository currently relies on fake-client unit coverage for SDK mapping and
+has no mandatory always-on live Langfuse test in the routine suite.
 
 ### Did CLI output or command wiring remain stable?
 

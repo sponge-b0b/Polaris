@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from application.observability import AiObservationType
 from application.services.base import ServiceRunner
 from application.services.market_events.market_events_service import (
     MarketEventsService,
@@ -19,6 +20,7 @@ from core.telemetry.observability import ObservabilityManager
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
+from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
 WEAK_BREADTH: dict[str, object] = {
@@ -582,10 +584,48 @@ class _FakeTelemetry:
         raise AssertionError(f"No signal named {signal_name} was emitted.")
 
 
+@pytest.mark.asyncio
+async def test_strategy_synthesis_records_ai_observability_projection() -> None:
+    projector = RecordingAiObservabilityProjector()
+    agent = _agent(
+        projector=projector,
+    )
+
+    output = await agent._execute(
+        _context(
+            breadth_state=STRONG_BREADTH,
+            top_50_constituents=["AAPL", "MSFT"],
+        )
+    )
+
+    assert output.success is True
+    assert len(projector.observations) == 1
+    observation = projector.observations[0]
+    assert (
+        observation.observation_type
+        is AiObservationType.INTELLIGENCE_STRATEGY_SYNTHESIS
+    )
+    assert observation.name == "strategy_synthesis"
+    assert observation.correlation_ids.execution_id == "exec-1"
+    assert observation.correlation_ids.node_name == "strategy_synthesis_agent"
+    assert observation.prompt is None
+    assert observation.response is None
+    assert observation.metadata["symbol"] == "SPY"
+    assert observation.metadata["evaluation_count"] == 3
+    assert observation.metadata["fallback"] is False
+    assert observation.metadata["selected_perspective"] in {
+        "bull",
+        "bear",
+        "sideways",
+        None,
+    }
+
+
 def _agent(
     *,
     provider: _NoEventsProvider | None = None,
     telemetry: _FakeTelemetry | None = None,
+    projector: RecordingAiObservabilityProjector | None = None,
 ) -> StrategySynthesisAgent:
     return StrategySynthesisAgent(
         events_service=MarketEventsService(
@@ -600,6 +640,7 @@ def _agent(
             IntelligenceTelemetry,
             telemetry or _FakeTelemetry(),
         ),
+        ai_observability_projector=projector,
     )
 
 

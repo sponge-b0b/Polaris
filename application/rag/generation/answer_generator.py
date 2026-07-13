@@ -4,6 +4,18 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
 
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_HASH,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_NAME,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+)
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_VERSION,
+)
 from application.rag.generation.secure_prompt_builder import SecureRagContextPackage
 from application.rag.generation.secure_prompt_builder import SecureRagPromptBuilder
 from application.rag.contracts.rag_context import RagRetrievedContext
@@ -257,6 +269,10 @@ def _result_metadata(
         ),
         "generation_provider": provider_name,
         "generation_model": model,
+        "prompt_name": RAG_ANSWER_GENERATION_PROMPT_NAME,
+        "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION,
+        "prompt_hash": RAG_ANSWER_GENERATION_PROMPT_HASH,
+        "prompt_source": RAG_ANSWER_GENERATION_PROMPT_SOURCE,
         "provider_metadata": dict(
             provider_metadata,
         ),

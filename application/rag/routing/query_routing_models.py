@@ -5,6 +5,12 @@ from dataclasses import field
 from enum import StrEnum
 
 from core.storage.persistence.rag import JsonObject
+from core.storage.persistence.rag import JsonValue
+
+
+def _validate_optional_non_empty(value: str | None, field_name: str) -> None:
+    if value is not None and not value.strip():
+        raise ValueError(f"{field_name} cannot be empty.")
 
 
 class RagConversationRole(StrEnum):
@@ -34,22 +40,42 @@ class RagQueryModelExecution:
     provider_name: str
     duration_ms: float
     success: bool
+    prompt_name: str | None = None
+    prompt_version: str | None = None
+    prompt_hash: str | None = None
+    prompt_source: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("operation", "configured_model", "provider_name"):
             if not getattr(self, field_name).strip():
                 raise ValueError(f"{field_name} cannot be empty.")
+        for field_name in (
+            "prompt_name",
+            "prompt_version",
+            "prompt_hash",
+            "prompt_source",
+        ):
+            _validate_optional_non_empty(getattr(self, field_name), field_name)
         if self.duration_ms < 0.0:
             raise ValueError("duration_ms cannot be negative.")
 
     def to_dict(self) -> JsonObject:
-        return {
+        payload: dict[str, JsonValue] = {
             "operation": self.operation,
             "configured_model": self.configured_model,
             "provider_name": self.provider_name,
             "duration_ms": self.duration_ms,
             "success": self.success,
         }
+        if self.prompt_name is not None:
+            payload["prompt_name"] = self.prompt_name
+        if self.prompt_version is not None:
+            payload["prompt_version"] = self.prompt_version
+        if self.prompt_hash is not None:
+            payload["prompt_hash"] = self.prompt_hash
+        if self.prompt_source is not None:
+            payload["prompt_source"] = self.prompt_source
+        return payload
 
 
 @dataclass(

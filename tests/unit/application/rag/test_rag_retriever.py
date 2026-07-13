@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from application.observability import AiObservationType
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_context import RagSource
@@ -28,6 +29,7 @@ from integration.providers.rag.reranking_provider import RerankResult
 from integration.providers.rag.vector_index_models import VectorIndexPoint
 from integration.providers.rag.vector_index_models import VectorSearchQuery
 from integration.providers.rag.vector_index_models import VectorSearchResult
+from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
 @pytest.mark.asyncio
@@ -138,6 +140,67 @@ async def test_rag_retriever_fuses_bm25_and_dense_results_deterministically() ->
             ),
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_rag_retriever_projects_sanitized_ai_retrieval_observations() -> None:
+    repository = FakeRagRepository(
+        documents=(
+            _document(
+                "document-aiobs",
+                "# Breadth\n\nMarket breadth risk is improving.",
+                source_id="report-aiobs",
+            ),
+        ),
+        chunks=(
+            _chunk(
+                "chunk-aiobs",
+                "document-aiobs",
+                "Market breadth risk is improving.",
+                source_id="report-aiobs",
+                section_name="breadth",
+            ),
+        ),
+    )
+    projector = RecordingAiObservabilityProjector()
+    retriever = RagRetriever(
+        repository=cast(RagPersistenceRepository, repository),
+        embedding_provider=FakeEmbeddingProvider(
+            vectors=(
+                EmbeddingVector(
+                    text_id="request-aiobs",
+                    dense_vector=(0.1, 0.2, 0.3),
+                    sparse_vector=SparseEmbeddingVector(indices=(1,), values=(0.5,)),
+                    model="bge-large",
+                ),
+            )
+        ),
+        vector_index_provider=FakeVectorIndexProvider(
+            results=(VectorSearchResult(point_id="chunk-aiobs", score=0.72),)
+        ),
+        config=RagRetrieverConfig(collection_name="polaris_rag_chunks"),
+        ai_observability_projector=projector,
+    )
+
+    result = await retriever.retrieve(
+        RagRequest(
+            query="breadth risk",
+            top_k=1,
+            request_id="request-aiobs",
+        )
+    )
+
+    assert result.found_count == 1
+    observation_types = {
+        observation.observation_type for observation in projector.observations
+    }
+    assert AiObservationType.RAG_RETRIEVAL_VECTOR in observation_types
+    assert AiObservationType.RAG_RETRIEVAL_FUSION in observation_types
+    assert AiObservationType.RAG_PARENT_EXPANSION in observation_types
+    assert AiObservationType.RAG_RERANKING in observation_types
+    assert all(observation.prompt is None for observation in projector.observations)
+    assert all(observation.response is None for observation in projector.observations)
+    assert "Market breadth risk is improving" not in repr(projector.observations)
 
 
 @pytest.mark.asyncio

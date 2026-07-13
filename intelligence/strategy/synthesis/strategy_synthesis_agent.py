@@ -4,6 +4,7 @@ from time import perf_counter
 from typing import Any
 from typing import Mapping
 
+from application.observability import AiObservationStatus
 from application.services.base import ServiceRequest, ServiceRunner
 from application.services.market_events.market_events_request import MarketEventsRequest
 from application.services.market_events.market_events_service import MarketEventsService
@@ -18,6 +19,9 @@ from domain.workflow_outputs import (
 from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context,
 )
+from intelligence.observability import IntelligenceAiObservabilityProjectorPort
+from intelligence.observability import IntelligenceAiObservabilityRecorder
+from intelligence.observability import record_strategy_synthesis_observation
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
@@ -53,10 +57,15 @@ class StrategySynthesisAgent(RuntimeNode):
         events_service: MarketEventsService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        ai_observability_projector: IntelligenceAiObservabilityProjectorPort
+        | None = None,
     ) -> None:
         self.events_service = events_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
+        self.ai_observability = IntelligenceAiObservabilityRecorder(
+            ai_observability_projector
+        )
 
     async def _execute(
         self,
@@ -94,6 +103,33 @@ class StrategySynthesisAgent(RuntimeNode):
                 confidence=synthesis_output.confidence,
                 uncertainty=synthesis_output.uncertainty,
             )
+
+        await record_strategy_synthesis_observation(
+            self.ai_observability,
+            context=context,
+            node_name=self.node_name,
+            status=_strategy_observation_status_from_features(
+                synthesis_output.features
+            ),
+            latency_seconds=latency_seconds,
+            input_shape=(
+                f"hypotheses=3;"
+                f"constituents={len(inputs.symbol_constituents)};"
+                f"event_horizon={inputs.event_lookahead_days}"
+            ),
+            output_shape=(
+                f"evaluations={len(_mapping_sequence(synthesis_output.features.get('strategy_hypothesis_evaluations')))};"
+                f"recommendations={len(synthesis_output.recommendations)}"
+            ),
+            metadata=_strategy_features_ai_metadata(
+                features=synthesis_output.features,
+                symbol=inputs.symbol,
+                recommendation_count=len(synthesis_output.recommendations),
+                confidence=synthesis_output.confidence,
+                uncertainty=synthesis_output.uncertainty,
+                fallback=False,
+            ),
+        )
 
         return RuntimeNodeOutput.success_output(
             outputs=synthesis_output.to_runtime_outputs(),
@@ -228,6 +264,29 @@ class StrategySynthesisAgent(RuntimeNode):
             decision=decision,
             reason=reason,
             latency_seconds=latency_seconds,
+        )
+        await record_strategy_synthesis_observation(
+            self.ai_observability,
+            context=context,
+            node_name=self.node_name,
+            status=AiObservationStatus.DEGRADED,
+            latency_seconds=latency_seconds,
+            input_shape="missing_required_inputs",
+            output_shape=(
+                f"evaluations={len(decision.evaluations)};"
+                f"recommendations={len(decision.recommendations)}"
+            ),
+            metadata={
+                **_strategy_decision_ai_metadata(
+                    decision=decision,
+                    symbol=_string_value(
+                        context.workflow_inputs.get("symbol"),
+                        default="SPY",
+                    ),
+                    fallback=True,
+                ),
+                "fallback_reason": reason,
+            },
         )
         return RuntimeNodeOutput.success_output(
             outputs={
@@ -442,6 +501,77 @@ class StrategySynthesisAgent(RuntimeNode):
             ),
             payload=payload,
         )
+
+
+def _strategy_observation_status_from_features(
+    features: Mapping[str, Any],
+) -> AiObservationStatus:
+    if (
+        _string_value(features.get("selection_status"), default="unknown")
+        == StrategySynthesisSelectionStatus.SELECTED.value
+    ):
+        return AiObservationStatus.SUCCESS
+    return AiObservationStatus.DEGRADED
+
+
+def _strategy_features_ai_metadata(
+    *,
+    features: Mapping[str, Any],
+    symbol: str,
+    recommendation_count: int,
+    confidence: float,
+    uncertainty: float,
+    fallback: bool,
+) -> dict[str, object]:
+    evaluations = _mapping_sequence(features.get("strategy_hypothesis_evaluations"))
+    invalidated_count = sum(
+        1 for evaluation in evaluations if evaluation.get("invalidated") is True
+    )
+    degraded_reasons = _string_sequence(features.get("degraded_reasons"))
+    return {
+        "symbol": symbol,
+        "selected_perspective": _optional_string_value(
+            features.get("selected_perspective")
+        ),
+        "selection_status": _string_value(
+            features.get("selection_status"),
+            default="unknown",
+        ),
+        "evaluation_count": len(evaluations),
+        "invalidated_count": invalidated_count,
+        "degraded_reason_count": len(degraded_reasons),
+        "recommendation_count": recommendation_count,
+        "confidence": confidence,
+        "uncertainty": uncertainty,
+        "fallback": fallback,
+    }
+
+
+def _strategy_decision_ai_metadata(
+    *,
+    decision: StrategySynthesisDecision,
+    symbol: str,
+    fallback: bool,
+) -> dict[str, object]:
+    invalidated_count = sum(
+        1 for evaluation in decision.evaluations if evaluation.invalidated
+    )
+    return {
+        "symbol": symbol,
+        "selected_perspective": (
+            None
+            if decision.selected_perspective is None
+            else decision.selected_perspective.value
+        ),
+        "selection_status": decision.selection_status.value,
+        "evaluation_count": len(decision.evaluations),
+        "invalidated_count": invalidated_count,
+        "degraded_reason_count": len(decision.degraded_reasons),
+        "recommendation_count": len(decision.recommendations),
+        "confidence": decision.confidence,
+        "uncertainty": decision.uncertainty,
+        "fallback": fallback,
+    }
 
 
 def _strategy_synthesis_inputs_from_runtime(

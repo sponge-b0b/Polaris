@@ -18,7 +18,9 @@ from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.tracing.trace_context import TraceContext
+from application.observability import AiObservationType
 from intelligence.analysts.technical.technical_agent import TechnicalAgent
+from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
 @pytest.mark.asyncio
@@ -160,6 +162,73 @@ async def test_technical_agent_llm_context_includes_sp500_breadth() -> None:
     assert "S&P 500 MARKET CONTEXT" in llm_context
     assert "McClellan Oscillator" in llm_context
     assert "Price / A-D Divergence" in llm_context
+
+
+@pytest.mark.asyncio
+async def test_technical_agent_records_ai_observability_projection() -> None:
+    projector = RecordingAiObservabilityProjector()
+    agent = TechnicalAgent(
+        llm_service=cast(
+            LLMService,
+            _FakeLLMService(),
+        ),
+        technical_service=cast(
+            TechnicalAnalysisService,
+            object(),
+        ),
+        service_runner=cast(
+            ServiceRunner[Any, Any],
+            _FakeServiceRunner(
+                _analysis_payload(),
+            ),
+        ),
+        intelligence_telemetry=cast(
+            IntelligenceTelemetry,
+            _FakeTelemetry(),
+        ),
+        ai_observability_projector=projector,
+    )
+    context = RuntimeContext(
+        runtime_id="runtime-1",
+        workflow_id="morning_report",
+        execution_id="exec-1",
+        trace_context=TraceContext(
+            trace_id="trace-1",
+            span_id="technical-node-span-1",
+            parent_span_id="workflow-span-1",
+            correlation_id="correlation-1",
+            workflow_id="morning_report",
+            execution_id="exec-1",
+            runtime_id="runtime-1",
+            node_name="technical_agent",
+        ),
+        workflow_inputs={
+            "symbol": "SPY",
+            "days": 365,
+        },
+    )
+
+    output = await agent._execute(
+        context,
+    )
+
+    assert output.success is True
+    assert len(projector.observations) == 1
+    observation = projector.observations[0]
+    assert (
+        observation.observation_type is AiObservationType.INTELLIGENCE_AGENT_REASONING
+    )
+    assert observation.name == "technical_llm_reasoning"
+    assert observation.correlation_ids.execution_id == "exec-1"
+    assert observation.correlation_ids.node_name == "technical_agent"
+    assert observation.prompt is None
+    assert observation.response is None
+    assert observation.prompt_reference is not None
+    assert observation.prompt_reference.prompt_name == "technical_agent_system_prompt"
+    assert observation.prompt_reference.prompt_hash is not None
+    assert observation.prompt_reference.source == "polaris.intelligence"
+    assert observation.metadata["symbol"] == "SPY"
+    assert observation.metadata["fallback"] is False
 
 
 class _FakeLLMService:

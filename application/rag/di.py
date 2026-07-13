@@ -4,6 +4,7 @@ from dishka import Provider
 from dishka import Scope
 from dishka import provide
 
+from application.observability import AiObservabilityProjector
 from application.rag.ingestion.curated_rag_bundle_persistence import (
     CuratedRagBundlePersister,
 )
@@ -229,6 +230,7 @@ class RagApplicationDIProvider(Provider):
         structured_retriever: MarketStructuredRagRetriever,
         graph_retriever: Neo4jGraphRetriever,
         telemetry: ApplicationRagTelemetry,
+        ai_observability_projector: AiObservabilityProjector,
         settings: Settings,
         model_config: RagModelConfig,
     ) -> RagRetriever:
@@ -244,6 +246,7 @@ class RagApplicationDIProvider(Provider):
                 collection_name=settings.QDRANT_COLLECTION,
                 embedding_model=model_config.hybrid_embedding_model,
             ),
+            ai_observability_projector=ai_observability_projector,
         )
 
     @provide
@@ -297,6 +300,7 @@ class RagApplicationDIProvider(Provider):
         security_guard: RagSecurityGuard,
         telemetry: ApplicationRagTelemetry,
         settings: Settings,
+        ai_observability_projector: AiObservabilityProjector,
     ) -> RagServiceGraph:
         web_fallback = (
             RagWebFallbackService(
@@ -317,6 +321,7 @@ class RagApplicationDIProvider(Provider):
             web_fallback_retriever=web_fallback,
             security_guard=security_guard,
             max_loops=1,
+            ai_observability_projector=ai_observability_projector,
         )
 
     @provide
@@ -325,11 +330,13 @@ class RagApplicationDIProvider(Provider):
         pipeline: RagServiceGraph,
         repository: RagPersistenceRepository,
         telemetry: ApplicationRagTelemetry,
+        ai_observability_projector: AiObservabilityProjector,
     ) -> RagService:
         return RagService(
             pipeline=pipeline,
             repository=repository,
             telemetry=telemetry,
+            ai_observability_projector=ai_observability_projector,
         )
 
     @provide

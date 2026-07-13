@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from time import perf_counter
 from typing import Protocol
 from typing import cast
 
@@ -33,6 +34,15 @@ from application.rag.contracts.rag_request import RagRequest
 from application.rag.security.rag_security import RagSecurityGuard
 from application.rag.security.rag_security import safe_grounding_failure_answer
 from application.rag.contracts.rag_result import RagResult
+from application.rag.observability import RagAiObservabilityProjectorPort
+from application.rag.observability import RagAiObservabilityRecorder
+from application.rag.observability import record_answer_quality_observation
+from application.rag.observability import record_crag_observation
+from application.rag.observability import record_generation_observation
+from application.rag.observability import record_hyde_observation
+from application.rag.observability import record_routing_observation
+from application.rag.observability import record_security_observation
+from application.rag.observability import record_self_rag_observation
 from application.rag.retrieval.rag_retriever import RagRetrievalResult
 from application.rag.retrieval.rag_retriever import RagRetriever
 
@@ -99,6 +109,7 @@ class RagServiceGraph:
         web_fallback_retriever: RagWebFallbackRetriever | None = None,
         security_guard: RagSecurityGuard | None = None,
         max_loops: int = 1,
+        ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
     ) -> None:
         if max_loops <= 0:
             raise ValueError("max_loops must be positive.")
@@ -113,12 +124,20 @@ class RagServiceGraph:
         self._security_guard = security_guard or RagSecurityGuard()
         self._policy = RagGraphPolicy()
         self._max_loops = max_loops
+        self._ai_observability = RagAiObservabilityRecorder(ai_observability_projector)
         self._compiled_graph: RagStateGraphProtocol | None = None
 
     async def run(self, request: RagRequest) -> RagResult:
         input_inspection = await self._security_guard.inspect_input(request)
+        await record_security_observation(
+            self._ai_observability,
+            request=request,
+            stage_name="input_security_guard",
+            detected=input_inspection.detected,
+            signal_count=len(input_inspection.signals),
+        )
         if input_inspection.detected:
-            return replace(
+            result = replace(
                 RagResult.no_results(
                     request=request,
                     answer_text=(
@@ -133,18 +152,35 @@ class RagServiceGraph:
                     "security_signals": list(input_inspection.signals),
                 },
             )
+            await record_answer_quality_observation(
+                self._ai_observability,
+                request=request,
+                result=result,
+            )
+            return result
         try:
             final_state = await self.graph.ainvoke(
                 initial_rag_graph_state(request, max_loops=self._max_loops)
             )
         except Exception as exc:
-            return RagResult.failed(request=request, error=str(exc))
+            result = RagResult.failed(request=request, error=str(exc))
+            await record_answer_quality_observation(
+                self._ai_observability,
+                request=request,
+                result=result,
+            )
+            return result
         result = final_state.get("result")
         if result is None:
-            return RagResult.failed(
+            result = RagResult.failed(
                 request=request,
                 error="RAG graph completed without a result.",
             )
+        await record_answer_quality_observation(
+            self._ai_observability,
+            request=request,
+            result=result,
+        )
         return result
 
     @property
@@ -218,6 +254,13 @@ class RagServiceGraph:
             memory=memory,
         )
         rewrite, execution = await self._query_routing_service.rewrite(context)
+        await record_routing_observation(
+            self._ai_observability,
+            request=request,
+            stage_name="memory_context",
+            execution=execution,
+            output_shape=f"rewritten={rewrite.rewritten}",
+        )
         executions = () if execution is None else (execution,)
         return RagGraphState(
             status="running",
@@ -234,6 +277,14 @@ class RagServiceGraph:
             context=context,
             query=rewrite.standalone_query,
         )
+        await record_routing_observation(
+            self._ai_observability,
+            request=_required_request(state),
+            stage_name="adaptive_classifier",
+            execution=execution,
+            output_shape=f"complexity={triage.complexity.value}",
+            metadata={"complexity": triage.complexity.value},
+        )
         return RagGraphState(
             triage=triage,
             model_executions=(*state.get("model_executions", ()), execution),
@@ -248,6 +299,14 @@ class RagServiceGraph:
             context=context,
             query=rewrite.standalone_query,
             triage=triage,
+        )
+        await record_routing_observation(
+            self._ai_observability,
+            request=_required_request(state),
+            stage_name="route_selection",
+            execution=execution,
+            output_shape=f"route={selection.route.value}",
+            metadata={"selected_route": selection.route.value},
         )
         active_request = _request_for_query(
             _required_request(state),
@@ -268,6 +327,12 @@ class RagServiceGraph:
         hyde, execution = await self._query_routing_service.generate_hyde(
             context=context,
             query=rewrite.standalone_query,
+        )
+        await record_hyde_observation(
+            self._ai_observability,
+            request=_required_request(state),
+            execution=execution,
+            hypothetical_document_length=len(hyde.hypothetical_document),
         )
         executions = (*state.get("model_executions", ()), execution)
         active_request = _request_for_query(
@@ -296,6 +361,21 @@ class RagServiceGraph:
             request=request,
             contexts=state["retrieval_result"].contexts,
         )
+        await record_security_observation(
+            self._ai_observability,
+            request=request,
+            stage_name="context_security_guard",
+            detected=bool(
+                sanitation.injection_count
+                or sanitation.executable_markup_count
+                or sanitation.dropped_count
+            ),
+            signal_count=(
+                sanitation.injection_count
+                + sanitation.executable_markup_count
+                + sanitation.dropped_count
+            ),
+        )
         return RagGraphState(
             fused_context=sanitation.contexts,
             reranked_context=sanitation.contexts,
@@ -315,6 +395,13 @@ class RagServiceGraph:
             retained_context = tuple(
                 context for context in contexts if context.context_id in retained_ids
             )
+        await record_crag_observation(
+            self._ai_observability,
+            request=_required_active_request(state),
+            evaluation=evaluation,
+            input_context_count=len(contexts),
+            retained_context_count=len(retained_context),
+        )
         return RagGraphState(
             context_evaluation=evaluation,
             reranked_context=retained_context,
@@ -335,6 +422,14 @@ class RagServiceGraph:
             request=current,
             query=current.normalized_query,
             loop_count=loop_count,
+        )
+        await record_routing_observation(
+            self._ai_observability,
+            request=current,
+            stage_name="query_rewrite",
+            execution=None,
+            output_shape=f"rewritten_query_characters={len(rewritten_query)}",
+            metadata={"loop_count": loop_count},
         )
         return RagGraphState(
             active_request=replace(current, query=rewritten_query),
@@ -379,10 +474,13 @@ class RagServiceGraph:
 
     async def _secure_generation(self, state: RagGraphState) -> RagGraphState:
         request = _required_active_request(state)
+        contexts = state.get("reranked_context", ())
+        generation_started_at = perf_counter()
         result = await self._answer_generator.generate(
             request=request,
-            contexts=state.get("reranked_context", ()),
+            contexts=contexts,
         )
+        generation_duration_seconds = perf_counter() - generation_started_at
         corrective_actions = state.get("corrective_actions", ())
         if result.status == "answered":
             output_inspection = await self._security_guard.inspect_output(
@@ -407,6 +505,20 @@ class RagServiceGraph:
                     *corrective_actions,
                     RagCorrectiveAction.FAIL_CLOSED,
                 )
+            await record_security_observation(
+                self._ai_observability,
+                request=request,
+                stage_name="output_security_guard",
+                detected=output_inspection.detected,
+                signal_count=len(output_inspection.signals),
+            )
+        await record_generation_observation(
+            self._ai_observability,
+            request=request,
+            result=result,
+            input_context_count=len(contexts),
+            duration_seconds=generation_duration_seconds,
+        )
         return RagGraphState(
             result=result,
             draft_answer=result.answer_text,
@@ -418,6 +530,12 @@ class RagServiceGraph:
         result = state["result"]
         reflector = self._answer_reflector
         if reflector is None or result.status != "answered":
+            await record_self_rag_observation(
+                self._ai_observability,
+                request=_required_active_request(state),
+                reflection=None,
+                skipped=True,
+            )
             return RagGraphState(
                 stage_history=_append_stage(state, "self_rag_reflection"),
             )
@@ -432,6 +550,12 @@ class RagServiceGraph:
                 *corrective_actions,
                 RagCorrectiveAction.FAIL_CLOSED,
             )
+        await record_self_rag_observation(
+            self._ai_observability,
+            request=_required_active_request(state),
+            reflection=reflection,
+            skipped=False,
+        )
         return RagGraphState(
             self_reflection=reflection,
             corrective_actions=corrective_actions,

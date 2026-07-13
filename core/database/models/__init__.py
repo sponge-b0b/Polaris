@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from core.database.models.ai_observability import AiObservabilityExportJobModel
 from core.database.models.backtesting import BacktestArtifactModel
 from core.database.models.backtesting import BacktestFillModel
 from core.database.models.backtesting import BacktestMetricModel
@@ -74,6 +75,7 @@ from core.database.models.runtime import WorkflowRunModel
 from core.database.models.runtime import WorkflowStateSnapshotModel
 
 __all__ = [
+    "AiObservabilityExportJobModel",
     "BacktestArtifactModel",
     "BacktestFillModel",
     "BacktestMetricModel",

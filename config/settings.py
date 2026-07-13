@@ -1,5 +1,9 @@
 from typing import ClassVar
 from typing import Optional
+
+from pydantic import AliasChoices
+from pydantic import Field
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_QDRANT_COLLECTION = "polaris"
@@ -17,6 +21,14 @@ DEFAULT_RAG_CRAG_QUERY_REWRITE_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_SELF_REFLECTION_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_SYNTHESIS_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_GRAPH_MODEL = "polaris-rag-graph-v1"
+DEFAULT_LANGFUSE_ENVIRONMENT = "development"
+DEFAULT_LANGFUSE_SAMPLE_RATE = 1.0
+DEFAULT_LANGFUSE_REDACTION_MODE = "strict"
+DEFAULT_LANGFUSE_MAX_PAYLOAD_CHARACTERS = 8_000
+DEFAULT_LANGFUSE_MAX_METADATA_VALUE_CHARACTERS = 512
+DEFAULT_LANGFUSE_RETENTION_DAYS = 90
+LANGFUSE_REDACTION_MODES = frozenset({"strict", "metadata_only", "permissive"})
+PRODUCTION_ENVIRONMENTS = frozenset({"prod", "production"})
 
 
 class Settings(BaseSettings):
@@ -149,6 +161,119 @@ class Settings(BaseSettings):
     TOP_K_RESULTS: int = 5
 
     # ============================================================
+    # AI OBSERVABILITY / LANGFUSE
+    # ============================================================
+
+    LANGFUSE_HOST: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("POLARIS_LANGFUSE_HOST", "LANGFUSE_HOST"),
+    )
+    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_PUBLIC_KEY",
+            "LANGFUSE_PUBLIC_KEY",
+        ),
+    )
+    LANGFUSE_SECRET_KEY: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_SECRET_KEY",
+            "LANGFUSE_SECRET_KEY",
+        ),
+    )
+    LANGFUSE_ENVIRONMENT: str = Field(
+        default=DEFAULT_LANGFUSE_ENVIRONMENT,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_ENVIRONMENT",
+            "LANGFUSE_ENVIRONMENT",
+        ),
+    )
+    LANGFUSE_RELEASE: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_RELEASE",
+            "LANGFUSE_RELEASE",
+        ),
+    )
+    LANGFUSE_SAMPLE_RATE: float = Field(
+        default=DEFAULT_LANGFUSE_SAMPLE_RATE,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_SAMPLE_RATE",
+            "LANGFUSE_SAMPLE_RATE",
+        ),
+    )
+    LANGFUSE_CAPTURE_PROMPTS: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_CAPTURE_PROMPTS",
+            "LANGFUSE_CAPTURE_PROMPTS",
+        ),
+    )
+    LANGFUSE_CAPTURE_RESPONSES: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_CAPTURE_RESPONSES",
+            "LANGFUSE_CAPTURE_RESPONSES",
+        ),
+    )
+    LANGFUSE_CAPTURE_CONTEXTS: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_CAPTURE_CONTEXTS",
+            "LANGFUSE_CAPTURE_CONTEXTS",
+        ),
+    )
+    LANGFUSE_CAPTURE_USER_INPUT: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_CAPTURE_USER_INPUT",
+            "LANGFUSE_CAPTURE_USER_INPUT",
+        ),
+    )
+    LANGFUSE_REDACTION_MODE: str = Field(
+        default=DEFAULT_LANGFUSE_REDACTION_MODE,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_REDACTION_MODE",
+            "LANGFUSE_REDACTION_MODE",
+        ),
+    )
+
+    LANGFUSE_MAX_PAYLOAD_CHARACTERS: int = Field(
+        default=DEFAULT_LANGFUSE_MAX_PAYLOAD_CHARACTERS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_MAX_PAYLOAD_CHARACTERS",
+            "LANGFUSE_MAX_PAYLOAD_CHARACTERS",
+        ),
+    )
+    LANGFUSE_MAX_METADATA_VALUE_CHARACTERS: int = Field(
+        default=DEFAULT_LANGFUSE_MAX_METADATA_VALUE_CHARACTERS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_MAX_METADATA_VALUE_CHARACTERS",
+            "LANGFUSE_MAX_METADATA_VALUE_CHARACTERS",
+        ),
+    )
+    LANGFUSE_RETENTION_DAYS: int = Field(
+        default=DEFAULT_LANGFUSE_RETENTION_DAYS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_RETENTION_DAYS",
+            "LANGFUSE_RETENTION_DAYS",
+        ),
+    )
+    LANGFUSE_ALLOW_CLOUD_HOST: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LANGFUSE_ALLOW_CLOUD_HOST",
+            "LANGFUSE_ALLOW_CLOUD_HOST",
+        ),
+    )
+
+    # ============================================================
     # REPORTS
     # ============================================================
 
@@ -169,6 +294,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # ============================================================
@@ -192,3 +318,56 @@ class Settings(BaseSettings):
     @property
     def qdrant_url(self) -> str:
         return f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
+
+    @field_validator("LANGFUSE_REDACTION_MODE")
+    @classmethod
+    def _validate_langfuse_redaction_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in LANGFUSE_REDACTION_MODES:
+            allowed = ", ".join(sorted(LANGFUSE_REDACTION_MODES))
+            raise ValueError(f"LANGFUSE_REDACTION_MODE must be one of: {allowed}.")
+        return normalized
+
+    def validate_langfuse_observability(
+        self,
+        *,
+        require_configured: bool | None = None,
+    ) -> None:
+        """Validate Langfuse AI-observability bootstrap configuration."""
+
+        if self.LANGFUSE_HOST is not None and not self.LANGFUSE_HOST.startswith(
+            ("http://", "https://")
+        ):
+            raise ValueError("POLARIS_LANGFUSE_HOST must be an http(s) URL.")
+
+        if (
+            self.LANGFUSE_HOST is not None
+            and "cloud.langfuse.com" in self.LANGFUSE_HOST.lower()
+            and not self.LANGFUSE_ALLOW_CLOUD_HOST
+        ):
+            raise ValueError(
+                "Langfuse Cloud requires explicit approval; set "
+                "POLARIS_LANGFUSE_ALLOW_CLOUD_HOST=true only after governance approval."
+            )
+
+        required = require_configured
+        if required is None:
+            required = self.ENVIRONMENT.strip().lower() in PRODUCTION_ENVIRONMENTS
+
+        if not required:
+            return
+
+        missing = []
+        if not self.LANGFUSE_HOST:
+            missing.append("POLARIS_LANGFUSE_HOST")
+        if not self.LANGFUSE_PUBLIC_KEY:
+            missing.append("POLARIS_LANGFUSE_PUBLIC_KEY")
+        if not self.LANGFUSE_SECRET_KEY:
+            missing.append("POLARIS_LANGFUSE_SECRET_KEY")
+
+        if missing:
+            joined = ", ".join(missing)
+            raise ValueError(
+                "Langfuse AI-observability configuration is required; "
+                f"missing: {joined}."
+            )

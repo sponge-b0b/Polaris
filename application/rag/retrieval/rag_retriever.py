@@ -7,7 +7,16 @@ from time import perf_counter
 from typing import Any
 from typing import Protocol
 from typing import TypeVar
+from typing import cast
 
+from application.observability import AiObservationStatus
+from application.observability import AiObservationType
+from application.rag.observability import RagAiObservabilityProjectorPort
+from application.rag.observability import RagAiObservabilityRecorder
+from application.rag.observability import context_ids
+from application.rag.observability import context_scores
+from application.rag.observability import record_reranking_observation
+from application.rag.observability import record_retrieval_observation
 from application.rag.retrieval.rag_candidate_collector import RagCandidateCollector
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.retrieval.rag_context_selector import RagContextSelector
@@ -106,11 +115,13 @@ class RagRetriever:
         graph_retriever: GraphRetrieverPort | None = None,
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagRetrieverConfig | None = None,
+        ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
     ) -> None:
         self._structured_retriever = structured_retriever
         self._graph_retriever = graph_retriever
         self._telemetry = telemetry
         self._config = config or RagRetrieverConfig()
+        self._ai_observability = RagAiObservabilityRecorder(ai_observability_projector)
         self._filter_evaluator = RagRetrievalFilterEvaluator()
         self._candidate_collector = RagCandidateCollector(
             repository=repository,
@@ -238,14 +249,27 @@ class RagRetriever:
             query=request.normalized_query,
             chunks=candidate_chunks,
         )
+        duration_seconds = perf_counter() - started_at
+        attributes = {
+            "candidate_count": len(candidate_chunks),
+            "lexical_match_count": len(scores),
+        }
         await self._emit_stage_completed(
             request=request,
             operation="rag.retrieval.bm25",
-            duration_seconds=perf_counter() - started_at,
-            attributes={
-                "candidate_count": len(candidate_chunks),
-                "lexical_match_count": len(scores),
-            },
+            duration_seconds=duration_seconds,
+            attributes=attributes,
+        )
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=AiObservationType.RAG_RETRIEVAL_FUSION,
+            stage_name="bm25_lexical_scoring",
+            duration_seconds=duration_seconds,
+            retrieved_count=len(scores),
+            selected_context_ids=tuple(scores.keys()),
+            retrieval_scores=tuple(scores.values()),
+            metadata=attributes,
         )
         return scores
 
@@ -295,20 +319,34 @@ class RagRetriever:
             "rehydrated_chunk_count": len(chunks),
             "missing_chunk_count": len(vector_results) - len(chunks),
         }
+        duration_seconds = perf_counter() - started_at
         if attributes["missing_chunk_count"]:
             await self._emit_stage_degraded(
                 request=request,
                 operation="rag.retrieval.vector_rehydrate",
-                duration_seconds=perf_counter() - started_at,
+                duration_seconds=duration_seconds,
                 attributes=attributes,
             )
+            status = AiObservationStatus.DEGRADED
         else:
             await self._emit_stage_completed(
                 request=request,
                 operation="rag.retrieval.vector_rehydrate",
-                duration_seconds=perf_counter() - started_at,
+                duration_seconds=duration_seconds,
                 attributes=attributes,
             )
+            status = AiObservationStatus.SUCCESS
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=AiObservationType.RAG_RETRIEVAL_VECTOR,
+            stage_name="vector_rehydrate",
+            duration_seconds=duration_seconds,
+            retrieved_count=len(chunks),
+            selected_context_ids=tuple(chunks.keys()),
+            status=status,
+            metadata=attributes,
+        )
         return chunks
 
     async def _timed_parent_expansion(
@@ -362,21 +400,45 @@ class RagRetriever:
                 contexts = await self._graph_retriever.retrieve(request)
                 available = True
             except Exception as exc:
+                duration_seconds = perf_counter() - started_at
                 await self._emit_stage_failed(
                     request=request,
                     operation="rag.retrieval.graph",
                     error=exc,
-                    duration_seconds=perf_counter() - started_at,
+                    duration_seconds=duration_seconds,
+                )
+                await record_retrieval_observation(
+                    self._ai_observability,
+                    request=request,
+                    observation_type=AiObservationType.RAG_RETRIEVAL_GRAPH,
+                    stage_name="graph_retrieval",
+                    duration_seconds=duration_seconds,
+                    retrieved_count=0,
+                    status=AiObservationStatus.FAILED,
+                    metadata={"graph_available": True, "error_present": True},
                 )
                 return ()
+        duration_seconds = perf_counter() - started_at
+        attributes = {
+            "graph_context_count": len(contexts),
+            "graph_available": available,
+        }
         await self._emit_stage_completed(
             request=request,
             operation="rag.retrieval.graph",
-            duration_seconds=perf_counter() - started_at,
-            attributes={
-                "graph_context_count": len(contexts),
-                "graph_available": available,
-            },
+            duration_seconds=duration_seconds,
+            attributes=attributes,
+        )
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=AiObservationType.RAG_RETRIEVAL_GRAPH,
+            stage_name="graph_retrieval",
+            duration_seconds=duration_seconds,
+            retrieved_count=len(contexts),
+            selected_context_ids=context_ids(contexts),
+            retrieval_scores=context_scores(contexts),
+            metadata=attributes,
         )
         return contexts
 
@@ -388,14 +450,27 @@ class RagRetriever:
     ) -> tuple[RagRetrievedContext, ...]:
         started_at = perf_counter()
         deduplicated = self._deduplicator.deduplicate(contexts)
+        duration_seconds = perf_counter() - started_at
+        attributes = {
+            "input_context_count": len(contexts),
+            "deduplicated_context_count": len(deduplicated),
+        }
         await self._emit_stage_completed(
             request=request,
             operation="rag.retrieval.deduplicate",
-            duration_seconds=perf_counter() - started_at,
-            attributes={
-                "input_context_count": len(contexts),
-                "deduplicated_context_count": len(deduplicated),
-            },
+            duration_seconds=duration_seconds,
+            attributes=attributes,
+        )
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=AiObservationType.RAG_RETRIEVAL_FUSION,
+            stage_name="retrieval_deduplication",
+            duration_seconds=duration_seconds,
+            retrieved_count=len(deduplicated),
+            selected_context_ids=context_ids(deduplicated),
+            retrieval_scores=context_scores(deduplicated),
+            metadata=attributes,
         )
         return deduplicated
 
@@ -431,20 +506,92 @@ class RagRetriever:
         try:
             result = await action()
         except Exception as exc:
+            duration_seconds = perf_counter() - started_at
             await self._emit_stage_failed(
                 request=request,
                 operation=operation,
                 error=exc,
-                duration_seconds=perf_counter() - started_at,
+                duration_seconds=duration_seconds,
+            )
+            await self._record_ai_stage_failure(
+                request=request,
+                operation=operation,
+                duration_seconds=duration_seconds,
             )
             raise
+        duration_seconds = perf_counter() - started_at
+        stage_attributes = attributes(result)
         await self._emit_stage_completed(
             request=request,
             operation=operation,
-            duration_seconds=perf_counter() - started_at,
-            attributes=attributes(result),
+            duration_seconds=duration_seconds,
+            attributes=stage_attributes,
+        )
+        await self._record_ai_stage_success(
+            request=request,
+            operation=operation,
+            result=result,
+            duration_seconds=duration_seconds,
+            attributes=stage_attributes,
         )
         return result
+
+    async def _record_ai_stage_success(
+        self,
+        *,
+        request: RagRequest,
+        operation: str,
+        result: object,
+        duration_seconds: float,
+        attributes: dict[str, Any],
+    ) -> None:
+        if operation == "rag.retrieval.rerank" and isinstance(result, tuple):
+            selected_contexts = _contexts_from_result(result)
+            await record_reranking_observation(
+                self._ai_observability,
+                request=request,
+                duration_seconds=duration_seconds,
+                candidate_count=int(attributes.get("rerank_candidate_count", 0)),
+                selected_contexts=selected_contexts,
+                reranker_enabled=bool(attributes.get("reranker_enabled", False)),
+            )
+            return
+        observation_type = _ai_retrieval_observation_type(operation)
+        if observation_type is None:
+            return
+        selected_ids, scores, retrieved_count = _retrieval_summary(result, attributes)
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=observation_type,
+            stage_name=_ai_stage_name(operation),
+            duration_seconds=duration_seconds,
+            retrieved_count=retrieved_count,
+            selected_context_ids=selected_ids,
+            retrieval_scores=scores,
+            metadata=attributes,
+        )
+
+    async def _record_ai_stage_failure(
+        self,
+        *,
+        request: RagRequest,
+        operation: str,
+        duration_seconds: float,
+    ) -> None:
+        observation_type = _ai_retrieval_observation_type(operation)
+        if observation_type is None:
+            return
+        await record_retrieval_observation(
+            self._ai_observability,
+            request=request,
+            observation_type=observation_type,
+            stage_name=_ai_stage_name(operation),
+            duration_seconds=duration_seconds,
+            retrieved_count=0,
+            status=AiObservationStatus.FAILED,
+            metadata={"error_present": True},
+        )
 
     async def _emit_started(
         self,
@@ -564,6 +711,70 @@ class RagRetriever:
                 "collection_name": self._config.collection_name,
             },
         )
+
+
+def _ai_retrieval_observation_type(operation: str) -> AiObservationType | None:
+    return {
+        "rag.retrieval.candidates": AiObservationType.RAG_RETRIEVAL_FUSION,
+        "rag.retrieval.query_embedding": AiObservationType.RAG_RETRIEVAL_VECTOR,
+        "rag.retrieval.vector_search": AiObservationType.RAG_RETRIEVAL_VECTOR,
+        "rag.retrieval.parent_expansion": AiObservationType.RAG_PARENT_EXPANSION,
+        "rag.retrieval.structured": AiObservationType.RAG_RETRIEVAL_GRAPH,
+    }.get(operation)
+
+
+def _ai_stage_name(operation: str) -> str:
+    return operation.removeprefix("rag.retrieval.").replace("_", "-")
+
+
+def _retrieval_summary(
+    result: object,
+    attributes: dict[str, Any],
+) -> tuple[tuple[str, ...], tuple[float, ...], int]:
+    if isinstance(result, tuple):
+        contexts = _contexts_from_result(result)
+        if contexts:
+            return context_ids(contexts), context_scores(contexts), len(contexts)
+        vector_results = _vector_results_from_result(result)
+        if vector_results:
+            return (
+                tuple(vector_result.point_id for vector_result in vector_results),
+                tuple(vector_result.score for vector_result in vector_results),
+                len(vector_results),
+            )
+        return (), (), len(result)
+    if isinstance(result, dict):
+        return tuple(str(key) for key in result.keys()), (), len(result)
+    return (), (), _count_from_attributes(attributes)
+
+
+def _contexts_from_result(
+    result: tuple[object, ...],
+) -> tuple[RagRetrievedContext, ...]:
+    if all(isinstance(item, RagRetrievedContext) for item in result):
+        return cast(tuple[RagRetrievedContext, ...], result)
+    return ()
+
+
+def _vector_results_from_result(
+    result: tuple[object, ...],
+) -> tuple[VectorSearchResult, ...]:
+    if all(isinstance(item, VectorSearchResult) for item in result):
+        return cast(tuple[VectorSearchResult, ...], result)
+    return ()
+
+
+def _count_from_attributes(attributes: dict[str, Any]) -> int:
+    for key in (
+        "candidate_count",
+        "vector_result_count",
+        "parent_context_count",
+        "structured_context_count",
+    ):
+        value = attributes.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return 0
 
 
 def _require_non_empty(

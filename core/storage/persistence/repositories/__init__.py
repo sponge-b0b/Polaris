@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (
+    PostgresAiObservabilityExportJobRepository,
+)
 from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
     PostgresBacktestPersistenceRepository,
 )
@@ -65,6 +68,7 @@ from core.storage.persistence.repositories.postgres_workflow_output_projection_j
 )
 
 __all__ = [
+    "PostgresAiObservabilityExportJobRepository",
     "PortfolioStateRepository",
     "PostgresAgentIntelligencePersistenceRepository",
     "PostgresAgentSignalPersistenceRepository",

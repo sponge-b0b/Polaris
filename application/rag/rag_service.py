@@ -13,6 +13,9 @@ from typing import cast
 
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.observability import RagAiObservabilityProjectorPort
+from application.rag.observability import RagAiObservabilityRecorder
+from application.rag.observability import record_rag_query_observation
 from core.storage.persistence.rag import JsonObject
 from core.storage.persistence.rag import RagAnswerLogRecord
 from core.storage.persistence.rag import RagPersistenceRepository
@@ -64,11 +67,13 @@ class RagService:
         repository: RagPersistenceRepository,
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagServiceConfig | None = None,
+        ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._repository = repository
         self._telemetry = telemetry
         self._config = config or RagServiceConfig()
+        self._ai_observability = RagAiObservabilityRecorder(ai_observability_projector)
 
     async def run(
         self,
@@ -121,6 +126,12 @@ class RagService:
             result=result,
             duration_seconds=duration_seconds,
             error=pipeline_error,
+        )
+        await record_rag_query_observation(
+            self._ai_observability,
+            request=request,
+            result=result,
+            duration_seconds=duration_seconds,
         )
         return result
 

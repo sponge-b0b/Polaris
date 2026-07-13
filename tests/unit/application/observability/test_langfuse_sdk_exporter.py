@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from application.observability import AiEvaluationObservation
+from application.observability import AiEvaluationScore
+from application.observability import AiEvaluationDatasetBuildService
+from application.observability import AiGenerationObservation
+from application.observability import AiObservabilityCapturePolicy
+from application.observability import AiObservabilityCorrelationIds
+from application.observability import AiObservationType
+from application.observability import AiPromptVersionReference
+from application.observability import AiRedactionMode
+from application.observability import AiScoreResult
+from langfuse.api.commons.types import DatasetStatus
+from application.observability import LangfuseObservationMapper
+from application.observability import LangfuseSdkExportClient
+from application.observability.di import ApplicationObservabilityDIProvider
+from config.settings import Settings
+
+
+@dataclass(slots=True)
+class RecordingIngestionApi:
+    batches: list[list[Any]]
+    metadatas: list[object]
+
+    def batch(
+        self,
+        *,
+        batch: list[Any],
+        metadata: object,
+        request_options: object | None = None,
+    ) -> object:
+        self.batches.append(batch)
+        self.metadatas.append(metadata)
+        return {"ok": True}
+
+
+@dataclass(slots=True)
+class RecordingApi:
+    ingestion: RecordingIngestionApi
+
+
+@dataclass(slots=True)
+class RecordingLangfuseSdkClient:
+    api: RecordingApi
+    flushed: bool = False
+    shutdown_called: bool = False
+    datasets: list[dict[str, object]] | None = None
+    dataset_items: list[dict[str, object]] | None = None
+
+    def flush(self) -> None:
+        self.flushed = True
+
+    def shutdown(self) -> None:
+        self.shutdown_called = True
+
+    def create_dataset(
+        self,
+        *,
+        name: str,
+        description: str | None = None,
+        metadata: object | None = None,
+        input_schema: object | None = None,
+        expected_output_schema: object | None = None,
+    ) -> object:
+        if self.datasets is None:
+            self.datasets = []
+        self.datasets.append(
+            {
+                "name": name,
+                "description": description,
+                "metadata": metadata,
+                "input_schema": input_schema,
+                "expected_output_schema": expected_output_schema,
+            }
+        )
+        return {"name": name}
+
+    def create_dataset_item(
+        self,
+        *,
+        dataset_name: str,
+        input: object | None = None,
+        expected_output: object | None = None,
+        metadata: object | None = None,
+        source_trace_id: str | None = None,
+        source_observation_id: str | None = None,
+        status: DatasetStatus | None = None,
+        id: str | None = None,
+    ) -> object:
+        if self.dataset_items is None:
+            self.dataset_items = []
+        self.dataset_items.append(
+            {
+                "dataset_name": dataset_name,
+                "input": input,
+                "expected_output": expected_output,
+                "metadata": metadata,
+                "source_trace_id": source_trace_id,
+                "source_observation_id": source_observation_id,
+                "status": status,
+                "id": id,
+            }
+        )
+        return {"id": id}
+
+
+def _client() -> tuple[
+    LangfuseSdkExportClient, RecordingIngestionApi, RecordingLangfuseSdkClient
+]:
+    ingestion = RecordingIngestionApi(batches=[], metadatas=[])
+    sdk_client = RecordingLangfuseSdkClient(api=RecordingApi(ingestion=ingestion))
+    return LangfuseSdkExportClient(sdk_client), ingestion, sdk_client
+
+
+def _mapper() -> LangfuseObservationMapper:
+    return LangfuseObservationMapper(
+        capture_policy=AiObservabilityCapturePolicy(
+            capture_prompts=True,
+            capture_responses=True,
+            redaction_mode=AiRedactionMode.PERMISSIVE,
+        ),
+        environment="test",
+        release="2026.07",
+    )
+
+
+@pytest.mark.asyncio
+async def test_sdk_client_exports_generation_with_deterministic_external_ids() -> None:
+    client, ingestion, _sdk_client = _client()
+    observation = AiGenerationObservation(
+        observation_type=AiObservationType.RAG_GENERATION,
+        name="answer_generation",
+        correlation_ids=AiObservabilityCorrelationIds(
+            trace_id="trace-1",
+            parent_observation_id="parent-observation-1",
+            observation_id="obs-1",
+        ),
+        model_name="qwen3.5:4b",
+        provider_name="ollama",
+        prompt="question plus context",
+        response="grounded answer",
+        prompt_reference=AiPromptVersionReference(
+            prompt_name="rag.answer",
+            prompt_version="v2",
+        ),
+        token_count_input=11,
+        token_count_output=7,
+        cost_usd=0.02,
+    )
+    payload = _mapper().to_payload(observation)
+
+    first = await client.export(payload)
+    second = await client.export(payload)
+
+    assert first == second
+    assert isinstance(first, dict)
+    assert first["external_trace_id"]
+    assert first["external_observation_id"]
+    assert len(ingestion.batches) == 2
+    batch = ingestion.batches[0]
+    assert [event.type for event in batch] == ["trace-create", "generation-create"]
+    generation = batch[1].body
+    assert generation.id == first["external_observation_id"]
+    assert generation.trace_id == first["external_trace_id"]
+    assert generation.input == "question plus context"
+    assert generation.output == "grounded answer"
+    assert generation.model == "qwen3.5:4b"
+    assert generation.usage_details == {"input": 11, "output": 7, "total": 18}
+    assert generation.cost_details == {"total": 0.02}
+    assert generation.prompt_name == "rag.answer"
+    assert generation.prompt_version == 2
+
+
+@pytest.mark.asyncio
+async def test_sdk_client_exports_evaluation_scores_as_langfuse_score_events() -> None:
+    client, ingestion, _sdk_client = _client()
+    observation = AiEvaluationObservation(
+        observation_type=AiObservationType.RAG_ANSWER_QUALITY,
+        name="answer_quality",
+        correlation_ids=AiObservabilityCorrelationIds(
+            trace_id="trace-2",
+            dataset_id="dataset-1",
+            case_id="case-1",
+            run_id="run-1",
+        ),
+        evaluated_observation_id="generation-1",
+        scores=(
+            AiEvaluationScore(
+                metric_name="groundedness",
+                score=0.91,
+                threshold=0.8,
+                result=AiScoreResult.PASS,
+                reason="supported by cited chunks",
+                evaluator_model="judge-model",
+                evaluator_provider="deepeval",
+            ),
+        ),
+    )
+
+    result = await client.export(_mapper().to_payload(observation))
+
+    assert isinstance(result, dict)
+    assert result["dataset_id"] == "dataset-1"
+    assert result["case_id"] == "case-1"
+    assert result["run_id"] == "run-1"
+    batch = ingestion.batches[0]
+    assert [event.type for event in batch] == [
+        "trace-create",
+        "observation-create",
+        "score-create",
+    ]
+    observation_event = batch[1].body
+    score_event = batch[2].body
+    assert observation_event.type.value == "EVALUATOR"
+    assert score_event.trace_id == result["external_trace_id"]
+    assert score_event.observation_id == result["external_observation_id"]
+    assert score_event.name == "groundedness"
+    assert score_event.value == 0.91
+    assert score_event.comment == "supported by cited chunks"
+    assert score_event.metadata["result"] == "pass"
+
+
+@pytest.mark.asyncio
+async def test_sdk_client_flush_and_shutdown_delegate_to_official_client() -> None:
+    client, _ingestion, sdk_client = _client()
+
+    await client.flush()
+    await client.shutdown()
+
+    assert sdk_client.flushed is True
+    assert sdk_client.shutdown_called is True
+
+
+def test_application_observability_di_builds_capture_policy_from_settings() -> None:
+    provider = ApplicationObservabilityDIProvider()
+    settings = Settings(
+        LANGFUSE_CAPTURE_PROMPTS=True,
+        LANGFUSE_CAPTURE_RESPONSES=True,
+        LANGFUSE_CAPTURE_CONTEXTS=True,
+        LANGFUSE_CAPTURE_USER_INPUT=True,
+        LANGFUSE_REDACTION_MODE="permissive",
+    )
+
+    policy = provider.provide_ai_observability_capture_policy(settings)
+    prompt_policy = provider.provide_ai_prompt_governance_policy(settings)
+    mapper = provider.provide_langfuse_observation_mapper(
+        policy,
+        prompt_policy,
+        settings,
+    )
+
+    assert policy.capture_prompts is True
+    assert policy.capture_responses is True
+    assert policy.capture_contexts is True
+    assert policy.capture_user_input is True
+    assert policy.redaction_mode is AiRedactionMode.PERMISSIVE
+    assert mapper.environment == "development"
+    assert mapper.prompt_governance_policy is prompt_policy
+
+
+def test_langfuse_sdk_imports_are_isolated_to_approved_boundary() -> None:
+    production_roots = (
+        Path("application"),
+        Path("core"),
+        Path("config"),
+        Path("domain"),
+        Path("integration"),
+        Path("intelligence"),
+        Path("interfaces"),
+        Path("mcp_server"),
+    )
+    allowed = {Path("application/observability/langfuse_sdk_exporter.py")}
+    offenders: list[str] = []
+
+    for root in production_roots:
+        for path in root.rglob("*.py"):
+            if path in allowed:
+                continue
+            text = path.read_text()
+            if "from langfuse" in text or "import langfuse" in text:
+                offenders.append(str(path))
+
+    assert offenders == []
+
+
+@pytest.mark.asyncio
+async def test_sdk_client_exports_evaluation_dataset_and_cases() -> None:
+    client, _ingestion, sdk_client = _client()
+    dataset = AiEvaluationDatasetBuildService().build_default_regression_dataset()
+
+    result = await client.export_dataset(dataset)
+
+    assert result.status.value == "exported"
+    assert result.dataset_id == dataset.dataset_id
+    assert result.case_ids == tuple(case.case_id for case in dataset.cases)
+    assert sdk_client.datasets is not None
+    assert sdk_client.datasets[0]["name"] == dataset.name
+    assert sdk_client.dataset_items is not None
+    assert len(sdk_client.dataset_items) == len(dataset.cases)
+    first_item = sdk_client.dataset_items[0]
+    assert first_item["dataset_name"] == dataset.name
+    assert first_item["id"] == dataset.cases[0].case_id
+    assert first_item["status"] is DatasetStatus.ACTIVE
+    assert isinstance(first_item["metadata"], dict)
+    assert first_item["metadata"]["case_id"] == dataset.cases[0].case_id

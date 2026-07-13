@@ -11,6 +11,9 @@ from core.database.postgres import AsyncSessionLocal
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
     PostgresAgentSignalPersistenceRepository,
 )
+from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (
+    PostgresAiObservabilityExportJobRepository,
+)
 from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
     PostgresBacktestPersistenceRepository,
 )
@@ -41,6 +44,7 @@ from core.storage.persistence.repositories.postgres_sentiment_persistence_reposi
 from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
     PostgresWorkflowOutputProjectionJobRepository,
 )
+from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
 from core.storage.persistence.portfolio import (
     PortfolioExpansionPersistenceRepository,
 )
@@ -141,3 +145,10 @@ class RagPersistenceDIProvider(Provider):
         session: AsyncSession,
     ) -> WorkflowOutputProjectionJobRepository:
         return PostgresWorkflowOutputProjectionJobRepository(session)
+
+    @provide
+    def provide_ai_observability_export_job_repository(
+        self,
+        session: AsyncSession,
+    ) -> AiObservabilityExportJobRepository:
+        return PostgresAiObservabilityExportJobRepository(session)

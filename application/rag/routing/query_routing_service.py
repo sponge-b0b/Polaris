@@ -4,6 +4,9 @@ import json
 from collections.abc import Mapping
 from time import perf_counter
 
+from application.observability import DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE
+from application.observability import DEFAULT_STATIC_PROMPT_VERSION
+from application.observability import static_prompt_hash
 from application.rag.routing.query_routing_models import RagAdaptiveTriage
 from application.rag.routing.query_routing_models import RagHydeExpansion
 from application.rag.routing.query_routing_models import RagQueryComplexity
@@ -366,13 +369,29 @@ def _stage_operation(operation: RagQueryModelOperation) -> str:
 
 
 def _model_execution(result: RagQueryModelResult) -> RagQueryModelExecution:
+    prompt_name, prompt_hash = _prompt_metadata_for_operation(result.operation)
     return RagQueryModelExecution(
         operation=result.operation.value,
         configured_model=result.model,
         provider_name=result.provider_name,
         duration_ms=result.duration_ms,
         success=result.success,
+        prompt_name=prompt_name,
+        prompt_version=DEFAULT_STATIC_PROMPT_VERSION,
+        prompt_hash=prompt_hash,
+        prompt_source=DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE,
     )
+
+
+def _prompt_metadata_for_operation(
+    operation: RagQueryModelOperation,
+) -> tuple[str, str]:
+    try:
+        return _RAG_ROUTING_PROMPT_REFERENCES[operation]
+    except KeyError as exc:
+        raise RagRoutingModelOutputError(
+            f"Unsupported prompt metadata operation: {operation.value}."
+        ) from exc
 
 
 def _rewrite_prompt(context: RagQueryContext) -> str:
@@ -439,3 +458,27 @@ and deep_research for multi-source analysis."""
 
 _HYDE_SYSTEM_PROMPT = """Create a concise hypothetical evidence document for retrieval only.
 Do not present it as verified fact. Return JSON with exactly one key: hypothetical_document."""
+
+_REWRITE_PROMPT_NAME = "rag_query_rewrite_system_prompt"
+_ADAPTIVE_TRIAGE_PROMPT_NAME = "rag_adaptive_triage_system_prompt"
+_ROUTE_SELECTION_PROMPT_NAME = "rag_route_selection_system_prompt"
+_HYDE_PROMPT_NAME = "rag_hyde_system_prompt"
+
+_RAG_ROUTING_PROMPT_REFERENCES: dict[RagQueryModelOperation, tuple[str, str]] = {
+    RagQueryModelOperation.REWRITE: (
+        _REWRITE_PROMPT_NAME,
+        static_prompt_hash(_REWRITE_SYSTEM_PROMPT),
+    ),
+    RagQueryModelOperation.ADAPTIVE_TRIAGE: (
+        _ADAPTIVE_TRIAGE_PROMPT_NAME,
+        static_prompt_hash(_ADAPTIVE_TRIAGE_SYSTEM_PROMPT),
+    ),
+    RagQueryModelOperation.ROUTE_SELECTION: (
+        _ROUTE_SELECTION_PROMPT_NAME,
+        static_prompt_hash(_ROUTE_SELECTION_SYSTEM_PROMPT),
+    ),
+    RagQueryModelOperation.HYDE: (
+        _HYDE_PROMPT_NAME,
+        static_prompt_hash(_HYDE_SYSTEM_PROMPT),
+    ),
+}

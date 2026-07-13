@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any
 
+from application.observability import AiObservationStatus
+from application.observability import static_prompt_hash
 from application.services.base import ServiceRequest
 from application.services.base import ServiceRunner
 from application.services.macro.macro_request import MacroAnalysisRequest
@@ -16,10 +19,20 @@ from domain.workflow_outputs import (
     MACRO_ANALYSIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
+from intelligence.observability import IntelligenceAiObservabilityProjectorPort
+from intelligence.observability import IntelligenceAiObservabilityRecorder
+from intelligence.observability import llm_model_name
+from intelligence.observability import record_intelligence_generation_observation
 from intelligence.prompts.system.fundamental_agent_prompt import (
     FUNDAMENTAL_AGENT_SYSTEM_PROMPT,
 )
+
 from intelligence.telemetry import telemetry_context_from_runtime
+
+
+FUNDAMENTAL_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(
+    FUNDAMENTAL_AGENT_SYSTEM_PROMPT
+)
 
 
 class FundamentalAgent(RuntimeNode):
@@ -38,11 +51,16 @@ class FundamentalAgent(RuntimeNode):
         macro_service: MacroService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        ai_observability_projector: IntelligenceAiObservabilityProjectorPort
+        | None = None,
     ) -> None:
         self.llm_service = llm_service
         self.macro_service = macro_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
+        self.ai_observability = IntelligenceAiObservabilityRecorder(
+            ai_observability_projector
+        )
 
     async def _execute(
         self,
@@ -71,6 +89,8 @@ class FundamentalAgent(RuntimeNode):
                 macro_data.to_dict(),
             )
 
+            llm_started_at = perf_counter()
+            llm_status = AiObservationStatus.SUCCESS
             try:
                 llm_response = self.llm_service.chat(
                     system_prompt=FUNDAMENTAL_AGENT_SYSTEM_PROMPT,
@@ -82,6 +102,7 @@ class FundamentalAgent(RuntimeNode):
                     ],
                 )
             except Exception as error:
+                llm_status = AiObservationStatus.DEGRADED
                 await self.intelligence_telemetry.emit_agent_degraded(
                     agent_name=self.node_name,
                     reason="llm_inference_failure",
@@ -98,6 +119,31 @@ class FundamentalAgent(RuntimeNode):
 
             llm_response = str(
                 llm_response,
+            )
+            await record_intelligence_generation_observation(
+                self.ai_observability,
+                context=context,
+                node_name=self.node_name,
+                component_name="fundamental_llm_reasoning",
+                status=llm_status,
+                latency_seconds=perf_counter() - llm_started_at,
+                model_name=llm_model_name(self.llm_service),
+                provider_name="LLMService",
+                prompt_name="fundamental_agent_system_prompt",
+                prompt_version="static-v1",
+                prompt_hash=FUNDAMENTAL_AGENT_SYSTEM_PROMPT_HASH,
+                input_shape=(
+                    f"context_characters={len(llm_context)};"
+                    f"macro_fields={len(macro_data.to_dict())}"
+                ),
+                output_shape="response_type=str",
+                metadata={
+                    "symbol": "SPY",
+                    "economic_regime": str(
+                        macro_data.economic_regime.get("economic_regime", "neutral")
+                    ),
+                    "fallback": llm_status is not AiObservationStatus.SUCCESS,
+                },
             )
 
             confidence = self._calculate_confidence(

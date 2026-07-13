@@ -23,6 +23,7 @@ def test_cli_help_lists_platform_commands() -> None:
     assert "workflow" in result.output
     assert "inspect" in result.output
     assert "rag" in result.output
+    assert "observability" in result.output
 
 
 def test_inspect_config_outputs_json() -> None:

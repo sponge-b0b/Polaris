@@ -76,6 +76,7 @@ dependencies = [
     "pytest-alembic>=0.12.1",
     "flagembedding>=1.4.0",
     "mcp>=1.27,<2",
+    "langfuse>=4.14.0",
 ]
 
 [project.scripts]

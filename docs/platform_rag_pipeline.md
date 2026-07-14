@@ -561,6 +561,38 @@ The RAG boundary provides deterministic, fail-closed controls:
 These controls reduce risk but do not make arbitrary web content trustworthy.
 Curated PostgreSQL evidence remains preferred.
 
+## RAG evaluation and quality gates
+
+The RAG pipeline is evaluated by the canonical Polaris LLM evaluation layer, not by ad hoc scripts inside retrieval code. DeepEval runs through the application evaluation boundary after workflow outputs, curated records, or deterministic fixtures have been converted into typed evaluation cases.
+
+The evaluation flow is:
+
+```text
+RAG query/result and retrieved evidence
+        ↓
+PostgreSQL query logs, curated records, and Langfuse correlation IDs
+        ↓
+EvaluationCaseBuilder
+        ↓
+DeepEval-backed EvaluationRunService or EvaluationJobProcessor
+        ↓
+PostgreSQL evaluation runs and metric results
+        ↓
+Langfuse score projection
+```
+
+RAG-specific target types include `rag_answer`, `rag_retrieval`, and `rag_generation`. Current canonical RAG datasets cover golden questions, citation support, and prompt-injection resistance. RAG quality metrics include faithfulness, answer relevancy, contextual relevancy, contextual precision, contextual recall, hallucination absence, citation support, financial answer quality, risk explanation quality, unsupported-claim penalties, refusal correctness, and prompt-injection resistance.
+
+This separation is intentional:
+
+- retrieval and generation stay focused on producing grounded answers;
+- evaluation cases remain attributable to PostgreSQL records, workflow executions, retrieved chunks, citations, and Langfuse observations;
+- thresholds are versioned and persist with metric results;
+- DeepEval failures do not corrupt successful RAG results;
+- Langfuse is used for AI-engineering score analysis, while PostgreSQL remains authoritative.
+
+Use `docs/llm_evaluation.md` for the full evaluation contract, threshold table, CLI commands, and live-test requirements.
+
 ## Observability
 
 The default CLI composition uses one shared `ApplicationRagTelemetry` emitter.

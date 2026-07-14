@@ -17,6 +17,9 @@ from core.storage.persistence.repositories.postgres_ai_observability_export_job_
 from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
     PostgresBacktestPersistenceRepository,
 )
+from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (
+    PostgresEvaluationPersistenceRepository,
+)
 from core.storage.persistence.repositories.postgres_macro_persistence_repository import (
     PostgresMacroPersistenceRepository,
 )
@@ -45,6 +48,7 @@ from core.storage.persistence.repositories.postgres_workflow_output_projection_j
     PostgresWorkflowOutputProjectionJobRepository,
 )
 from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
+from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from core.storage.persistence.portfolio import (
     PortfolioExpansionPersistenceRepository,
 )
@@ -152,3 +156,10 @@ class RagPersistenceDIProvider(Provider):
         session: AsyncSession,
     ) -> AiObservabilityExportJobRepository:
         return PostgresAiObservabilityExportJobRepository(session)
+
+    @provide
+    def provide_evaluation_repository(
+        self,
+        session: AsyncSession,
+    ) -> EvaluationPersistenceRepository:
+        return PostgresEvaluationPersistenceRepository(session)

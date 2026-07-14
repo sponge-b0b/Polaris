@@ -4,6 +4,7 @@ import typer
 
 from interfaces.cli.commands.backtest_command import backtest_app
 from interfaces.cli.commands.completed_runs_command import completed_runs_app
+from interfaces.cli.commands.evaluation_command import evaluation_app
 from interfaces.cli.commands.inspect_command import inspect_app
 from interfaces.cli.commands.morning_report_command import morning_report
 from interfaces.cli.commands.observability_command import observability_app
@@ -55,6 +56,10 @@ def create_app() -> typer.Typer:
     app.add_typer(
         observability_app,
         name="observability",
+    )
+    app.add_typer(
+        evaluation_app,
+        name="eval",
     )
 
     return app

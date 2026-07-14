@@ -199,6 +199,7 @@ def application_sync_request_scope(
 
 
 def _rag_providers() -> tuple[Provider, ...]:
+    from application.evaluations.di import ApplicationEvaluationsDIProvider
     from application.observability.di import ApplicationObservabilityDIProvider
     from application.rag.di import RagApplicationDIProvider
     from core.storage.rag_di import RagPersistenceDIProvider
@@ -210,6 +211,7 @@ def _rag_providers() -> tuple[Provider, ...]:
         RagClientsDIProvider(),
         RagProvidersDIProvider(),
         ApplicationObservabilityDIProvider(),
+        ApplicationEvaluationsDIProvider(),
         RagApplicationDIProvider(),
     )
 

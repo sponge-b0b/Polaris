@@ -27,6 +27,9 @@ DEFAULT_LANGFUSE_REDACTION_MODE = "strict"
 DEFAULT_LANGFUSE_MAX_PAYLOAD_CHARACTERS = 8_000
 DEFAULT_LANGFUSE_MAX_METADATA_VALUE_CHARACTERS = 512
 DEFAULT_LANGFUSE_RETENTION_DAYS = 90
+DEFAULT_DEEPEVAL_DEFAULT_THRESHOLD = 0.7
+DEFAULT_DEEPEVAL_MAX_CONCURRENCY = 4
+DEFAULT_DEEPEVAL_TIMEOUT_SECONDS = 60.0
 LANGFUSE_REDACTION_MODES = frozenset({"strict", "metadata_only", "permissive"})
 PRODUCTION_ENVIRONMENTS = frozenset({"prod", "production"})
 
@@ -282,6 +285,71 @@ class Settings(BaseSettings):
     )
 
     # ============================================================
+    # LLM EVALUATION / DEEPEVAL
+    # ============================================================
+
+    DEEPEVAL_ENABLED: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_ENABLED",
+            "DEEPEVAL_ENABLED",
+        ),
+    )
+    DEEPEVAL_JUDGE_PROVIDER: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_JUDGE_PROVIDER",
+            "DEEPEVAL_JUDGE_PROVIDER",
+        ),
+    )
+    DEEPEVAL_JUDGE_MODEL: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_JUDGE_MODEL",
+            "DEEPEVAL_JUDGE_MODEL",
+        ),
+    )
+    DEEPEVAL_STRICT_MODE: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_STRICT_MODE",
+            "DEEPEVAL_STRICT_MODE",
+        ),
+    )
+    DEEPEVAL_TELEMETRY_OPT_OUT: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT",
+            "DEEPEVAL_TELEMETRY_OPT_OUT",
+        ),
+    )
+    DEEPEVAL_DEFAULT_THRESHOLD: float = Field(
+        default=DEFAULT_DEEPEVAL_DEFAULT_THRESHOLD,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_DEFAULT_THRESHOLD",
+            "DEEPEVAL_DEFAULT_THRESHOLD",
+        ),
+    )
+    DEEPEVAL_MAX_CONCURRENCY: int = Field(
+        default=DEFAULT_DEEPEVAL_MAX_CONCURRENCY,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_MAX_CONCURRENCY",
+            "DEEPEVAL_MAX_CONCURRENCY",
+        ),
+    )
+    DEEPEVAL_TIMEOUT_SECONDS: float = Field(
+        default=DEFAULT_DEEPEVAL_TIMEOUT_SECONDS,
+        gt=0.0,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_TIMEOUT_SECONDS",
+            "DEEPEVAL_TIMEOUT_SECONDS",
+        ),
+    )
+
+    # ============================================================
     # REPORTS
     # ============================================================
 
@@ -327,6 +395,14 @@ class Settings(BaseSettings):
     def qdrant_url(self) -> str:
         return f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
 
+    @field_validator("DEEPEVAL_JUDGE_PROVIDER", "DEEPEVAL_JUDGE_MODEL", mode="before")
+    @classmethod
+    def _normalize_optional_non_empty_string(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
     @field_validator("LANGFUSE_REDACTION_MODE")
     @classmethod
     def _validate_langfuse_redaction_mode(cls, value: str) -> str:
@@ -335,6 +411,34 @@ class Settings(BaseSettings):
             allowed = ", ".join(sorted(LANGFUSE_REDACTION_MODES))
             raise ValueError(f"LANGFUSE_REDACTION_MODE must be one of: {allowed}.")
         return normalized
+
+    def validate_deepeval_evaluation(
+        self,
+        *,
+        require_configured: bool | None = None,
+    ) -> None:
+        """Validate DeepEval LLM-evaluation bootstrap configuration."""
+
+        required = require_configured
+        if required is None:
+            required = self.DEEPEVAL_STRICT_MODE
+
+        if not required:
+            return
+
+        missing = []
+        if not self.DEEPEVAL_ENABLED:
+            missing.append("POLARIS_DEEPEVAL_ENABLED")
+        if not self.DEEPEVAL_JUDGE_PROVIDER:
+            missing.append("POLARIS_DEEPEVAL_JUDGE_PROVIDER")
+        if not self.DEEPEVAL_JUDGE_MODEL:
+            missing.append("POLARIS_DEEPEVAL_JUDGE_MODEL")
+
+        if missing:
+            joined = ", ".join(missing)
+            raise ValueError(
+                f"DeepEval LLM-evaluation configuration is required; missing: {joined}."
+            )
 
     def validate_langfuse_observability(
         self,

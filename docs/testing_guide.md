@@ -16,6 +16,8 @@ and verification intent rather than listing every test file.
 | Live RAG projection and reranker checks | `uv run pytest -q tests/integration/rag` | Qdrant, Neo4j, and/or BGE reranker depending on file |
 | Observability contracts without live infrastructure | `uv run pytest -q tests/unit/telemetry tests/integration/telemetry/test_bootstrap_observability.py tests/integration/telemetry/test_opentelemetry_sink.py` | None |
 | Langfuse AI-observability contracts without live infrastructure | `uv run pytest -q tests/unit/application/observability tests/unit/config/test_langfuse_observability_settings.py` | None |
+| LLM evaluation contracts without live judge models | `uv run pytest -q tests/unit/application/evaluations tests/unit/integration/providers/llm_evaluation tests/unit/config/test_deepeval_evaluation_settings.py tests/evaluation -m "not live_deepeval"` | None |
+| Live DeepEval smoke checks | `uv run pytest -q tests/evaluation -m live_deepeval` | Configured judge provider/model and `POLARIS_RUN_LIVE_EVALS=true` |
 | Live trace topology parity | `uv run pytest -q tests/integration/telemetry/test_live_trace_topology.py` | PostgreSQL, Jaeger/OTLP endpoint, and required env vars |
 | CLI contract checks | `uv run pytest -q tests/unit/interfaces/cli` | None |
 | MCP transport/tool boundary checks | `uv run pytest -q tests/unit/mcp_server tests/integration/mcp_server` | None for the current mocked transport contracts |
@@ -69,6 +71,9 @@ Important unit areas:
 - `tests/unit/application/observability/` — Langfuse AI-observability
   contracts, projection mapping, durable export worker behavior, SDK adapter
   mapping, dataset/evaluation dataset support, and import-boundary enforcement.
+- `tests/unit/application/evaluations/` — DeepEval evaluation service contracts,
+  case building, dataset registration, score projection, async job processing, and
+  evaluation telemetry without live judge models.
 - `tests/unit/core/database/` — SQLAlchemy model shape, settings, model coverage,
   and persistence table contracts. These are model-level tests and do not need a
   live database.
@@ -79,7 +84,8 @@ Important unit areas:
   node-output, event-bus, control, policy, governance, and runtime-engine
   behavior.
 - `tests/unit/integration/clients/` and `tests/unit/integration/providers/` —
-  vendor client/provider boundary behavior with mocked transports.
+  vendor client/provider boundary behavior with mocked transports, including the
+  DeepEval provider adapter seam under `tests/unit/integration/providers/llm_evaluation/`.
 - `tests/unit/intelligence/` — analyst, risk, portfolio, strategy hypothesis,
   recommendation, and execution-risk logic.
 - `tests/unit/interfaces/cli/` — Typer command and renderer contracts with
@@ -94,6 +100,34 @@ Run all unit tests with:
 ```bash
 uv run pytest -q tests/unit
 ```
+
+### Evaluation tests: `tests/evaluation/`
+
+The evaluation suite contains deterministic LLM-quality fixtures and marker-based
+checks for RAG regression, prompt regression, strategy synthesis quality,
+security/prompt-injection resistance, and live DeepEval smoke tests. The default
+non-live suite uses fakes and deterministic JSONL fixtures; it does not call live
+judge models.
+
+Run non-live evaluation checks with:
+
+```bash
+uv run pytest -q tests/evaluation -m "not live_deepeval"
+```
+
+Run live DeepEval smoke checks only when a judge provider/model is configured and
+the run is intentionally enabled:
+
+```bash
+POLARIS_RUN_LIVE_EVALS=true \
+POLARIS_DEEPEVAL_ENABLED=true \
+POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
+POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+uv run pytest -q tests/evaluation -m live_deepeval
+```
+
+Set `POLARIS_EVAL_REQUIRED=true` only in explicit release gates where missing
+live-evaluation configuration should fail instead of skip.
 
 ### Integration tests: `tests/integration/`
 
@@ -186,6 +220,7 @@ live-service tests as part of a routine unit-test loop.
 | Prometheus | `prometheus` | `http://localhost:9090` | Manual scrape/dashboard validation; current automated tests mostly use fakes/local exporters |
 | Grafana | `grafana` | `http://localhost:3000` | Manual dashboard validation; not required by the current automated tests |
 | Langfuse | external/self-hosted | configured by `POLARIS_LANGFUSE_HOST` | Optional live AI-observability smoke checks; unit tests use fakes and do not require Langfuse |
+| DeepEval judge model | provider-specific local or external model service | configured by `POLARIS_DEEPEVAL_JUDGE_PROVIDER` and `POLARIS_DEEPEVAL_JUDGE_MODEL` | Optional live DeepEval smoke checks and real evaluation runs; non-live tests use fakes |
 
 Start only the services you need:
 
@@ -221,6 +256,16 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_LANGFUSE_SECRET_KEY` | optional live Langfuse smoke checks and production export worker configuration | Secret value; never commit or paste into tracked files. |
 | `POLARIS_LANGFUSE_ENVIRONMENT` | Langfuse projection metadata | Defaults to `development`. |
 | `POLARIS_LANGFUSE_RELEASE` | Langfuse projection metadata | Optional release/build identifier. |
+| `POLARIS_DEEPEVAL_ENABLED` | evaluation CLI, provider DI, and live DeepEval tests | Enables canonical LLM evaluation. |
+| `POLARIS_DEEPEVAL_JUDGE_PROVIDER` | evaluation CLI, provider DI, and live DeepEval tests | Logical judge provider name; keep provider credentials in approved secret variables. |
+| `POLARIS_DEEPEVAL_JUDGE_MODEL` | evaluation CLI, provider DI, and live DeepEval tests | Judge model identifier passed to DeepEval. |
+| `POLARIS_DEEPEVAL_STRICT_MODE` | settings validation | Requires complete DeepEval configuration when true. |
+| `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | DeepEval provider setup | Defaults to privacy-preserving opt-out behavior. |
+| `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | evaluation settings and CLI defaults | Default pass threshold used when a dataset or metric does not specify a stricter typed threshold. |
+| `POLARIS_DEEPEVAL_MAX_CONCURRENCY` | evaluation jobs and local eval workflows | Caps concurrent judge-model evaluation work to protect local and hosted model services. |
+| `POLARIS_DEEPEVAL_TIMEOUT_SECONDS` | evaluation provider calls | Bounds each judge-model call so unavailable model services fail clearly. |
+| `POLARIS_RUN_LIVE_EVALS` | `tests/evaluation -m live_deepeval` | Explicit opt-in gate for live judge-model tests. |
+| `POLARIS_EVAL_REQUIRED` | evaluation release gates | Fails missing live evaluation configuration instead of skipping. |
 
 Example with redacted placeholders:
 
@@ -305,6 +350,37 @@ uv run pytest -q tests/integration/rag/test_bge_reranker.py
 `test_qdrant_collection_lifecycle.py` and `test_bge_reranker.py` skip when their
 service is unavailable. The Neo4j projection test expects Neo4j to be available;
 start Neo4j before running it.
+
+### Did LLM evaluation remain valid without live judge models?
+
+```bash
+uv run pytest -q \
+  tests/unit/application/evaluations \
+  tests/unit/integration/providers/llm_evaluation \
+  tests/unit/config/test_deepeval_evaluation_settings.py \
+  tests/evaluation -m "not live_deepeval"
+```
+
+Use this after touching DeepEval settings, evaluation domain models, case
+builders, dataset definitions, metric thresholds, evaluation services, async
+evaluation jobs, telemetry, or CLI evaluation commands. These checks do not
+require PostgreSQL, Langfuse, Qdrant, Neo4j, BGE reranker, or a live judge model.
+
+### Did a live DeepEval path work?
+
+Only run live DeepEval checks when a judge provider/model is configured and the
+selected provider's local or external model service is available.
+
+```bash
+POLARIS_RUN_LIVE_EVALS=true \
+POLARIS_DEEPEVAL_ENABLED=true \
+POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
+POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+uv run pytest -q tests/evaluation -m live_deepeval
+```
+
+Do not run this path just to verify ordinary application code; the non-live
+evaluation tests provide the normal development safety net.
 
 ### Did Langfuse AI observability remain valid without a live Langfuse service?
 

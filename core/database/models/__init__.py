@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from core.database.models.ai_observability import AiObservabilityExportJobModel
+from core.database.models.evaluation import EvaluationArtifactModel
+from core.database.models.evaluation import EvaluationCaseModel
+from core.database.models.evaluation import EvaluationDatasetModel
+from core.database.models.evaluation import EvaluationMetricResultModel
+from core.database.models.evaluation import EvaluationRunModel
 from core.database.models.backtesting import BacktestArtifactModel
 from core.database.models.backtesting import BacktestFillModel
 from core.database.models.backtesting import BacktestMetricModel
@@ -76,6 +81,11 @@ from core.database.models.runtime import WorkflowStateSnapshotModel
 
 __all__ = [
     "AiObservabilityExportJobModel",
+    "EvaluationArtifactModel",
+    "EvaluationCaseModel",
+    "EvaluationDatasetModel",
+    "EvaluationMetricResultModel",
+    "EvaluationRunModel",
     "BacktestArtifactModel",
     "BacktestFillModel",
     "BacktestMetricModel",

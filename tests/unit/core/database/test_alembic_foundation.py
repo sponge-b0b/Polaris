@@ -75,3 +75,9 @@ def test_database_models_are_imported_into_base_metadata() -> None:
     assert "workflow_metrics" in Base.metadata.tables
     assert "agent_metrics" in Base.metadata.tables
     assert "provider_metrics" in Base.metadata.tables
+    assert "ai_observability_export_jobs" in Base.metadata.tables
+    assert "evaluation_datasets" in Base.metadata.tables
+    assert "evaluation_cases" in Base.metadata.tables
+    assert "evaluation_runs" in Base.metadata.tables
+    assert "evaluation_metric_results" in Base.metadata.tables
+    assert "evaluation_artifacts" in Base.metadata.tables

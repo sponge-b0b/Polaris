@@ -259,16 +259,36 @@ Guidelines:
 
 ## Dataset and evaluation operations
 
-The current integration includes typed dataset contracts and SDK-backed dataset export support. DeepEval integration is still governed by the separate DeepEval plan.
+Polaris now uses DeepEval as the canonical LLM evaluation engine and Langfuse as the AI-observability projection for evaluation scores. DeepEval evaluation records are persisted in PostgreSQL first; Langfuse receives sanitized score projections through the durable AI-observability export queue.
 
-Current supported operations:
+Supported operations:
 
-- build canonical Polaris regression cases for RAG answer quality, citation groundedness, report QA, strategy rationale, and prompt-injection resistance;
-- export dataset definitions and dataset items to Langfuse through the official SDK boundary;
-- map numeric scores to `PASS`, `WARN`, and `FAIL` while preserving threshold, evaluator, dataset, case, and run metadata;
-- project evaluation observations through the same durable export queue used by RAG and intelligence observations.
+- build canonical Polaris regression cases for RAG answer quality, citation groundedness, report QA, strategy rationale, recommendation explanation quality, MCP tool response fidelity, agent task completion, and prompt-injection resistance;
+- persist versioned evaluation datasets, cases, runs, metric results, and artifacts in PostgreSQL;
+- run DeepEval through `DeepEvalEvaluationProvider`, which normalizes all scores to Polaris higher-is-better semantics;
+- project persisted evaluation scores and reasons to Langfuse through `EvaluationLangfuseProjectionService`;
+- export Langfuse dataset definitions and dataset items through the official SDK boundary;
+- preserve dataset, case, run, threshold, evaluator provider/model, workflow, trace, and observation correlation IDs.
 
-DeepEval should later produce canonical Polaris evaluation records and observations, then let this existing Langfuse projection path export scores and reasons. It should not call Langfuse directly from evaluator code.
+Canonical boundaries:
+
+```text
+EvaluationRunService / EvaluationJobProcessor
+        ↓
+DeepEvalEvaluationProvider
+        ↓
+PostgreSQL evaluation records
+        ↓
+EvaluationLangfuseProjectionService
+        ↓
+Durable Langfuse export queue
+        ↓
+Langfuse SDK boundary
+```
+
+Evaluator code must not call Langfuse directly. Langfuse projection failures must not erase successful PostgreSQL evaluation results. Evaluation reasons are durable AI-observability content and are subject to the same capture, redaction, truncation, and retention policies as RAG and intelligence observations.
+
+For the full evaluation architecture, dataset catalog, threshold policy, CLI workflow, and test commands, see `docs/llm_evaluation.md`.
 
 ## Test support
 

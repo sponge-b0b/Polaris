@@ -88,7 +88,7 @@ services:
               capabilities: [gpu]
 
   langfuse:
-    image: langfuse/langfuse:latest
+    image: langfuse/langfuse:2.55.0
     container_name: polaris_langfuse
     restart: always
     depends_on:

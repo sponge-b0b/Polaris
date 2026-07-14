@@ -63,7 +63,6 @@ dependencies = [
     "types-reportlab",
     "typer",
     "uvicorn",
-    "vectorbt",
     "yfinance",
     "neo4j>=6.2.0",
     "firecrawl-py>=4.28.2",
@@ -76,7 +75,8 @@ dependencies = [
     "pytest-alembic>=0.12.1",
     "flagembedding>=1.4.0",
     "mcp>=1.27,<2",
-    "langfuse>=4.14.0",
+    "deepeval>=4.1.0",
+    "langfuse<3.0.0",
 ]
 
 [project.scripts]

@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     SENTIMENT_PROVIDER: str = LIVE_SENTIMENT_PROVIDER
 
     # ============================================================
-    # DATABASE
+    # POLARIS DATABASE
     # ============================================================
 
     POSTGRES_HOST: str = "localhost"
@@ -111,6 +111,14 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "polaris"
     POSTGRES_USER: str = "polaris"
     POSTGRES_PASSWORD: Optional[str] = None
+
+    # ============================================================
+    # LANGFUSE DATABASE
+    # ============================================================
+
+    LANGFUSE_POSTGRES_DB: str = "langfuse"
+    LANGFUSE_POSTGRES_USER: str = "langfuse"
+    LANGFUSE_POSTGRES_PASSWORD: Optional[str] = None
 
     # ============================================================
     # QDRANT

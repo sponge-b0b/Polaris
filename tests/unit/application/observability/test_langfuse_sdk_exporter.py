@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -16,7 +15,7 @@ from application.observability import AiObservationType
 from application.observability import AiPromptVersionReference
 from application.observability import AiRedactionMode
 from application.observability import AiScoreResult
-from langfuse.api.commons.types import DatasetStatus
+from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
 from application.observability import LangfuseObservationMapper
 from application.observability import LangfuseSdkExportClient
 from application.observability.di import ApplicationObservabilityDIProvider
@@ -24,30 +23,11 @@ from config.settings import Settings
 
 
 @dataclass(slots=True)
-class RecordingIngestionApi:
-    batches: list[list[Any]]
-    metadatas: list[object]
-
-    def batch(
-        self,
-        *,
-        batch: list[Any],
-        metadata: object,
-        request_options: object | None = None,
-    ) -> object:
-        self.batches.append(batch)
-        self.metadatas.append(metadata)
-        return {"ok": True}
-
-
-@dataclass(slots=True)
-class RecordingApi:
-    ingestion: RecordingIngestionApi
-
-
-@dataclass(slots=True)
 class RecordingLangfuseSdkClient:
-    api: RecordingApi
+    traces: list[dict[str, object]]
+    generations: list[dict[str, object]]
+    spans: list[dict[str, object]]
+    scores: list[dict[str, object]]
     flushed: bool = False
     shutdown_called: bool = False
     datasets: list[dict[str, object]] | None = None
@@ -59,14 +39,27 @@ class RecordingLangfuseSdkClient:
     def shutdown(self) -> None:
         self.shutdown_called = True
 
+    def trace(self, **kwargs: object) -> object:
+        self.traces.append(kwargs)
+        return kwargs
+
+    def generation(self, **kwargs: object) -> object:
+        self.generations.append(kwargs)
+        return kwargs
+
+    def span(self, **kwargs: object) -> object:
+        self.spans.append(kwargs)
+        return kwargs
+
+    def score(self, **kwargs: object) -> object:
+        self.scores.append(kwargs)
+        return kwargs
+
     def create_dataset(
         self,
-        *,
         name: str,
         description: str | None = None,
         metadata: object | None = None,
-        input_schema: object | None = None,
-        expected_output_schema: object | None = None,
     ) -> object:
         if self.datasets is None:
             self.datasets = []
@@ -75,15 +68,12 @@ class RecordingLangfuseSdkClient:
                 "name": name,
                 "description": description,
                 "metadata": metadata,
-                "input_schema": input_schema,
-                "expected_output_schema": expected_output_schema,
             }
         )
         return {"name": name}
 
     def create_dataset_item(
         self,
-        *,
         dataset_name: str,
         input: object | None = None,
         expected_output: object | None = None,
@@ -110,12 +100,14 @@ class RecordingLangfuseSdkClient:
         return {"id": id}
 
 
-def _client() -> tuple[
-    LangfuseSdkExportClient, RecordingIngestionApi, RecordingLangfuseSdkClient
-]:
-    ingestion = RecordingIngestionApi(batches=[], metadatas=[])
-    sdk_client = RecordingLangfuseSdkClient(api=RecordingApi(ingestion=ingestion))
-    return LangfuseSdkExportClient(sdk_client), ingestion, sdk_client
+def _client() -> tuple[LangfuseSdkExportClient, RecordingLangfuseSdkClient]:
+    sdk_client = RecordingLangfuseSdkClient(
+        traces=[],
+        generations=[],
+        spans=[],
+        scores=[],
+    )
+    return LangfuseSdkExportClient(sdk_client), sdk_client
 
 
 def _mapper() -> LangfuseObservationMapper:
@@ -132,7 +124,7 @@ def _mapper() -> LangfuseObservationMapper:
 
 @pytest.mark.asyncio
 async def test_sdk_client_exports_generation_with_deterministic_external_ids() -> None:
-    client, ingestion, _sdk_client = _client()
+    client, sdk_client = _client()
     observation = AiGenerationObservation(
         observation_type=AiObservationType.RAG_GENERATION,
         name="answer_generation",
@@ -162,24 +154,25 @@ async def test_sdk_client_exports_generation_with_deterministic_external_ids() -
     assert isinstance(first, dict)
     assert first["external_trace_id"]
     assert first["external_observation_id"]
-    assert len(ingestion.batches) == 2
-    batch = ingestion.batches[0]
-    assert [event.type for event in batch] == ["trace-create", "generation-create"]
-    generation = batch[1].body
-    assert generation.id == first["external_observation_id"]
-    assert generation.trace_id == first["external_trace_id"]
-    assert generation.input == "question plus context"
-    assert generation.output == "grounded answer"
-    assert generation.model == "qwen3.5:4b"
-    assert generation.usage_details == {"input": 11, "output": 7, "total": 18}
-    assert generation.cost_details == {"total": 0.02}
-    assert generation.prompt_name == "rag.answer"
-    assert generation.prompt_version == 2
+    assert len(sdk_client.traces) == 2
+    assert len(sdk_client.generations) == 2
+    generation = sdk_client.generations[0]
+    assert generation["id"] == first["external_observation_id"]
+    assert generation["trace_id"] == first["external_trace_id"]
+    assert generation["input"] == "question plus context"
+    assert generation["output"] == "grounded answer"
+    assert generation["model"] == "qwen3.5:4b"
+    assert generation["usage_details"] == {"input": 11, "output": 7, "total": 18}
+    assert generation["cost_details"] == {"total": 0.02}
+    assert generation["version"] == "v2"
+    metadata = generation["metadata"]
+    assert isinstance(metadata, dict)
+    assert metadata["prompt"]["name"] == "rag.answer"
 
 
 @pytest.mark.asyncio
 async def test_sdk_client_exports_evaluation_scores_as_langfuse_score_events() -> None:
-    client, ingestion, _sdk_client = _client()
+    client, sdk_client = _client()
     observation = AiEvaluationObservation(
         observation_type=AiObservationType.RAG_ANSWER_QUALITY,
         name="answer_quality",
@@ -209,26 +202,23 @@ async def test_sdk_client_exports_evaluation_scores_as_langfuse_score_events() -
     assert result["dataset_id"] == "dataset-1"
     assert result["case_id"] == "case-1"
     assert result["run_id"] == "run-1"
-    batch = ingestion.batches[0]
-    assert [event.type for event in batch] == [
-        "trace-create",
-        "observation-create",
-        "score-create",
-    ]
-    observation_event = batch[1].body
-    score_event = batch[2].body
-    assert observation_event.type.value == "EVALUATOR"
-    assert score_event.trace_id == result["external_trace_id"]
-    assert score_event.observation_id == result["external_observation_id"]
-    assert score_event.name == "groundedness"
-    assert score_event.value == 0.91
-    assert score_event.comment == "supported by cited chunks"
-    assert score_event.metadata["result"] == "pass"
+    assert len(sdk_client.traces) == 1
+    assert len(sdk_client.spans) == 1
+    assert len(sdk_client.scores) == 1
+    observation_event = sdk_client.spans[0]
+    score_event = sdk_client.scores[0]
+    assert observation_event["trace_id"] == result["external_trace_id"]
+    assert score_event["trace_id"] == result["external_trace_id"]
+    assert score_event["observation_id"] == result["external_observation_id"]
+    assert score_event["name"] == "groundedness"
+    assert score_event["value"] == 0.91
+    assert "supported by cited chunks" in str(score_event["comment"])
+    assert "pass" in str(score_event["comment"])
 
 
 @pytest.mark.asyncio
 async def test_sdk_client_flush_and_shutdown_delegate_to_official_client() -> None:
-    client, _ingestion, sdk_client = _client()
+    client, sdk_client = _client()
 
     await client.flush()
     await client.shutdown()
@@ -291,7 +281,7 @@ def test_langfuse_sdk_imports_are_isolated_to_approved_boundary() -> None:
 
 @pytest.mark.asyncio
 async def test_sdk_client_exports_evaluation_dataset_and_cases() -> None:
-    client, _ingestion, sdk_client = _client()
+    client, sdk_client = _client()
     dataset = AiEvaluationDatasetBuildService().build_default_regression_dataset()
 
     result = await client.export_dataset(dataset)

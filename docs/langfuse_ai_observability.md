@@ -38,7 +38,7 @@ Production AI-capable deployments must provide Langfuse configuration through en
 | `POLARIS_LANGFUSE_RETENTION_DAYS` | Optional | Retention window for terminal PostgreSQL export jobs. Defaults to `90`. |
 | `POLARIS_LANGFUSE_ALLOW_CLOUD_HOST` | Optional | Required approval gate for `cloud.langfuse.com`. Defaults to `false`. |
 
-The settings loader also accepts unprefixed `LANGFUSE_*` names for compatibility with standard Langfuse local tooling, but Polaris-owned deployments should prefer the `POLARIS_LANGFUSE_*` names.
+The settings loader accepts unprefixed `LANGFUSE_*` aliases for standard Langfuse tooling compatibility, but Polaris-owned application export configuration should use the `POLARIS_LANGFUSE_*` names. The Docker Compose service database variables remain `LANGFUSE_POSTGRES_DB`, `LANGFUSE_POSTGRES_USER`, and `LANGFUSE_POSTGRES_PASSWORD` because they configure the self-hosted Langfuse container, not Polaris application export behavior.
 
 ## Bootstrap validation
 
@@ -66,7 +66,7 @@ The export flow is:
 2. `AiObservabilityProjector` sends it to `DurableLangfuseAiObservabilitySink`.
 3. `AiObservabilityExportQueueService` maps the observation to a sanitized payload and stores it as a PostgreSQL export job.
 4. `AiObservabilityExportWorker` claims queued jobs and calls `LangfuseSdkExportClient`.
-5. `LangfuseSdkExportClient` uses the official `langfuse` package and low-level ingestion API to create deterministic trace, observation/generation, and score events.
+5. `LangfuseSdkExportClient` uses the official `langfuse` package boundary to create deterministic trace, generation/span, and score records.
 6. The worker persists external Langfuse trace and observation IDs back to PostgreSQL.
 
 Deterministic Langfuse IDs are derived from Polaris idempotency keys so retrying a durable export job does not create duplicate Langfuse observations.
@@ -141,16 +141,16 @@ When DeepEval is integrated, it should emit canonical Polaris evaluation observa
 
 ## Local self-host setup
 
-Polaris does not currently define a Langfuse service in the repository Docker Compose file. For local development, run an approved self-hosted Langfuse deployment separately, or add a dedicated infrastructure compose profile in a future infrastructure change. The application integration only needs the Langfuse HTTP endpoint and project credentials.
+The repository Docker Compose stack includes a self-hosted Langfuse service for local development. The application integration only needs the Langfuse HTTP endpoint and project credentials; the Langfuse container's own PostgreSQL credentials are separate infrastructure settings.
 
 Minimal local setup flow:
 
-1. Start the self-hosted Langfuse stack outside Polaris.
+1. Start the local PostgreSQL and Langfuse services.
 2. Create or select a Langfuse project for local Polaris testing.
-3. Export only environment variables; do not write secrets into tracked files:
+3. Export only Polaris application variables; do not write real credentials into tracked files:
 
    ```bash
-   export POLARIS_LANGFUSE_HOST="http://localhost:<langfuse-port>"
+   export POLARIS_LANGFUSE_HOST="http://localhost:3000"
    export POLARIS_LANGFUSE_PUBLIC_KEY="<public-key>"
    export POLARIS_LANGFUSE_SECRET_KEY="<secret-key>"
    export POLARIS_LANGFUSE_ENVIRONMENT="development"

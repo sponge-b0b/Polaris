@@ -31,7 +31,12 @@ async def test_operational_status_reports_required_langfuse_configuration() -> N
             AiObservabilityExportJobRepository,
             FakeAiObservabilityExportJobRepository(AiObservabilityExportQueueStatus()),
         ),
-        settings=Settings(ENVIRONMENT="production"),
+        settings=Settings(
+            ENVIRONMENT="production",
+            LANGFUSE_HOST=None,
+            LANGFUSE_PUBLIC_KEY=None,
+            LANGFUSE_SECRET_KEY=None,
+        ),
     )
 
     status = await service.status()

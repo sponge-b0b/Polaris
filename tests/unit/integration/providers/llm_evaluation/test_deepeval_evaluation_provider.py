@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -13,6 +16,12 @@ from integration.providers.llm_evaluation import DeepEvalMetricName
 from integration.providers.llm_evaluation import DeepEvalMetricOutcome
 from integration.providers.llm_evaluation import EvaluationMetricSpec
 from integration.providers.llm_evaluation import EvaluationProviderRequest
+from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
+    _build_metric,
+)
+from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
+    _build_test_case,
+)
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _deepeval_threshold_for,
 )
@@ -186,6 +195,112 @@ def test_deepeval_provider_normalizes_hallucination_to_polaris_score_semantics()
     assert _normalize_metric_score("faithfulness", 0.91) == pytest.approx(0.91)
 
 
+def test_native_deepeval_test_case_maps_canonical_case_fields() -> None:
+    case = EvaluationCase(
+        case_id="case-1",
+        target_type=EvaluationTargetType.RAG_ANSWER,
+        input_text="What changed?",
+        actual_output="Risk was reduced because volatility rose.",
+        expected_output="Risk was reduced.",
+        rubric="Verify the answer is grounded in retrieved evidence.",
+        source_record_ids=("record-1",),
+        workflow_execution_id="exec-1",
+        langfuse_trace_id="trace-1",
+        langfuse_observation_id="observation-1",
+        retrieval_context=("Risk exposure was reduced.",),
+        citation_context_ids=("chunk-1",),
+        tags=("rag", "golden"),
+    )
+
+    test_case = _build_test_case(case)
+
+    assert test_case.input == case.input_text
+    assert test_case.actual_output == case.actual_output
+    assert test_case.expected_output == case.expected_output
+    assert test_case.context == ["Risk exposure was reduced."]
+    assert test_case.retrieval_context == ["Risk exposure was reduced."]
+    assert test_case.name == "case-1"
+    assert test_case.tags == ["rag", "golden"]
+    assert test_case.metadata == {
+        "case_id": "case-1",
+        "target_type": "rag_answer",
+        "source_record_ids": ["record-1"],
+        "workflow_execution_id": "exec-1",
+        "langfuse_trace_id": "trace-1",
+        "langfuse_observation_id": "observation-1",
+        "citation_context_ids": ["chunk-1"],
+        "rubric": "Verify the answer is grounded in retrieved evidence.",
+    }
+
+
+def test_native_metric_builder_maps_supported_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_metrics = _install_fake_deepeval_metric_module(monkeypatch)
+
+    metric = _build_metric(
+        DeepEvalMetricName.HALLUCINATION.value,
+        0.85,
+        "qwen3.5:4b",
+        True,
+    )
+
+    assert isinstance(metric, fake_metrics.HallucinationMetric)
+    assert metric.threshold == pytest.approx(0.15)
+    assert metric.model == "qwen3.5:4b"
+    assert metric.include_reason is True
+    assert metric.async_mode is True
+    assert metric.strict_mode is False
+    assert metric.verbose_mode is False
+
+
+def test_native_metric_builder_maps_custom_geval_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_metrics = _install_fake_deepeval_metric_module(monkeypatch)
+    _install_fake_deepeval_test_case_params(monkeypatch)
+
+    metric = _build_metric(
+        "financial_answer_quality",
+        0.75,
+        "qwen3.5:4b",
+        True,
+        criteria="Assess whether the answer is financially grounded.",
+        evaluation_steps=("Check cited evidence.",),
+    )
+
+    assert isinstance(metric, fake_metrics.GEval)
+    assert metric.name == "financial_answer_quality"
+    assert metric.threshold == pytest.approx(0.75)
+    assert metric.model == "qwen3.5:4b"
+    assert metric.criteria == "Assess whether the answer is financially grounded."
+    assert metric.evaluation_steps == ["Check cited evidence."]
+    assert metric.evaluation_params == [
+        "input",
+        "actual_output",
+        "expected_output",
+        "context",
+        "retrieval_context",
+    ]
+    assert metric.async_mode is True
+    assert metric.strict_mode is False
+    assert metric.verbose_mode is False
+
+
+def test_native_metric_builder_rejects_unknown_metrics_without_rubric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_deepeval_metric_module(monkeypatch)
+
+    with pytest.raises(ValueError, match="Unsupported DeepEval metric"):
+        _build_metric(
+            "financial_answer_quality",
+            0.75,
+            "qwen3.5:4b",
+            True,
+        )
+
+
 class FakeMetricAdapter:
     def __init__(
         self,
@@ -259,3 +374,72 @@ def _case(case_id: str) -> EvaluationCase:
         citation_context_ids=("chunk-1",),
         tags=("rag",),
     )
+
+
+class _FakeMetric:
+    def __init__(self, **kwargs: Any) -> None:
+        self.__dict__.update(kwargs)
+
+
+class _FakeGEval(_FakeMetric):
+    pass
+
+
+def _install_fake_deepeval_metric_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Any:
+    fake_metrics = ModuleType("deepeval.metrics")
+    setattr(
+        fake_metrics,
+        "AnswerRelevancyMetric",
+        type("AnswerRelevancyMetric", (_FakeMetric,), {}),
+    )
+    setattr(
+        fake_metrics,
+        "ContextualPrecisionMetric",
+        type("ContextualPrecisionMetric", (_FakeMetric,), {}),
+    )
+    setattr(
+        fake_metrics,
+        "ContextualRecallMetric",
+        type("ContextualRecallMetric", (_FakeMetric,), {}),
+    )
+    setattr(
+        fake_metrics,
+        "ContextualRelevancyMetric",
+        type("ContextualRelevancyMetric", (_FakeMetric,), {}),
+    )
+    setattr(
+        fake_metrics,
+        "FaithfulnessMetric",
+        type("FaithfulnessMetric", (_FakeMetric,), {}),
+    )
+    setattr(
+        fake_metrics,
+        "HallucinationMetric",
+        type("HallucinationMetric", (_FakeMetric,), {}),
+    )
+    setattr(fake_metrics, "GEval", _FakeGEval)
+    monkeypatch.setitem(sys.modules, "deepeval.metrics", fake_metrics)
+    return fake_metrics
+
+
+def _install_fake_deepeval_test_case_params(
+    monkeypatch: pytest.MonkeyPatch,
+) -> ModuleType:
+    fake_llm_test_case = ModuleType("deepeval.test_case.llm_test_case")
+
+    class SingleTurnParams:
+        INPUT = "input"
+        ACTUAL_OUTPUT = "actual_output"
+        EXPECTED_OUTPUT = "expected_output"
+        CONTEXT = "context"
+        RETRIEVAL_CONTEXT = "retrieval_context"
+
+    setattr(fake_llm_test_case, "SingleTurnParams", SingleTurnParams)
+    monkeypatch.setitem(
+        sys.modules,
+        "deepeval.test_case.llm_test_case",
+        fake_llm_test_case,
+    )
+    return fake_llm_test_case

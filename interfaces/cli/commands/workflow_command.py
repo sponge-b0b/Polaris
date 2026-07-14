@@ -24,7 +24,6 @@ from interfaces.cli.commands.workflow_command_boundary import (
 from interfaces.cli.formatters.console_formatter import format_workflow_list
 from interfaces.cli.formatters.json_formatter import format_json
 from interfaces.cli.formatters.json_formatter import to_jsonable
-from interfaces.cli.rendering.workflow_rendering import render_workflow_output
 from interfaces.cli.rendering.workflow_rendering import (
     workflow_exception_to_render_envelope,
 )
@@ -68,21 +67,6 @@ PluginDirs = Annotated[
         help="Plugin directory to autoload before running commands.",
     ),
 ]
-
-
-def _render(
-    value: Any,
-    output_format: str,
-) -> str:
-    try:
-        return render_workflow_output(
-            value,
-            output_format,
-        )
-    except ValueError as exc:
-        raise typer.BadParameter(
-            str(exc),
-        ) from exc
 
 
 @workflow_app.command("list")

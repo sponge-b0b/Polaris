@@ -206,16 +206,3 @@ class AlpacaPortfolioClient:
             "positions": positions,
             "portfolio": portfolio,
         }
-
-    # ============================================================
-    # RAW ACCESS (optional for debugging)
-    # ============================================================
-
-    async def _get_raw_account(self):
-        return await asyncio.to_thread(self.client.get_account)
-
-    async def _get_raw_positions(self):
-        return await asyncio.to_thread(self.client.get_all_positions)
-
-    async def _get_raw_portfolio_history(self):
-        return await asyncio.to_thread(self.client.get_portfolio_history)

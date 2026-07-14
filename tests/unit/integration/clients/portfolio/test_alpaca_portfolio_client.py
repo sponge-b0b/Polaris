@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
 from typing import Any
 
 import pytest
@@ -12,15 +11,6 @@ from integration.clients.portfolio.alpaca_portfolio_client import (
 
 def _client_without_init() -> AlpacaPortfolioClient:
     return object.__new__(AlpacaPortfolioClient)
-
-
-def _async_method(
-    value: Any,
-) -> Awaitable[Any]:
-    async def method() -> Any:
-        return value
-
-    return method()
 
 
 @pytest.mark.asyncio

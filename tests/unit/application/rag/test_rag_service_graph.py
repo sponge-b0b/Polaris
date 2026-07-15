@@ -171,6 +171,36 @@ async def test_rag_service_graph_projects_stage_ai_observations() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rag_service_graph_projects_generation_artifact_metadata() -> None:
+    request = _request("ai-artifact-observability")
+    context = _context()
+    projector = RecordingAiObservabilityProjector()
+    graph = RagServiceGraph(
+        query_routing_service=FakeRoutingService(route=RagRetrievalRoute.RETRIEVAL),
+        retriever=FakeRetriever(batches=((context,),)),
+        answer_generator=ArtifactAnswerGenerator(),
+        ai_observability_projector=projector,
+    )
+
+    result = await graph.run(request)
+
+    assert result.status == "answered"
+    observations_by_name = {
+        observation.name: observation for observation in projector.observations
+    }
+    secure_generation = observations_by_name["secure_generation"]
+    assert secure_generation.prompt_reference is not None
+    assert secure_generation.prompt_reference.prompt_name == "optimized-rag-answer"
+    assert secure_generation.prompt_reference.prompt_version == "v2"
+    assert secure_generation.prompt_reference.prompt_hash == "a" * 64
+    assert secure_generation.metadata["ai_artifact_id"] == "artifact-rag-answer-v2"
+    assert secure_generation.metadata["ai_artifact_type"] == "dspy_compiled_prompt"
+    assert secure_generation.metadata["ai_artifact_prompt_reference"] == (
+        "dspy://rag_answer_generation/optimized-rag-answer/v2/aaaaaaaaaaaa"
+    )
+
+
+@pytest.mark.asyncio
 async def test_deep_research_route_runs_hyde_before_retrieval() -> None:
     request = _request("deep")
     routing = FakeRoutingService(route=RagRetrievalRoute.DEEP_RESEARCH)
@@ -374,6 +404,34 @@ class FakeAnswerGenerator:
                 "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION,
                 "prompt_hash": RAG_ANSWER_GENERATION_PROMPT_HASH,
                 "prompt_source": RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+            },
+        )
+
+
+class ArtifactAnswerGenerator:
+    async def generate(
+        self,
+        *,
+        request: RagRequest,
+        contexts: tuple[RagRetrievedContext, ...],
+    ) -> RagResult:
+        if not contexts:
+            return RagResult.no_results(request=request)
+        return RagResult.answered(
+            request=request,
+            answer_text="SPY breadth improved [C1].",
+            contexts=contexts,
+            confidence_score=0.9,
+            metadata={
+                "prompt_name": "optimized-rag-answer",
+                "prompt_version": "v2",
+                "prompt_hash": "a" * 64,
+                "prompt_source": "application.ai_optimization",
+                "ai_artifact_id": "artifact-rag-answer-v2",
+                "ai_artifact_type": "dspy_compiled_prompt",
+                "ai_artifact_prompt_reference": (
+                    "dspy://rag_answer_generation/optimized-rag-answer/v2/aaaaaaaaaaaa"
+                ),
             },
         )
 

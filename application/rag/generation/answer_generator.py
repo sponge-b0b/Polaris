@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
 
+from application.ai_optimization.runtime_artifacts import AiPromptArtifactResolver
+from application.ai_optimization.runtime_artifacts import (
+    RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+)
+from application.ai_optimization.runtime_artifacts import ResolvedAiPromptArtifact
 from application.rag.generation.secure_prompt_builder import (
     RAG_ANSWER_GENERATION_PROMPT_HASH,
 )
@@ -21,6 +26,7 @@ from application.rag.generation.secure_prompt_builder import SecureRagPromptBuil
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from core.storage.persistence.ai_artifacts import AiArtifactType
 from core.storage.persistence.rag import JsonObject
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.answer_generation_provider import (
@@ -65,11 +71,13 @@ class RagAnswerGenerator:
         prompt_builder: SecureRagPromptBuilder | None = None,
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagAnswerGeneratorConfig | None = None,
+        prompt_artifact_resolver: AiPromptArtifactResolver | None = None,
     ) -> None:
         self._answer_provider = answer_provider
         self._prompt_builder = prompt_builder or SecureRagPromptBuilder()
         self._telemetry = telemetry
         self._config = config or RagAnswerGeneratorConfig()
+        self._prompt_artifact_resolver = prompt_artifact_resolver
 
     async def generate(
         self,
@@ -110,10 +118,13 @@ class RagAnswerGenerator:
                 },
             )
 
+            prompt_artifact = await self._resolve_prompt_artifact()
+
             stage_started_at = perf_counter()
             provider_result = await self._answer_provider.generate_answer(
                 _provider_request_from_package(
                     package,
+                    prompt_artifact=prompt_artifact,
                 )
             )
             await self._emit_stage_completed(
@@ -125,6 +136,12 @@ class RagAnswerGenerator:
                     "provider_name": provider_result.provider_name,
                     "generation_model": provider_result.model,
                     "confidence_score": provider_result.confidence_score,
+                    "ai_artifact_id": None
+                    if prompt_artifact is None
+                    else prompt_artifact.artifact_id,
+                    "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION
+                    if prompt_artifact is None
+                    else prompt_artifact.artifact_version,
                 },
             )
         except Exception as exc:
@@ -148,6 +165,7 @@ class RagAnswerGenerator:
                 provider_name=provider_result.provider_name,
                 model=provider_result.model,
                 provider_metadata=provider_result.metadata,
+                prompt_artifact=prompt_artifact,
             ),
         )
         await self._emit_completed(
@@ -157,6 +175,16 @@ class RagAnswerGenerator:
             duration_seconds=perf_counter() - started_at,
         )
         return result
+
+    async def _resolve_prompt_artifact(
+        self,
+    ) -> ResolvedAiPromptArtifact | None:
+        if self._prompt_artifact_resolver is None:
+            return None
+        return await self._prompt_artifact_resolver.resolve_active_artifact(
+            RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+            artifact_type=AiArtifactType.DSPY_COMPILED_PROMPT,
+        )
 
     async def _emit_started(
         self,
@@ -239,7 +267,20 @@ class RagAnswerGenerator:
 
 def _provider_request_from_package(
     package: SecureRagContextPackage,
+    *,
+    prompt_artifact: ResolvedAiPromptArtifact | None = None,
 ) -> RagAnswerGenerationRequest:
+    metadata: JsonObject = {
+        "package_id": package.package_id,
+        "route": package.request.route,
+        "context_count": len(package.blocks),
+    }
+    if prompt_artifact is not None:
+        metadata = {
+            **metadata,
+            **prompt_artifact.to_metadata(),
+        }
+
     return RagAnswerGenerationRequest(
         request_id=package.request.request_id,
         query=package.request.normalized_query,
@@ -247,11 +288,7 @@ def _provider_request_from_package(
         user_prompt=package.user_prompt,
         context_payload=package.context_payload,
         citation_ids=package.citation_ids,
-        metadata={
-            "package_id": package.package_id,
-            "route": package.request.route,
-            "context_count": len(package.blocks),
-        },
+        metadata=metadata,
     )
 
 
@@ -261,7 +298,18 @@ def _result_metadata(
     provider_name: str | None,
     model: str | None,
     provider_metadata: JsonObject,
+    prompt_artifact: ResolvedAiPromptArtifact | None = None,
 ) -> JsonObject:
+    prompt_metadata: JsonObject = (
+        {
+            "prompt_name": RAG_ANSWER_GENERATION_PROMPT_NAME,
+            "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION,
+            "prompt_hash": RAG_ANSWER_GENERATION_PROMPT_HASH,
+            "prompt_source": RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+        }
+        if prompt_artifact is None
+        else prompt_artifact.to_metadata()
+    )
     return {
         "context_package_id": package.package_id,
         "citation_ids": list(
@@ -269,10 +317,7 @@ def _result_metadata(
         ),
         "generation_provider": provider_name,
         "generation_model": model,
-        "prompt_name": RAG_ANSWER_GENERATION_PROMPT_NAME,
-        "prompt_version": RAG_ANSWER_GENERATION_PROMPT_VERSION,
-        "prompt_hash": RAG_ANSWER_GENERATION_PROMPT_HASH,
-        "prompt_source": RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+        **prompt_metadata,
         "provider_metadata": dict(
             provider_metadata,
         ),

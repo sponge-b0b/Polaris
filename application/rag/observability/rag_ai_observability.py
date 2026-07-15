@@ -324,6 +324,32 @@ async def record_generation_observation(
                     "citation_count": len(result.citations),
                     "confidence_score": result.confidence_score,
                     "injection_detected": result.injection_detected,
+                    "prompt_name": _metadata_str(result.metadata, "prompt_name"),
+                    "prompt_version": _metadata_str(
+                        result.metadata,
+                        "prompt_version",
+                    ),
+                    "prompt_source": _metadata_str(result.metadata, "prompt_source"),
+                    "ai_artifact_id": _metadata_str(
+                        result.metadata,
+                        "ai_artifact_id",
+                    ),
+                    "ai_artifact_type": _metadata_str(
+                        result.metadata,
+                        "ai_artifact_type",
+                    ),
+                    "ai_artifact_prompt_reference": _metadata_str(
+                        result.metadata,
+                        "ai_artifact_prompt_reference",
+                    ),
+                    "ai_artifact_evaluation_dataset_id": _metadata_str(
+                        result.metadata,
+                        "ai_artifact_evaluation_dataset_id",
+                    ),
+                    "ai_artifact_evaluation_run_id": _metadata_str(
+                        result.metadata,
+                        "ai_artifact_evaluation_run_id",
+                    ),
                 }
             ),
         )

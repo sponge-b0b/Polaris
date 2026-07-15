@@ -313,8 +313,12 @@ MATCH (document:RagEntity {projection: $projection})
 WHERE document.document_id IS NOT NULL
 OPTIONAL MATCH (document)-[]-(related:RagEntity {projection: $projection})
 WITH document,
-     [value IN collect(DISTINCT coalesce(related.symbol, related.regime, related.theme, related.title))
-      WHERE value IS NOT NULL] AS related_entities
+     [value IN collect(DISTINCT coalesce(
+         properties(related)["symbol"],
+         properties(related)["regime"],
+         properties(related)["theme"],
+         properties(related)["title"]
+     )) WHERE value IS NOT NULL] AS related_entities
 WITH document, related_entities,
      size([term IN $query_terms WHERE
          toLower(coalesce(document.search_text, '')) CONTAINS term OR

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from core.database.models.ai_observability import AiObservabilityExportJobModel
+from core.database.models.ai_artifacts import AiPromptProgramArtifactModel
 from core.database.models.evaluation import EvaluationArtifactModel
 from core.database.models.evaluation import EvaluationCaseModel
 from core.database.models.evaluation import EvaluationDatasetModel
@@ -81,6 +82,7 @@ from core.database.models.runtime import WorkflowStateSnapshotModel
 
 __all__ = [
     "AiObservabilityExportJobModel",
+    "AiPromptProgramArtifactModel",
     "EvaluationArtifactModel",
     "EvaluationCaseModel",
     "EvaluationDatasetModel",

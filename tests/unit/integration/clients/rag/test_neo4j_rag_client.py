@@ -12,6 +12,7 @@ from integration.clients.rag.neo4j_rag_client import Neo4jNode
 from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
 from integration.clients.rag.neo4j_rag_client import Neo4jRelationship
 from integration.clients.rag.neo4j_rag_client import Neo4jSearchQuery
+from integration.clients.rag.neo4j_rag_client import _GRAPH_SEARCH_QUERY
 from integration.clients.rag.neo4j_rag_client import node_upsert_query
 from integration.clients.rag.neo4j_rag_client import relationship_upsert_query
 from integration.providers.rag.graph_projection_models import GraphNodeType
@@ -138,3 +139,10 @@ def test_cypher_templates_only_accept_typed_graph_enums() -> None:
     assert "relationship:DECISION_SELECTED_HYPOTHESIS" in relationship_upsert_query(
         GraphRelationshipType.DECISION_SELECTED_HYPOTHESIS.value
     )
+
+
+def test_graph_search_query_uses_dynamic_optional_related_properties() -> None:
+    assert "related.regime" not in _GRAPH_SEARCH_QUERY
+    assert "related.theme" not in _GRAPH_SEARCH_QUERY
+    assert 'properties(related)["regime"]' in _GRAPH_SEARCH_QUERY
+    assert 'properties(related)["theme"]' in _GRAPH_SEARCH_QUERY

@@ -293,3 +293,19 @@ For the full evaluation architecture, dataset catalog, threshold policy, CLI wor
 ## Test support
 
 Unit tests use fake clients/sinks to verify AI-observability emission and SDK payload mapping without a live Langfuse service. Live Langfuse tests must be explicitly marked/documented and should run only after the user confirms the Langfuse service is available.
+
+## Instructor, DSPy, and DeepEval correlations
+
+Langfuse is the AI-observability surface for the structured-output and optimization lifecycle. It is intentionally a projection over canonical Polaris records.
+
+Structured generation observations should include:
+
+- structured-output provider and model;
+- schema name and schema version;
+- prompt name, pinned prompt version, and prompt hash when available;
+- approved artifact ID, artifact type, artifact version, and artifact target when an active artifact is used;
+- evaluation dataset, case, run, and metric identifiers when generation is part of an evaluation flow.
+
+DSPy optimization observations should include the optimization target, dataset identifier, candidate artifact ID, DeepEval run ID, score summary, and promotion status. Langfuse can compare traces and prompt versions, but it must not become the artifact approval authority. Approval, activation, and runtime discovery remain PostgreSQL-backed Polaris operations.
+
+DeepEval score projections into Langfuse must preserve score reasons and thresholds where policy allows, but PostgreSQL remains authoritative for the complete evaluation result history.

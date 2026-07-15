@@ -30,6 +30,14 @@ DEFAULT_LANGFUSE_RETENTION_DAYS = 90
 DEFAULT_DEEPEVAL_DEFAULT_THRESHOLD = 0.7
 DEFAULT_DEEPEVAL_MAX_CONCURRENCY = 4
 DEFAULT_DEEPEVAL_TIMEOUT_SECONDS = 60.0
+DEFAULT_STRUCTURED_OUTPUT_PROVIDER = "instructor"
+DEFAULT_STRUCTURED_OUTPUT_MODEL = DEFAULT_RAG_SYNTHESIS_MODEL
+DEFAULT_STRUCTURED_OUTPUT_MAX_RETRIES = 2
+DEFAULT_STRUCTURED_OUTPUT_TIMEOUT_SECONDS = 60.0
+DEFAULT_DSPY_OPTIMIZATION_MODEL = DEFAULT_RAG_SYNTHESIS_MODEL
+DEFAULT_DSPY_MAX_TRAINSET_CASES = 100
+DEFAULT_DSPY_ARTIFACT_RETENTION_DAYS = 90
+STRUCTURED_OUTPUT_PROVIDERS = frozenset({"instructor"})
 LANGFUSE_REDACTION_MODES = frozenset({"strict", "metadata_only", "permissive"})
 PRODUCTION_ENVIRONMENTS = frozenset({"prod", "production"})
 
@@ -170,6 +178,76 @@ class Settings(BaseSettings):
 
     VECTOR_SIZE: int = DEFAULT_VECTOR_SIZE
     TOP_K_RESULTS: int = 5
+
+    # ============================================================
+    # STRUCTURED LLM OUTPUT / INSTRUCTOR
+    # ============================================================
+
+    STRUCTURED_OUTPUT_PROVIDER: str = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_PROVIDER,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_PROVIDER",
+            "STRUCTURED_OUTPUT_PROVIDER",
+        ),
+    )
+    STRUCTURED_OUTPUT_MODEL: str = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_MODEL,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_MODEL",
+            "STRUCTURED_OUTPUT_MODEL",
+        ),
+    )
+    STRUCTURED_OUTPUT_MAX_RETRIES: int = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_MAX_RETRIES,
+        ge=0,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_MAX_RETRIES",
+            "STRUCTURED_OUTPUT_MAX_RETRIES",
+        ),
+    )
+    STRUCTURED_OUTPUT_TIMEOUT_SECONDS: float = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_TIMEOUT_SECONDS,
+        gt=0.0,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
+            "STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
+        ),
+    )
+
+    # ============================================================
+    # DSPY AI OPTIMIZATION
+    # ============================================================
+
+    DSPY_ENABLED: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_DSPY_ENABLED",
+            "DSPY_ENABLED",
+        ),
+    )
+    DSPY_OPTIMIZATION_MODEL: str = Field(
+        default=DEFAULT_DSPY_OPTIMIZATION_MODEL,
+        validation_alias=AliasChoices(
+            "POLARIS_DSPY_OPTIMIZATION_MODEL",
+            "DSPY_OPTIMIZATION_MODEL",
+        ),
+    )
+    DSPY_MAX_TRAINSET_CASES: int = Field(
+        default=DEFAULT_DSPY_MAX_TRAINSET_CASES,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_DSPY_MAX_TRAINSET_CASES",
+            "DSPY_MAX_TRAINSET_CASES",
+        ),
+    )
+    DSPY_ARTIFACT_RETENTION_DAYS: int = Field(
+        default=DEFAULT_DSPY_ARTIFACT_RETENTION_DAYS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_DSPY_ARTIFACT_RETENTION_DAYS",
+            "DSPY_ARTIFACT_RETENTION_DAYS",
+        ),
+    )
 
     # ============================================================
     # AI OBSERVABILITY / LANGFUSE
@@ -414,6 +492,23 @@ class Settings(BaseSettings):
             stripped = value.strip()
             return stripped or None
         return value
+
+    @field_validator("STRUCTURED_OUTPUT_PROVIDER")
+    @classmethod
+    def _validate_structured_output_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in STRUCTURED_OUTPUT_PROVIDERS:
+            allowed = ", ".join(sorted(STRUCTURED_OUTPUT_PROVIDERS))
+            raise ValueError(f"STRUCTURED_OUTPUT_PROVIDER must be one of: {allowed}.")
+        return normalized
+
+    @field_validator("STRUCTURED_OUTPUT_MODEL", "DSPY_OPTIMIZATION_MODEL")
+    @classmethod
+    def _validate_non_empty_ai_model_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("AI model names cannot be empty.")
+        return stripped
 
     @field_validator("LANGFUSE_REDACTION_MODE")
     @classmethod

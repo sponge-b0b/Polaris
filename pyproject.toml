@@ -77,6 +77,8 @@ dependencies = [
     "mcp>=1.27,<2",
     "deepeval>=4.1.0",
     "langfuse<3.0.0",
+    "instructor>=1.15.4",
+    "dspy>=3.2.1",
 ]
 
 [project.scripts]

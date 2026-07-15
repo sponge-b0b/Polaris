@@ -7,11 +7,16 @@ from datetime import timezone
 
 import pytest
 
+from application.ai_optimization.runtime_artifacts import (
+    RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+)
+from application.ai_optimization.runtime_artifacts import ResolvedAiPromptArtifact
 from application.rag.generation import RagAnswerGenerator
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_context import RagSource
 from application.rag.generation import SecureRagPromptBuilder
+from core.storage.persistence.ai_artifacts import AiArtifactType
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
 )
@@ -105,6 +110,84 @@ async def test_answer_generator_uses_policy_boundary_and_persisted_citations() -
 
 
 @pytest.mark.asyncio
+async def test_answer_generator_uses_source_controlled_prompt_without_artifact() -> (
+    None
+):
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:source-controlled-prompt",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Breadth improved [C1].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.8,
+        )
+    )
+    resolver = FakePromptArtifactResolver()
+    generator = RagAnswerGenerator(
+        answer_provider=provider,
+        prompt_artifact_resolver=resolver,
+    )
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Breadth improved."),),
+    )
+
+    assert result.status == "answered"
+    assert result.metadata["prompt_source"] == "polaris.source_controlled"
+    assert "ai_artifact_id" not in result.metadata
+    assert "ai_artifact_id" not in provider.requests[0].metadata
+    assert resolver.requests == (
+        (
+            RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+            AiArtifactType.DSPY_COMPILED_PROMPT,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_answer_generator_uses_approved_prompt_artifact_metadata() -> None:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:approved-artifact",
+    )
+    artifact = _prompt_artifact()
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Breadth improved [C1].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.8,
+        )
+    )
+    generator = RagAnswerGenerator(
+        answer_provider=provider,
+        prompt_artifact_resolver=FakePromptArtifactResolver(artifact=artifact),
+    )
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Breadth improved."),),
+    )
+
+    assert result.status == "answered"
+    assert result.metadata["ai_artifact_id"] == "artifact-rag-answer-v2"
+    assert result.metadata["ai_artifact_type"] == "dspy_compiled_prompt"
+    assert result.metadata["ai_artifact_prompt_reference"] == (
+        "dspy://rag_answer_generation/optimized-rag-answer/v2/aaaaaaaaaaaa"
+    )
+    assert result.metadata["prompt_name"] == "optimized-rag-answer"
+    assert result.metadata["prompt_version"] == "v2"
+    assert result.metadata["prompt_hash"] == "a" * 64
+    assert result.metadata["prompt_source"] == "application.ai_optimization"
+    assert provider.requests[0].metadata["ai_artifact_id"] == ("artifact-rag-answer-v2")
+    assert provider.requests[0].metadata["prompt_version"] == "v2"
+
+
+@pytest.mark.asyncio
 async def test_answer_generator_returns_no_results_without_context() -> None:
     request = RagRequest(
         query="Summarize market breadth.",
@@ -155,6 +238,25 @@ async def test_answer_generator_returns_failed_result_on_provider_error() -> Non
     assert result.answer_text == "RAG request failed: provider unavailable"
 
 
+class FakePromptArtifactResolver:
+    def __init__(
+        self,
+        *,
+        artifact: ResolvedAiPromptArtifact | None = None,
+    ) -> None:
+        self.artifact = artifact
+        self.requests: tuple[tuple[str, AiArtifactType | str | None], ...] = ()
+
+    async def resolve_active_artifact(
+        self,
+        target_component: str,
+        *,
+        artifact_type: AiArtifactType | str | None = None,
+    ) -> ResolvedAiPromptArtifact | None:
+        self.requests = self.requests + ((target_component, artifact_type),)
+        return self.artifact
+
+
 class FakeAnswerProvider:
     def __init__(
         self,
@@ -176,6 +278,24 @@ class FakeAnswerProvider:
         if self.result is None:
             raise RuntimeError("missing fake provider result")
         return self.result
+
+
+def _prompt_artifact() -> ResolvedAiPromptArtifact:
+    return ResolvedAiPromptArtifact(
+        artifact_id="artifact-rag-answer-v2",
+        artifact_type="dspy_compiled_prompt",
+        artifact_name="optimized-rag-answer",
+        artifact_version="v2",
+        target_component=RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+        model_name="qwen3.5:4b",
+        provider_name="dspy",
+        prompt_reference="dspy://rag_answer_generation/optimized-rag-answer/v2/aaaaaaaaaaaa",
+        prompt_hash="a" * 64,
+        source="application.ai_optimization",
+        evaluation_dataset_id="golden-rag-answer",
+        evaluation_run_id="eval-run-1",
+        langfuse_trace_id="trace-1",
+    )
 
 
 def _context(

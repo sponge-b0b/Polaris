@@ -5,6 +5,7 @@ from dishka import Scope
 from dishka import provide
 
 from config.rag_model_config import RagModelConfig
+from config.settings import Settings
 from core.llm.ollama_client import OllamaClient
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
@@ -20,8 +21,15 @@ from integration.providers.rag.firecrawl_web_retrieval_provider import (
 from integration.providers.rag.neo4j_graph_projection_provider import (
     Neo4jGraphProjectionProvider,
 )
-from integration.providers.rag.ollama_answer_generation_provider import (
-    OllamaRagAnswerGenerationProvider,
+from integration.providers.llm_structured_output import (
+    InstructorStructuredOutputProvider,
+)
+from integration.providers.llm_structured_output import StructuredOutputRetryPolicy
+from integration.providers.rag.structured_answer_generation_provider import (
+    StructuredRagAnswerGenerationProvider,
+)
+from integration.providers.rag.structured_answer_generation_provider import (
+    StructuredRagAnswerGenerationProviderConfig,
 )
 from integration.providers.rag.ollama_quality_evaluation_provider import (
     OllamaRagQualityModelProvider,
@@ -110,14 +118,32 @@ class RagProvidersDIProvider(Provider):
         )
 
     @provide
+    def provide_structured_output_provider(
+        self,
+        settings: Settings,
+        telemetry: IntegrationTelemetry,
+    ) -> InstructorStructuredOutputProvider:
+        return InstructorStructuredOutputProvider.from_settings(
+            settings,
+            telemetry=telemetry,
+        )
+
+    @provide
     def provide_answer_generation_provider(
         self,
-        client: OllamaClient,
-        telemetry: IntegrationTelemetry,
-    ) -> OllamaRagAnswerGenerationProvider:
-        return OllamaRagAnswerGenerationProvider(
-            client,
-            telemetry=telemetry,
+        structured_output_provider: InstructorStructuredOutputProvider,
+        settings: Settings,
+    ) -> StructuredRagAnswerGenerationProvider:
+        return StructuredRagAnswerGenerationProvider(
+            structured_output_provider=structured_output_provider,
+            config=StructuredRagAnswerGenerationProviderConfig(
+                model=settings.STRUCTURED_OUTPUT_MODEL,
+                provider_name=settings.STRUCTURED_OUTPUT_PROVIDER,
+                retry_policy=StructuredOutputRetryPolicy(
+                    max_retries=settings.STRUCTURED_OUTPUT_MAX_RETRIES,
+                    timeout_seconds=settings.STRUCTURED_OUTPUT_TIMEOUT_SECONDS,
+                ),
+            ),
         )
 
     @provide

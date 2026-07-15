@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typer
 
+from interfaces.cli.commands.ai_command import ai_app
 from interfaces.cli.commands.backtest_command import backtest_app
 from interfaces.cli.commands.completed_runs_command import completed_runs_app
 from interfaces.cli.commands.evaluation_command import evaluation_app
@@ -32,6 +33,10 @@ def create_app() -> typer.Typer:
     app.add_typer(
         workflow_app,
         name="workflow",
+    )
+    app.add_typer(
+        ai_app,
+        name="ai",
     )
     app.add_typer(
         inspect_app,

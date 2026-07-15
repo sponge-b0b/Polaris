@@ -4,6 +4,8 @@ from dishka import Provider
 from dishka import Scope
 from dishka import provide
 
+from application.ai_optimization import ActiveAiPromptArtifactResolver
+from application.ai_optimization import AiPromptArtifactResolver
 from application.observability import AiObservabilityProjector
 from application.rag.ingestion.curated_rag_bundle_persistence import (
     CuratedRagBundlePersister,
@@ -58,6 +60,7 @@ from application.rag.retrieval.structured_retrieval import MarketStructuredRagRe
 from application.rag.retrieval.web_fallback_service import RagWebFallbackService
 from config.rag_model_config import RagModelConfig
 from config.settings import Settings
+from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
 from core.storage.persistence.rag import RagPersistenceRepository
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
     PostgresAgentSignalPersistenceRepository,
@@ -98,8 +101,8 @@ from integration.providers.rag.firecrawl_web_retrieval_provider import (
 from integration.providers.rag.neo4j_graph_projection_provider import (
     Neo4jGraphProjectionProvider,
 )
-from integration.providers.rag.ollama_answer_generation_provider import (
-    OllamaRagAnswerGenerationProvider,
+from integration.providers.rag.structured_answer_generation_provider import (
+    StructuredRagAnswerGenerationProvider,
 )
 from integration.providers.rag.ollama_quality_evaluation_provider import (
     OllamaRagQualityModelProvider,
@@ -272,14 +275,23 @@ class RagApplicationDIProvider(Provider):
         )
 
     @provide
+    def provide_ai_prompt_artifact_resolver(
+        self,
+        repository: AiArtifactPersistenceRepository,
+    ) -> AiPromptArtifactResolver:
+        return ActiveAiPromptArtifactResolver(repository)
+
+    @provide
     def provide_answer_generator(
         self,
-        provider: OllamaRagAnswerGenerationProvider,
+        provider: StructuredRagAnswerGenerationProvider,
         telemetry: ApplicationRagTelemetry,
+        prompt_artifact_resolver: AiPromptArtifactResolver,
     ) -> RagAnswerGenerator:
         return RagAnswerGenerator(
             answer_provider=provider,
             telemetry=telemetry,
+            prompt_artifact_resolver=prompt_artifact_resolver,
         )
 
     @provide

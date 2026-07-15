@@ -379,3 +379,15 @@ Notify collaborators before running tests that require live services. Do not wai
 5. Add metric definitions or threshold-profile entries when the existing policy is insufficient.
 6. Add tests that validate the dataset definition, fixture shape, source lineage, and selected metric policy.
 7. Register or project persisted cases through the canonical application services, not by inserting arbitrary metadata.
+
+## Structured output and optimization boundaries
+
+Instructor and DSPy complement the evaluation layer but do not replace it.
+
+- **Instructor** enforces runtime schema validity. A structurally valid answer can still be ungrounded, incomplete, unsafe, or low quality.
+- **DSPy** creates candidate prompt/program artifacts in an offline workbench. Candidate selection must be judged through the canonical evaluation services.
+- **DeepEval** remains the canonical semantic evaluation engine for answer quality, grounding, citation support, refusal correctness, prompt-injection resistance, report quality, strategy rationale quality, recommendation explanations, MCP responses, and agent task completion.
+- **Langfuse** receives projected evaluation observations, score summaries, dataset/case/run identifiers, and trace correlations for AI-engineering analysis.
+- **PostgreSQL** remains the durable system of record for evaluation datasets, cases, runs, metric results, and AI prompt/program artifacts.
+
+DSPy artifacts should carry evaluation run IDs, dataset IDs, case counts, score summaries, and Langfuse correlation IDs when available. Runtime services should consume only approved active artifacts by reference; they should not run optimizers or use unreviewed dataset outputs during normal workflow execution.

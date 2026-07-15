@@ -658,3 +658,30 @@ text first.
 - **Firecrawl not used:** verify both `FIRECRAWL_ENABLED=true` and the request's
   `--web` flag; fallback still occurs only when CRAG requests corrective web
   evidence.
+
+## Structured generation and prompt artifact governance
+
+The RAG synthesis stage uses Instructor-backed structured output through the canonical structured-output provider boundary. The schema-enforced output is mapped back into the existing `RagResult` contract, so callers continue to receive the same application-level RAG response while generation becomes easier to validate, evaluate, and observe.
+
+Prompt/program optimization is intentionally outside the normal RAG runtime path. DSPy is available through the explicit AI optimization workbench:
+
+```bash
+polaris ai optimize --target rag_answer_generation --dataset <dataset-name>
+polaris ai artifacts approve <artifact-id> --approved-by <reviewer>
+polaris ai artifacts activate <artifact-id>
+```
+
+At runtime, `RagAnswerGenerator` resolves an approved active artifact for the `rag_answer_generation` target when one exists. If no approved active artifact exists, it uses the source-controlled fallback prompt metadata. The runtime does not execute DSPy optimization, select mutable prompt labels, or read unapproved local artifacts.
+
+The ownership model is:
+
+| Capability | Owner |
+| --- | --- |
+| Structured answer schema enforcement | Instructor provider boundary |
+| RAG orchestration and secure generation | Polaris RAG application services |
+| Prompt/program candidate optimization | DSPy offline workbench |
+| Semantic quality and safety evaluation | DeepEval evaluation services |
+| Prompt, trace, dataset, score, and artifact observability | Langfuse projection services |
+| Workflow evidence, curated records, query/answer logs, evaluations, and approved artifacts | PostgreSQL |
+
+This keeps RAG generation typed and observable without turning Instructor, DSPy, or Langfuse into parallel runtime or persistence systems.

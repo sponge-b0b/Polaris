@@ -20,6 +20,8 @@ litellm_settings:
   drop_params: true
   request_timeout: 60
   set_verbose: false
+  # Native callback engine mapping to log everything directly to langfuse tracking dashboard
+  callbacks: ["langfuse"]
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

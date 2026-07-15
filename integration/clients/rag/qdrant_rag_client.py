@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 from typing import Protocol
 from typing import cast
+from uuid import NAMESPACE_URL
+from uuid import uuid5
 
 from qdrant_client import AsyncQdrantClient
 from qdrant_client import models
@@ -281,7 +283,7 @@ class QdrantRagClient:
             collection_name=collection_name,
             points=[
                 models.PointStruct(
-                    id=point.point_id,
+                    id=_qdrant_point_id(point.point_id),
                     vector={
                         DENSE_VECTOR_NAME: list(point.dense_vector),
                         SPARSE_VECTOR_NAME: models.SparseVector(
@@ -289,7 +291,7 @@ class QdrantRagClient:
                             values=list(point.sparse_values),
                         ),
                     },
-                    payload=dict(point.payload),
+                    payload=_upsert_payload(point),
                 )
                 for point in points
             ],
@@ -370,12 +372,22 @@ def _build_filter(
 def _search_hit_from_qdrant(
     hit: object,
 ) -> QdrantSearchHit:
+    payload = _payload_from_qdrant(
+        getattr(
+            hit,
+            "payload",
+            {},
+        )
+    )
     return QdrantSearchHit(
-        point_id=str(
-            getattr(
-                hit,
-                "id",
-            )
+        point_id=_canonical_point_id(
+            qdrant_point_id=str(
+                getattr(
+                    hit,
+                    "id",
+                )
+            ),
+            payload=payload,
         ),
         score=float(
             getattr(
@@ -383,14 +395,49 @@ def _search_hit_from_qdrant(
                 "score",
             )
         ),
-        payload=_payload_from_qdrant(
-            getattr(
-                hit,
-                "payload",
-                {},
-            )
-        ),
+        payload=payload,
     )
+
+
+def _qdrant_point_id(
+    canonical_point_id: str,
+) -> str:
+    return str(
+        uuid5(
+            NAMESPACE_URL,
+            f"polaris:qdrant-point:{canonical_point_id}",
+        )
+    )
+
+
+def _upsert_payload(
+    point: QdrantUpsertPoint,
+) -> dict[str, Any]:
+    payload = dict(point.payload)
+    payload.setdefault(
+        "point_id",
+        point.point_id,
+    )
+    payload.setdefault(
+        "chunk_id",
+        point.point_id,
+    )
+    return payload
+
+
+def _canonical_point_id(
+    *,
+    qdrant_point_id: str,
+    payload: JsonObject,
+) -> str:
+    for key in (
+        "chunk_id",
+        "point_id",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return qdrant_point_id
 
 
 def _payload_from_qdrant(

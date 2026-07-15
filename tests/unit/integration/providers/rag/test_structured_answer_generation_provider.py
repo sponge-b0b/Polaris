@@ -79,7 +79,16 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
         timeout_seconds=12.0,
     )
     assert "Retrieved context JSON payload" in structured_provider.requests[0].prompt
+    assert structured_provider.requests[0].system_prompt.startswith("/no_think\n")
     assert "schema-valid JSON object" in structured_provider.requests[0].system_prompt
+    assert (
+        "Do not repeat raw context payloads"
+        in structured_provider.requests[0].system_prompt
+    )
+    assert (
+        "do not quote or dump the raw context payload"
+        in structured_provider.requests[0].prompt
+    )
 
 
 @pytest.mark.asyncio
@@ -135,6 +144,41 @@ def test_structured_rag_answer_schema_rejects_malformed_citations() -> None:
                 },
             }
         )
+
+
+def test_structured_rag_answer_schema_coerces_nested_json_strings() -> None:
+    answer = RagStructuredAnswer.model_validate(
+        {
+            "answer_text": "SPY technical score is supported [C1].",
+            "citations": ('[{"citation_id": "C1", "claim_summary": "SPY score."}]'),
+            "quality": (
+                '{"confidence_score": 0.92, '
+                '"grounding_summary": "Supported by C1.", '
+                '"limitations": ["Single snapshot."], '
+                '"refusal_reason": null}'
+            ),
+        }
+    )
+
+    assert answer.citations[0].citation_id == "C1"
+    assert answer.quality.confidence_score == 0.92
+    assert answer.quality.limitations == ("Single snapshot.",)
+
+
+def test_structured_rag_answer_schema_coerces_tuple_style_citation_string() -> None:
+    answer = RagStructuredAnswer.model_validate(
+        {
+            "answer_text": "SPY technical score is supported [C1].",
+            "citations": '[("C1", "Technical Score: 0.78")]',
+            "quality": {
+                "confidence_score": 0.92,
+                "grounding_summary": "Supported by C1.",
+            },
+        }
+    )
+
+    assert answer.citations[0].citation_id == "C1"
+    assert answer.citations[0].claim_summary == "Technical Score: 0.78"
 
 
 class FakeStructuredLlmProvider:

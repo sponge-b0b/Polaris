@@ -47,12 +47,16 @@ class InstructorStructuredOutputProviderConfig:
     ollama_base_url: str
     provider_name: str = "instructor"
     temperature: float = 0.2
-    strict: bool = True
+    strict: bool = False
+    max_tokens: int = 4096
+    instructor_mode: str = "json"
 
     def __post_init__(self) -> None:
         _require_non_empty(self.model, "model")
         _require_non_empty(self.ollama_base_url, "ollama_base_url")
         _require_non_empty(self.provider_name, "provider_name")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be greater than 0.")
 
 
 class InstructorStructuredOutputProvider(StructuredLlmProvider):
@@ -86,6 +90,7 @@ class InstructorStructuredOutputProvider(StructuredLlmProvider):
         native_client = instructor.from_provider(
             instructor_model,
             async_client=True,
+            mode=_instructor_mode(settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE),
             **kwargs,
         )
         return cls(
@@ -94,6 +99,9 @@ class InstructorStructuredOutputProvider(StructuredLlmProvider):
                 model=settings.STRUCTURED_OUTPUT_MODEL,
                 ollama_base_url=settings.OLLAMA_HOST,
                 provider_name=settings.STRUCTURED_OUTPUT_PROVIDER,
+                strict=settings.STRUCTURED_OUTPUT_STRICT,
+                max_tokens=settings.STRUCTURED_OUTPUT_MAX_TOKENS,
+                instructor_mode=settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE,
             ),
             telemetry=telemetry,
         )
@@ -116,6 +124,7 @@ class InstructorStructuredOutputProvider(StructuredLlmProvider):
             strict=self._config.strict,
             model=_instructor_model_completion_name(request.model),
             temperature=self._config.temperature,
+            max_tokens=self._config.max_tokens,
         )
 
 
@@ -163,6 +172,19 @@ def _instructor_model_completion_name(model: str) -> str:
     if "/" in stripped:
         return stripped.split("/", 1)[1]
     return stripped
+
+
+def _instructor_mode(mode: str) -> Any:
+    import instructor
+
+    normalized = mode.strip().lower()
+    if normalized == "json":
+        return instructor.Mode.JSON
+    if normalized == "tools":
+        return instructor.Mode.TOOLS
+    if normalized == "tools_strict":
+        return instructor.Mode.TOOLS_STRICT
+    raise ValueError(f"Unsupported Instructor mode: {mode}.")
 
 
 def _uses_ollama_provider(instructor_model: str) -> bool:

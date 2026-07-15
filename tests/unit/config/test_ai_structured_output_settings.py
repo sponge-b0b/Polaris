@@ -12,6 +12,9 @@ _STRUCTURED_AI_ENV_NAMES = (
     "POLARIS_STRUCTURED_OUTPUT_MODEL",
     "POLARIS_STRUCTURED_OUTPUT_MAX_RETRIES",
     "POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
+    "POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS",
+    "POLARIS_STRUCTURED_OUTPUT_STRICT",
+    "POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE",
     "POLARIS_DSPY_ENABLED",
     "POLARIS_DSPY_OPTIMIZATION_MODEL",
     "POLARIS_DSPY_MAX_TRAINSET_CASES",
@@ -20,6 +23,9 @@ _STRUCTURED_AI_ENV_NAMES = (
     "STRUCTURED_OUTPUT_MODEL",
     "STRUCTURED_OUTPUT_MAX_RETRIES",
     "STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
+    "STRUCTURED_OUTPUT_MAX_TOKENS",
+    "STRUCTURED_OUTPUT_STRICT",
+    "STRUCTURED_OUTPUT_INSTRUCTOR_MODE",
     "DSPY_ENABLED",
     "DSPY_OPTIMIZATION_MODEL",
     "DSPY_MAX_TRAINSET_CASES",
@@ -51,6 +57,9 @@ def test_structured_output_and_dspy_settings_default_to_safe_policy(
     assert settings.STRUCTURED_OUTPUT_MODEL == "qwen3.5:4b"
     assert settings.STRUCTURED_OUTPUT_MAX_RETRIES == 2
     assert settings.STRUCTURED_OUTPUT_TIMEOUT_SECONDS == 60.0
+    assert settings.STRUCTURED_OUTPUT_MAX_TOKENS == 4096
+    assert settings.STRUCTURED_OUTPUT_STRICT is False
+    assert settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE == "json"
     assert settings.DSPY_ENABLED is False
     assert settings.DSPY_OPTIMIZATION_MODEL == "qwen3.5:4b"
     assert settings.DSPY_MAX_TRAINSET_CASES == 100
@@ -69,6 +78,9 @@ def test_structured_output_and_dspy_settings_read_polaris_prefixed_environment(
             "POLARIS_STRUCTURED_OUTPUT_MODEL": " qwen2.5:7b ",
             "POLARIS_STRUCTURED_OUTPUT_MAX_RETRIES": "3",
             "POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS": "45",
+            "POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS": "2048",
+            "POLARIS_STRUCTURED_OUTPUT_STRICT": "true",
+            "POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE": "TOOLS",
             "POLARIS_DSPY_ENABLED": "true",
             "POLARIS_DSPY_OPTIMIZATION_MODEL": " qwen3.5:4b ",
             "POLARIS_DSPY_MAX_TRAINSET_CASES": "25",
@@ -80,6 +92,9 @@ def test_structured_output_and_dspy_settings_read_polaris_prefixed_environment(
     assert settings.STRUCTURED_OUTPUT_MODEL == "qwen2.5:7b"
     assert settings.STRUCTURED_OUTPUT_MAX_RETRIES == 3
     assert settings.STRUCTURED_OUTPUT_TIMEOUT_SECONDS == 45.0
+    assert settings.STRUCTURED_OUTPUT_MAX_TOKENS == 2048
+    assert settings.STRUCTURED_OUTPUT_STRICT is True
+    assert settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE == "tools"
     assert settings.DSPY_ENABLED is True
     assert settings.DSPY_OPTIMIZATION_MODEL == "qwen3.5:4b"
     assert settings.DSPY_MAX_TRAINSET_CASES == 25
@@ -95,6 +110,18 @@ def test_structured_output_provider_is_validated(
             monkeypatch,
             tmp_path,
             overrides={"POLARIS_STRUCTURED_OUTPUT_PROVIDER": "unsupported"},
+        )
+
+
+def test_structured_output_instructor_mode_is_validated(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValidationError, match="STRUCTURED_OUTPUT_INSTRUCTOR_MODE"):
+        _settings(
+            monkeypatch,
+            tmp_path,
+            overrides={"POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE": "unsupported"},
         )
 
 
@@ -131,6 +158,12 @@ def test_structured_output_and_dspy_numeric_limits_are_validated(
             monkeypatch,
             tmp_path,
             overrides={"POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS": "0"},
+        )
+    with pytest.raises(ValidationError, match="STRUCTURED_OUTPUT_MAX_TOKENS"):
+        _settings(
+            monkeypatch,
+            tmp_path,
+            overrides={"POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS": "0"},
         )
     with pytest.raises(ValidationError, match="DSPY_MAX_TRAINSET_CASES"):
         _settings(

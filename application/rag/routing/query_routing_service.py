@@ -420,12 +420,15 @@ def _require_payload(
     payload: JsonObject,
     expected_keys: set[str],
 ) -> Mapping[str, object]:
+    allowed_extra_keys = {"reasoning"}
     actual_keys = set(payload)
-    if actual_keys != expected_keys:
+    missing_keys = expected_keys - actual_keys
+    unexpected_keys = actual_keys - expected_keys - allowed_extra_keys
+    if missing_keys or unexpected_keys:
         raise RagRoutingModelOutputError(
             f"Expected model output keys {sorted(expected_keys)}, got {sorted(actual_keys)}."
         )
-    return payload
+    return {key: payload[key] for key in expected_keys}
 
 
 def _require_text(payload: Mapping[str, object], key: str) -> str:

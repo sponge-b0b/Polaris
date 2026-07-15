@@ -34,10 +34,14 @@ DEFAULT_STRUCTURED_OUTPUT_PROVIDER = "instructor"
 DEFAULT_STRUCTURED_OUTPUT_MODEL = DEFAULT_RAG_SYNTHESIS_MODEL
 DEFAULT_STRUCTURED_OUTPUT_MAX_RETRIES = 2
 DEFAULT_STRUCTURED_OUTPUT_TIMEOUT_SECONDS = 60.0
+DEFAULT_STRUCTURED_OUTPUT_MAX_TOKENS = 4096
+DEFAULT_STRUCTURED_OUTPUT_STRICT = False
+DEFAULT_STRUCTURED_OUTPUT_INSTRUCTOR_MODE = "json"
 DEFAULT_DSPY_OPTIMIZATION_MODEL = DEFAULT_RAG_SYNTHESIS_MODEL
 DEFAULT_DSPY_MAX_TRAINSET_CASES = 100
 DEFAULT_DSPY_ARTIFACT_RETENTION_DAYS = 90
 STRUCTURED_OUTPUT_PROVIDERS = frozenset({"instructor"})
+STRUCTURED_OUTPUT_INSTRUCTOR_MODES = frozenset({"json", "tools", "tools_strict"})
 LANGFUSE_REDACTION_MODES = frozenset({"strict", "metadata_only", "permissive"})
 PRODUCTION_ENVIRONMENTS = frozenset({"prod", "production"})
 
@@ -211,6 +215,28 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
             "STRUCTURED_OUTPUT_TIMEOUT_SECONDS",
+        ),
+    )
+    STRUCTURED_OUTPUT_MAX_TOKENS: int = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_MAX_TOKENS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS",
+            "STRUCTURED_OUTPUT_MAX_TOKENS",
+        ),
+    )
+    STRUCTURED_OUTPUT_STRICT: bool = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_STRICT,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_STRICT",
+            "STRUCTURED_OUTPUT_STRICT",
+        ),
+    )
+    STRUCTURED_OUTPUT_INSTRUCTOR_MODE: str = Field(
+        default=DEFAULT_STRUCTURED_OUTPUT_INSTRUCTOR_MODE,
+        validation_alias=AliasChoices(
+            "POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE",
+            "STRUCTURED_OUTPUT_INSTRUCTOR_MODE",
         ),
     )
 
@@ -500,6 +526,17 @@ class Settings(BaseSettings):
         if normalized not in STRUCTURED_OUTPUT_PROVIDERS:
             allowed = ", ".join(sorted(STRUCTURED_OUTPUT_PROVIDERS))
             raise ValueError(f"STRUCTURED_OUTPUT_PROVIDER must be one of: {allowed}.")
+        return normalized
+
+    @field_validator("STRUCTURED_OUTPUT_INSTRUCTOR_MODE")
+    @classmethod
+    def _validate_structured_output_instructor_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in STRUCTURED_OUTPUT_INSTRUCTOR_MODES:
+            allowed = ", ".join(sorted(STRUCTURED_OUTPUT_INSTRUCTOR_MODES))
+            raise ValueError(
+                f"STRUCTURED_OUTPUT_INSTRUCTOR_MODE must be one of: {allowed}."
+            )
         return normalized
 
     @field_validator("STRUCTURED_OUTPUT_MODEL", "DSPY_OPTIMIZATION_MODEL")

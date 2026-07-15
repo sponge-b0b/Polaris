@@ -132,8 +132,8 @@ def test_instructor_provider_maps_successful_structured_output() -> None:
                 {"role": "user", "content": "Return a structured answer."},
             ],
             "max_retries": 1,
-            "strict": True,
-            "kwargs": {"model": "qwen3.5:4b", "temperature": 0.2},
+            "strict": False,
+            "kwargs": {"model": "qwen3.5:4b", "temperature": 0.2, "max_tokens": 4096},
         }
     ]
 
@@ -250,6 +250,9 @@ def test_from_settings_builds_ollama_first_instructor_client(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MODEL", "qwen2.5:7b")
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_PROVIDER", "instructor")
+    monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS", "8192")
+    monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_STRICT", "false")
+    monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE", "json")
     monkeypatch.setenv("OLLAMA_HOST", "http://ollama.local:11434")
     monkeypatch.setattr(
         instructor_structured_output_provider,
@@ -268,7 +271,10 @@ def test_from_settings_builds_ollama_first_instructor_client(
         {
             "model": "ollama/qwen2.5:7b",
             "async_client": True,
-            "kwargs": {"base_url": "http://ollama.local:11434/v1"},
+            "kwargs": {
+                "base_url": "http://ollama.local:11434/v1",
+                "mode": instructor_structured_output_provider._instructor_mode("json"),
+            },
         }
     ]
 

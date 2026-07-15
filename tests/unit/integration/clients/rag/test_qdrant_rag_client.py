@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 from typing import cast
+from uuid import UUID
 
 import pytest
 from qdrant_client import models
@@ -40,6 +41,7 @@ class FakeQdrantClient:
         self.delete_calls: list[str] = []
         self.upsert_calls: list[dict[str, object]] = []
         self.query_calls: list[dict[str, object]] = []
+        self.query_response_points: list[FakeQdrantHit] | None = None
         self.close_calls = 0
 
     async def collection_exists(self, collection_name: str) -> bool:
@@ -115,7 +117,8 @@ class FakeQdrantClient:
             }
         )
         return SimpleNamespace(
-            points=[
+            points=self.query_response_points
+            or [
                 FakeQdrantHit(
                     id="chunk-1",
                     score=0.91,
@@ -166,12 +169,47 @@ async def test_qdrant_client_upsert_translates_named_dense_and_sparse_vectors() 
     points = fake_client.upsert_calls[0]["points"]
     assert isinstance(points, list)
     point = points[0]
-    assert point.id == "chunk-1"
+    assert UUID(str(point.id))
+    assert point.id != "chunk-1"
     assert point.vector[DENSE_VECTOR_NAME] == [0.1, 0.2, 0.3]
     assert point.vector[SPARSE_VECTOR_NAME] == models.SparseVector(
         indices=[4, 9], values=[0.8, 0.3]
     )
-    assert point.payload == {"chunk_id": "chunk-1", "symbol": "SPY"}
+    assert point.payload == {
+        "chunk_id": "chunk-1",
+        "symbol": "SPY",
+        "point_id": "chunk-1",
+    }
+
+
+@pytest.mark.asyncio
+async def test_qdrant_client_search_falls_back_to_qdrant_id_without_canonical_payload() -> (
+    None
+):
+    fake_client = FakeQdrantClient()
+    fake_client.query_response_points = [
+        FakeQdrantHit(
+            id="0bd837a1-8f17-5943-8f41-6bc621e1d8d7",
+            score=0.42,
+            payload={"symbol": "SPY"},
+        )
+    ]
+    client = QdrantRagClient(
+        settings=Settings(), client=cast(QdrantClientProtocol, fake_client)
+    )
+
+    hits = await client.search(
+        collection_name="polaris_rag_chunks",
+        query=QdrantSearchQuery(
+            dense_vector=(0.5, 0.6),
+            sparse_indices=(2,),
+            sparse_values=(0.9,),
+            limit=1,
+            filters={},
+        ),
+    )
+
+    assert hits[0].point_id == "0bd837a1-8f17-5943-8f41-6bc621e1d8d7"
 
 
 @pytest.mark.asyncio

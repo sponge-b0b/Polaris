@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from typing import cast
 
 import pytest
 
@@ -13,6 +14,7 @@ from application.rag.routing.query_routing_service import RagQueryRoutingService
 from application.rag.routing.query_routing_models import RagRetrievalRoute
 from application.rag.routing.query_routing_service import RagRoutingModelOutputError
 from core.storage.persistence.rag import JsonObject
+from core.storage.persistence.rag import JsonValue
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
@@ -41,24 +43,32 @@ async def test_routes_context_free_query_directly_without_rewrite() -> None:
         RagQueryModelOperation.ADAPTIVE_TRIAGE,
         RagQueryModelOperation.ROUTE_SELECTION,
     ]
-    assert decision.persistence_metadata() == {
-        "model_executions": [
-            {
-                "operation": "adaptive_triage",
-                "configured_model": "fake-adaptive_triage-model",
-                "provider_name": "fake",
-                "duration_ms": 12.5,
-                "success": True,
-            },
-            {
-                "operation": "route_selection",
-                "configured_model": "fake-route_selection-model",
-                "provider_name": "fake",
-                "duration_ms": 12.5,
-                "success": True,
-            },
-        ]
-    }
+    metadata = decision.persistence_metadata()
+    model_executions = cast(list[dict[str, JsonValue]], metadata["model_executions"])
+    assert model_executions == [
+        {
+            "operation": "adaptive_triage",
+            "configured_model": "fake-adaptive_triage-model",
+            "provider_name": "fake",
+            "duration_ms": 12.5,
+            "success": True,
+            "prompt_name": "rag_adaptive_triage_system_prompt",
+            "prompt_version": "static-v1",
+            "prompt_hash": model_executions[0]["prompt_hash"],
+            "prompt_source": "polaris.source_controlled",
+        },
+        {
+            "operation": "route_selection",
+            "configured_model": "fake-route_selection-model",
+            "provider_name": "fake",
+            "duration_ms": 12.5,
+            "success": True,
+            "prompt_name": "rag_route_selection_system_prompt",
+            "prompt_version": "static-v1",
+            "prompt_hash": model_executions[1]["prompt_hash"],
+            "prompt_source": "polaris.source_controlled",
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -130,6 +140,23 @@ async def test_deep_research_generates_hyde_expansion() -> None:
         RagQueryModelOperation.ROUTE_SELECTION,
         RagQueryModelOperation.HYDE,
     ]
+
+
+@pytest.mark.asyncio
+async def test_routing_ignores_model_reasoning_payload_noise() -> None:
+    provider = FakeQueryModelProvider(
+        {"complexity": "moderate", "reasoning": "The query asks for evidence."},
+        {"route": "retrieval", "reasoning": "Evidence lookup is needed."},
+    )
+
+    decision = await RagQueryRoutingService(provider).route(
+        RagQueryContext(
+            request_id="route-reasoning-noise", query="Analyze SPY breadth."
+        )
+    )
+
+    assert decision.triage.complexity is RagQueryComplexity.MODERATE
+    assert decision.route_selection.route is RagRetrievalRoute.RETRIEVAL
 
 
 @pytest.mark.asyncio
@@ -250,13 +277,20 @@ async def test_routing_emits_success_and_failure_telemetry() -> None:
     assert sink.events[-1].attributes["route"] == "direct_answer"
     assert sink.events[-1].attributes["hyde_generated"] is False
     assert sink.events[-1].attributes["model_operation_count"] == 2
-    assert sink.events[-1].payload["model_executions"] == [
+    model_executions = cast(
+        list[dict[str, JsonValue]], sink.events[-1].payload["model_executions"]
+    )
+    assert model_executions == [
         {
             "operation": "adaptive_triage",
             "configured_model": "fake-adaptive_triage-model",
             "provider_name": "fake",
             "duration_ms": 12.5,
             "success": True,
+            "prompt_name": "rag_adaptive_triage_system_prompt",
+            "prompt_version": "static-v1",
+            "prompt_hash": model_executions[0]["prompt_hash"],
+            "prompt_source": "polaris.source_controlled",
         },
         {
             "operation": "route_selection",
@@ -264,6 +298,10 @@ async def test_routing_emits_success_and_failure_telemetry() -> None:
             "provider_name": "fake",
             "duration_ms": 12.5,
             "success": True,
+            "prompt_name": "rag_route_selection_system_prompt",
+            "prompt_version": "static-v1",
+            "prompt_hash": model_executions[1]["prompt_hash"],
+            "prompt_source": "polaris.source_controlled",
         },
     ]
 

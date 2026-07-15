@@ -101,11 +101,14 @@ class StructuredRagAnswerGenerationProvider(RagAnswerGenerationProvider):
 
 def _structured_system_prompt(policy_instructions: str) -> str:
     return (
+        "/no_think\n"
         f"{policy_instructions}\n\n"
-        "Return a schema-valid JSON object matching RagStructuredAnswer. "
+        "Return only a schema-valid JSON object matching RagStructuredAnswer. "
+        "Do not include chain-of-thought, scratchpad, markdown, or analysis. "
         "Use citation ids only from the provided context payload. "
         "If the context is insufficient, explain the limitation and set "
-        "quality.refusal_reason. Preserve the full answer text."
+        "quality.refusal_reason. Do not repeat raw context payloads. "
+        "Keep answer_text concise unless the user explicitly asks for a long answer."
     )
 
 
@@ -115,7 +118,8 @@ def _structured_prompt(request: RagAnswerGenerationRequest) -> str:
         "Retrieved context JSON payload:\n"
         f"{request.context_payload}\n\n"
         "Required output fields:\n"
-        "- answer_text: complete answer with supported inline citations such as [C1]\n"
+        "- answer_text: concise complete answer with supported inline citations such as [C1]; "
+        "do not quote or dump the raw context payload\n"
         "- citations: objects with citation_id and claim_summary\n"
         "- quality.confidence_score: number from 0.0 to 1.0\n"
         "- quality.grounding_summary: concise grounding explanation\n"

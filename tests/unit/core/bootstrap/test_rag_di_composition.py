@@ -104,7 +104,7 @@ async def test_async_application_container_composes_shared_rag_resources(
         lambda: _new_fake_session(sessions),
     )
 
-    settings = Settings(FIRECRAWL_ENABLED=False)
+    settings = Settings(RAG_WEB_FALLBACK_ENABLED=False)
     container = get_async_di_container(settings)
     try:
         async with container() as request_container:

@@ -2,8 +2,8 @@
 
 Polaris's RAG pipeline turns curated PostgreSQL records into grounded research
 answers. PostgreSQL is the system of record. Qdrant and Neo4j are derived,
-rebuildable projections; Firecrawl results are transient corrective evidence and
-never become canonical records automatically.
+rebuildable projections; SearXNG + Crawl4AI web fallback results are transient
+corrective evidence and never become canonical records automatically.
 
 The pipeline follows the platform's inside-out architecture: canonical
 application services own the use case, integration providers own external
@@ -30,7 +30,7 @@ replaying graph jobs.
 RAG behavior is exposed through application services and the runtime uses those
 same services through `RagResearchNode`. CLI and MCP transports should resolve
 the canonical services through DI instead of opening their own PostgreSQL,
-Qdrant, Neo4j, Firecrawl, embedding, or reranking clients.
+Qdrant, Neo4j, SearXNG, Crawl4AI, embedding, or reranking clients.
 
 This preserves the platform rule that higher-level transport code must not
 create a parallel runtime, persistence layer, or retrieval implementation.
@@ -41,8 +41,8 @@ runtime boundary.
 
 External infrastructure access is isolated behind integration providers:
 PostgreSQL repositories, Qdrant vector providers, Neo4j graph providers,
-embedding providers, reranking providers, Ollama model providers, and Firecrawl
-providers. Provider calls carry canonical provider telemetry and failures remain
+embedding providers, reranking providers, Ollama model providers, and the
+SearXNG + Crawl4AI web-retrieval provider. Provider calls carry canonical provider telemetry and failures remain
 visible to the application service rather than being hidden in transport code.
 
 ### Determinism, replayability, and observability
@@ -74,7 +74,7 @@ User query
     -> parent expansion and deduplication
     -> BGE cross-encoder reranking
     -> CRAG context grading
-    -> optional corrective rewrite or transient Firecrawl fallback
+    -> optional corrective rewrite or transient SearXNG + Crawl4AI web fallback
     -> secure prompt packaging and synthesis
     -> Self-RAG reflection and output security guard
     -> rag_query_logs / rag_answer_logs
@@ -119,7 +119,7 @@ rather than isolated fragments.
 
 CRAG grades the retrieved evidence before generation. If evidence is weak, the
 pipeline may perform one bounded corrective rewrite and, when explicitly allowed,
-request transient Firecrawl evidence. After generation, Self-RAG reflection checks
+request transient SearXNG + Crawl4AI web evidence. After generation, Self-RAG reflection checks
 support and usefulness. Unsupported or suspicious answers are replaced by a
 stable safe-failure response instead of inventing evidence.
 
@@ -158,7 +158,7 @@ Use `polaris rag ingest --source <source>` with one of these source groups:
 | `backtests` | `backtest_runs`, `backtest_steps`, `backtest_portfolio_snapshots`, `backtest_metrics`, `backtest_artifacts` |
 
 Only curated records are eligible for canonical ingestion. Raw runtime dumps,
-raw vendor responses, arbitrary JSON, and Firecrawl pages must not be stored as
+raw vendor responses, arbitrary JSON, and transient web pages must not be stored as
 canonical RAG documents merely because they were retrieved.
 
 ## PostgreSQL RAG records
@@ -385,7 +385,8 @@ Default endpoints and projection settings:
 | Neo4j projection | `polaris_rag` |
 | Ollama | `http://localhost:11434` |
 | BGE reranker | `http://localhost:8080/rerank` |
-| Firecrawl | `https://api.firecrawl.dev` when explicitly enabled |
+| SearXNG | `http://localhost:8888` when web fallback is explicitly enabled |
+| Crawl4AI | Local browser-backed content acquisition when web fallback is explicitly enabled |
 
 BGE-M3 embeddings run through the local `FlagEmbedding` client and may download
 or warm the configured model on first use. The reranker container may also need
@@ -512,7 +513,7 @@ CRAG then grades the evidence:
 - sufficient evidence proceeds to secure generation;
 - weak evidence may trigger one bounded corrective query rewrite;
 - web fallback is considered only when CRAG requests it, the caller supplied
-  `--web`, and Firecrawl is enabled and configured;
+  `--web`, and open-source web fallback is enabled and configured;
 - unavailable or empty corrective evidence fails closed rather than inventing an
   answer.
 
@@ -520,14 +521,16 @@ After synthesis, Self-RAG reflection evaluates support and usefulness. An
 unsupported or suspicious answer is replaced with the canonical safe grounding
 failure response.
 
-## Firecrawl fallback
+## Open-source web fallback
 
-Firecrawl is disabled by default. Enable it explicitly in `.env`:
+Transient web fallback is disabled by default. Enable it explicitly in `.env`:
 
 ```dotenv
-FIRECRAWL_ENABLED=true
-FIRECRAWL_API_KEY=your-key
-# FIRECRAWL_API_URL=https://api.firecrawl.dev
+RAG_WEB_FALLBACK_ENABLED=true
+SEARXNG_BASE_URL=http://localhost:8888
+# Optional Crawl4AI tuning:
+# CRAWL4AI_TIMEOUT_SECONDS=30
+# CRAWL4AI_MAX_CONCURRENCY=4
 ```
 
 Then allow it for an individual request:
@@ -536,11 +539,27 @@ Then allow it for an individual request:
 uv run polaris rag ask "What new event may explain today's move?" --web
 ```
 
-Both configuration and per-request permission are required. Firecrawl is not a
-normal retrieval branch, does not run when curated context is sufficient, and
-does not automatically populate PostgreSQL, Qdrant, or Neo4j. Returned HTML and
-text pass through the same untrusted-context security boundary as all other
-retrieved evidence.
+Both configuration and per-request permission are required. SearXNG handles
+search/discovery, Crawl4AI handles concurrent content acquisition and Markdown
+extraction, and `OpenSourceWebRetrievalProvider` converts sanitized documents
+into transient `RagRetrievedContext` evidence. Web fallback is not a normal
+retrieval branch, does not run when curated context is sufficient, and does not
+automatically populate PostgreSQL, Qdrant, or Neo4j. Returned content passes
+through the same untrusted-context security boundary as all other retrieved
+evidence.
+
+Local setup for the open-source fallback stack is intentionally explicit:
+
+```bash
+docker compose up -d searxng
+uv run crawl4ai-setup
+uv run crawl4ai-doctor
+# If browser dependencies are missing:
+uv run python -m playwright install --with-deps chromium
+```
+
+The default SearXNG endpoint is `http://localhost:8888`; port `8080` is reserved
+by the local BGE reranker endpoint in the default compose stack.
 
 ## Security guarantees
 
@@ -602,7 +621,7 @@ Telemetry covers:
 - embedding processing, retries, and Qdrant collection lifecycle;
 - query rewrite, adaptive triage, route selection, and HyDE;
 - lexical, structured, vector, graph, parent-expansion, and reranking stages;
-- CRAG grading, corrective rewrites, and Firecrawl fallback;
+- CRAG grading, corrective rewrites, and SearXNG + Crawl4AI web fallback;
 - generation, Self-RAG reflection, and security failures;
 - graph batches and individual Neo4j projection jobs;
 - PostgreSQL query and answer persistence.
@@ -655,9 +674,9 @@ text first.
 - **BGE model warm-up:** first embedding or reranking calls may be slow. Wait for
   the reranker health check and allow the local BGE-M3 model to load.
 - **Ollama model missing:** pull every model named by the `RAG_*_MODEL` settings.
-- **Firecrawl not used:** verify both `FIRECRAWL_ENABLED=true` and the request's
-  `--web` flag; fallback still occurs only when CRAG requests corrective web
-  evidence.
+- **Web fallback not used:** verify `RAG_WEB_FALLBACK_ENABLED=true`,
+  `SEARXNG_BASE_URL`, local Crawl4AI browser setup, and the request's `--web`
+  flag; fallback still occurs only when CRAG requests corrective web evidence.
 
 ## Structured generation and prompt artifact governance
 

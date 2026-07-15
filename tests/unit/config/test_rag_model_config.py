@@ -20,10 +20,18 @@ _RAG_SETTING_NAMES = (
     "RAG_CRAG_QUERY_REWRITE_MODEL",
     "RAG_SELF_REFLECTION_MODEL",
     "RAG_SYNTHESIS_MODEL",
-    "FIRECRAWL_ENABLED",
-    "FIRECRAWL_API_URL",
-    "FIRECRAWL_TIMEOUT_SECONDS",
+    "RAG_WEB_FALLBACK_ENABLED",
     "RAG_WEB_FALLBACK_MAX_RESULTS",
+    "SEARXNG_BASE_URL",
+    "SEARXNG_TIMEOUT_SECONDS",
+    "SEARXNG_SAFE_SEARCH",
+    "SEARXNG_LANGUAGE",
+    "SEARXNG_CATEGORIES",
+    "CRAWL4AI_TIMEOUT_SECONDS",
+    "CRAWL4AI_HEADLESS",
+    "CRAWL4AI_CACHE_ENABLED",
+    "CRAWL4AI_MAX_CONCURRENCY",
+    "CRAWL4AI_USER_AGENT",
 )
 
 
@@ -143,13 +151,21 @@ def test_rag_model_config_exposes_quality_evaluation_subset(
     )
 
 
-def test_firecrawl_web_fallback_is_disabled_by_default(
+def test_open_source_web_fallback_is_disabled_by_default(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     settings = _settings(monkeypatch, tmp_path)
 
-    assert settings.FIRECRAWL_ENABLED is False
-    assert settings.FIRECRAWL_API_URL == "https://api.firecrawl.dev"
-    assert settings.FIRECRAWL_TIMEOUT_SECONDS == 30.0
+    assert settings.RAG_WEB_FALLBACK_ENABLED is False
     assert settings.RAG_WEB_FALLBACK_MAX_RESULTS == 5
+    assert settings.SEARXNG_BASE_URL == "http://localhost:8888"
+    assert settings.SEARXNG_TIMEOUT_SECONDS == 15.0
+    assert settings.SEARXNG_SAFE_SEARCH == 1
+    assert settings.SEARXNG_LANGUAGE == "en"
+    assert settings.SEARXNG_CATEGORIES == "general"
+    assert settings.CRAWL4AI_TIMEOUT_SECONDS == 30.0
+    assert settings.CRAWL4AI_HEADLESS is True
+    assert settings.CRAWL4AI_CACHE_ENABLED is True
+    assert settings.CRAWL4AI_MAX_CONCURRENCY == 4
+    assert settings.CRAWL4AI_USER_AGENT is None

@@ -10,7 +10,9 @@ from config.rag_model_config import RagModelConfig
 from config.settings import Settings
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
 from integration.clients.rag.bge_reranker_client import BgeRerankerClient
-from integration.clients.rag.firecrawl_web_client import FirecrawlWebClient
+from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
+from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClientConfig
+from integration.clients.rag.searxng_search_client import SearxngSearchClient
 from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
 from integration.clients.rag.qdrant_rag_client import QdrantRagClient
 
@@ -72,12 +74,29 @@ class RagClientsDIProvider(Provider):
             await client.close()
 
     @provide
-    def provide_firecrawl_client(
+    def provide_searxng_search_client(
         self,
         settings: Settings,
-    ) -> FirecrawlWebClient:
-        return FirecrawlWebClient(
-            api_key=settings.FIRECRAWL_API_KEY,
-            api_url=settings.FIRECRAWL_API_URL,
-            timeout_seconds=settings.FIRECRAWL_TIMEOUT_SECONDS,
+    ) -> SearxngSearchClient:
+        return SearxngSearchClient(
+            base_url=settings.SEARXNG_BASE_URL,
+            timeout_seconds=settings.SEARXNG_TIMEOUT_SECONDS,
+            safe_search=settings.SEARXNG_SAFE_SEARCH,
+            language=settings.SEARXNG_LANGUAGE,
+            categories=settings.SEARXNG_CATEGORIES,
+        )
+
+    @provide
+    def provide_crawl4ai_content_client(
+        self,
+        settings: Settings,
+    ) -> Crawl4AiContentClient:
+        return Crawl4AiContentClient(
+            config=Crawl4AiContentClientConfig(
+                timeout_seconds=settings.CRAWL4AI_TIMEOUT_SECONDS,
+                headless=settings.CRAWL4AI_HEADLESS,
+                cache_enabled=settings.CRAWL4AI_CACHE_ENABLED,
+                max_concurrency=settings.CRAWL4AI_MAX_CONCURRENCY,
+                user_agent=settings.CRAWL4AI_USER_AGENT,
+            ),
         )

@@ -27,7 +27,7 @@ class RagWebFallbackService:
     async def retrieve(self, request: RagRequest) -> tuple[RagRetrievedContext, ...]:
         if not request.allow_web:
             return ()
-        operation = "firecrawl_web_fallback"
+        operation = "web_fallback_retrieval"
         started_at = perf_counter()
         if self._telemetry is not None:
             await self._telemetry.emit_operation_started(

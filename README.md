@@ -165,7 +165,7 @@ NEO4J_AUTH=
 GRAFANA_ADMIN_PASSWORD=
 ```
 
-Optional provider/API credentials include Alpaca, Alpha Vantage, FRED, NewsAPI, Massive, Firecrawl, Ollama-compatible endpoints, and other data vendors listed in `.env.example`.
+Optional provider/API credentials include Alpaca, Alpha Vantage, FRED, NewsAPI, Massive, Ollama-compatible endpoints, and other data vendors listed in `.env.example`. Local web fallback uses SearXNG for discovery and Crawl4AI for content acquisition.
 
 > [!CAUTION]
 > Do not commit `.env`, API keys, passwords, authenticated database URLs, or vendor tokens.
@@ -182,7 +182,20 @@ Optional observability and RAG support services:
 docker compose up -d prometheus jaeger grafana
 # Optional reranker; requires the configured local model volume/GPU environment.
 docker compose up -d bge-reranker
+# Optional local web-search discovery for explicit RAG web fallback.
+docker compose up -d searxng
 ```
+
+Optional RAG web fallback also requires Crawl4AI browser setup on the host:
+
+```bash
+uv run crawl4ai-setup
+uv run crawl4ai-doctor
+# If browser dependencies are missing:
+uv run python -m playwright install --with-deps chromium
+```
+
+Web fallback remains disabled by default and must be enabled in `.env` and per request. SearXNG only performs search/discovery; Crawl4AI performs concurrent content acquisition and Markdown extraction. Returned web evidence is transient and untrusted unless explicitly curated later.
 
 ### 4. Apply database migrations
 
@@ -241,7 +254,7 @@ uv run polaris rag process-graph
 uv run polaris rag ask "What changed in the latest portfolio risk assessment?"
 ```
 
-RAG uses PostgreSQL as the canonical source, Qdrant for hybrid vector projection, Neo4j for graph projection, and optional Firecrawl/BGE reranking depending on configuration and service availability.
+RAG uses PostgreSQL as the canonical source, Qdrant for hybrid vector projection, Neo4j for graph projection, BGE reranking, and optional SearXNG + Crawl4AI transient web fallback depending on configuration and service availability.
 
 ### Backtesting
 
@@ -276,7 +289,7 @@ Important rules:
 
 - PostgreSQL remains authoritative.
 - Qdrant and Neo4j are rebuildable projections.
-- Firecrawl evidence is transient unless explicitly curated later.
+- SearXNG + Crawl4AI web evidence is transient unless explicitly curated later.
 - RAG documents are generated only from eligible, typed, attributable records.
 - Query and answer logs are persisted for audit and inspection.
 

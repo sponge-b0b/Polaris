@@ -31,8 +31,8 @@ This pattern exists to preserve one source of truth for platform behavior:
   `WorkflowFacade`.
 - RAG answering and readiness remain owned by canonical RAG application services.
 - Dependency composition remains owned by the existing Polaris Dishka container.
-- PostgreSQL, Qdrant, Neo4j, Firecrawl, providers, and runtime internals are not
-  directly imported or queried by `mcp_server/`.
+- PostgreSQL, Qdrant, Neo4j, SearXNG, Crawl4AI, providers, and runtime
+  internals are not directly imported or queried by `mcp_server/`.
 - Transport serialization is the only place MCP-specific dictionaries and JSON
   shapes should appear.
 
@@ -328,8 +328,10 @@ Web access is controlled twice:
 2. Per-request intent: `polaris_rag_ask.allow_web` must be true.
 
 If either is false, MCP requests cannot enable web fallback. MCP does not expose
-Firecrawl, SerpApi, or any web provider as standalone tools. Web retrieval, when
+SearXNG, Crawl4AI, SerpApi, or any web provider as standalone tools. Web retrieval, when
 allowed, remains a canonical RAG service behavior behind `polaris_rag_ask`.
+The host environment must still configure SearXNG and Crawl4AI for the canonical
+RAG service; MCP only forwards the request permission boundary.
 
 ## Service prerequisites
 
@@ -365,7 +367,7 @@ The following are intentionally not part of V1:
 - RAG ingestion, embedding processing, graph processing, or projection rebuild
 - completed-run deletion or cleanup
 - direct SQL, Cypher, Qdrant, Neo4j, or provider/vendor operations
-- Firecrawl or web search as standalone tools
+- SearXNG, Crawl4AI, or web search as standalone tools
 - shell, filesystem, or plugin-management tools
 - write/admin tools of any kind
 

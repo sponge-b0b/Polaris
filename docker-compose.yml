@@ -107,6 +107,17 @@ services:
       - TELEMETRY_ENABLED=false
       - LANGFUSE_ENABLE_OTEL=true
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: polaris_searxng
+    restart: always
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./config/searxng:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888
+
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: polaris_jaeger

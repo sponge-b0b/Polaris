@@ -135,7 +135,7 @@ def ask_rag(
         bool,
         typer.Option(
             "--web/--no-web",
-            help="Permit transient Firecrawl fallback when curated context is insufficient.",
+            help="Permit transient open-source web fallback when curated context is insufficient.",
         ),
     ] = False,
 ) -> None:

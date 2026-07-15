@@ -63,10 +63,6 @@ class Settings(BaseSettings):
     ALPACA_API_SECRET_KEY: Optional[str] = None
     ALPHAVANTAGE_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
-    FIRECRAWL_API_KEY: Optional[str] = None
-    FIRECRAWL_ENABLED: bool = False
-    FIRECRAWL_API_URL: str = "https://api.firecrawl.dev"
-    FIRECRAWL_TIMEOUT_SECONDS: float = 30.0
     FMP_API_KEY: Optional[str] = None
     FRED_API_KEY: Optional[str] = None
     MASSIVE_API_KEY: Optional[str] = None
@@ -160,11 +156,23 @@ class Settings(BaseSettings):
 
     DEFAULT_MODEL: str = "qwen3.5:4b"  # "qwen3.5:9b"
     EMBEDDING_MODEL: str = DEFAULT_EMBEDDING_MODEL
-    RAG_WEB_FALLBACK_MAX_RESULTS: int = 5
 
     # ============================================================
     # MEMORY / RAG
     # ============================================================
+
+    RAG_WEB_FALLBACK_ENABLED: bool = False
+    RAG_WEB_FALLBACK_MAX_RESULTS: int = 5
+    SEARXNG_BASE_URL: str = "http://localhost:8888"
+    SEARXNG_TIMEOUT_SECONDS: float = 15.0
+    SEARXNG_SAFE_SEARCH: int = 1
+    SEARXNG_LANGUAGE: str = "en"
+    SEARXNG_CATEGORIES: str = "general"
+    CRAWL4AI_TIMEOUT_SECONDS: float = 30.0
+    CRAWL4AI_HEADLESS: bool = True
+    CRAWL4AI_CACHE_ENABLED: bool = True
+    CRAWL4AI_MAX_CONCURRENCY: int = 4
+    CRAWL4AI_USER_AGENT: Optional[str] = None
 
     RAG_QUERY_REWRITE_MODEL: str = DEFAULT_RAG_QUERY_REWRITE_MODEL
     RAG_ADAPTIVE_TRIAGE_MODEL: str = DEFAULT_RAG_ADAPTIVE_TRIAGE_MODEL

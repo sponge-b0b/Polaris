@@ -95,8 +95,8 @@ from core.storage.persistence.repositories.postgres_strategy_persistence_reposit
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
 from integration.providers.rag.bge_reranking_provider import BgeRerankingProvider
-from integration.providers.rag.firecrawl_web_retrieval_provider import (
-    FirecrawlWebRetrievalProvider,
+from integration.providers.rag.open_source_web_retrieval_provider import (
+    OpenSourceWebRetrievalProvider,
 )
 from integration.providers.rag.neo4j_graph_projection_provider import (
     Neo4jGraphProjectionProvider,
@@ -308,7 +308,7 @@ class RagApplicationDIProvider(Provider):
         retriever: RagRetriever,
         answer_generator: RagAnswerGenerator,
         quality_service: RagQualityService,
-        web_provider: FirecrawlWebRetrievalProvider,
+        web_provider: OpenSourceWebRetrievalProvider,
         security_guard: RagSecurityGuard,
         telemetry: ApplicationRagTelemetry,
         settings: Settings,
@@ -320,7 +320,7 @@ class RagApplicationDIProvider(Provider):
                 telemetry=telemetry,
                 max_results=settings.RAG_WEB_FALLBACK_MAX_RESULTS,
             )
-            if settings.FIRECRAWL_ENABLED
+            if settings.RAG_WEB_FALLBACK_ENABLED
             else None
         )
         return RagServiceGraph(

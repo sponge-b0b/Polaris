@@ -10,13 +10,14 @@ from core.llm.ollama_client import OllamaClient
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
 from integration.clients.rag.bge_reranker_client import BgeRerankerClient
-from integration.clients.rag.firecrawl_web_client import FirecrawlWebClient
+from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
+from integration.clients.rag.searxng_search_client import SearxngSearchClient
 from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
 from integration.clients.rag.qdrant_rag_client import QdrantRagClient
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
 from integration.providers.rag.bge_reranking_provider import BgeRerankingProvider
-from integration.providers.rag.firecrawl_web_retrieval_provider import (
-    FirecrawlWebRetrievalProvider,
+from integration.providers.rag.open_source_web_retrieval_provider import (
+    OpenSourceWebRetrievalProvider,
 )
 from integration.providers.rag.neo4j_graph_projection_provider import (
     Neo4jGraphProjectionProvider,
@@ -149,10 +150,12 @@ class RagProvidersDIProvider(Provider):
     @provide
     def provide_web_retrieval_provider(
         self,
-        client: FirecrawlWebClient,
+        search_client: SearxngSearchClient,
+        content_client: Crawl4AiContentClient,
         telemetry: IntegrationTelemetry,
-    ) -> FirecrawlWebRetrievalProvider:
-        return FirecrawlWebRetrievalProvider(
-            client,
+    ) -> OpenSourceWebRetrievalProvider:
+        return OpenSourceWebRetrievalProvider(
+            search_client=search_client,
+            content_client=content_client,
             telemetry=telemetry,
         )

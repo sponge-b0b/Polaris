@@ -3,7 +3,7 @@ from __future__ import annotations
 from tests.helpers.package_imports import inspect_package_import
 
 _FORBIDDEN_RAG_ROOTS = {
-    "firecrawl",
+    "crawl4ai",
     "httpx",
     "neo4j",
     "numpy",

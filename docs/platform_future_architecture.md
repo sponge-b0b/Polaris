@@ -280,7 +280,8 @@ Purpose:
 * Compare setups
 * Retrieve past recommendations
 * RAG-backed citations
-* Firecrawl for search
+* SearXNG for search/discovery
+* Crawl4AI for content acquisition
 
 ## 13. Internal AI Agents
 *Platform operations and research agents.*

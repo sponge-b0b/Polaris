@@ -1,0 +1,43 @@
+# Polaris local SearXNG configuration.
+# The committed secret key is a non-secret local-development placeholder.
+# Use a deployment-specific value for any shared or public SearXNG instance.
+use_default_settings: true
+
+server:
+  secret_key: "change-me-local-development-only"
+  bind_address: "0.0.0.0"
+  port: 8080
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  # Enables Polaris to consume JSON payloads natively through SearXNG.
+  formats:
+    - html
+    - json
+
+# Keep the local engine set bounded to reduce noisy rate-limit failures during
+# opt-in live validation. Production SearXNG deployments may use their own
+# independently managed engine configuration.
+engines:
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 3.0
+    disabled: false
+
+  - name: google
+    engine: google
+    shortcut: go
+    timeout: 4.0
+    disabled: false
+
+  - name: brave
+    engine: brave
+    disabled: true
+
+  - name: ahmia
+    disabled: true
+
+  - name: torch
+    disabled: true

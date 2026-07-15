@@ -110,7 +110,7 @@ async def test_rag_service_run_persists_success_query_and_answer_logs() -> None:
 
 @pytest.mark.asyncio
 async def test_rag_service_does_not_persist_raw_transient_web_context_payload() -> None:
-    raw_web_payload = "RAW_FIRECRAWL_PAGE_BODY_DO_NOT_PERSIST"
+    raw_web_payload = "RAW_WEB_FALLBACK_PAGE_BODY_DO_NOT_PERSIST"
     request = RagRequest(
         query="What changed today?",
         allow_web=True,
@@ -125,7 +125,7 @@ async def test_rag_service_does_not_persist_raw_transient_web_context_payload() 
             base_context.source,
             source_table="web_fallback",
             source_id="https://example.test/market-update",
-            source_type="firecrawl_web",
+            source_type="web_fallback",
             document_id="transient-web-document-1",
             chunk_id="transient-web-result-1",
             metadata={"transient": True},

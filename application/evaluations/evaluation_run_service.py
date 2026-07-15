@@ -12,6 +12,9 @@ from application.evaluations.contracts import EvaluationLangfuseProjectionResult
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from application.evaluations.contracts import EvaluationRunServiceRequest
 from application.evaluations.contracts import EvaluationRunServiceResult
+from application.evaluations.evaluation_datasets import (
+    canonical_evaluation_dataset_definition_by_name,
+)
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from core.storage.persistence.evaluation import EvaluationCaseRecord
 from core.storage.persistence.evaluation import EvaluationDatasetRecord
@@ -234,10 +237,34 @@ def _dataset_records(
 ) -> tuple[EvaluationDatasetRecord, ...]:
     if request.dataset is None:
         return ()
+    try:
+        definition = canonical_evaluation_dataset_definition_by_name(
+            request.dataset.name
+        )
+    except KeyError:
+        return (
+            EvaluationDatasetRecord.from_reference(
+                request.dataset,
+                target_type=request.target_type,
+                threshold_profile={},
+            ),
+        )
+    if definition.reference.dataset_id != request.dataset.dataset_id:
+        return (
+            EvaluationDatasetRecord.from_reference(
+                request.dataset,
+                target_type=request.target_type,
+                threshold_profile={},
+            ),
+        )
     return (
         EvaluationDatasetRecord.from_reference(
-            request.dataset,
-            target_type=request.target_type,
+            definition.reference,
+            target_type=definition.target_type,
+            description=definition.description,
+            source_lineage=definition.source_lineage,
+            deterministic_fixture_uri=definition.deterministic_fixture_uri,
+            threshold_profile=definition.threshold_profile,
         ),
     )
 

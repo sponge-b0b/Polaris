@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import cast
 
 from sqlalchemy import Select
+from sqlalchemy import null
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -402,6 +403,12 @@ def _artifacts_select(run_id: str) -> Select[tuple[EvaluationArtifactModel]]:
     )
 
 
+def _nullable_json_object(value: JsonObject | None) -> object:
+    if value is None:
+        return null()
+    return dict(value)
+
+
 def _dataset_values(record: EvaluationDatasetRecord) -> dict[str, object]:
     target_type = _target_type_value(record.target_type)
     values: dict[str, object] = {
@@ -413,9 +420,7 @@ def _dataset_values(record: EvaluationDatasetRecord) -> dict[str, object]:
         "tags": list(record.tags),
         "source_lineage": list(record.source_lineage),
         "deterministic_fixture_uri": record.deterministic_fixture_uri,
-        "threshold_profile": None
-        if record.threshold_profile is None
-        else dict(record.threshold_profile),
+        "threshold_profile": _nullable_json_object(record.threshold_profile),
         "active": record.active,
     }
     _include_optional_timestamps(values, record.created_at, record.updated_at)
@@ -458,9 +463,7 @@ def _run_values(record: EvaluationRunRecord) -> dict[str, object]:
         "langfuse_export_job_id": record.langfuse_export_job_id,
         "completed_at": record.completed_at,
         "error_message": record.error_message,
-        "error_details": None
-        if record.error_details is None
-        else dict(record.error_details),
+        "error_details": _nullable_json_object(record.error_details),
     }
     if record.started_at is not None:
         values["started_at"] = record.started_at
@@ -484,9 +487,7 @@ def _metric_result_values(record: EvaluationMetricResultRecord) -> dict[str, obj
         "evaluator_model": record.evaluator_model,
         "duration_ms": record.duration_ms,
         "error_message": record.error_message,
-        "error_details": None
-        if record.error_details is None
-        else dict(record.error_details),
+        "error_details": _nullable_json_object(record.error_details),
         "langfuse_projection_status": _langfuse_projection_status_value(
             record.langfuse_projection_status
         ),
@@ -503,7 +504,7 @@ def _artifact_values(record: EvaluationArtifactRecord) -> dict[str, object]:
         "case_id": record.case_id,
         "artifact_type": record.artifact_type,
         "uri": record.uri,
-        "payload": None if record.payload is None else dict(record.payload),
+        "payload": _nullable_json_object(record.payload),
     }
     if record.created_at is not None:
         values["created_at"] = record.created_at

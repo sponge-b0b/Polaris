@@ -56,6 +56,51 @@ class EvaluationDatasetRegistrationRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluationDatasetSeedRequest:
+    """Application request for seeding canonical evaluation datasets."""
+
+    dataset_name: str | None = None
+    dry_run: bool = False
+
+    def __post_init__(self) -> None:
+        if self.dataset_name is None:
+            return
+        cleaned_name = self.dataset_name.strip()
+        if not cleaned_name:
+            raise ValueError("dataset_name cannot be empty when provided.")
+        object.__setattr__(self, "dataset_name", cleaned_name)
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationDatasetSeedItem:
+    """Seed summary for one canonical evaluation dataset fixture."""
+
+    name: str
+    dataset_id: str
+    fixture_uri: str
+    case_count: int
+    persisted: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationDatasetSeedResult:
+    """Application result for canonical evaluation dataset seeding."""
+
+    dry_run: bool
+    items: tuple[EvaluationDatasetSeedItem, ...]
+    datasets_written: int = 0
+    cases_written: int = 0
+
+    @property
+    def dataset_count(self) -> int:
+        return len(self.items)
+
+    @property
+    def case_count(self) -> int:
+        return sum(item.case_count for item in self.items)
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluationRunServiceRequest:
     """Application request for executing one evaluation run."""
 

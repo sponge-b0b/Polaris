@@ -4,10 +4,15 @@ from dataclasses import dataclass
 
 from typer.testing import CliRunner
 
+from application.evaluations import EvaluationDatasetSeedItem
+from application.evaluations import EvaluationDatasetSeedResult
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import evaluation_command
 from interfaces.cli.services.evaluation_command_service import (
     EvaluationDatasetListItem,
+)
+from interfaces.cli.services.evaluation_command_service import (
+    EvaluationDatasetSeedCommandResult,
 )
 from interfaces.cli.services.evaluation_command_service import (
     EvaluationDatasetsCommandResult,
@@ -53,6 +58,30 @@ class FakeEvaluationCommandService:
                     persisted=True,
                     persisted_case_count=1,
                 ),
+            ),
+        )
+
+    async def seed_datasets(
+        self,
+        dataset_name: str | None = None,
+        *,
+        dry_run: bool = False,
+    ) -> EvaluationDatasetSeedCommandResult:
+        return EvaluationDatasetSeedCommandResult(
+            success=True,
+            seed_result=EvaluationDatasetSeedResult(
+                dry_run=dry_run,
+                items=(
+                    EvaluationDatasetSeedItem(
+                        name=dataset_name or "golden_rag_questions",
+                        dataset_id="golden_rag_questions_v1",
+                        fixture_uri="tests/evaluation/fixtures/golden_rag_questions.jsonl",
+                        case_count=25,
+                        persisted=not dry_run,
+                    ),
+                ),
+                datasets_written=0 if dry_run else 1,
+                cases_written=0 if dry_run else 25,
             ),
         )
 
@@ -113,6 +142,32 @@ def test_eval_datasets_list_command_renders_datasets(monkeypatch) -> None:
     assert result.exit_code == 0
     assert "golden_rag_questions" in result.output
     assert "Cases: 1" in result.output
+
+
+def test_eval_datasets_seed_command_supports_dry_run(monkeypatch) -> None:
+    monkeypatch.setattr(
+        evaluation_command,
+        "EvaluationCommandService",
+        FakeEvaluationCommandService,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        create_app(),
+        [
+            "eval",
+            "datasets",
+            "seed",
+            "--dataset",
+            "golden_rag_questions",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Evaluation Dataset Seed" in result.output
+    assert "Dry run: yes" in result.output
+    assert "Cases: 25" in result.output
 
 
 def test_eval_run_command_delegates_dataset_name(monkeypatch) -> None:

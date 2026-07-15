@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 from typing import cast
 
 from sqlalchemy import Select
+from sqlalchemy import func
 from sqlalchemy import null
 from sqlalchemy import select
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
@@ -18,6 +22,7 @@ from core.database.models.evaluation import EvaluationMetricResultModel
 from core.database.models.evaluation import EvaluationRunModel
 from core.storage.persistence.evaluation import EvaluationArtifactRecord
 from core.storage.persistence.evaluation import EvaluationCaseRecord
+from core.storage.persistence.evaluation import EvaluationDatasetCaseReplacement
 from core.storage.persistence.evaluation import EvaluationDatasetRecord
 from core.storage.persistence.evaluation import EvaluationMetricResultRecord
 from core.storage.persistence.evaluation import EvaluationPersistenceBundle
@@ -57,6 +62,9 @@ class PostgresEvaluationPersistenceRepository:
             )
             artifacts_written = await self._upsert_records(
                 tuple(_upsert_artifact_statement(record) for record in bundle.artifacts)
+            )
+            await self._replace_dataset_case_memberships(
+                bundle.dataset_case_replacements
             )
             await self._session.commit()
         except SQLAlchemyError:
@@ -217,6 +225,28 @@ class PostgresEvaluationPersistenceRepository:
             result.scalar_one()
             count += 1
         return count
+
+    async def _replace_dataset_case_memberships(
+        self,
+        replacements: Sequence[EvaluationDatasetCaseReplacement],
+    ) -> int:
+        detached_count = 0
+        for replacement in replacements:
+            stmt = update(EvaluationCaseModel).where(
+                EvaluationCaseModel.dataset_id == replacement.dataset_id
+            )
+            if replacement.case_ids:
+                stmt = stmt.where(
+                    ~EvaluationCaseModel.case_id.in_(replacement.case_ids)
+                )
+            result = cast(
+                CursorResult[Any],
+                await self._session.execute(
+                    stmt.values(dataset_id=None, updated_at=func.now())
+                ),
+            )
+            detached_count += result.rowcount or 0
+        return detached_count
 
 
 def _upsert_dataset_statement(record: EvaluationDatasetRecord) -> Executable:

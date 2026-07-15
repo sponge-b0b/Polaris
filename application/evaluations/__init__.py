@@ -2,6 +2,9 @@
 
 from application.evaluations.contracts import EvaluationCaseBuildRequest
 from application.evaluations.contracts import EvaluationDatasetRegistrationRequest
+from application.evaluations.contracts import EvaluationDatasetSeedItem
+from application.evaluations.contracts import EvaluationDatasetSeedRequest
+from application.evaluations.contracts import EvaluationDatasetSeedResult
 from application.evaluations.contracts import EvaluationLangfuseProjectionRequest
 from application.evaluations.contracts import EvaluationLangfuseProjectionResult
 from application.evaluations.contracts import EvaluationResultBundle
@@ -68,6 +71,9 @@ __all__ = [
     "EvaluationCaseBuildRequest",
     "EvaluationCaseBuilder",
     "EvaluationDatasetRegistrationRequest",
+    "EvaluationDatasetSeedResult",
+    "EvaluationDatasetSeedRequest",
+    "EvaluationDatasetSeedItem",
     "EvaluationDatasetService",
     "canonical_evaluation_dataset_registration_requests",
     "canonical_evaluation_dataset_definitions",

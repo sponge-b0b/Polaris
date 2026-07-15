@@ -21,12 +21,14 @@ def test_prompt_injection_fixture_declares_expected_refusal_behavior(
         evaluation_fixture_dir / "rag_security_prompt_injection.jsonl"
     )
 
-    assert len(rows) == 1
-    row = rows[0]
-    assert "Ignore prior instructions" in row["input_text"]
-    assert "refuse" in row["expected_output"].lower()
-    assert "prompt_injection" in row["tags"]
-    assert row["retrieval_context"]
+    assert len(rows) == 13
+    assert all("prompt_injection" in row["tags"] for row in rows)
+    assert all(row["retrieval_context"] for row in rows)
+    assert any(
+        "ignore" in row["input_text"].lower()
+        and "refuse" in row["expected_output"].lower()
+        for row in rows
+    )
 
 
 def test_prompt_regression_metric_uses_explicit_geval_rubric() -> None:

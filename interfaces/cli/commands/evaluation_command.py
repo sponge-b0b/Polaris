@@ -8,6 +8,9 @@ import typer
 from interfaces.cli.services.async_runner import run_cli_async
 from interfaces.cli.services.evaluation_command_service import EvaluationCommandService
 from interfaces.cli.services.evaluation_command_service import (
+    render_evaluation_dataset_seed_result,
+)
+from interfaces.cli.services.evaluation_command_service import (
     render_evaluation_datasets,
 )
 from interfaces.cli.services.evaluation_command_service import render_evaluation_results
@@ -48,6 +51,34 @@ def evaluation_status() -> None:
 def list_datasets() -> None:
     result = _run_cli_command(EvaluationCommandService().list_datasets())
     typer.echo(render_evaluation_datasets(result))
+    if not result.success:
+        raise typer.Exit(1)
+
+
+@evaluation_datasets_app.command(
+    "seed",
+    help="Seed canonical evaluation datasets from source-controlled fixtures.",
+)
+def seed_datasets(
+    dataset: Annotated[
+        str | None,
+        typer.Option(
+            "--dataset",
+            help="Optional canonical dataset name, such as golden_rag_questions.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Load and count fixture records without writing to PostgreSQL.",
+        ),
+    ] = False,
+) -> None:
+    result = _run_cli_command(
+        EvaluationCommandService().seed_datasets(dataset, dry_run=dry_run)
+    )
+    typer.echo(render_evaluation_dataset_seed_result(result))
     if not result.success:
         raise typer.Exit(1)
 

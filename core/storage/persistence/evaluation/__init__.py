@@ -10,6 +10,9 @@ from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationDatasetRecord,
 )
 from core.storage.persistence.evaluation.evaluation_persistence_models import (
+    EvaluationDatasetCaseReplacement,
+)
+from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationMetricResultRecord,
 )
 from core.storage.persistence.evaluation.evaluation_persistence_models import (
@@ -41,6 +44,7 @@ from core.storage.persistence.evaluation.evaluation_persistence_repository impor
 __all__ = [
     "EvaluationArtifactRecord",
     "EvaluationCaseRecord",
+    "EvaluationDatasetCaseReplacement",
     "EvaluationDatasetRecord",
     "EvaluationMetricResultRecord",
     "EvaluationPersistenceBundle",

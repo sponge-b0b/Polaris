@@ -7,6 +7,9 @@ from datetime import datetime
 
 import pytest
 
+from application.evaluations import EvaluationDatasetSeedItem
+from application.evaluations import EvaluationDatasetSeedRequest
+from application.evaluations import EvaluationDatasetSeedResult
 from application.evaluations import EvaluationResultBundle
 from application.evaluations import EvaluationRunServiceRequest
 from application.evaluations import EvaluationRunServiceResult
@@ -22,6 +25,9 @@ from domain.evaluation import EvaluationScore
 from domain.evaluation import EvaluationStatus
 from domain.evaluation import EvaluationTargetType
 from interfaces.cli.services.evaluation_command_service import EvaluationCommandService
+from interfaces.cli.services.evaluation_command_service import (
+    render_evaluation_dataset_seed_result,
+)
 from interfaces.cli.services.evaluation_command_service import render_evaluation_results
 from interfaces.cli.services.evaluation_command_service import render_evaluation_status
 
@@ -103,6 +109,31 @@ class FakeEvaluationRunService:
         )
 
 
+@dataclass(slots=True)
+class FakeEvaluationDatasetSeedService:
+    requests: list[EvaluationDatasetSeedRequest]
+
+    async def seed_canonical_datasets(
+        self,
+        request: EvaluationDatasetSeedRequest,
+    ) -> EvaluationDatasetSeedResult:
+        self.requests.append(request)
+        return EvaluationDatasetSeedResult(
+            dry_run=request.dry_run,
+            items=(
+                EvaluationDatasetSeedItem(
+                    name=request.dataset_name or "golden_rag_questions",
+                    dataset_id="golden_rag_questions_v1",
+                    fixture_uri="tests/evaluation/fixtures/golden_rag_questions.jsonl",
+                    case_count=25,
+                    persisted=not request.dry_run,
+                ),
+            ),
+            datasets_written=0 if request.dry_run else 1,
+            cases_written=0 if request.dry_run else 25,
+        )
+
+
 def _settings() -> Settings:
     return Settings(
         DEEPEVAL_ENABLED=True,
@@ -158,6 +189,28 @@ async def test_list_datasets_uses_result_service_and_marks_persisted() -> None:
     golden = next(item for item in result.items if item.name == "golden_rag_questions")
     assert golden.persisted is True
     assert golden.persisted_case_count == 1
+
+
+@pytest.mark.asyncio
+async def test_seed_datasets_delegates_to_dataset_seed_service() -> None:
+    seed_service = FakeEvaluationDatasetSeedService([])
+
+    result = await EvaluationCommandService(
+        dataset_seed_service=seed_service,
+        settings=_settings(),
+    ).seed_datasets("golden_rag_questions", dry_run=True)
+
+    assert result.success is True
+    assert seed_service.requests == [
+        EvaluationDatasetSeedRequest(
+            dataset_name="golden_rag_questions",
+            dry_run=True,
+        )
+    ]
+    rendered = render_evaluation_dataset_seed_result(result)
+    assert "Evaluation Dataset Seed" in rendered
+    assert "Dry run: yes" in rendered
+    assert "Cases: 25" in rendered
 
 
 @pytest.mark.asyncio

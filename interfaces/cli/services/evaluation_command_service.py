@@ -13,6 +13,8 @@ from typing import TypeVar
 from uuid import uuid4
 
 from application.evaluations import EvaluationResultBundle
+from application.evaluations import EvaluationDatasetSeedRequest
+from application.evaluations import EvaluationDatasetSeedResult
 from application.evaluations import EvaluationRunServiceRequest
 from application.evaluations import EvaluationRunServiceResult
 from application.evaluations import canonical_evaluation_dataset_definition_by_name
@@ -69,12 +71,25 @@ class EvaluationRunServicePort(Protocol):
     ) -> EvaluationRunServiceResult: ...
 
 
+class EvaluationDatasetSeedServicePort(Protocol):
+    async def seed_canonical_datasets(
+        self,
+        request: EvaluationDatasetSeedRequest,
+    ) -> EvaluationDatasetSeedResult: ...
+
+
 class EvaluationResultContextFactory(Protocol):
     def __call__(self) -> AbstractAsyncContextManager[EvaluationResultServicePort]: ...
 
 
 class EvaluationRunContextFactory(Protocol):
     def __call__(self) -> AbstractAsyncContextManager[EvaluationRunServicePort]: ...
+
+
+class EvaluationDatasetSeedContextFactory(Protocol):
+    def __call__(
+        self,
+    ) -> AbstractAsyncContextManager[EvaluationDatasetSeedServicePort]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +126,13 @@ class EvaluationDatasetsCommandResult:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluationDatasetSeedCommandResult:
+    success: bool
+    seed_result: EvaluationDatasetSeedResult | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluationRunCommandResult:
     success: bool
     message: str
@@ -143,8 +165,10 @@ class EvaluationCommandService:
 
     result_service: EvaluationResultServicePort | None = None
     run_service: EvaluationRunServicePort | None = None
+    dataset_seed_service: EvaluationDatasetSeedServicePort | None = None
     result_context_factory: EvaluationResultContextFactory | None = None
     run_context_factory: EvaluationRunContextFactory | None = None
+    dataset_seed_context_factory: EvaluationDatasetSeedContextFactory | None = None
     settings: Settings | None = None
 
     async def status(self) -> EvaluationStatusCommandResult:
@@ -198,6 +222,24 @@ class EvaluationCommandService:
             logger.exception("Evaluation dataset listing failed.")
             return EvaluationDatasetsCommandResult(success=False, error=str(exc))
         return EvaluationDatasetsCommandResult(success=True, items=tuple(items))
+
+    async def seed_datasets(
+        self,
+        dataset_name: str | None = None,
+        *,
+        dry_run: bool = False,
+    ) -> EvaluationDatasetSeedCommandResult:
+        try:
+            request = EvaluationDatasetSeedRequest(
+                dataset_name=dataset_name,
+                dry_run=dry_run,
+            )
+            async with self._dataset_seed_service_context() as seed_service:
+                result = await seed_service.seed_canonical_datasets(request)
+        except Exception as exc:
+            logger.exception("Evaluation dataset seed failed.")
+            return EvaluationDatasetSeedCommandResult(success=False, error=str(exc))
+        return EvaluationDatasetSeedCommandResult(success=True, seed_result=result)
 
     async def run_dataset(self, dataset_name: str) -> EvaluationRunCommandResult:
         try:
@@ -370,6 +412,20 @@ class EvaluationCommandService:
         async with default_evaluation_run_context() as service:
             yield service
 
+    @asynccontextmanager
+    async def _dataset_seed_service_context(
+        self,
+    ) -> AsyncIterator[EvaluationDatasetSeedServicePort]:
+        if self.dataset_seed_service is not None:
+            yield self.dataset_seed_service
+            return
+        if self.dataset_seed_context_factory is not None:
+            async with self.dataset_seed_context_factory() as service:
+                yield service
+            return
+        async with default_evaluation_dataset_seed_context() as service:
+            yield service
+
 
 @asynccontextmanager
 async def default_evaluation_result_context() -> AsyncIterator[
@@ -388,6 +444,18 @@ async def default_evaluation_run_context() -> AsyncIterator[EvaluationRunService
     from application.evaluations import EvaluationRunService
 
     async with _default_evaluation_dependency_context(EvaluationRunService) as service:
+        yield service
+
+
+@asynccontextmanager
+async def default_evaluation_dataset_seed_context() -> AsyncIterator[
+    EvaluationDatasetSeedServicePort
+]:
+    from application.evaluations import EvaluationDatasetService
+
+    async with _default_evaluation_dependency_context(
+        EvaluationDatasetService
+    ) as service:
         yield service
 
 
@@ -434,6 +502,36 @@ def render_evaluation_datasets(result: EvaluationDatasetsCommandResult) -> str:
                 f"  Active: {_yes_no(item.active)}",
                 f"  Cases: {item.persisted_case_count}",
                 f"  Description: {item.description}",
+            )
+        )
+    return "\n".join(lines)
+
+
+def render_evaluation_dataset_seed_result(
+    result: EvaluationDatasetSeedCommandResult,
+) -> str:
+    if not result.success or result.seed_result is None:
+        return "\n".join(
+            ("Evaluation Dataset Seed", "Status: failed", f"Error: {result.error}")
+        )
+    seed_result = result.seed_result
+    lines = [
+        "Evaluation Dataset Seed",
+        "Status: succeeded",
+        f"Dry run: {_yes_no(seed_result.dry_run)}",
+        f"Datasets: {seed_result.dataset_count}",
+        f"Cases: {seed_result.case_count}",
+        f"Datasets written: {seed_result.datasets_written}",
+        f"Cases written: {seed_result.cases_written}",
+    ]
+    for item in seed_result.items:
+        lines.extend(
+            (
+                "",
+                f"- {item.name} ({item.dataset_id})",
+                f"  Fixture: {item.fixture_uri}",
+                f"  Cases: {item.case_count}",
+                f"  Persisted: {_yes_no(item.persisted)}",
             )
         )
     return "\n".join(lines)

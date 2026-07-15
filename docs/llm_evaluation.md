@@ -83,6 +83,33 @@ The current canonical dataset definitions live in `application/evaluations/evalu
 
 Dataset definitions should include source lineage and a deterministic fixture URI. Dataset cases created from live workflow outputs must preserve source record IDs, workflow execution IDs, and Langfuse trace or observation IDs when available.
 
+## Golden dataset baseline
+
+A Polaris golden dataset is a reviewed, versioned evaluation benchmark that acts as the platform's baseline for LLM-assisted behavior. It is not a random test sample and it is not generated from live data at execution time. Each case is a durable question, prompt, report, recommendation, or tool-response scenario with specific expected behavior, attribution, and metric intent.
+
+The source-controlled JSONL fixtures under `tests/evaluation/fixtures/` are the canonical reviewed baseline. They are intentionally committed so changes are visible in code review, reproducible across machines, and protected from accidental mutation by database state. PostgreSQL is the durable operational copy used by local and release-gate CLI runs after seeding. If fixture content and PostgreSQL content differ, reseed from the fixture source of truth rather than manually editing database rows. Canonical seeding replaces dataset membership exactly: cases no longer present in the fixture are detached from the active dataset while preserving their historical evaluation rows.
+
+The baseline currently contains 100 curated cases distributed across RAG answer quality, citation grounding, prompt-injection resistance, morning-report quality, strategy synthesis, recommendation explanations, MCP tool responses, and agent task completion. The baseline should grow only through intentional reviewed changes because adding, removing, or rewriting cases changes what Polaris considers acceptable platform behavior.
+
+## Golden dataset quality rules
+
+- Cases must be reviewed deliberately; do not bulk-generate cases blindly and treat them as authoritative.
+- Expected outputs, rubrics, and supporting context must be specific enough for an evaluator to distinguish a correct response from a plausible but unsupported one.
+- Attribution must be preserved through source record IDs, workflow execution IDs, retrieval context IDs, citation context IDs, or trace/observation IDs when available.
+- Coverage must include positive, negative, edge, and adversarial scenarios, especially for financial claims, refusal behavior, citation support, and prompt-injection attempts.
+- Facts derived from live market or portfolio data must be frozen into deterministic fixture text before becoming golden baseline material.
+- Metric thresholds should not be changed casually to make a benchmark pass; threshold changes require a versioned policy decision.
+- Benchmark changes require intentional review because they redefine the platform baseline and may affect release gates.
+
+## Adding a golden case safely
+
+1. Confirm the output under evaluation has a durable Polaris owner and target type.
+2. Add the case to the matching JSONL fixture under `tests/evaluation/fixtures/`, using a stable globally unique case ID.
+3. Include expected output or a rubric, source lineage metadata, tags, and retrieval or citation context when relevant.
+4. Run fixture validation and focused evaluation tests before seeding.
+5. Dry-run seeding with `uv run polaris eval datasets seed --dry-run`, then seed the affected dataset with `uv run polaris eval datasets seed --dataset <dataset-name>` when PostgreSQL is available.
+6. Confirm persisted counts with `uv run polaris eval datasets list` and run the selected dataset through DeepEval only when a live judge model is intentionally part of the validation.
+
 ## Metric and threshold policy
 
 Polaris normalizes all scores to a `0.0` to `1.0` higher-is-better scale. This includes DeepEval metrics that are naturally lower-is-better, such as hallucination. The DeepEval provider converts those into absence or quality scores before returning them to application services.
@@ -151,13 +178,22 @@ Supported judge provider values are `openai`, `ollama`, and `litellm`. Polaris m
    uv run polaris eval status
    ```
 
-5. Inspect canonical datasets and persisted case counts:
+5. Dry-run and seed canonical source-controlled fixtures into PostgreSQL:
+
+   ```bash
+   uv run polaris eval datasets seed --dry-run
+   uv run polaris eval datasets seed
+   ```
+
+   To seed one dataset only, add `--dataset <dataset-name>`.
+
+6. Inspect canonical datasets and persisted case counts:
 
    ```bash
    uv run polaris eval datasets list
    ```
 
-6. Run an evaluation against persisted cases:
+7. Run an evaluation against persisted cases:
 
    ```bash
    uv run polaris eval run --dataset golden_rag_questions
@@ -165,13 +201,59 @@ Supported judge provider values are `openai`, `ollama`, and `litellm`. Polaris m
    uv run polaris eval run-latest-rag
    ```
 
-7. Inspect persisted results:
+8. Inspect persisted results:
 
    ```bash
    uv run polaris eval results --run <run-id>
    ```
 
 The CLI resolves services through the application DI scope. It does not call DeepEval, PostgreSQL repositories, or Langfuse SDKs directly.
+
+## Baseline benchmark execution workflow
+
+The 100-case golden baseline is an explicit local or release-gate workflow. It is not part of normal CI because full DeepEval runs require a live judge model, may take longer than deterministic tests, and can introduce evaluator-model variability.
+
+Recommended execution sequence:
+
+1. Seed canonical datasets into PostgreSQL:
+
+   ```bash
+   uv run polaris eval datasets seed
+   ```
+
+2. Confirm persisted dataset and case counts:
+
+   ```bash
+   uv run polaris eval datasets list
+   ```
+
+3. Run selected datasets through DeepEval. Prefer one dataset at a time so failures are attributable and retries are bounded:
+
+   ```bash
+   uv run polaris eval run --dataset golden_rag_questions
+   ```
+
+4. Inspect the persisted run output with the run ID printed by the previous command:
+
+   ```bash
+   uv run polaris eval results --run <run-id>
+   ```
+
+5. Drain and verify Langfuse score projection. Export delivery is handled by the configured `AiObservabilityExportWorker` or deployment scheduler, not by the evaluation CLI itself. Use the operational status command to confirm the durable export queue reaches zero backlog:
+
+   ```bash
+   uv run polaris observability ai-status
+   ```
+
+Run the full 100-case benchmark only when intentionally changing the platform baseline, preparing a release gate, validating a judge-model change, or verifying evaluation-pipeline changes. Normal CI should continue to use deterministic fixture validation, fake-provider tests, and non-live evaluation suites.
+
+For release gates, use the dedicated script so fixture counts, PostgreSQL seed state, optional Langfuse queue health, and DeepEval run status are checked consistently:
+
+```bash
+uv run python scripts/run_baseline_evaluation_gate.py --dataset agent_task_completion
+```
+
+Use `--skip-live-evaluation` when you only want to verify fixture loading, PostgreSQL seeding, and persisted-count parity. The script fails if the PostgreSQL operational copy contains stale case membership that no longer matches the source-controlled fixtures.
 
 ## Async evaluation jobs
 

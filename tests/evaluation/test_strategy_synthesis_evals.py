@@ -29,9 +29,17 @@ def test_strategy_synthesis_dataset_is_structured_hypothesis_aware(
     assert definition.target_type is EvaluationTargetType.STRATEGY_SYNTHESIS
     assert definition.active is True
     assert "postgres.curated_strategy_records" in definition.source_lineage
-    assert rows[0]["target_type"] == EvaluationTargetType.STRATEGY_SYNTHESIS.value
-    assert "perspective" in rows[0]["expected_output"]
-    assert "strategy" in rows[0]["tags"]
+    assert rows
+    assert all(
+        row["target_type"] == EvaluationTargetType.STRATEGY_SYNTHESIS.value
+        for row in rows
+    )
+    assert any(
+        "perspective" in row.get("rubric", "").lower()
+        or "perspective" in row.get("expected_output", "").lower()
+        for row in rows
+    )
+    assert all("strategy" in row["tags"] for row in rows)
 
 
 def test_strategy_synthesis_metrics_cover_quality_consistency_and_claim_control() -> (

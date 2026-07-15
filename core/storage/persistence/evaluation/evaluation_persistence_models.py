@@ -395,6 +395,20 @@ class EvaluationArtifactRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluationDatasetCaseReplacement:
+    """Exact canonical case membership for one evaluation dataset."""
+
+    dataset_id: str
+    case_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "dataset_id", _require_non_empty(self.dataset_id, "dataset_id")
+        )
+        object.__setattr__(self, "case_ids", _clean_tuple(self.case_ids, "case_id"))
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluationPersistenceBundle:
     """Atomic group of evaluation records to persist together."""
 
@@ -403,6 +417,7 @@ class EvaluationPersistenceBundle:
     runs: tuple[EvaluationRunRecord, ...] = ()
     metric_results: tuple[EvaluationMetricResultRecord, ...] = ()
     artifacts: tuple[EvaluationArtifactRecord, ...] = ()
+    dataset_case_replacements: tuple[EvaluationDatasetCaseReplacement, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,6 +7,7 @@ import pytest
 
 from core.storage.persistence.evaluation import EvaluationArtifactRecord
 from core.storage.persistence.evaluation import EvaluationCaseRecord
+from core.storage.persistence.evaluation import EvaluationDatasetCaseReplacement
 from core.storage.persistence.evaluation import EvaluationDatasetRecord
 from core.storage.persistence.evaluation import EvaluationMetricResultRecord
 from core.storage.persistence.evaluation import EvaluationPersistenceBundle
@@ -173,6 +174,12 @@ def test_evaluation_persistence_bundle_reports_total_records() -> None:
                 rubric="Judge grounding.",
             ),
         ),
+        dataset_case_replacements=(
+            EvaluationDatasetCaseReplacement(
+                dataset_id="dataset-1",
+                case_ids=("case-1",),
+            ),
+        ),
     )
     result = EvaluationPersistenceResult(
         datasets_written=len(bundle.datasets),
@@ -182,6 +189,7 @@ def test_evaluation_persistence_bundle_reports_total_records() -> None:
         artifacts_written=3,
     )
 
+    assert bundle.dataset_case_replacements[0].case_ids == ("case-1",)
     assert result.records_written == 8
 
 

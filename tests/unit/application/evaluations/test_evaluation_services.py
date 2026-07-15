@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from dataclasses import replace
 
 import pytest
 
 from application.evaluations import EvaluationDatasetRegistrationRequest
+from application.evaluations import EvaluationDatasetSeedRequest
 from application.evaluations import EvaluationLangfuseProjectionRequest
 from application.evaluations import EvaluationLangfuseProjectionResult
 from application.evaluations import EvaluationDatasetService
@@ -51,6 +53,14 @@ class FakeEvaluationRepository:
             self.datasets[dataset.dataset_id] = dataset
         for case in bundle.cases:
             self.cases[case.case_id] = case
+        for replacement in bundle.dataset_case_replacements:
+            allowed_case_ids = set(replacement.case_ids)
+            for case_id, case in tuple(self.cases.items()):
+                if (
+                    case.dataset_id == replacement.dataset_id
+                    and case_id not in allowed_case_ids
+                ):
+                    self.cases[case_id] = replace(case, dataset_id=None)
         for run in bundle.runs:
             self.runs[run.run_id] = run
         self.metric_results.extend(bundle.metric_results)
@@ -441,3 +451,70 @@ async def test_result_service_lists_cases_by_dataset_and_target_type() -> None:
 
     assert await service.list_dataset_cases("dataset-1") == (case,)
     assert await service.list_latest_cases(EvaluationTargetType.RAG_ANSWER) == (case,)
+
+
+@pytest.mark.asyncio
+async def test_dataset_service_dry_run_counts_canonical_fixtures() -> None:
+    repository = _repository()
+
+    result = await EvaluationDatasetService(repository).seed_canonical_datasets(
+        EvaluationDatasetSeedRequest(dry_run=True)
+    )
+
+    assert result.dry_run is True
+    assert result.dataset_count == 8
+    assert result.case_count == 100
+    assert result.datasets_written == 0
+    assert result.cases_written == 0
+    assert repository.datasets == {}
+    assert repository.cases == {}
+
+
+@pytest.mark.asyncio
+async def test_dataset_service_seeds_selected_dataset_idempotently() -> None:
+    repository = _repository()
+    service = EvaluationDatasetService(repository)
+
+    first = await service.seed_canonical_datasets(
+        EvaluationDatasetSeedRequest(dataset_name="golden_rag_questions")
+    )
+    second = await service.seed_canonical_datasets(
+        EvaluationDatasetSeedRequest(dataset_name="golden_rag_questions")
+    )
+
+    assert first.dataset_count == 1
+    assert first.case_count == 25
+    assert first.datasets_written == 1
+    assert first.cases_written == 25
+    assert second.datasets_written == 1
+    assert second.cases_written == 25
+    assert set(repository.datasets) == {"golden_rag_questions_v1"}
+    assert len(repository.cases) == 25
+    seeded_case = repository.cases["golden-rag-answer-001"]
+    assert seeded_case.dataset_id == "golden_rag_questions_v1"
+    assert seeded_case.source_record_ids
+    assert seeded_case.retrieval_context
+
+
+@pytest.mark.asyncio
+async def test_dataset_service_replaces_stale_dataset_membership() -> None:
+    repository = _repository()
+    stale_case = EvaluationCaseRecord(
+        case_id="stale-golden-case",
+        dataset_id="golden_rag_questions_v1",
+        target_type=EvaluationTargetType.RAG_ANSWER,
+        input_text="Obsolete question?",
+        actual_output="Obsolete answer.",
+        rubric="Should no longer be active dataset membership.",
+    )
+    repository.cases[stale_case.case_id] = stale_case
+
+    result = await EvaluationDatasetService(repository).seed_canonical_datasets(
+        EvaluationDatasetSeedRequest(dataset_name="golden_rag_questions")
+    )
+
+    active_cases = await repository.list_cases_by_dataset("golden_rag_questions_v1")
+    assert result.case_count == 25
+    assert len(active_cases) == 25
+    assert repository.cases[stale_case.case_id].dataset_id is None
+    assert repository.cases[stale_case.case_id].rubric == stale_case.rubric

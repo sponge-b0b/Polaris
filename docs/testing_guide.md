@@ -123,6 +123,7 @@ POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
 POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
 POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 
@@ -259,6 +260,7 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_DEEPEVAL_ENABLED` | evaluation CLI, provider DI, and live DeepEval tests | Enables canonical LLM evaluation. |
 | `POLARIS_DEEPEVAL_JUDGE_PROVIDER` | evaluation CLI, provider DI, and live DeepEval tests | Logical judge provider name; keep provider credentials in approved secret variables. |
 | `POLARIS_DEEPEVAL_JUDGE_MODEL` | evaluation CLI, provider DI, and live DeepEval tests | Judge model identifier passed to DeepEval. |
+| `POLARIS_DEEPEVAL_OLLAMA_BASE_URL` | Ollama-backed live DeepEval tests | Optional Ollama base URL used when the judge provider is `ollama`; defaults to the platform Ollama host. |
 | `POLARIS_DEEPEVAL_STRICT_MODE` | settings validation | Requires complete DeepEval configuration when true. |
 | `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | DeepEval provider setup | Defaults to privacy-preserving opt-out behavior. |
 | `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | evaluation settings and CLI defaults | Default pass threshold used when a dataset or metric does not specify a stricter typed threshold. |
@@ -376,6 +378,7 @@ POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
 POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
 POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 

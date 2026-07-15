@@ -45,6 +45,15 @@ class DeepEvalMetricName(StrEnum):
     HALLUCINATION = "hallucination"
 
 
+_DEEPEVAL_JUDGE_PROVIDER_ALIASES = {
+    "gpt": "openai",
+    "lite_llm": "litellm",
+    "litellm": "litellm",
+    "ollama": "ollama",
+    "openai": "openai",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class DeepEvalMetricOutcome:
     """Vendor-neutral outcome from executing one DeepEval metric."""
@@ -57,6 +66,24 @@ class DeepEvalMetricOutcome:
             raise ValueError("score must be between 0.0 and 1.0.")
         if self.reason is not None and not self.reason.strip():
             raise ValueError("reason cannot be empty.")
+
+
+@dataclass(frozen=True, slots=True)
+class DeepEvalJudgeModelConfig:
+    """Configuration for constructing DeepEval-native judge model objects."""
+
+    provider: str
+    model: str
+    ollama_base_url: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.provider.strip():
+            raise ValueError("provider cannot be empty.")
+        if not self.model.strip():
+            raise ValueError("model cannot be empty.")
+        if self.ollama_base_url is not None and not self.ollama_base_url.strip():
+            raise ValueError("ollama_base_url cannot be empty.")
+        _normalize_deepeval_judge_provider(self.provider)
 
 
 class DeepEvalMetricAdapter(Protocol):
@@ -84,6 +111,7 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
         default_threshold: float,
         max_concurrency: int,
         timeout_seconds: float,
+        ollama_base_url: str | None = None,
         telemetry_opt_out: bool = True,
         telemetry: IntegrationTelemetry | None = None,
         adapter: DeepEvalMetricAdapter | None = None,
@@ -98,6 +126,7 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
             raise ValueError("max_concurrency must be greater than 0.")
         if timeout_seconds <= 0.0:
             raise ValueError("timeout_seconds must be greater than 0.0.")
+        _normalize_deepeval_judge_provider(judge_provider)
 
         self._judge_provider = judge_provider
         self._judge_model = judge_model
@@ -105,7 +134,13 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
         self._max_concurrency = max_concurrency
         self._timeout_seconds = timeout_seconds
         self._telemetry = telemetry
-        self._adapter = adapter or _NativeDeepEvalMetricAdapter()
+        self._adapter = adapter or _NativeDeepEvalMetricAdapter(
+            DeepEvalJudgeModelConfig(
+                provider=judge_provider,
+                model=judge_model,
+                ollama_base_url=ollama_base_url,
+            )
+        )
         if telemetry_opt_out:
             os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "true")
 
@@ -244,6 +279,11 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
 
 
 class _NativeDeepEvalMetricAdapter:
+    def __init__(self, judge_config: DeepEvalJudgeModelConfig) -> None:
+        self._judge_config = judge_config
+        self._cached_model_name: str | None = None
+        self._cached_model: Any | None = None
+
     async def evaluate_metric(
         self,
         case: EvaluationCase,
@@ -251,10 +291,11 @@ class _NativeDeepEvalMetricAdapter:
         threshold: EvaluationThreshold,
         evaluator_model: str,
     ) -> DeepEvalMetricOutcome:
+        deepeval_model = self._resolve_model(evaluator_model)
         metric_instance = _build_metric(
             metric.metric_name,
             threshold.minimum_score,
-            evaluator_model,
+            deepeval_model,
             metric.include_reason,
             metric.criteria,
             metric.evaluation_steps,
@@ -271,6 +312,54 @@ class _NativeDeepEvalMetricAdapter:
             score=normalized_score,
             reason=cast("str | None", getattr(metric_instance, "reason", None)),
         )
+
+    def _resolve_model(self, evaluator_model: str) -> Any:
+        if self._cached_model_name != evaluator_model:
+            self._cached_model = build_deepeval_judge_model(
+                DeepEvalJudgeModelConfig(
+                    provider=self._judge_config.provider,
+                    model=evaluator_model,
+                    ollama_base_url=self._judge_config.ollama_base_url,
+                )
+            )
+            self._cached_model_name = evaluator_model
+        return self._cached_model
+
+
+def build_deepeval_judge_model(config: DeepEvalJudgeModelConfig) -> Any:
+    """Build the DeepEval-native judge model for a configured provider."""
+
+    provider = _normalize_deepeval_judge_provider(config.provider)
+    if provider in {"openai", "gpt"}:
+        from deepeval.models import GPTModel
+
+        return GPTModel(model=config.model)
+    if provider == "ollama":
+        from deepeval.models import OllamaModel
+
+        return OllamaModel(model=config.model, base_url=config.ollama_base_url)
+    if provider in {"litellm", "lite_llm"}:
+        from deepeval.models import LiteLLMModel
+
+        return LiteLLMModel(model=config.model)
+
+    supported = ", ".join(sorted(set(_DEEPEVAL_JUDGE_PROVIDER_ALIASES.values())))
+    raise ValueError(
+        f"Unsupported DeepEval judge provider '{config.provider}'. "
+        f"Supported providers: {supported}."
+    )
+
+
+def _normalize_deepeval_judge_provider(provider: str) -> str:
+    normalized = provider.strip().lower().replace("-", "_")
+    resolved = _DEEPEVAL_JUDGE_PROVIDER_ALIASES.get(normalized)
+    if resolved is None:
+        supported = ", ".join(sorted(set(_DEEPEVAL_JUDGE_PROVIDER_ALIASES.values())))
+        raise ValueError(
+            f"Unsupported DeepEval judge provider '{provider}'. "
+            f"Supported providers: {supported}."
+        )
+    return resolved
 
 
 def _build_test_case(case: EvaluationCase) -> Any:
@@ -300,7 +389,7 @@ def _build_test_case(case: EvaluationCase) -> Any:
 def _build_metric(
     metric_name: str,
     threshold: float,
-    evaluator_model: str,
+    evaluator_model: Any,
     include_reason: bool,
     criteria: str | None = None,
     evaluation_steps: tuple[str, ...] = (),
@@ -349,7 +438,7 @@ def _build_metric(
 def _build_geval_metric(
     metric_name: str,
     threshold: float,
-    evaluator_model: str,
+    evaluator_model: Any,
     criteria: str | None,
     evaluation_steps: tuple[str, ...],
 ) -> Any:

@@ -127,6 +127,7 @@ Use Polaris-prefixed variables for application behavior. Unprefixed DeepEval ali
 | `POLARIS_DEEPEVAL_ENABLED` | Enables the evaluation feature gate. |
 | `POLARIS_DEEPEVAL_JUDGE_PROVIDER` | Logical judge provider name used in records and status output. |
 | `POLARIS_DEEPEVAL_JUDGE_MODEL` | Judge model used by DeepEval metrics. |
+| `POLARIS_DEEPEVAL_OLLAMA_BASE_URL` | Optional Ollama base URL used when the judge provider is `ollama`; defaults to the platform Ollama host when omitted. |
 | `POLARIS_DEEPEVAL_STRICT_MODE` | Requires complete configuration during settings validation. |
 | `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | Sets DeepEval telemetry opt-out behavior; defaults to privacy-preserving opt-out. |
 | `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | Fallback threshold for metrics without a specific threshold. |
@@ -136,6 +137,8 @@ Use Polaris-prefixed variables for application behavior. Unprefixed DeepEval ali
 | `POLARIS_EVAL_REQUIRED` | Test-only release gate that fails when live eval config is missing instead of skipping. |
 
 Keep judge-provider credentials in the provider's own approved environment variables or secrets manager. Do not commit API keys, passwords, tokens, or authenticated URLs.
+
+Supported judge provider values are `openai`, `ollama`, and `litellm`. Polaris maps these values to DeepEval-native judge model classes instead of relying on ambiguous string inference. For local Ollama judging, configure `POLARIS_DEEPEVAL_JUDGE_PROVIDER=ollama`, `POLARIS_DEEPEVAL_JUDGE_MODEL=<local-model>`, and optionally `POLARIS_DEEPEVAL_OLLAMA_BASE_URL` when the default Ollama host is not correct.
 
 ## Local workflow
 
@@ -259,6 +262,7 @@ POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
 POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
 POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 

@@ -22,6 +22,7 @@ POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
 POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
 POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
+POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 

@@ -12,10 +12,12 @@ from domain.evaluation import EvaluationStatus
 from domain.evaluation import EvaluationTargetType
 from domain.evaluation import EvaluationThreshold
 from integration.providers.llm_evaluation import DeepEvalEvaluationProvider
+from integration.providers.llm_evaluation import DeepEvalJudgeModelConfig
 from integration.providers.llm_evaluation import DeepEvalMetricName
 from integration.providers.llm_evaluation import DeepEvalMetricOutcome
 from integration.providers.llm_evaluation import EvaluationMetricSpec
 from integration.providers.llm_evaluation import EvaluationProviderRequest
+from integration.providers.llm_evaluation import build_deepeval_judge_model
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _build_metric,
 )
@@ -301,6 +303,57 @@ def test_native_metric_builder_rejects_unknown_metrics_without_rubric(
         )
 
 
+def test_deepeval_judge_model_factory_builds_ollama_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_models = _install_fake_deepeval_model_module(monkeypatch)
+
+    model = build_deepeval_judge_model(
+        DeepEvalJudgeModelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            ollama_base_url="http://localhost:11434",
+        )
+    )
+
+    assert isinstance(model, fake_models.OllamaModel)
+    assert model.model == "qwen3.5:4b"
+    assert model.base_url == "http://localhost:11434"
+
+
+def test_deepeval_judge_model_factory_builds_openai_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_models = _install_fake_deepeval_model_module(monkeypatch)
+
+    model = build_deepeval_judge_model(
+        DeepEvalJudgeModelConfig(provider="openai", model="gpt-4.1-mini")
+    )
+
+    assert isinstance(model, fake_models.GPTModel)
+    assert model.model == "gpt-4.1-mini"
+
+
+def test_deepeval_judge_model_factory_builds_litellm_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_models = _install_fake_deepeval_model_module(monkeypatch)
+
+    model = build_deepeval_judge_model(
+        DeepEvalJudgeModelConfig(provider="litellm", model="ollama/qwen3.5:4b")
+    )
+
+    assert isinstance(model, fake_models.LiteLLMModel)
+    assert model.model == "ollama/qwen3.5:4b"
+
+
+def test_deepeval_judge_model_factory_rejects_unknown_provider() -> None:
+    with pytest.raises(ValueError, match="Unsupported DeepEval judge provider"):
+        build_deepeval_judge_model(
+            DeepEvalJudgeModelConfig(provider="unknown", model="qwen3.5:4b")
+        )
+
+
 class FakeMetricAdapter:
     def __init__(
         self,
@@ -422,6 +475,17 @@ def _install_fake_deepeval_metric_module(
     setattr(fake_metrics, "GEval", _FakeGEval)
     monkeypatch.setitem(sys.modules, "deepeval.metrics", fake_metrics)
     return fake_metrics
+
+
+def _install_fake_deepeval_model_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Any:
+    fake_models = ModuleType("deepeval.models")
+    setattr(fake_models, "GPTModel", type("GPTModel", (_FakeMetric,), {}))
+    setattr(fake_models, "LiteLLMModel", type("LiteLLMModel", (_FakeMetric,), {}))
+    setattr(fake_models, "OllamaModel", type("OllamaModel", (_FakeMetric,), {}))
+    monkeypatch.setitem(sys.modules, "deepeval.models", fake_models)
+    return fake_models
 
 
 def _install_fake_deepeval_test_case_params(

@@ -4,6 +4,9 @@ from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     DeepEvalEvaluationProvider,
 )
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
+    DeepEvalJudgeModelConfig,
+)
+from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     DeepEvalMetricAdapter,
 )
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
@@ -11,6 +14,9 @@ from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
 )
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     DeepEvalMetricOutcome,
+)
+from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
+    build_deepeval_judge_model,
 )
 from integration.providers.llm_evaluation.evaluation_provider import (
     EvaluationMetricSpec,
@@ -25,6 +31,7 @@ from integration.providers.llm_evaluation.evaluation_provider import (
 
 __all__ = [
     "DeepEvalEvaluationProvider",
+    "DeepEvalJudgeModelConfig",
     "DeepEvalMetricAdapter",
     "DeepEvalMetricName",
     "DeepEvalMetricOutcome",
@@ -32,4 +39,5 @@ __all__ = [
     "EvaluationProvider",
     "EvaluationProviderRequest",
     "EvaluationProviderResult",
+    "build_deepeval_judge_model",
 ]

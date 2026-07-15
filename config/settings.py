@@ -309,6 +309,13 @@ class Settings(BaseSettings):
             "DEEPEVAL_JUDGE_MODEL",
         ),
     )
+    DEEPEVAL_OLLAMA_BASE_URL: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_DEEPEVAL_OLLAMA_BASE_URL",
+            "DEEPEVAL_OLLAMA_BASE_URL",
+        ),
+    )
     DEEPEVAL_STRICT_MODE: bool = Field(
         default=False,
         validation_alias=AliasChoices(
@@ -395,7 +402,12 @@ class Settings(BaseSettings):
     def qdrant_url(self) -> str:
         return f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
 
-    @field_validator("DEEPEVAL_JUDGE_PROVIDER", "DEEPEVAL_JUDGE_MODEL", mode="before")
+    @field_validator(
+        "DEEPEVAL_JUDGE_PROVIDER",
+        "DEEPEVAL_JUDGE_MODEL",
+        "DEEPEVAL_OLLAMA_BASE_URL",
+        mode="before",
+    )
     @classmethod
     def _normalize_optional_non_empty_string(cls, value: object) -> object:
         if isinstance(value, str):

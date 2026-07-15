@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import asyncio
-
 from time import perf_counter
 
-from core.llm.ollama_client import OllamaClient
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
+from integration.clients.llm import LITELLM_PROVIDER_NAME
+from integration.clients.llm import LiteLlmGatewayClient
 from integration.providers.provider_telemetry import record_provider_call
 from integration.providers.rag.quality_evaluation_provider import RagQualityModelConfig
 from integration.providers.rag.quality_evaluation_provider import (
@@ -15,12 +14,12 @@ from integration.providers.rag.quality_evaluation_provider import RagQualityMode
 from integration.providers.rag.quality_evaluation_provider import RagQualityModelResult
 
 
-class OllamaRagQualityModelProvider(RagQualityModelProvider):
-    """Structured CRAG and Self-RAG provider backed by the canonical Ollama client."""
+class LiteLlmRagQualityModelProvider(RagQualityModelProvider):
+    """Structured CRAG and Self-RAG provider backed by the LiteLLM gateway."""
 
     def __init__(
         self,
-        client: OllamaClient,
+        client: LiteLlmGatewayClient,
         model_config: RagQualityModelConfig,
         telemetry: IntegrationTelemetry | None = None,
         temperature: float = 0.0,
@@ -37,7 +36,7 @@ class OllamaRagQualityModelProvider(RagQualityModelProvider):
         model = self._model_config.model_for(request.operation)
         return await record_provider_call(
             self._telemetry,
-            "ollama",
+            LITELLM_PROVIDER_NAME,
             request.operation.value,
             lambda: self._generate_structured(request, model),
             attributes={
@@ -54,18 +53,22 @@ class OllamaRagQualityModelProvider(RagQualityModelProvider):
         model: str,
     ) -> RagQualityModelResult:
         started_at = perf_counter()
-        payload = await asyncio.to_thread(
-            self._client.generate_json,
+        result = await self._client.generate_json(
             prompt=request.user_prompt,
             model=model,
             system_prompt=request.system_prompt,
             temperature=self._temperature,
+            metadata={
+                "request_id": request.request_id,
+                "operation": request.operation.value,
+                "request_metadata": dict(request.metadata),
+            },
         )
         return RagQualityModelResult(
             operation=request.operation,
-            payload=payload,
+            payload=result.payload,
             model=model,
-            provider_name="ollama",
+            provider_name=LITELLM_PROVIDER_NAME,
             duration_ms=(perf_counter() - started_at) * 1000.0,
             success=True,
         )

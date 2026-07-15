@@ -21,6 +21,8 @@ DEFAULT_RAG_CRAG_QUERY_REWRITE_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_SELF_REFLECTION_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_SYNTHESIS_MODEL = "qwen3.5:4b"
 DEFAULT_RAG_GRAPH_MODEL = "polaris-rag-graph-v1"
+DEFAULT_LITELLM_BASE_URL = "http://localhost:4000/v1"
+DEFAULT_LITELLM_TIMEOUT_SECONDS = 60.0
 DEFAULT_LANGFUSE_ENVIRONMENT = "development"
 DEFAULT_LANGFUSE_SAMPLE_RATE = 1.0
 DEFAULT_LANGFUSE_REDACTION_MODE = "strict"
@@ -67,7 +69,6 @@ class Settings(BaseSettings):
     FRED_API_KEY: Optional[str] = None
     MASSIVE_API_KEY: Optional[str] = None
     NEWSAPI_API_KEY: Optional[str] = None
-    OLLAMA_API_KEY: Optional[str] = None
 
     # ============================================================
     # PROVIDERS
@@ -149,10 +150,45 @@ class Settings(BaseSettings):
     NEO4J_DATABASE: str = "neo4j"
 
     # ============================================================
-    # OLLAMA
+    # LITELLM GATEWAY
     # ============================================================
 
-    OLLAMA_HOST: str = "http://localhost:11434"
+    LITELLM_ENABLED: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_ENABLED",
+            "LITELLM_ENABLED",
+        ),
+    )
+    LITELLM_BASE_URL: str = Field(
+        default=DEFAULT_LITELLM_BASE_URL,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_BASE_URL",
+            "LITELLM_BASE_URL",
+        ),
+    )
+    LITELLM_API_KEY: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_API_KEY",
+            "LITELLM_API_KEY",
+        ),
+    )
+    LITELLM_TIMEOUT_SECONDS: float = Field(
+        default=DEFAULT_LITELLM_TIMEOUT_SECONDS,
+        gt=0.0,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_TIMEOUT_SECONDS",
+            "LITELLM_TIMEOUT_SECONDS",
+        ),
+    )
+    LITELLM_STRICT_MODE: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_STRICT_MODE",
+            "LITELLM_STRICT_MODE",
+        ),
+    )
 
     DEFAULT_MODEL: str = "qwen3.5:4b"  # "qwen3.5:9b"
     EMBEDDING_MODEL: str = DEFAULT_EMBEDDING_MODEL
@@ -421,13 +457,6 @@ class Settings(BaseSettings):
             "DEEPEVAL_JUDGE_MODEL",
         ),
     )
-    DEEPEVAL_OLLAMA_BASE_URL: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "POLARIS_DEEPEVAL_OLLAMA_BASE_URL",
-            "DEEPEVAL_OLLAMA_BASE_URL",
-        ),
-    )
     DEEPEVAL_STRICT_MODE: bool = Field(
         default=False,
         validation_alias=AliasChoices(
@@ -517,7 +546,7 @@ class Settings(BaseSettings):
     @field_validator(
         "DEEPEVAL_JUDGE_PROVIDER",
         "DEEPEVAL_JUDGE_MODEL",
-        "DEEPEVAL_OLLAMA_BASE_URL",
+        "LITELLM_API_KEY",
         mode="before",
     )
     @classmethod
@@ -526,6 +555,14 @@ class Settings(BaseSettings):
             stripped = value.strip()
             return stripped or None
         return value
+
+    @field_validator("LITELLM_BASE_URL")
+    @classmethod
+    def _validate_litellm_base_url(cls, value: str) -> str:
+        stripped = value.strip().rstrip("/")
+        if not stripped.startswith(("http://", "https://")):
+            raise ValueError("POLARIS_LITELLM_BASE_URL must be an http(s) URL.")
+        return stripped
 
     @field_validator("STRUCTURED_OUTPUT_PROVIDER")
     @classmethod
@@ -563,6 +600,38 @@ class Settings(BaseSettings):
             allowed = ", ".join(sorted(LANGFUSE_REDACTION_MODES))
             raise ValueError(f"LANGFUSE_REDACTION_MODE must be one of: {allowed}.")
         return normalized
+
+    def validate_litellm_gateway(
+        self,
+        *,
+        require_configured: bool | None = None,
+    ) -> None:
+        """Validate LiteLLM gateway bootstrap configuration."""
+
+        required = require_configured
+        if required is None:
+            required = (
+                self.LITELLM_STRICT_MODE
+                or self.ENVIRONMENT.strip().lower() in PRODUCTION_ENVIRONMENTS
+            )
+
+        if not self.LITELLM_BASE_URL.startswith(("http://", "https://")):
+            raise ValueError("POLARIS_LITELLM_BASE_URL must be an http(s) URL.")
+
+        if not required:
+            return
+
+        missing = []
+        if not self.LITELLM_ENABLED:
+            missing.append("POLARIS_LITELLM_ENABLED")
+        if not self.LITELLM_API_KEY:
+            missing.append("POLARIS_LITELLM_API_KEY")
+
+        if missing:
+            joined = ", ".join(missing)
+            raise ValueError(
+                f"LiteLLM gateway configuration is required; missing: {joined}."
+            )
 
     def validate_deepeval_evaluation(
         self,

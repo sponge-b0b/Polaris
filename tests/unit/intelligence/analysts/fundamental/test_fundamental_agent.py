@@ -67,12 +67,12 @@ class _MacroRunner:
 
 
 class _LLM:
-    def chat(self, **kwargs: Any) -> str:
+    async def chat(self, **kwargs: Any) -> str:
         return "Constructive macro conditions."
 
 
 class _FailingLLM:
-    def chat(self, **kwargs: Any) -> str:
+    async def chat(self, **kwargs: Any) -> str:
         raise RuntimeError("model unavailable")
 
 

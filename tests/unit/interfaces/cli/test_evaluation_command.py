@@ -35,7 +35,7 @@ class FakeEvaluationCommandService:
             enabled=True,
             configured=True,
             strict_mode=False,
-            judge_provider="ollama",
+            judge_provider="litellm",
             judge_model="qwen3.5:4b",
             default_threshold=0.7,
             max_concurrency=4,
@@ -126,7 +126,7 @@ def test_eval_status_command_renders_configuration(
 
     assert result.exit_code == 0
     assert "Polaris Evaluation Status" in result.output
-    assert "Judge provider: ollama" in result.output
+    assert "Judge provider: litellm" in result.output
 
 
 def test_eval_datasets_list_command_renders_datasets(monkeypatch) -> None:

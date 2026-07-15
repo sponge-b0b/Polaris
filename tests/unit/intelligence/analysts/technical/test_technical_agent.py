@@ -237,7 +237,7 @@ class _FakeLLMService:
     ) -> None:
         self.last_message = ""
 
-    def chat(
+    async def chat(
         self,
         *,
         system_prompt: str,

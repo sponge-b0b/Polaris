@@ -1,75 +1,78 @@
-from typing import Any, Dict, Optional
+from __future__ import annotations
 
-from core.llm.ollama_client import OllamaClient
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+
+from core.llm.llm_gateway import LLMChatResponseFormat
+from core.llm.llm_gateway import LLMGateway
+from core.llm.llm_gateway import LLMJsonResult
+from core.llm.llm_gateway import LLMTextResult
 
 
 class LLMService:
-    """
-    Centralized LLM service.
-
-    This class should be the ONLY place where direct
-    LLM calls are made.
-
-    All runtime nodes and workflows should use this service.
-    """
+    """Canonical async LLM application service boundary."""
 
     def __init__(
         self,
-        llm_client: OllamaClient,
-        model: Optional[str] = None,
+        gateway: LLMGateway,
+        model: str,
         temperature: float = 0.2,
     ) -> None:
-
+        self.gateway = gateway
         self.model = model
         self.temperature = temperature
-        self.llm_client = llm_client
 
-    def generate_text(
+    async def generate_text(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
     ) -> str:
-        """
-        Generate standard text response.
-        """
+        """Generate a standard text response through the configured gateway."""
 
-        return self.llm_client.generate(
+        result = await self.gateway.generate_text(
             prompt=prompt,
             system_prompt=system_prompt,
             model=self.model,
             temperature=self.temperature,
         )
+        return result.text
 
-    def generate_json(
+    async def generate_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Generate structured JSON response.
-        """
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a structured JSON-object response through the gateway."""
 
-        return self.llm_client.generate_json(
+        result = await self.gateway.generate_json(
             prompt=prompt,
             system_prompt=system_prompt,
             model=self.model,
             temperature=self.temperature,
         )
+        return dict(result.payload)
 
-    def chat(
+    async def chat(
         self,
-        messages: list,
-        system_prompt: Optional[str] = None,
-        response_format: Optional[str] = None,
-    ) -> Any:
-        """
-        Chat helper wrapper.
-        """
+        messages: Sequence[Mapping[str, str]],
+        system_prompt: str | None = None,
+        response_format: str | None = None,
+    ) -> str | dict[str, Any]:
+        """Run a chat completion and return text or JSON payload."""
 
-        return self.llm_client.chat(
+        format_name: LLMChatResponseFormat = (
+            "json" if response_format == "json" else "text"
+        )
+        result = await self.gateway.chat(
             messages=messages,
             system_prompt=system_prompt,
             model=self.model,
             temperature=self.temperature,
-            response_format=response_format,
+            response_format=format_name,
         )
+        if isinstance(result, LLMJsonResult):
+            return dict(result.payload)
+        if isinstance(result, LLMTextResult):
+            return result.text
+        raise TypeError("LLM gateway returned an unsupported result type.")

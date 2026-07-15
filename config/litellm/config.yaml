@@ -1,0 +1,25 @@
+# LiteLLM proxy configuration for local Polaris development.
+# Polaris sends logical model names to LiteLLM; LiteLLM maps them to concrete providers.
+# Keep secrets in .env or the process environment, not in this file.
+
+model_list:
+  - model_name: qwen2.5:7b
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: qwen3.5:4b
+    litellm_params:
+      model: ollama_chat/qwen3.5:4b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: qwen3.5:9b
+    litellm_params:
+      model: ollama_chat/qwen3.5:9b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 60
+  set_verbose: false
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

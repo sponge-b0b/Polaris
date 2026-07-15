@@ -104,11 +104,11 @@ from integration.providers.rag.neo4j_graph_projection_provider import (
 from integration.providers.rag.structured_answer_generation_provider import (
     StructuredRagAnswerGenerationProvider,
 )
-from integration.providers.rag.ollama_quality_evaluation_provider import (
-    OllamaRagQualityModelProvider,
+from integration.providers.rag.litellm_quality_evaluation_provider import (
+    LiteLlmRagQualityModelProvider,
 )
-from integration.providers.rag.ollama_query_routing_provider import (
-    OllamaRagQueryModelProvider,
+from integration.providers.rag.litellm_query_routing_provider import (
+    LiteLlmRagQueryModelProvider,
 )
 from integration.providers.rag.qdrant_vector_index_provider import (
     QdrantVectorIndexProvider,
@@ -255,7 +255,7 @@ class RagApplicationDIProvider(Provider):
     @provide
     def provide_query_routing_service(
         self,
-        provider: OllamaRagQueryModelProvider,
+        provider: LiteLlmRagQueryModelProvider,
         telemetry: ApplicationRagTelemetry,
     ) -> RagQueryRoutingService:
         return RagQueryRoutingService(
@@ -266,7 +266,7 @@ class RagApplicationDIProvider(Provider):
     @provide
     def provide_quality_service(
         self,
-        provider: OllamaRagQualityModelProvider,
+        provider: LiteLlmRagQualityModelProvider,
         telemetry: ApplicationRagTelemetry,
     ) -> RagQualityService:
         return RagQualityService(

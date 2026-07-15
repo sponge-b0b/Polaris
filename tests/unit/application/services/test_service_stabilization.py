@@ -506,7 +506,7 @@ class _NeutralSentimentRunner:
 
 
 class _NeutralLLM:
-    def chat(self, **kwargs: Any) -> dict[str, Any]:
+    async def chat(self, **kwargs: Any) -> dict[str, Any]:
         return {
             "summary": "Neutral sentiment.",
             "sentiment_bias": "neutral",

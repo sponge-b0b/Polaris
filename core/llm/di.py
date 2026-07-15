@@ -1,23 +1,22 @@
 from dishka import Provider, Scope, provide
-from config.settings import Settings
 
-from core.llm.ollama_client import OllamaClient
+from config.settings import Settings
+from core.llm.llm_gateway import LLMGateway
 from core.llm.llm_service import LLMService
 
 
 class CoreLLMsDIProvider(Provider):
-    # This class provides components for the entire lifetime of the app
+    """Core LLM service providers."""
+
     scope = Scope.APP
 
-    # Ollama Client
-    @provide
-    def provide_ollama_client(self, settings: Settings) -> OllamaClient:
-        return OllamaClient(settings=settings)
-
-    # LLM Client
     @provide
     def provide_llm_service(
         self,
-        llm_client: OllamaClient,
+        settings: Settings,
+        llm_gateway: LLMGateway,
     ) -> LLMService:
-        return LLMService(llm_client=llm_client)
+        return LLMService(
+            gateway=llm_gateway,
+            model=settings.DEFAULT_MODEL,
+        )

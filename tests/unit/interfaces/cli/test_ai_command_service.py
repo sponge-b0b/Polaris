@@ -294,7 +294,7 @@ def _settings() -> Settings:
     return Settings(
         DSPY_OPTIMIZATION_MODEL="qwen2.5:7b",
         DEEPEVAL_ENABLED=True,
-        DEEPEVAL_JUDGE_PROVIDER="ollama",
+        DEEPEVAL_JUDGE_PROVIDER="litellm",
         DEEPEVAL_JUDGE_MODEL="qwen3.5:4b",
     )
 
@@ -336,7 +336,7 @@ def _evaluation_result(run_id: str) -> EvaluationRunServiceResult:
             run_id=run_id,
             target_type=EvaluationTargetType.RAG_GENERATION,
             status=EvaluationStatus.PASSED,
-            evaluator_provider="ollama",
+            evaluator_provider="litellm",
             evaluator_model="qwen3.5:4b",
             case_ids=("case-1",),
         ),
@@ -350,7 +350,7 @@ def _evaluation_result(run_id: str) -> EvaluationRunServiceResult:
                     reason="grounded",
                 ),
                 status=EvaluationStatus.PASSED,
-                evaluator_provider="ollama",
+                evaluator_provider="litellm",
                 evaluator_model="qwen3.5:4b",
             ),
         ),

@@ -28,6 +28,9 @@ from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _deepeval_threshold_for,
 )
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
+    _litellm_model_name,
+)
+from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _normalize_metric_score,
 )
 
@@ -169,7 +172,7 @@ def test_deepeval_provider_requires_explicit_judge_configuration() -> None:
         )
     with pytest.raises(ValueError, match="judge_model"):
         DeepEvalEvaluationProvider(
-            judge_provider="ollama",
+            judge_provider="litellm",
             judge_model=" ",
             default_threshold=0.7,
             max_concurrency=1,
@@ -303,24 +306,6 @@ def test_native_metric_builder_rejects_unknown_metrics_without_rubric(
         )
 
 
-def test_deepeval_judge_model_factory_builds_ollama_model(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_models = _install_fake_deepeval_model_module(monkeypatch)
-
-    model = build_deepeval_judge_model(
-        DeepEvalJudgeModelConfig(
-            provider="ollama",
-            model="qwen3.5:4b",
-            ollama_base_url="http://localhost:11434",
-        )
-    )
-
-    assert isinstance(model, fake_models.OllamaModel)
-    assert model.model == "qwen3.5:4b"
-    assert model.base_url == "http://localhost:11434"
-
-
 def test_deepeval_judge_model_factory_builds_openai_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -340,11 +325,23 @@ def test_deepeval_judge_model_factory_builds_litellm_model(
     fake_models = _install_fake_deepeval_model_module(monkeypatch)
 
     model = build_deepeval_judge_model(
-        DeepEvalJudgeModelConfig(provider="litellm", model="ollama/qwen3.5:4b")
+        DeepEvalJudgeModelConfig(
+            provider="litellm",
+            model="qwen3.5:4b",
+            litellm_base_url="http://localhost:4000/v1",
+            litellm_api_key="unit-test-placeholder",
+        )
     )
 
     assert isinstance(model, fake_models.LiteLLMModel)
-    assert model.model == "ollama/qwen3.5:4b"
+    assert model.model == "openai/qwen3.5:4b"
+    assert model.base_url == "http://localhost:4000/v1"
+    assert model.api_key == "unit-test-placeholder"
+
+
+def test_deepeval_litellm_model_name_preserves_prefixed_models() -> None:
+    assert _litellm_model_name("openai/qwen3.5:4b", "openai") == "openai/qwen3.5:4b"
+    assert _litellm_model_name("qwen3.5:4b", "openai") == "openai/qwen3.5:4b"
 
 
 def test_deepeval_judge_model_factory_rejects_unknown_provider() -> None:
@@ -407,7 +404,7 @@ def _provider(
     timeout_seconds: float = 10.0,
 ) -> DeepEvalEvaluationProvider:
     return DeepEvalEvaluationProvider(
-        judge_provider="ollama",
+        judge_provider="litellm",
         judge_model="qwen3.5:4b",
         default_threshold=default_threshold,
         max_concurrency=max_concurrency,
@@ -483,7 +480,6 @@ def _install_fake_deepeval_model_module(
     fake_models = ModuleType("deepeval.models")
     setattr(fake_models, "GPTModel", type("GPTModel", (_FakeMetric,), {}))
     setattr(fake_models, "LiteLLMModel", type("LiteLLMModel", (_FakeMetric,), {}))
-    setattr(fake_models, "OllamaModel", type("OllamaModel", (_FakeMetric,), {}))
     monkeypatch.setitem(sys.modules, "deepeval.models", fake_models)
     return fake_models
 

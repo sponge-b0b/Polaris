@@ -20,9 +20,9 @@ Run live evaluation tests only after configuring a judge model:
 ```bash
 POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
-POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
-POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
-POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
+POLARIS_DEEPEVAL_JUDGE_PROVIDER=litellm \
+POLARIS_DEEPEVAL_JUDGE_MODEL=<litellm-model-alias> \
+POLARIS_LITELLM_BASE_URL=http://localhost:4000/v1 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 

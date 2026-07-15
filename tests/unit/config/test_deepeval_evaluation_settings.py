@@ -11,7 +11,6 @@ _DEEPEVAL_ENV_NAMES = (
     "POLARIS_DEEPEVAL_ENABLED",
     "POLARIS_DEEPEVAL_JUDGE_PROVIDER",
     "POLARIS_DEEPEVAL_JUDGE_MODEL",
-    "POLARIS_DEEPEVAL_OLLAMA_BASE_URL",
     "POLARIS_DEEPEVAL_STRICT_MODE",
     "POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT",
     "POLARIS_DEEPEVAL_DEFAULT_THRESHOLD",
@@ -20,7 +19,6 @@ _DEEPEVAL_ENV_NAMES = (
     "DEEPEVAL_ENABLED",
     "DEEPEVAL_JUDGE_PROVIDER",
     "DEEPEVAL_JUDGE_MODEL",
-    "DEEPEVAL_OLLAMA_BASE_URL",
     "DEEPEVAL_STRICT_MODE",
     "DEEPEVAL_TELEMETRY_OPT_OUT",
     "DEEPEVAL_DEFAULT_THRESHOLD",
@@ -52,7 +50,6 @@ def test_deepeval_settings_default_to_enabled_safe_non_strict_policy(
     assert settings.DEEPEVAL_ENABLED is True
     assert settings.DEEPEVAL_JUDGE_PROVIDER is None
     assert settings.DEEPEVAL_JUDGE_MODEL is None
-    assert settings.DEEPEVAL_OLLAMA_BASE_URL is None
     assert settings.DEEPEVAL_STRICT_MODE is False
     assert settings.DEEPEVAL_TELEMETRY_OPT_OUT is True
     assert settings.DEEPEVAL_DEFAULT_THRESHOLD == 0.7
@@ -71,9 +68,8 @@ def test_deepeval_settings_read_polaris_prefixed_environment(
         tmp_path,
         overrides={
             "POLARIS_DEEPEVAL_ENABLED": "true",
-            "POLARIS_DEEPEVAL_JUDGE_PROVIDER": "ollama",
+            "POLARIS_DEEPEVAL_JUDGE_PROVIDER": "litellm",
             "POLARIS_DEEPEVAL_JUDGE_MODEL": "qwen3.5:4b",
-            "POLARIS_DEEPEVAL_OLLAMA_BASE_URL": "http://localhost:11434",
             "POLARIS_DEEPEVAL_STRICT_MODE": "true",
             "POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT": "true",
             "POLARIS_DEEPEVAL_DEFAULT_THRESHOLD": "0.82",
@@ -83,9 +79,8 @@ def test_deepeval_settings_read_polaris_prefixed_environment(
     )
 
     assert settings.DEEPEVAL_ENABLED is True
-    assert settings.DEEPEVAL_JUDGE_PROVIDER == "ollama"
+    assert settings.DEEPEVAL_JUDGE_PROVIDER == "litellm"
     assert settings.DEEPEVAL_JUDGE_MODEL == "qwen3.5:4b"
-    assert settings.DEEPEVAL_OLLAMA_BASE_URL == "http://localhost:11434"
     assert settings.DEEPEVAL_STRICT_MODE is True
     assert settings.DEEPEVAL_TELEMETRY_OPT_OUT is True
     assert settings.DEEPEVAL_DEFAULT_THRESHOLD == 0.82
@@ -143,7 +138,7 @@ def test_deepeval_disabled_fails_required_validation(
         tmp_path,
         overrides={
             "POLARIS_DEEPEVAL_ENABLED": "false",
-            "POLARIS_DEEPEVAL_JUDGE_PROVIDER": "ollama",
+            "POLARIS_DEEPEVAL_JUDGE_PROVIDER": "litellm",
             "POLARIS_DEEPEVAL_JUDGE_MODEL": "qwen3.5:4b",
         },
     )

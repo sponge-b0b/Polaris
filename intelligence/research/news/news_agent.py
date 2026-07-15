@@ -146,7 +146,7 @@ class NewsAgent(RuntimeNode):
         llm_started_at = perf_counter()
         llm_status = AiObservationStatus.SUCCESS
         try:
-            llm_response = self.llm_service.chat(
+            llm_response = await self.llm_service.chat(
                 system_prompt=NEWS_AGENT_SYSTEM_PROMPT,
                 response_format="json",
                 messages=[

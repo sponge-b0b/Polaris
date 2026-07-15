@@ -12,7 +12,10 @@ from integration.providers.ai_optimization import DspyOptimizationProviderReques
 
 @pytest.mark.asyncio
 async def test_dspy_provider_builds_deterministic_program_artifact() -> None:
-    provider = DspyOptimizationProvider()
+    provider = DspyOptimizationProvider(
+        gateway_base_url="http://localhost:4000/v1",
+        gateway_api_key="unit-test-placeholder",
+    )
     case = EvaluationCase(
         case_id="case-1",
         target_type=EvaluationTargetType.RAG_GENERATION,
@@ -47,4 +50,15 @@ async def test_dspy_provider_builds_deterministic_program_artifact() -> None:
     )
     assert len(result.artifact.prompt_hash) == 64
     assert manifest["module_name"] == "Predict"
+    assert manifest["dspy_model_name"] == "openai/qwen2.5:7b"
+    assert manifest["gateway_base_url"] == "http://localhost:4000/v1"
     assert manifest["trainset_case_ids"] == ["case-1"]
+
+
+def test_dspy_provider_preserves_already_prefixed_model_name() -> None:
+    from integration.providers.ai_optimization.dspy_optimization_provider import (
+        _litellm_model_name,
+    )
+
+    assert _litellm_model_name("openai/qwen3.5:4b", "openai") == "openai/qwen3.5:4b"
+    assert _litellm_model_name("qwen3.5:4b", "openai") == "openai/qwen3.5:4b"

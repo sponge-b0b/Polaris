@@ -49,7 +49,6 @@ _DEEPEVAL_JUDGE_PROVIDER_ALIASES = {
     "gpt": "openai",
     "lite_llm": "litellm",
     "litellm": "litellm",
-    "ollama": "ollama",
     "openai": "openai",
 }
 
@@ -74,15 +73,21 @@ class DeepEvalJudgeModelConfig:
 
     provider: str
     model: str
-    ollama_base_url: str | None = None
+    litellm_base_url: str | None = None
+    litellm_api_key: str | None = None
+    litellm_model_provider_prefix: str = "openai"
 
     def __post_init__(self) -> None:
         if not self.provider.strip():
             raise ValueError("provider cannot be empty.")
         if not self.model.strip():
             raise ValueError("model cannot be empty.")
-        if self.ollama_base_url is not None and not self.ollama_base_url.strip():
-            raise ValueError("ollama_base_url cannot be empty.")
+        if self.litellm_base_url is not None and not self.litellm_base_url.strip():
+            raise ValueError("litellm_base_url cannot be empty.")
+        if self.litellm_api_key is not None and not self.litellm_api_key.strip():
+            raise ValueError("litellm_api_key cannot be empty.")
+        if not self.litellm_model_provider_prefix.strip():
+            raise ValueError("litellm_model_provider_prefix cannot be empty.")
         _normalize_deepeval_judge_provider(self.provider)
 
 
@@ -111,7 +116,9 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
         default_threshold: float,
         max_concurrency: int,
         timeout_seconds: float,
-        ollama_base_url: str | None = None,
+        litellm_base_url: str | None = None,
+        litellm_api_key: str | None = None,
+        litellm_model_provider_prefix: str = "openai",
         telemetry_opt_out: bool = True,
         telemetry: IntegrationTelemetry | None = None,
         adapter: DeepEvalMetricAdapter | None = None,
@@ -138,7 +145,9 @@ class DeepEvalEvaluationProvider(EvaluationProvider):
             DeepEvalJudgeModelConfig(
                 provider=judge_provider,
                 model=judge_model,
-                ollama_base_url=ollama_base_url,
+                litellm_base_url=litellm_base_url,
+                litellm_api_key=litellm_api_key,
+                litellm_model_provider_prefix=litellm_model_provider_prefix,
             )
         )
         if telemetry_opt_out:
@@ -319,7 +328,11 @@ class _NativeDeepEvalMetricAdapter:
                 DeepEvalJudgeModelConfig(
                     provider=self._judge_config.provider,
                     model=evaluator_model,
-                    ollama_base_url=self._judge_config.ollama_base_url,
+                    litellm_base_url=self._judge_config.litellm_base_url,
+                    litellm_api_key=self._judge_config.litellm_api_key,
+                    litellm_model_provider_prefix=(
+                        self._judge_config.litellm_model_provider_prefix
+                    ),
                 )
             )
             self._cached_model_name = evaluator_model
@@ -334,20 +347,30 @@ def build_deepeval_judge_model(config: DeepEvalJudgeModelConfig) -> Any:
         from deepeval.models import GPTModel
 
         return GPTModel(model=config.model)
-    if provider == "ollama":
-        from deepeval.models import OllamaModel
-
-        return OllamaModel(model=config.model, base_url=config.ollama_base_url)
     if provider in {"litellm", "lite_llm"}:
         from deepeval.models import LiteLLMModel
 
-        return LiteLLMModel(model=config.model)
+        return LiteLLMModel(
+            model=_litellm_model_name(
+                config.model,
+                config.litellm_model_provider_prefix,
+            ),
+            base_url=config.litellm_base_url,
+            api_key=config.litellm_api_key,
+        )
 
     supported = ", ".join(sorted(set(_DEEPEVAL_JUDGE_PROVIDER_ALIASES.values())))
     raise ValueError(
         f"Unsupported DeepEval judge provider '{config.provider}'. "
         f"Supported providers: {supported}."
     )
+
+
+def _litellm_model_name(model_name: str, model_provider_prefix: str) -> str:
+    stripped_model_name = model_name.strip()
+    if "/" in stripped_model_name:
+        return stripped_model_name
+    return f"{model_provider_prefix.strip()}/{stripped_model_name}"
 
 
 def _normalize_deepeval_judge_provider(provider: str) -> str:

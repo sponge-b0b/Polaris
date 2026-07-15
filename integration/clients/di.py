@@ -1,6 +1,9 @@
 from dishka import Provider, Scope, provide
 from config.settings import Settings
+from core.llm.llm_gateway import LLMGateway
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
+from integration.clients.llm import LiteLlmCoreGatewayAdapter
+from integration.clients.llm import LiteLlmGatewayClient
 
 from integration.clients.macro.fred_macro_client import FredMacroClient
 from integration.clients.market_data.massive_data_client import MassiveDataClient
@@ -24,6 +27,24 @@ from integration.clients.sentiment.fear_greed_sentiment_client import (
 class IntegrationClientsDIProvider(Provider):
     # This class provides components for the entire lifetime of the app
     scope = Scope.APP
+
+    # ====================================================
+    # LLM Gateway Clients
+    # ====================================================
+
+    @provide
+    def provide_litellm_gateway_client(
+        self,
+        settings: Settings,
+    ) -> LiteLlmGatewayClient:
+        return LiteLlmGatewayClient.from_settings(settings)
+
+    @provide
+    def provide_llm_gateway(
+        self,
+        client: LiteLlmGatewayClient,
+    ) -> LLMGateway:
+        return LiteLlmCoreGatewayAdapter(client)
 
     # ====================================================
     # Macro Clients

@@ -67,7 +67,8 @@ class ApplicationEvaluationsDIProvider(Provider):
             default_threshold=settings.DEEPEVAL_DEFAULT_THRESHOLD,
             max_concurrency=settings.DEEPEVAL_MAX_CONCURRENCY,
             timeout_seconds=settings.DEEPEVAL_TIMEOUT_SECONDS,
-            ollama_base_url=settings.DEEPEVAL_OLLAMA_BASE_URL or settings.OLLAMA_HOST,
+            litellm_base_url=settings.LITELLM_BASE_URL,
+            litellm_api_key=settings.LITELLM_API_KEY,
             telemetry_opt_out=settings.DEEPEVAL_TELEMETRY_OPT_OUT,
             telemetry=integration_telemetry,
         )

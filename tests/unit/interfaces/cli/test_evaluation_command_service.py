@@ -137,7 +137,7 @@ class FakeEvaluationDatasetSeedService:
 def _settings() -> Settings:
     return Settings(
         DEEPEVAL_ENABLED=True,
-        DEEPEVAL_JUDGE_PROVIDER="ollama",
+        DEEPEVAL_JUDGE_PROVIDER="litellm",
         DEEPEVAL_JUDGE_MODEL="qwen3.5:4b",
     )
 
@@ -162,7 +162,7 @@ async def test_status_reports_deepeval_configuration() -> None:
     assert result.configured is True
     rendered = render_evaluation_status(result)
     assert "Polaris Evaluation Status" in rendered
-    assert "Judge provider: ollama" in rendered
+    assert "Judge provider: litellm" in rendered
 
 
 @pytest.mark.asyncio

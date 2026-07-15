@@ -118,6 +118,26 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://localhost:8888
 
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: polaris_litellm
+    restart: always
+    command:
+      - --config
+      - /app/config.yaml
+      - --port
+      - "4000"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./config/litellm/config.yaml:/app/config.yaml:ro
+    environment:
+      - LITELLM_MASTER_KEY=${POLARIS_LITELLM_API_KEY:-}
+      - POLARIS_LITELLM_OLLAMA_API_BASE=${POLARIS_LITELLM_OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: polaris_jaeger

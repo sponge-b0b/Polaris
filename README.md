@@ -165,7 +165,7 @@ NEO4J_AUTH=
 GRAFANA_ADMIN_PASSWORD=
 ```
 
-Optional provider/API credentials include Alpaca, Alpha Vantage, FRED, NewsAPI, Massive, Ollama-compatible endpoints, and other data vendors listed in `.env.example`. Local web fallback uses SearXNG for discovery and Crawl4AI for content acquisition.
+Optional provider/API credentials include Alpaca, Alpha Vantage, FRED, NewsAPI, Massive, LiteLLM-backed model endpoints, and other data vendors listed in `.env.example`. Local web fallback uses SearXNG for discovery and Crawl4AI for content acquisition.
 
 > [!CAUTION]
 > Do not commit `.env`, API keys, passwords, authenticated database URLs, or vendor tokens.
@@ -173,7 +173,7 @@ Optional provider/API credentials include Alpaca, Alpha Vantage, FRED, NewsAPI, 
 ### 3. Start local infrastructure
 
 ```bash
-docker compose up -d postgres qdrant neo4j
+docker compose up -d postgres qdrant neo4j litellm
 ```
 
 Optional observability and RAG support services:
@@ -196,6 +196,8 @@ uv run python -m playwright install --with-deps chromium
 ```
 
 Web fallback remains disabled by default and must be enabled in `.env` and per request. SearXNG only performs search/discovery; Crawl4AI performs concurrent content acquisition and Markdown extraction. Returned web evidence is transient and untrusted unless explicitly curated later.
+
+LiteLLM is the canonical local LLM gateway. Polaris sends logical model names to LiteLLM; LiteLLM routes them to configured backends such as host Ollama. If the LiteLLM container routes to host Ollama, make Ollama container-reachable with `OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to another reachable endpoint.
 
 ### 4. Apply database migrations
 

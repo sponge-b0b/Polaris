@@ -121,9 +121,9 @@ the run is intentionally enabled:
 ```bash
 POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
-POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
-POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
-POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
+POLARIS_DEEPEVAL_JUDGE_PROVIDER=litellm \
+POLARIS_DEEPEVAL_JUDGE_MODEL=<litellm-model-alias> \
+POLARIS_LITELLM_BASE_URL=http://localhost:4000/v1 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 
@@ -221,7 +221,7 @@ live-service tests as part of a routine unit-test loop.
 | Prometheus | `prometheus` | `http://localhost:9090` | Manual scrape/dashboard validation; current automated tests mostly use fakes/local exporters |
 | Grafana | `grafana` | `http://localhost:3000` | Manual dashboard validation; not required by the current automated tests |
 | Langfuse | external/self-hosted | configured by `POLARIS_LANGFUSE_HOST` | Optional live AI-observability smoke checks; unit tests use fakes and do not require Langfuse |
-| DeepEval judge model | provider-specific local or external model service | configured by `POLARIS_DEEPEVAL_JUDGE_PROVIDER` and `POLARIS_DEEPEVAL_JUDGE_MODEL` | Optional live DeepEval smoke checks and real evaluation runs; non-live tests use fakes |
+| DeepEval judge model | LiteLLM gateway plus its configured backend model service, or another approved DeepEval provider | configured by `POLARIS_DEEPEVAL_JUDGE_PROVIDER` and `POLARIS_DEEPEVAL_JUDGE_MODEL` | Optional live DeepEval smoke checks and real evaluation runs; non-live tests use fakes |
 
 Start only the services you need:
 
@@ -260,7 +260,8 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_DEEPEVAL_ENABLED` | evaluation CLI, provider DI, and live DeepEval tests | Enables canonical LLM evaluation. |
 | `POLARIS_DEEPEVAL_JUDGE_PROVIDER` | evaluation CLI, provider DI, and live DeepEval tests | Logical judge provider name; keep provider credentials in approved secret variables. |
 | `POLARIS_DEEPEVAL_JUDGE_MODEL` | evaluation CLI, provider DI, and live DeepEval tests | Judge model identifier passed to DeepEval. |
-| `POLARIS_DEEPEVAL_OLLAMA_BASE_URL` | Ollama-backed live DeepEval tests | Optional Ollama base URL used when the judge provider is `ollama`; defaults to the platform Ollama host. |
+| `POLARIS_LITELLM_BASE_URL` | LiteLLM-backed live DeepEval tests and gateway-backed model calls | OpenAI-compatible LiteLLM endpoint, usually `http://localhost:4000/v1`. |
+| `POLARIS_LITELLM_API_KEY` | LiteLLM-backed live DeepEval tests and gateway-backed model calls | Local or deployed LiteLLM API key; never commit real values. |
 | `POLARIS_DEEPEVAL_STRICT_MODE` | settings validation | Requires complete DeepEval configuration when true. |
 | `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | DeepEval provider setup | Defaults to privacy-preserving opt-out behavior. |
 | `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | evaluation settings and CLI defaults | Default pass threshold used when a dataset or metric does not specify a stricter typed threshold. |
@@ -376,9 +377,9 @@ selected provider's local or external model service is available.
 ```bash
 POLARIS_RUN_LIVE_EVALS=true \
 POLARIS_DEEPEVAL_ENABLED=true \
-POLARIS_DEEPEVAL_JUDGE_PROVIDER=<provider> \
-POLARIS_DEEPEVAL_JUDGE_MODEL=<model> \
-POLARIS_DEEPEVAL_OLLAMA_BASE_URL=http://localhost:11434 \
+POLARIS_DEEPEVAL_JUDGE_PROVIDER=litellm \
+POLARIS_DEEPEVAL_JUDGE_MODEL=<litellm-model-alias> \
+POLARIS_LITELLM_BASE_URL=http://localhost:4000/v1 \
 uv run pytest -q tests/evaluation -m live_deepeval
 ```
 

@@ -1,0 +1,94 @@
+# Polaris LiteLLM Gateway
+
+Polaris uses LiteLLM as the canonical LLM gateway. Polaris does not call local Ollama, OpenAI, Anthropic, or other model providers directly from application, RAG, or intelligence code. Provider-specific model routing belongs behind the LiteLLM proxy.
+
+## Architecture
+
+```text
+Polaris application / RAG / intelligence service
+    → typed Polaris LLM provider or core LLM gateway protocol
+    → LiteLLM OpenAI-compatible client
+    → LiteLLM proxy
+    → configured model backend, such as local Ollama
+```
+
+Polaris owns typed requests, typed results, telemetry, retries at the provider boundary, RAG orchestration, prompt provenance, and persistence. LiteLLM owns provider normalization, model aliases, backend routing, backend authentication, and provider-specific request translation.
+
+## Required services for local operation
+
+For local LLM-backed Polaris features, run:
+
+- Ollama on the host at `http://localhost:11434`, with the configured local models pulled.
+- LiteLLM from Docker Compose on `http://localhost:4000/v1`.
+
+Optional services depend on the workflow being tested:
+
+- PostgreSQL for persisted workflow, RAG, evaluation, and telemetry records.
+- Qdrant and Neo4j for full RAG retrieval/projection validation.
+- BGE reranker for reranking validation.
+- Langfuse for AI-observability export validation.
+
+## Local startup
+
+1. Confirm Ollama is reachable from the host and has the configured models:
+
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+2. Configure `POLARIS_LITELLM_API_KEY` in local environment or `.env` when the LiteLLM proxy is running with a master key.
+
+   If LiteLLM runs in Docker and Ollama runs on the host, Ollama must be reachable from the container. On Linux/WSL, a host Ollama server bound only to `127.0.0.1:11434` is not reachable from Docker. Restart Ollama with `OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to an endpoint the container can reach.
+
+3. Start the LiteLLM proxy:
+
+   ```bash
+   docker compose up -d litellm
+   ```
+
+4. Confirm the proxy exposes the configured model aliases:
+
+   ```bash
+   curl -H "Authorization: Bearer $POLARIS_LITELLM_API_KEY" \
+     http://localhost:4000/v1/models
+   ```
+
+## Configuration
+
+Polaris application settings:
+
+| Variable | Purpose |
+| --- | --- |
+| `POLARIS_LITELLM_ENABLED` | Enables the LiteLLM gateway feature gate. |
+| `POLARIS_LITELLM_BASE_URL` | OpenAI-compatible LiteLLM base URL, usually `http://localhost:4000/v1`. |
+| `POLARIS_LITELLM_API_KEY` | Proxy API key used by Polaris clients. Do not commit real values. |
+| `POLARIS_LITELLM_TIMEOUT_SECONDS` | Request timeout for LiteLLM-backed calls. |
+| `POLARIS_LITELLM_STRICT_MODE` | Requires complete gateway configuration during settings validation. |
+| `POLARIS_LITELLM_OLLAMA_API_BASE` | LiteLLM-container-reachable Ollama API base used by `config/litellm/config.yaml`. |
+
+LiteLLM model aliases are defined in `config/litellm/config.yaml`. The default local configuration maps Polaris logical model names to Ollama-backed LiteLLM provider strings. For example, Polaris sends `qwen3.5:4b`; LiteLLM maps it to its configured local backend.
+
+## Observability and failure behavior
+
+LiteLLM-backed Polaris providers emit canonical integration telemetry through the provider telemetry wrapper. Recorded attributes include:
+
+- `provider_name="litellm"`
+- semantic operation name
+- logical configured model name
+- request identifier when available
+- success or failure status
+- latency
+- normalized error type and safe error message
+
+Secrets must not be included in logs, telemetry payloads, plan files, docs, or test assertions. Client-level exceptions are normalized to safe Polaris gateway errors before provider telemetry records failure details.
+
+## Local smoke validation
+
+A narrow operational smoke test should verify:
+
+1. LiteLLM model-list endpoint responds through the configured API key.
+2. RAG structured query routing can obtain a JSON object through LiteLLM.
+3. RAG answer generation can obtain text through LiteLLM.
+4. Instructor or DeepEval can make a narrow gateway-backed call when configured.
+
+Full RAG validation additionally requires the RAG datastore services and corpus/projection state required by the specific test.

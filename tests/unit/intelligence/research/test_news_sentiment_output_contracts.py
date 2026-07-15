@@ -155,7 +155,7 @@ class _SentimentRunner:
 
 
 class _NewsLLM:
-    def chat(self, **kwargs: Any) -> dict[str, Any]:
+    async def chat(self, **kwargs: Any) -> dict[str, Any]:
         return {
             "summary": "Policy expectations remain constructive.",
             "market_relevance": "bullish",
@@ -167,7 +167,7 @@ class _NewsLLM:
 
 
 class _SentimentLLM:
-    def chat(self, **kwargs: Any) -> dict[str, Any]:
+    async def chat(self, **kwargs: Any) -> dict[str, Any]:
         return {
             "summary": "Sentiment is constructive.",
             "sentiment_bias": "risk_on",

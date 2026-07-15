@@ -41,7 +41,7 @@ runtime boundary.
 
 External infrastructure access is isolated behind integration providers:
 PostgreSQL repositories, Qdrant vector providers, Neo4j graph providers,
-embedding providers, reranking providers, Ollama model providers, and the
+embedding providers, reranking providers, LiteLLM-backed model providers, and the
 SearXNG + Crawl4AI web-retrieval provider. Provider calls carry canonical provider telemetry and failures remain
 visible to the application service rather than being hidden in transport code.
 
@@ -351,17 +351,20 @@ recreate the Qdrant projection from canonical PostgreSQL chunks.
 
 ## Local services
 
-Start the containerized stores and reranker:
+Start the containerized stores, reranker, and LiteLLM gateway as needed:
 
 ```bash
-docker compose up -d postgres qdrant neo4j bge-reranker
+docker compose up -d postgres qdrant neo4j bge-reranker litellm
 ```
 
-Start Ollama separately and ensure the configured routing and synthesis models
-are available:
+Polaris calls models through LiteLLM. For local development, LiteLLM can route
+those logical model names to host Ollama, but Ollama must be reachable from the
+LiteLLM container. If Ollama binds only to `127.0.0.1:11434`, restart it with
+`OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to another
+container-reachable endpoint. Then pull the configured local models:
 
 ```bash
-ollama serve
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
 ollama pull qwen2.5:7b
 ollama pull qwen3.5:4b
 ```
@@ -383,7 +386,8 @@ Default endpoints and projection settings:
 | Neo4j Bolt URI | `bolt://localhost:7687` |
 | Neo4j database | `neo4j` |
 | Neo4j projection | `polaris_rag` |
-| Ollama | `http://localhost:11434` |
+| LiteLLM gateway | `http://localhost:4000/v1` |
+| LiteLLM Ollama backend | `POLARIS_LITELLM_OLLAMA_API_BASE`, default `http://host.docker.internal:11434` from the container |
 | BGE reranker | `http://localhost:8080/rerank` |
 | SearXNG | `http://localhost:8888` when web fallback is explicitly enabled |
 | Crawl4AI | Local browser-backed content acquisition when web fallback is explicitly enabled |
@@ -673,7 +677,7 @@ text first.
   PostgreSQL/Qdrant path. Confirm Bolt port `7687` before processing graph jobs.
 - **BGE model warm-up:** first embedding or reranking calls may be slow. Wait for
   the reranker health check and allow the local BGE-M3 model to load.
-- **Ollama model missing:** pull every model named by the `RAG_*_MODEL` settings.
+- **LiteLLM model backend unavailable:** confirm `docker compose ps litellm`, verify `/v1/models` with the configured API key, and ensure the LiteLLM backend endpoint can reach the configured local model provider. For local Ollama, pull every model named by the `RAG_*_MODEL` settings and ensure `POLARIS_LITELLM_OLLAMA_API_BASE` is container-reachable.
 - **Web fallback not used:** verify `RAG_WEB_FALLBACK_ENABLED=true`,
   `SEARXNG_BASE_URL`, local Crawl4AI browser setup, and the request's `--web`
   flag; fallback still occurs only when CRAG requests corrective web evidence.

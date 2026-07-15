@@ -6,8 +6,8 @@ from dishka import provide
 
 from config.rag_model_config import RagModelConfig
 from config.settings import Settings
-from core.llm.ollama_client import OllamaClient
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
+from integration.clients.llm import LiteLlmGatewayClient
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
 from integration.clients.rag.bge_reranker_client import BgeRerankerClient
 from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
@@ -32,11 +32,14 @@ from integration.providers.rag.structured_answer_generation_provider import (
 from integration.providers.rag.structured_answer_generation_provider import (
     StructuredRagAnswerGenerationProviderConfig,
 )
-from integration.providers.rag.ollama_quality_evaluation_provider import (
-    OllamaRagQualityModelProvider,
+from integration.providers.rag.litellm_answer_generation_provider import (
+    LiteLlmRagAnswerGenerationProvider,
 )
-from integration.providers.rag.ollama_query_routing_provider import (
-    OllamaRagQueryModelProvider,
+from integration.providers.rag.litellm_quality_evaluation_provider import (
+    LiteLlmRagQualityModelProvider,
+)
+from integration.providers.rag.litellm_query_routing_provider import (
+    LiteLlmRagQueryModelProvider,
 )
 from integration.providers.rag.qdrant_vector_index_provider import (
     QdrantVectorIndexProvider,
@@ -95,11 +98,11 @@ class RagProvidersDIProvider(Provider):
     @provide
     def provide_query_model_provider(
         self,
-        client: OllamaClient,
+        client: LiteLlmGatewayClient,
         model_config: RagModelConfig,
         telemetry: IntegrationTelemetry,
-    ) -> OllamaRagQueryModelProvider:
-        return OllamaRagQueryModelProvider(
+    ) -> LiteLlmRagQueryModelProvider:
+        return LiteLlmRagQueryModelProvider(
             client,
             model_config.query_routing,
             telemetry=telemetry,
@@ -108,13 +111,26 @@ class RagProvidersDIProvider(Provider):
     @provide
     def provide_quality_model_provider(
         self,
-        client: OllamaClient,
+        client: LiteLlmGatewayClient,
         model_config: RagModelConfig,
         telemetry: IntegrationTelemetry,
-    ) -> OllamaRagQualityModelProvider:
-        return OllamaRagQualityModelProvider(
+    ) -> LiteLlmRagQualityModelProvider:
+        return LiteLlmRagQualityModelProvider(
             client,
             model_config.quality_evaluation,
+            telemetry=telemetry,
+        )
+
+    @provide
+    def provide_litellm_answer_generation_provider(
+        self,
+        client: LiteLlmGatewayClient,
+        model_config: RagModelConfig,
+        telemetry: IntegrationTelemetry,
+    ) -> LiteLlmRagAnswerGenerationProvider:
+        return LiteLlmRagAnswerGenerationProvider(
+            client,
+            model=model_config.synthesis_model,
             telemetry=telemetry,
         )
 

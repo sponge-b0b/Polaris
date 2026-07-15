@@ -1,19 +1,33 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
-from typing import cast
 
 import pytest
 
-from core.llm.ollama_client import OllamaClient
-from integration.providers.rag.ollama_quality_evaluation_provider import (
-    OllamaRagQualityModelProvider,
+from integration.clients.llm import LiteLlmGatewayClient
+from integration.providers.rag.litellm_quality_evaluation_provider import (
+    LiteLlmRagQualityModelProvider,
 )
 from integration.providers.rag.quality_evaluation_provider import RagQualityModelConfig
 from integration.providers.rag.quality_evaluation_provider import (
     RagQualityModelOperation,
 )
 from integration.providers.rag.quality_evaluation_provider import RagQualityModelRequest
+
+
+class _FakeCompletionClient:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            model=kwargs["model"],
+            choices=[
+                SimpleNamespace(message=SimpleNamespace(content=' {"ok": true} '))
+            ],
+        )
 
 
 @pytest.mark.asyncio
@@ -25,13 +39,16 @@ from integration.providers.rag.quality_evaluation_provider import RagQualityMode
         (RagQualityModelOperation.SELF_REFLECTION, "reflector"),
     ],
 )
-async def test_quality_provider_uses_operation_specific_model(
+async def test_litellm_quality_provider_uses_operation_specific_model(
     operation: RagQualityModelOperation,
     expected_model: str,
 ) -> None:
-    client = FakeOllamaClient()
-    provider = OllamaRagQualityModelProvider(
-        cast(OllamaClient, client),
+    completion_client = _FakeCompletionClient()
+    provider = LiteLlmRagQualityModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=completion_client,
+            default_model="default-model",
+        ),
         RagQualityModelConfig(
             crag_grader_model="grader",
             crag_query_rewrite_model="rewriter",
@@ -49,21 +66,17 @@ async def test_quality_provider_uses_operation_specific_model(
     )
 
     assert result.model == expected_model
+    assert result.provider_name == "litellm"
     assert result.operation is operation
-    assert client.calls == [
+    assert result.payload == {"ok": True}
+    assert completion_client.calls == [
         {
-            "prompt": "Evaluate.",
             "model": expected_model,
-            "system_prompt": "Return JSON.",
+            "messages": [
+                {"role": "system", "content": "Return JSON."},
+                {"role": "user", "content": "Evaluate."},
+            ],
             "temperature": 0.0,
+            "response_format": {"type": "json_object"},
         }
     ]
-
-
-class FakeOllamaClient:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
-
-    def generate_json(self, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append(kwargs)
-        return {"ok": True}

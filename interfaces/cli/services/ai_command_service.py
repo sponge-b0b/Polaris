@@ -365,10 +365,14 @@ async def default_ai_optimization_context() -> AsyncIterator[AiOptimizationServi
             cast(type[AiArtifactRepositoryPort], AiArtifactPersistenceRepository)
         )
         evaluation_runner = await request_container.get(EvaluationRunService)
+        settings = await request_container.get(Settings)
         yield AiOptimizationService(
             evaluation_repository=evaluation_repository,
             artifact_repository=artifact_repository,
-            optimization_provider=DspyOptimizationProvider(),
+            optimization_provider=DspyOptimizationProvider(
+                gateway_base_url=settings.LITELLM_BASE_URL,
+                gateway_api_key=settings.LITELLM_API_KEY,
+            ),
             evaluation_runner=evaluation_runner,
         )
 

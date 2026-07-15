@@ -88,7 +88,7 @@ def _provider(
         client=cast(InstructorChatCompletionClient, client),
         config=InstructorStructuredOutputProviderConfig(
             model="qwen3.5:4b",
-            ollama_base_url="http://localhost:11434",
+            gateway_base_url="http://localhost:4000/v1",
         ),
     )
 
@@ -215,11 +215,12 @@ def test_instructor_provider_returns_typed_provider_error() -> None:
     assert result.error_message == "Structured output provider call failed."
 
 
-def test_from_settings_builds_ollama_first_instructor_client(
+def test_from_settings_builds_litellm_gateway_instructor_client(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    calls: list[dict[str, Any]] = []
+    openai_calls: list[dict[str, Any]] = []
+    instructor_calls: list[dict[str, Any]] = []
     native_client = object()
 
     class FakeNativeAdapter:
@@ -238,13 +239,15 @@ def test_from_settings_builds_ollama_first_instructor_client(
             del response_model, messages, max_retries, strict, kwargs
             return ExampleInstructorAnswer(answer_text="ok", confidence_score=0.8)
 
-    def fake_from_provider(
-        model: str,
-        *,
-        async_client: bool,
+    class FakeAsyncOpenAI:
+        def __init__(self, **kwargs: Any) -> None:
+            openai_calls.append(kwargs)
+
+    def fake_from_openai(
+        received_openai_client: object,
         **kwargs: Any,
     ) -> object:
-        calls.append({"model": model, "async_client": async_client, "kwargs": kwargs})
+        instructor_calls.append({"client": received_openai_client, "kwargs": kwargs})
         return native_client
 
     monkeypatch.chdir(tmp_path)
@@ -253,7 +256,8 @@ def test_from_settings_builds_ollama_first_instructor_client(
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS", "8192")
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_STRICT", "false")
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE", "json")
-    monkeypatch.setenv("OLLAMA_HOST", "http://ollama.local:11434")
+    monkeypatch.setenv("POLARIS_LITELLM_BASE_URL", "http://litellm.local:4000/v1")
+    monkeypatch.setenv("POLARIS_LITELLM_API_KEY", "test-key")
     monkeypatch.setattr(
         instructor_structured_output_provider,
         "_InstructorNativeClientAdapter",
@@ -261,47 +265,38 @@ def test_from_settings_builds_ollama_first_instructor_client(
     )
 
     import instructor
+    import openai
 
-    monkeypatch.setattr(instructor, "from_provider", fake_from_provider)
+    monkeypatch.setattr(openai, "AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr(instructor, "from_openai", fake_from_openai)
 
     provider = InstructorStructuredOutputProvider.from_settings(Settings())
 
     assert isinstance(provider, InstructorStructuredOutputProvider)
-    assert calls == [
+    assert openai_calls == [
         {
-            "model": "ollama/qwen2.5:7b",
-            "async_client": True,
-            "kwargs": {
-                "base_url": "http://ollama.local:11434/v1",
-                "mode": instructor_structured_output_provider._instructor_mode("json"),
-            },
+            "api_key": "test-key",
+            "base_url": "http://litellm.local:4000/v1",
+            "timeout": 60.0,
         }
     ]
+    assert len(instructor_calls) == 1
+    assert isinstance(instructor_calls[0]["client"], FakeAsyncOpenAI)
+    assert instructor_calls[0]["kwargs"] == {
+        "mode": instructor_structured_output_provider._instructor_mode("json"),
+    }
 
 
-def test_instructor_model_helpers_support_future_provider_prefixed_models() -> None:
-    assert (
-        instructor_structured_output_provider._instructor_model_name("openai/gpt-4.1")
-        == "openai/gpt-4.1"
-    )
+def test_instructor_model_completion_helper_supports_prefixed_models() -> None:
     assert (
         instructor_structured_output_provider._instructor_model_completion_name(
             "openai/gpt-4.1"
         )
         == "gpt-4.1"
     )
-
-
-def test_ollama_openai_base_url_normalizes_for_openai_compatible_api() -> None:
     assert (
-        instructor_structured_output_provider._ollama_openai_base_url(
-            "http://localhost:11434"
+        instructor_structured_output_provider._instructor_model_completion_name(
+            "qwen3.5:4b"
         )
-        == "http://localhost:11434/v1"
-    )
-    assert (
-        instructor_structured_output_provider._ollama_openai_base_url(
-            "http://localhost:11434/v1/"
-        )
-        == "http://localhost:11434/v1"
+        == "qwen3.5:4b"
     )

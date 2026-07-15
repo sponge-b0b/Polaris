@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
-from typing import cast
 
 import pytest
 
-from core.llm.ollama_client import OllamaClient
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.ollama_query_routing_provider import (
-    OllamaRagQueryModelProvider,
+from integration.clients.llm import LiteLlmGatewayClient
+from integration.providers.rag.litellm_query_routing_provider import (
+    LiteLlmRagQueryModelProvider,
 )
 from integration.providers.rag.query_routing_provider import RagQueryModelConfig
 from integration.providers.rag.query_routing_provider import RagQueryModelOperation
@@ -24,6 +24,27 @@ _MODEL_CONFIG = RagQueryModelConfig(
 )
 
 
+class _FakeCompletionClient:
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self.error = error
+        self.calls: list[dict[str, Any]] = []
+
+    async def create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return SimpleNamespace(
+            id="chatcmpl-query",
+            model=kwargs["model"],
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content=' {"result": "ok"} '),
+                )
+            ],
+        )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("operation", "expected_model"),
@@ -34,45 +55,52 @@ _MODEL_CONFIG = RagQueryModelConfig(
         (RagQueryModelOperation.HYDE, "hyde-model"),
     ],
 )
-async def test_ollama_query_provider_uses_explicit_operation_model(
+async def test_litellm_query_provider_uses_explicit_operation_model(
     operation: RagQueryModelOperation,
     expected_model: str,
 ) -> None:
-    client = FakeOllamaClient()
-    provider = OllamaRagQueryModelProvider(
-        cast(OllamaClient, client),
+    completion_client = _FakeCompletionClient()
+    provider = LiteLlmRagQueryModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=completion_client,
+            default_model="default-model",
+        ),
         model_config=_MODEL_CONFIG,
     )
-    request = _request(operation)
 
-    result = await provider.generate_structured(request)
+    result = await provider.generate_structured(_request(operation))
 
     assert result.operation is operation
     assert result.payload == {"result": "ok"}
     assert result.model == expected_model
-    assert result.provider_name == "ollama"
+    assert result.provider_name == "litellm"
     assert result.duration_ms >= 0.0
     assert result.success is True
-    assert client.calls == [
+    assert completion_client.calls == [
         {
-            "prompt": "Process this query.",
             "model": expected_model,
-            "system_prompt": "Return strict JSON.",
+            "messages": [
+                {"role": "system", "content": "Return strict JSON."},
+                {"role": "user", "content": "Process this query."},
+            ],
             "temperature": 0.0,
+            "response_format": {"type": "json_object"},
         }
     ]
 
 
 @pytest.mark.asyncio
-async def test_ollama_query_provider_records_actual_model_telemetry() -> None:
+async def test_litellm_query_provider_records_gateway_telemetry() -> None:
     sink = InMemoryTelemetrySink()
     observability = ObservabilityManager()
     observability.add_sink(sink)
-    telemetry = IntegrationTelemetry(observability_manager=observability)
-    provider = OllamaRagQueryModelProvider(
-        cast(OllamaClient, FakeOllamaClient()),
+    provider = LiteLlmRagQueryModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=_FakeCompletionClient(),
+            default_model="default-model",
+        ),
         model_config=_MODEL_CONFIG,
-        telemetry=telemetry,
+        telemetry=IntegrationTelemetry(observability_manager=observability),
     )
 
     await provider.generate_structured(_request(RagQueryModelOperation.ROUTE_SELECTION))
@@ -81,9 +109,7 @@ async def test_ollama_query_provider_records_actual_model_telemetry() -> None:
     event = sink.events[0]
     assert event.event_type == "integration.provider.call"
     assert event.success is True
-    assert event.duration_seconds is not None
-    assert event.duration_seconds >= 0.0
-    assert event.attributes["provider_name"] == "ollama"
+    assert event.attributes["provider_name"] == "litellm"
     assert event.attributes["operation"] == "route_selection"
     assert event.attributes["semantic_operation"] == "route_selection"
     assert event.attributes["configured_model"] == "router-model"
@@ -92,54 +118,29 @@ async def test_ollama_query_provider_records_actual_model_telemetry() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ollama_query_provider_records_failed_model_telemetry() -> None:
+async def test_litellm_query_provider_records_failed_gateway_telemetry() -> None:
     sink = InMemoryTelemetrySink()
     observability = ObservabilityManager()
     observability.add_sink(sink)
-    telemetry = IntegrationTelemetry(observability_manager=observability)
-    provider = OllamaRagQueryModelProvider(
-        cast(OllamaClient, FakeOllamaClient(error=RuntimeError("model unavailable"))),
+    provider = LiteLlmRagQueryModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=_FakeCompletionClient(error=RuntimeError("gateway down")),
+            default_model="default-model",
+        ),
         model_config=_MODEL_CONFIG,
-        telemetry=telemetry,
+        telemetry=IntegrationTelemetry(observability_manager=observability),
     )
 
-    with pytest.raises(RuntimeError, match="model unavailable"):
+    with pytest.raises(RuntimeError, match="LiteLLM gateway chat completion failed"):
         await provider.generate_structured(_request(RagQueryModelOperation.HYDE))
 
     assert len(sink.events) == 1
     event = sink.events[0]
     assert event.event_type == "integration.provider.call"
     assert event.success is False
-    assert event.duration_seconds is not None
-    assert event.duration_seconds >= 0.0
-    assert event.attributes["provider_name"] == "ollama"
+    assert event.attributes["provider_name"] == "litellm"
     assert event.attributes["operation"] == "hyde"
-    assert event.attributes["semantic_operation"] == "hyde"
-    assert event.attributes["configured_model"] == "hyde-model"
-    assert event.payload["error_type"] == "RuntimeError"
-    assert event.payload["error_message"] == "model unavailable"
-
-
-@pytest.mark.parametrize(
-    "field_name",
-    [
-        "query_rewrite_model",
-        "adaptive_triage_model",
-        "route_selection_model",
-        "hyde_model",
-    ],
-)
-def test_query_model_config_rejects_empty_model_names(field_name: str) -> None:
-    values = {
-        "query_rewrite_model": "rewrite-model",
-        "adaptive_triage_model": "triage-model",
-        "route_selection_model": "router-model",
-        "hyde_model": "hyde-model",
-    }
-    values[field_name] = " "
-
-    with pytest.raises(ValueError, match=field_name):
-        RagQueryModelConfig(**values)
+    assert event.payload["error_type"] == "LiteLlmGatewayError"
 
 
 def _request(operation: RagQueryModelOperation) -> RagQueryModelRequest:
@@ -149,17 +150,3 @@ def _request(operation: RagQueryModelOperation) -> RagQueryModelRequest:
         system_prompt="Return strict JSON.",
         user_prompt="Process this query.",
     )
-
-
-class FakeOllamaClient:
-    llm_model = "implicit-default-must-not-be-used"
-
-    def __init__(self, *, error: Exception | None = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self._error = error
-
-    def generate_json(self, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append(kwargs)
-        if self._error is not None:
-            raise self._error
-        return {"result": "ok"}

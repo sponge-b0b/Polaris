@@ -44,7 +44,7 @@ class InstructorStructuredOutputProviderConfig:
     """Configuration for the Instructor-backed structured-output provider."""
 
     model: str
-    ollama_base_url: str
+    gateway_base_url: str
     provider_name: str = "instructor"
     temperature: float = 0.2
     strict: bool = False
@@ -53,7 +53,7 @@ class InstructorStructuredOutputProviderConfig:
 
     def __post_init__(self) -> None:
         _require_non_empty(self.model, "model")
-        _require_non_empty(self.ollama_base_url, "ollama_base_url")
+        _require_non_empty(self.gateway_base_url, "gateway_base_url")
         _require_non_empty(self.provider_name, "provider_name")
         if self.max_tokens <= 0:
             raise ValueError("max_tokens must be greater than 0.")
@@ -81,23 +81,23 @@ class InstructorStructuredOutputProvider(StructuredLlmProvider):
         """Build the native Instructor client from Polaris settings."""
 
         import instructor
+        from openai import AsyncOpenAI
 
-        instructor_model = _instructor_model_name(settings.STRUCTURED_OUTPUT_MODEL)
-        kwargs: dict[str, Any] = {}
-        if _uses_ollama_provider(instructor_model):
-            kwargs["base_url"] = _ollama_openai_base_url(settings.OLLAMA_HOST)
-
-        native_client = instructor.from_provider(
-            instructor_model,
-            async_client=True,
+        settings.validate_litellm_gateway()
+        openai_client = AsyncOpenAI(
+            api_key=settings.LITELLM_API_KEY or "polaris-local-dev-key",
+            base_url=settings.LITELLM_BASE_URL,
+            timeout=settings.LITELLM_TIMEOUT_SECONDS,
+        )
+        native_client = instructor.from_openai(
+            openai_client,
             mode=_instructor_mode(settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE),
-            **kwargs,
         )
         return cls(
             client=_InstructorNativeClientAdapter(native_client),
             config=InstructorStructuredOutputProviderConfig(
                 model=settings.STRUCTURED_OUTPUT_MODEL,
-                ollama_base_url=settings.OLLAMA_HOST,
+                gateway_base_url=settings.LITELLM_BASE_URL,
                 provider_name=settings.STRUCTURED_OUTPUT_PROVIDER,
                 strict=settings.STRUCTURED_OUTPUT_STRICT,
                 max_tokens=settings.STRUCTURED_OUTPUT_MAX_TOKENS,
@@ -160,13 +160,6 @@ def _messages_for(
     return messages
 
 
-def _instructor_model_name(model: str) -> str:
-    stripped = model.strip()
-    if "/" in stripped:
-        return stripped
-    return f"ollama/{stripped}"
-
-
 def _instructor_model_completion_name(model: str) -> str:
     stripped = model.strip()
     if "/" in stripped:
@@ -185,18 +178,6 @@ def _instructor_mode(mode: str) -> Any:
     if normalized == "tools_strict":
         return instructor.Mode.TOOLS_STRICT
     raise ValueError(f"Unsupported Instructor mode: {mode}.")
-
-
-def _uses_ollama_provider(instructor_model: str) -> bool:
-    return instructor_model.split("/", 1)[0].strip().lower() == "ollama"
-
-
-def _ollama_openai_base_url(base_url: str) -> str:
-    stripped = base_url.strip().rstrip("/")
-    _require_non_empty(stripped, "ollama_base_url")
-    if stripped.endswith("/v1"):
-        return stripped
-    return f"{stripped}/v1"
 
 
 def _require_non_empty(value: str | None, field_name: str) -> None:

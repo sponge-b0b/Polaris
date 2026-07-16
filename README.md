@@ -197,7 +197,73 @@ uv run python -m playwright install --with-deps chromium
 
 Web fallback remains disabled by default and must be enabled in `.env` and per request. SearXNG only performs search/discovery; Crawl4AI performs concurrent content acquisition and Markdown extraction. Returned web evidence is transient and untrusted unless explicitly curated later.
 
+Optional Reranker Cache Pre-loading
+
+The `bge-reranker` service container requires local access to the model weights to perform local cross-encoder document scoring. To bypass network throttling and prevent Docker container timeouts during initial boot, pre-load the weights into your local cache directory before launching the composition stack.
+
+#### 1. Download the Weights via Python (Bypasses Rate Limits)
+
+Hugging Face heavily prioritizes its official Python `huggingface_hub` library and allows it to use automated multi-stream download acceleration (`hf_transfer`). Run this script inside your workspace terminal to pull the model down directly using your unthrottled host connection:
+
+```bash
+uv run python -c "
+from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id='BAAI/bge-reranker-large',
+    local_dir='./.bge_data',
+    ignore_patterns=['*.bin', '*.msgpack', '*.h5'] # Only grab the lightweight config & .safetensors files
+)
+"
+```
+
+#### 2. Launch the Accelerated Container
+
+Once the `.bge_data/` cache folder is populated on your host filesystem, boot the hardware-accelerated reranking service node:
+
+```bash
+docker compose up -d bge-reranker
+```
+
 LiteLLM is the canonical local LLM gateway. Polaris sends logical model names to LiteLLM; LiteLLM routes them to configured backends such as host Ollama. If the LiteLLM container routes to host Ollama, make Ollama container-reachable with `OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to another reachable endpoint.
+
+Optional Host Ollama Connectivity for LiteLLM Configuration
+
+If your local LiteLLM container fails to reach Ollama via `host.docker.internal:11434` (`connection refused`), it means Ollama is currently bound only to your host's local loopback interface (`127.0.0.1`). Inside a Docker container, `127.0.0.1` references the container itself, not your host machine.
+
+To allow internal Docker container network loops to communicate with your host's Ollama instance permanently, configure the background system daemon to bind to all network interfaces (`0.0.0.0`).
+
+On Linux and Windows WSL2 systems, Ollama's automatic lifecycle is managed by `systemd` as a background system service. Because system background processes bypass your standard `.bashrc` or profile scripts, you must configure the service directly using the steps below:
+
+#### 1. Open the System Service Configuration Overrides
+Open the system service editor for the Ollama background daemon:
+```bash
+sudo systemctl edit ollama.service
+```
+*(This opens a blank configuration override file inside your system's default command-line text editor, such as Nano).*
+
+#### 2. Inject the Global Listening Environment Variable
+Paste these lines directly into the empty file layout to declare the host binding rule:
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+*If you are using Nano, save and exit by pressing `Ctrl + O`, hitting `Enter`, and then pressing `Ctrl + X`.*
+
+#### 3. Reload the Daemon and Restart the Service
+Instruct the operating system's initialization framework to parse the updated parameter properties and restart the active background listener:
+```bash
+# Reload the system orchestration configuration files
+sudo systemctl daemon-reload
+
+# Restart the background service to bind to 0.0.0.0
+sudo systemctl restart ollama
+```
+
+#### 4. Refresh the LiteLLM Proxy Ingestion Bridge
+Once your host machine's service daemon is listening globally, force your local routing container to drop its stale connection threads and bind cleanly to the fresh host api base:
+```bash
+docker compose up -d litellm --force-recreate
+```
 
 ### 4. Apply database migrations
 

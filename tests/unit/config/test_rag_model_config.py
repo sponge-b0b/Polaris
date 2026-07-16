@@ -9,17 +9,34 @@ from config.rag_model_config import RagModelConfig
 from config.settings import Settings
 
 _RAG_SETTING_NAMES = (
+    "POLARIS_RAG_QUERY_REWRITE_MODEL",
     "RAG_QUERY_REWRITE_MODEL",
+    "POLARIS_RAG_ADAPTIVE_TRIAGE_MODEL",
     "RAG_ADAPTIVE_TRIAGE_MODEL",
+    "POLARIS_RAG_ROUTE_SELECTION_MODEL",
     "RAG_ROUTE_SELECTION_MODEL",
+    "POLARIS_RAG_HYDE_MODEL",
     "RAG_HYDE_MODEL",
+    "POLARIS_RAG_HYBRID_EMBEDDING_MODEL",
     "RAG_HYBRID_EMBEDDING_MODEL",
+    "POLARIS_RAG_RERANKER_MODEL",
     "RAG_RERANKER_MODEL",
+    "POLARIS_RAG_RERANKER_ENDPOINT",
     "RAG_RERANKER_ENDPOINT",
+    "POLARIS_RAG_CRAG_GRADER_MODEL",
     "RAG_CRAG_GRADER_MODEL",
+    "POLARIS_RAG_CRAG_QUERY_REWRITE_MODEL",
     "RAG_CRAG_QUERY_REWRITE_MODEL",
+    "POLARIS_RAG_SELF_REFLECTION_MODEL",
     "RAG_SELF_REFLECTION_MODEL",
+    "POLARIS_RAG_SYNTHESIS_MODEL",
     "RAG_SYNTHESIS_MODEL",
+    "POLARIS_RAG_STRUCTURED_MAX_TOKENS",
+    "RAG_STRUCTURED_MAX_TOKENS",
+    "POLARIS_RAG_HYDE_MAX_TOKENS",
+    "RAG_HYDE_MAX_TOKENS",
+    "POLARIS_RAG_SYNTHESIS_MAX_TOKENS",
+    "RAG_SYNTHESIS_MAX_TOKENS",
     "RAG_WEB_FALLBACK_ENABLED",
     "RAG_WEB_FALLBACK_MAX_RESULTS",
     "SEARXNG_BASE_URL",
@@ -55,17 +72,20 @@ def test_rag_model_config_maps_default_settings_by_semantic_operation(
 ) -> None:
     config = RagModelConfig.from_settings(_settings(monkeypatch, tmp_path))
 
-    assert config.query_rewrite_model == "qwen2.5:7b"
-    assert config.adaptive_triage_model == "qwen2.5:7b"
-    assert config.route_selection_model == "qwen3.5:4b"
-    assert config.hyde_model == "qwen3.5:4b"
+    assert config.query_rewrite_model == "polaris-local-fast"
+    assert config.adaptive_triage_model == "polaris-local-fast"
+    assert config.route_selection_model == "polaris-local-structured"
+    assert config.hyde_model == "polaris-local-reasoning"
     assert config.hybrid_embedding_model == "BAAI/bge-m3"
     assert config.reranker_model == "BAAI/bge-reranker-large"
     assert config.reranker_endpoint == "http://localhost:8080/rerank"
-    assert config.crag_grader_model == "qwen3.5:4b"
-    assert config.crag_query_rewrite_model == "qwen3.5:4b"
-    assert config.self_reflection_model == "qwen3.5:4b"
-    assert config.synthesis_model == "qwen3.5:4b"
+    assert config.crag_grader_model == "polaris-local-structured"
+    assert config.crag_query_rewrite_model == "polaris-local-structured"
+    assert config.self_reflection_model == "polaris-local-structured"
+    assert config.synthesis_model == "polaris-local-synthesis"
+    assert config.structured_max_tokens == 512
+    assert config.hyde_max_tokens == 768
+    assert config.synthesis_max_tokens == 1536
 
 
 def test_rag_model_config_preserves_independent_environment_overrides(
@@ -84,6 +104,9 @@ def test_rag_model_config_preserves_independent_environment_overrides(
         "RAG_CRAG_QUERY_REWRITE_MODEL": "crag-rewrite-override",
         "RAG_SELF_REFLECTION_MODEL": "reflection-override",
         "RAG_SYNTHESIS_MODEL": "synthesis-override",
+        "RAG_STRUCTURED_MAX_TOKENS": "384",
+        "RAG_HYDE_MAX_TOKENS": "640",
+        "RAG_SYNTHESIS_MAX_TOKENS": "1280",
     }
 
     config = RagModelConfig.from_settings(
@@ -101,6 +124,9 @@ def test_rag_model_config_preserves_independent_environment_overrides(
     assert config.crag_query_rewrite_model == overrides["RAG_CRAG_QUERY_REWRITE_MODEL"]
     assert config.self_reflection_model == overrides["RAG_SELF_REFLECTION_MODEL"]
     assert config.synthesis_model == overrides["RAG_SYNTHESIS_MODEL"]
+    assert config.structured_max_tokens == 384
+    assert config.hyde_max_tokens == 640
+    assert config.synthesis_max_tokens == 1280
 
 
 def test_rag_model_config_exposes_query_routing_subset(
@@ -113,6 +139,8 @@ def test_rag_model_config_exposes_query_routing_subset(
     assert config.query_routing.adaptive_triage_model == config.adaptive_triage_model
     assert config.query_routing.route_selection_model == config.route_selection_model
     assert config.query_routing.hyde_model == config.hyde_model
+    assert config.query_routing.structured_max_tokens == config.structured_max_tokens
+    assert config.query_routing.hyde_max_tokens == config.hyde_max_tokens
 
 
 def test_rag_model_config_is_immutable(
@@ -149,6 +177,22 @@ def test_rag_model_config_exposes_quality_evaluation_subset(
     assert (
         config.quality_evaluation.self_reflection_model == config.self_reflection_model
     )
+    assert (
+        config.quality_evaluation.structured_max_tokens == config.structured_max_tokens
+    )
+
+
+def test_empty_crawl4ai_user_agent_env_is_treated_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    settings = _settings(
+        monkeypatch,
+        tmp_path,
+        overrides={"CRAWL4AI_USER_AGENT": "   "},
+    )
+
+    assert settings.CRAWL4AI_USER_AGENT is None
 
 
 def test_open_source_web_fallback_is_disabled_by_default(

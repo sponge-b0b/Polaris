@@ -20,6 +20,7 @@ class RagQualityModelConfig:
     crag_grader_model: str
     crag_query_rewrite_model: str
     self_reflection_model: str
+    structured_max_tokens: int = 512
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -29,6 +30,8 @@ class RagQualityModelConfig:
         ):
             if not getattr(self, field_name).strip():
                 raise ValueError(f"{field_name} cannot be empty.")
+        if self.structured_max_tokens <= 0:
+            raise ValueError("structured_max_tokens must be greater than 0.")
 
     def model_for(self, operation: RagQualityModelOperation) -> str:
         match operation:
@@ -38,6 +41,10 @@ class RagQualityModelConfig:
                 return self.crag_query_rewrite_model
             case RagQualityModelOperation.SELF_REFLECTION:
                 return self.self_reflection_model
+
+    def max_tokens_for(self, operation: RagQualityModelOperation) -> int:
+        del operation
+        return self.structured_max_tokens
 
 
 @dataclass(frozen=True, slots=True)

@@ -37,6 +37,7 @@ Optional services depend on the workflow being tested:
    ```
 
 2. Configure `POLARIS_LITELLM_API_KEY` in local environment or `.env` when the LiteLLM proxy is running with a master key.
+   For local Docker development, `docker-compose.yml` falls back to `polaris-local-dev-key` when `POLARIS_LITELLM_API_KEY` is unset; the Polaris client uses the same local fallback. Use an explicit non-default key outside local development.
 
    If LiteLLM runs in Docker and Ollama runs on the host, Ollama must be reachable from the container. On Linux/WSL, a host Ollama server bound only to `127.0.0.1:11434` is not reachable from Docker. Restart Ollama with `OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to an endpoint the container can reach.
 
@@ -66,7 +67,7 @@ Polaris application settings:
 | `POLARIS_LITELLM_STRICT_MODE` | Requires complete gateway configuration during settings validation. |
 | `POLARIS_LITELLM_OLLAMA_API_BASE` | LiteLLM-container-reachable Ollama API base used by `config/litellm/config.yaml`. |
 
-LiteLLM model aliases are defined in `config/litellm/config.yaml`. The default local configuration maps Polaris logical model names to Ollama-backed LiteLLM provider strings. For example, Polaris sends `qwen3.5:4b`; LiteLLM maps it to its configured local backend.
+LiteLLM model aliases are defined in `config/litellm/config.yaml`. Polaris source defaults use logical aliases such as `polaris-local-fast`, `polaris-local-structured`, and `polaris-local-synthesis`; LiteLLM maps those aliases to concrete local backends such as Ollama `qwen2.5:7b` or `qwen3.5:4b`. Change the LiteLLM alias mapping for model-operations tuning instead of hard-coding concrete model names in application defaults.
 
 ## Observability and failure behavior
 

@@ -24,13 +24,17 @@ class LiteLlmRagAnswerGenerationProvider(RagAnswerGenerationProvider):
         model: str,
         telemetry: IntegrationTelemetry | None = None,
         temperature: float = 0.2,
+        max_tokens: int | None = None,
     ) -> None:
         if not model.strip():
             raise ValueError("model cannot be empty.")
+        if max_tokens is not None and max_tokens <= 0:
+            raise ValueError("max_tokens must be greater than 0.")
         self._client = client
         self._model = model
         self._telemetry = telemetry
         self._temperature = temperature
+        self._max_tokens = max_tokens
 
     async def generate_answer(
         self,
@@ -58,6 +62,7 @@ class LiteLlmRagAnswerGenerationProvider(RagAnswerGenerationProvider):
             model=self._model,
             system_prompt=request.policy_instructions,
             temperature=self._temperature,
+            max_tokens=self._max_tokens,
             metadata={
                 "request_id": request.request_id,
                 "query": request.query,

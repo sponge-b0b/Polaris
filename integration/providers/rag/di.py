@@ -132,6 +132,7 @@ class RagProvidersDIProvider(Provider):
             client,
             model=model_config.synthesis_model,
             telemetry=telemetry,
+            max_tokens=model_config.synthesis_max_tokens,
         )
 
     @provide

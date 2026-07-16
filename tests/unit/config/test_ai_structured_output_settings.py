@@ -54,14 +54,14 @@ def test_structured_output_and_dspy_settings_default_to_safe_policy(
     settings = _settings(monkeypatch, tmp_path)
 
     assert settings.STRUCTURED_OUTPUT_PROVIDER == "instructor"
-    assert settings.STRUCTURED_OUTPUT_MODEL == "qwen3.5:4b"
+    assert settings.STRUCTURED_OUTPUT_MODEL == "polaris-local-structured"
     assert settings.STRUCTURED_OUTPUT_MAX_RETRIES == 2
     assert settings.STRUCTURED_OUTPUT_TIMEOUT_SECONDS == 60.0
     assert settings.STRUCTURED_OUTPUT_MAX_TOKENS == 4096
     assert settings.STRUCTURED_OUTPUT_STRICT is False
     assert settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE == "json"
     assert settings.DSPY_ENABLED is False
-    assert settings.DSPY_OPTIMIZATION_MODEL == "qwen3.5:4b"
+    assert settings.DSPY_OPTIMIZATION_MODEL == "polaris-local-optimization"
     assert settings.DSPY_MAX_TRAINSET_CASES == 100
     assert settings.DSPY_ARTIFACT_RETENTION_DAYS == 90
 

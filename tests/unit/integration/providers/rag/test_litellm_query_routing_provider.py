@@ -21,6 +21,8 @@ _MODEL_CONFIG = RagQueryModelConfig(
     adaptive_triage_model="triage-model",
     route_selection_model="router-model",
     hyde_model="hyde-model",
+    structured_max_tokens=384,
+    hyde_max_tokens=640,
 )
 
 
@@ -84,6 +86,7 @@ async def test_litellm_query_provider_uses_explicit_operation_model(
                 {"role": "user", "content": "Process this query."},
             ],
             "temperature": 0.0,
+            "max_tokens": 640 if operation is RagQueryModelOperation.HYDE else 384,
             "response_format": {"type": "json_object"},
         }
     ]

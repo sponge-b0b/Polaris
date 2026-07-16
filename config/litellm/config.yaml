@@ -1,8 +1,38 @@
 # LiteLLM proxy configuration for local Polaris development.
-# Polaris sends logical model names to LiteLLM; LiteLLM maps them to concrete providers.
+# Polaris sends logical model aliases to LiteLLM; LiteLLM maps them to concrete backends.
 # Keep secrets in .env or the process environment, not in this file.
 
 model_list:
+  # Low-VRAM local profile. These are the canonical Polaris model aliases used
+  # by application settings; swap the concrete backend here instead of changing
+  # architectural defaults in source code.
+  - model_name: polaris-local-fast
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: polaris-local-structured
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: polaris-local-evaluation
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: polaris-local-optimization
+    litellm_params:
+      model: ollama_chat/qwen2.5:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: polaris-local-reasoning
+    litellm_params:
+      model: ollama_chat/qwen3.5:4b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: polaris-local-synthesis
+    litellm_params:
+      model: ollama_chat/qwen3.5:4b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+
+  # Optional direct model aliases for manual diagnostics and explicit operator
+  # overrides. Polaris source defaults should use the logical aliases above.
   - model_name: qwen2.5:7b
     litellm_params:
       model: ollama_chat/qwen2.5:7b

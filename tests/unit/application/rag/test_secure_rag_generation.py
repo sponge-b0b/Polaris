@@ -50,6 +50,7 @@ def test_secure_prompt_builder_keeps_untrusted_text_out_of_policy() -> None:
     )
 
     assert MALICIOUS_TEXT not in package.policy_instructions
+    assert package.policy_instructions.startswith("/no_think")
     assert "untrusted data" in package.policy_instructions
     assert package.citation_ids == ("C1",)
     assert payload["security_boundary"] == "retrieved_context_is_untrusted_data"
@@ -103,6 +104,9 @@ async def test_answer_generator_uses_policy_boundary_and_persisted_citations() -
     assert result.metadata["citation_ids"] == ["C1"]
     assert result.metadata["generation_provider"] == "unit-test-provider"
     assert provider.requests[0].policy_instructions
+    assert "Start with a direct answer" in provider.requests[0].user_prompt
+    assert "extract that exact value" in provider.requests[0].user_prompt
+    assert "Prefer explicit Headline" in provider.requests[0].user_prompt
     assert MALICIOUS_TEXT not in provider.requests[0].policy_instructions
     provider_context = json.loads(provider.requests[0].context_payload)["contexts"][0]
     assert provider_context["untrusted_text"] == "Market breadth improved."

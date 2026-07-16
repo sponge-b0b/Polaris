@@ -43,6 +43,7 @@ async def test_litellm_answer_provider_generates_text_with_context_payload() -> 
             default_model="default-model",
         ),
         model="synthesis-model",
+        max_tokens=1536,
     )
 
     result = await provider.generate_answer(_request())
@@ -66,6 +67,7 @@ async def test_litellm_answer_provider_generates_text_with_context_payload() -> 
                 },
             ],
             "temperature": 0.2,
+            "max_tokens": 1536,
         }
     ]
 

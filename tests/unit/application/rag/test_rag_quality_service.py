@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from datetime import timezone
@@ -45,6 +46,33 @@ async def test_crag_evaluation_parses_typed_quality_and_retained_contexts() -> N
     assert result.action is RagCorrectiveAction.DISCARD_WEAK_CONTEXT
     assert result.retained_context_ids == ("context-1",)
     assert provider.requests[0].operation is RagQualityModelOperation.CRAG_GRADE
+    assert "Do not answer the user query" in provider.requests[0].system_prompt
+    assert "Do not include any other keys" in provider.requests[0].system_prompt
+
+
+@pytest.mark.asyncio
+async def test_crag_evaluation_maps_model_aliases_to_canonical_context_ids() -> None:
+    provider = FakeQualityProvider(
+        payloads=(
+            {
+                "quality": "correct",
+                "action": "proceed",
+                "retained_context_ids": ["context-1"],
+            },
+        )
+    )
+    service = RagQualityService(provider)
+
+    result = await service.evaluate(
+        request=_request(),
+        contexts=(_context(context_id="opaque-runtime-context-id"),),
+        loop_count=0,
+    )
+
+    user_payload = json.loads(provider.requests[0].user_prompt)
+    assert user_payload["allowed_context_ids"] == ["context-1"]
+    assert user_payload["contexts"][0]["context_id"] == "context-1"
+    assert result.retained_context_ids == ("opaque-runtime-context-id",)
 
 
 @pytest.mark.asyncio
@@ -152,9 +180,9 @@ def _request() -> RagRequest:
     )
 
 
-def _context() -> RagRetrievedContext:
+def _context(context_id: str = "context-1") -> RagRetrievedContext:
     return RagRetrievedContext(
-        context_id="context-1",
+        context_id=context_id,
         text="SPY breadth improved.",
         source=RagSource(
             source_table="curated_rag_documents",

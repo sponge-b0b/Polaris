@@ -56,6 +56,7 @@ class LiteLlmRagQueryModelProvider(RagQueryModelProvider):
             model=model,
             system_prompt=request.system_prompt,
             temperature=self._temperature,
+            max_tokens=self._model_config.max_tokens_for(request.operation),
             metadata={
                 "request_id": request.request_id,
                 "operation": request.operation.value,

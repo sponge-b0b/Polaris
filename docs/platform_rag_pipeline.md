@@ -131,15 +131,26 @@ content.
 
 | Layer | Responsibility | Default model or system |
 | --- | --- | --- |
-| 1. Memory and context | Convert conversational input into a standalone query. | `RAG_QUERY_REWRITE_MODEL=qwen2.5:7b` |
-| 2. Adaptive triage | Classify query complexity. | `RAG_ADAPTIVE_TRIAGE_MODEL=qwen2.5:7b` |
-| 3. Branched router | Select direct, standard, or deep-research routing; deep research may use HyDE. | `RAG_ROUTE_SELECTION_MODEL=qwen3.5:4b`, `RAG_HYDE_MODEL=qwen3.5:4b` |
+| 1. Memory and context | Convert conversational input into a standalone query. | `RAG_QUERY_REWRITE_MODEL=polaris-local-fast` |
+| 2. Adaptive triage | Classify query complexity. | `RAG_ADAPTIVE_TRIAGE_MODEL=polaris-local-fast` |
+| 3. Branched router | Select direct, standard, or deep-research routing; deep research may use HyDE. | `RAG_ROUTE_SELECTION_MODEL=polaris-local-structured`, `RAG_HYDE_MODEL=polaris-local-reasoning` |
 | 4. Twin-engine retrieval | Search PostgreSQL, BGE-M3 dense/sparse Qdrant vectors, structured records, and Neo4j relationships; rerank and expand parents. | `RAG_HYBRID_EMBEDDING_MODEL=BAAI/bge-m3`, `RAG_RERANKER_MODEL=BAAI/bge-reranker-large` |
-| 5. Corrective RAG | Grade evidence, rewrite weak queries, and optionally request transient web evidence. | `RAG_CRAG_GRADER_MODEL=qwen3.5:4b`, `RAG_CRAG_QUERY_REWRITE_MODEL=qwen3.5:4b` |
-| 6. Self-RAG and synthesis | Generate the answer, reflect on support/usefulness, and fail closed when unsafe or ungrounded. | `RAG_SYNTHESIS_MODEL=qwen3.5:4b`, `RAG_SELF_REFLECTION_MODEL=qwen3.5:4b` |
+| 5. Corrective RAG | Grade evidence, rewrite weak queries, and optionally request transient web evidence. | `RAG_CRAG_GRADER_MODEL=polaris-local-structured`, `RAG_CRAG_QUERY_REWRITE_MODEL=polaris-local-structured` |
+| 6. Self-RAG and synthesis | Generate the answer, reflect on support/usefulness, and fail closed when unsafe or ungrounded. | `RAG_SYNTHESIS_MODEL=polaris-local-synthesis`, `RAG_SELF_REFLECTION_MODEL=polaris-local-structured` |
 
 Each setting is independent even when multiple stages currently use the same
 model, allowing later model changes without changing stage contracts.
+The default low-VRAM local LiteLLM profile maps fast, structured, evaluation,
+and optimization aliases to `qwen2.5:7b`, while reasoning and synthesis aliases
+map to `qwen3.5:4b`. This keeps the more reasoning-oriented model on synthesis
+paths without making concrete model names architectural defaults.
+
+Generation budgets are also stage-specific. Structured routing, CRAG, and
+Self-RAG JSON calls default to `RAG_STRUCTURED_MAX_TOKENS=512`; HyDE defaults to
+`RAG_HYDE_MAX_TOKENS=768`; final answer synthesis defaults to
+`RAG_SYNTHESIS_MAX_TOKENS=1536`. These budgets keep structured operations,
+including Self-RAG reflection, on faster JSON-oriented aliases while reserving
+the larger thinking-model budget for final cited answer synthesis.
 
 ## Canonical ingestion source matrix
 
@@ -357,11 +368,13 @@ Start the containerized stores, reranker, and LiteLLM gateway as needed:
 docker compose up -d postgres qdrant neo4j bge-reranker litellm
 ```
 
-Polaris calls models through LiteLLM. For local development, LiteLLM can route
-those logical model names to host Ollama, but Ollama must be reachable from the
+Polaris calls models through LiteLLM. For local development, LiteLLM routes
+logical aliases such as `polaris-local-fast` and `polaris-local-synthesis` to
+host Ollama, but Ollama must be reachable from the
 LiteLLM container. If Ollama binds only to `127.0.0.1:11434`, restart it with
 `OLLAMA_HOST=0.0.0.0:11434` or set `POLARIS_LITELLM_OLLAMA_API_BASE` to another
-container-reachable endpoint. Then pull the configured local models:
+container-reachable endpoint. Then pull the concrete models referenced by the
+local LiteLLM alias profile:
 
 ```bash
 OLLAMA_HOST=0.0.0.0:11434 ollama serve
@@ -677,7 +690,7 @@ text first.
   PostgreSQL/Qdrant path. Confirm Bolt port `7687` before processing graph jobs.
 - **BGE model warm-up:** first embedding or reranking calls may be slow. Wait for
   the reranker health check and allow the local BGE-M3 model to load.
-- **LiteLLM model backend unavailable:** confirm `docker compose ps litellm`, verify `/v1/models` with the configured API key, and ensure the LiteLLM backend endpoint can reach the configured local model provider. For local Ollama, pull every model named by the `RAG_*_MODEL` settings and ensure `POLARIS_LITELLM_OLLAMA_API_BASE` is container-reachable.
+- **LiteLLM model backend unavailable:** confirm `docker compose ps litellm`, verify `/v1/models` with the configured API key, and ensure the LiteLLM backend endpoint can reach the configured local model provider. For local Ollama, pull every concrete model referenced by `config/litellm/config.yaml` and ensure `POLARIS_LITELLM_OLLAMA_API_BASE` is container-reachable. Polaris `RAG_*_MODEL` settings should normally name logical LiteLLM aliases, not concrete Ollama models.
 - **Web fallback not used:** verify `RAG_WEB_FALLBACK_ENABLED=true`,
   `SEARXNG_BASE_URL`, local Crawl4AI browser setup, and the request's `--web`
   flag; fallback still occurs only when CRAG requests corrective web evidence.

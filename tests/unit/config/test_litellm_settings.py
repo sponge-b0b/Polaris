@@ -46,6 +46,7 @@ def test_litellm_settings_default_to_local_non_strict_gateway(
     assert settings.LITELLM_API_KEY is None
     assert settings.LITELLM_TIMEOUT_SECONDS == 60.0
     assert settings.LITELLM_STRICT_MODE is False
+    assert settings.DEFAULT_MODEL == "polaris-local-synthesis"
 
     settings.validate_litellm_gateway(require_configured=False)
 

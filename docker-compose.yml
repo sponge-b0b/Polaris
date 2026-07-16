@@ -135,7 +135,7 @@ services:
     volumes:
       - ./config/litellm/config.yaml:/app/config.yaml:ro
     environment:
-      - LITELLM_MASTER_KEY=${POLARIS_LITELLM_API_KEY:-}
+      - LITELLM_MASTER_KEY=${POLARIS_LITELLM_API_KEY:-polaris-local-dev-key}
       - POLARIS_LITELLM_OLLAMA_API_BASE=${POLARIS_LITELLM_OLLAMA_API_BASE:-http://host.docker.internal:11434}
       # Inject local project telemetry variables straight to the router
       - POLARIS_LANGFUSE_PUBLIC_KEY=${POLARIS_LANGFUSE_PUBLIC_KEY}

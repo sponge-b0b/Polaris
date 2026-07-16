@@ -25,6 +25,8 @@ class RagQueryModelConfig:
     adaptive_triage_model: str
     route_selection_model: str
     hyde_model: str
+    structured_max_tokens: int = 512
+    hyde_max_tokens: int = 768
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -35,6 +37,9 @@ class RagQueryModelConfig:
         ):
             if not getattr(self, field_name).strip():
                 raise ValueError(f"{field_name} cannot be empty.")
+        for field_name in ("structured_max_tokens", "hyde_max_tokens"):
+            if getattr(self, field_name) <= 0:
+                raise ValueError(f"{field_name} must be greater than 0.")
 
     def model_for(self, operation: RagQueryModelOperation) -> str:
         match operation:
@@ -46,6 +51,11 @@ class RagQueryModelConfig:
                 return self.route_selection_model
             case RagQueryModelOperation.HYDE:
                 return self.hyde_model
+
+    def max_tokens_for(self, operation: RagQueryModelOperation) -> int:
+        if operation is RagQueryModelOperation.HYDE:
+            return self.hyde_max_tokens
+        return self.structured_max_tokens
 
 
 @dataclass(

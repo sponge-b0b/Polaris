@@ -23,11 +23,17 @@ class RagModelConfig:
     crag_query_rewrite_model: str
     self_reflection_model: str
     synthesis_model: str
+    structured_max_tokens: int
+    hyde_max_tokens: int
+    synthesis_max_tokens: int
 
     def __post_init__(self) -> None:
         for field_name in self.__dataclass_fields__:
-            if not getattr(self, field_name).strip():
+            value = getattr(self, field_name)
+            if isinstance(value, str) and not value.strip():
                 raise ValueError(f"{field_name} cannot be empty.")
+            if isinstance(value, int) and value <= 0:
+                raise ValueError(f"{field_name} must be greater than 0.")
 
     @classmethod
     def from_settings(cls, settings: Settings) -> RagModelConfig:
@@ -43,6 +49,9 @@ class RagModelConfig:
             crag_query_rewrite_model=settings.RAG_CRAG_QUERY_REWRITE_MODEL,
             self_reflection_model=settings.RAG_SELF_REFLECTION_MODEL,
             synthesis_model=settings.RAG_SYNTHESIS_MODEL,
+            structured_max_tokens=settings.RAG_STRUCTURED_MAX_TOKENS,
+            hyde_max_tokens=settings.RAG_HYDE_MAX_TOKENS,
+            synthesis_max_tokens=settings.RAG_SYNTHESIS_MAX_TOKENS,
         )
 
     @property
@@ -52,6 +61,8 @@ class RagModelConfig:
             adaptive_triage_model=self.adaptive_triage_model,
             route_selection_model=self.route_selection_model,
             hyde_model=self.hyde_model,
+            structured_max_tokens=self.structured_max_tokens,
+            hyde_max_tokens=self.hyde_max_tokens,
         )
 
     @property
@@ -60,4 +71,5 @@ class RagModelConfig:
             crag_grader_model=self.crag_grader_model,
             crag_query_rewrite_model=self.crag_query_rewrite_model,
             self_reflection_model=self.self_reflection_model,
+            structured_max_tokens=self.structured_max_tokens,
         )

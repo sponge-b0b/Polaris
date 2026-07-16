@@ -53,6 +53,7 @@ async def test_litellm_quality_provider_uses_operation_specific_model(
             crag_grader_model="grader",
             crag_query_rewrite_model="rewriter",
             self_reflection_model="reflector",
+            structured_max_tokens=384,
         ),
     )
 
@@ -77,6 +78,7 @@ async def test_litellm_quality_provider_uses_operation_specific_model(
                 {"role": "user", "content": "Evaluate."},
             ],
             "temperature": 0.0,
+            "max_tokens": 384,
             "response_format": {"type": "json_object"},
         }
     ]

@@ -65,7 +65,6 @@ class Settings(BaseSettings):
     ALPACA_API_SECRET_KEY: Optional[str] = None
     ALPHAVANTAGE_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
-    FMP_API_KEY: Optional[str] = None
     FRED_API_KEY: Optional[str] = None
     MASSIVE_API_KEY: Optional[str] = None
     NEWSAPI_API_KEY: Optional[str] = None

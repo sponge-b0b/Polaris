@@ -6,10 +6,9 @@ These are the operating rules for coding agents working on Polaris.
 
 At the start of a session:
 
-1. Read `CONTEXT.md` for the current platform map and architectural status.
-2. Read `.claude/CLAUDE.md` for the Repowise-generated system map.
-3. Verify implementation claims against current source and tests; generated maps may lag the repository.
-4. Merge these rules with any narrower user instruction for the active task.
+1. Read `CONTEXT.md` for the current platform map and descriptive architectural status.
+2. Verify implementation claims directly against current source files and unit tests; documentation maps may lag the active repository state.
+3. Merge these prescriptive rules with any narrower user instructions provided for the active task.
 
 `AGENTS.md` is prescriptive. `CONTEXT.md` is descriptive. Avoid duplicating detailed architecture between them.
 
@@ -197,5 +196,5 @@ For structural dependency lookups or codebase architecture questions, invoke the
 
 Before editing any Python files or changing code patterns, you must leverage the project's native discovery tool belt to map context, enforce safety guards, and isolate change blast radiuses.
 
+- **For Behavioral Location, Mapping Source Contexts, Code Health, and File Risk Auditing:** Invoke the `.agents/skills/using-repowise` skill. You must explicitly alert the user if Repowise flags a target implementation destination as a highly brittle or high-risk file hotspot before code edits begin.
 - **For Structural Invariants & Code Dependency Maps:** Invoke the `.agents/skills/using-graphify` skill. Do not attempt to manually open, read, or parse raw files inside `graphify-out/` during a standard session.
-- **For Behavioral Location, Code Health, and File Risk Auditing:** Invoke the `.agents/skills/using-repowise` skill. You must explicitly alert the user if Repowise flags a target implementation destination as a highly brittle or high-risk file hotspot before code edits begin.

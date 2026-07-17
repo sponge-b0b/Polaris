@@ -1,5 +1,5 @@
 ---
-name: repowise-queries
+name: using-repowise
 description: Queries local repository code, structural overviews, dead code references, and file risk markers via Repowise tools. Use before editing python files or when exploring existing codebase implementations or when the user asks questions about code structure, imports, or file relationships.
 ---
 

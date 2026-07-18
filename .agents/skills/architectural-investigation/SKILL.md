@@ -10,9 +10,9 @@ Trace the complete data lifecycle across Polaris to ensure surgical implementati
 
 ## Initial Context Gathering
 Before mapping or investigating, you must read the current platform layouts:
-1. Read `CONTEXT.md` for the current platform map and descriptive architectural status.
-2. Read `.claude/CLAUDE.md` for the Repowise-generated system map.
-3. **Verify:** Physically cross-reference these maps against the active source code and tests, as generated maps can lag behind the repository.
+1. If not already in your context, read `CONTEXT.md` for the current platform map and descriptive architectural status.
+2. Invoke the `.agents/skills/using-repowise` skill for the Repowise-generated system map.
+3. Read any ADRs in the area you're touching first.
 
 ## Execution Steps
 
@@ -44,9 +44,3 @@ After major changes are applied, run an audit to check for:
 - Metadata-only pseudo-fields trying to bypass schema rules.
 - Obsolete file paths or competing state models.
 - *Note:* Do not infer architectural correctness from imports, passing tests, or high code-health scores alone.
-
-## Examples
-
-### Example 1: Triggering a Data Path Audit
-**User:** "We need to change how the workflow node saves execution logs."
-**Agent Response:** *"I am using the architectural-investigation skill to trace the state pipeline from the RuntimeNodeOutput down to PostgreSQL before writing the plan."*

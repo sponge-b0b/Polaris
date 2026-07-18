@@ -12,10 +12,6 @@ At the start of a session:
 
 `AGENTS.md` is prescriptive. `CONTEXT.md` is descriptive. Avoid duplicating detailed architecture between them.
 
-## Architectural Investigation
-
-Before modifying any state, execution result, database schema, or persistence layer, you must invoke the `.agents/skills/architectural-investigation` skill. This ensures a surgical implementation scope, traces complete data lifecycles, and strictly protects single-source-of-truth invariants across the platform.
-
 ## Non-Negotiable Architecture
 
 ### Inside-out design
@@ -102,6 +98,15 @@ Application service
 - Governance operates above policy.
 - Workflow and capability code must not bypass policy or governance evaluation.
 - Do not claim a complete approval subsystem exists unless its contracts, persistence, interfaces, and tests are implemented.
+
+### Architecture Guardrails
+
+- **Authority:** Ensure exactly one authoritative model, owner, and canonical writer for every durable business concept.
+- **Classification:** Distinguish cleanly between runtime evidence, canonical domain records, projections, telemetry, and presentation output.
+- **Conflict Handling:** Ensure that two separate components do not claim to be the source of truth for the same data.
+- **Redundancy Audit:** Evaluate if any existing responsibilities are obsolete or superseded by the new capabilities.
+- **Analytical Services Boundary:** Analytical services must return typed results. They are strictly prohibited from persisting workflow-derived results unless database persistence is the explicit use case.
+- **Architectural Correctness:** Never infer architectural correctness from imports, passing tests, or high code-health scores alone.
 
 ## Data Contracts
 

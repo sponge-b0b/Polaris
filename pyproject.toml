@@ -85,6 +85,20 @@ dependencies = [
 polaris = "interfaces.cli.main:main"
 polaris-mcp = "mcp_server.server:main"
 
+[tool.ruff]
+line-length = 88
+target-version = "py312" # Adjust to your current Python version
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle errors and warnings
+    "F",       # Pyflakes
+    "I",       # isort
+    "C90",     # McCabe complexity
+    "B",       # flake8-bugbear
+    "UP",      # pyupgrade (modernizes python syntax)
+]
+
 [tool.mypy]
 python_version = "3.12"
 explicit_package_bases = true

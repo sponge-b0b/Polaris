@@ -203,3 +203,17 @@ Before editing any Python files or changing code patterns, you must leverage the
 
 - **For Behavioral Location, Mapping Source Contexts, Code Health, and File Risk Auditing:** Invoke the `.agents/skills/using-repowise` skill. You must explicitly alert the user if Repowise flags a target implementation destination as a highly brittle or high-risk file hotspot before code edits begin.
 - **For Structural Invariants & Code Dependency Maps:** Invoke the `.agents/skills/using-graphify` skill. Do not attempt to manually open, read, or parse raw files inside `graphify-out/` during a standard session.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `sponge-b0b/Polaris`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default triage labels are used: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain-doc layout with root `CONTEXT.md` and optional root `docs/adr/`. See `docs/agents/domain.md`.

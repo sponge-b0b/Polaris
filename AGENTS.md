@@ -170,7 +170,6 @@ Rules:
 - Prefer targeted tests tied directly to changed files, affected boundaries, and known regression risks.
 - Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana.
 - If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start the services yourself and run the tests.
-- Do not run broad `pytest -q -x` commands that exit on first failure after waiting on unavailable services.
 - Do not wait for unavailable services to time out when the test is unnecessary.
 - Use timeout values that reasonably match expected command duration; if the estimate is wrong, diagnose and adjust rather than using excessive defaults.
 - Report optional live validations separately from required service-free verification.

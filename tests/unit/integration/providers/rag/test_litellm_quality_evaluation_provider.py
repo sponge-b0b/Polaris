@@ -9,11 +9,11 @@ from integration.clients.llm import LiteLlmGatewayClient
 from integration.providers.rag.litellm_quality_evaluation_provider import (
     LiteLlmRagQualityModelProvider,
 )
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelConfig
 from integration.providers.rag.quality_evaluation_provider import (
+    RagQualityModelConfig,
     RagQualityModelOperation,
+    RagQualityModelRequest,
 )
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelRequest
 
 
 class _FakeCompletionClient:
@@ -81,4 +81,49 @@ async def test_litellm_quality_provider_uses_operation_specific_model(
             "max_tokens": 384,
             "response_format": {"type": "json_object"},
         }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_litellm_quality_provider_defaults_to_approved_logical_aliases() -> None:
+    completion_client = _FakeCompletionClient()
+    model_config = RagQualityModelConfig(
+        crag_grader_model="polaris-local-structured",
+        crag_query_rewrite_model="polaris-local-structured",
+        self_reflection_model="polaris-local-structured",
+        structured_max_tokens=512,
+    )
+    provider = LiteLlmRagQualityModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=completion_client,
+            default_model="default-model",
+        ),
+        model_config,
+    )
+
+    results = [
+        await provider.generate_structured(
+            RagQualityModelRequest(
+                request_id="rag-quality-default-aliases",
+                operation=operation,
+                system_prompt="Return JSON.",
+                user_prompt="Evaluate.",
+            )
+        )
+        for operation in (
+            RagQualityModelOperation.CRAG_GRADE,
+            RagQualityModelOperation.CRAG_QUERY_REWRITE,
+            RagQualityModelOperation.SELF_REFLECTION,
+        )
+    ]
+
+    assert [result.model for result in results] == [
+        "polaris-local-structured",
+        "polaris-local-structured",
+        "polaris-local-structured",
+    ]
+    assert [call["model"] for call in completion_client.calls] == [
+        "polaris-local-structured",
+        "polaris-local-structured",
+        "polaris-local-structured",
     ]

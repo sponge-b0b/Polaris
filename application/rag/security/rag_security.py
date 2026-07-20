@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import re
-
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from html import unescape
 from time import perf_counter
 
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-
+from domain.llm.reasoning_trace_safety import sanitize_reasoning_trace_text
 
 _SAFE_FAILURE_ANSWER = (
     "Unable to produce a sufficiently grounded answer from the available curated "
@@ -244,7 +242,14 @@ def inspect_prompt_injection(text: str) -> RagSecurityInspection:
 
 
 def inspect_suspicious_output(text: str) -> RagSecurityInspection:
-    return _inspect(text, _SUSPICIOUS_OUTPUT_PATTERNS)
+    inspection = _inspect(text, _SUSPICIOUS_OUTPUT_PATTERNS)
+    reasoning_trace = sanitize_reasoning_trace_text(text)
+    if not reasoning_trace.detected:
+        return inspection
+    return RagSecurityInspection(
+        detected=True,
+        signals=tuple(dict.fromkeys((*inspection.signals, "model_internal_reasoning"))),
+    )
 
 
 def sanitize_untrusted_text(text: str) -> SanitizedRagText:

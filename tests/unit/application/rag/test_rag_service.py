@@ -2,45 +2,46 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
 from application.observability import AiObservationType
-from application.rag.generation import RagAnswerGenerator
-from application.rag.routing.query_routing_models import RagQueryModelExecution
-from application.rag.graphs import RagCorrectiveAction
+from application.rag.contracts.rag_context import (
+    RagRetrievalFilters,
+    RagRetrievedContext,
+    RagSource,
+)
 from application.rag.contracts.rag_quality_models import RagReflectionScores
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_context import RagRetrievalFilters
-from application.rag.retrieval.rag_retriever import RagRetrievalResult
-from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_result import RagResult
+from application.rag.generation import RagAnswerGenerator
+from application.rag.graphs import RagCorrectiveAction
 from application.rag.rag_service import RagService
-from application.rag.contracts.rag_context import RagSource
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagQueryModelExecutionRecord
-from core.storage.persistence.rag import RagQueryReflectionScores
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
+from application.rag.retrieval.rag_retriever import RagRetrievalResult
+from application.rag.routing.query_routing_models import RagQueryModelExecution
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+    RagQueryLogRecord,
+    RagQueryModelExecutionRecord,
+    RagQueryReflectionScores,
+    RagRecordPersistenceResult,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
-)
-from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationResult,
 )
 from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
@@ -158,7 +159,7 @@ async def test_rag_service_does_not_persist_raw_transient_web_context_payload() 
 async def test_rag_service_persists_query_model_execution_metadata() -> None:
     execution = RagQueryModelExecution(
         operation="adaptive_triage",
-        configured_model="qwen2.5:7b",
+        configured_model="polaris-local-fast",
         provider_name="ollama",
         duration_ms=14.25,
         success=True,
@@ -194,7 +195,7 @@ async def test_rag_service_persists_query_model_execution_metadata() -> None:
     assert repository.query_logs[-1].model_executions == (
         RagQueryModelExecutionRecord(
             operation="adaptive_triage",
-            configured_model="qwen2.5:7b",
+            configured_model="polaris-local-fast",
             provider_name="ollama",
             duration_ms=14.25,
             success=True,
@@ -283,7 +284,9 @@ async def test_rag_service_projects_sanitized_ai_query_observation() -> None:
             answer_generator=RagAnswerGenerator(
                 answer_provider=FakeAnswerProvider(
                     result=RagAnswerGenerationResult(
-                        answer_text="SPY breadth improved with broad participation [C1].",
+                        answer_text=(
+                            "SPY breadth improved with broad participation [C1]."
+                        ),
                         model="unit-test-model",
                         provider_name="unit-test-provider",
                     )
@@ -420,7 +423,7 @@ class FakePipeline:
     def __init__(
         self,
         *,
-        retriever: "FakeRetriever",
+        retriever: FakeRetriever,
         answer_generator: RagAnswerGenerator,
     ) -> None:
         self._retriever = retriever
@@ -652,7 +655,7 @@ def _context(
             title="Morning Report",
             chunk_id=context_id,
             section_name="market_breadth",
-            generated_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2026, 6, 1, tzinfo=UTC),
             workflow_name="morning_report",
             execution_id="exec-1",
             metadata={"symbol": "SPY"},

@@ -1,38 +1,37 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
-from application.ai_optimization.runtime_artifacts import AiPromptArtifactResolver
 from application.ai_optimization.runtime_artifacts import (
     RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
+    AiPromptArtifactResolver,
+    ResolvedAiPromptArtifact,
 )
-from application.ai_optimization.runtime_artifacts import ResolvedAiPromptArtifact
-from application.rag.generation.secure_prompt_builder import (
-    RAG_ANSWER_GENERATION_PROMPT_HASH,
-)
-from application.rag.generation.secure_prompt_builder import (
-    RAG_ANSWER_GENERATION_PROMPT_NAME,
-)
-from application.rag.generation.secure_prompt_builder import (
-    RAG_ANSWER_GENERATION_PROMPT_SOURCE,
-)
-from application.rag.generation.secure_prompt_builder import (
-    RAG_ANSWER_GENERATION_PROMPT_VERSION,
-)
-from application.rag.generation.secure_prompt_builder import SecureRagContextPackage
-from application.rag.generation.secure_prompt_builder import SecureRagPromptBuilder
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.generation.secure_prompt_builder import (
+    RAG_ANSWER_GENERATION_PROMPT_HASH,
+    RAG_ANSWER_GENERATION_PROMPT_NAME,
+    RAG_ANSWER_GENERATION_PROMPT_SOURCE,
+    RAG_ANSWER_GENERATION_PROMPT_VERSION,
+    SecureRagContextPackage,
+    SecureRagPromptBuilder,
+)
+from application.rag.security.rag_security import safe_grounding_failure_answer
 from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.rag import JsonObject
+from core.storage.persistence.rag import JsonObject, JsonValue
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.answer_generation_provider import (
-    RagAnswerGenerationProvider,
+from domain.llm.reasoning_trace_safety import (
+    ReasoningTraceViolationError,
+    reject_reasoning_trace,
+    sanitize_reasoning_trace_text,
 )
 from integration.providers.rag.answer_generation_provider import (
+    RagAnswerGenerationProvider,
     RagAnswerGenerationRequest,
 )
 
@@ -154,6 +153,33 @@ class RagAnswerGenerator:
                 request=request,
                 error=str(exc),
             )
+
+        try:
+            reject_reasoning_trace(
+                provider_result.answer_text,
+                boundary_name="RAG answer generation result",
+            )
+        except ReasoningTraceViolationError:
+            await self._emit_stage_completed(
+                request=request,
+                operation="rag.generation.reasoning_trace_guard",
+                duration_seconds=0.0,
+                attributes={
+                    "reasoning_trace_detected": True,
+                    "fail_closed": True,
+                },
+            )
+            result = RagResult.no_results(
+                request=request,
+                answer_text=safe_grounding_failure_answer(),
+            )
+            await self._emit_completed(
+                request=request,
+                result=result,
+                context_count=len(contexts),
+                duration_seconds=perf_counter() - started_at,
+            )
+            return result
 
         result = RagResult.answered(
             request=request,
@@ -318,7 +344,85 @@ def _result_metadata(
         "generation_provider": provider_name,
         "generation_model": model,
         **prompt_metadata,
-        "provider_metadata": dict(
+        "provider_metadata": _safe_provider_metadata(
             provider_metadata,
         ),
     }
+
+
+_REASONING_METADATA_KEYS = frozenset(
+    {
+        "chain_of_thought",
+        "hidden_reasoning",
+        "internal_reasoning",
+        "model_reasoning",
+        "reasoning",
+        "reasoning_trace",
+        "scratchpad",
+        "thinking",
+        "thoughts",
+    }
+)
+_REASONING_METADATA_KEY_ALLOWLIST = frozenset(
+    {
+        "reasoning_trace_safety",
+    }
+)
+
+
+def _safe_provider_metadata(
+    provider_metadata: JsonObject,
+) -> JsonObject:
+    sanitized: dict[str, JsonValue] = {}
+    for key, value in provider_metadata.items():
+        keep, sanitized_value = _safe_metadata_value(
+            value,
+            key_path=(key,),
+        )
+        if keep:
+            sanitized[key] = sanitized_value
+    return sanitized
+
+
+def _safe_metadata_value(
+    value: JsonValue,
+    *,
+    key_path: tuple[str, ...],
+) -> tuple[bool, JsonValue]:
+    if key_path and _is_model_reasoning_metadata_key(key_path[-1]):
+        return False, None
+    if isinstance(value, str):
+        sanitized = sanitize_reasoning_trace_text(value)
+        if sanitized.detected:
+            return False, None
+        return True, value
+    if isinstance(value, Mapping):
+        safe_mapping: dict[str, JsonValue] = {}
+        for nested_key, nested_value in value.items():
+            keep, safe_value = _safe_metadata_value(
+                cast(JsonValue, nested_value),
+                key_path=(*key_path, str(nested_key)),
+            )
+            if keep:
+                safe_mapping[str(nested_key)] = safe_value
+        return True, safe_mapping
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        safe_items: list[JsonValue] = []
+        for item in value:
+            keep, safe_item = _safe_metadata_value(
+                cast(JsonValue, item),
+                key_path=key_path,
+            )
+            if keep:
+                safe_items.append(safe_item)
+        return True, safe_items
+    return True, value
+
+
+def _is_model_reasoning_metadata_key(
+    key: str,
+) -> bool:
+    normalized = key.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in _REASONING_METADATA_KEY_ALLOWLIST:
+        return False
+    return normalized in _REASONING_METADATA_KEYS

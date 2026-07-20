@@ -12,9 +12,11 @@ from integration.clients.llm import LiteLlmGatewayClient
 from integration.providers.rag.litellm_query_routing_provider import (
     LiteLlmRagQueryModelProvider,
 )
-from integration.providers.rag.query_routing_provider import RagQueryModelConfig
-from integration.providers.rag.query_routing_provider import RagQueryModelOperation
-from integration.providers.rag.query_routing_provider import RagQueryModelRequest
+from integration.providers.rag.query_routing_provider import (
+    RagQueryModelConfig,
+    RagQueryModelOperation,
+    RagQueryModelRequest,
+)
 
 _MODEL_CONFIG = RagQueryModelConfig(
     query_rewrite_model="rewrite-model",
@@ -89,6 +91,49 @@ async def test_litellm_query_provider_uses_explicit_operation_model(
             "max_tokens": 640 if operation is RagQueryModelOperation.HYDE else 384,
             "response_format": {"type": "json_object"},
         }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_litellm_query_provider_defaults_to_approved_logical_aliases() -> None:
+    completion_client = _FakeCompletionClient()
+    model_config = RagQueryModelConfig(
+        query_rewrite_model="polaris-local-fast",
+        adaptive_triage_model="polaris-local-fast",
+        route_selection_model="polaris-local-structured",
+        hyde_model="polaris-local-reasoning",
+        structured_max_tokens=512,
+        hyde_max_tokens=768,
+    )
+    provider = LiteLlmRagQueryModelProvider(
+        LiteLlmGatewayClient(
+            completion_client=completion_client,
+            default_model="default-model",
+        ),
+        model_config=model_config,
+    )
+
+    results = [
+        await provider.generate_structured(_request(operation))
+        for operation in (
+            RagQueryModelOperation.REWRITE,
+            RagQueryModelOperation.ADAPTIVE_TRIAGE,
+            RagQueryModelOperation.ROUTE_SELECTION,
+            RagQueryModelOperation.HYDE,
+        )
+    ]
+
+    assert [result.model for result in results] == [
+        "polaris-local-fast",
+        "polaris-local-fast",
+        "polaris-local-structured",
+        "polaris-local-reasoning",
+    ]
+    assert [call["model"] for call in completion_client.calls] == [
+        "polaris-local-fast",
+        "polaris-local-fast",
+        "polaris-local-structured",
+        "polaris-local-reasoning",
     ]
 
 

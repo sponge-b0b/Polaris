@@ -1,7 +1,7 @@
 ---
 name: using-graphify
 description: Queries the repository's structural dependency graph using the Graphify CLI tool. Use to answer questions about architecture, file dependencies, code paths, and component logic.
-compatibility: system=graphify
+compatibility: system=graphify>=0.9.20
 ---
 
 # Codebase Graph Query, Navigation, and Analysis Skill
@@ -11,9 +11,10 @@ Leverage local repository graph tooling (`graphify`) to analyze codebase structu
 
 ## Guardrails
 - **Performance Invariant:** Never attempt to read, open, or parse files inside the `graphify-out/` directory (e.g., `graphify-out/graph.json`) using standard shell commands (`cat`, `grep`, `jq`). Always interface via the CLI.
-- **Index Lifecycle:** If a command returns an error or if `graphify-out/graph.json` is missing, you must run the index lifecycle sequence before proceeding:
+- **Index Lifecycle:** If a command returns an error or if `graphify-out/graph.json` is missing, you must run the full-stack extraction and clustering routine sequentially to ensure both Python syntax and Markdown documentation nodes are preserved:
   ```bash
-  uv run graphify update .
+  uv run graphify extract . --max-concurrency 1
+  uv run graphify cluster-only . --max-concurrency 1
   ```
 - **Fallback Execution:** If `uv` is not present or configured in the project root, drop the prefix and execute the tool directly: `graphify <command>`.
 

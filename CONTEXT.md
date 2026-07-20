@@ -283,6 +283,7 @@ Use these documents for deeper, maintained detail:
 - `docs/platform_data_contract_inventory.md`
 - `docs/postgres_persistence.md`
 - `docs/platform_rag_pipeline.md`
+- `docs/model_profile_policy.md`
 - `docs/workflow_output_curation.md`
 - `docs/backtesting_system.md`
 - `docs/core_telemetry_observability.md`

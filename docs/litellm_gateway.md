@@ -70,7 +70,7 @@ Polaris application settings:
 | `POLARIS_LITELLM_STRICT_MODE` | Requires complete gateway configuration during settings validation. |
 | `POLARIS_LITELLM_OLLAMA_API_BASE` | LiteLLM-container-reachable Ollama API base used by `config/litellm/config.yaml`. |
 
-LiteLLM model aliases are defined in `config/litellm/config.yaml`. Polaris source defaults use logical aliases such as `polaris-local-fast`, `polaris-local-structured`, and `polaris-local-synthesis`; LiteLLM maps those aliases to concrete local backends such as Ollama `qwen2.5:7b` or `qwen3.5:4b`. Change the LiteLLM alias mapping for model-operations tuning instead of hard-coding concrete model names in application defaults.
+LiteLLM model aliases are defined in `config/litellm/config.yaml`. Polaris source defaults use logical aliases such as `polaris-local-fast`, `polaris-local-structured`, and `polaris-local-synthesis`; LiteLLM maps those aliases to concrete local backends. Change the LiteLLM alias mapping for model-operations tuning instead of hard-coding concrete model names in application defaults. See [Polaris Model Profile Policy](model_profile_policy.md) for the complete alias taxonomy, local low-VRAM profile, production override policy, reasoning-trace safety rules, and model-regression validation gate.
 
 The Polaris client enforces a local operations policy before and after each gateway call:
 

@@ -140,10 +140,12 @@ content.
 
 Each setting is independent even when multiple stages currently use the same
 model, allowing later model changes without changing stage contracts.
-The default low-VRAM local LiteLLM profile maps fast, structured, evaluation,
-and optimization aliases to `qwen2.5:7b`, while reasoning and synthesis aliases
-map to `qwen3.5:4b`. This keeps the more reasoning-oriented model on synthesis
-paths without making concrete model names architectural defaults.
+The default low-VRAM local LiteLLM profile maps fast to `qwen2.5:7b`,
+reasoning to `qwen3.5:4b`, and structured, synthesis, evaluation, and
+optimization to `qwen2.5-coder:7b`. These concrete bindings live in
+`config/litellm/config.yaml`; RAG code consumes logical aliases rather than
+backend model names. See [Polaris Model Profile Policy](model_profile_policy.md)
+for the full local and production policy.
 
 Generation budgets are also stage-specific. Structured routing, CRAG, and
 Self-RAG JSON calls default to `RAG_STRUCTURED_MAX_TOKENS=512`; HyDE defaults to

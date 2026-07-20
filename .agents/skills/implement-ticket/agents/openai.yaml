@@ -1,0 +1,5 @@
+interface:
+  display_name: "Implement Ticket"
+  short_description: "Build work from an individual ticket"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Review Spec"
+  short_description: "Review the implementation of a spec"
+policy:
+  allow_implicit_invocation: false

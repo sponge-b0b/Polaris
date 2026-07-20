@@ -1,0 +1,5 @@
+interface:
+  display_name: "Verify Spec"
+  short_description: "Verify the implementation of a spec"
+policy:
+  allow_implicit_invocation: false

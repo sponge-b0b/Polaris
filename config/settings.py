@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +12,8 @@ DEFAULT_LITELLM_SYNTHESIS_MODEL = "polaris-local-synthesis"
 DEFAULT_LITELLM_STRUCTURED_MODEL = "polaris-local-structured"
 DEFAULT_LITELLM_EVALUATION_MODEL = "polaris-local-evaluation"
 DEFAULT_LITELLM_OPTIMIZATION_MODEL = "polaris-local-optimization"
+DEFAULT_STRATEGY_PERSPECTIVE_REASONING_MODEL = DEFAULT_LITELLM_REASONING_MODEL
+DEFAULT_STRATEGY_SYNTHESIS_MODEL = DEFAULT_LITELLM_SYNTHESIS_MODEL
 DEFAULT_RAG_QUERY_REWRITE_MODEL = DEFAULT_LITELLM_FAST_MODEL
 DEFAULT_RAG_ADAPTIVE_TRIAGE_MODEL = DEFAULT_LITELLM_FAST_MODEL
 DEFAULT_RAG_ROUTE_SELECTION_MODEL = DEFAULT_LITELLM_STRUCTURED_MODEL
@@ -70,13 +72,13 @@ class Settings(BaseSettings):
     # API KEYS and CREDENTIALS
     # ============================================================
 
-    ALPACA_API_KEY: Optional[str] = None
-    ALPACA_API_SECRET_KEY: Optional[str] = None
-    ALPHAVANTAGE_API_KEY: Optional[str] = None
-    FINNHUB_API_KEY: Optional[str] = None
-    FRED_API_KEY: Optional[str] = None
-    MASSIVE_API_KEY: Optional[str] = None
-    NEWSAPI_API_KEY: Optional[str] = None
+    ALPACA_API_KEY: str | None = None
+    ALPACA_API_SECRET_KEY: str | None = None
+    ALPHAVANTAGE_API_KEY: str | None = None
+    FINNHUB_API_KEY: str | None = None
+    FRED_API_KEY: str | None = None
+    MASSIVE_API_KEY: str | None = None
+    NEWSAPI_API_KEY: str | None = None
 
     # ============================================================
     # PROVIDERS
@@ -98,7 +100,7 @@ class Settings(BaseSettings):
     BACKTEST_POSTGRES_DATA_PROVIDER: ClassVar[str] = "backtest_postgres_data_provider"
     LIVE_DATA_PROVIDER: ClassVar[str] = "live_data_provider"
     MARKET_DATA_PROVIDER: str = LIVE_DATA_PROVIDER
-    BACKTEST_POSTGRES_MARKET_DATA_SOURCE: Optional[str] = None
+    BACKTEST_POSTGRES_MARKET_DATA_SOURCE: str | None = None
     BACKTEST_POSTGRES_SP500_UNIVERSE: str = "sp500"
     BACKTEST_POSTGRES_MISSING_DATA_POLICY: str = "fail_fast"
 
@@ -130,7 +132,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "polaris"
     POSTGRES_USER: str = "polaris"
-    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_PASSWORD: str | None = None
 
     # ============================================================
     # LANGFUSE DATABASE
@@ -138,7 +140,7 @@ class Settings(BaseSettings):
 
     LANGFUSE_POSTGRES_DB: str = "langfuse"
     LANGFUSE_POSTGRES_USER: str = "langfuse"
-    LANGFUSE_POSTGRES_PASSWORD: Optional[str] = None
+    LANGFUSE_POSTGRES_PASSWORD: str | None = None
 
     # ============================================================
     # QDRANT
@@ -153,8 +155,8 @@ class Settings(BaseSettings):
     # ============================================================
 
     NEO4J_URI: str = "bolt://localhost:7687"
-    NEO4J_USER: Optional[str] = None
-    NEO4J_PASSWORD: Optional[str] = None
+    NEO4J_USER: str | None = None
+    NEO4J_PASSWORD: str | None = None
     NEO4J_DATABASE: str = "neo4j"
 
     # ============================================================
@@ -175,7 +177,7 @@ class Settings(BaseSettings):
             "LITELLM_BASE_URL",
         ),
     )
-    LITELLM_API_KEY: Optional[str] = Field(
+    LITELLM_API_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_LITELLM_API_KEY",
@@ -225,6 +227,25 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = DEFAULT_EMBEDDING_MODEL
 
     # ============================================================
+    # STRATEGY MODEL ALLOCATION
+    # ============================================================
+
+    STRATEGY_PERSPECTIVE_REASONING_MODEL: str = Field(
+        default=DEFAULT_STRATEGY_PERSPECTIVE_REASONING_MODEL,
+        validation_alias=AliasChoices(
+            "POLARIS_STRATEGY_PERSPECTIVE_REASONING_MODEL",
+            "STRATEGY_PERSPECTIVE_REASONING_MODEL",
+        ),
+    )
+    STRATEGY_SYNTHESIS_MODEL: str = Field(
+        default=DEFAULT_STRATEGY_SYNTHESIS_MODEL,
+        validation_alias=AliasChoices(
+            "POLARIS_STRATEGY_SYNTHESIS_MODEL",
+            "STRATEGY_SYNTHESIS_MODEL",
+        ),
+    )
+
+    # ============================================================
     # MEMORY / RAG
     # ============================================================
 
@@ -239,7 +260,7 @@ class Settings(BaseSettings):
     CRAWL4AI_HEADLESS: bool = True
     CRAWL4AI_CACHE_ENABLED: bool = True
     CRAWL4AI_MAX_CONCURRENCY: int = 4
-    CRAWL4AI_USER_AGENT: Optional[str] = None
+    CRAWL4AI_USER_AGENT: str | None = None
 
     RAG_QUERY_REWRITE_MODEL: str = Field(
         default=DEFAULT_RAG_QUERY_REWRITE_MODEL,
@@ -438,18 +459,18 @@ class Settings(BaseSettings):
     # AI OBSERVABILITY / LANGFUSE
     # ============================================================
 
-    LANGFUSE_HOST: Optional[str] = Field(
+    LANGFUSE_HOST: str | None = Field(
         default=None,
         validation_alias=AliasChoices("POLARIS_LANGFUSE_HOST", "LANGFUSE_HOST"),
     )
-    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(
+    LANGFUSE_PUBLIC_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_LANGFUSE_PUBLIC_KEY",
             "LANGFUSE_PUBLIC_KEY",
         ),
     )
-    LANGFUSE_SECRET_KEY: Optional[str] = Field(
+    LANGFUSE_SECRET_KEY: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_LANGFUSE_SECRET_KEY",
@@ -463,7 +484,7 @@ class Settings(BaseSettings):
             "LANGFUSE_ENVIRONMENT",
         ),
     )
-    LANGFUSE_RELEASE: Optional[str] = Field(
+    LANGFUSE_RELEASE: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_LANGFUSE_RELEASE",
@@ -558,14 +579,14 @@ class Settings(BaseSettings):
             "DEEPEVAL_ENABLED",
         ),
     )
-    DEEPEVAL_JUDGE_PROVIDER: Optional[str] = Field(
+    DEEPEVAL_JUDGE_PROVIDER: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_DEEPEVAL_JUDGE_PROVIDER",
             "DEEPEVAL_JUDGE_PROVIDER",
         ),
     )
-    DEEPEVAL_JUDGE_MODEL: Optional[str] = Field(
+    DEEPEVAL_JUDGE_MODEL: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "POLARIS_DEEPEVAL_JUDGE_MODEL",
@@ -701,6 +722,8 @@ class Settings(BaseSettings):
         return normalized
 
     @field_validator(
+        "STRATEGY_PERSPECTIVE_REASONING_MODEL",
+        "STRATEGY_SYNTHESIS_MODEL",
         "RAG_QUERY_REWRITE_MODEL",
         "RAG_ADAPTIVE_TRIAGE_MODEL",
         "RAG_ROUTE_SELECTION_MODEL",

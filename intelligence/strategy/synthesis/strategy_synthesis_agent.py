@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from time import perf_counter
 from typing import Any
-from typing import Mapping
 
 from application.observability import AiObservationStatus
 from application.services.base import ServiceRequest, ServiceRunner
 from application.services.market_events.market_events_request import MarketEventsRequest
 from application.services.market_events.market_events_service import MarketEventsService
+from config.strategy_model_config import (
+    DEFAULT_STRATEGY_MODEL_CONFIG,
+    StrategyModelConfig,
+)
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -19,23 +23,27 @@ from domain.workflow_outputs import (
 from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context,
 )
-from intelligence.observability import IntelligenceAiObservabilityProjectorPort
-from intelligence.observability import IntelligenceAiObservabilityRecorder
-from intelligence.observability import record_strategy_synthesis_observation
+from intelligence.observability import (
+    IntelligenceAiObservabilityProjectorPort,
+    IntelligenceAiObservabilityRecorder,
+    record_strategy_synthesis_observation,
+)
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
-from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDegradedReason
-from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
 from intelligence.strategy.market_context import extract_symbol_constituents
+from intelligence.strategy.model_usage import strategy_synthesis_usage
+from intelligence.strategy.synthesis.contracts import (
+    StrategyHypothesisEvaluation,
+    StrategySynthesisDecision,
+    StrategySynthesisDegradedReason,
+    StrategySynthesisSelectionStatus,
+)
 from intelligence.strategy.synthesis.strategy_synthesis_policy import (
     StrategyMarketEvents,
     StrategySynthesisInputs,
     synthesize_strategy,
 )
 from intelligence.telemetry import telemetry_context_from_runtime
-
 
 HIGH_HYPOTHESIS_DISAGREEMENT_THRESHOLD = 0.50
 
@@ -59,12 +67,16 @@ class StrategySynthesisAgent(RuntimeNode):
         intelligence_telemetry: IntelligenceTelemetry,
         ai_observability_projector: IntelligenceAiObservabilityProjectorPort
         | None = None,
+        strategy_model_config: StrategyModelConfig | None = None,
     ) -> None:
         self.events_service = events_service
         self.service_runner = service_runner
         self.intelligence_telemetry = intelligence_telemetry
         self.ai_observability = IntelligenceAiObservabilityRecorder(
             ai_observability_projector
+        )
+        self.strategy_model_config = (
+            strategy_model_config or DEFAULT_STRATEGY_MODEL_CONFIG
         )
 
     async def _execute(
@@ -86,6 +98,9 @@ class StrategySynthesisAgent(RuntimeNode):
             context=context,
         )
         synthesis_output = synthesize_strategy(inputs, market_events)
+        model_usage = strategy_synthesis_usage(
+            model_config=self.strategy_model_config,
+        )
         latency_seconds = perf_counter() - started_at
 
         await self._emit_synthesis_operational_telemetry(
@@ -121,19 +136,23 @@ class StrategySynthesisAgent(RuntimeNode):
                 f"evaluations={len(_mapping_sequence(synthesis_output.features.get('strategy_hypothesis_evaluations')))};"
                 f"recommendations={len(synthesis_output.recommendations)}"
             ),
-            metadata=_strategy_features_ai_metadata(
-                features=synthesis_output.features,
-                symbol=inputs.symbol,
-                recommendation_count=len(synthesis_output.recommendations),
-                confidence=synthesis_output.confidence,
-                uncertainty=synthesis_output.uncertainty,
-                fallback=False,
-            ),
+            metadata={
+                **model_usage.to_metadata(),
+                **_strategy_features_ai_metadata(
+                    features=synthesis_output.features,
+                    symbol=inputs.symbol,
+                    recommendation_count=len(synthesis_output.recommendations),
+                    confidence=synthesis_output.confidence,
+                    uncertainty=synthesis_output.uncertainty,
+                    fallback=False,
+                ),
+            },
         )
 
         return RuntimeNodeOutput.success_output(
             outputs=synthesis_output.to_runtime_outputs(),
             execution_metadata={
+                **model_usage.to_metadata(),
                 "node_name": self.node_name,
                 "node_type": self.node_type,
                 "confidence": synthesis_output.confidence,
@@ -259,6 +278,9 @@ class StrategySynthesisAgent(RuntimeNode):
             payload={"reason": reason, "fallback": True},
         )
         decision = _degraded_neutral_decision(reason)
+        model_usage = strategy_synthesis_usage(
+            model_config=self.strategy_model_config,
+        )
         await self._emit_fallback_operational_telemetry(
             context=context,
             decision=decision,
@@ -277,6 +299,7 @@ class StrategySynthesisAgent(RuntimeNode):
                 f"recommendations={len(decision.recommendations)}"
             ),
             metadata={
+                **model_usage.to_metadata(),
                 **_strategy_decision_ai_metadata(
                     decision=decision,
                     symbol=_string_value(
@@ -322,6 +345,7 @@ class StrategySynthesisAgent(RuntimeNode):
                 },
             },
             execution_metadata={
+                **model_usage.to_metadata(),
                 "node_name": self.node_name,
                 "node_type": self.node_type,
                 "confidence": decision.confidence,

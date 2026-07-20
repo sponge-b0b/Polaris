@@ -1,13 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Literal
-from typing import Protocol
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, Literal, Protocol, cast
 
 from config.settings import Settings
 from core.storage.persistence.rag import JsonObject
@@ -38,6 +35,14 @@ class LiteLlmGatewayTimeoutError(LiteLlmGatewayError):
 
 class LiteLlmGatewayResponseError(LiteLlmGatewayError):
     """Raised when LiteLLM returns an unusable or malformed response."""
+
+
+class LiteLlmGatewayModelFallbackError(LiteLlmGatewayError):
+    """Raised when LiteLLM returns a different model than requested."""
+
+
+class LiteLlmGatewayRequestBudgetError(LiteLlmGatewayError):
+    """Raised when a LiteLLM request exceeds the configured token budget."""
 
 
 class LiteLlmChatCompletionClient(Protocol):
@@ -83,6 +88,36 @@ class LiteLlmGatewayChatRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class LiteLlmGatewayOperationsPolicy:
+    """Local LiteLLM execution policy for bounded model operations."""
+
+    max_concurrency: int = 1
+    timeout_seconds: float = 60.0
+    request_budget_tokens: int = 4096
+    reject_model_fallback: bool = True
+
+    def __post_init__(self) -> None:
+        if self.max_concurrency <= 0:
+            raise ValueError("max_concurrency must be greater than 0.")
+        if self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be greater than 0.")
+        if self.request_budget_tokens <= 0:
+            raise ValueError("request_budget_tokens must be greater than 0.")
+
+    def to_metadata(self) -> JsonObject:
+        """Return sanitized policy settings for observability metadata."""
+
+        return {
+            "max_concurrency": self.max_concurrency,
+            "timeout_seconds": self.timeout_seconds,
+            "request_budget_tokens": self.request_budget_tokens,
+            "model_fallback_policy": (
+                "reject" if self.reject_model_fallback else "report"
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LiteLlmGatewayChatResult:
     """Typed text response returned from the LiteLLM gateway."""
 
@@ -119,16 +154,25 @@ class LiteLlmGatewayClient:
         *,
         completion_client: LiteLlmChatCompletionClient,
         default_model: str,
+        operations_policy: LiteLlmGatewayOperationsPolicy | None = None,
     ) -> None:
         _require_non_empty(default_model, "default_model")
         self._completion_client = completion_client
         self._default_model = default_model
+        self._operations_policy = operations_policy or LiteLlmGatewayOperationsPolicy()
+        self._semaphore = asyncio.Semaphore(self._operations_policy.max_concurrency)
 
     @property
     def default_model(self) -> str:
         """Logical default model sent to the LiteLLM gateway."""
 
         return self._default_model
+
+    @property
+    def operations_policy(self) -> LiteLlmGatewayOperationsPolicy:
+        """Conservative local execution policy enforced by this client."""
+
+        return self._operations_policy
 
     @classmethod
     def from_settings(cls, settings: Settings) -> LiteLlmGatewayClient:
@@ -149,6 +193,12 @@ class LiteLlmGatewayClient:
                 native_client.chat.completions,
             ),
             default_model=settings.DEFAULT_MODEL,
+            operations_policy=LiteLlmGatewayOperationsPolicy(
+                max_concurrency=settings.LITELLM_MAX_CONCURRENCY,
+                timeout_seconds=settings.LITELLM_TIMEOUT_SECONDS,
+                request_budget_tokens=settings.LITELLM_REQUEST_BUDGET_TOKENS,
+                reject_model_fallback=settings.LITELLM_REJECT_MODEL_FALLBACK,
+            ),
         )
 
     async def generate_text(
@@ -164,7 +214,7 @@ class LiteLlmGatewayClient:
         """Generate plain text through LiteLLM without exposing SDK responses."""
 
         request = LiteLlmGatewayChatRequest(
-            model=model or self._default_model,
+            model=_resolve_request_model(model, default_model=self._default_model),
             messages=_prompt_messages(prompt=prompt, system_prompt=system_prompt),
             temperature=temperature,
             max_tokens=max_tokens,
@@ -186,7 +236,7 @@ class LiteLlmGatewayClient:
         """Generate and parse one JSON object through LiteLLM."""
 
         request = LiteLlmGatewayChatRequest(
-            model=model or self._default_model,
+            model=_resolve_request_model(model, default_model=self._default_model),
             messages=_prompt_messages(prompt=prompt, system_prompt=system_prompt),
             temperature=temperature,
             max_tokens=max_tokens,
@@ -217,43 +267,81 @@ class LiteLlmGatewayClient:
     ) -> LiteLlmGatewayChatResult:
         """Execute a typed chat-completion request against LiteLLM."""
 
-        response = await self._create_completion(request)
+        effective_max_tokens = self._effective_max_tokens(request)
+        response = await self._create_completion(
+            request,
+            effective_max_tokens=effective_max_tokens,
+        )
         text = _extract_text(response)
-        model = _response_model(response) or request.model
+        response_model = _response_model(response) or request.model
+        model_fallback_detected = response_model != request.model
+        if model_fallback_detected and self._operations_policy.reject_model_fallback:
+            raise LiteLlmGatewayModelFallbackError(
+                "LiteLLM gateway returned model "
+                f"'{response_model}' for requested model alias/capability "
+                f"'{request.model}'; silent model fallback is disabled."
+            )
         return LiteLlmGatewayChatResult(
             text=text,
-            model=model,
+            model=response_model,
             provider_name=LITELLM_PROVIDER_NAME,
             metadata=_response_metadata(
                 response,
                 request=request,
+                response_model=response_model,
+                model_fallback_detected=model_fallback_detected,
+                effective_max_tokens=effective_max_tokens,
+                operations_policy=self._operations_policy,
             ),
         )
 
     async def _create_completion(
         self,
         request: LiteLlmGatewayChatRequest,
+        *,
+        effective_max_tokens: int,
     ) -> Any:
         kwargs: dict[str, Any] = {
             "model": request.model,
             "messages": [message.to_payload() for message in request.messages],
             "temperature": request.temperature,
         }
-        if request.max_tokens is not None:
-            kwargs["max_tokens"] = request.max_tokens
+        kwargs["max_tokens"] = effective_max_tokens
         if request.response_format == "json_object":
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            return await self._completion_client.create(**kwargs)
+            async with self._semaphore:
+                return await self._completion_client.create(**kwargs)
         except Exception as exc:
             if _is_timeout_error(exc):
                 raise LiteLlmGatewayTimeoutError(
-                    "LiteLLM gateway chat completion timed out."
+                    "LiteLLM gateway chat completion timed out for model "
+                    f"alias/capability '{request.model}' after "
+                    f"{self._operations_policy.timeout_seconds:g} seconds."
                 ) from exc
             raise LiteLlmGatewayError(
-                "LiteLLM gateway chat completion failed."
+                "LiteLLM gateway chat completion failed for model "
+                f"alias/capability '{request.model}'."
             ) from exc
+
+    def _effective_max_tokens(self, request: LiteLlmGatewayChatRequest) -> int:
+        requested_tokens = request.max_tokens
+        budget_tokens = self._operations_policy.request_budget_tokens
+        if requested_tokens is not None and requested_tokens > budget_tokens:
+            raise LiteLlmGatewayRequestBudgetError(
+                "LiteLLM request for model alias/capability "
+                f"'{request.model}' requested max_tokens={requested_tokens}, "
+                f"which exceeds configured request_budget_tokens={budget_tokens}."
+            )
+        return requested_tokens if requested_tokens is not None else budget_tokens
+
+
+def _resolve_request_model(model: str | None, *, default_model: str) -> str:
+    if model is None:
+        return default_model
+    _require_non_empty(model, "model")
+    return model.strip()
 
 
 def _prompt_messages(
@@ -304,11 +392,19 @@ def _response_metadata(
     response: Any,
     *,
     request: LiteLlmGatewayChatRequest,
+    response_model: str,
+    model_fallback_detected: bool,
+    effective_max_tokens: int,
+    operations_policy: LiteLlmGatewayOperationsPolicy,
 ) -> JsonObject:
     metadata: dict[str, Any] = {
         "requested_model": request.model,
+        "response_model": response_model,
         "response_format": request.response_format,
         "request_metadata": dict(request.metadata),
+        "effective_max_tokens": effective_max_tokens,
+        "model_fallback_detected": model_fallback_detected,
+        "operations_policy": operations_policy.to_metadata(),
     }
 
     response_id = getattr(response, "id", None)

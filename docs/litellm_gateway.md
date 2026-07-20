@@ -63,11 +63,24 @@ Polaris application settings:
 | `POLARIS_LITELLM_ENABLED` | Enables the LiteLLM gateway feature gate. |
 | `POLARIS_LITELLM_BASE_URL` | OpenAI-compatible LiteLLM base URL, usually `http://localhost:4000/v1`. |
 | `POLARIS_LITELLM_API_KEY` | Proxy API key used by Polaris clients. Do not commit real values. |
-| `POLARIS_LITELLM_TIMEOUT_SECONDS` | Request timeout for LiteLLM-backed calls. |
+| `POLARIS_LITELLM_TIMEOUT_SECONDS` | Request timeout for LiteLLM-backed calls. This value is also recorded in sanitized operation metadata. |
+| `POLARIS_LITELLM_MAX_CONCURRENCY` | Polaris-side concurrency cap for local LiteLLM gateway calls. Defaults to `1` for predictable 8GB-VRAM execution. |
+| `POLARIS_LITELLM_REQUEST_BUDGET_TOKENS` | Default and maximum completion token budget enforced by the Polaris gateway client. Defaults to `4096`. |
+| `POLARIS_LITELLM_REJECT_MODEL_FALLBACK` | Rejects alias/model fallback by default. Set to `false` only when an approved gateway profile intentionally reports backend model names while preserving visible fallback metadata. |
 | `POLARIS_LITELLM_STRICT_MODE` | Requires complete gateway configuration during settings validation. |
 | `POLARIS_LITELLM_OLLAMA_API_BASE` | LiteLLM-container-reachable Ollama API base used by `config/litellm/config.yaml`. |
 
 LiteLLM model aliases are defined in `config/litellm/config.yaml`. Polaris source defaults use logical aliases such as `polaris-local-fast`, `polaris-local-structured`, and `polaris-local-synthesis`; LiteLLM maps those aliases to concrete local backends such as Ollama `qwen2.5:7b` or `qwen3.5:4b`. Change the LiteLLM alias mapping for model-operations tuning instead of hard-coding concrete model names in application defaults.
+
+The Polaris client enforces a local operations policy before and after each gateway call:
+
+- missing `max_tokens` is filled with `POLARIS_LITELLM_REQUEST_BUDGET_TOKENS`;
+- requested `max_tokens` values above the configured budget fail before a model call starts;
+- concurrent gateway calls are bounded by `POLARIS_LITELLM_MAX_CONCURRENCY`;
+- timeout and budget settings are attached to result metadata for observability;
+- response-model mismatch is rejected by default so LiteLLM fallback cannot silently change model behavior.
+
+DeepEval defaults to `POLARIS_DEEPEVAL_MAX_CONCURRENCY=1` for the same low-VRAM local profile. Raise model concurrency only after validating the active machine and model set.
 
 ## Observability and failure behavior
 

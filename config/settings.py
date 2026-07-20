@@ -1,9 +1,6 @@
-from typing import ClassVar
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import AliasChoices
-from pydantic import Field
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_QDRANT_COLLECTION = "polaris"
@@ -32,6 +29,9 @@ DEFAULT_RAG_SYNTHESIS_MAX_TOKENS = 1536
 DEFAULT_RAG_GRAPH_MODEL = "polaris-rag-graph-v1"
 DEFAULT_LITELLM_BASE_URL = "http://localhost:4000/v1"
 DEFAULT_LITELLM_TIMEOUT_SECONDS = 60.0
+DEFAULT_LITELLM_MAX_CONCURRENCY = 1
+DEFAULT_LITELLM_REQUEST_BUDGET_TOKENS = 4096
+DEFAULT_LITELLM_REJECT_MODEL_FALLBACK = True
 DEFAULT_LANGFUSE_ENVIRONMENT = "development"
 DEFAULT_LANGFUSE_SAMPLE_RATE = 1.0
 DEFAULT_LANGFUSE_REDACTION_MODE = "strict"
@@ -39,7 +39,7 @@ DEFAULT_LANGFUSE_MAX_PAYLOAD_CHARACTERS = 8_000
 DEFAULT_LANGFUSE_MAX_METADATA_VALUE_CHARACTERS = 512
 DEFAULT_LANGFUSE_RETENTION_DAYS = 90
 DEFAULT_DEEPEVAL_DEFAULT_THRESHOLD = 0.7
-DEFAULT_DEEPEVAL_MAX_CONCURRENCY = 4
+DEFAULT_DEEPEVAL_MAX_CONCURRENCY = 1
 DEFAULT_DEEPEVAL_TIMEOUT_SECONDS = 60.0
 DEFAULT_STRUCTURED_OUTPUT_PROVIDER = "instructor"
 DEFAULT_STRUCTURED_OUTPUT_MODEL = DEFAULT_LITELLM_STRUCTURED_MODEL
@@ -188,6 +188,29 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "POLARIS_LITELLM_TIMEOUT_SECONDS",
             "LITELLM_TIMEOUT_SECONDS",
+        ),
+    )
+    LITELLM_MAX_CONCURRENCY: int = Field(
+        default=DEFAULT_LITELLM_MAX_CONCURRENCY,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_MAX_CONCURRENCY",
+            "LITELLM_MAX_CONCURRENCY",
+        ),
+    )
+    LITELLM_REQUEST_BUDGET_TOKENS: int = Field(
+        default=DEFAULT_LITELLM_REQUEST_BUDGET_TOKENS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_REQUEST_BUDGET_TOKENS",
+            "LITELLM_REQUEST_BUDGET_TOKENS",
+        ),
+    )
+    LITELLM_REJECT_MODEL_FALLBACK: bool = Field(
+        default=DEFAULT_LITELLM_REJECT_MODEL_FALLBACK,
+        validation_alias=AliasChoices(
+            "POLARIS_LITELLM_REJECT_MODEL_FALLBACK",
+            "LITELLM_REJECT_MODEL_FALLBACK",
         ),
     )
     LITELLM_STRICT_MODE: bool = Field(

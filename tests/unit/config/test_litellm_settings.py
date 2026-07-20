@@ -12,11 +12,17 @@ _LITELLM_ENV_NAMES = (
     "POLARIS_LITELLM_BASE_URL",
     "POLARIS_LITELLM_API_KEY",
     "POLARIS_LITELLM_TIMEOUT_SECONDS",
+    "POLARIS_LITELLM_MAX_CONCURRENCY",
+    "POLARIS_LITELLM_REQUEST_BUDGET_TOKENS",
+    "POLARIS_LITELLM_REJECT_MODEL_FALLBACK",
     "POLARIS_LITELLM_STRICT_MODE",
     "LITELLM_ENABLED",
     "LITELLM_BASE_URL",
     "LITELLM_API_KEY",
     "LITELLM_TIMEOUT_SECONDS",
+    "LITELLM_MAX_CONCURRENCY",
+    "LITELLM_REQUEST_BUDGET_TOKENS",
+    "LITELLM_REJECT_MODEL_FALLBACK",
     "LITELLM_STRICT_MODE",
 )
 
@@ -45,6 +51,9 @@ def test_litellm_settings_default_to_local_non_strict_gateway(
     assert settings.LITELLM_BASE_URL == "http://localhost:4000/v1"
     assert settings.LITELLM_API_KEY is None
     assert settings.LITELLM_TIMEOUT_SECONDS == 60.0
+    assert settings.LITELLM_MAX_CONCURRENCY == 1
+    assert settings.LITELLM_REQUEST_BUDGET_TOKENS == 4096
+    assert settings.LITELLM_REJECT_MODEL_FALLBACK is True
     assert settings.LITELLM_STRICT_MODE is False
     assert settings.DEFAULT_MODEL == "polaris-local-synthesis"
 
@@ -63,6 +72,9 @@ def test_litellm_settings_read_polaris_prefixed_environment(
             "POLARIS_LITELLM_BASE_URL": " http://localhost:4000/v1/ ",
             "POLARIS_LITELLM_API_KEY": "local-test-key",
             "POLARIS_LITELLM_TIMEOUT_SECONDS": "45",
+            "POLARIS_LITELLM_MAX_CONCURRENCY": "2",
+            "POLARIS_LITELLM_REQUEST_BUDGET_TOKENS": "2048",
+            "POLARIS_LITELLM_REJECT_MODEL_FALLBACK": "false",
             "POLARIS_LITELLM_STRICT_MODE": "true",
         },
     )
@@ -71,6 +83,9 @@ def test_litellm_settings_read_polaris_prefixed_environment(
     assert settings.LITELLM_BASE_URL == "http://localhost:4000/v1"
     assert settings.LITELLM_API_KEY == "local-test-key"
     assert settings.LITELLM_TIMEOUT_SECONDS == 45.0
+    assert settings.LITELLM_MAX_CONCURRENCY == 2
+    assert settings.LITELLM_REQUEST_BUDGET_TOKENS == 2048
+    assert settings.LITELLM_REJECT_MODEL_FALLBACK is False
     assert settings.LITELLM_STRICT_MODE is True
 
     settings.validate_litellm_gateway(require_configured=True)
@@ -92,6 +107,20 @@ def test_litellm_settings_validate_url_and_timeout(
             monkeypatch,
             tmp_path,
             overrides={"POLARIS_LITELLM_TIMEOUT_SECONDS": "0"},
+        )
+
+    with pytest.raises(ValidationError, match="LITELLM_MAX_CONCURRENCY"):
+        _settings(
+            monkeypatch,
+            tmp_path,
+            overrides={"POLARIS_LITELLM_MAX_CONCURRENCY": "0"},
+        )
+
+    with pytest.raises(ValidationError, match="LITELLM_REQUEST_BUDGET_TOKENS"):
+        _settings(
+            monkeypatch,
+            tmp_path,
+            overrides={"POLARIS_LITELLM_REQUEST_BUDGET_TOKENS": "0"},
         )
 
 

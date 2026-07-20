@@ -262,10 +262,13 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_DEEPEVAL_JUDGE_MODEL` | evaluation CLI, provider DI, and live DeepEval tests | Judge model identifier passed to DeepEval. |
 | `POLARIS_LITELLM_BASE_URL` | LiteLLM-backed live DeepEval tests and gateway-backed model calls | OpenAI-compatible LiteLLM endpoint, usually `http://localhost:4000/v1`. |
 | `POLARIS_LITELLM_API_KEY` | LiteLLM-backed live DeepEval tests and gateway-backed model calls | Local or deployed LiteLLM API key; never commit real values. |
+| `POLARIS_LITELLM_MAX_CONCURRENCY` | LiteLLM gateway client | Polaris-side local model concurrency cap; defaults to `1` for 8GB-VRAM profiles. |
+| `POLARIS_LITELLM_REQUEST_BUDGET_TOKENS` | LiteLLM gateway client | Default and maximum completion token budget enforced before gateway calls. |
+| `POLARIS_LITELLM_REJECT_MODEL_FALLBACK` | LiteLLM gateway client | Rejects unexpected alias/model fallback by default; disabling it still records fallback metadata. |
 | `POLARIS_DEEPEVAL_STRICT_MODE` | settings validation | Requires complete DeepEval configuration when true. |
 | `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | DeepEval provider setup | Defaults to privacy-preserving opt-out behavior. |
 | `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | evaluation settings and CLI defaults | Default pass threshold used when a dataset or metric does not specify a stricter typed threshold. |
-| `POLARIS_DEEPEVAL_MAX_CONCURRENCY` | evaluation jobs and local eval workflows | Caps concurrent judge-model evaluation work to protect local and hosted model services. |
+| `POLARIS_DEEPEVAL_MAX_CONCURRENCY` | evaluation jobs and local eval workflows | Caps concurrent judge-model evaluation work to protect local and hosted model services; defaults to `1` for local low-VRAM profiles. |
 | `POLARIS_DEEPEVAL_TIMEOUT_SECONDS` | evaluation provider calls | Bounds each judge-model call so unavailable model services fail clearly. |
 | `POLARIS_RUN_LIVE_EVALS` | `tests/evaluation -m live_deepeval` | Explicit opt-in gate for live judge-model tests. |
 | `POLARIS_EVAL_REQUIRED` | evaluation release gates | Fails missing live evaluation configuration instead of skipping. |

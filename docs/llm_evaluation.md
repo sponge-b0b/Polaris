@@ -157,7 +157,7 @@ Use Polaris-prefixed variables for application behavior. Unprefixed DeepEval ali
 | `POLARIS_DEEPEVAL_STRICT_MODE` | Requires complete configuration during settings validation. |
 | `POLARIS_DEEPEVAL_TELEMETRY_OPT_OUT` | Sets DeepEval telemetry opt-out behavior; defaults to privacy-preserving opt-out. |
 | `POLARIS_DEEPEVAL_DEFAULT_THRESHOLD` | Fallback threshold for metrics without a specific threshold. |
-| `POLARIS_DEEPEVAL_MAX_CONCURRENCY` | Maximum concurrent metric evaluations per run. |
+| `POLARIS_DEEPEVAL_MAX_CONCURRENCY` | Maximum concurrent metric evaluations per run. Defaults to `1` for local low-VRAM model execution. |
 | `POLARIS_DEEPEVAL_TIMEOUT_SECONDS` | Per-metric timeout. |
 | `POLARIS_RUN_LIVE_EVALS` | Test-only gate for live DeepEval smoke tests. |
 | `POLARIS_EVAL_REQUIRED` | Test-only release gate that fails when live eval config is missing instead of skipping. |

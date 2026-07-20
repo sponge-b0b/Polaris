@@ -53,7 +53,7 @@ def test_deepeval_settings_default_to_enabled_safe_non_strict_policy(
     assert settings.DEEPEVAL_STRICT_MODE is False
     assert settings.DEEPEVAL_TELEMETRY_OPT_OUT is True
     assert settings.DEEPEVAL_DEFAULT_THRESHOLD == 0.7
-    assert settings.DEEPEVAL_MAX_CONCURRENCY == 4
+    assert settings.DEEPEVAL_MAX_CONCURRENCY == 1
     assert settings.DEEPEVAL_TIMEOUT_SECONDS == 60.0
 
     settings.validate_deepeval_evaluation(require_configured=False)

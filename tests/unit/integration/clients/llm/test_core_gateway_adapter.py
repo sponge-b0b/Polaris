@@ -5,10 +5,8 @@ from typing import Any
 
 import pytest
 
-from core.llm.llm_gateway import LLMJsonResult
-from core.llm.llm_gateway import LLMTextResult
-from integration.clients.llm import LiteLlmCoreGatewayAdapter
-from integration.clients.llm import LiteLlmGatewayClient
+from core.llm.llm_gateway import LLMJsonResult, LLMTextResult
+from integration.clients.llm import LiteLlmCoreGatewayAdapter, LiteLlmGatewayClient
 
 
 class _FakeCompletionClient:
@@ -57,6 +55,7 @@ async def test_adapter_maps_text_chat_to_litellm_client() -> None:
                 {"role": "user", "content": "What changed?"},
             ],
             "temperature": 0.4,
+            "max_tokens": 4096,
         }
     ]
 

@@ -1,40 +1,49 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 import pytest
 
-from application.evaluations import EvaluationDatasetRegistrationRequest
-from application.evaluations import EvaluationDatasetSeedRequest
-from application.evaluations import EvaluationLangfuseProjectionRequest
-from application.evaluations import EvaluationLangfuseProjectionResult
-from application.evaluations import EvaluationDatasetService
-from application.evaluations import EvaluationResultService
-from application.evaluations import EvaluationRunService
-from application.evaluations import EvaluationTelemetry
-from application.evaluations import EvaluationRunServiceRequest
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
+from application.evaluations import (
+    EvaluationDatasetRegistrationRequest,
+    EvaluationDatasetSeedRequest,
+    EvaluationDatasetService,
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionResult,
+    EvaluationResultService,
+    EvaluationRunService,
+    EvaluationRunServiceRequest,
+    EvaluationTelemetry,
+    canonical_evaluation_dataset_definition_by_name,
+    canonical_evaluation_dataset_slice_definition_by_name,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
-from integration.providers.llm_evaluation import EvaluationMetricSpec
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import EvaluationProviderResult
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
+from integration.providers.llm_evaluation import (
+    EvaluationMetricSpec,
+    EvaluationProviderRequest,
+    EvaluationProviderResult,
+)
 
 
 @dataclass(slots=True)
@@ -468,6 +477,33 @@ async def test_dataset_service_dry_run_counts_canonical_fixtures() -> None:
     assert result.cases_written == 0
     assert repository.datasets == {}
     assert repository.cases == {}
+
+
+@pytest.mark.asyncio
+async def test_dataset_service_seeds_model_regression_cases_as_active_membership() -> (
+    None
+):
+    repository = _repository()
+    model_regression = canonical_evaluation_dataset_slice_definition_by_name(
+        "model_regression"
+    )
+
+    result = await EvaluationDatasetService(repository).seed_canonical_datasets(
+        EvaluationDatasetSeedRequest()
+    )
+
+    assert result.dataset_count == 8
+    assert result.case_count == 100
+    for membership in model_regression.memberships:
+        definition = canonical_evaluation_dataset_definition_by_name(
+            membership.dataset_name
+        )
+        active_cases = await repository.list_cases_by_dataset(
+            definition.reference.dataset_id
+        )
+        active_case_ids = {case.case_id for case in active_cases}
+
+        assert set(membership.case_ids) <= active_case_ids
 
 
 @pytest.mark.asyncio

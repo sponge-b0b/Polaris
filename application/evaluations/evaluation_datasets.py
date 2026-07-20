@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from application.evaluations.contracts import EvaluationDatasetRegistrationRequest
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_threshold_profile,
+    rag_threshold_profile,
 )
-from application.evaluations.rag_evaluation_metrics import rag_threshold_profile
 from core.storage.persistence.evaluation import JsonObject
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationTargetType
+from domain.evaluation import EvaluationDatasetReference, EvaluationTargetType
 
 EVALUATION_DATASET_VERSION = "v1"
 
@@ -52,6 +52,67 @@ class EvaluationDatasetDefinition:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class EvaluationDatasetSliceMembership:
+    """Membership for a named canonical evaluation dataset slice."""
+
+    dataset_name: str
+    case_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_non_empty(self.dataset_name, "dataset_name")
+        object.__setattr__(
+            self,
+            "case_ids",
+            _clean_tuple(self.case_ids, "case_id"),
+        )
+        if not self.case_ids:
+            raise ValueError("case_ids cannot be empty.")
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationDatasetSliceDefinition:
+    """Named, fixture-backed slice inside the canonical golden corpus."""
+
+    name: str
+    description: str
+    memberships: tuple[EvaluationDatasetSliceMembership, ...]
+    coverage_tags: tuple[str, ...]
+    tags: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_non_empty(self.name, "name")
+        _require_non_empty(self.description, "description")
+        object.__setattr__(self, "name", self.name.strip())
+        object.__setattr__(self, "description", self.description.strip())
+        if not self.memberships:
+            raise ValueError("memberships cannot be empty.")
+        object.__setattr__(
+            self,
+            "coverage_tags",
+            _clean_tuple(self.coverage_tags, "coverage_tag"),
+        )
+        if not self.coverage_tags:
+            raise ValueError("coverage_tags cannot be empty.")
+        object.__setattr__(self, "tags", _clean_tuple(self.tags, "tag"))
+
+    @property
+    def case_count(self) -> int:
+        return sum(len(membership.case_ids) for membership in self.memberships)
+
+    @property
+    def dataset_names(self) -> tuple[str, ...]:
+        return tuple(membership.dataset_name for membership in self.memberships)
+
+    @property
+    def case_ids(self) -> tuple[str, ...]:
+        return tuple(
+            case_id
+            for membership in self.memberships
+            for case_id in membership.case_ids
+        )
+
+
 def _reference(name: str, tags: tuple[str, ...]) -> EvaluationDatasetReference:
     return EvaluationDatasetReference(
         dataset_id=f"{name}_{EVALUATION_DATASET_VERSION}",
@@ -66,6 +127,11 @@ def _clean_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:
     if len(cleaned) != len(values):
         raise ValueError(f"{field_name} cannot be empty.")
     return cleaned
+
+
+def _require_non_empty(value: str, field_name: str) -> None:
+    if not value.strip():
+        raise ValueError(f"{field_name} cannot be empty.")
 
 
 RAG_THRESHOLD_PROFILE = rag_threshold_profile()
@@ -230,6 +296,93 @@ CANONICAL_EVALUATION_DATASET_DEFINITIONS: tuple[
 )
 
 
+CANONICAL_EVALUATION_DATASET_SLICE_DEFINITIONS: tuple[
+    EvaluationDatasetSliceDefinition,
+    ...,
+] = (
+    EvaluationDatasetSliceDefinition(
+        name="model_regression",
+        description=(
+            "Dedicated 20-30 case model-regression slice inside the canonical "
+            "golden evaluation corpus for validating model/profile replacements."
+        ),
+        tags=("model_regression", "golden", "model_gate"),
+        coverage_tags=(
+            "structured_output",
+            "rag_quality",
+            "rag_grounding",
+            "prompt_injection",
+            "strategy_hypothesis",
+            "strategy_synthesis",
+            "recommendation_explanation",
+            "execution_risk",
+            "local_operations",
+        ),
+        memberships=(
+            EvaluationDatasetSliceMembership(
+                dataset_name="golden_rag_questions",
+                case_ids=(
+                    "golden-rag-answer-001",
+                    "golden-rag-answer-005",
+                    "golden-rag-answer-018",
+                    "golden-rag-answer-020",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="rag_citation_support",
+                case_ids=(
+                    "rag-citation-001",
+                    "rag-citation-004",
+                    "rag-citation-008",
+                    "rag-citation-012",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="rag_security_prompt_injection",
+                case_ids=(
+                    "rag-security-injection-001",
+                    "rag-security-injection-003",
+                    "rag-security-injection-005",
+                    "rag-security-injection-012",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="strategy_synthesis_quality",
+                case_ids=(
+                    "strategy-synthesis-quality-001",
+                    "strategy-synthesis-quality-002",
+                    "strategy-synthesis-quality-008",
+                    "strategy-synthesis-quality-013",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="recommendation_explanations",
+                case_ids=(
+                    "recommendation-explanation-001",
+                    "recommendation-explanation-004",
+                    "recommendation-explanation-009",
+                    "recommendation-explanation-011",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="mcp_tool_responses",
+                case_ids=(
+                    "mcp-tool-response-001",
+                    "mcp-tool-response-003",
+                ),
+            ),
+            EvaluationDatasetSliceMembership(
+                dataset_name="agent_task_completion",
+                case_ids=(
+                    "agent-task-completion-002",
+                    "agent-task-completion-004",
+                ),
+            ),
+        ),
+    ),
+)
+
+
 def canonical_evaluation_dataset_definitions(
     *,
     target_type: EvaluationTargetType | None = None,
@@ -269,5 +422,28 @@ def canonical_evaluation_dataset_definition_by_name(
         raise ValueError("name cannot be empty.")
     for definition in CANONICAL_EVALUATION_DATASET_DEFINITIONS:
         if definition.reference.name == cleaned_name:
+            return definition
+    raise KeyError(cleaned_name)
+
+
+def canonical_evaluation_dataset_slice_definitions() -> tuple[
+    EvaluationDatasetSliceDefinition,
+    ...,
+]:
+    """Return named fixture-backed slices inside the canonical golden corpus."""
+
+    return CANONICAL_EVALUATION_DATASET_SLICE_DEFINITIONS
+
+
+def canonical_evaluation_dataset_slice_definition_by_name(
+    name: str,
+) -> EvaluationDatasetSliceDefinition:
+    """Resolve one canonical dataset slice definition by stable slice name."""
+
+    cleaned_name = name.strip()
+    if not cleaned_name:
+        raise ValueError("name cannot be empty.")
+    for definition in CANONICAL_EVALUATION_DATASET_SLICE_DEFINITIONS:
+        if definition.name == cleaned_name:
             return definition
     raise KeyError(cleaned_name)

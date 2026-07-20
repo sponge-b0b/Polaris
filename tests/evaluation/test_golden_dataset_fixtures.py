@@ -6,7 +6,11 @@ from typing import Any
 
 import pytest
 
-from application.evaluations import canonical_evaluation_dataset_definitions
+from application.evaluations import (
+    canonical_evaluation_dataset_definition_by_name,
+    canonical_evaluation_dataset_definitions,
+    canonical_evaluation_dataset_slice_definition_by_name,
+)
 from core.storage.persistence.evaluation import EvaluationCaseRecord
 from domain.evaluation import EvaluationTargetType
 from tests.evaluation._helpers import evaluation_case_from_row
@@ -14,6 +18,19 @@ from tests.evaluation._helpers import evaluation_case_from_row
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
 
 pytestmark = pytest.mark.evaluation
+
+MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS = {
+    "structured_output",
+    "rag_quality",
+    "rag_grounding",
+    "prompt_injection",
+    "strategy_hypothesis",
+    "strategy_synthesis",
+    "recommendation_explanation",
+    "execution_risk",
+    "local_operations",
+}
+
 
 EXPECTED_DATASET_COUNTS: dict[str, int] = {
     "golden_rag_questions": 25,
@@ -78,6 +95,43 @@ def test_golden_fixture_inventory_matches_canonical_dataset_definitions(
     assert len(seen_case_ids) == EXPECTED_TOTAL_CASES
 
 
+def test_model_regression_slice_is_fixture_backed_and_preserves_active_membership(
+    evaluation_fixture_dir: Path,
+    load_jsonl_fixture: LoadJsonlFixture,
+) -> None:
+    model_regression = canonical_evaluation_dataset_slice_definition_by_name(
+        "model_regression"
+    )
+    seen_case_ids: set[str] = set()
+    seen_coverage_tags: set[str] = set()
+
+    assert 20 <= model_regression.case_count <= 30
+
+    for membership in model_regression.memberships:
+        definition = canonical_evaluation_dataset_definition_by_name(
+            membership.dataset_name
+        )
+        fixture_uri = definition.deterministic_fixture_uri
+        assert fixture_uri is not None
+        rows = load_jsonl_fixture(evaluation_fixture_dir / Path(fixture_uri).name)
+        rows_by_case_id = {str(row["case_id"]): row for row in rows}
+
+        assert set(membership.case_ids) <= set(rows_by_case_id)
+        for case_id in membership.case_ids:
+            row = rows_by_case_id[case_id]
+            case = evaluation_case_from_row(row, dataset=definition.reference)
+            seen_case_ids.add(case.case_id)
+            seen_coverage_tags.update(str(tag) for tag in row["tags"])
+
+            assert "model_regression" in row["tags"]
+            assert case.dataset == definition.reference
+            assert case.target_type is definition.target_type
+
+    assert len(seen_case_ids) == model_regression.case_count
+    assert set(model_regression.case_ids) == seen_case_ids
+    assert MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS <= seen_coverage_tags
+
+
 def test_citation_and_security_fixtures_include_required_golden_metadata(
     evaluation_fixture_dir: Path,
     load_jsonl_fixture: LoadJsonlFixture,
@@ -122,7 +176,9 @@ def test_evaluation_case_from_row_preserves_supported_durable_metadata() -> None
         "case_id": "metadata-preservation-001",
         "target_type": EvaluationTargetType.RAG_ANSWER.value,
         "input_text": "Explain the risk posture using only cited context.",
-        "actual_output": "The risk posture is defensive because drawdown risk is elevated.",
+        "actual_output": (
+            "The risk posture is defensive because drawdown risk is elevated."
+        ),
         "expected_output": "Use cited context and preserve the defensive risk posture.",
         "source_record_ids": ["curated-risk-record-001"],
         "workflow_execution_id": "workflow-eval-001",

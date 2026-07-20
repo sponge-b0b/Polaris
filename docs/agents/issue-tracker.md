@@ -13,6 +13,24 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
+# Issue Handling Protocols
+
+## Mandatory Pre-Flight Execution
+Before an agent processes any issue entry, it must query the remote metadata state:
+```bash
+gh issue view <ISSUE_NUMBER> --json labels
+```
+
+## Label Enforcement Matrices
+- **Label:** `wayfinder:research`
+  - **Action:** Proceed via the /research skill.
+- **Label:** `wayfinder:prototype`
+  - **Action:** Proceed via the /prototype skill.
+- **Label:** `wayfinder:grilling`
+  - **Action:** Proceed via the /grilling and /domain-modeling skills, one question at a time. The default case.
+- **Label:** All other variations
+  - **Action:** Route to **AFK** mode and execute the task autonomously using local tools as needed.
+  
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

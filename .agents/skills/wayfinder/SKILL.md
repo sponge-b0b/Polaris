@@ -104,12 +104,21 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 Two modes. Either way, **never resolve more than one ticket per session** — with the exception of research tickets.
 
+### Execution Lifecycle Guardrails
+1. **Pre-Flight Metadata Audit**: The exact moment you are assigned a GitHub issue number or URL, you must run an initial metadata pull before analyzing the text description:
+   ```bash
+   gh issue view <ISSUE_NUMBER> --json labels,title,body
+   ```
+2. **Workflow Routing**:
+   - **IF** the output labels contain `"wayfinder:grilling"`, proceed via the /grilling and /domain-modeling skills, one question at a time. The default case.
+   - **ELSE** based on the given `Ticket Type`, proceed via the /research skill, the /prototype skill or route to **AFK** mode and execute the task autonomously using local tools as needed.
+
 ### Chart the map
 
 User invokes with a loose idea.
 
 1. **Name the destination.** Run a `/grilling` and `/domain-modeling` session to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
-2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
+2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Continue the grilling session to completion instead: the whole effort collapses into a single /grill-with-docs session, ending with the destination reached (the spec or decision written down), not a map.
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
 4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
 5. **Fire the research subagents.** For each `research` ticket you just created, spin up a `/research` subagent to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket.

@@ -13,15 +13,15 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
-# Issue Handling Protocols
+## Issue Handling Protocols
 
-## Mandatory Pre-Flight Execution
+### Mandatory Pre-Flight Execution
 Before an agent processes any issue entry, it must query the remote metadata state:
 ```bash
 gh issue view <ISSUE_NUMBER> --json labels
 ```
 
-## Label Enforcement Matrices
+### Label Enforcement Matrices
 - **Label:** `wayfinder:research`
   - **Action:** Proceed via the /research skill.
 - **Label:** `wayfinder:prototype`

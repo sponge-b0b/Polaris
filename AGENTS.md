@@ -185,7 +185,7 @@ docker compose restart [service ...]
 docker compose down
 ```
 
-Current local services may include PostgreSQL, Qdrant, Neo4j, BGE reranker, Prometheus, Jaeger, Grafana et-all.
+Current local services may include PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana et-all.
 
 ## Dependencies and shell
 

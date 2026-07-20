@@ -42,6 +42,17 @@ from application.evaluations.evaluation_langfuse_projection_service import (
 from application.evaluations.evaluation_result_service import EvaluationResultService
 from application.evaluations.evaluation_run_service import EvaluationRunService
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
+from application.evaluations.model_replacement_gate import (
+    MODEL_REPLACEMENT_DATASET_SLICE_NAME,
+    MODEL_REPLACEMENT_MINIMUM_TIMEOUT_SECONDS,
+    ModelReplacementGateSection,
+    ModelReplacementGateSectionResult,
+    ModelReplacementGateStatus,
+    ModelReplacementValidationGate,
+    ModelReplacementValidationMode,
+    ModelReplacementValidationRequest,
+    ModelReplacementValidationResult,
+)
 from application.evaluations.rag_evaluation_metrics import (
     INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS,
     INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION,
@@ -92,6 +103,15 @@ __all__ = [
     "EvaluationRunService",
     "EvaluationRunServiceRequest",
     "EvaluationRunServiceResult",
+    "MODEL_REPLACEMENT_DATASET_SLICE_NAME",
+    "MODEL_REPLACEMENT_MINIMUM_TIMEOUT_SECONDS",
+    "ModelReplacementGateSection",
+    "ModelReplacementGateSectionResult",
+    "ModelReplacementGateStatus",
+    "ModelReplacementValidationGate",
+    "ModelReplacementValidationMode",
+    "ModelReplacementValidationRequest",
+    "ModelReplacementValidationResult",
     "EvaluationMetricDefinition",
     "EvaluationMetricEngine",
     "INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS",

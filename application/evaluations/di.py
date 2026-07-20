@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from application.evaluations.evaluation_dataset_service import EvaluationDatasetService
 from application.evaluations.evaluation_jobs import EvaluationJobProcessor
@@ -10,15 +8,20 @@ from application.evaluations.evaluation_langfuse_projection_service import (
     EvaluationLangfuseProjectionService,
 )
 from application.evaluations.evaluation_result_service import EvaluationResultService
-from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.evaluation_run_service import EvaluationRunService
+from application.evaluations.evaluation_telemetry import EvaluationTelemetry
+from application.evaluations.model_replacement_gate import (
+    ModelReplacementValidationGate,
+)
 from application.observability.langfuse_projection import AiObservabilityProjector
 from config.settings import Settings
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.observability import ObservabilityManager
-from integration.providers.llm_evaluation import DeepEvalEvaluationProvider
-from integration.providers.llm_evaluation import EvaluationProvider
+from integration.providers.llm_evaluation import (
+    DeepEvalEvaluationProvider,
+    EvaluationProvider,
+)
 
 
 class ApplicationEvaluationsDIProvider(Provider):
@@ -82,6 +85,19 @@ class ApplicationEvaluationsDIProvider(Provider):
         telemetry: EvaluationTelemetry,
     ) -> EvaluationRunService:
         return EvaluationRunService(provider, repository, projection_service, telemetry)
+
+    @provide
+    def provide_model_replacement_validation_gate(
+        self,
+        result_service: EvaluationResultService,
+        run_service: EvaluationRunService,
+        settings: Settings,
+    ) -> ModelReplacementValidationGate:
+        return ModelReplacementValidationGate(
+            result_service=result_service,
+            run_service=run_service,
+            settings=settings,
+        )
 
     @provide
     def provide_evaluation_job_processor(

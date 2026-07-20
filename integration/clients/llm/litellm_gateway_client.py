@@ -8,6 +8,7 @@ from typing import Any, Literal, Protocol, cast
 
 from config.settings import Settings
 from core.storage.persistence.rag import JsonObject
+from domain.llm import ReasoningTraceViolationError, sanitize_reasoning_trace_text
 
 LiteLlmGatewayRole = Literal["system", "user", "assistant"]
 LiteLlmResponseFormat = Literal["text", "json_object"]
@@ -35,6 +36,10 @@ class LiteLlmGatewayTimeoutError(LiteLlmGatewayError):
 
 class LiteLlmGatewayResponseError(LiteLlmGatewayError):
     """Raised when LiteLLM returns an unusable or malformed response."""
+
+
+class LiteLlmGatewayReasoningTraceError(LiteLlmGatewayResponseError):
+    """Raised when model-internal reasoning contaminates an LLM response."""
 
 
 class LiteLlmGatewayModelFallbackError(LiteLlmGatewayError):
@@ -272,7 +277,7 @@ class LiteLlmGatewayClient:
             request,
             effective_max_tokens=effective_max_tokens,
         )
-        text = _extract_text(response)
+        text, reasoning_trace_metadata = _publishable_text(response, request=request)
         response_model = _response_model(response) or request.model
         model_fallback_detected = response_model != request.model
         if model_fallback_detected and self._operations_policy.reject_model_fallback:
@@ -292,6 +297,7 @@ class LiteLlmGatewayClient:
                 model_fallback_detected=model_fallback_detected,
                 effective_max_tokens=effective_max_tokens,
                 operations_policy=self._operations_policy,
+                reasoning_trace_metadata=reasoning_trace_metadata,
             ),
         )
 
@@ -381,6 +387,31 @@ def _extract_text(response: Any) -> str:
     return content.strip()
 
 
+def _publishable_text(
+    response: Any,
+    *,
+    request: LiteLlmGatewayChatRequest,
+) -> tuple[str, JsonObject]:
+    raw_text = _extract_text(response)
+    result = sanitize_reasoning_trace_text(raw_text)
+    if not result.detected:
+        return raw_text, {}
+
+    if request.response_format == "json_object" or result.unsafe:
+        raise LiteLlmGatewayReasoningTraceError(
+            "LiteLLM gateway response contained model-internal reasoning at the "
+            f"{request.response_format} boundary; refusing contaminated output."
+        ) from ReasoningTraceViolationError(
+            "Model-internal reasoning trace detected at LiteLLM response boundary."
+        )
+    return result.text, {
+        "detected": True,
+        "action": result.action,
+        "marker_count": result.marker_count,
+        "published_text_changed": result.stripped,
+    }
+
+
 def _response_model(response: Any) -> str | None:
     model = getattr(response, "model", None)
     if isinstance(model, str) and model.strip():
@@ -396,6 +427,7 @@ def _response_metadata(
     model_fallback_detected: bool,
     effective_max_tokens: int,
     operations_policy: LiteLlmGatewayOperationsPolicy,
+    reasoning_trace_metadata: JsonObject,
 ) -> JsonObject:
     metadata: dict[str, Any] = {
         "requested_model": request.model,
@@ -406,6 +438,8 @@ def _response_metadata(
         "model_fallback_detected": model_fallback_detected,
         "operations_policy": operations_policy.to_metadata(),
     }
+    if reasoning_trace_metadata:
+        metadata["reasoning_trace_safety"] = reasoning_trace_metadata
 
     response_id = getattr(response, "id", None)
     if isinstance(response_id, str) and response_id.strip():

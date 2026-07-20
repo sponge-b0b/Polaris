@@ -1,26 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import cast
 
-from application.observability import AiEvaluationObservation
-from application.observability import AiEvaluationScore
-from application.observability import AiGenerationObservation
-from application.observability import AiObservationStatus
-from application.observability import AiObservationType
-from application.observability import AiObservabilityCapturePolicy
-from application.observability import AiObservabilityCorrelationIds
-from application.observability import AiObservabilityExportStatus
-from application.observability import AiObservabilityProjector
-from application.observability import AiPromptVersionReference
-from application.observability import AiRedactionMode
-from application.observability import AiRerankingObservation
-from application.observability import AiRetrievalObservation
-from application.observability import AiScoreResult
-from application.observability import LangfuseAiObservabilitySink
-from application.observability import LangfuseObservationMapper
-from application.observability import LangfusePayload
+from application.observability import (
+    AiEvaluationObservation,
+    AiEvaluationScore,
+    AiGenerationObservation,
+    AiObservabilityCapturePolicy,
+    AiObservabilityCorrelationIds,
+    AiObservabilityExportStatus,
+    AiObservabilityProjector,
+    AiObservationStatus,
+    AiObservationType,
+    AiPromptVersionReference,
+    AiRedactionMode,
+    AiRerankingObservation,
+    AiRetrievalObservation,
+    AiScoreResult,
+    LangfuseAiObservabilitySink,
+    LangfuseObservationMapper,
+    LangfusePayload,
+)
 
 
 @dataclass(slots=True)
@@ -365,4 +366,46 @@ def test_mapper_redacts_captured_prompt_response_and_records_dropped_fields() ->
     )
     assert "response_text" in cast(
         tuple[str, ...], permissive_redaction["redacted_fields"]
+    )
+
+
+def test_mapper_removes_reasoning_traces_from_permissive_observability_payloads() -> (
+    None
+):
+    mapper = LangfuseObservationMapper(
+        capture_policy=AiObservabilityCapturePolicy(
+            capture_prompts=True,
+            capture_responses=True,
+            redaction_mode=AiRedactionMode.PERMISSIVE,
+            max_payload_characters=200,
+        ),
+        environment="test",
+    )
+    observation = AiGenerationObservation(
+        observation_type=AiObservationType.RAG_GENERATION,
+        name="answer_generation",
+        prompt="<think>private prompt planning</think>\nVisible prompt.",
+        response="```reasoning\nprivate response trace\n```\nVisible response.",
+        metadata={
+            "model_note": "Scratchpad: hidden note\nFinal answer: visible note",
+        },
+    )
+
+    payload = mapper.to_payload(observation)
+
+    assert payload["prompt_text"] == "Visible prompt."
+    assert payload["response_text"] == "Visible response."
+    metadata = payload["metadata"]
+    assert isinstance(metadata, dict)
+    assert metadata["model_note"] == "visible note"
+    assert "private prompt planning" not in str(payload)
+    assert "private response trace" not in str(payload)
+    assert "hidden note" not in str(payload)
+    redaction = payload["redaction"]
+    assert isinstance(redaction, dict)
+    assert "prompt_text" in cast(tuple[str, ...], redaction["redacted_fields"])
+    assert "response_text" in cast(tuple[str, ...], redaction["redacted_fields"])
+    assert "metadata.model_note" in cast(
+        tuple[str, ...],
+        redaction["redacted_fields"],
     )

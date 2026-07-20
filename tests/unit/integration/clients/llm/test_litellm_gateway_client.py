@@ -13,6 +13,7 @@ from integration.clients.llm import (
     LiteLlmGatewayMessage,
     LiteLlmGatewayModelFallbackError,
     LiteLlmGatewayOperationsPolicy,
+    LiteLlmGatewayReasoningTraceError,
     LiteLlmGatewayRequestBudgetError,
     LiteLlmGatewayResponseError,
     LiteLlmGatewayTimeoutError,
@@ -144,6 +145,63 @@ async def test_generate_json_rejects_invalid_json_object_content() -> None:
         LiteLlmGatewayResponseError, match="JSON response must be an object"
     ):
         await client.generate_json(prompt="Return JSON.")
+
+
+@pytest.mark.asyncio
+async def test_generate_text_strips_model_internal_reasoning_before_publication() -> (
+    None
+):
+    completion_client = _FakeCompletionClient(
+        response=_response(
+            content="<think>hidden deliberation</think>\nPublished answer."
+        )
+    )
+    client = LiteLlmGatewayClient(
+        completion_client=completion_client,
+        default_model="qwen3.5:4b",
+    )
+
+    result = await client.generate_text(prompt="Return a concise answer.")
+
+    assert result.text == "Published answer."
+    assert "hidden deliberation" not in result.text
+    assert "hidden deliberation" not in str(result.metadata)
+    safety = cast(dict[str, Any], result.metadata["reasoning_trace_safety"])
+    assert safety["detected"] is True
+    assert safety["action"] == "stripped"
+    assert safety["published_text_changed"] is True
+
+
+@pytest.mark.asyncio
+async def test_generate_text_fails_closed_on_unsafe_reasoning_trace() -> None:
+    completion_client = _FakeCompletionClient(
+        response=_response(content="<think>hidden deliberation without closure")
+    )
+    client = LiteLlmGatewayClient(
+        completion_client=completion_client,
+        default_model="qwen3.5:4b",
+    )
+
+    with pytest.raises(LiteLlmGatewayReasoningTraceError) as exc_info:
+        await client.generate_text(prompt="Return a concise answer.")
+
+    assert "hidden deliberation" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_generate_json_fails_closed_when_reasoning_precedes_json() -> None:
+    completion_client = _FakeCompletionClient(
+        response=_response(content='<think>hidden</think>\n{"ok": true}')
+    )
+    client = LiteLlmGatewayClient(
+        completion_client=completion_client,
+        default_model="qwen3.5:4b",
+    )
+
+    with pytest.raises(LiteLlmGatewayReasoningTraceError) as exc_info:
+        await client.generate_json(prompt="Return JSON only.")
+
+    assert "hidden" not in str(exc_info.value)
 
 
 @pytest.mark.asyncio

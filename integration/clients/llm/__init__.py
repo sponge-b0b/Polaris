@@ -11,6 +11,7 @@ from integration.clients.llm.litellm_gateway_client import (
     LiteLlmGatewayMessage,
     LiteLlmGatewayModelFallbackError,
     LiteLlmGatewayOperationsPolicy,
+    LiteLlmGatewayReasoningTraceError,
     LiteLlmGatewayRequestBudgetError,
     LiteLlmGatewayResponseError,
     LiteLlmGatewayTimeoutError,
@@ -29,5 +30,6 @@ __all__ = [
     "LiteLlmGatewayOperationsPolicy",
     "LiteLlmGatewayResponseError",
     "LiteLlmGatewayRequestBudgetError",
+    "LiteLlmGatewayReasoningTraceError",
     "LiteLlmGatewayTimeoutError",
 ]

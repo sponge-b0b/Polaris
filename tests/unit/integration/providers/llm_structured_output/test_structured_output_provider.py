@@ -1,24 +1,23 @@
 from __future__ import annotations
 
 import asyncio
-
-from collections.abc import Awaitable
-from collections.abc import Callable
-from typing import Any
-from typing import cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.providers.llm_structured_output import StructuredLlmProvider
-from integration.providers.llm_structured_output import StructuredLlmProviderExecutor
-from integration.providers.llm_structured_output import StructuredLlmRequest
-from integration.providers.llm_structured_output import StructuredLlmResult
-from integration.providers.llm_structured_output import StructuredOutputRetryPolicy
-from integration.providers.llm_structured_output import StructuredOutputSchemaRef
-from integration.providers.llm_structured_output import StructuredOutputStatus
-from integration.providers.llm_structured_output import structured_output_provider
+from integration.providers.llm_structured_output import (
+    StructuredLlmProvider,
+    StructuredLlmProviderExecutor,
+    StructuredLlmRequest,
+    StructuredLlmResult,
+    StructuredOutputRetryPolicy,
+    StructuredOutputSchemaRef,
+    StructuredOutputStatus,
+    structured_output_provider,
+)
 
 
 class ExampleStructuredAnswer(BaseModel):
@@ -233,6 +232,41 @@ def test_retry_exhaustion_returns_typed_failure_result(
     assert captured_provider_telemetry[-1]["payload"]["status"] == "failed"
     assert captured_provider_telemetry[-1]["payload"]["retry_count"] == 1
     assert captured_provider_telemetry[-1]["payload"]["error_type"] == "ValidationError"
+
+
+def test_structured_output_fails_closed_when_reasoning_reaches_schema_boundary(
+    captured_provider_telemetry: list[dict[str, Any]],
+) -> None:
+    provider = ScriptedStructuredLlmProvider(
+        [
+            {
+                "answer_text": "<think>hidden deliberation</think>\nPublished answer.",
+                "confidence_score": 0.82,
+            },
+        ],
+        captured_telemetry=captured_provider_telemetry,
+    )
+
+    result = asyncio.run(
+        provider.generate_structured_output(
+            _request(retry_policy=StructuredOutputRetryPolicy(max_retries=0))
+        )
+    )
+
+    assert result.success is False
+    assert result.status is StructuredOutputStatus.FAILED
+    assert result.output is None
+    assert result.error_type == "ReasoningTraceViolationError"
+    assert (
+        result.error_message == "Structured output contained model-internal reasoning."
+    )
+    assert "hidden deliberation" not in str(result)
+    assert captured_provider_telemetry[-1]["success"] is False
+    assert captured_provider_telemetry[-1]["payload"]["status"] == "failed"
+    assert captured_provider_telemetry[-1]["payload"]["error_type"] == (
+        "ReasoningTraceViolationError"
+    )
+    assert "hidden deliberation" not in str(captured_provider_telemetry[-1])
 
 
 def test_timeout_returns_typed_failure_result(

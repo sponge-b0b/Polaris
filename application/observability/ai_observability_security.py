@@ -4,11 +4,12 @@ import hashlib
 import re
 from dataclasses import dataclass
 
-from application.observability.ai_observability_contracts import AiMetadata
-from application.observability.ai_observability_contracts import AiMetadataValue
 from application.observability.ai_observability_contracts import (
+    AiMetadata,
+    AiMetadataValue,
     AiObservabilityCapturePolicy,
 )
+from domain.llm import sanitize_reasoning_trace_text
 
 REDACTED_VALUE = "[redacted]"
 SENSITIVE_KEY_FRAGMENTS = frozenset(
@@ -139,6 +140,12 @@ def sanitize_text(
         sanitized = pattern.sub(_replacement, sanitized)
     if sanitized != value:
         report.record_redacted(field_path)
+
+    reasoning_result = sanitize_reasoning_trace_text(sanitized)
+    if reasoning_result.detected:
+        report.record_redacted(field_path)
+        sanitized = REDACTED_VALUE if reasoning_result.unsafe else reasoning_result.text
+
     if len(sanitized) > policy.max_payload_characters:
         report.record_truncated(field_path)
         return sanitized[: policy.max_payload_characters]

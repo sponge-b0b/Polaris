@@ -2,31 +2,22 @@ from __future__ import annotations
 
 import asyncio
 import logging
-
-from collections.abc import Awaitable
-from collections.abc import Callable
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from enum import StrEnum
 from time import perf_counter
-from typing import Any
-from typing import Generic
-from typing import Protocol
-from typing import cast
-from typing import TypeVar
-from typing import runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
-from pydantic import BaseModel
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from core.storage.persistence.rag import JsonObject
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
+from domain.llm import ReasoningTraceViolationError, reject_reasoning_trace
 from integration.providers.provider_telemetry import record_provider_call
 
 logger = logging.getLogger(__name__)
 
-ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
-StructuredOutputCall = Callable[
+type StructuredOutputCall[ResponseModelT: BaseModel] = Callable[
     ["StructuredLlmRequest[ResponseModelT]"], Awaitable[object]
 ]
 
@@ -69,7 +60,7 @@ class StructuredOutputRetryPolicy:
 
 
 @dataclass(frozen=True, slots=True)
-class StructuredLlmRequest(Generic[ResponseModelT]):
+class StructuredLlmRequest[ResponseModelT: BaseModel]:
     """Provider-bound request for schema-validated LLM output."""
 
     request_id: str
@@ -94,7 +85,7 @@ class StructuredLlmRequest(Generic[ResponseModelT]):
 
 
 @dataclass(frozen=True, slots=True)
-class StructuredLlmResult(Generic[ResponseModelT]):
+class StructuredLlmResult[ResponseModelT: BaseModel]:
     """Provider-neutral result from a structured LLM output operation."""
 
     request_id: str
@@ -129,7 +120,7 @@ class StructuredLlmResult(Generic[ResponseModelT]):
 class StructuredLlmProvider(Protocol):
     """Canonical async provider interface for schema-validated LLM output."""
 
-    async def generate_structured_output(
+    async def generate_structured_output[ResponseModelT: BaseModel](
         self,
         request: StructuredLlmRequest[ResponseModelT],
     ) -> StructuredLlmResult[ResponseModelT]: ...
@@ -149,7 +140,7 @@ class StructuredLlmProviderExecutor:
     ) -> None:
         self._telemetry = telemetry
 
-    async def execute(
+    async def execute[ResponseModelT: BaseModel](
         self,
         request: StructuredLlmRequest[ResponseModelT],
         call: StructuredOutputCall[ResponseModelT],
@@ -178,7 +169,7 @@ class StructuredLlmProviderExecutor:
         except _StructuredOutputRetryExhausted as exc:
             return cast(StructuredLlmResult[ResponseModelT], exc.result)
 
-    async def _execute_or_raise(
+    async def _execute_or_raise[ResponseModelT: BaseModel](
         self,
         request: StructuredLlmRequest[ResponseModelT],
         call: StructuredOutputCall[ResponseModelT],
@@ -194,9 +185,22 @@ class StructuredLlmProviderExecutor:
             try:
                 async with asyncio.timeout(request.retry_policy.timeout_seconds):
                     raw_output = await call(request)
+                _reject_reasoning_trace_payload(
+                    raw_output,
+                    boundary_name=(
+                        f"structured LLM output {request.schema_ref.schema_name}"
+                    ),
+                )
                 output = _validate_structured_output(
                     request.response_model,
                     raw_output,
+                )
+                _reject_reasoning_trace_payload(
+                    output,
+                    boundary_name=(
+                        "validated structured LLM output "
+                        f"{request.schema_ref.schema_name}"
+                    ),
                 )
             except TimeoutError as exc:
                 logger.exception(
@@ -217,13 +221,13 @@ class StructuredLlmProviderExecutor:
                 )
                 telemetry_payload.update(_result_telemetry_payload(result))
                 raise _StructuredOutputRetryExhausted(result) from exc
-            except ValidationError as exc:
+            except (ValidationError, ReasoningTraceViolationError) as exc:
                 last_error_type = type(exc).__name__
-                last_error_message = "Structured output validation failed."
+                last_error_message = _structured_output_validation_error_message(exc)
                 if attempt < request.retry_policy.maximum_attempts:
                     continue
                 logger.exception(
-                    "Structured output validation failed after retry exhaustion.",
+                    last_error_message,
                     extra={
                         "provider_name": request.provider_name,
                         "model": request.model,
@@ -291,7 +295,7 @@ class _StructuredOutputRetryExhausted(Exception):
         self.result = result
 
 
-def _validate_structured_output(
+def _validate_structured_output[ResponseModelT: BaseModel](
     response_model: type[ResponseModelT],
     raw_output: object,
 ) -> ResponseModelT:
@@ -300,7 +304,42 @@ def _validate_structured_output(
     return response_model.model_validate(raw_output)
 
 
-def _failure_result(
+def _structured_output_validation_error_message(exc: Exception) -> str:
+    if isinstance(exc, ReasoningTraceViolationError):
+        return "Structured output contained model-internal reasoning."
+    return "Structured output validation failed."
+
+
+def _reject_reasoning_trace_payload(
+    value: object,
+    *,
+    boundary_name: str,
+) -> None:
+    if isinstance(value, str):
+        reject_reasoning_trace(value, boundary_name=boundary_name)
+        return
+    if isinstance(value, BaseModel):
+        _reject_reasoning_trace_payload(
+            value.model_dump(mode="json"),
+            boundary_name=boundary_name,
+        )
+        return
+    if isinstance(value, dict):
+        for key, nested_value in value.items():
+            _reject_reasoning_trace_payload(
+                nested_value,
+                boundary_name=f"{boundary_name}.{key}",
+            )
+        return
+    if isinstance(value, (list, tuple)):
+        for index, nested_value in enumerate(value):
+            _reject_reasoning_trace_payload(
+                nested_value,
+                boundary_name=f"{boundary_name}[{index}]",
+            )
+
+
+def _failure_result[ResponseModelT: BaseModel](
     request: StructuredLlmRequest[ResponseModelT],
     *,
     attempts: int,
@@ -322,7 +361,7 @@ def _failure_result(
     )
 
 
-def _telemetry_attributes(
+def _telemetry_attributes[ResponseModelT: BaseModel](
     request: StructuredLlmRequest[ResponseModelT],
 ) -> dict[str, object]:
     return {
@@ -334,7 +373,7 @@ def _telemetry_attributes(
     }
 
 
-def _result_telemetry_payload(
+def _result_telemetry_payload[ResponseModelT: BaseModel](
     result: StructuredLlmResult[ResponseModelT],
 ) -> dict[str, object]:
     payload: dict[str, object] = {

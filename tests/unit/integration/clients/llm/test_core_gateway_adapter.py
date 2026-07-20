@@ -6,7 +6,11 @@ from typing import Any
 import pytest
 
 from core.llm.llm_gateway import LLMJsonResult, LLMTextResult
-from integration.clients.llm import LiteLlmCoreGatewayAdapter, LiteLlmGatewayClient
+from integration.clients.llm import (
+    LiteLlmCoreGatewayAdapter,
+    LiteLlmGatewayClient,
+    LiteLlmGatewayReasoningTraceError,
+)
 
 
 class _FakeCompletionClient:
@@ -90,3 +94,23 @@ async def test_adapter_rejects_invalid_chat_message_role() -> None:
 
     with pytest.raises(ValueError, match="Unsupported LLM message role"):
         await adapter.chat(messages=[{"role": "tool", "content": "bad"}])
+
+
+@pytest.mark.asyncio
+async def test_adapter_json_chat_fails_closed_on_reasoning_trace() -> None:
+    completion_client = _FakeCompletionClient(
+        '<think>hidden</think>\n{"route": "hybrid"}'
+    )
+    client = LiteLlmGatewayClient(
+        completion_client=completion_client,
+        default_model="qwen3.5:4b",
+    )
+    adapter = LiteLlmCoreGatewayAdapter(client)
+
+    with pytest.raises(LiteLlmGatewayReasoningTraceError) as exc_info:
+        await adapter.chat(
+            messages=[{"role": "user", "content": "Route query."}],
+            response_format="json",
+        )
+
+    assert "hidden" not in str(exc_info.value)

@@ -4,20 +4,17 @@ from dataclasses import dataclass
 
 from application.rag.contracts.rag_structured_answer import RagStructuredAnswer
 from core.storage.persistence.rag import JsonObject
-from integration.providers.llm_structured_output import StructuredLlmProvider
-from integration.providers.llm_structured_output import StructuredLlmRequest
-from integration.providers.llm_structured_output import StructuredOutputRetryPolicy
-from integration.providers.llm_structured_output import StructuredOutputSchemaRef
+from integration.providers.llm_structured_output import (
+    StructuredLlmProvider,
+    StructuredLlmRequest,
+    StructuredOutputRetryPolicy,
+    StructuredOutputSchemaRef,
+)
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationProvider,
-)
-from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
-)
-from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationResult,
 )
-
 
 STRUCTURED_RAG_ANSWER_SCHEMA_VERSION = "v1"
 STRUCTURED_RAG_ANSWER_SCHEMA_NAME = "RagStructuredAnswer"
@@ -105,6 +102,8 @@ def _structured_system_prompt(policy_instructions: str) -> str:
         f"{policy_instructions}\n\n"
         "Return only a schema-valid JSON object matching RagStructuredAnswer. "
         "Do not include chain-of-thought, scratchpad, markdown, or analysis. "
+        "Explain retrieved evidence; do not calculate authoritative scores, "
+        "portfolio values, or risk decisions. "
         "Use citation ids only from the provided context payload. "
         "If the context is insufficient, explain the limitation and set "
         "quality.refusal_reason. Do not repeat raw context payloads. "
@@ -118,8 +117,8 @@ def _structured_prompt(request: RagAnswerGenerationRequest) -> str:
         "Retrieved context JSON payload:\n"
         f"{request.context_payload}\n\n"
         "Required output fields:\n"
-        "- answer_text: concise complete answer with supported inline citations such as [C1]; "
-        "do not quote or dump the raw context payload\n"
+        "- answer_text: concise complete answer with supported inline citations "
+        "such as [C1]; do not quote or dump the raw context payload\n"
         "- citations: objects with citation_id and claim_summary\n"
         "- quality.confidence_score: number from 0.0 to 1.0\n"
         "- quality.grounding_summary: concise grounding explanation\n"

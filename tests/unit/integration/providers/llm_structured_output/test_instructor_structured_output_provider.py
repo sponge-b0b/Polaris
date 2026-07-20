@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
@@ -12,20 +10,16 @@ from pydantic import BaseModel
 from config.settings import Settings
 from integration.providers.llm_structured_output import (
     InstructorChatCompletionClient,
-)
-from integration.providers.llm_structured_output import (
     InstructorStructuredOutputProvider,
-)
-from integration.providers.llm_structured_output import (
     InstructorStructuredOutputProviderConfig,
-)
-from integration.providers.llm_structured_output import StructuredLlmRequest
-from integration.providers.llm_structured_output import StructuredOutputRetryPolicy
-from integration.providers.llm_structured_output import StructuredOutputSchemaRef
-from integration.providers.llm_structured_output import StructuredOutputStatus
-from integration.providers.llm_structured_output import (
+    StructuredLlmRequest,
+    StructuredOutputRetryPolicy,
+    StructuredOutputSchemaRef,
+    StructuredOutputStatus,
     instructor_structured_output_provider,
 )
+
+STRUCTURED_MODEL_ALIAS = "polaris-local-structured"
 
 
 class ExampleInstructorAnswer(BaseModel):
@@ -87,7 +81,7 @@ def _provider(
     return InstructorStructuredOutputProvider(
         client=cast(InstructorChatCompletionClient, client),
         config=InstructorStructuredOutputProviderConfig(
-            model="qwen3.5:4b",
+            model=STRUCTURED_MODEL_ALIAS,
             gateway_base_url="http://localhost:4000/v1",
         ),
     )
@@ -103,7 +97,7 @@ def _request(
         system_prompt="You return only schema-valid output.",
         response_model=ExampleInstructorAnswer,
         schema_ref=StructuredOutputSchemaRef("ExampleInstructorAnswer"),
-        model="qwen3.5:4b",
+        model=STRUCTURED_MODEL_ALIAS,
         provider_name="instructor",
         retry_policy=retry_policy or StructuredOutputRetryPolicy(max_retries=2),
     )
@@ -122,7 +116,7 @@ def test_instructor_provider_maps_successful_structured_output() -> None:
         confidence_score=0.92,
     )
     assert result.provider_name == "instructor"
-    assert result.model == "qwen3.5:4b"
+    assert result.model == STRUCTURED_MODEL_ALIAS
     assert result.attempts == 1
     assert client.calls == [
         {
@@ -133,7 +127,11 @@ def test_instructor_provider_maps_successful_structured_output() -> None:
             ],
             "max_retries": 1,
             "strict": False,
-            "kwargs": {"model": "qwen3.5:4b", "temperature": 0.2, "max_tokens": 4096},
+            "kwargs": {
+                "model": STRUCTURED_MODEL_ALIAS,
+                "temperature": 0.2,
+                "max_tokens": 4096,
+            },
         }
     ]
 
@@ -251,7 +249,7 @@ def test_from_settings_builds_litellm_gateway_instructor_client(
         return native_client
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MODEL", "qwen2.5:7b")
+    monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MODEL", STRUCTURED_MODEL_ALIAS)
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_PROVIDER", "instructor")
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS", "8192")
     monkeypatch.setenv("POLARIS_STRUCTURED_OUTPUT_STRICT", "false")
@@ -296,7 +294,7 @@ def test_instructor_model_completion_helper_supports_prefixed_models() -> None:
     )
     assert (
         instructor_structured_output_provider._instructor_model_completion_name(
-            "qwen3.5:4b"
+            STRUCTURED_MODEL_ALIAS
         )
-        == "qwen3.5:4b"
+        == STRUCTURED_MODEL_ALIAS
     )

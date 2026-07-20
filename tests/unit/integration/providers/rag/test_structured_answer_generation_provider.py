@@ -1,30 +1,32 @@
 from __future__ import annotations
 
-import pytest
-
 from typing import cast
 
-from application.rag.contracts.rag_structured_answer import RagStructuredAnswer
-from application.rag.contracts.rag_structured_answer import RagStructuredAnswerQuality
-from application.rag.contracts.rag_structured_answer import RagStructuredCitation
-from integration.providers.llm_structured_output import StructuredLlmProvider
-from integration.providers.llm_structured_output import StructuredLlmRequest
-from integration.providers.llm_structured_output import StructuredLlmResult
-from integration.providers.llm_structured_output import StructuredOutputRetryPolicy
-from integration.providers.llm_structured_output import StructuredOutputSchemaRef
-from integration.providers.llm_structured_output import StructuredOutputStatus
+import pytest
+
+from application.rag.contracts.rag_structured_answer import (
+    RagStructuredAnswer,
+    RagStructuredAnswerQuality,
+    RagStructuredCitation,
+)
+from integration.providers.llm_structured_output import (
+    StructuredLlmProvider,
+    StructuredLlmRequest,
+    StructuredLlmResult,
+    StructuredOutputRetryPolicy,
+    StructuredOutputSchemaRef,
+    StructuredOutputStatus,
+)
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
 )
 from integration.providers.rag.structured_answer_generation_provider import (
     STRUCTURED_RAG_ANSWER_SCHEMA_NAME,
-)
-from integration.providers.rag.structured_answer_generation_provider import (
     StructuredRagAnswerGenerationProvider,
-)
-from integration.providers.rag.structured_answer_generation_provider import (
     StructuredRagAnswerGenerationProviderConfig,
 )
+
+SYNTHESIS_MODEL_ALIAS = "polaris-local-synthesis"
 
 
 @pytest.mark.asyncio
@@ -36,7 +38,7 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
             request_id="rag-request-1",
             status=StructuredOutputStatus.SUCCEEDED,
             provider_name="instructor",
-            model="qwen3.5:4b",
+            model=SYNTHESIS_MODEL_ALIAS,
             schema_ref=StructuredOutputSchemaRef(STRUCTURED_RAG_ANSWER_SCHEMA_NAME),
             attempts=2,
             output=structured_answer,
@@ -50,7 +52,7 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
 
     assert result.answer_text == answer_text
     assert result.confidence_score == 0.86
-    assert result.model == "qwen3.5:4b"
+    assert result.model == SYNTHESIS_MODEL_ALIAS
     assert result.provider_name == "instructor"
     assert result.metadata["citation_ids"] == ["C1"]
     assert (
@@ -69,6 +71,7 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
         "limitations": ["Single retrieved context."],
         "refusal_reason": None,
     }
+    assert structured_provider.requests[0].model == SYNTHESIS_MODEL_ALIAS
     assert structured_provider.requests[0].response_model is RagStructuredAnswer
     assert (
         structured_provider.requests[0].schema_ref.schema_name
@@ -81,6 +84,9 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
     assert "Retrieved context JSON payload" in structured_provider.requests[0].prompt
     assert structured_provider.requests[0].system_prompt.startswith("/no_think\n")
     assert "schema-valid JSON object" in structured_provider.requests[0].system_prompt
+    assert "do not calculate authoritative scores" in (
+        structured_provider.requests[0].system_prompt.lower()
+    )
     assert (
         "Do not repeat raw context payloads"
         in structured_provider.requests[0].system_prompt
@@ -98,7 +104,7 @@ async def test_structured_rag_provider_rejects_unknown_citation_ids() -> None:
             request_id="rag-request-1",
             status=StructuredOutputStatus.SUCCEEDED,
             provider_name="instructor",
-            model="qwen3.5:4b",
+            model=SYNTHESIS_MODEL_ALIAS,
             schema_ref=StructuredOutputSchemaRef(STRUCTURED_RAG_ANSWER_SCHEMA_NAME),
             attempts=1,
             output=_structured_answer(citation_id="ADMIN"),
@@ -119,7 +125,7 @@ async def test_structured_rag_provider_maps_structured_failure_to_provider_error
             request_id="rag-request-1",
             status=StructuredOutputStatus.FAILED,
             provider_name="instructor",
-            model="qwen3.5:4b",
+            model=SYNTHESIS_MODEL_ALIAS,
             schema_ref=StructuredOutputSchemaRef(STRUCTURED_RAG_ANSWER_SCHEMA_NAME),
             attempts=2,
             error_type="ValidationError",
@@ -204,7 +210,7 @@ def _provider(
     return StructuredRagAnswerGenerationProvider(
         structured_output_provider=cast(StructuredLlmProvider, structured_provider),
         config=StructuredRagAnswerGenerationProviderConfig(
-            model="qwen3.5:4b",
+            model=SYNTHESIS_MODEL_ALIAS,
             provider_name="instructor",
             retry_policy=StructuredOutputRetryPolicy(
                 max_retries=1,

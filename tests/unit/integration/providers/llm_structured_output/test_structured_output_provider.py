@@ -19,6 +19,8 @@ from integration.providers.llm_structured_output import (
     structured_output_provider,
 )
 
+STRUCTURED_MODEL_ALIAS = "polaris-local-structured"
+
 
 class ExampleStructuredAnswer(BaseModel):
     answer_text: str
@@ -84,7 +86,7 @@ def _request(
             schema_name="ExampleStructuredAnswer",
             schema_version="v1",
         ),
-        model="qwen3.5:4b",
+        model=STRUCTURED_MODEL_ALIAS,
         provider_name="fake-structured-provider",
         retry_policy=retry_policy or StructuredOutputRetryPolicy(max_retries=2),
         metadata={"workflow": "unit-test"},
@@ -168,7 +170,7 @@ def test_structured_output_executor_validates_successful_mapping_response(
     assert captured_provider_telemetry[-1]["success"] is True
     assert captured_provider_telemetry[-1]["attributes"] == {
         "provider_name": "fake-structured-provider",
-        "model": "qwen3.5:4b",
+        "model": STRUCTURED_MODEL_ALIAS,
         "schema_name": "ExampleStructuredAnswer",
         "schema_version": "v1",
         "max_retries": 2,
@@ -307,6 +309,6 @@ def test_request_and_retry_policy_validate_required_fields() -> None:
             prompt=" ",
             response_model=ExampleStructuredAnswer,
             schema_ref=StructuredOutputSchemaRef(schema_name="ExampleStructuredAnswer"),
-            model="qwen3.5:4b",
+            model=STRUCTURED_MODEL_ALIAS,
             provider_name="fake-structured-provider",
         )

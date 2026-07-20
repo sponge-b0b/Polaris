@@ -75,28 +75,28 @@ def test_structured_output_and_dspy_settings_read_polaris_prefixed_environment(
         tmp_path,
         overrides={
             "POLARIS_STRUCTURED_OUTPUT_PROVIDER": "INSTRUCTOR",
-            "POLARIS_STRUCTURED_OUTPUT_MODEL": " qwen2.5:7b ",
+            "POLARIS_STRUCTURED_OUTPUT_MODEL": " polaris-local-structured ",
             "POLARIS_STRUCTURED_OUTPUT_MAX_RETRIES": "3",
             "POLARIS_STRUCTURED_OUTPUT_TIMEOUT_SECONDS": "45",
             "POLARIS_STRUCTURED_OUTPUT_MAX_TOKENS": "2048",
             "POLARIS_STRUCTURED_OUTPUT_STRICT": "true",
             "POLARIS_STRUCTURED_OUTPUT_INSTRUCTOR_MODE": "TOOLS",
             "POLARIS_DSPY_ENABLED": "true",
-            "POLARIS_DSPY_OPTIMIZATION_MODEL": " qwen3.5:4b ",
+            "POLARIS_DSPY_OPTIMIZATION_MODEL": " polaris-local-optimization ",
             "POLARIS_DSPY_MAX_TRAINSET_CASES": "25",
             "POLARIS_DSPY_ARTIFACT_RETENTION_DAYS": "30",
         },
     )
 
     assert settings.STRUCTURED_OUTPUT_PROVIDER == "instructor"
-    assert settings.STRUCTURED_OUTPUT_MODEL == "qwen2.5:7b"
+    assert settings.STRUCTURED_OUTPUT_MODEL == "polaris-local-structured"
     assert settings.STRUCTURED_OUTPUT_MAX_RETRIES == 3
     assert settings.STRUCTURED_OUTPUT_TIMEOUT_SECONDS == 45.0
     assert settings.STRUCTURED_OUTPUT_MAX_TOKENS == 2048
     assert settings.STRUCTURED_OUTPUT_STRICT is True
     assert settings.STRUCTURED_OUTPUT_INSTRUCTOR_MODE == "tools"
     assert settings.DSPY_ENABLED is True
-    assert settings.DSPY_OPTIMIZATION_MODEL == "qwen3.5:4b"
+    assert settings.DSPY_OPTIMIZATION_MODEL == "polaris-local-optimization"
     assert settings.DSPY_MAX_TRAINSET_CASES == 25
     assert settings.DSPY_ARTIFACT_RETENTION_DAYS == 30
 

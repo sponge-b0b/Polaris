@@ -12,15 +12,15 @@ model_list:
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
   - model_name: polaris-local-structured
     litellm_params:
-      model: ollama_chat/qwen2.5:7b
+      model: ollama_chat/qwen2.5-coder:7b
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
   - model_name: polaris-local-evaluation
     litellm_params:
-      model: ollama_chat/qwen2.5:7b
+      model: ollama_chat/qwen2.5-coder:7b
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
   - model_name: polaris-local-optimization
     litellm_params:
-      model: ollama_chat/qwen2.5:7b
+      model: ollama_chat/qwen2.5-coder:7b
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
   - model_name: polaris-local-reasoning
     litellm_params:
@@ -28,11 +28,13 @@ model_list:
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
   - model_name: polaris-local-synthesis
     litellm_params:
-      model: ollama_chat/qwen3.5:4b
+      model: ollama_chat/qwen2.5-coder:7b
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
 
   # Optional direct model aliases for manual diagnostics and explicit operator
   # overrides. Polaris source defaults should use the logical aliases above.
+  # DeepSeek-R1 is intentionally challenger-only and must not back a canonical
+  # polaris-local-* architectural default without a future approved decision.
   - model_name: qwen2.5:7b
     litellm_params:
       model: ollama_chat/qwen2.5:7b
@@ -44,6 +46,14 @@ model_list:
   - model_name: qwen3.5:9b
     litellm_params:
       model: ollama_chat/qwen3.5:9b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: qwen2.5-coder:7b
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:7b
+      api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
+  - model_name: deepseek-r1:8b
+    litellm_params:
+      model: ollama_chat/deepseek-r1:8b
       api_base: os.environ/POLARIS_LITELLM_OLLAMA_API_BASE
 
 litellm_settings:

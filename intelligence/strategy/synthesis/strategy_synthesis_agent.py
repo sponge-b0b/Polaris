@@ -8,10 +8,7 @@ from application.observability import AiObservationStatus
 from application.services.base import ServiceRequest, ServiceRunner
 from application.services.market_events.market_events_request import MarketEventsRequest
 from application.services.market_events.market_events_service import MarketEventsService
-from config.strategy_model_config import (
-    DEFAULT_STRATEGY_MODEL_CONFIG,
-    StrategyModelConfig,
-)
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -65,9 +62,9 @@ class StrategySynthesisAgent(RuntimeNode):
         events_service: MarketEventsService,
         service_runner: ServiceRunner[Any, Any],
         intelligence_telemetry: IntelligenceTelemetry,
+        strategy_model_config: StrategyModelConfig,
         ai_observability_projector: IntelligenceAiObservabilityProjectorPort
         | None = None,
-        strategy_model_config: StrategyModelConfig | None = None,
     ) -> None:
         self.events_service = events_service
         self.service_runner = service_runner
@@ -75,9 +72,7 @@ class StrategySynthesisAgent(RuntimeNode):
         self.ai_observability = IntelligenceAiObservabilityRecorder(
             ai_observability_projector
         )
-        self.strategy_model_config = (
-            strategy_model_config or DEFAULT_STRATEGY_MODEL_CONFIG
-        )
+        self.strategy_model_config = strategy_model_config
 
     async def _execute(
         self,

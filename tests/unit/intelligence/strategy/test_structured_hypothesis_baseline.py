@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 from application.reports import MorningReportAssembler
 from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_result import BacktestMetrics
-from application.services.backtesting.backtest_result import BacktestPortfolioSnapshot
-from application.services.backtesting.backtest_result import BacktestResult
-from application.services.backtesting.backtest_result import BacktestStepResult
+from application.services.backtesting.backtest_result import (
+    BacktestMetrics,
+    BacktestPortfolioSnapshot,
+    BacktestResult,
+    BacktestStepResult,
+)
 from application.services.base import ServiceRunner
 from application.services.market_events.market_events_service import MarketEventsService
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
@@ -30,7 +30,6 @@ from intelligence.portfolio.management.portfolio_manager_agent import (
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
-
 
 NO_BREADTH: dict[str, object] = {"has_breadth_data": False}
 
@@ -268,7 +267,7 @@ def test_current_morning_report_action_plan_shape() -> None:
 
 
 def test_current_backtest_result_serialization_shape() -> None:
-    timestamp = datetime(2026, 7, 9, 14, 30, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 7, 9, 14, 30, tzinfo=UTC)
     result = BacktestResult(
         backtest_run_id="backtest-structured-hypothesis-baseline",
         scenario=BacktestScenario(
@@ -381,6 +380,7 @@ def _strategy_agent() -> StrategySynthesisAgent:
             )
         ),
         intelligence_telemetry=cast(IntelligenceTelemetry, _FakeTelemetry()),
+        strategy_model_config=StrategyModelConfig(),
     )
 
 

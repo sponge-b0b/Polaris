@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.state.runtime_context import RuntimeContext
 from intelligence.strategy.bear.bear_agent import BearAgent
 from intelligence.strategy.bull.bull_agent import BullAgent
-from intelligence.strategy.sideways.sideways_agent import SidewaysAgent
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
-
+from intelligence.strategy.sideways.sideways_agent import SidewaysAgent
 
 WEAK_BREADTH: dict[str, object] = {
     "has_breadth_data": True,
@@ -42,7 +42,7 @@ MISSING_BREADTH: dict[str, object] = {
 
 @pytest.mark.asyncio
 async def test_bull_agent_penalizes_weak_breadth_and_credits_strong_breadth() -> None:
-    agent = BullAgent()
+    agent = BullAgent(strategy_model_config=StrategyModelConfig())
 
     baseline = await agent._execute(
         _context(
@@ -86,7 +86,7 @@ async def test_bull_agent_penalizes_weak_breadth_and_credits_strong_breadth() ->
 
 @pytest.mark.asyncio
 async def test_bear_agent_credits_weak_breadth_and_penalizes_strong_breadth() -> None:
-    agent = BearAgent()
+    agent = BearAgent(strategy_model_config=StrategyModelConfig())
 
     baseline = await agent._execute(
         _context(
@@ -132,7 +132,7 @@ async def test_bear_agent_credits_weak_breadth_and_penalizes_strong_breadth() ->
 
 @pytest.mark.asyncio
 async def test_sideways_agent_credits_weak_or_divergent_breadth() -> None:
-    agent = SidewaysAgent()
+    agent = SidewaysAgent(strategy_model_config=StrategyModelConfig())
 
     baseline = await agent._execute(
         _context(
@@ -179,9 +179,9 @@ async def test_sideways_agent_credits_weak_or_divergent_breadth() -> None:
 @pytest.mark.asyncio
 async def test_strategy_agents_keep_missing_breadth_neutral() -> None:
     agents = (
-        BullAgent(),
-        BearAgent(),
-        SidewaysAgent(),
+        BullAgent(strategy_model_config=StrategyModelConfig()),
+        BearAgent(strategy_model_config=StrategyModelConfig()),
+        SidewaysAgent(strategy_model_config=StrategyModelConfig()),
     )
 
     for agent in agents:

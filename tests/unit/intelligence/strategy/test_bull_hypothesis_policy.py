@@ -1,10 +1,13 @@
 from __future__ import annotations
-from domain.workflow_outputs import STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 
 import pytest
 
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.workflow_outputs import (
+    STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.bull.bull_agent import BullAgent
 from intelligence.strategy.bull.bull_hypothesis_policy import build_bull_hypothesis
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
@@ -16,7 +19,7 @@ from intelligence.strategy.hypothesis.normalization import (
 @pytest.mark.asyncio
 async def test_bull_agent_produces_complete_structured_hypothesis() -> None:
     evidence_context = _evidence_context(risk_pressure=0.20)
-    agent = BullAgent()
+    agent = BullAgent(strategy_model_config=StrategyModelConfig())
 
     output = await agent._execute(_runtime_context(evidence_context))
 
@@ -43,7 +46,7 @@ async def test_bull_agent_produces_complete_structured_hypothesis() -> None:
 
 @pytest.mark.asyncio
 async def test_bull_agent_requires_strategy_evidence_builder_output() -> None:
-    agent = BullAgent()
+    agent = BullAgent(strategy_model_config=StrategyModelConfig())
     context = RuntimeContext(
         runtime_id="runtime-1",
         workflow_id="morning_report",

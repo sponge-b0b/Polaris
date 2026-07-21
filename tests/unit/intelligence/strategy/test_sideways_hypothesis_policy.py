@@ -1,10 +1,13 @@
 from __future__ import annotations
-from domain.workflow_outputs import STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 
 import pytest
 
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.workflow_outputs import (
+    STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
@@ -18,7 +21,7 @@ from intelligence.strategy.sideways.sideways_hypothesis_policy import (
 @pytest.mark.asyncio
 async def test_sideways_agent_produces_complete_structured_hypothesis() -> None:
     evidence_context = _sideways_evidence_context()
-    agent = SidewaysAgent()
+    agent = SidewaysAgent(strategy_model_config=StrategyModelConfig())
 
     output = await agent._execute(_runtime_context(evidence_context))
 
@@ -49,7 +52,7 @@ async def test_sideways_agent_produces_complete_structured_hypothesis() -> None:
 
 @pytest.mark.asyncio
 async def test_sideways_agent_requires_strategy_evidence_builder_output() -> None:
-    agent = SidewaysAgent()
+    agent = SidewaysAgent(strategy_model_config=StrategyModelConfig())
     context = RuntimeContext(
         runtime_id="runtime-1",
         workflow_id="morning_report",

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from config.strategy_model_config import (
-    DEFAULT_STRATEGY_MODEL_CONFIG,
-    StrategyModelConfig,
-)
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -34,11 +31,9 @@ class SidewaysAgent(RuntimeNode):
 
     def __init__(
         self,
-        strategy_model_config: StrategyModelConfig | None = None,
+        strategy_model_config: StrategyModelConfig,
     ) -> None:
-        self.strategy_model_config = (
-            strategy_model_config or DEFAULT_STRATEGY_MODEL_CONFIG
-        )
+        self.strategy_model_config = strategy_model_config
 
     async def _execute(
         self,

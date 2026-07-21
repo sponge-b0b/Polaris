@@ -18,6 +18,7 @@ from intelligence.strategy.bear.bear_agent import BearAgent
 from intelligence.strategy.bear.bear_hypothesis_policy import build_bear_hypothesis
 from intelligence.strategy.bull.bull_agent import BullAgent
 from intelligence.strategy.bull.bull_hypothesis_policy import build_bull_hypothesis
+from intelligence.strategy.di import IntelligenceStrategyDIProvider
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
@@ -69,6 +70,81 @@ async def test_perspective_agents_publish_reasoning_alias_metadata() -> None:
         assert hypothesis.supporting_evidence or hypothesis.contradicting_evidence
         assert hypothesis.key_assumptions
         assert hypothesis.invalidation_conditions
+
+
+def test_strategy_runtime_nodes_require_composed_model_config() -> None:
+    with pytest.raises(TypeError, match="strategy_model_config"):
+        BullAgent()  # type: ignore[call-arg]
+    with pytest.raises(TypeError, match="strategy_model_config"):
+        BearAgent()  # type: ignore[call-arg]
+    with pytest.raises(TypeError, match="strategy_model_config"):
+        SidewaysAgent()  # type: ignore[call-arg]
+    with pytest.raises(TypeError, match="strategy_model_config"):
+        StrategySynthesisAgent(  # type: ignore[call-arg]
+            events_service=MarketEventsService(events_provider=_NoEventsProvider()),
+            service_runner=ServiceRunner(
+                telemetry=ApplicationServiceTelemetry(
+                    observability_manager=ObservabilityManager()
+                )
+            ),
+            intelligence_telemetry=cast(IntelligenceTelemetry, _FakeTelemetry()),
+        )
+
+
+@pytest.mark.asyncio
+async def test_strategy_di_provider_composes_model_aliases_into_runtime_nodes() -> None:
+    provider = IntelligenceStrategyDIProvider()
+    config = StrategyModelConfig(
+        perspective_reasoning_model="di-reasoning-alias",
+        synthesis_model="di-synthesis-alias",
+    )
+    evidence_context = _evidence_context()
+    perspective_context = _perspective_runtime_context(evidence_context)
+
+    for agent, perspective in (
+        (provider.provide_bull_agent(config), StrategyPerspective.BULL),
+        (provider.provide_bear_agent(config), StrategyPerspective.BEAR),
+        (provider.provide_sideways_agent(config), StrategyPerspective.SIDEWAYS),
+    ):
+        output = await agent.run(perspective_context)
+
+        assert output.success is True
+        assert (
+            output.execution_metadata["strategy_model_role"] == "perspective_reasoning"
+        )
+        assert output.execution_metadata["strategy_model_alias"] == "di-reasoning-alias"
+        assert output.execution_metadata["strategy_perspective"] == perspective.value
+        assert output.execution_metadata["calculation_authority"] == "code"
+        assert output.execution_metadata["llm_output_authority"] == "explanation_only"
+
+    synthesis_agent = provider.provide_synthesis_agent(
+        events_service=MarketEventsService(events_provider=_NoEventsProvider()),
+        service_runner=ServiceRunner(
+            telemetry=ApplicationServiceTelemetry(
+                observability_manager=ObservabilityManager()
+            )
+        ),
+        intelligence_telemetry=cast(IntelligenceTelemetry, _FakeTelemetry()),
+        strategy_model_config=config,
+    )
+    synthesis_output = await synthesis_agent.run(
+        _synthesis_runtime_context(evidence_context)
+    )
+
+    assert synthesis_output.success is True
+    assert (
+        synthesis_output.execution_metadata["strategy_model_role"]
+        == "strategy_synthesis"
+    )
+    assert (
+        synthesis_output.execution_metadata["strategy_model_alias"]
+        == "di-synthesis-alias"
+    )
+    assert synthesis_output.execution_metadata["calculation_authority"] == "code"
+    assert (
+        synthesis_output.execution_metadata["llm_output_authority"]
+        == "explanation_only"
+    )
 
 
 @pytest.mark.asyncio

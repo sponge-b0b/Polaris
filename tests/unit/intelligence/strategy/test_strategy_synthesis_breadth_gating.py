@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -10,18 +9,18 @@ from application.services.base import ServiceRunner
 from application.services.market_events.market_events_service import (
     MarketEventsService,
 )
+from config.strategy_model_config import StrategyModelConfig
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
-from core.telemetry.tracing.trace_context import TraceContext
 from core.telemetry.observability import ObservabilityManager
+from core.telemetry.tracing.trace_context import TraceContext
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
 from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
-
 
 WEAK_BREADTH: dict[str, object] = {
     "has_breadth_data": True,
@@ -295,9 +294,7 @@ async def test_strategy_synthesis_emits_fallback_telemetry_for_missing_upstream(
 
 
 @pytest.mark.asyncio
-async def test_strategy_synthesis_missing_hypothesis_uses_degraded_neutral_decision() -> (
-    None
-):
+async def test_strategy_synthesis_missing_hypothesis_degrades_to_neutral() -> None:
     telemetry = _FakeTelemetry()
     agent = _agent(telemetry=telemetry)
     source_context = _context(breadth_state=MISSING_BREADTH)
@@ -640,6 +637,7 @@ def _agent(
             IntelligenceTelemetry,
             telemetry or _FakeTelemetry(),
         ),
+        strategy_model_config=StrategyModelConfig(),
         ai_observability_projector=projector,
     )
 

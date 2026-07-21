@@ -29,6 +29,3 @@ class StrategyModelConfig:
             perspective_reasoning_model=settings.STRATEGY_PERSPECTIVE_REASONING_MODEL,
             synthesis_model=settings.STRATEGY_SYNTHESIS_MODEL,
         )
-
-
-DEFAULT_STRATEGY_MODEL_CONFIG = StrategyModelConfig()

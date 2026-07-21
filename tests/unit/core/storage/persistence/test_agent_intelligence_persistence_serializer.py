@@ -1,20 +1,28 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
-from core.storage.persistence.agent_intelligence import AgentReasoningRecord
-from core.storage.persistence.agent_intelligence import AgentRecommendationRecord
-from core.storage.persistence.agent_intelligence import AgentRiskAssessmentRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (
-    AgentIntelligencePersistenceSerializer,
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
+from core.storage.persistence.agent_intelligence import (
+    AgentReasoningRecord,
+    AgentRecommendationRecord,
+    AgentRiskAssessmentRecord,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from core.storage.persistence.serializers import (
+    agent_intelligence_persistence_serializer as ai_serializers,
 )
 
+AgentIntelligencePersistenceSerializer = (
+    ai_serializers.AgentIntelligencePersistenceSerializer
+)
 
 _FULL_TEXT = "Full text must not be truncated. " * 200
 _FULL_LLM_RESPONSE = "Full LLM response must not be truncated. " * 250
@@ -217,4 +225,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

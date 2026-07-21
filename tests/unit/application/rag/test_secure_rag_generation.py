@@ -312,6 +312,7 @@ async def test_answer_generator_removes_reasoning_metadata_from_persisted_result
     )
 
     provider_metadata = result.metadata["provider_metadata"]
+    assert isinstance(provider_metadata, dict)
     serialized_metadata = json.dumps(provider_metadata)
     assert result.status == "answered"
     assert provider_metadata["safe_note"] == "kept"

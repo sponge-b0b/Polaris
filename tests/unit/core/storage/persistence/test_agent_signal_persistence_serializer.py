@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 from core.database.models.agent_signals import AgentSignalModel
 from core.storage.persistence.agent_signals import AgentSignalRecord
@@ -65,7 +64,7 @@ def _signal_record(
         node_name="technical",
         symbol="SPY",
         universe=("SPY", "QQQ"),
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         directional_score=0.6,
         confidence=0.82,
         regime="bullish",

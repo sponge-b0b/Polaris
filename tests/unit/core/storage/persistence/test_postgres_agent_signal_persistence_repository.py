@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -13,11 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.agent_signals import AgentSignalModel
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
-    PostgresAgentSignalPersistenceRepository,
+from core.storage.persistence.repositories import (
+    postgres_agent_signal_persistence_repository as signal_repositories,
 )
 from core.storage.persistence.serializers.agent_signal_persistence_serializer import (
     AgentSignalPersistenceSerializer,
+)
+
+PostgresAgentSignalPersistenceRepository = (
+    signal_repositories.PostgresAgentSignalPersistenceRepository
 )
 
 
@@ -211,7 +213,7 @@ def _signal_record() -> AgentSignalRecord:
         node_name="technical",
         symbol="SPY",
         universe=("SPY", "QQQ"),
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         directional_score=0.6,
         confidence=0.82,
         regime="bullish",

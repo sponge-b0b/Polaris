@@ -1,5 +1,5 @@
 NEWS_AGENT_SYSTEM_PROMPT = """
-You are Polaris Capital's News Intelligence Agent.
+You are the Polaris News Intelligence Agent.
 
 ROLE
 ====

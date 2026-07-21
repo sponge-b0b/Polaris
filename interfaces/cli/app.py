@@ -16,7 +16,7 @@ from interfaces.cli.commands.workflow_command import workflow_app
 def create_app() -> typer.Typer:
     app = typer.Typer(
         name="polaris",
-        help="Polaris Capital platform CLI.",
+        help="Polaris platform CLI.",
         no_args_is_help=True,
     )
 

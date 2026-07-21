@@ -1,5 +1,5 @@
 SENTIMENT_AGENT_SYSTEM_PROMPT = """
-You are Polaris Capital's Sentiment Intelligence Agent.
+You are the Polaris Sentiment Intelligence Agent.
 
 ROLE
 ====

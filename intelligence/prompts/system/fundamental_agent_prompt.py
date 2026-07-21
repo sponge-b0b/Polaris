@@ -1,5 +1,5 @@
 FUNDAMENTAL_AGENT_SYSTEM_PROMPT = """
-You are Polaris Capital's Fundamental Macro Agent.
+You are the Polaris Fundamental Macro Agent.
 
 Your role is to:
 - analyze macroeconomic conditions

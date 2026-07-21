@@ -110,7 +110,7 @@ as if it came from the requested alias.
 
 If fallback rejection is disabled for a deliberate diagnostic profile, fallback
 metadata must remain visible in the result metadata and telemetry. That mode is
-not sufficient to approve a canonical default replacement.
+not sufficient to validate a canonical default replacement.
 
 ## Reasoning-trace safety
 
@@ -135,10 +135,10 @@ subject to normal source, evidence, lineage, and projection rules.
 
 ## Model-regression validation gate
 
-Exploratory smoke tests are useful for diagnostics, but they cannot approve a
-replacement. A default model/profile change becomes canonical only after a
-`replacement_approval` run of `ModelReplacementValidationGate` passes every
-required section:
+Exploratory smoke tests are useful for diagnostics, but they cannot produce
+a replacement-validation pass signal. A default model/profile change becomes
+validation-ready only after a `replacement_validation` run of
+`ModelReplacementValidationGate` passes every required section:
 
 1. static/config boundary checks;
 2. structured-output checks;
@@ -157,10 +157,11 @@ operation timeout is `30` seconds; local profiles should normally keep the
 existing `60` second LiteLLM and DeepEval timeouts unless a validated profile
 requires a different value.
 
-Approval is all-or-nothing for replacement mode: any failed or skipped section
-denies canonical replacement. `exploratory_smoke` mode may run the same style of
-checks for operator learning, but its result scope is smoke-only and must not be
-used to change source defaults or production aliases.
+Replacement validation is all-or-nothing for replacement mode: any failed or
+skipped section prevents a validation pass. The gate emits validation evidence
+only; it is not a governance approval subsystem and does not mutate source
+defaults or production aliases. `exploratory_smoke` mode may run the same style
+of checks for operator learning, but its result scope is smoke-only.
 
 For the cross-boundary readiness matrix and live-service validation prerequisites,
 see [Model Allocation Readiness Check](model_allocation_readiness.md).
@@ -173,12 +174,12 @@ Before changing a canonical alias/default/profile:
    alias contract/source-default change.
 2. Keep credentials and authenticated endpoints out of source, docs, tests, and
    plans.
-3. Confirm fallback rejection remains enabled for replacement approval.
+3. Confirm fallback rejection remains enabled for replacement validation.
 4. Confirm reasoning-trace guards still fail closed for structured and
    persistence-bound paths.
 5. Seed or verify the canonical `model_regression` evaluation cases.
-6. Run the replacement gate in `replacement_approval` mode with DeepEval and
+6. Run the replacement gate in `replacement_validation` mode with DeepEval and
    Langfuse configured.
-7. Persist the gate result and record the approved profile in deployment/runtime
-   configuration rather than in application code unless the source alias contract
-   itself intentionally changed.
+7. Persist the gate result and record the validated profile in
+   deployment/runtime configuration rather than in application code unless the
+   source alias contract itself intentionally changed.

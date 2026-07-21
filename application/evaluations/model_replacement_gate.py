@@ -44,7 +44,7 @@ class ModelReplacementValidationMode(StrEnum):
     """Execution scope for model/profile validation gate attempts."""
 
     EXPLORATORY_SMOKE = "exploratory_smoke"
-    REPLACEMENT_APPROVAL = "replacement_approval"
+    REPLACEMENT_VALIDATION = "replacement_validation"
 
 
 class ModelReplacementGateStatus(StrEnum):
@@ -56,7 +56,7 @@ class ModelReplacementGateStatus(StrEnum):
 
 
 class ModelReplacementGateSection(StrEnum):
-    """Canonical checks that must pass before a model replacement is approved."""
+    """Canonical checks that must pass for model replacement validation."""
 
     STATIC_CONFIG_BOUNDARY = "static_config_boundary"
     STRUCTURED_OUTPUT = "structured_output"
@@ -78,7 +78,7 @@ class ModelReplacementValidationRequest:
     evaluator_model: str
     gate_id: str | None = None
     mode: ModelReplacementValidationMode | str = (
-        ModelReplacementValidationMode.REPLACEMENT_APPROVAL
+        ModelReplacementValidationMode.REPLACEMENT_VALIDATION
     )
     dataset_slice_name: str = MODEL_REPLACEMENT_DATASET_SLICE_NAME
     timeout_seconds: float | None = None
@@ -154,21 +154,25 @@ class ModelReplacementGateSectionResult:
 
 @dataclass(frozen=True, slots=True)
 class ModelReplacementValidationResult:
-    """Full gate result for a candidate model/profile validation attempt."""
+    """Full gate result for a candidate model/profile validation attempt.
+
+    The pass/fail fields report validation evidence only; they are not
+    governance approval decisions and do not mutate runtime model defaults.
+    """
 
     gate_id: str
     candidate_profile_name: str
     candidate_model: str
     mode: ModelReplacementValidationMode
     sections: tuple[ModelReplacementGateSectionResult, ...]
-    approved_for_replacement: bool
-    approval_denial_reason: str | None = None
+    passed_replacement_validation: bool
+    validation_failure_reason: str | None = None
 
     @property
-    def approval_scope(self) -> str:
+    def validation_scope(self) -> str:
         if self.mode is ModelReplacementValidationMode.EXPLORATORY_SMOKE:
             return "exploratory_smoke_only"
-        return "replacement_approval"
+        return "replacement_validation"
 
     @property
     def exploratory_smoke_only(self) -> bool:
@@ -279,7 +283,7 @@ class ModelReplacementValidationGate:
 
     result_service: ModelReplacementResultServicePort
     run_service: ModelReplacementRunServicePort
-    settings: Settings | None = None
+    settings: Settings
 
     async def validate(
         self,
@@ -287,10 +291,8 @@ class ModelReplacementValidationGate:
     ) -> ModelReplacementValidationResult:
         gate_id = request.effective_gate_id
         sections: list[ModelReplacementGateSectionResult] = []
-        settings = self.settings or Settings()
-
-        static_section = _static_config_boundary_section(settings, request)
-        local_section = _local_operations_section(settings, request)
+        static_section = _static_config_boundary_section(self.settings, request)
+        local_section = _local_operations_section(self.settings, request)
         sections.extend((static_section, local_section))
 
         loaded_cases = await self._load_cases(request)
@@ -305,15 +307,17 @@ class ModelReplacementValidationGate:
         else:
             sections.extend(_skipped_evaluation_sections(loaded_cases))
 
-        approved = _approved(request.mode, sections)
+        passed_validation = _passed_replacement_validation(request.mode, sections)
         return ModelReplacementValidationResult(
             gate_id=gate_id,
             candidate_profile_name=request.candidate_profile_name,
             candidate_model=request.candidate_model,
             mode=_coerce_validation_mode(request.mode),
             sections=tuple(sections),
-            approved_for_replacement=approved,
-            approval_denial_reason=_approval_denial_reason(request.mode, sections),
+            passed_replacement_validation=passed_validation,
+            validation_failure_reason=_validation_failure_reason(
+                request.mode, sections
+            ),
         )
 
     async def _load_cases(
@@ -758,13 +762,13 @@ def _missing_cases_section(
     )
 
 
-def _approved(
+def _passed_replacement_validation(
     mode: ModelReplacementValidationMode | str,
     sections: Sequence[ModelReplacementGateSectionResult],
 ) -> bool:
     if (
         _coerce_validation_mode(mode)
-        is not ModelReplacementValidationMode.REPLACEMENT_APPROVAL
+        is not ModelReplacementValidationMode.REPLACEMENT_VALIDATION
     ):
         return False
     return all(
@@ -772,7 +776,7 @@ def _approved(
     )
 
 
-def _approval_denial_reason(
+def _validation_failure_reason(
     mode: ModelReplacementValidationMode | str,
     sections: Sequence[ModelReplacementGateSectionResult],
 ) -> str | None:
@@ -781,8 +785,8 @@ def _approval_denial_reason(
         is ModelReplacementValidationMode.EXPLORATORY_SMOKE
     ):
         return (
-            "Exploratory smoke validations cannot approve default "
-            "model/profile replacement."
+            "Exploratory smoke validations do not produce a default "
+            "model/profile replacement validation pass."
         )
     failed_sections = tuple(
         section.section.value
@@ -790,7 +794,7 @@ def _approval_denial_reason(
         if section.status is not ModelReplacementGateStatus.PASSED
     )
     if failed_sections:
-        return "Replacement approval denied by gate sections: " + ", ".join(
+        return "Replacement validation failed gate sections: " + ", ".join(
             failed_sections
         )
     return None

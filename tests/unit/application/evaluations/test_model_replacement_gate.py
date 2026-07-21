@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -87,12 +87,12 @@ class RecordingRunService:
 
 
 @pytest.mark.asyncio()
-async def test_replacement_gate_runs_complete_approval_validation() -> None:
+async def test_replacement_gate_runs_complete_replacement_validation() -> None:
     run_service = RecordingRunService([])
     gate = ModelReplacementValidationGate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
-        settings=_approval_settings(),
+        settings=_validation_settings(),
     )
 
     result = await gate.validate(
@@ -100,7 +100,7 @@ async def test_replacement_gate_runs_complete_approval_validation() -> None:
             gate_id="gate-001",
             candidate_profile_name="local-qwen-profile",
             candidate_model="polaris-local-synthesis",
-            mode=ModelReplacementValidationMode.REPLACEMENT_APPROVAL,
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
             evaluator_provider="litellm",
             evaluator_model="polaris-local-evaluation",
             timeout_seconds=60.0,
@@ -110,9 +110,9 @@ async def test_replacement_gate_runs_complete_approval_validation() -> None:
         )
     )
 
-    assert result.approved_for_replacement is True
+    assert result.passed_replacement_validation is True
     assert result.exploratory_smoke_only is False
-    assert result.approval_scope == "replacement_approval"
+    assert result.validation_scope == "replacement_validation"
     assert result.failed_sections == ()
     assert result.evaluation_run_count == len(run_service.requests)
     assert result.metric_result_count > 0
@@ -139,13 +139,58 @@ async def test_replacement_gate_runs_complete_approval_validation() -> None:
     )
 
 
+def test_gate_requires_explicit_settings_dependency() -> None:
+    gate_type: Any = ModelReplacementValidationGate
+
+    with pytest.raises(TypeError, match="settings"):
+        gate_type(
+            result_service=FakeResultService({}),
+            run_service=RecordingRunService([]),
+        )
+
+
 @pytest.mark.asyncio()
-async def test_exploratory_smoke_mode_never_approves_replacement() -> None:
+async def test_gate_reports_explicit_missing_configuration_without_defaults() -> None:
     run_service = RecordingRunService([])
     gate = ModelReplacementValidationGate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
-        settings=_approval_settings(),
+        settings=_missing_validation_settings(),
+    )
+
+    result = await gate.validate(
+        ModelReplacementValidationRequest(
+            gate_id="gate-missing-config",
+            candidate_profile_name="local-qwen-profile",
+            candidate_model="polaris-local-synthesis",
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
+            evaluator_provider="litellm",
+            evaluator_model="polaris-local-evaluation",
+            timeout_seconds=60.0,
+        )
+    )
+
+    static_config = _section(
+        result,
+        ModelReplacementGateSection.STATIC_CONFIG_BOUNDARY,
+    )
+
+    assert result.passed_replacement_validation is False
+    assert result.validation_failure_reason is not None
+    assert static_config.status is ModelReplacementGateStatus.FAILED
+    failures = cast("list[str]", static_config.details["failures"])
+    assert any("litellm_gateway" in failure for failure in failures)
+    assert any("candidate model is not present" in failure for failure in failures)
+    assert run_service.requests == []
+
+
+@pytest.mark.asyncio()
+async def test_exploratory_smoke_mode_never_passes_replacement_validation() -> None:
+    run_service = RecordingRunService([])
+    gate = ModelReplacementValidationGate(
+        result_service=FakeResultService(_model_regression_records()),
+        run_service=run_service,
+        settings=_validation_settings(),
     )
 
     result = await gate.validate(
@@ -160,12 +205,12 @@ async def test_exploratory_smoke_mode_never_approves_replacement() -> None:
         )
     )
 
-    assert result.approved_for_replacement is False
+    assert result.passed_replacement_validation is False
     assert result.exploratory_smoke_only is True
-    assert result.approval_scope == "exploratory_smoke_only"
-    assert result.approval_denial_reason == (
-        "Exploratory smoke validations cannot approve default "
-        "model/profile replacement."
+    assert result.validation_scope == "exploratory_smoke_only"
+    assert result.validation_failure_reason == (
+        "Exploratory smoke validations do not produce a default "
+        "model/profile replacement validation pass."
     )
     assert result.evaluation_run_count == len(run_service.requests)
     assert result.metric_result_count > 0
@@ -177,7 +222,7 @@ async def test_gate_rejects_missing_model_regression_cases() -> None:
     gate = ModelReplacementValidationGate(
         result_service=FakeResultService({}),
         run_service=run_service,
-        settings=_approval_settings(),
+        settings=_validation_settings(),
     )
 
     result = await gate.validate(
@@ -185,14 +230,14 @@ async def test_gate_rejects_missing_model_regression_cases() -> None:
             gate_id="gate-missing-cases",
             candidate_profile_name="local-qwen-profile",
             candidate_model="polaris-local-synthesis",
-            mode=ModelReplacementValidationMode.REPLACEMENT_APPROVAL,
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
             evaluator_provider="litellm",
             evaluator_model="polaris-local-evaluation",
             timeout_seconds=60.0,
         )
     )
 
-    assert result.approved_for_replacement is False
+    assert result.passed_replacement_validation is False
     assert run_service.requests == []
     assert _section(result, ModelReplacementGateSection.STRUCTURED_OUTPUT).status is (
         ModelReplacementGateStatus.FAILED
@@ -217,7 +262,7 @@ async def test_gate_reports_timeout_and_low_vram_viability_failures() -> None:
     gate = ModelReplacementValidationGate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
-        settings=_approval_settings(),
+        settings=_validation_settings(),
     )
 
     result = await gate.validate(
@@ -225,7 +270,7 @@ async def test_gate_reports_timeout_and_low_vram_viability_failures() -> None:
             gate_id="gate-low-vram",
             candidate_profile_name="local-qwen-profile",
             candidate_model="polaris-local-synthesis",
-            mode=ModelReplacementValidationMode.REPLACEMENT_APPROVAL,
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
             evaluator_provider="litellm",
             evaluator_model="polaris-local-evaluation",
             timeout_seconds=5.0,
@@ -237,7 +282,7 @@ async def test_gate_reports_timeout_and_low_vram_viability_failures() -> None:
 
     local_operations = _section(result, ModelReplacementGateSection.LOCAL_OPERATIONS)
 
-    assert result.approved_for_replacement is False
+    assert result.passed_replacement_validation is False
     assert local_operations.status is ModelReplacementGateStatus.FAILED
     assert local_operations.details["timeout_seconds"] == 5.0
     assert local_operations.details["minimum_timeout_seconds"] == 30.0
@@ -247,7 +292,7 @@ async def test_gate_reports_timeout_and_low_vram_viability_failures() -> None:
     assert run_service.requests == []
 
 
-def _approval_settings() -> Settings:
+def _validation_settings() -> Settings:
     return Settings(
         LITELLM_ENABLED=True,
         LITELLM_API_KEY="test-api-key",
@@ -262,6 +307,24 @@ def _approval_settings() -> Settings:
         STRUCTURED_OUTPUT_MODEL="polaris-local-synthesis",
         RAG_SYNTHESIS_MODEL="polaris-local-synthesis",
         STRATEGY_SYNTHESIS_MODEL="polaris-local-synthesis",
+    )
+
+
+def _missing_validation_settings() -> Settings:
+    return Settings(
+        LITELLM_ENABLED=False,
+        LITELLM_API_KEY=None,
+        LITELLM_REJECT_MODEL_FALLBACK=True,
+        DEEPEVAL_ENABLED=False,
+        DEEPEVAL_JUDGE_PROVIDER=None,
+        DEEPEVAL_JUDGE_MODEL=None,
+        LANGFUSE_HOST=None,
+        LANGFUSE_PUBLIC_KEY=None,
+        LANGFUSE_SECRET_KEY=None,
+        DEFAULT_MODEL="unrelated-local-model",
+        STRUCTURED_OUTPUT_MODEL="unrelated-local-model",
+        RAG_SYNTHESIS_MODEL="unrelated-local-model",
+        STRATEGY_SYNTHESIS_MODEL="unrelated-local-model",
     )
 
 

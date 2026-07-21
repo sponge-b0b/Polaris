@@ -223,7 +223,7 @@ live-service tests as part of a routine unit-test loop.
 | Langfuse | external/self-hosted | configured by `POLARIS_LANGFUSE_HOST` | Optional live AI-observability smoke checks; unit tests use fakes and do not require Langfuse |
 | DeepEval judge model | LiteLLM gateway plus its configured backend model service, or another approved DeepEval provider | configured by `POLARIS_DEEPEVAL_JUDGE_PROVIDER` and `POLARIS_DEEPEVAL_JUDGE_MODEL` | Optional live DeepEval smoke checks and real evaluation runs; non-live tests use fakes |
 
-For default model/profile changes, targeted unit checks and live smoke tests are not a replacement approval. Use the canonical model-regression validation gate described in [Polaris Model Profile Policy](model_profile_policy.md), and keep full-suite or live-service validation scoped to the changed boundary and confirmed services.
+For default model/profile changes, targeted unit checks and live smoke tests are not replacement validation. Use the canonical model-regression validation gate described in [Polaris Model Profile Policy](model_profile_policy.md), and keep full-suite or live-service validation scoped to the changed boundary and confirmed services. A validation pass is evidence for review; it is not governance approval by itself.
 
 Start only the services you need:
 

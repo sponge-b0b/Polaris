@@ -33,6 +33,8 @@ ACCEPTANCE_PHRASES = (
     "reasoning-trace safety",
     "structured-output",
     "strategy",
+    "code-owned non-execution metadata",
+    "strategy_model_execution_mode=not_executed",
     "RAG",
     "evaluation gate",
     "documentation current",

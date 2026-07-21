@@ -38,7 +38,7 @@ from intelligence.strategy.synthesis.strategy_synthesis_policy import (
 
 
 @pytest.mark.asyncio
-async def test_perspective_agents_publish_reasoning_alias_metadata() -> None:
+async def test_perspective_agents_publish_code_owned_reasoning_alias_policy() -> None:
     config = StrategyModelConfig(
         perspective_reasoning_model="test-reasoning-alias",
         synthesis_model="test-synthesis-alias",
@@ -59,8 +59,15 @@ async def test_perspective_agents_publish_reasoning_alias_metadata() -> None:
             output.execution_metadata["strategy_model_alias"] == "test-reasoning-alias"
         )
         assert output.execution_metadata["strategy_perspective"] == perspective.value
+        assert (
+            output.execution_metadata["strategy_model_execution_mode"] == "not_executed"
+        )
+        assert (
+            output.execution_metadata["strategy_model_alias_purpose"]
+            == "configured_lane_reference"
+        )
         assert output.execution_metadata["calculation_authority"] == "code"
-        assert output.execution_metadata["llm_output_authority"] == "explanation_only"
+        assert output.execution_metadata["llm_output_authority"] == "none"
 
         hypothesis = StrategyHypothesis.from_dict(
             cast(dict[str, object], output.outputs["strategy_hypothesis"])
@@ -114,8 +121,15 @@ async def test_strategy_di_provider_composes_model_aliases_into_runtime_nodes() 
         )
         assert output.execution_metadata["strategy_model_alias"] == "di-reasoning-alias"
         assert output.execution_metadata["strategy_perspective"] == perspective.value
+        assert (
+            output.execution_metadata["strategy_model_execution_mode"] == "not_executed"
+        )
+        assert (
+            output.execution_metadata["strategy_model_alias_purpose"]
+            == "configured_lane_reference"
+        )
         assert output.execution_metadata["calculation_authority"] == "code"
-        assert output.execution_metadata["llm_output_authority"] == "explanation_only"
+        assert output.execution_metadata["llm_output_authority"] == "none"
 
     synthesis_agent = provider.provide_synthesis_agent(
         events_service=MarketEventsService(events_provider=_NoEventsProvider()),
@@ -140,15 +154,20 @@ async def test_strategy_di_provider_composes_model_aliases_into_runtime_nodes() 
         synthesis_output.execution_metadata["strategy_model_alias"]
         == "di-synthesis-alias"
     )
-    assert synthesis_output.execution_metadata["calculation_authority"] == "code"
     assert (
-        synthesis_output.execution_metadata["llm_output_authority"]
-        == "explanation_only"
+        synthesis_output.execution_metadata["strategy_model_execution_mode"]
+        == "not_executed"
     )
+    assert (
+        synthesis_output.execution_metadata["strategy_model_alias_purpose"]
+        == "configured_lane_reference"
+    )
+    assert synthesis_output.execution_metadata["calculation_authority"] == "code"
+    assert synthesis_output.execution_metadata["llm_output_authority"] == "none"
 
 
 @pytest.mark.asyncio
-async def test_strategy_synthesis_alias_preserves_code_owned_scores() -> None:
+async def test_strategy_synthesis_alias_policy_preserves_code_owned_scores() -> None:
     config = StrategyModelConfig(
         perspective_reasoning_model="test-reasoning-alias",
         synthesis_model="test-synthesis-alias",
@@ -169,8 +188,13 @@ async def test_strategy_synthesis_alias_preserves_code_owned_scores() -> None:
 
     assert output.execution_metadata["strategy_model_role"] == "strategy_synthesis"
     assert output.execution_metadata["strategy_model_alias"] == "test-synthesis-alias"
+    assert output.execution_metadata["strategy_model_execution_mode"] == "not_executed"
+    assert (
+        output.execution_metadata["strategy_model_alias_purpose"]
+        == "configured_lane_reference"
+    )
     assert output.execution_metadata["calculation_authority"] == "code"
-    assert output.execution_metadata["llm_output_authority"] == "explanation_only"
+    assert output.execution_metadata["llm_output_authority"] == "none"
 
     hypotheses = {
         perspective: StrategyHypothesis.from_dict(

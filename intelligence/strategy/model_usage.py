@@ -8,17 +8,26 @@ from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 
 StrategyModelRole = Literal["perspective_reasoning", "strategy_synthesis"]
 CalculationAuthority = Literal["code"]
-LlmOutputAuthority = Literal["explanation_only"]
+LlmOutputAuthority = Literal["none"]
+StrategyModelExecutionMode = Literal["not_executed"]
+StrategyModelAliasPurpose = Literal["configured_lane_reference"]
 
 
 @dataclass(frozen=True, slots=True)
 class StrategyModelUsage:
-    """Non-authoritative model-lane metadata for strategy workflow outputs."""
+    """Externally visible strategy model-lane policy metadata.
+
+    Current strategy hypotheses, synthesis scores, and explanations are
+    code-owned. The configured alias identifies the lane that future LLM-backed
+    behavior must use; it is not proof that a model call occurred.
+    """
 
     role: StrategyModelRole
     model_alias: str
     calculation_authority: CalculationAuthority = "code"
-    llm_output_authority: LlmOutputAuthority = "explanation_only"
+    llm_output_authority: LlmOutputAuthority = "none"
+    execution_mode: StrategyModelExecutionMode = "not_executed"
+    alias_purpose: StrategyModelAliasPurpose = "configured_lane_reference"
     perspective: StrategyPerspective | None = None
 
     def __post_init__(self) -> None:
@@ -30,6 +39,8 @@ class StrategyModelUsage:
         metadata: dict[str, object] = {
             "strategy_model_role": self.role,
             "strategy_model_alias": self.model_alias,
+            "strategy_model_execution_mode": self.execution_mode,
+            "strategy_model_alias_purpose": self.alias_purpose,
             "calculation_authority": self.calculation_authority,
             "llm_output_authority": self.llm_output_authority,
         }

@@ -46,6 +46,29 @@ name Polaris aliases, not concrete model IDs. The current source defaults route:
 - structured-output provider calls to `polaris-local-structured`;
 - DSPy optimization to `polaris-local-optimization`.
 
+## Current strategy execution policy
+
+The current strategy workflow is code-owned and does not execute LLM calls for
+perspective hypotheses, synthesis scoring, or strategy explanations.
+`StrategyModelConfig` is still composed into the strategy runtime nodes so the
+configured logical lane remains externally visible, but the runtime metadata is
+a policy record only:
+
+- perspective nodes record `STRATEGY_PERSPECTIVE_REASONING_MODEL` as the
+  configured `perspective_reasoning` lane;
+- the synthesis node records `STRATEGY_SYNTHESIS_MODEL` as the configured
+  `strategy_synthesis` lane;
+- `strategy_model_execution_mode=not_executed`,
+  `calculation_authority=code`, and `llm_output_authority=none` mean the alias
+  was not invoked and must not be interpreted as model execution.
+
+If future strategy behavior becomes LLM-backed, perspective-reasoning calls must
+enter through the provider/application-service boundary using the configured
+reasoning alias, and synthesis or publishable explanation calls must use the
+configured synthesis alias. That change must update the externally visible
+execution metadata and targeted tests so model execution can be distinguished
+from configured-lane metadata.
+
 Concrete model bindings belong in runtime configuration:
 
 - local LiteLLM model routing: `config/litellm/config.yaml` plus the

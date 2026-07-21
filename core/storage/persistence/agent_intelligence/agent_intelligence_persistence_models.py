@@ -1,15 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Protocol, cast
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
+from domain.llm import (
+    sanitize_reasoning_trace_payload,
+    sanitize_reasoning_trace_text_for_boundary,
+)
+
+
+class _CommonOptionalFieldsRecord(Protocol):
+    @property
+    def symbol(self) -> str | None: ...
+
+    @property
+    def universe(self) -> str | None: ...
 
 
 @dataclass(
@@ -102,9 +116,16 @@ class AgentReasoningRecord:
         object.__setattr__(
             self,
             "full_llm_response",
-            _clean_optional_text(
+            _clean_optional_model_text(
                 self.full_llm_response,
+                boundary_name="AgentReasoningRecord.full_llm_response",
             ),
+        )
+        _set_sanitized_json_object_fields(
+            self,
+            "inputs",
+            "outputs",
+            "metadata",
         )
 
 
@@ -206,16 +227,24 @@ class AgentRecommendationRecord:
         object.__setattr__(
             self,
             "rationale_text",
-            _clean_optional_text(
+            _clean_optional_model_text(
                 self.rationale_text,
+                boundary_name="AgentRecommendationRecord.rationale_text",
             ),
         )
         object.__setattr__(
             self,
             "full_llm_response",
-            _clean_optional_text(
+            _clean_optional_model_text(
                 self.full_llm_response,
+                boundary_name="AgentRecommendationRecord.full_llm_response",
             ),
+        )
+        _set_sanitized_json_object_fields(
+            self,
+            "inputs",
+            "outputs",
+            "metadata",
         )
         _require_optional_ratio(
             self.confidence,
@@ -303,16 +332,24 @@ class AgentRiskAssessmentRecord:
         object.__setattr__(
             self,
             "mitigation",
-            _clean_optional_text(
+            _clean_optional_model_text(
                 self.mitigation,
+                boundary_name="AgentRiskAssessmentRecord.mitigation",
             ),
         )
         object.__setattr__(
             self,
             "full_llm_response",
-            _clean_optional_text(
+            _clean_optional_model_text(
                 self.full_llm_response,
+                boundary_name="AgentRiskAssessmentRecord.full_llm_response",
             ),
+        )
+        _set_sanitized_json_object_fields(
+            self,
+            "inputs",
+            "outputs",
+            "metadata",
         )
         _require_optional_ratio(
             self.risk_score,
@@ -496,20 +533,25 @@ def _set_required_text(
     field_name: str,
     value: str,
 ) -> None:
+    clean_value = _require_non_empty_text(
+        value,
+        field_name,
+    )
     object.__setattr__(
         record,
         field_name,
-        _require_non_empty_text(
-            value,
-            field_name,
+        sanitize_reasoning_trace_text_for_boundary(
+            clean_value,
+            boundary_name=f"{type(record).__name__}.{field_name}",
+            allow_empty=False,
         ),
     )
 
 
 def _set_common_optional_fields(
-    record: object,
+    record: _CommonOptionalFieldsRecord,
 ) -> None:
-    symbol = getattr(record, "symbol")
+    symbol = record.symbol
     object.__setattr__(
         record,
         "symbol",
@@ -517,7 +559,7 @@ def _set_common_optional_fields(
             symbol,
         ),
     )
-    universe = getattr(record, "universe")
+    universe = record.universe
     object.__setattr__(
         record,
         "universe",
@@ -541,8 +583,10 @@ def _clean_optional_symbol(
     return clean_symbol.upper()
 
 
-def _clean_optional_text(
+def _clean_optional_model_text(
     value: str | None,
+    *,
+    boundary_name: str,
 ) -> str | None:
     if value is None:
         return None
@@ -551,7 +595,33 @@ def _clean_optional_text(
     if not clean_value:
         return None
 
-    return clean_value
+    sanitized = sanitize_reasoning_trace_text_for_boundary(
+        clean_value,
+        boundary_name=boundary_name,
+    )
+    return sanitized or None
+
+
+def _set_sanitized_json_object_fields(
+    record: object,
+    *field_names: str,
+) -> None:
+    for field_name in field_names:
+        sanitized = sanitize_reasoning_trace_payload(
+            getattr(
+                record,
+                field_name,
+            ),
+            boundary_name=f"{type(record).__name__}.{field_name}",
+        )
+        object.__setattr__(
+            record,
+            field_name,
+            cast(
+                JsonObject,
+                sanitized,
+            ),
+        )
 
 
 def _require_non_empty_text(

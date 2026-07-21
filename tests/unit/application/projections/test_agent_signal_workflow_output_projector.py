@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -12,22 +11,26 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     build_risk_signal_projector_registrations,
 )
-from core.storage.persistence.agent_signals import AgentSignalPersistenceRepository
-from core.storage.persistence.agent_signals import AgentSignalPersistenceResult
-from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from domain.workflow_outputs import RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.agent_signals import (
+    AgentSignalPersistenceRepository,
+    AgentSignalPersistenceResult,
+    AgentSignalRecord,
+)
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
+from domain.workflow_outputs import (
+    RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 @pytest.mark.asyncio
@@ -58,6 +61,38 @@ async def test_risk_agent_signal_projector_persists_curated_signal_record() -> N
     assert signal.metadata["source_fingerprint"] == "fingerprint-1"
 
 
+@pytest.mark.asyncio
+async def test_risk_agent_signal_projector_fails_closed_on_reasoning_trace() -> None:
+    repository = _FakeAgentSignalRepository()
+    registration = next(
+        item
+        for item in build_risk_signal_projector_registrations(
+            AgentSignalPersistenceService(
+                cast(AgentSignalPersistenceRepository, repository),
+            )
+        )
+        if item.output_contract == RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT
+    )
+
+    outcome = await registration.projector.project(
+        _projector_request(
+            outputs={
+                "symbol": "SPY",
+                "directional_score": -0.2,
+                "confidence": 0.81,
+                "reasoning": "<think>hidden runtime reasoning without a close tag",
+            },
+        )
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.records_written == 0
+    assert outcome.error_type == "ReasoningTraceViolationError"
+    assert outcome.error_message is not None
+    assert "hidden runtime reasoning" not in outcome.error_message
+    assert repository.signals == []
+
+
 class _FakeAgentSignalRepository:
     def __init__(self) -> None:
         self.signals: list[AgentSignalRecord] = []
@@ -73,9 +108,12 @@ class _FakeAgentSignalRepository:
         )
 
 
-def _projector_request() -> WorkflowOutputProjectorRequest:
+def _projector_request(
+    *,
+    outputs: JsonObject | None = None,
+) -> WorkflowOutputProjectorRequest:
     run = _run()
-    node_output = _node()
+    node_output = _node(outputs=outputs)
     return WorkflowOutputProjectorRequest(
         run=run,
         node_output=node_output,
@@ -112,7 +150,10 @@ def _run() -> CompletedRunRecord:
     )
 
 
-def _node() -> CompletedNodeOutputRecord:
+def _node(
+    *,
+    outputs: JsonObject | None = None,
+) -> CompletedNodeOutputRecord:
     return CompletedNodeOutputRecord(
         node_output_id="node-output-risk",
         run_id="run-1",
@@ -124,7 +165,8 @@ def _node() -> CompletedNodeOutputRecord:
         output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
         status="succeeded",
         success=True,
-        outputs=cast(
+        outputs=outputs
+        or cast(
             JsonObject,
             {
                 "symbol": "SPY",

@@ -1,31 +1,32 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
 
-from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
 from application.rag.ingestion.curated_rag_document_builder import (
     CuratedRagDocumentBuilder,
-)
-from application.rag.ingestion.curated_rag_document_builder import (
     CuratedRagIngestionService,
 )
 from application.rag.ingestion.curated_rag_models import (
+    CuratedRagBuildOptions,
     CuratedRagSourceNotEligibleError,
 )
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
-from core.storage.persistence.rag import new_rag_source_eligibility_id
+from core.storage.persistence.agent_signals import JsonObject as AgentSignalJsonObject
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+    RagRecordPersistenceResult,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+    new_rag_source_eligibility_id,
+)
 from core.storage.persistence.reports import ReportRecord
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
@@ -188,9 +189,7 @@ def test_builder_does_not_queue_embedding_jobs_by_default() -> None:
     assert bundle.embedding_jobs == ()
 
 
-def test_builder_creates_rag_document_from_curated_agent_signal_without_truncation() -> (
-    None
-):
+def test_builder_creates_rag_document_from_agent_signal_without_truncation() -> None:
     full_llm_response = "Full detailed LLM response. " * 120
     signal = _agent_signal(
         llm_response=full_llm_response,
@@ -214,6 +213,31 @@ def test_builder_creates_rag_document_from_curated_agent_signal_without_truncati
     assert full_llm_response in bundle.document.content_text
     assert bundle.document.metadata["agent_name"] == "TechnicalAgent"
     assert bundle.embedding_jobs == ()
+
+
+def test_builder_excludes_reasoning_traces_from_curated_agent_signal_document() -> None:
+    signal = _agent_signal(
+        llm_response="```reasoning\nprivate model trace\n```\nVisible model response.",
+        reasoning_text="<think>private reasoning</think>\nVisible technical rationale.",
+        metadata={
+            "chain_of_thought": "private metadata trace",
+            "source": "unit-test",
+        },
+    )
+    builder = CuratedRagDocumentBuilder()
+
+    bundle = builder.build_from_agent_signal(
+        signal,
+        options=CuratedRagBuildOptions(
+            max_chunk_characters=10_000,
+            queue_embedding_jobs=False,
+        ),
+    )
+
+    assert "Visible model response." in bundle.document.content_text
+    assert "Visible technical rationale." in bundle.document.content_text
+    assert "private" not in bundle.document.content_text
+    assert "chain_of_thought" not in str(bundle.document.metadata)
 
 
 def test_builder_applies_eligibility_gate_only_when_explicitly_enabled() -> None:
@@ -275,9 +299,7 @@ async def test_ingestion_service_uses_default_eligibility_gate_when_enabled() ->
 
 
 @pytest.mark.asyncio
-async def test_ingestion_service_blocks_persisted_ineligible_source_before_building() -> (
-    None
-):
+async def test_ingestion_blocks_persisted_ineligible_source_before_building() -> None:
     report = _report()
     repository = FakeRagPersistenceRepository(
         eligibility=_source_eligibility_record(
@@ -688,7 +710,7 @@ def _report(
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body=markdown_body
         or "# Morning Report\n\n" + ("Full curated report section. " * 20),
         workflow_name="morning_report",
@@ -702,6 +724,8 @@ def _report(
 def _agent_signal(
     *,
     llm_response: str,
+    reasoning_text: str | None = None,
+    metadata: AgentSignalJsonObject | None = None,
     empty_payloads: bool = False,
 ) -> AgentSignalRecord:
     return AgentSignalRecord(
@@ -714,7 +738,7 @@ def _agent_signal(
         node_name="technical",
         symbol="SPY",
         universe=("SPY", "QQQ"),
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         directional_score=0.6,
         confidence=0.82,
         regime="bullish",
@@ -722,9 +746,11 @@ def _agent_signal(
         risks={} if empty_payloads else {"drawdown": "moderate"},
         recommendations={} if empty_payloads else {"posture": "risk-on"},
         features={} if empty_payloads else {"rsi": 61.0},
-        reasoning_text="" if empty_payloads else "Full technical reasoning.",
+        reasoning_text=reasoning_text
+        if reasoning_text is not None
+        else ("" if empty_payloads else "Full technical reasoning."),
         llm_response=llm_response,
-        metadata={"source": "unit-test"},
+        metadata={"source": "unit-test"} if metadata is None else metadata,
     )
 
 
@@ -748,7 +774,7 @@ def _source_eligibility_record(
         eligible=eligible,
         reason=reason,
         quality_score=0.0 if not eligible else 0.9,
-        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"reviewer": "unit-test"},
     )
 

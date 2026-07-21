@@ -1,28 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from core.storage.persistence.agent_intelligence import (
     AgentIntelligencePersistenceBundle,
-)
-from core.storage.persistence.agent_intelligence import (
     AgentIntelligencePersistenceResult,
+    AgentReasoningRecord,
+    AgentRecommendationRecord,
+    AgentRiskAssessmentRecord,
+    new_agent_reasoning_id,
+    new_agent_recommendation_id,
+    new_agent_risk_assessment_id,
 )
-from core.storage.persistence.agent_intelligence import AgentReasoningRecord
-from core.storage.persistence.agent_intelligence import AgentRecommendationRecord
-from core.storage.persistence.agent_intelligence import AgentRiskAssessmentRecord
-from core.storage.persistence.agent_intelligence import new_agent_reasoning_id
-from core.storage.persistence.agent_intelligence import new_agent_recommendation_id
-from core.storage.persistence.agent_intelligence import new_agent_risk_assessment_id
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from domain.llm import ReasoningTraceViolationError
 
-
-_TIMESTAMP = datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+_TIMESTAMP = datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 _AGENT_SIGNAL_ID = "agent-signal-1"
 _FULL_REASONING_TEXT = "Full reasoning paragraph. " * 200
 _FULL_LLM_RESPONSE = "Full model response token stream. " * 250
@@ -121,6 +120,79 @@ def test_agent_risk_assessment_record_validates_scores_and_preserves_text() -> N
     assert record.mitigation == mitigation.strip()
     assert len(record.assessment_text) == len(full_assessment.strip())
     assert record.full_llm_response == _FULL_LLM_RESPONSE.strip()
+
+
+def test_agent_intelligence_records_sanitize_traces_before_persistence() -> None:
+    reasoning = AgentReasoningRecord(
+        reasoning_id="agent-reasoning-1",
+        agent_signal_id=_AGENT_SIGNAL_ID,
+        agent_name="TechnicalAgent",
+        agent_type="technical",
+        timestamp=_TIMESTAMP,
+        reasoning_text="<think>private reasoning</think>\nVisible reasoning.",
+        full_llm_response="```reasoning\nprivate response\n```\nVisible response.",
+        outputs={
+            "chain_of_thought": "private output reasoning",
+            "summary": "visible output",
+        },
+        metadata={
+            "scratchpad": "private metadata reasoning",
+            "source": "unit-test",
+        },
+    )
+    recommendation = AgentRecommendationRecord(
+        agent_recommendation_id="agent-recommendation-1",
+        agent_signal_id=_AGENT_SIGNAL_ID,
+        agent_name="StrategySynthesisAgent",
+        agent_type="strategy",
+        timestamp=_TIMESTAMP,
+        recommendation_type="portfolio_posture",
+        recommendation_text=(
+            "<thinking>private rec reasoning</thinking>\nHold exposure."
+        ),
+        rationale_text="```scratchpad\nprivate rationale\n```\nVisible rationale.",
+    )
+    risk = AgentRiskAssessmentRecord(
+        risk_assessment_id="agent-risk-assessment-1",
+        agent_signal_id=_AGENT_SIGNAL_ID,
+        agent_name="DrawdownRiskAgent",
+        agent_type="risk",
+        timestamp=_TIMESTAMP,
+        risk_type="drawdown",
+        assessment_text=(
+            "<reasoning>private risk reasoning</reasoning>\nModerate drawdown risk."
+        ),
+        mitigation="Chain of thought: private mitigation reasoning.\n"
+        "Final answer: Reduce gross exposure on confirmation.",
+    )
+
+    assert reasoning.reasoning_text == "Visible reasoning."
+    assert reasoning.full_llm_response == "Visible response."
+    assert reasoning.outputs == {"summary": "visible output"}
+    assert reasoning.metadata == {"source": "unit-test"}
+    assert recommendation.recommendation_text == "Hold exposure."
+    assert recommendation.rationale_text == "Visible rationale."
+    assert risk.assessment_text == "Moderate drawdown risk."
+    assert risk.mitigation == "Reduce gross exposure on confirmation."
+    assert "private" not in str(reasoning)
+    assert "private" not in str(recommendation)
+    assert "private" not in str(risk)
+
+
+def test_agent_intelligence_records_fail_closed_on_unsafe_reasoning_trace() -> None:
+    with pytest.raises(ReasoningTraceViolationError) as exc_info:
+        AgentReasoningRecord(
+            reasoning_id="agent-reasoning-1",
+            agent_signal_id=_AGENT_SIGNAL_ID,
+            agent_name="TechnicalAgent",
+            agent_type="technical",
+            timestamp=_TIMESTAMP,
+            reasoning_text="<think>hidden reasoning without a close tag",
+        )
+
+    message = str(exc_info.value)
+    assert "AgentReasoningRecord.reasoning_text" in message
+    assert "hidden reasoning" not in message
 
 
 @pytest.mark.parametrize(
@@ -248,7 +320,8 @@ def test_agent_intelligence_ids_are_stable() -> None:
             timestamp=_TIMESTAMP,
             reasoning_key="chain-of-thought-summary",
         )
-        == "agent_reasoning:agent-signal-1:2026-05-31T14:00:00+00:00:chain-of-thought-summary"
+        == "agent_reasoning:agent-signal-1:"
+        "2026-05-31T14:00:00+00:00:chain-of-thought-summary"
     )
     assert (
         new_agent_recommendation_id(

@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 
 from core.storage.persistence.agent_signals import AgentSignalRecord
+from domain.llm import (
+    sanitize_reasoning_trace_payload,
+    sanitize_reasoning_trace_text_for_boundary,
+)
 
 
 def render_agent_signal_text(
@@ -123,6 +127,12 @@ def _append_json_section(
 ) -> None:
     if not payload:
         return
+    sanitized_payload = sanitize_reasoning_trace_payload(
+        payload,
+        boundary_name=f"CuratedRag.agent_signal.{title}",
+    )
+    if not sanitized_payload:
+        return
 
     lines.extend(
         [
@@ -130,7 +140,7 @@ def _append_json_section(
             f"## {title}",
             "",
             json.dumps(
-                payload,
+                sanitized_payload,
                 indent=2,
                 sort_keys=True,
             ),
@@ -145,13 +155,20 @@ def _append_text_section(
 ) -> None:
     if text is None or not text.strip():
         return
+    sanitized_text = sanitize_reasoning_trace_text_for_boundary(
+        text,
+        boundary_name=f"CuratedRag.agent_signal.{title}",
+        strip_safe_text=False,
+    )
+    if not sanitized_text:
+        return
 
     lines.extend(
         [
             "",
             f"## {title}",
             "",
-            text,
+            sanitized_text,
         ]
     )
 

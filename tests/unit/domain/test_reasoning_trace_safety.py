@@ -5,6 +5,7 @@ import pytest
 from domain.llm import (
     ReasoningTraceViolationError,
     reject_reasoning_trace,
+    sanitize_reasoning_trace_payload,
     sanitize_reasoning_trace_text,
 )
 
@@ -54,3 +55,55 @@ def test_reject_reasoning_trace_fails_closed_on_unclosed_marker() -> None:
 
     assert "json" in str(exc_info.value)
     assert "hidden reasoning" not in str(exc_info.value)
+
+
+def test_payload_sanitizer_excludes_explicit_reasoning_keys() -> None:
+    payload = {
+        "summary": "Visible model summary.",
+        "chain_of_thought": "private deliberation",
+        "nested": {
+            "scratchpad": "hidden notes",
+            "evidence": "public evidence",
+        },
+    }
+
+    sanitized = sanitize_reasoning_trace_payload(
+        payload,
+        boundary_name="typed_contract",
+    )
+
+    assert sanitized == {
+        "summary": "Visible model summary.",
+        "nested": {"evidence": "public evidence"},
+    }
+
+
+def test_payload_sanitizer_strips_delimited_reasoning_from_nested_text() -> None:
+    payload = {
+        "summary": "<think>private deliberation</think>\nVisible summary.",
+        "items": [
+            "```reasoning\nhidden scratchpad\n```\nVisible item.",
+        ],
+    }
+
+    sanitized = sanitize_reasoning_trace_payload(
+        payload,
+        boundary_name="durable_record",
+    )
+
+    assert sanitized == {
+        "summary": "Visible summary.",
+        "items": ("Visible item.",),
+    }
+
+
+def test_payload_sanitizer_fails_closed_without_leaking_unsafe_reasoning() -> None:
+    with pytest.raises(ReasoningTraceViolationError) as exc_info:
+        sanitize_reasoning_trace_payload(
+            {"summary": "<think>private unsafe deliberation"},
+            boundary_name="curated_record",
+        )
+
+    message = str(exc_info.value)
+    assert "curated_record.summary" in message
+    assert "private unsafe deliberation" not in message

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
+from typing import cast
 from uuid import uuid4
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+from domain.llm import (
+    sanitize_reasoning_trace_payload,
+    sanitize_reasoning_trace_text_for_boundary,
+)
+
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, JsonValue] | Sequence[JsonValue]
+type JsonObject = Mapping[str, JsonValue]
 
 
 @dataclass(
@@ -74,6 +77,34 @@ class AgentSignalRecord:
             "confidence",
             minimum=0.0,
             maximum=1.0,
+        )
+        _set_sanitized_json_object(
+            self,
+            "signals",
+        )
+        _set_sanitized_json_object(
+            self,
+            "risks",
+        )
+        _set_sanitized_json_object(
+            self,
+            "recommendations",
+        )
+        _set_sanitized_json_object(
+            self,
+            "features",
+        )
+        _set_optional_model_text(
+            self,
+            "reasoning_text",
+        )
+        _set_optional_model_text(
+            self,
+            "llm_response",
+        )
+        _set_sanitized_json_object(
+            self,
+            "metadata",
         )
 
 
@@ -214,3 +245,48 @@ def _require_score_range(
 
     if value < minimum or value > maximum:
         raise ValueError(f"{field_name} must be between {minimum} and {maximum}.")
+
+
+def _set_optional_model_text(
+    record: AgentSignalRecord,
+    field_name: str,
+) -> None:
+    value = getattr(
+        record,
+        field_name,
+    )
+    if value is None:
+        return
+
+    sanitized = sanitize_reasoning_trace_text_for_boundary(
+        value,
+        boundary_name=f"AgentSignalRecord.{field_name}",
+        strip_safe_text=False,
+    )
+    object.__setattr__(
+        record,
+        field_name,
+        sanitized or None,
+    )
+
+
+def _set_sanitized_json_object(
+    record: AgentSignalRecord,
+    field_name: str,
+) -> None:
+    value = getattr(
+        record,
+        field_name,
+    )
+    sanitized = sanitize_reasoning_trace_payload(
+        value,
+        boundary_name=f"AgentSignalRecord.{field_name}",
+    )
+    object.__setattr__(
+        record,
+        field_name,
+        cast(
+            JsonObject,
+            sanitized,
+        ),
+    )

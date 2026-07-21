@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -37,6 +38,19 @@ _REASONING_MARKER_PATTERN = re.compile(
     r"hidden\s+reasoning|reasoning\s+trace|thinking)\s*:",
     re.MULTILINE,
 )
+_MODEL_INTERNAL_REASONING_KEYS = frozenset(
+    {
+        "chain_of_thought",
+        "hidden_reasoning",
+        "internal_reasoning",
+        "model_reasoning",
+        "reasoning_trace",
+        "scratchpad",
+        "think",
+        "thinking",
+    }
+)
+_REASONING_KEY_SEPARATOR_PATTERN = re.compile(r"[\s-]+")
 
 
 class ReasoningTracePolicy(StrEnum):
@@ -109,12 +123,91 @@ def sanitize_reasoning_trace_text(value: str) -> ReasoningTraceSanitizationResul
     )
 
 
+def sanitize_reasoning_trace_text_for_boundary(
+    value: str,
+    *,
+    boundary_name: str,
+    allow_empty: bool = True,
+    strip_safe_text: bool = True,
+) -> str:
+    """
+    Return publishable text for a typed or durable boundary.
+
+    Safely delimited reasoning traces are stripped. Ambiguous, unclosed, or
+    reasoning-only content fails closed with a generic error that identifies the
+    boundary without echoing the hidden text.
+    """
+
+    result = sanitize_reasoning_trace_text(value)
+    if result.unsafe or (not allow_empty and not result.text):
+        _raise_reasoning_trace_violation(boundary_name)
+
+    if not strip_safe_text and not result.detected:
+        return value
+
+    return result.text
+
+
+def sanitize_reasoning_trace_payload(
+    value: object,
+    *,
+    boundary_name: str,
+) -> object:
+    """
+    Remove model-internal reasoning artifacts from nested boundary payloads.
+
+    Explicit reasoning-key fields are excluded entirely because their values are
+    model-private by contract. Other string values are sanitized like publishable
+    text and fail closed if contaminated by unsafe markers.
+    """
+
+    if isinstance(value, str):
+        return sanitize_reasoning_trace_text_for_boundary(
+            value,
+            boundary_name=boundary_name,
+        )
+
+    if isinstance(value, Mapping):
+        sanitized: dict[str, object] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if is_model_internal_reasoning_key(key_text):
+                continue
+            sanitized[key_text] = sanitize_reasoning_trace_payload(
+                item,
+                boundary_name=f"{boundary_name}.{key_text}",
+            )
+        return sanitized
+
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        return tuple(
+            sanitize_reasoning_trace_payload(
+                item,
+                boundary_name=f"{boundary_name}[]",
+            )
+            for item in value
+        )
+
+    return value
+
+
+def is_model_internal_reasoning_key(key: str) -> bool:
+    """Return True for payload keys reserved for model-private deliberation."""
+
+    normalized = _REASONING_KEY_SEPARATOR_PATTERN.sub("_", key.strip().lower())
+    return normalized in _MODEL_INTERNAL_REASONING_KEYS
+
+
 def reject_reasoning_trace(value: str, *, boundary_name: str) -> None:
     """Fail closed when a boundary payload contains a reasoning trace marker."""
 
     result = sanitize_reasoning_trace_text(value)
     if result.detected:
-        raise ReasoningTraceViolationError(
-            "Model-internal reasoning trace detected at "
-            f"{boundary_name}; refusing to publish or parse contaminated content."
-        )
+        _raise_reasoning_trace_violation(boundary_name)
+
+
+def _raise_reasoning_trace_violation(boundary_name: str) -> None:
+    raise ReasoningTraceViolationError(
+        "Model-internal reasoning trace detected at "
+        f"{boundary_name}; refusing to publish or parse contaminated content."
+    )

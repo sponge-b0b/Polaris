@@ -2,33 +2,34 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
+
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
-from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.agent_signals import JsonObject
-from core.storage.persistence.agent_signals import JsonValue
-from core.storage.persistence.agent_signals import new_agent_signal_id
-from domain.workflow_outputs import EXECUTION_RISK_DECISION_OUTPUT_CONTRACT
-from domain.workflow_outputs import RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import RISK_DRAWDOWN_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.agent_signals import (
+    AgentSignalRecord,
+    JsonObject,
+    JsonValue,
+    new_agent_signal_id,
+)
+from domain.llm import ReasoningTraceViolationError
+from domain.workflow_outputs import (
+    EXECUTION_RISK_DECISION_OUTPUT_CONTRACT,
+    RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT,
+    RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT,
+    RISK_DRAWDOWN_SIGNAL_OUTPUT_CONTRACT,
+    RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT,
+    RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 RISK_DRAWDOWN_SIGNAL_PROJECTOR_NAME: Final = "risk_drawdown_signal_projector"
 RISK_VOLATILITY_SIGNAL_PROJECTOR_NAME: Final = "risk_volatility_signal_projector"
@@ -68,38 +69,47 @@ class AgentSignalWorkflowOutputProjector:
     ) -> WorkflowOutputProjectionOutcome:
         outputs = _mapping(request.node_output.outputs)
         timestamp = _timestamp(request)
-        signal = AgentSignalRecord(
-            signal_id=new_agent_signal_id(
-                self._agent_name,
+        try:
+            signal = AgentSignalRecord(
+                signal_id=new_agent_signal_id(
+                    self._agent_name,
+                    execution_id=request.run.execution_id,
+                    node_name=request.node_output.node_name,
+                    signal_key=self._signal_key,
+                ),
+                agent_name=self._agent_name,
+                agent_type=self._agent_type,
+                timestamp=timestamp,
+                workflow_name=request.run.workflow_name,
                 execution_id=request.run.execution_id,
+                runtime_id=request.run.runtime_id,
                 node_name=request.node_output.node_name,
-                signal_key=self._signal_key,
-            ),
-            agent_name=self._agent_name,
-            agent_type=self._agent_type,
-            timestamp=timestamp,
-            workflow_name=request.run.workflow_name,
-            execution_id=request.run.execution_id,
-            runtime_id=request.run.runtime_id,
-            node_name=request.node_output.node_name,
-            symbol=_symbol(request, outputs),
-            universe=_string_tuple(outputs.get("universe")),
-            directional_score=_score(outputs.get("directional_score"), signed=True),
-            confidence=_score(outputs.get("confidence"), signed=False),
-            regime=_optional_text(outputs.get("regime")),
-            signals=_json_object_from_sequence(outputs.get("signals")),
-            risks=_json_object_from_sequence(outputs.get("risks")),
-            recommendations=_json_object_from_sequence(outputs.get("recommendations")),
-            features=_json_mapping(outputs.get("features")),
-            reasoning_text=_reasoning_text(outputs),
-            llm_response=_llm_response(outputs),
-            metadata={
-                "source_fingerprint": request.source_fingerprint,
-                "output_contract": request.node_output.output_contract,
-                "output_schema_version": request.node_output.output_schema_version,
-                "node_output_id": request.node_output.node_output_id,
-            },
-        )
+                symbol=_symbol(request, outputs),
+                universe=_string_tuple(outputs.get("universe")),
+                directional_score=_score(outputs.get("directional_score"), signed=True),
+                confidence=_score(outputs.get("confidence"), signed=False),
+                regime=_optional_text(outputs.get("regime")),
+                signals=_json_object_from_sequence(outputs.get("signals")),
+                risks=_json_object_from_sequence(outputs.get("risks")),
+                recommendations=_json_object_from_sequence(
+                    outputs.get("recommendations")
+                ),
+                features=_json_mapping(outputs.get("features")),
+                reasoning_text=_reasoning_text(outputs),
+                llm_response=_llm_response(outputs),
+                metadata={
+                    "source_fingerprint": request.source_fingerprint,
+                    "output_contract": request.node_output.output_contract,
+                    "output_schema_version": request.node_output.output_schema_version,
+                    "node_output_id": request.node_output.node_output_id,
+                },
+            )
+        except ReasoningTraceViolationError as exc:
+            return _failed(
+                request,
+                str(exc),
+                error_type="ReasoningTraceViolationError",
+            )
         result = await self._agent_signal_persistence_service.persist_signal(signal)
         if not result.success:
             return _failed(request, result.error or "Agent signal persistence failed.")
@@ -312,6 +322,8 @@ def _outcome(
 def _failed(
     request: WorkflowOutputProjectorRequest,
     error: str,
+    *,
+    error_type: str = "PersistenceError",
 ) -> WorkflowOutputProjectionOutcome:
     return WorkflowOutputProjectionOutcome(
         status=WorkflowOutputProjectionStatus.FAILED,
@@ -322,7 +334,7 @@ def _failed(
         output_contract=request.node_output.output_contract or "unknown",
         output_schema_version=request.node_output.output_schema_version or 1,
         source_fingerprint=request.source_fingerprint,
-        error_type="PersistenceError",
+        error_type=error_type,
         error_message=error,
         message="Agent signal projection failed.",
     )
@@ -333,7 +345,9 @@ def _projector_name_for_contract(output_contract: str | None) -> str:
         RISK_DRAWDOWN_SIGNAL_OUTPUT_CONTRACT: RISK_DRAWDOWN_SIGNAL_PROJECTOR_NAME,
         RISK_VOLATILITY_SIGNAL_OUTPUT_CONTRACT: RISK_VOLATILITY_SIGNAL_PROJECTOR_NAME,
         RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT: RISK_EXPOSURE_SIGNAL_PROJECTOR_NAME,
-        RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT: RISK_AGGREGATE_INPUT_SIGNAL_PROJECTOR_NAME,
+        RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT: (
+            RISK_AGGREGATE_INPUT_SIGNAL_PROJECTOR_NAME
+        ),
         RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT: RISK_AGGREGATE_SIGNAL_PROJECTOR_NAME,
         EXECUTION_RISK_DECISION_OUTPUT_CONTRACT: EXECUTION_RISK_DECISION_PROJECTOR_NAME,
     }.get(output_contract or "", "agent_signal_projector")

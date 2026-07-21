@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.agent_signals import AgentSignalPersistenceResult
-from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.agent_signals import new_agent_signal_id
+from core.storage.persistence.agent_signals import (
+    AgentSignalPersistenceResult,
+    AgentSignalRecord,
+    JsonObject,
+    new_agent_signal_id,
+)
+from domain.llm import ReasoningTraceViolationError
 
 
 def test_agent_signal_record_is_typed_and_immutable() -> None:
@@ -41,12 +44,45 @@ def test_agent_signal_record_validates_required_fields_and_scores(
         "signal_id": "agent_signal:exec-1:TechnicalAgent:technical",
         "agent_name": "TechnicalAgent",
         "agent_type": "technical",
-        "timestamp": datetime(2026, 5, 30, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 5, 30, tzinfo=UTC),
     }
     values.update(kwargs)
 
     with pytest.raises(ValueError, match=field_name):
         AgentSignalRecord(**values)  # type: ignore[arg-type]
+
+
+def test_agent_signal_record_sanitizes_reasoning_trace_before_persistence() -> None:
+    record = _signal_record(
+        features={
+            "scratchpad": "hidden feature reasoning",
+            "rsi": 61.0,
+        },
+        reasoning_text="<think>private reasoning</think>\nVisible technical rationale.",
+        llm_response="```reasoning\nprivate model trace\n```\nVisible model response.",
+        metadata={
+            "chain_of_thought": "private metadata reasoning",
+            "source": "unit-test",
+        },
+    )
+
+    assert record.reasoning_text == "Visible technical rationale."
+    assert record.llm_response == "Visible model response."
+    assert record.features == {"rsi": 61.0}
+    assert record.metadata == {"source": "unit-test"}
+    assert "private" not in str(record.features)
+    assert "private" not in str(record.metadata)
+
+
+def test_agent_signal_record_fails_closed_on_unsafe_reasoning_trace() -> None:
+    with pytest.raises(ReasoningTraceViolationError) as exc_info:
+        _signal_record(
+            reasoning_text="<think>hidden reasoning without a close tag",
+        )
+
+    message = str(exc_info.value)
+    assert "AgentSignalRecord.reasoning_text" in message
+    assert "hidden reasoning" not in message
 
 
 def test_agent_signal_persistence_result_validates_state() -> None:
@@ -90,7 +126,13 @@ def test_new_agent_signal_id_is_stable_when_lineage_is_available() -> None:
     assert signal_id == "agent_signal:exec-1:TechnicalAgent:technical_node:SPY"
 
 
-def _signal_record() -> AgentSignalRecord:
+def _signal_record(
+    *,
+    features: JsonObject | None = None,
+    reasoning_text: str = "Full technical reasoning.",
+    llm_response: str = "Full LLM response. " * 100,
+    metadata: JsonObject | None = None,
+) -> AgentSignalRecord:
     return AgentSignalRecord(
         signal_id="agent_signal:exec-1:TechnicalAgent:technical",
         agent_name="TechnicalAgent",
@@ -101,15 +143,15 @@ def _signal_record() -> AgentSignalRecord:
         node_name="technical",
         symbol="SPY",
         universe=("SPY", "QQQ"),
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         directional_score=0.6,
         confidence=0.82,
         regime="bullish",
         signals={"trend": "bullish"},
         risks={"drawdown": "moderate"},
         recommendations={"posture": "risk-on"},
-        features={"rsi": 61.0},
-        reasoning_text="Full technical reasoning.",
-        llm_response="Full LLM response. " * 100,
-        metadata={"source": "unit-test"},
+        features={"rsi": 61.0} if features is None else features,
+        reasoning_text=reasoning_text,
+        llm_response=llm_response,
+        metadata={"source": "unit-test"} if metadata is None else metadata,
     )

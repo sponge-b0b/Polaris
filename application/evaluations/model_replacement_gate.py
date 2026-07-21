@@ -53,6 +53,7 @@ class ModelReplacementGateStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
+    UNSUPPORTED = "unsupported"
 
 
 class ModelReplacementGateSection(StrEnum):
@@ -65,6 +66,7 @@ class ModelReplacementGateSection(StrEnum):
     EXECUTION_RISK_RECOMMENDATION = "execution_risk_recommendation"
     DEEPEVAL_PERSISTENCE = "deepeval_persistence"
     LANGFUSE_PROJECTION = "langfuse_projection"
+    LOCAL_OPERATIONS_READINESS = "local_operations_readiness"
     LOCAL_OPERATIONS = "local_operations"
 
 
@@ -263,6 +265,8 @@ class _EvaluationAccumulator:
     run_ids: tuple[str, ...]
     metric_result_count: int
     statuses: tuple[EvaluationStatus, ...]
+    unsupported_case_ids: tuple[str, ...]
+    unsupported_target_types: tuple[str, ...]
     langfuse_exported_count: int
     langfuse_pending_count: int
     langfuse_failed_count: int
@@ -292,11 +296,14 @@ class ModelReplacementValidationGate:
         gate_id = request.effective_gate_id
         sections: list[ModelReplacementGateSectionResult] = []
         static_section = _static_config_boundary_section(self.settings, request)
-        local_section = _local_operations_section(self.settings, request)
-        sections.extend((static_section, local_section))
+        local_readiness_section = _local_operations_readiness_section(
+            self.settings,
+            request,
+        )
+        sections.extend((static_section, local_readiness_section))
 
         loaded_cases = await self._load_cases(request)
-        if static_section.passed and local_section.passed and loaded_cases:
+        if static_section.passed and local_readiness_section.passed and loaded_cases:
             sections.extend(
                 await self._evaluation_sections(
                     gate_id,
@@ -379,6 +386,8 @@ class ModelReplacementValidationGate:
         run_ids: list[str] = []
         statuses: list[EvaluationStatus] = []
         metric_result_count = 0
+        unsupported_case_ids: list[str] = []
+        unsupported_target_types: list[str] = []
         exported_count = 0
         pending_count = 0
         failed_count = 0
@@ -390,6 +399,8 @@ class ModelReplacementValidationGate:
         for (target_type, dataset), cases in grouped_cases.items():
             metrics = _metric_specs_for_target(target_type)
             if not metrics:
+                unsupported_case_ids.extend(case.case_id for case in cases)
+                unsupported_target_types.append(target_type.value)
                 continue
             run_id = _evaluation_run_id(gate_id, section, target_type, dataset)
             result = await self.run_service.run_evaluation(
@@ -424,6 +435,8 @@ class ModelReplacementValidationGate:
             run_ids=tuple(run_ids),
             metric_result_count=metric_result_count,
             statuses=tuple(statuses),
+            unsupported_case_ids=tuple(unsupported_case_ids),
+            unsupported_target_types=tuple(dict.fromkeys(unsupported_target_types)),
             langfuse_exported_count=exported_count,
             langfuse_pending_count=pending_count,
             langfuse_failed_count=failed_count,
@@ -496,11 +509,18 @@ def _static_config_boundary_section(
     )
 
 
-def _local_operations_section(
+def _local_operations_readiness_section(
     settings: Settings,
     request: ModelReplacementValidationRequest,
 ) -> ModelReplacementGateSectionResult:
     timeout_seconds = request.timeout_seconds or settings.DEEPEVAL_TIMEOUT_SECONDS
+    conservative_max_concurrency = min(
+        settings.LITELLM_MAX_CONCURRENCY,
+        settings.DEEPEVAL_MAX_CONCURRENCY,
+    )
+    recommended_max_concurrency = (
+        1 if request.low_vram_mode else conservative_max_concurrency
+    )
     failures: list[str] = []
     if timeout_seconds < MODEL_REPLACEMENT_MINIMUM_TIMEOUT_SECONDS:
         failures.append("timeout_seconds is below the replacement-gate minimum.")
@@ -523,18 +543,25 @@ def _local_operations_section(
         "available_vram_gb": request.available_vram_gb,
         "litellm_max_concurrency": settings.LITELLM_MAX_CONCURRENCY,
         "deepeval_max_concurrency": settings.DEEPEVAL_MAX_CONCURRENCY,
+        "conservative_max_concurrency": conservative_max_concurrency,
+        "recommended_max_concurrency": recommended_max_concurrency,
+        "concurrency_expectation": (
+            "single local generation or evaluation at a time"
+            if recommended_max_concurrency == 1
+            else "bounded by the lower configured LiteLLM/DeepEval concurrency cap"
+        ),
     }
     if failures:
         return ModelReplacementGateSectionResult(
-            section=ModelReplacementGateSection.LOCAL_OPERATIONS,
+            section=ModelReplacementGateSection.LOCAL_OPERATIONS_READINESS,
             status=ModelReplacementGateStatus.FAILED,
-            message="Local operations viability checks failed.",
+            message="Local operations readiness checks failed.",
             details={**details, "failures": failures},
         )
     return ModelReplacementGateSectionResult(
-        section=ModelReplacementGateSection.LOCAL_OPERATIONS,
+        section=ModelReplacementGateSection.LOCAL_OPERATIONS_READINESS,
         status=ModelReplacementGateStatus.PASSED,
-        message="Local operations viability checks passed.",
+        message="Local operations readiness checks passed.",
         details=details,
     )
 
@@ -571,6 +598,10 @@ def _cases_by_validation_section(
                 tags={"execution_risk", "recommendation_explanation"},
             ),
         ),
+        (
+            ModelReplacementGateSection.LOCAL_OPERATIONS,
+            _filter_cases(loaded_cases, tags={"local_operations"}),
+        ),
     )
 
 
@@ -599,10 +630,30 @@ def _evaluation_section_result(
 ) -> ModelReplacementGateSectionResult:
     if not cases:
         return _missing_cases_section(section)
+    if accumulator.unsupported_case_ids:
+        return ModelReplacementGateSectionResult(
+            section=section,
+            status=ModelReplacementGateStatus.UNSUPPORTED,
+            message=(
+                "Some cases were not exercised because no supported DeepEval "
+                "metrics are configured for their target types."
+            ),
+            details={
+                "case_count": len(cases),
+                "case_ids": _case_ids(cases),
+                "run_statuses": tuple(status.value for status in accumulator.statuses),
+                "unsupported_reason": "no_supported_metrics_for_target_type",
+                "unsupported_case_ids": accumulator.unsupported_case_ids,
+                "unsupported_target_types": accumulator.unsupported_target_types,
+            },
+            run_ids=accumulator.run_ids,
+            case_ids=_case_ids(cases),
+            metric_result_count=accumulator.metric_result_count,
+        )
     if not accumulator.run_ids:
         return ModelReplacementGateSectionResult(
             section=section,
-            status=ModelReplacementGateStatus.FAILED,
+            status=ModelReplacementGateStatus.UNSUPPORTED,
             message="No supported DeepEval metrics are configured for this section.",
             details={"case_count": len(cases), "case_ids": _case_ids(cases)},
             case_ids=_case_ids(cases),
@@ -720,7 +771,11 @@ def _skipped_evaluation_sections(
                     section=section,
                     status=ModelReplacementGateStatus.SKIPPED,
                     message="Checks skipped because gate prerequisites failed.",
-                    details={"case_count": len(cases), "case_ids": _case_ids(cases)},
+                    details={
+                        "case_count": len(cases),
+                        "case_ids": _case_ids(cases),
+                        "skip_reason": "gate_prerequisites_failed",
+                    },
                     case_ids=_case_ids(cases),
                 )
             )

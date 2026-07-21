@@ -147,7 +147,10 @@ validation-ready only after a `replacement_validation` run of
 5. execution-risk and recommendation-explanation checks;
 6. DeepEval execution with persisted run and metric results;
 7. Langfuse projection acceptance for observations/results;
-8. local operations viability, including timeout and low-VRAM constraints.
+8. local operations readiness, including timeout, low-VRAM fit, and conservative
+   concurrency expectations;
+9. executable local-operations behavior from model-regression cases tagged
+   `local_operations`.
 
 The gate uses the canonical `model_regression` dataset slice, which is the
 bounded golden model-gate slice covering structured output, RAG quality and
@@ -157,8 +160,10 @@ operation timeout is `30` seconds; local profiles should normally keep the
 existing `60` second LiteLLM and DeepEval timeouts unless a validated profile
 requires a different value.
 
-Replacement validation is all-or-nothing for replacement mode: any failed or
-skipped section prevents a validation pass. The gate emits validation evidence
+Replacement validation is all-or-nothing for replacement mode: any failed,
+skipped, or unsupported section prevents a validation pass. Unsupported
+local-operations behavior must be reported with target-type and case reasons
+rather than being counted as passed behavior. The gate emits validation evidence
 only; it is not a governance approval subsystem and does not mutate source
 defaults or production aliases. `exploratory_smoke` mode may run the same style
 of checks for operator learning, but its result scope is smoke-only.

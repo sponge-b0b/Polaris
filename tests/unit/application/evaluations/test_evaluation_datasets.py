@@ -4,6 +4,7 @@ import pytest
 
 from application.evaluations import (
     EVALUATION_DATASET_VERSION,
+    MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_definitions,
     canonical_evaluation_dataset_registration_requests,
@@ -11,19 +12,6 @@ from application.evaluations import (
     canonical_evaluation_dataset_slice_definitions,
 )
 from domain.evaluation import EvaluationTargetType
-
-MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS = {
-    "structured_output",
-    "rag_quality",
-    "rag_grounding",
-    "prompt_injection",
-    "strategy_hypothesis",
-    "strategy_synthesis",
-    "recommendation_explanation",
-    "execution_risk",
-    "local_operations",
-}
-
 
 EXPECTED_DATASET_NAMES = {
     "golden_rag_questions",
@@ -64,7 +52,7 @@ def test_canonical_model_regression_slice_is_named_and_bounded() -> None:
     model_regression = slice_by_name["model_regression"]
     assert 20 <= model_regression.case_count <= 30
     assert model_regression.tags == ("model_regression", "golden", "model_gate")
-    assert MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS <= set(
+    assert set(MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS) <= set(
         model_regression.coverage_tags
     )
     assert set(model_regression.dataset_names) <= EXPECTED_DATASET_NAMES

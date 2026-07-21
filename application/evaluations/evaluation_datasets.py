@@ -12,6 +12,18 @@ from domain.evaluation import EvaluationDatasetReference, EvaluationTargetType
 
 EVALUATION_DATASET_VERSION = "v1"
 
+MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS: tuple[str, ...] = (
+    "structured_output",
+    "rag_quality",
+    "rag_grounding",
+    "prompt_injection",
+    "strategy_hypothesis",
+    "strategy_synthesis",
+    "recommendation_explanation",
+    "execution_risk",
+    "local_operations",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EvaluationDatasetDefinition:
@@ -307,17 +319,7 @@ CANONICAL_EVALUATION_DATASET_SLICE_DEFINITIONS: tuple[
             "golden evaluation corpus for validating model/profile replacements."
         ),
         tags=("model_regression", "golden", "model_gate"),
-        coverage_tags=(
-            "structured_output",
-            "rag_quality",
-            "rag_grounding",
-            "prompt_injection",
-            "strategy_hypothesis",
-            "strategy_synthesis",
-            "recommendation_explanation",
-            "execution_risk",
-            "local_operations",
-        ),
+        coverage_tags=MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS,
         memberships=(
             EvaluationDatasetSliceMembership(
                 dataset_name="golden_rag_questions",

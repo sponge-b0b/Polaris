@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from application.evaluations import (
+    MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_definitions,
     canonical_evaluation_dataset_slice_definition_by_name,
@@ -18,19 +19,6 @@ from tests.evaluation._helpers import evaluation_case_from_row
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
 
 pytestmark = pytest.mark.evaluation
-
-MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS = {
-    "structured_output",
-    "rag_quality",
-    "rag_grounding",
-    "prompt_injection",
-    "strategy_hypothesis",
-    "strategy_synthesis",
-    "recommendation_explanation",
-    "execution_risk",
-    "local_operations",
-}
-
 
 EXPECTED_DATASET_COUNTS: dict[str, int] = {
     "golden_rag_questions": 25,
@@ -129,7 +117,7 @@ def test_model_regression_slice_is_fixture_backed_and_preserves_active_membershi
 
     assert len(seen_case_ids) == model_regression.case_count
     assert set(model_regression.case_ids) == seen_case_ids
-    assert MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS <= seen_coverage_tags
+    assert set(MODEL_REGRESSION_REQUIRED_COVERAGE_TAGS) <= seen_coverage_tags
 
 
 def test_citation_and_security_fixtures_include_required_golden_metadata(

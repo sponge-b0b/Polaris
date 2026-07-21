@@ -41,9 +41,9 @@ cat docs/testing_guide.md
 Identify the specific integration, pipeline, or macro test groups that match the components introduced or modified during this specification sprint. Check if the required categories dictate launching local Docker services.
 
 ### Step 4: Execute Targeted Integration and Regression Suites
-Execute the specific test folders or category markers identified in Step 3. Always include the immediate fast-fail flag (`-x`) so the run halts the moment a cross-module integration mismatch is exposed:
+Execute the specific test folders or category markers identified in Step 3:
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -x <targeted_test_directory_or_marker>
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
 ### Step 5: Structural Graph Drift Analysis
@@ -59,7 +59,7 @@ uv run graphify query "Identify any new architectural anomalies or unmapped cros
 
 ### Example 1: Pre-Review Integration Verification (Model Migration Spec)
 **User:** "All individual implementation tickets for the model migration spec are closed. Let's do a final specification verification."
-**Agent Response:** *"I am invoking the verify-spec skill. I will run repository-wide static analysis checks, read docs/testing_guide.md to isolate the relevant strategy and synthesis test categories, execute those targeted integration tests with fast-fail safety, and run a Graphify architectural drift pass."*
+**Agent Response:** *"I am invoking the verify-spec skill. I will run repository-wide static analysis checks, read docs/testing_guide.md to isolate the relevant strategy and synthesis test categories, execute those targeted integration tests, and run a Graphify architectural drift pass."*
 ```bash
 # 1. Run global static analysis
 uv run ruff format --check .
@@ -71,7 +71,7 @@ cat docs/testing_guide.md
 # [Agent determines that the 'strategy_pipeline' and 'synthesis_math' categories are required]
 
 # 3. Execute only the relevant macro test directories
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -x tests/core/strategy/ tests/core/synthesis/
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/core/strategy/ tests/core/synthesis/
 
 # 4. Check for graph architectural regressions
 uv run graphify update .

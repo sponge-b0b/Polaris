@@ -36,7 +36,7 @@ uv run mypy . --explicit-package-bases
 ### Step 3: Run the Regression Suite
 Run your unit tests using isolated cache directories to ensure local changes do not rely on toxic side-effects or state pollution:
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -x
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q
 ```
 
 ### Step 4: Trace & Observability Audit

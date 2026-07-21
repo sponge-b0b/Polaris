@@ -45,9 +45,8 @@ uv run mypy --explicit-package-bases <path_to_modified_file_1> <path_to_modified
 ### Step 4: Targeted Testing
 Run only the tests relevant to modified ticket files using isolated cache directories.
 **Identify Required Services:** Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana. If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start the services yourself and run the tests.
-Always include the immediate fast-fail flag (`-x`) so the run halts the moment an error is detected:
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -x tests/path/to/test_relevant_module.py
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.py
 ```
 
 ### Step 5: Trace & Observability Audit
@@ -73,5 +72,5 @@ uv run ruff check core/runtime/execution/runtime_engine.py
 uv run mypy --explicit-package-bases core/runtime/execution/runtime_engine.py
 
 # 4. Agent runs targeted tests
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -x tests/core/runtime/test_runtime_engine.py
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/core/runtime/test_runtime_engine.py
 ```

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -58,4 +57,42 @@ def test_mcp_customer_agent_structured_response_rejects_extra_fields() -> None:
                 "answer_text": "Safe response.",
                 "unreviewed_payload": {"raw": "data"},
             }
+        )
+
+
+def test_mcp_customer_agent_response_strips_reasoning_before_mapping() -> None:
+    structured = StructuredMcpCustomerAgentResponse(
+        answer_text="<think>private deliberation</think>\nUse smaller sizing.",
+        safety_notes=(
+            (
+                "```reasoning\nhidden safety trace\n```\n"
+                "Educational decision-support only."
+            ),
+        ),
+        corrective_actions=(
+            "Chain of thought: private action analysis.\n"
+            "Final answer: Cite curated evidence.",
+        ),
+    )
+
+    response = structured.to_rag_ask_response(
+        query_id="query-safe",
+        generated_at=datetime(2026, 7, 15, tzinfo=UTC),
+    )
+
+    assert structured.answer_text == "Use smaller sizing."
+    assert response.answer_text == "Use smaller sizing."
+    assert response.corrective_actions == (
+        "Educational decision-support only.",
+        "Cite curated evidence.",
+    )
+    assert "private deliberation" not in response.model_dump_json()
+    assert "hidden safety trace" not in response.model_dump_json()
+    assert "private action analysis" not in response.model_dump_json()
+
+
+def test_mcp_customer_agent_response_rejects_unsafe_reasoning_trace() -> None:
+    with pytest.raises(ValidationError, match="mcp.customer_agent.answer_text"):
+        StructuredMcpCustomerAgentResponse(
+            answer_text="<think>private deliberation without a closing tag",
         )

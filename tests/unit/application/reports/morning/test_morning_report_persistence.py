@@ -2,30 +2,32 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 from application.reports import MorningReportMarkdownRenderer
-from application.reports.morning_report_models import MorningReportDocument
-from application.reports.morning_report_models import ReportBullet
-from application.reports.morning_report_models import ReportMetric
-from application.reports.morning_report_models import ReportSection
+from application.reports.morning_report_models import (
+    MorningReportDocument,
+    ReportBullet,
+    ReportMetric,
+    ReportSection,
+)
 from application.reports.morning_report_persistence import (
     MorningReportPersistenceMapper,
-)
-from application.reports.morning_report_persistence import (
     MorningReportPersistenceService,
+    ReportArtifactReference,
 )
-from application.reports.morning_report_persistence import ReportArtifactReference
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportPersistenceResult
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPersistenceResult,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+)
+from domain.llm import ReasoningTraceViolationError
 
 
 class FakeReportRepository:
@@ -285,3 +287,68 @@ def _document() -> MorningReportDocument:
 
 def _long_response() -> str:
     return "FULL_LLM_RESPONSE_START " + ("complete response segment " * 200) + "END"
+
+
+def test_morning_report_mapper_sanitizes_report_publication_payloads() -> None:
+    document = _document_with_reasoning_trace()
+
+    bundle = MorningReportPersistenceMapper().build_bundle(
+        document,
+        markdown_body="<think>private report reasoning</think>\n# Published report",
+    )
+
+    assert bundle.report.markdown_body == "# Published report"
+    executive_summary = cast(
+        dict[str, Any],
+        bundle.report.structured_payload["executive_summary"],
+    )
+    assert executive_summary["summary"] == "Visible executive summary."
+    assert "chain_of_thought" not in executive_summary
+    section_payload = cast(dict[str, Any], bundle.sections[0].content_payload)
+    assert section_payload["summary"] == "Visible executive summary."
+    assert bundle.sections[0].summary == "Visible executive summary."
+    serialized = str(bundle.report.structured_payload) + str(
+        bundle.sections[0].content_payload
+    )
+    assert "private report reasoning" not in bundle.report.markdown_body
+    assert "private section reasoning" not in serialized
+    assert "private bullet reasoning" not in serialized
+
+
+def test_morning_report_mapper_rejects_unsafe_report_publication_payloads() -> None:
+    with pytest.raises(
+        ReasoningTraceViolationError,
+        match="morning_report.persistence",
+    ):
+        MorningReportPersistenceMapper().build_bundle(
+            _document(),
+            markdown_body="<think>private report reasoning without a closing tag",
+        )
+
+
+def _document_with_reasoning_trace() -> MorningReportDocument:
+    section = ReportSection(
+        title="Executive Summary",
+        summary="<think>private section reasoning</think>\nVisible executive summary.",
+        bullets=(
+            ReportBullet(
+                text="```reasoning\nprivate bullet reasoning\n```\nVisible bullet.",
+                label="Posture",
+            ),
+        ),
+    )
+    return MorningReportDocument(
+        title="Polaris Morning Financial Report",
+        subtitle="Decision-support report for SPY",
+        symbol="SPY",
+        execution_id="exec-safe",
+        generated_at="2026-05-30T13:30:00Z",
+        status="Succeeded",
+        executive_summary=section,
+        portfolio_snapshot=ReportSection.unavailable("Portfolio Snapshot"),
+        macro_backdrop=ReportSection.unavailable("Macro / Fundamental Backdrop"),
+        technical_setup=ReportSection.unavailable("Technical Setup"),
+        news_sentiment=ReportSection.unavailable("News & Sentiment"),
+        risk_assessment=ReportSection.unavailable("Risk Assessment"),
+        recommended_action_plan=ReportSection.unavailable("Recommended Action Plan"),
+    )

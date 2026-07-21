@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
-from pydantic import model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 
-from mcp_server.contracts.models import McpBoundaryModel
-from mcp_server.contracts.models import NonEmptyString
-from mcp_server.contracts.models import RagAskResponse
-from mcp_server.contracts.models import RagCitation
-from mcp_server.contracts.models import Score
+from domain.llm import sanitize_reasoning_trace_text_for_boundary
+from mcp_server.contracts.models import (
+    McpBoundaryModel,
+    NonEmptyString,
+    RagAskResponse,
+    RagCitation,
+    Score,
+)
 
 
 class StructuredMcpCustomerAgentResponse(McpBoundaryModel):
@@ -24,6 +28,53 @@ class StructuredMcpCustomerAgentResponse(McpBoundaryModel):
     safety_notes: tuple[NonEmptyString, ...] = ()
     refusal_reason: NonEmptyString | None = None
     corrective_actions: tuple[NonEmptyString, ...] = ()
+
+    @field_validator("answer_text", "status", "route", "refusal_reason", mode="before")
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        if value is None:
+            return None
+        return sanitize_reasoning_trace_text_for_boundary(
+            str(
+                value,
+            ),
+            boundary_name=f"mcp.customer_agent.{info.field_name}",
+        )
+
+    @field_validator("safety_notes", "corrective_actions", mode="before")
+    @classmethod
+    def sanitize_public_text_items(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        if value is None:
+            return ()
+
+        items: tuple[object, ...]
+        if isinstance(value, str):
+            items = (value,)
+        elif isinstance(value, Sequence) and not isinstance(
+            value,
+            bytes | bytearray,
+        ):
+            items = tuple(value)
+        else:
+            items = (value,)
+
+        return tuple(
+            sanitize_reasoning_trace_text_for_boundary(
+                str(
+                    item,
+                ),
+                boundary_name=f"mcp.customer_agent.{info.field_name}[]",
+            )
+            for item in items
+        )
 
     @model_validator(mode="after")
     def validate_refusal_status(self) -> StructuredMcpCustomerAgentResponse:

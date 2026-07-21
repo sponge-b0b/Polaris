@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
-import pytest
 
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagContext,
@@ -26,18 +24,18 @@ from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from mcp_server.lifespan import McpApplicationContext
 from mcp_server.contracts.models import RagAskRequest
-from mcp_server.tools.rag import execute_rag_ask
+from mcp_server.lifespan import McpApplicationContext
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
+from mcp_server.tools.rag import execute_rag_ask
 
 
 def _credential_url(password: str) -> str:
     return "postgresql://user:" + password + "@localhost/polaris"
 
 
-_GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+_GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
 
 
 class _FakeRagService:
@@ -119,7 +117,9 @@ def _answered(request: RagRequest) -> RagResult:
     return RagResult(
         query_id=request.request_id,
         request=request,
-        answer_text="Full answer with all material details.\nSecond paragraph retained.",
+        answer_text=(
+            "Full answer with all material details.\nSecond paragraph retained."
+        ),
         status="answered",
         route=request.route,
         generated_at=_GENERATED_AT,
@@ -142,8 +142,8 @@ async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> No
         workflow_name="morning_report",
         execution_id="execution-1",
         runtime_id="runtime-1",
-        as_of_start=datetime(2026, 7, 1, tzinfo=timezone.utc),
-        as_of_end=datetime(2026, 7, 8, tzinfo=timezone.utc),
+        as_of_start=datetime(2026, 7, 1, tzinfo=UTC),
+        as_of_end=datetime(2026, 7, 8, tzinfo=UTC),
         top_k=12,
     )
 
@@ -306,3 +306,54 @@ async def test_rag_ask_preserves_citations_security_scores_and_optional_contexts
         assert response.contexts[0].text == "Complete retrieved evidence."
     else:
         assert response.contexts is None
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_excludes_reasoning_traces_from_mcp_boundary() -> None:
+    source = RagSource(
+        source_table="curated_rag_documents",
+        source_id="report-1",
+        source_type="morning_report",
+        document_id="document-1",
+        title="Morning Report",
+        metadata={
+            "symbol": "SPY",
+            "reasoning_trace": "private source reasoning",
+        },
+    )
+    retrieved_context = DomainRagContext(
+        context_id="context-1",
+        text="<think>private context reasoning</think>\nRetrieved source evidence.",
+        source=source,
+        score=0.91,
+        rank=0,
+        retrieval_route="hybrid",
+    )
+
+    def result_factory(request: RagRequest) -> RagResult:
+        return RagResult(
+            query_id=request.request_id,
+            request=request,
+            answer_text="<think>private answer reasoning</think>\nGrounded answer.",
+            status="answered",
+            route=request.route,
+            contexts=(retrieved_context,),
+            citations=(source,),
+            generated_at=_GENERATED_AT,
+        )
+
+    context, _, _ = _context(_FakeRagService(result_factory))
+
+    response = await execute_rag_ask(
+        RagAskRequest(query="risk", include_contexts=True),
+        context,
+    )
+
+    assert response.answer_text == "Grounded answer."
+    assert response.citations[0].metadata == {"symbol": "SPY"}
+    assert response.contexts is not None
+    assert response.contexts[0].text == "Retrieved source evidence."
+    serialized = response.model_dump_json()
+    assert "private answer reasoning" not in serialized
+    assert "private context reasoning" not in serialized
+    assert "private source reasoning" not in serialized

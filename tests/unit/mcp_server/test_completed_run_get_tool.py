@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
-import pytest
 
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
@@ -17,12 +17,11 @@ from core.telemetry.observability.observability_manager import ObservabilityMana
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.telemetry.tracing.trace_context import TraceContext
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from mcp_server.tools.completed_run_get import execute_completed_run_get
+from mcp_server.contracts.models import CompletedRunGetRequest, CompletedRunSection
 from mcp_server.lifespan import McpApplicationContext
-from mcp_server.contracts.models import CompletedRunGetRequest
-from mcp_server.contracts.models import CompletedRunSection
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
+from mcp_server.tools.completed_run_get import execute_completed_run_get
 
 
 class _FakeWorkflowFacade:
@@ -103,9 +102,9 @@ def _context(
 
 
 def _runtime_context() -> RuntimeContext:
-    created_at = datetime(2026, 7, 8, 14, 30, tzinfo=timezone.utc)
-    simulation_time = datetime(2026, 7, 8, 13, 30, tzinfo=timezone.utc)
-    trace_created_at = datetime(2026, 7, 8, 14, 31, tzinfo=timezone.utc)
+    created_at = datetime(2026, 7, 8, 14, 30, tzinfo=UTC)
+    simulation_time = datetime(2026, 7, 8, 13, 30, tzinfo=UTC)
+    trace_created_at = datetime(2026, 7, 8, 14, 31, tzinfo=UTC)
     long_analysis = "This is the complete long LLM response. " * 100
     return RuntimeContext(
         runtime_id="runtime-1",
@@ -224,9 +223,7 @@ async def test_completed_run_get_returns_default_summary_only() -> None:
 
 
 @pytest.mark.asyncio
-async def test_completed_run_get_returns_full_selected_sections_without_truncation() -> (
-    None
-):
+async def test_completed_run_get_returns_sections_without_truncation() -> None:
     facade = _FakeWorkflowFacade(_runtime_context())
     context, _, _ = _context(facade)
 
@@ -307,9 +304,7 @@ async def test_completed_run_get_returns_full_selected_sections_without_truncati
 
 
 @pytest.mark.asyncio
-async def test_completed_run_get_returns_empty_node_outputs_for_unknown_node_names() -> (
-    None
-):
+async def test_completed_run_get_returns_empty_node_outputs_for_unknowns() -> None:
     facade = _FakeWorkflowFacade(_runtime_context())
     context, _, _ = _context(facade)
 
@@ -408,3 +403,48 @@ def test_completed_run_get_is_registered_as_read_only_idempotent_tool() -> None:
     assert tool.annotations.openWorldHint is False
     assert tool.fn_metadata.output_model is not None
     assert tool.fn_metadata.output_model.__name__ == "CompletedRunGetResponse"
+
+
+@pytest.mark.asyncio
+async def test_completed_run_get_excludes_reasoning_traces_from_mcp_boundary() -> None:
+    context_record = _runtime_context()
+    context_record.node_outputs["reasoning_node"] = {
+        "success": True,
+        "outputs": {
+            "analysis": "<think>private node reasoning</think>\nVisible analysis.",
+            "reasoning_trace": "private reasoning payload",
+            "nested": {
+                "scratchpad": "private nested reasoning",
+                "safe": "retained",
+            },
+        },
+        "execution_metadata": {
+            "thinking": "private execution metadata",
+            "quality": "reviewed",
+        },
+    }
+    facade = _FakeWorkflowFacade(context_record)
+    context, _, _ = _context(facade)
+
+    response = await execute_completed_run_get(
+        CompletedRunGetRequest(
+            workflow_name="morning_report",
+            execution_id="execution-1",
+            include=frozenset({CompletedRunSection.NODE_OUTPUTS}),
+            node_names=("reasoning_node",),
+        ),
+        context,
+    )
+
+    assert response.node_outputs is not None
+    node_output = response.node_outputs[0]
+    assert node_output.outputs == {
+        "analysis": "Visible analysis.",
+        "nested": {"safe": "retained"},
+    }
+    assert node_output.execution_metadata == {"quality": "reviewed"}
+    serialized = response.model_dump_json()
+    assert "private node reasoning" not in serialized
+    assert "private reasoning payload" not in serialized
+    assert "private nested reasoning" not in serialized
+    assert "private execution metadata" not in serialized

@@ -2,12 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, cast
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
-from pydantic import model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from domain.llm import (
+    is_model_internal_reasoning_key,
+    sanitize_reasoning_trace_text_for_boundary,
+)
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -25,6 +39,18 @@ class McpError(McpBoundaryModel):
     code: NonEmptyString
     message: NonEmptyString
     retryable: bool = False
+
+    @field_validator("code", "message", mode="before")
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.error.{info.field_name}",
+        )
 
 
 class RagAskRequest(McpBoundaryModel):
@@ -73,6 +99,37 @@ class RagCitation(McpBoundaryModel):
     execution_id: NonEmptyString | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
+    @field_validator(
+        "source_table",
+        "source_id",
+        "source_type",
+        "document_id",
+        "title",
+        "chunk_id",
+        "section_name",
+        "workflow_name",
+        "execution_id",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.rag_citation.{info.field_name}",
+        )
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def sanitize_metadata(cls, value: object) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name="mcp.rag_citation.metadata",
+        )
+
 
 class RagRetrievedContext(McpBoundaryModel):
     """Optional complete retrieved context returned by ``polaris_rag_ask``."""
@@ -84,6 +141,26 @@ class RagRetrievedContext(McpBoundaryModel):
     rank: int = Field(ge=0)
     retrieval_route: NonEmptyString
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("context_id", "text", "retrieval_route", mode="before")
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.rag_context.{info.field_name}",
+        )
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def sanitize_metadata(cls, value: object) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name="mcp.rag_context.metadata",
+        )
 
 
 class RagReflectionScores(McpBoundaryModel):
@@ -112,6 +189,34 @@ class RagAskResponse(McpBoundaryModel):
     corrective_actions: tuple[NonEmptyString, ...] = ()
     error: str | None = None
     generated_at: datetime
+
+    @field_validator("query_id", "answer_text", "status", "route", mode="before")
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.rag_response.{info.field_name}",
+        )
+
+    @field_validator("corrective_actions", mode="before")
+    @classmethod
+    def sanitize_corrective_actions(cls, value: object) -> object:
+        return _sanitize_mcp_text_sequence(
+            value,
+            boundary_name="mcp.rag_response.corrective_actions",
+        )
+
+    @field_validator("error", mode="before")
+    @classmethod
+    def sanitize_error(cls, value: object) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name="mcp.rag_response.error",
+        )
 
 
 class RagStatusRequest(McpBoundaryModel):
@@ -299,6 +404,38 @@ class CompletedNodeOutput(McpBoundaryModel):
     errors: tuple[dict[str, JsonValue], ...] = ()
     execution_metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
+    @field_validator("node_name", mode="before")
+    @classmethod
+    def sanitize_node_name(cls, value: object) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name="mcp.completed_run.node_name",
+        )
+
+    @field_validator("outputs", "artifacts", "execution_metadata", mode="before")
+    @classmethod
+    def sanitize_mapping_payload(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name=f"mcp.completed_run.{info.field_name}",
+        )
+
+    @field_validator("emitted_events", "errors", mode="before")
+    @classmethod
+    def sanitize_event_payloads(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_mcp_json_sequence(
+            value,
+            boundary_name=f"mcp.completed_run.{info.field_name}",
+        )
+
 
 class TraceContextResponse(McpBoundaryModel):
     trace_id: NonEmptyString
@@ -311,6 +448,36 @@ class TraceContextResponse(McpBoundaryModel):
     node_name: NonEmptyString | None = None
     created_at: datetime
     attributes: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator(
+        "trace_id",
+        "span_id",
+        "parent_span_id",
+        "correlation_id",
+        "workflow_id",
+        "execution_id",
+        "runtime_id",
+        "node_name",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.completed_run.trace_context.{info.field_name}",
+        )
+
+    @field_validator("attributes", mode="before")
+    @classmethod
+    def sanitize_attributes(cls, value: object) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name="mcp.completed_run.trace_context.attributes",
+        )
 
 
 class CompletedRunGetResponse(McpBoundaryModel):
@@ -333,6 +500,152 @@ class CompletedRunGetResponse(McpBoundaryModel):
     artifact_refs: dict[str, JsonValue] | None = None
     trace_context: TraceContextResponse | None = None
     error: McpError | None = None
+
+    @field_validator("workflow_id", "execution_id", "runtime_id", "mode", mode="before")
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.completed_run.response.{info.field_name}",
+        )
+
+    @field_validator("workflow_inputs", "artifact_refs", mode="before")
+    @classmethod
+    def sanitize_mapping_payload(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        if value is None:
+            return None
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name=f"mcp.completed_run.response.{info.field_name}",
+        )
+
+    @field_validator("errors", mode="before")
+    @classmethod
+    def sanitize_errors(cls, value: object) -> object:
+        if value is None:
+            return None
+        return _sanitize_mcp_json_sequence(
+            value,
+            boundary_name="mcp.completed_run.response.errors",
+        )
+
+
+def _sanitize_optional_mcp_text(
+    value: object,
+    *,
+    boundary_name: str,
+) -> object:
+    if value is None:
+        return None
+
+    return _sanitize_mcp_text(
+        value,
+        boundary_name=boundary_name,
+    )
+
+
+def _sanitize_mcp_text(
+    value: object,
+    *,
+    boundary_name: str,
+) -> str:
+    return sanitize_reasoning_trace_text_for_boundary(
+        str(
+            value,
+        ),
+        boundary_name=boundary_name,
+        strip_safe_text=False,
+    )
+
+
+def _sanitize_mcp_text_sequence(
+    value: object,
+    *,
+    boundary_name: str,
+) -> tuple[str, ...]:
+    if value is None:
+        return ()
+
+    items: tuple[object, ...]
+    if isinstance(value, str):
+        items = (value,)
+    elif isinstance(value, Sequence) and not isinstance(value, bytes | bytearray):
+        items = tuple(value)
+    else:
+        items = (value,)
+
+    return tuple(
+        _sanitize_mcp_text(
+            item,
+            boundary_name=f"{boundary_name}[]",
+        )
+        for item in items
+    )
+
+
+def _sanitize_mcp_json_sequence(
+    value: object,
+    *,
+    boundary_name: str,
+) -> object:
+    if value is None:
+        return ()
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        items = tuple(value)
+    else:
+        items = (value,)
+
+    return tuple(
+        cast(
+            dict[str, JsonValue],
+            _sanitize_mcp_json_value(
+                item,
+                boundary_name=f"{boundary_name}[]",
+            ),
+        )
+        for item in items
+    )
+
+
+def _sanitize_mcp_json_value(
+    value: object,
+    *,
+    boundary_name: str,
+) -> JsonValue:
+    if value is None or isinstance(value, int | float | bool):
+        return value
+    if isinstance(value, str):
+        return _sanitize_mcp_text(
+            value,
+            boundary_name=boundary_name,
+        )
+    if isinstance(value, Mapping):
+        return {
+            str(key): _sanitize_mcp_json_value(
+                item,
+                boundary_name=f"{boundary_name}.{key}",
+            )
+            for key, item in value.items()
+            if not is_model_internal_reasoning_key(str(key))
+        }
+    if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray):
+        return [
+            _sanitize_mcp_json_value(
+                item,
+                boundary_name=f"{boundary_name}[]",
+            )
+            for item in value
+        ]
+
+    return cast(JsonValue, value)
 
 
 TOOL_INPUT_MODELS: dict[str, type[McpBoundaryModel]] = {

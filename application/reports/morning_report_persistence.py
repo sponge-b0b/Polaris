@@ -1,24 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import asdict
-from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from application.reports.morning_report_models import MorningReportDocument
-from application.reports.morning_report_models import ReportSection
-from core.storage.persistence.reports import JsonObject
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPersistenceRepository
-from core.storage.persistence.reports import ReportPersistenceResult
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import new_report_id
+from application.reports.morning_report_models import (
+    MorningReportDocument,
+    ReportSection,
+)
+from core.storage.persistence.reports import (
+    JsonObject,
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPersistenceRepository,
+    ReportPersistenceResult,
+    ReportRecord,
+    ReportSectionRecord,
+    new_report_id,
+)
+from domain.llm import (
+    is_model_internal_reasoning_key,
+    sanitize_reasoning_trace_text_for_boundary,
+)
 
 
 @dataclass(
@@ -102,6 +107,13 @@ class MorningReportPersistenceMapper:
             )
         )
 
+        safe_markdown_body = _publication_text(
+            markdown_body,
+            boundary_name="morning_report.persistence.markdown_body",
+            allow_empty=False,
+            strip_safe_text=False,
+        )
+
         return ReportPersistenceBundle(
             report=ReportRecord(
                 report_id=report_id,
@@ -115,11 +127,12 @@ class MorningReportPersistenceMapper:
                 generated_at=_parse_generated_at(
                     document.generated_at,
                 ),
-                markdown_body=markdown_body,
+                markdown_body=safe_markdown_body,
                 structured_payload=_json_object(
                     asdict(
                         document,
-                    )
+                    ),
+                    boundary_name="morning_report.persistence.structured_payload",
                 ),
                 metadata={
                     "symbol": document.symbol,
@@ -230,11 +243,15 @@ def _section_record(
         section_key=section_key,
         title=section.title,
         display_order=display_order,
-        summary=section.summary,
+        summary=_publication_text(
+            section.summary,
+            boundary_name=f"morning_report.persistence.sections.{section_key}.summary",
+        ),
         content_payload=_json_object(
             asdict(
                 section,
-            )
+            ),
+            boundary_name=f"morning_report.persistence.sections.{section_key}.content",
         ),
         metadata={
             "section_key": section_key,
@@ -289,9 +306,12 @@ def _parse_generated_at(
 
 def _json_object(
     value: Any,
+    *,
+    boundary_name: str,
 ) -> JsonObject:
     sanitized = _json_value(
         value,
+        boundary_name=boundary_name,
     )
     if isinstance(
         sanitized,
@@ -312,12 +332,23 @@ def _json_object(
 
 def _json_value(
     value: Any,
+    *,
+    boundary_name: str,
 ) -> object:
     if value is None or isinstance(
         value,
-        str | int | float | bool,
+        int | float | bool,
     ):
         return value
+
+    if isinstance(
+        value,
+        str,
+    ):
+        return _publication_text(
+            value,
+            boundary_name=boundary_name,
+        )
 
     if isinstance(
         value,
@@ -342,8 +373,14 @@ def _json_value(
                 key,
             ): _json_value(
                 item,
+                boundary_name=f"{boundary_name}.{key}",
             )
             for key, item in value.items()
+            if not is_model_internal_reasoning_key(
+                str(
+                    key,
+                )
+            )
         }
 
     if isinstance(
@@ -353,12 +390,31 @@ def _json_value(
         return [
             _json_value(
                 item,
+                boundary_name=f"{boundary_name}[]",
             )
             for item in value
         ]
 
-    return str(
+    return _publication_text(
+        str(
+            value,
+        ),
+        boundary_name=boundary_name,
+    )
+
+
+def _publication_text(
+    value: str,
+    *,
+    boundary_name: str,
+    allow_empty: bool = True,
+    strip_safe_text: bool = True,
+) -> str:
+    return sanitize_reasoning_trace_text_for_boundary(
         value,
+        boundary_name=boundary_name,
+        allow_empty=allow_empty,
+        strip_safe_text=strip_safe_text,
     )
 
 

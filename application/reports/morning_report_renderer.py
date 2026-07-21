@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from application.reports.morning_report_models import MorningReportDocument
-from application.reports.morning_report_models import ReportBullet
-from application.reports.morning_report_models import ReportMetric
-from application.reports.morning_report_models import ReportSection
-from application.reports.morning_report_models import ReportTable
+from application.reports.morning_report_models import (
+    MorningReportDocument,
+    ReportBullet,
+    ReportMetric,
+    ReportSection,
+    ReportTable,
+)
+from domain.llm import sanitize_reasoning_trace_text_for_boundary
 
 
 class MorningReportMarkdownRenderer:
@@ -149,7 +152,9 @@ class MorningReportMarkdownRenderer:
         self,
         summary: str,
     ) -> list[str]:
-        cleaned = summary.strip()
+        cleaned = self._preserve_text(
+            summary,
+        )
         if not cleaned:
             return []
 
@@ -282,14 +287,21 @@ class MorningReportMarkdownRenderer:
         self,
         value: str,
     ) -> str:
-        return value.strip()
+        return sanitize_reasoning_trace_text_for_boundary(
+            value,
+            boundary_name="morning_report.markdown",
+        )
 
     def _escape_text(
         self,
         value: str,
     ) -> str:
+        safe_value = sanitize_reasoning_trace_text_for_boundary(
+            value,
+            boundary_name="morning_report.markdown",
+        )
         return " ".join(
-            value.split(),
+            safe_value.split(),
         )
 
     def _escape_cell(

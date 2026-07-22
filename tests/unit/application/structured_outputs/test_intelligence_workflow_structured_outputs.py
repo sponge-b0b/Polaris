@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
-from application.structured_outputs import StructuredMorningReportSection
-from application.structured_outputs import StructuredRecommendationExplanation
-from application.structured_outputs import StructuredStrategyHypothesisEvaluation
-from application.structured_outputs import StructuredStrategySynthesisOutput
+from application.structured_outputs import (
+    StructuredMorningReportSection,
+    StructuredRecommendationExplanation,
+    StructuredStrategyHypothesisEvaluation,
+    StructuredStrategySynthesisOutput,
+)
+from core.storage.persistence.lineage import JsonValue
+from domain.authority import RiskTier
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
 
@@ -121,6 +126,15 @@ def test_recommendation_explanation_maps_to_attributable_rationale_record() -> N
         "risk-record-2",
     ]
     assert record.metadata["limitations"] == ["Monitor liquidity."]
+    authority_metadata = cast(
+        Mapping[str, JsonValue], record.metadata["risk_authority"]
+    )
+    assert authority_metadata["risk_tier"] == RiskTier.ENHANCED.value
+    assert authority_metadata["authority_effect"] == "advisory_context"
+    assert authority_metadata["content_type"] == "recommendation_explanation"
+    assert authority_metadata["canonical_owner"] == "recommendation_service"
+    assert authority_metadata["intended_sink"] == "recommendation"
+    assert authority_metadata["durable_authority"] is False
 
 
 def test_morning_report_structured_section_maps_to_report_section() -> None:

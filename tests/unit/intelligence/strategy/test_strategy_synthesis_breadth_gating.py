@@ -17,6 +17,7 @@ from core.telemetry.emitters.application_service_telemetry import (
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing.trace_context import TraceContext
+from domain.authority import RiskTier
 from intelligence.strategy.synthesis.strategy_synthesis_agent import (
     StrategySynthesisAgent,
 )
@@ -616,6 +617,23 @@ async def test_strategy_synthesis_records_ai_observability_projection() -> None:
         "sideways",
         None,
     }
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_classifies_runtime_output() -> None:
+    output = await _agent()._execute(
+        _context(
+            breadth_state=MISSING_BREADTH,
+        )
+    )
+
+    authority_metadata = output.execution_metadata["risk_authority"]
+    assert authority_metadata["risk_tier"] == RiskTier.VIGILANT.value
+    assert authority_metadata["authority_effect"] == ("deterministic_platform_decision")
+    assert authority_metadata["content_type"] == "strategy_synthesis"
+    assert authority_metadata["intended_sink"] == "durable_domain_record"
+    assert authority_metadata["capital_relevant"] is True
+    assert authority_metadata["durable_authority"] is True
 
 
 def _agent(

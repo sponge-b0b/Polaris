@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from collections.abc import Mapping
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -12,22 +13,32 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     TradeRecommendationWorkflowOutputProjector,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceRepository
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from domain.workflow_outputs import TRADE_RECOMMENDATION_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+    JsonValue,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceRepository,
+    RecommendationPersistenceResult,
+)
+from domain.authority import GateProfile, RiskTier
+from domain.workflow_outputs import (
+    TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
+
+
+def _authority_metadata(metadata: JsonObject) -> Mapping[str, JsonValue]:
+    return cast(Mapping[str, JsonValue], metadata["risk_authority"])
 
 
 @pytest.mark.asyncio
@@ -52,6 +63,66 @@ async def test_trade_recommendation_projector_maps_trade_proposal_distinctly() -
     assert bundle.trade_setups[0].risk_reward_ratio == 2.0
     assert bundle.rationales[0].rationale_type == "trade_recommendation"
 
+    recommendation_authority = _authority_metadata(bundle.recommendation.metadata)
+    assert recommendation_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert (
+        recommendation_authority["gate_profile"]
+        == GateProfile.VIGILANT_DECISION_EVIDENCE.value
+    )
+    assert recommendation_authority["intended_sink"] == "recommendation"
+    assert recommendation_authority["canonical_owner"] == "recommendation_service"
+    assert recommendation_authority["durable_authority"] is True
+
+    rationale_authority = _authority_metadata(bundle.rationales[0].metadata)
+    assert rationale_authority["risk_tier"] == RiskTier.ENHANCED.value
+    assert rationale_authority["authority_effect"] == "advisory_context"
+    assert rationale_authority["content_type"] == "recommendation_explanation"
+    assert rationale_authority["durable_authority"] is False
+
+
+@pytest.mark.asyncio
+async def test_trade_recommendation_projector_ignores_model_authority_claims() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_model_claims())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    bundle = repository.bundles[0]
+    recommendation_authority = _authority_metadata(bundle.recommendation.metadata)
+    assert recommendation_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert recommendation_authority["authority_effect"] == "canonical_record"
+    assert recommendation_authority["gate_profile"] == (
+        GateProfile.VIGILANT_DECISION_EVIDENCE.value
+    )
+    assert recommendation_authority["ignored_model_authority_claims"] == [
+        "authority_effect",
+        "governance_approved",
+        "production_ready",
+        "residual_risk_accepted",
+        "risk_tier",
+    ]
+    assert "governance_approved" not in bundle.recommendation.metadata
+    assert "production_ready" not in bundle.recommendation.metadata
+    assert "residual_risk_accepted" not in bundle.recommendation.metadata
+
+    rationale_authority = _authority_metadata(bundle.rationales[0].metadata)
+    assert rationale_authority["risk_tier"] == RiskTier.ENHANCED.value
+    assert rationale_authority["authority_effect"] == "advisory_context"
+    assert rationale_authority["ignored_model_authority_claims"] == [
+        "authority_effect",
+        "governance_approved",
+        "production_ready",
+        "residual_risk_accepted",
+        "risk_tier",
+    ]
+
 
 class _FakeRecommendationRepository:
     def __init__(self) -> None:
@@ -74,9 +145,12 @@ class _FakeRecommendationRepository:
         )
 
 
-def _projector_request() -> WorkflowOutputProjectorRequest:
+def _projector_request(
+    *,
+    node: CompletedNodeOutputRecord | None = None,
+) -> WorkflowOutputProjectorRequest:
     run = _run()
-    node_output = _node()
+    node_output = node or _node()
     return WorkflowOutputProjectorRequest(
         run=run,
         node_output=node_output,
@@ -154,3 +228,21 @@ def _node() -> CompletedNodeOutputRecord:
         completed_at=datetime(2026, 7, 10, 13, 31, tzinfo=UTC),
         duration_seconds=120.0,
     )
+
+
+def _node_with_model_claims() -> CompletedNodeOutputRecord:
+    node = _node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features["risk_authority"] = cast(
+        JsonValue,
+        {
+            "risk_tier": "baseline",
+            "authority_effect": "execution_decision",
+            "governance_approved": True,
+            "production_ready": True,
+            "residual_risk_accepted": True,
+        },
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))

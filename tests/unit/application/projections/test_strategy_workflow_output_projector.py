@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -13,32 +13,42 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     StrategyHypothesisWorkflowOutputProjector,
-)
-from application.projections.workflow_outputs.projectors import (
     StrategySynthesisWorkflowOutputProjector,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceRepository
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from core.storage.persistence.strategy import StrategyHypothesisPersistenceResult
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceRepository
-from core.storage.persistence.strategy import StrategyPersistenceResult
-from domain.workflow_outputs import STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import STRATEGY_SYNTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+    JsonValue,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceRepository,
+    RecommendationPersistenceResult,
+)
+from core.storage.persistence.strategy import (
+    StrategyHypothesisPersistenceResult,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategyPersistenceRepository,
+    StrategyPersistenceResult,
+)
+from domain.authority import GateProfile, RiskTier
+from domain.workflow_outputs import (
+    STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
+    STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
+
+
+def _authority_metadata(metadata: JsonObject) -> Mapping[str, JsonValue]:
+    return cast(Mapping[str, JsonValue], metadata["risk_authority"])
 
 
 @pytest.mark.asyncio
@@ -105,6 +115,82 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     assert recommendation_bundle.recommendation.status == "strategy_recommendation"
     assert recommendation_bundle.recommendation.metadata["strategy_decision_id"]
     assert recommendation_bundle.rationales[0].rationale_type == "strategy_synthesis"
+
+    decision_authority = _authority_metadata(strategy_bundle.decision.metadata)
+    assert decision_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert decision_authority["gate_profile"] == (
+        GateProfile.VIGILANT_DECISION_EVIDENCE.value
+    )
+    assert decision_authority["canonical_owner"] == "strategy_service"
+    assert decision_authority["intended_sink"] == "durable_domain_record"
+
+    recommendation_authority = _authority_metadata(
+        recommendation_bundle.recommendation.metadata
+    )
+    assert recommendation_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert recommendation_authority["canonical_owner"] == "recommendation_service"
+    assert recommendation_authority["intended_sink"] == "recommendation"
+
+    rationale_authority = _authority_metadata(
+        recommendation_bundle.rationales[0].metadata
+    )
+    assert rationale_authority["risk_tier"] == RiskTier.ENHANCED.value
+    assert rationale_authority["authority_effect"] == "advisory_context"
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> None:
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    run = _run()
+    synthesis_node = _synthesis_node_with_model_claims()
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(
+            synthesis_node,
+            run=run,
+            bundle=CompletedRunBundle(run=run, node_outputs=(synthesis_node,)),
+        )
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    strategy_bundle = strategy_repository.bundles[0]
+    ignored_claims = [
+        "authority_effect",
+        "governance_approved",
+        "production_ready",
+        "residual_risk_accepted",
+        "risk_tier",
+    ]
+    decision_authority = _authority_metadata(strategy_bundle.decision.metadata)
+    assert decision_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert decision_authority["authority_effect"] == ("deterministic_platform_decision")
+    assert decision_authority["ignored_model_authority_claims"] == ignored_claims
+    assert "governance_approved" not in strategy_bundle.decision.metadata
+    assert "production_ready" not in strategy_bundle.decision.metadata
+    assert "residual_risk_accepted" not in strategy_bundle.decision.metadata
+
+    recommendation_bundle = recommendation_repository.bundles[0]
+    recommendation_authority = _authority_metadata(
+        recommendation_bundle.recommendation.metadata
+    )
+    assert recommendation_authority["risk_tier"] == RiskTier.VIGILANT.value
+    assert recommendation_authority["authority_effect"] == "canonical_record"
+    assert recommendation_authority["ignored_model_authority_claims"] == ignored_claims
+    rationale_authority = _authority_metadata(
+        recommendation_bundle.rationales[0].metadata
+    )
+    assert rationale_authority["risk_tier"] == RiskTier.ENHANCED.value
+    assert rationale_authority["authority_effect"] == "advisory_context"
+    assert rationale_authority["ignored_model_authority_claims"] == ignored_claims
 
 
 class _FakeStrategyRepository:
@@ -283,3 +369,23 @@ def _decision_payload() -> dict[str, object]:
         "risks": ["headline risk"],
         "recommendations": ["Maintain constructive allocation."],
     }
+
+
+def _synthesis_node_with_model_claims() -> CompletedNodeOutputRecord:
+    from dataclasses import replace
+
+    node = _synthesis_node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features["risk_authority"] = cast(
+        JsonValue,
+        {
+            "risk_tier": "baseline",
+            "authority_effect": "governance_decision",
+            "governance_approved": True,
+            "production_ready": True,
+            "residual_risk_accepted": True,
+        },
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))

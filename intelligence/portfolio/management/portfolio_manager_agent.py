@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import cast
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.authority import (
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    portfolio_allocation_intent_runtime_authority,
+)
 from domain.workflow_outputs import (
     PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
-from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
+from intelligence.strategy.synthesis.contracts import (
+    StrategySynthesisDecision,
+    StrategySynthesisSelectionStatus,
+)
 
 
 def _required_mapping(value: object, field_name: str) -> dict[str, object]:
@@ -422,6 +430,14 @@ class PortfolioManagerAgent(RuntimeNode):
                         "execution_status": execution_status,
                         "portfolio_regime": portfolio_regime,
                         "quality_status": "normal",
+                        **authority_contract_metadata(
+                            portfolio_allocation_intent_runtime_authority(
+                                model_authority_claims_from_payloads(
+                                    result,
+                                    cast(Mapping[str, object], result["features"]),
+                                )
+                            )
+                        ),
                     }
                 ),
             },

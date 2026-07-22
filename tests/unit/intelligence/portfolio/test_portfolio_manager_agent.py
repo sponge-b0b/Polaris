@@ -3,14 +3,17 @@ from __future__ import annotations
 import pytest
 
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.authority import RiskTier
 from intelligence.portfolio.management.portfolio_manager_agent import (
     PortfolioManagerAgent,
 )
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDegradedReason
-from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
+from intelligence.strategy.synthesis.contracts import (
+    StrategyHypothesisEvaluation,
+    StrategySynthesisDecision,
+    StrategySynthesisDegradedReason,
+    StrategySynthesisSelectionStatus,
+)
 
 
 @pytest.mark.asyncio
@@ -121,6 +124,32 @@ async def test_portfolio_manager_rejects_degraded_synthesis_decision() -> None:
         "resolve_strategy_synthesis_before_execution"
         in output.outputs["recommendations"]
     )
+
+
+@pytest.mark.asyncio
+async def test_portfolio_manager_classifies_allocation_intent_runtime_output() -> None:
+    output = await PortfolioManagerAgent()._execute(
+        _runtime_context(
+            decision=_decision_payload(
+                selected_perspective=StrategyPerspective.BULL,
+                directional_score=0.25,
+                confidence=0.80,
+                regime="risk_on",
+                synthesis_weights={
+                    StrategyPerspective.BULL: 0.50,
+                    StrategyPerspective.BEAR: 0.20,
+                    StrategyPerspective.SIDEWAYS: 0.30,
+                },
+            )
+        )
+    )
+
+    authority_metadata = output.execution_metadata["risk_authority"]
+    assert authority_metadata["risk_tier"] == RiskTier.VIGILANT.value
+    assert authority_metadata["authority_effect"] == ("deterministic_platform_decision")
+    assert authority_metadata["intended_sink"] == "durable_domain_record"
+    assert authority_metadata["capital_relevant"] is True
+    assert authority_metadata["durable_authority"] is True
 
 
 def _runtime_context(

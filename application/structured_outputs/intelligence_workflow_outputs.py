@@ -3,24 +3,32 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
-from pydantic import Field
-from pydantic import StringConstraints
-from pydantic import field_validator
-from pydantic import model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
-from application.reports.morning_report_models import ReportBullet
-from application.reports.morning_report_models import ReportSection
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
+from application.reports.morning_report_models import ReportBullet, ReportSection
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
 from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.contracts import parse_strategy_perspective
-from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDegradedReason
-from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
+from domain.authority import (
+    authority_contract_metadata,
+    recommendation_rationale_authority,
+)
+from intelligence.strategy.hypothesis.contracts import (
+    StrategyPerspective,
+    parse_strategy_perspective,
+)
+from intelligence.strategy.synthesis.contracts import (
+    StrategyHypothesisEvaluation,
+    StrategySynthesisDecision,
+    StrategySynthesisDegradedReason,
+    StrategySynthesisSelectionStatus,
+)
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -159,6 +167,7 @@ class StructuredRecommendationExplanation(StructuredWorkflowOutputModel):
         metadata: JsonObject = {
             "supporting_source_ids": list(self.supporting_source_ids),
             "limitations": list(self.limitations),
+            **authority_contract_metadata(recommendation_rationale_authority()),
         }
         return RecommendationRationaleRecord(
             rationale_id=rationale_id,

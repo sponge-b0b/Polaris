@@ -1,3 +1,16 @@
+from domain.authority.capital_outputs import (
+    RISK_AUTHORITY_METADATA_KEY,
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    portfolio_allocation_intent_runtime_authority,
+    recommendation_rationale_authority,
+    recommendation_record_authority,
+    strategy_recommendation_rationale_authority,
+    strategy_recommendation_record_authority,
+    strategy_synthesis_decision_authority,
+    strategy_synthesis_runtime_authority,
+    trade_recommendation_runtime_authority,
+)
 from domain.authority.contracts import (
     AiOutputContentType,
     AuthorityEffect,
@@ -14,6 +27,17 @@ from domain.authority.contracts import (
 )
 
 __all__ = [
+    "RISK_AUTHORITY_METADATA_KEY",
+    "authority_contract_metadata",
+    "model_authority_claims_from_payloads",
+    "portfolio_allocation_intent_runtime_authority",
+    "recommendation_rationale_authority",
+    "recommendation_record_authority",
+    "strategy_recommendation_rationale_authority",
+    "strategy_recommendation_record_authority",
+    "strategy_synthesis_decision_authority",
+    "strategy_synthesis_runtime_authority",
+    "trade_recommendation_runtime_authority",
     "AiOutputContentType",
     "AuthorityEffect",
     "CanonicalOwner",

@@ -1,33 +1,38 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import new_recommendation_child_id
-from core.storage.persistence.recommendations import new_recommendation_id
-from domain.workflow_outputs import PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT
-from domain.workflow_outputs import TRADE_RECOMMENDATION_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.recommendations import (
+    RecommendationPersistenceBundle,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    new_recommendation_child_id,
+    new_recommendation_id,
+)
+from domain.authority import (
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    recommendation_rationale_authority,
+    recommendation_record_authority,
+)
+from domain.workflow_outputs import (
+    PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
+    TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 PORTFOLIO_ALLOCATION_INTENT_PROJECTOR_NAME: Final = (
     "portfolio_allocation_intent_projector"
@@ -63,6 +68,10 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
             recommendation_key="portfolio_allocation_intent",
         )
         confidence = _score(outputs.get("confidence")) or 0.0
+        model_authority_claims = model_authority_claims_from_payloads(
+            outputs,
+            features,
+        )
         bundle = RecommendationPersistenceBundle(
             recommendation=RecommendationRecord(
                 recommendation_id=recommendation_id,
@@ -91,6 +100,9 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
                     ),
                     "source_fingerprint": request.source_fingerprint,
                     "node_output_id": request.node_output.node_output_id,
+                    **authority_contract_metadata(
+                        recommendation_record_authority(model_authority_claims)
+                    ),
                 },
             ),
             rationales=(
@@ -117,7 +129,9 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
             projector_name=self.projector_name,
             status=WorkflowOutputProjectionStatus.SUCCEEDED,
             records_written=result.records_persisted,
-            message="Portfolio allocation intent projected into recommendation records.",
+            message=(
+                "Portfolio allocation intent projected into recommendation records."
+            ),
         )
 
 
@@ -173,6 +187,11 @@ class TradeRecommendationWorkflowOutputProjector:
                 trade_intent.get("take_profit_distance")
             ),
         }
+        model_authority_claims = model_authority_claims_from_payloads(
+            outputs,
+            features,
+            trade_intent,
+        )
         recommendation = RecommendationRecord(
             recommendation_id=recommendation_id,
             symbol=symbol,
@@ -193,6 +212,9 @@ class TradeRecommendationWorkflowOutputProjector:
                 "technical_regime": _optional_text(features.get("technical_regime")),
                 "source_fingerprint": request.source_fingerprint,
                 "node_output_id": request.node_output.node_output_id,
+                **authority_contract_metadata(
+                    recommendation_record_authority(model_authority_claims)
+                ),
             },
         )
         trade_setup = TradeSetupRecord(
@@ -216,7 +238,10 @@ class TradeRecommendationWorkflowOutputProjector:
             stop_context=stop_context,
             target_context=target_context,
             metadata={
-                "trade_intent_reasoning": _optional_text(trade_intent.get("reasoning"))
+                "trade_intent_reasoning": _optional_text(trade_intent.get("reasoning")),
+                **authority_contract_metadata(
+                    recommendation_record_authority(model_authority_claims)
+                ),
             },
         )
         bundle = RecommendationPersistenceBundle(
@@ -296,7 +321,17 @@ def _rationale(
         created_at=_timestamp(request),
         lineage=request.lineage,
         confidence=confidence,
-        metadata={"source_fingerprint": request.source_fingerprint},
+        metadata={
+            "source_fingerprint": request.source_fingerprint,
+            **authority_contract_metadata(
+                recommendation_rationale_authority(
+                    model_authority_claims_from_payloads(
+                        _mapping(request.node_output.outputs),
+                        _mapping(_mapping(request.node_output.outputs).get("features")),
+                    )
+                )
+            ),
+        },
     )
 
 

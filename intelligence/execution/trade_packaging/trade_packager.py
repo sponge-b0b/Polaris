@@ -1,23 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from domain.authority import (
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    trade_recommendation_runtime_authority,
+)
 from domain.workflow_outputs import (
     TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-from intelligence.analysts.technical.technical_breadth_context import (
-    TechnicalBreadthContext,
-)
-from intelligence.analysts.technical.technical_breadth_context import (
-    extract_technical_breadth_context,
-)
-
 from integration.contracts.execution.trade_intent_contract import (
     TradeIntentContract,
+)
+from intelligence.analysts.technical.technical_breadth_context import (
+    TechnicalBreadthContext,
+    extract_technical_breadth_context,
 )
 
 
@@ -350,6 +353,14 @@ class TradePackager(RuntimeNode):
                         "symbol": symbol,
                         "direction": direction,
                         "quality_status": "normal",
+                        **authority_contract_metadata(
+                            trade_recommendation_runtime_authority(
+                                model_authority_claims_from_payloads(
+                                    result,
+                                    cast(Mapping[str, object], result["features"]),
+                                )
+                            )
+                        ),
                     }
                 ),
             },

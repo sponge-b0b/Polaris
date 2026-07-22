@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.authority import RiskTier
 from intelligence.execution.trade_packaging.trade_packager import TradePackager
-
 
 WEAK_BREADTH: dict[str, object] = {
     "has_breadth_data": True,
@@ -156,6 +156,24 @@ async def test_trade_packager_can_move_unconfirmed_long_intent_to_flat() -> None
         "keep_trade_intent_on_watchlist_until_breadth_confirms"
         in weak.outputs["recommendations"]
     )
+
+
+@pytest.mark.asyncio
+async def test_trade_packager_classifies_capital_relevant_runtime_output() -> None:
+    output = await TradePackager()._execute(
+        _context(
+            sentiment_score=0.45,
+            technical_score=0.45,
+            breadth_state=MISSING_BREADTH,
+        )
+    )
+
+    authority_metadata = output.execution_metadata["risk_authority"]
+    assert authority_metadata["risk_tier"] == RiskTier.VIGILANT.value
+    assert authority_metadata["authority_effect"] == ("deterministic_platform_decision")
+    assert authority_metadata["intended_sink"] == "durable_domain_record"
+    assert authority_metadata["capital_relevant"] is True
+    assert authority_metadata["durable_authority"] is True
 
 
 def _context(

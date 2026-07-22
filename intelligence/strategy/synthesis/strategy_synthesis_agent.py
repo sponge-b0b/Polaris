@@ -13,6 +13,11 @@ from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.authority import (
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    strategy_synthesis_runtime_authority,
+)
 from domain.workflow_outputs import (
     STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
@@ -157,6 +162,14 @@ class StrategySynthesisAgent(RuntimeNode):
                 "event_aware": True,
                 "symbol": inputs.symbol,
                 "quality_status": "normal",
+                **authority_contract_metadata(
+                    strategy_synthesis_runtime_authority(
+                        model_authority_claims_from_payloads(
+                            synthesis_output.to_runtime_outputs(),
+                            synthesis_output.features,
+                        )
+                    )
+                ),
             },
             output_contract=STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
             output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
@@ -347,6 +360,13 @@ class StrategySynthesisAgent(RuntimeNode):
                 "fallback": True,
                 "reason": reason,
                 "quality_status": "fallback",
+                **authority_contract_metadata(
+                    strategy_synthesis_runtime_authority(
+                        model_authority_claims_from_payloads(
+                            decision.to_dict(),
+                        )
+                    )
+                ),
             },
             output_contract=STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
             output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,

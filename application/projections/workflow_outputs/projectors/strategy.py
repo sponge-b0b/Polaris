@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
-from typing import Final
-from typing import cast
+from datetime import UTC, datetime
+from typing import Final, cast
 
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
@@ -22,23 +16,36 @@ from application.projections.workflow_outputs.projection_registry import (
 )
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import new_recommendation_child_id
-from core.storage.persistence.recommendations import new_recommendation_id
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
-from core.storage.persistence.strategy import new_strategy_decision_id
-from core.storage.persistence.strategy import new_strategy_evaluation_id
-from core.storage.persistence.strategy import new_strategy_hypothesis_id
-from domain.workflow_outputs import STRATEGY_BEAR_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import STRATEGY_SYNTHESIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.recommendations import (
+    RecommendationPersistenceBundle,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    new_recommendation_child_id,
+    new_recommendation_id,
+)
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategySynthesisDecisionRecord,
+    new_strategy_decision_id,
+    new_strategy_evaluation_id,
+    new_strategy_hypothesis_id,
+)
+from domain.authority import (
+    authority_contract_metadata,
+    model_authority_claims_from_payloads,
+    strategy_recommendation_rationale_authority,
+    strategy_recommendation_record_authority,
+    strategy_synthesis_decision_authority,
+)
+from domain.workflow_outputs import (
+    STRATEGY_BEAR_HYPOTHESIS_OUTPUT_CONTRACT,
+    STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
+    STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT,
+    STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
 
@@ -389,6 +396,14 @@ def _decision_record(
             "node_output_id": request.node_output.node_output_id,
             "output_contract": request.node_output.output_contract,
             "output_schema_version": request.node_output.output_schema_version,
+            **authority_contract_metadata(
+                strategy_synthesis_decision_authority(
+                    model_authority_claims_from_payloads(
+                        _mapping(request.node_output.outputs),
+                        _mapping(_mapping(request.node_output.outputs).get("features")),
+                    )
+                )
+            ),
         },
     )
 
@@ -490,6 +505,14 @@ def _strategy_recommendation_bundle(
             "selected_perspective": decision_record.selected_perspective,
             "selection_status": decision_record.selection_status,
             "evidence_fingerprint": decision_record.evidence_fingerprint,
+            **authority_contract_metadata(
+                strategy_recommendation_record_authority(
+                    model_authority_claims_from_payloads(
+                        _mapping(request.node_output.outputs),
+                        _mapping(_mapping(request.node_output.outputs).get("features")),
+                    )
+                )
+            ),
         },
     )
     rationale = RecommendationRationaleRecord(
@@ -504,7 +527,17 @@ def _strategy_recommendation_bundle(
         created_at=decision_record.created_at,
         lineage=decision_record.lineage,
         confidence=decision.confidence,
-        metadata={"recommendations": list(decision.recommendations)},
+        metadata={
+            "recommendations": list(decision.recommendations),
+            **authority_contract_metadata(
+                strategy_recommendation_rationale_authority(
+                    model_authority_claims_from_payloads(
+                        _mapping(request.node_output.outputs),
+                        _mapping(_mapping(request.node_output.outputs).get("features")),
+                    )
+                )
+            ),
+        },
     )
     return RecommendationPersistenceBundle(
         recommendation=recommendation, rationales=(rationale,)

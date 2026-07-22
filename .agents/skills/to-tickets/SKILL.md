@@ -105,3 +105,15 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
 
 Work the frontier one ticket at a time with `/implement`, clearing context between tickets.
+
+## Delta Slicing Rules (For Re-Review Headers)
+
+If the target input issue contains multiple dated review headers (e.g., `## Initial Findings`, `## Re-review Findings [2026-07-22]`), you must perform a strict delta analysis before generating any GitHub issues:
+
+1. **Scan Linked Tree:** Pull the list of existing child issues already linked to this parent issue.
+2. **Isolate the Newest Delta:** Focus your text parsing *only* on the bullet points listed under the most recent chronological date header.
+3. **Cross-Reference:** Compare the new text findings against the titles/descriptions of the child issues that are already open or closed.
+4. **De-duplicate:** 
+   - If a finding matches an existing child ticket description -> **Skip it completely.**
+   - If a finding has no matching child ticket -> **Graduate it into a brand new child ticket.**
+5. **Report the Delta:** Print a summary telling the user exactly how many *new* tickets were added versus how many *stale duplicates* were ignored.

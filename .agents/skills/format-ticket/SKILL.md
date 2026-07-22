@@ -33,13 +33,13 @@ git status --porcelain | awk '{print $2}' | grep '\.py$'
 ### Step 2: Targeted Automated Lint Correction
 Execute the `ruff` lint engine using the explicit auto-fixer modifier, targeting **only** the space-separated list of file paths extracted in Step 1. Do not use a trailing dot (`.`):
 ```bash
-uv run ruff check --fix <path_to_modified_file_1> <path_to_modified_file_2>
+ruff check --fix <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ### Step 3: Targeted Code Layout Standardisation
 Execute the native code formatter over **only** the identified target file paths to adjust line spacing, wrapping bounds, indentation, and quote alignments to match our 88-character rule baseline:
 ```bash
-uv run ruff format <path_to_modified_file_1> <path_to_modified_file_2>
+ruff format <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ---
@@ -52,8 +52,8 @@ uv run ruff format <path_to_modified_file_1> <path_to_modified_file_2>
 ```bash
 # 1. Agent identifies targeted changes (e.g., core/runtime/execution/runtime_engine.py)
 # 2. Agent runs targeted lint correction
-uv run ruff check --fix core/runtime/execution/runtime_engine.py
+ruff check --fix core/runtime/execution/runtime_engine.py
 
 # 3. Agent runs targeted code formatting
-uv run ruff format core/runtime/execution/runtime_engine.py
+ruff format core/runtime/execution/runtime_engine.py
 ```

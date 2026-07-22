@@ -23,13 +23,13 @@ Execute these duplication scanning tools over the workspace target paths before 
 ### Step 1: Python Native Structural Scan
 Run `pylint` with all rule blocks disabled except for the duplicate-code signature checker to scan recursively for cloned Python blocks:
 ```bash
-uv run pylint --disable=all --enable=duplicate-code --recursive=y .
+pylint --disable=all --enable=duplicate-code --recursive=y .
 ```
 
 ### Step 2: Multi-Language Token Sequence Scan
 Run `jscpd` across the repository root to catch structural code clones, configuration layer mirroring, or copy-pasted blocks across different layers:
 ```bash
-uv run jscpd .
+npx jscpd .
 ```
 
 ### Step 3: Analysis & Consolidation Rule

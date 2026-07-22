@@ -32,14 +32,14 @@ git status --porcelain | awk '{print $2}' | grep '\.py$'
 ### Step 2: Verify Format
 Run `ruff` to ensure layout consistency over **only** those space-separated file targets. Do not use a trailing dot (`.`):
 ```bash
-uv run ruff format --check <path_to_modified_file_1> <path_to_modified_file_2>
-uv run ruff check <path_to_modified_file_1> <path_to_modified_file_2>
+ruff format --check <path_to_modified_file_1> <path_to_modified_file_2>
+ruff check <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ### Step 3: Targeted Static Type Verification
 Run `mypy` using explicit package base routing, checking **only** the identified target files to keep type-checking rapid and isolate scope regressions:
 ```bash
-uv run mypy --explicit-package-bases <path_to_modified_file_1> <path_to_modified_file_2>
+mypy --explicit-package-bases <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ### Step 4: Targeted Testing
@@ -65,11 +65,11 @@ Verify that newly introduced boundaries implement established telemetry structur
 ```bash
 # 1. Agent identifies targeted changes (e.g., core/runtime/execution/runtime_engine.py)
 # 2. Agent runs targeted lint/format checks
-uv run ruff format --check core/runtime/execution/runtime_engine.py
-uv run ruff check core/runtime/execution/runtime_engine.py
+ruff format --check core/runtime/execution/runtime_engine.py
+ruff check core/runtime/execution/runtime_engine.py
 
 # 3. Agent runs targeted type checks
-uv run mypy --explicit-package-bases core/runtime/execution/runtime_engine.py
+mypy --explicit-package-bases core/runtime/execution/runtime_engine.py
 
 # 4. Agent runs targeted tests
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/core/runtime/test_runtime_engine.py

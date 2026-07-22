@@ -25,13 +25,13 @@ Execute these formatting and correction operations sequentially to standardize y
 ### Step 1: Automated Lint Correction
 Execute the `ruff` lint engine using the explicit auto-fixer modifier to automatically resolve safe code violations, unused imports, and sorting invariants:
 ```bash
-uv run ruff check --fix .
+ruff check --fix .
 ```
 
 ### Step 2: Code Layout Standardisation
 Execute the native code formatter to adjust line spacing, wrapping bounds, indentation, and quote alignments to match our 88-character rule baseline:
 ```bash
-uv run ruff format .
+ruff format .
 ```
 
 ---
@@ -42,6 +42,6 @@ uv run ruff format .
 **User:** "I just finished writing the new StrategyEvidenceContext data classes."
 **Agent Response:** *"I am invoking the code-formatting skill to automatically resolve lint warnings and format your new Python script structures before handing the workspace off to verification."*
 ```bash
-uv run ruff check --fix .
-uv run ruff format .
+ruff check --fix .
+ruff format .
 ```

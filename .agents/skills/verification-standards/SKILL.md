@@ -23,14 +23,14 @@ Execute these four validation steps in order. Stop immediately if any step repor
 ### Step 1: Automated Lint and Code Formatting
 Run `ruff` to ensure layout consistency:
 ```bash
-uv run ruff format --check .
-uv run ruff check .
+ruff format --check .
+ruff check .
 ```
 
 ### Step 2: Strict Static Type Verification
 Run `mypy` using explicit package base routing. Do not assume passing application tests guarantee type cleanliness:
 ```bash
-uv run mypy . --explicit-package-bases
+mypy . --explicit-package-bases
 ```
 
 ### Step 3: Run the Regression Suite
@@ -50,3 +50,13 @@ Verify that newly introduced boundaries implement established telemetry structur
 ### Example 1: Post-Implementation Verification
 **User:** "Check if my changes are good to go."
 **Agent Response:** *"I am running the verification-standards suite (Ruff format checks, MyPy typing verification, and isolated Pytest execution) to validate your changes against project constraints."*
+```bash
+ruff format --check .
+ruff check .
+```
+```bash
+mypy . --explicit-package-bases
+```
+```bash
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q
+```

@@ -4,25 +4,17 @@ import hashlib
 import json
 import logging
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from time import perf_counter
-from typing import Mapping
-from typing import Sequence
 from typing import cast
 
 from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionEligibilityContext,
-)
-from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionEligibilityDecision,
-)
-from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionEligibilityPolicy,
-)
-from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputQualityStatus,
 )
 from application.projections.workflow_outputs.projection_identity import (
@@ -30,35 +22,29 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRequest,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionRegistry,
-)
-from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from application.projections.workflow_outputs.projection_telemetry import (
     WorkflowOutputProjectionTelemetry,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunArchive
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArchive,
+    CompletedRunBundle,
+    CompletedRunRecord,
+)
+from core.storage.persistence.projections import (
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobRepository,
+    WorkflowOutputProjectionJobStatus,
+)
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
 
@@ -332,6 +318,7 @@ class WorkflowOutputProjectionService:
                         run=run,
                         node_output=node_output,
                     ),
+                    authority_contract=decision.authority_contract,
                     requested_at=request.requested_at,
                     force_reproject=request.force_reproject,
                     dry_run=request.dry_run,
@@ -644,7 +631,9 @@ def _dry_run_outcome(
         output_contract=registration.output_contract,
         output_schema_version=registration.output_schema_version,
         source_fingerprint=source_fingerprint,
-        message="Projection dry run skipped durable job creation and projector execution.",
+        message=(
+            "Projection dry run skipped durable job creation and projector execution."
+        ),
         completed_at=datetime.now(UTC),
     )
 

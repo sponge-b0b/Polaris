@@ -1,37 +1,51 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from typing import Sequence
+from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
-from application.projections.workflow_outputs import CompletedRunProjectionNotFoundError
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
-from application.projections.workflow_outputs import WorkflowOutputProjectionRegistry
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import WorkflowOutputProjectionService
-from application.projections.workflow_outputs import WorkflowOutputProjectionTelemetry
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import WorkflowOutputProjectorRegistration
-from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionNotFoundError,
+    WorkflowOutputProjectionOutcome,
+    WorkflowOutputProjectionRegistry,
+    WorkflowOutputProjectionRequest,
+    WorkflowOutputProjectionService,
+    WorkflowOutputProjectionStatus,
+    WorkflowOutputProjectionTelemetry,
+    WorkflowOutputProjectorRegistration,
+    WorkflowOutputProjectorRequest,
     calculate_workflow_output_source_fingerprint,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunArchive
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.projections import ProjectionJobClaim
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArchive,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
 from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.projections import (
+    MissingProjectionRunRecord,
+    ProjectionJobClaim,
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobStatus,
+)
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskTier,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
 
 
 @dataclass(slots=True)
@@ -206,7 +220,7 @@ class FakeProjectionJobRepository:
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_creates_claims_invokes_projector_and_marks_success() -> (
+async def test_project_completed_run_creates_claims_invokes_projector_and_marks_success() -> (  # noqa: E501
     None
 ):
     projector = StubProjector()
@@ -231,6 +245,12 @@ async def test_project_completed_run_creates_claims_invokes_projector_and_marks_
         execution_id="exec-1",
         runtime_id="runtime-1",
         node_name="technical_agent",
+    )
+    assert projector.last_request.authority_contract is not None
+    assert projector.last_request.authority_contract.risk_tier is RiskTier.ENHANCED
+    assert (
+        projector.last_request.authority_contract.intended_sink
+        is IntendedSink.DURABLE_DOMAIN_RECORD
     )
     assert len(repository.created) == 1
     assert len(repository.claimed) == 1
@@ -322,7 +342,7 @@ def test_projection_telemetry_records_stale_job_recovery_metric() -> None:
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_source() -> (
+async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_source() -> (  # noqa: E501
     None
 ):
     projector = StubProjector()
@@ -349,7 +369,7 @@ async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_s
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_skips_report_and_backtest_boundary_outputs_without_jobs() -> (
+async def test_project_completed_run_skips_report_and_backtest_boundary_outputs_without_jobs() -> (  # noqa: E501
     None
 ):
     report_projector = StubProjector(projector_name="report_projector")
@@ -443,7 +463,7 @@ async def test_project_completed_run_records_projector_failure_and_continues() -
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_isolates_projector_failure_and_projects_remaining_nodes() -> (
+async def test_project_completed_run_isolates_projector_failure_and_projects_remaining_nodes() -> (  # noqa: E501
     None
 ):
     failing_projector = StubProjector(should_raise=True)
@@ -672,7 +692,11 @@ def _node(
     output_contract: str | None = "polaris.market.technical_analysis",
     output_schema_version: int | None = 1,
     outputs: JsonObject | None = None,
+    metadata: JsonObject | None = None,
 ) -> CompletedNodeOutputRecord:
+    resolved_metadata = (
+        {"risk_authority": _authority_metadata()} if metadata is None else metadata
+    )
     return CompletedNodeOutputRecord(
         node_output_id="node-output-1",
         run_id="run-1",
@@ -685,11 +709,27 @@ def _node(
         status="succeeded",
         success=True,
         outputs=outputs or {"technical_score": 0.8},
-        metadata={},
+        metadata=resolved_metadata,
         errors_json=(),
         started_at=datetime(2026, 7, 9, 12, tzinfo=UTC),
         completed_at=datetime(2026, 7, 9, 12, 1, tzinfo=UTC),
         duration_seconds=60.0,
+    )
+
+
+def _authority_metadata() -> JsonObject:
+    return cast(
+        JsonObject,
+        classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.DURABLE_RECORD,
+                authority_effect=AuthorityEffect.CANONICAL_RECORD,
+                canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+                durable_authority=True,
+            )
+        ).to_metadata(),
     )
 
 

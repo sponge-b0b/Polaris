@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import UTC
-from datetime import datetime
-from enum import Enum
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunBundle,
+    CompletedRunRecord,
+)
 from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.projections import MissingProjectionRunRecord
+from domain.authority import RiskAuthorityContract
 
 
-class WorkflowOutputProjectionStatus(str, Enum):
+class WorkflowOutputProjectionStatus(StrEnum):
     """Lifecycle status for a workflow-output projection job or outcome."""
 
     PENDING = "pending"
@@ -62,6 +63,7 @@ class WorkflowOutputProjectorRequest:
     source_fingerprint: str
     bundle: CompletedRunBundle | None = None
     lineage: PersistenceLineage = field(default_factory=PersistenceLineage)
+    authority_contract: RiskAuthorityContract | None = None
     requested_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     force_reproject: bool = False
     dry_run: bool = False

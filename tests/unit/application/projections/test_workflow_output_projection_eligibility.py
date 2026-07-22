@@ -1,28 +1,38 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import pytest
 
 from application.projections.workflow_outputs import (
     WorkflowOutputProjectionEligibilityContext,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionEligibilityPolicy,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionEligibilityStatus,
+    WorkflowOutputProjectionOutcome,
+    WorkflowOutputProjectionRegistry,
+    WorkflowOutputProjectionSkipReason,
+    WorkflowOutputProjectionStatus,
+    WorkflowOutputProjectorRegistration,
+    WorkflowOutputProjectorRequest,
+    WorkflowOutputQualityStatus,
+    WorkflowProjectionExecutionMode,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
-from application.projections.workflow_outputs import WorkflowOutputProjectionRegistry
-from application.projections.workflow_outputs import WorkflowOutputProjectionSkipReason
-from application.projections.workflow_outputs import WorkflowOutputProjectorRegistration
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
-from application.projections.workflow_outputs import WorkflowOutputQualityStatus
-from application.projections.workflow_outputs import WorkflowProjectionExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunRecord,
+    JsonObject,
+)
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskTier,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +67,161 @@ def test_policy_projects_successful_supported_node_output() -> None:
     assert decision.eligible is True
     assert decision.projector_name == "technical_projector"
     assert decision.skip_reason is None
+    assert decision.authority_contract is not None
+    assert decision.authority_contract.risk_tier is RiskTier.ENHANCED
+    assert (
+        decision.authority_contract.authority_effect is AuthorityEffect.CANONICAL_RECORD
+    )
+    assert (
+        decision.authority_contract.intended_sink is IntendedSink.DURABLE_DOMAIN_RECORD
+    )
+    assert decision.authority_metadata == _authority_metadata()
+
+
+def test_policy_requires_authority_metadata_for_durable_curation() -> None:
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={}),
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_REQUIRED
+    )
+    assert decision.authority_contract is None
+    assert decision.authority_metadata is None
+
+
+def test_policy_allows_explicit_internal_baseline_without_duplicative_metadata() -> (
+    None
+):
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={}),
+            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.BASELINE_RUNTIME_EVIDENCE_ONLY
+    )
+    assert decision.authority_contract is not None
+    assert decision.authority_contract.risk_tier is RiskTier.BASELINE
+    assert (
+        decision.authority_contract.intended_sink
+        is IntendedSink.INTERNAL_RUNTIME_EVIDENCE
+    )
+    assert decision.authority_metadata == decision.authority_contract.to_metadata()
+
+
+def test_policy_rejects_malformed_authority_metadata() -> None:
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={"risk_authority": "enhanced"}),
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_MALFORMED
+    )
+    assert decision.authority_contract is None
+
+
+def test_policy_rejects_authority_metadata_with_inconsistent_intended_sink() -> None:
+    metadata = _authority_metadata(intended_sink=IntendedSink.RECOMMENDATION)
+
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={"risk_authority": metadata}),
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT
+    )
+    assert decision.authority_contract is not None
+    assert decision.authority_contract.intended_sink is IntendedSink.RECOMMENDATION
+    assert decision.authority_metadata == metadata
+
+
+def test_policy_rejects_tampered_authority_tier_before_projection() -> None:
+    metadata = _authority_metadata()
+    metadata["risk_tier"] = RiskTier.BASELINE.value
+    metadata["gate_profile"] = "baseline_internal"
+
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={"risk_authority": metadata}),
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT
+    )
+    assert decision.authority_contract is not None
+    assert decision.authority_contract.risk_tier is RiskTier.BASELINE
+
+
+def test_policy_allows_vigilant_authority_metadata_when_consistent() -> None:
+    metadata = _authority_metadata(capital_relevant=True, durable_authority=True)
+
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={"risk_authority": metadata}),
+        ),
+        _registry(),
+    )
+
+    assert decision.eligible is True
+    assert decision.authority_contract is not None
+    assert decision.authority_contract.risk_tier is RiskTier.VIGILANT
+    assert (
+        decision.authority_contract.intended_sink is IntendedSink.DURABLE_DOMAIN_RECORD
+    )
+
+
+def test_policy_rejects_prohibited_outside_authority_before_projection() -> None:
+    metadata = _authority_metadata(authority_effect=AuthorityEffect.OUTSIDE_AUTHORITY)
+
+    decision = _policy().evaluate(
+        WorkflowOutputProjectionEligibilityContext(
+            run=_run(),
+            node_output=_node(metadata={"risk_authority": metadata}),
+        ),
+        _registry(),
+    )
+
+    assert decision.skipped is True
+    assert (
+        decision.skip_reason
+        is WorkflowOutputProjectionSkipReason.PROHIBITED_OUTSIDE_AUTHORITY
+    )
+    assert decision.authority_contract is not None
+    assert (
+        decision.authority_contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY
+    )
+    assert "prohibited_outside_authority" in str(decision.message)
 
 
 def test_policy_skips_failed_and_skipped_node_outputs() -> None:
@@ -287,7 +452,11 @@ def _node(
     status: str = "succeeded",
     output_contract: str | None = "polaris.market.technical_analysis",
     output_schema_version: int | None = 1,
+    metadata: dict[str, object] | None = None,
 ) -> CompletedNodeOutputRecord:
+    resolved_metadata = (
+        {"risk_authority": _authority_metadata()} if metadata is None else metadata
+    )
     return CompletedNodeOutputRecord(
         node_output_id="node-output-1",
         run_id="run-1",
@@ -300,9 +469,29 @@ def _node(
         status=status,
         success=success,
         outputs={"technical_score": 0.8},
-        metadata={},
+        metadata=cast(JsonObject, resolved_metadata),
         errors_json=(),
         started_at=None,
         completed_at=None,
         duration_seconds=None,
     )
+
+
+def _authority_metadata(
+    *,
+    authority_effect: AuthorityEffect = AuthorityEffect.CANONICAL_RECORD,
+    intended_sink: IntendedSink = IntendedSink.DURABLE_DOMAIN_RECORD,
+    capital_relevant: bool = False,
+    durable_authority: bool = True,
+) -> dict[str, object]:
+    return classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.DURABLE_RECORD,
+            authority_effect=authority_effect,
+            canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            intended_sink=intended_sink,
+            capital_relevant=capital_relevant,
+            durable_authority=durable_authority,
+        )
+    ).to_metadata()

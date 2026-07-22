@@ -1,31 +1,38 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from enum import Enum
-from typing import Final
-from typing import cast
+from enum import Enum, StrEnum
+from typing import Final, cast
 
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionRegistry,
-)
-from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionResolution,
-)
-from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionResolutionStatus,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
 from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
     coerce_completed_run_execution_mode,
 )
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    GateProfile,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskAuthorityContract,
+    RiskTier,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
 
 WorkflowProjectionExecutionMode = CompletedRunExecutionMode
 
 
-class WorkflowOutputQualityStatus(str, Enum):
+class WorkflowOutputQualityStatus(StrEnum):
     """First-class quality classification for a workflow node output."""
 
     NORMAL = "normal"
@@ -33,17 +40,22 @@ class WorkflowOutputQualityStatus(str, Enum):
     FALLBACK = "fallback"
 
 
-class WorkflowOutputProjectionEligibilityStatus(str, Enum):
+class WorkflowOutputProjectionEligibilityStatus(StrEnum):
     """Eligibility decision for one archived workflow node output."""
 
     ELIGIBLE = "eligible"
     SKIPPED = "skipped"
 
 
-class WorkflowOutputProjectionSkipReason(str, Enum):
+class WorkflowOutputProjectionSkipReason(StrEnum):
     """Stable skip reason values for workflow-output projection decisions."""
 
     NON_PRODUCTION_EXECUTION = "non_production_execution"
+    BASELINE_RUNTIME_EVIDENCE_ONLY = "baseline_runtime_evidence_only"
+    AUTHORITY_METADATA_REQUIRED = "authority_metadata_required"
+    AUTHORITY_METADATA_MALFORMED = "authority_metadata_malformed"
+    AUTHORITY_METADATA_INCONSISTENT = "authority_metadata_inconsistent"
+    PROHIBITED_OUTSIDE_AUTHORITY = "prohibited_outside_authority"
     NODE_NOT_SUCCESSFUL = "node_not_successful"
     NODE_SKIPPED = "node_skipped"
     UNSUPPORTED_CONTRACT = "unsupported_contract"
@@ -56,6 +68,9 @@ class WorkflowOutputProjectionSkipReason(str, Enum):
 
 _REPORT_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.report.",)
 _BACKTEST_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.backtest.",)
+WORKFLOW_OUTPUT_AUTHORITY_METADATA_KEY: Final[str] = "risk_authority"
+
+_MISSING: Final[object] = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +83,7 @@ class WorkflowOutputProjectionEligibilityContext:
     quality_status: WorkflowOutputQualityStatus | str = (
         WorkflowOutputQualityStatus.NORMAL
     )
+    intended_sink: IntendedSink | str = IntendedSink.DURABLE_DOMAIN_RECORD
     force_reproject: bool = False
 
     def __post_init__(self) -> None:
@@ -80,6 +96,11 @@ class WorkflowOutputProjectionEligibilityContext:
             self,
             "quality_status",
             _coerce_quality_status(self.quality_status),
+        )
+        object.__setattr__(
+            self,
+            "intended_sink",
+            _coerce_intended_sink(self.intended_sink),
         )
 
 
@@ -94,6 +115,7 @@ class WorkflowOutputProjectionEligibilityDecision:
     resolution: WorkflowOutputProjectionResolution | None = None
     skip_reason: WorkflowOutputProjectionSkipReason | None = None
     message: str | None = None
+    authority_contract: RiskAuthorityContract | None = None
 
     @property
     def eligible(self) -> bool:
@@ -108,6 +130,14 @@ class WorkflowOutputProjectionEligibilityDecision:
         if self.resolution is None:
             return None
         return self.resolution.projector_name
+
+    @property
+    def authority_metadata(self) -> dict[str, object] | None:
+        """Stable serialized authority metadata emitted at the curation seam."""
+
+        if self.authority_contract is None:
+            return None
+        return self.authority_contract.to_metadata()
 
 
 class WorkflowOutputProjectionEligibilityPolicy:
@@ -150,13 +180,23 @@ class WorkflowOutputProjectionEligibilityPolicy:
                 "Projection requires an archived node output with success=True.",
             )
 
+        authority_contract, authority_decision = _evaluate_authority_contract(
+            context,
+        )
+        if authority_decision is not None:
+            return authority_decision
+
         resolution = registry.resolve(
             output_contract=node_output.output_contract,
             output_schema_version=node_output.output_schema_version,
             node_name=node_output.node_name,
         )
         if not resolution.supported:
-            return _skipped_for_resolution(node_output, resolution)
+            return _skipped_for_resolution(
+                node_output,
+                resolution,
+                authority_contract=authority_contract,
+            )
 
         if (
             quality_status is not WorkflowOutputQualityStatus.NORMAL
@@ -172,6 +212,7 @@ class WorkflowOutputProjectionEligibilityPolicy:
                     "not persist first-class quality/status fields."
                 ),
                 resolution=resolution,
+                authority_contract=authority_contract,
             )
 
         return WorkflowOutputProjectionEligibilityDecision(
@@ -181,7 +222,207 @@ class WorkflowOutputProjectionEligibilityPolicy:
             output_schema_version=node_output.output_schema_version,
             resolution=resolution,
             message="Workflow node output is eligible for projection.",
+            authority_contract=authority_contract,
         )
+
+
+def _evaluate_authority_contract(
+    context: WorkflowOutputProjectionEligibilityContext,
+) -> tuple[
+    RiskAuthorityContract | None, WorkflowOutputProjectionEligibilityDecision | None
+]:
+    node_output = context.node_output
+    intended_sink = cast(IntendedSink, context.intended_sink)
+    raw_authority_metadata = node_output.metadata.get(
+        WORKFLOW_OUTPUT_AUTHORITY_METADATA_KEY,
+    )
+
+    if raw_authority_metadata is None:
+        if intended_sink is IntendedSink.INTERNAL_RUNTIME_EVIDENCE:
+            authority_contract = _classify_internal_baseline_runtime_evidence()
+            return authority_contract, _skipped(
+                node_output,
+                WorkflowOutputProjectionSkipReason.BASELINE_RUNTIME_EVIDENCE_ONLY,
+                (
+                    "Projection is skipped because explicitly internal Baseline "
+                    "runtime evidence remains runtime evidence and is not durably "
+                    "curated."
+                ),
+                authority_contract=authority_contract,
+            )
+        return None, _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_REQUIRED,
+            (
+                "Projection requires canonical risk authority metadata for "
+                "durable workflow-output curation."
+            ),
+        )
+
+    try:
+        authority_contract = _authority_contract_from_metadata(raw_authority_metadata)
+    except ValueError as exc:
+        return None, _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_MALFORMED,
+            f"Projection requires well-formed risk authority metadata: {exc}",
+        )
+
+    if authority_contract.intended_sink is not intended_sink:
+        return authority_contract, _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT,
+            (
+                "Projection authority metadata intended sink "
+                f"{authority_contract.intended_sink.value!r} does not match "
+                f"the curation sink {intended_sink.value!r}."
+            ),
+            authority_contract=authority_contract,
+        )
+
+    expected_contract = _reclassify_authority_contract(authority_contract)
+    if (
+        authority_contract.risk_tier is not expected_contract.risk_tier
+        or authority_contract.gate_profile is not expected_contract.gate_profile
+    ):
+        return authority_contract, _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT,
+            (
+                "Projection authority metadata does not match the canonical "
+                "platform authority classifier."
+            ),
+            authority_contract=authority_contract,
+        )
+
+    if authority_contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY:
+        return authority_contract, _skipped(
+            node_output,
+            WorkflowOutputProjectionSkipReason.PROHIBITED_OUTSIDE_AUTHORITY,
+            (
+                "Projection rejected before durable curation because the "
+                "canonical authority tier is 'prohibited_outside_authority'."
+            ),
+            authority_contract=authority_contract,
+        )
+
+    return authority_contract, None
+
+
+def _classify_internal_baseline_runtime_evidence() -> RiskAuthorityContract:
+    return classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RUNTIME_EVIDENCE,
+            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+            canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
+        )
+    )
+
+
+def _authority_contract_from_metadata(
+    raw_authority_metadata: object,
+) -> RiskAuthorityContract:
+    if not isinstance(raw_authority_metadata, Mapping):
+        raise ValueError("risk_authority must be a metadata object.")
+    metadata = cast(Mapping[str, object], raw_authority_metadata)
+    ignored_claims = _optional_string_tuple(
+        metadata,
+        "ignored_model_authority_claims",
+    )
+    try:
+        return RiskAuthorityContract(
+            risk_tier=_required_enum(metadata, "risk_tier", RiskTier),
+            authority_effect=_required_enum(
+                metadata,
+                "authority_effect",
+                AuthorityEffect,
+            ),
+            content_type=_required_enum(metadata, "content_type", AiOutputContentType),
+            canonical_owner=_required_enum(
+                metadata,
+                "canonical_owner",
+                CanonicalOwner,
+            ),
+            source_of_truth=_required_enum(
+                metadata,
+                "source_of_truth",
+                SourceOfTruthCategory,
+            ),
+            intended_sink=_required_enum(metadata, "intended_sink", IntendedSink),
+            gate_profile=_required_enum(metadata, "gate_profile", GateProfile),
+            capital_relevant=_required_bool(metadata, "capital_relevant"),
+            durable_authority=_required_bool(metadata, "durable_authority"),
+            externally_visible=_required_bool(metadata, "externally_visible"),
+            governance_impact=_required_bool(metadata, "governance_impact"),
+            evidence_sufficient=_required_bool(metadata, "evidence_sufficient"),
+            ignored_model_authority_claims=ignored_claims,
+        )
+    except KeyError as exc:
+        raise ValueError("risk_authority field is invalid.") from exc
+
+
+def _reclassify_authority_contract(
+    contract: RiskAuthorityContract,
+) -> RiskAuthorityContract:
+    return classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=contract.content_type,
+            authority_effect=contract.authority_effect,
+            canonical_owner=contract.canonical_owner,
+            source_of_truth=contract.source_of_truth,
+            intended_sink=contract.intended_sink,
+            capital_relevant=contract.capital_relevant,
+            durable_authority=contract.durable_authority,
+            externally_visible=contract.externally_visible,
+            governance_impact=contract.governance_impact,
+            evidence_sufficient=contract.evidence_sufficient,
+        )
+    )
+
+
+def _required_enum[TEnum: Enum](
+    metadata: Mapping[str, object],
+    key: str,
+    enum_type: type[TEnum],
+) -> TEnum:
+    value = _required_value(metadata, key)
+    if isinstance(value, enum_type):
+        return value
+    if isinstance(value, str):
+        cleaned_value = value.strip().lower()
+        try:
+            return enum_type(cleaned_value)
+        except ValueError as exc:
+            raise ValueError(
+                f"risk_authority.{key} has unsupported value {value!r}.",
+            ) from exc
+    raise ValueError(f"risk_authority.{key} must be a string.")
+
+
+def _required_bool(metadata: Mapping[str, object], key: str) -> bool:
+    value = _required_value(metadata, key)
+    if not isinstance(value, bool):
+        raise ValueError(f"risk_authority.{key} must be a boolean.")
+    return value
+
+
+def _optional_string_tuple(metadata: Mapping[str, object], key: str) -> tuple[str, ...]:
+    value = metadata.get(key, ())
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise ValueError(f"risk_authority.{key} must be a list of strings.")
+    values = tuple(value)
+    if not all(isinstance(item, str) for item in values):
+        raise ValueError(f"risk_authority.{key} must be a list of strings.")
+    return values
+
+
+def _required_value(metadata: Mapping[str, object], key: str) -> object:
+    value = metadata.get(key, _MISSING)
+    if value is _MISSING:
+        raise ValueError(f"risk_authority.{key} is required.")
+    return value
 
 
 def _persistence_boundary_decision(
@@ -215,6 +456,8 @@ def _persistence_boundary_decision(
 def _skipped_for_resolution(
     node_output: CompletedNodeOutputRecord,
     resolution: WorkflowOutputProjectionResolution,
+    *,
+    authority_contract: RiskAuthorityContract | None = None,
 ) -> WorkflowOutputProjectionEligibilityDecision:
     reason = _skip_reason_for_resolution(resolution.status)
     return _skipped(
@@ -222,6 +465,7 @@ def _skipped_for_resolution(
         reason,
         resolution.message or f"Projection skipped: {reason.value}.",
         resolution=resolution,
+        authority_contract=authority_contract,
     )
 
 
@@ -241,6 +485,7 @@ def _skipped(
     message: str,
     *,
     resolution: WorkflowOutputProjectionResolution | None = None,
+    authority_contract: RiskAuthorityContract | None = None,
 ) -> WorkflowOutputProjectionEligibilityDecision:
     return WorkflowOutputProjectionEligibilityDecision(
         status=WorkflowOutputProjectionEligibilityStatus.SKIPPED,
@@ -250,6 +495,7 @@ def _skipped(
         resolution=resolution,
         skip_reason=reason,
         message=message,
+        authority_contract=authority_contract,
     )
 
 
@@ -269,4 +515,15 @@ def _coerce_quality_status(
     except ValueError as exc:
         raise ValueError(
             f"Unsupported workflow output quality status: {value!r}."
+        ) from exc
+
+
+def _coerce_intended_sink(value: IntendedSink | str) -> IntendedSink:
+    if isinstance(value, IntendedSink):
+        return value
+    try:
+        return IntendedSink(value.strip().lower())
+    except ValueError as exc:
+        raise ValueError(
+            f"Unsupported workflow output intended sink: {value!r}."
         ) from exc

@@ -3,69 +3,77 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import delete
-from sqlalchemy import func
-from sqlalchemy import select
-from sqlalchemy import update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from application.persistence.portfolio import PortfolioPersistenceService
 from application.projections.workflow_outputs import (
     WorkflowOutputProjectionOperationsService,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRegistry
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionOutcome,
+    WorkflowOutputProjectionRegistry,
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
+    WorkflowOutputProjectionService,
+    WorkflowOutputProjectionStatus,
+    WorkflowOutputProjectorRegistration,
+    WorkflowOutputProjectorRequest,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import WorkflowOutputProjectorRegistration
-from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
-from application.projections.workflow_outputs import WorkflowOutputProjectionService
 from application.projections.workflow_outputs.projectors import (
     build_portfolio_state_projector_registration,
 )
 from core.database.models.completed_runs import CompletedWorkflowRunModel
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioEquityHistoryPointModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
-from core.database.models.portfolio_state import PortfolioStateHistoryModel
-from core.database.models.portfolio_state import PortfolioStateLatestModel
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioEquityHistoryPointModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
+from core.database.models.portfolio_state import (
+    PortfolioStateHistoryModel,
+    PortfolioStateLatestModel,
+)
 from core.database.models.projections import WorkflowOutputProjectionJobModel
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
 from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_portfolio_state_repository import (
     PostgresPortfolioStateRepository,
 )
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
     PostgresWorkflowOutputProjectionJobRepository,
 )
-from domain.workflow_outputs import PORTFOLIO_STATE_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
+from domain.workflow_outputs import (
+    PORTFOLIO_STATE_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
@@ -711,7 +719,10 @@ def _portfolio_node(
         status="succeeded",
         success=True,
         outputs=_portfolio_outputs(account_id),
-        metadata={"quality_status": "normal"},
+        metadata={
+            "quality_status": "normal",
+            "risk_authority": _authority_metadata(),
+        },
         errors_json=(),
         started_at=datetime(2026, 7, 10, 13, 29, tzinfo=UTC),
         completed_at=datetime(2026, 7, 10, 13, 31, tzinfo=UTC),
@@ -739,7 +750,10 @@ def _test_node(
         status="succeeded",
         success=True,
         outputs={"value": "ok"},
-        metadata={"quality_status": "normal"},
+        metadata={
+            "quality_status": "normal",
+            "risk_authority": _authority_metadata(),
+        },
         errors_json=(),
         started_at=datetime(2026, 7, 10, 13, 32, tzinfo=UTC),
         completed_at=datetime(2026, 7, 10, 13, 33, tzinfo=UTC),
@@ -865,6 +879,22 @@ def _portfolio_outputs(account_id: str) -> JsonObject:
         "history_period": "1A",
         "history_timeframe": "1D",
     }
+
+
+def _authority_metadata() -> JsonObject:
+    return cast(
+        JsonObject,
+        classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.DURABLE_RECORD,
+                authority_effect=AuthorityEffect.CANONICAL_RECORD,
+                canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+                durable_authority=True,
+            )
+        ).to_metadata(),
+    )
 
 
 async def _assert_portfolio_counts(

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
@@ -11,6 +13,7 @@ from application.ai_optimization.runtime_artifacts import (
 )
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
+from application.rag.contracts.rag_result import RagResult
 from application.rag.generation import RagAnswerGenerator, SecureRagPromptBuilder
 from core.storage.persistence.ai_artifacts import AiArtifactType
 from integration.providers.rag.answer_generation_provider import (
@@ -104,6 +107,122 @@ async def test_answer_generator_uses_policy_boundary_and_persisted_citations() -
     provider_context = json.loads(provider.requests[0].context_payload)["contexts"][0]
     assert provider_context["untrusted_text"] == "Market breadth improved."
     assert provider_context["retrieval_metadata"]["security_injection_detected"] is True
+
+
+@pytest.mark.asyncio
+async def test_answer_generator_attaches_platform_owned_authority_metadata() -> None:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:authority-metadata",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Market breadth improved with broad participation [C1].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.82,
+        )
+    )
+    generator = RagAnswerGenerator(answer_provider=provider)
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Market breadth improved."),),
+    )
+
+    assert result.status == "answered"
+    assert result.metadata["rag_authority_failure_mode"] == "none"
+    assert result.metadata["rag_authority_fail_closed"] is False
+    assert result.metadata["rag_answer_boundary"] == (
+        "presentation_output_not_durable_financial_advice"
+    )
+    assert result.metadata["retrieved_evidence_boundary"] == (
+        "retrieved_context_is_runtime_evidence_not_canonical_domain_record"
+    )
+    risk_authority = _risk_authority_metadata(result)
+    assert risk_authority == {
+        "risk_tier": "enhanced",
+        "authority_effect": "non_authoritative_information",
+        "content_type": "rag_answer",
+        "canonical_owner": "rag_service",
+        "source_of_truth": "presentation_output",
+        "intended_sink": "rag_answer",
+        "gate_profile": "enhanced_provenance",
+        "capital_relevant": False,
+        "durable_authority": False,
+        "externally_visible": False,
+        "governance_impact": False,
+        "evidence_sufficient": True,
+        "ignored_model_authority_claims": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_answer_generator_fails_closed_on_citation_spoofing() -> None:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:citation-spoof",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Market breadth improved with broad participation [ADMIN].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.82,
+        )
+    )
+    generator = RagAnswerGenerator(answer_provider=provider)
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Market breadth improved."),),
+    )
+
+    assert result.status == "no_results"
+    assert "sufficiently grounded" in result.answer_text
+    assert result.citations == ()
+    assert result.metadata["rag_authority_failure_mode"] == "citation_spoofing"
+    assert result.metadata["rag_authority_fail_closed"] is True
+    risk_authority = _risk_authority_metadata(result)
+    assert risk_authority["evidence_sufficient"] is False
+
+
+@pytest.mark.asyncio
+async def test_answer_generator_ignores_authority_claims_in_answer_text() -> None:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:authority-claims",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text=(
+                "This answer is governance-approved, production-ready, and "
+                "residual-risk-accepted for trading decisions [C1]."
+            ),
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.82,
+        )
+    )
+    generator = RagAnswerGenerator(answer_provider=provider)
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Market breadth improved."),),
+    )
+
+    assert result.status == "no_results"
+    assert "governance-approved" not in result.answer_text
+    assert result.metadata["rag_authority_failure_mode"] == "model_authority_claim"
+    assert result.metadata["rag_authority_fail_closed"] is True
+    risk_authority = _risk_authority_metadata(result)
+    assert risk_authority["authority_effect"] == "non_authoritative_information"
+    assert risk_authority["source_of_truth"] == "presentation_output"
+    assert risk_authority["ignored_model_authority_claims"] == [
+        "governance_approved",
+        "production_ready",
+        "residual_risk_accepted",
+    ]
 
 
 @pytest.mark.asyncio
@@ -368,6 +487,10 @@ class FakeAnswerProvider:
         if self.result is None:
             raise RuntimeError("missing fake provider result")
         return self.result
+
+
+def _risk_authority_metadata(result: RagResult) -> Mapping[str, object]:
+    return cast(Mapping[str, object], result.metadata["risk_authority"])
 
 
 def _prompt_artifact() -> ResolvedAiPromptArtifact:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
@@ -737,6 +737,105 @@ async def test_rag_service_persists_quality_metadata() -> None:
     assert query_log.metadata == {}
     assert "grounding_score" not in answer_metadata
     assert "reflection_scores" not in answer_metadata
+
+
+@pytest.mark.asyncio
+async def test_rag_service_classifies_external_capital_relevant_answers() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        request_id="rag_query:external-capital-authority",
+        metadata={
+            "rag_authority": {
+                "audience": "external",
+                "capital_relevant": True,
+                "intended_sink": "mcp_tool_response",
+            }
+        },
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    service = RagService(
+        pipeline=StaticResultPipeline(
+            RagResult.answered(
+                request=request,
+                answer_text="SPY breadth improved with broad participation [C1].",
+                contexts=(context,),
+            )
+        ),
+        repository=cast(RagPersistenceRepository, FakeRagRepository()),
+    )
+
+    result = await service.run(request)
+
+    assert result.status == "answered"
+    assert result.metadata["rag_authority_failure_mode"] == "none"
+    risk_authority = _risk_authority_metadata(result)
+    assert risk_authority["risk_tier"] == "vigilant"
+    assert risk_authority["authority_effect"] == "non_authoritative_information"
+    assert risk_authority["intended_sink"] == "mcp_tool_response"
+    assert risk_authority["capital_relevant"] is True
+    assert risk_authority["externally_visible"] is True
+    assert risk_authority["evidence_sufficient"] is True
+
+
+@pytest.mark.asyncio
+async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        request_id="rag_query:stale-evidence-authority",
+        metadata={
+            "rag_authority": {
+                "audience": "external",
+                "capital_relevant": True,
+            }
+        },
+    )
+    context = replace(
+        _context(
+            context_id="chunk-stale",
+            text="SPY breadth improved with broad participation.",
+        ),
+        metadata={"stale_evidence": True},
+    )
+    repository = FakeRagRepository()
+    service = RagService(
+        pipeline=StaticResultPipeline(
+            RagResult.answered(
+                request=request,
+                answer_text="SPY breadth improved with broad participation [C1].",
+                contexts=(context,),
+            )
+        ),
+        repository=cast(RagPersistenceRepository, repository),
+    )
+
+    result = await service.run(request)
+
+    assert result.status == "no_results"
+    assert "sufficiently grounded" in result.answer_text
+    assert result.metadata["rag_authority_failure_mode"] == (
+        "stale_or_substituted_evidence"
+    )
+    assert result.metadata["rag_authority_fail_closed"] is True
+    risk_authority = _risk_authority_metadata(result)
+    assert risk_authority["risk_tier"] == "vigilant"
+    assert risk_authority["evidence_sufficient"] is False
+    assert repository.query_logs[-1].status == "no_results"
+    persisted_result_metadata = cast(
+        Mapping[str, object],
+        repository.answer_logs[-1].metadata["result_metadata"],
+    )
+    persisted_risk_authority = cast(
+        Mapping[str, object],
+        persisted_result_metadata["risk_authority"],
+    )
+    assert persisted_risk_authority["evidence_sufficient"] is False
+
+
+def _risk_authority_metadata(result: RagResult) -> Mapping[str, object]:
+    return cast(Mapping[str, object], result.metadata["risk_authority"])
 
 
 class StaticResultPipeline:

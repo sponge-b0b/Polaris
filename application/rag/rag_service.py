@@ -1,28 +1,29 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from time import perf_counter
-from typing import Protocol
-from typing import Any
-from typing import cast
+from typing import Any, Protocol, cast
 
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
-from application.rag.observability import RagAiObservabilityProjectorPort
-from application.rag.observability import RagAiObservabilityRecorder
-from application.rag.observability import record_rag_query_observation
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagQueryModelExecutionRecord
-from core.storage.persistence.rag import RagQueryReflectionScores
-from core.storage.persistence.rag import new_rag_answer_log_id
+from application.rag.observability import (
+    RagAiObservabilityProjectorPort,
+    RagAiObservabilityRecorder,
+    record_rag_query_observation,
+)
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagPersistenceRepository,
+    RagQueryLogRecord,
+    RagQueryModelExecutionRecord,
+    RagQueryReflectionScores,
+    new_rag_answer_log_id,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 
 
@@ -79,7 +80,7 @@ class RagService:
         self,
         request: RagRequest,
     ) -> RagResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         timer_started_at = perf_counter()
         await self._emit_started(
             request,
@@ -103,8 +104,12 @@ class RagService:
                 request=request,
                 error=str(exc),
             )
+        result = classify_rag_result_authority(
+            request=request,
+            result=result,
+        )
 
-        completed_at = datetime.now(timezone.utc)
+        completed_at = datetime.now(UTC)
         duration_seconds = perf_counter() - timer_started_at
         await self._persist_query_log(
             _query_log_from_result(

@@ -10,6 +10,7 @@ from application.ai_optimization.runtime_artifacts import (
     AiPromptArtifactResolver,
     ResolvedAiPromptArtifact,
 )
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
@@ -90,8 +91,11 @@ class RagAnswerGenerator:
             context_count=len(contexts),
         )
         if not contexts:
-            result = RagResult.no_results(
+            result = classify_rag_result_authority(
                 request=request,
+                result=RagResult.no_results(
+                    request=request,
+                ),
             )
             await self._emit_completed(
                 request=request,
@@ -169,9 +173,12 @@ class RagAnswerGenerator:
                     "fail_closed": True,
                 },
             )
-            result = RagResult.no_results(
+            result = classify_rag_result_authority(
                 request=request,
-                answer_text=safe_grounding_failure_answer(),
+                result=RagResult.no_results(
+                    request=request,
+                    answer_text=safe_grounding_failure_answer(),
+                ),
             )
             await self._emit_completed(
                 request=request,
@@ -181,17 +188,20 @@ class RagAnswerGenerator:
             )
             return result
 
-        result = RagResult.answered(
+        result = classify_rag_result_authority(
             request=request,
-            answer_text=provider_result.answer_text,
-            contexts=package.contexts,
-            confidence_score=provider_result.confidence_score,
-            metadata=_result_metadata(
-                package=package,
-                provider_name=provider_result.provider_name,
-                model=provider_result.model,
-                provider_metadata=provider_result.metadata,
-                prompt_artifact=prompt_artifact,
+            result=RagResult.answered(
+                request=request,
+                answer_text=provider_result.answer_text,
+                contexts=package.contexts,
+                confidence_score=provider_result.confidence_score,
+                metadata=_result_metadata(
+                    package=package,
+                    provider_name=provider_result.provider_name,
+                    model=provider_result.model,
+                    provider_metadata=provider_result.metadata,
+                    prompt_artifact=prompt_artifact,
+                ),
             ),
         )
         await self._emit_completed(

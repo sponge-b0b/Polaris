@@ -31,7 +31,6 @@ dependencies = [
     "fastapi",
     "feedparser",
     "fredapi",
-    "graphifyy[ollama]",
     "hypothesis",
     "langchain",
     "langgraph",

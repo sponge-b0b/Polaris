@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Final, cast
 
 from application.projections.workflow_outputs.projection_registry import (
@@ -20,13 +20,14 @@ from domain.authority import (
     AiOutputContentType,
     AuthorityEffect,
     CanonicalOwner,
-    GateProfile,
     IntendedSink,
     RiskAuthorityClassificationInput,
     RiskAuthorityContract,
     RiskTier,
     SourceOfTruthCategory,
     classify_risk_authority,
+    reclassify_risk_authority_contract,
+    risk_authority_contract_from_metadata,
 )
 
 WorkflowProjectionExecutionMode = CompletedRunExecutionMode
@@ -69,8 +70,6 @@ class WorkflowOutputProjectionSkipReason(StrEnum):
 _REPORT_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.report.",)
 _BACKTEST_OUTPUT_CONTRACT_PREFIXES: Final[tuple[str, ...]] = ("polaris.backtest.",)
 WORKFLOW_OUTPUT_AUTHORITY_METADATA_KEY: Final[str] = "risk_authority"
-
-_MISSING: Final[object] = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,103 +325,15 @@ def _authority_contract_from_metadata(
 ) -> RiskAuthorityContract:
     if not isinstance(raw_authority_metadata, Mapping):
         raise ValueError("risk_authority must be a metadata object.")
-    metadata = cast(Mapping[str, object], raw_authority_metadata)
-    ignored_claims = _optional_string_tuple(
-        metadata,
-        "ignored_model_authority_claims",
+    return risk_authority_contract_from_metadata(
+        cast(Mapping[str, object], raw_authority_metadata),
     )
-    try:
-        return RiskAuthorityContract(
-            risk_tier=_required_enum(metadata, "risk_tier", RiskTier),
-            authority_effect=_required_enum(
-                metadata,
-                "authority_effect",
-                AuthorityEffect,
-            ),
-            content_type=_required_enum(metadata, "content_type", AiOutputContentType),
-            canonical_owner=_required_enum(
-                metadata,
-                "canonical_owner",
-                CanonicalOwner,
-            ),
-            source_of_truth=_required_enum(
-                metadata,
-                "source_of_truth",
-                SourceOfTruthCategory,
-            ),
-            intended_sink=_required_enum(metadata, "intended_sink", IntendedSink),
-            gate_profile=_required_enum(metadata, "gate_profile", GateProfile),
-            capital_relevant=_required_bool(metadata, "capital_relevant"),
-            durable_authority=_required_bool(metadata, "durable_authority"),
-            externally_visible=_required_bool(metadata, "externally_visible"),
-            governance_impact=_required_bool(metadata, "governance_impact"),
-            evidence_sufficient=_required_bool(metadata, "evidence_sufficient"),
-            ignored_model_authority_claims=ignored_claims,
-        )
-    except KeyError as exc:
-        raise ValueError("risk_authority field is invalid.") from exc
 
 
 def _reclassify_authority_contract(
     contract: RiskAuthorityContract,
 ) -> RiskAuthorityContract:
-    return classify_risk_authority(
-        RiskAuthorityClassificationInput(
-            content_type=contract.content_type,
-            authority_effect=contract.authority_effect,
-            canonical_owner=contract.canonical_owner,
-            source_of_truth=contract.source_of_truth,
-            intended_sink=contract.intended_sink,
-            capital_relevant=contract.capital_relevant,
-            durable_authority=contract.durable_authority,
-            externally_visible=contract.externally_visible,
-            governance_impact=contract.governance_impact,
-            evidence_sufficient=contract.evidence_sufficient,
-        )
-    )
-
-
-def _required_enum[TEnum: Enum](
-    metadata: Mapping[str, object],
-    key: str,
-    enum_type: type[TEnum],
-) -> TEnum:
-    value = _required_value(metadata, key)
-    if isinstance(value, enum_type):
-        return value
-    if isinstance(value, str):
-        cleaned_value = value.strip().lower()
-        try:
-            return enum_type(cleaned_value)
-        except ValueError as exc:
-            raise ValueError(
-                f"risk_authority.{key} has unsupported value {value!r}.",
-            ) from exc
-    raise ValueError(f"risk_authority.{key} must be a string.")
-
-
-def _required_bool(metadata: Mapping[str, object], key: str) -> bool:
-    value = _required_value(metadata, key)
-    if not isinstance(value, bool):
-        raise ValueError(f"risk_authority.{key} must be a boolean.")
-    return value
-
-
-def _optional_string_tuple(metadata: Mapping[str, object], key: str) -> tuple[str, ...]:
-    value = metadata.get(key, ())
-    if not isinstance(value, Sequence) or isinstance(value, str):
-        raise ValueError(f"risk_authority.{key} must be a list of strings.")
-    values = tuple(value)
-    if not all(isinstance(item, str) for item in values):
-        raise ValueError(f"risk_authority.{key} must be a list of strings.")
-    return values
-
-
-def _required_value(metadata: Mapping[str, object], key: str) -> object:
-    value = metadata.get(key, _MISSING)
-    if value is _MISSING:
-        raise ValueError(f"risk_authority.{key} is required.")
-    return value
+    return reclassify_risk_authority_contract(contract)
 
 
 def _persistence_boundary_decision(

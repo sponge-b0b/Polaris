@@ -15,6 +15,8 @@ from domain.authority import (
     RiskAuthorityContract,
     RiskTier,
     SourceOfTruthCategory,
+    reclassify_risk_authority_contract,
+    risk_authority_contract_from_metadata,
 )
 
 
@@ -233,3 +235,41 @@ def test_contract_metadata_is_boundary_safe_and_uses_stable_values() -> None:
         "evidence_sufficient": True,
         "ignored_model_authority_claims": [],
     }
+
+
+def test_contract_metadata_round_trips_through_canonical_parser() -> None:
+    contract = classify(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.REPORT,
+            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+            canonical_owner=CanonicalOwner.REPORT_SERVICE,
+            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+            intended_sink=IntendedSink.REPORT,
+            externally_visible=True,
+        )
+    )
+
+    parsed_contract = risk_authority_contract_from_metadata(contract.to_metadata())
+
+    assert parsed_contract == contract
+    assert (
+        reclassify_risk_authority_contract(parsed_contract).risk_tier
+        is RiskTier.ENHANCED
+    )
+
+
+def test_contract_metadata_parser_rejects_malformed_boundary_values() -> None:
+    metadata = classify(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RAG_ANSWER,
+            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+            canonical_owner=CanonicalOwner.RAG_SERVICE,
+            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+            intended_sink=IntendedSink.RAG_ANSWER,
+            externally_visible=True,
+        )
+    ).to_metadata()
+    metadata["evidence_sufficient"] = "yes"
+
+    with pytest.raises(ValueError, match="risk_authority.evidence_sufficient"):
+        risk_authority_contract_from_metadata(metadata)

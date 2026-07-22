@@ -24,6 +24,8 @@ from domain.authority.contracts import (
     SourceOfTruthCategory,
     classify_risk_authority,
     gate_profile_for_tier,
+    reclassify_risk_authority_contract,
+    risk_authority_contract_from_metadata,
 )
 
 __all__ = [
@@ -50,4 +52,6 @@ __all__ = [
     "SourceOfTruthCategory",
     "classify_risk_authority",
     "gate_profile_for_tier",
+    "reclassify_risk_authority_contract",
+    "risk_authority_contract_from_metadata",
 ]

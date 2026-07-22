@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Final
 
 
@@ -101,6 +101,9 @@ _MODEL_AUTHORITY_CLAIM_KEYS: Final[frozenset[str]] = frozenset(
         "residual_risk_accepted",
         "risk_tier",
         "production_ready",
+        "governance_required",
+        "requires_governance",
+        "skip_governance",
     }
 )
 
@@ -225,6 +228,168 @@ def gate_profile_for_tier(risk_tier: RiskTier) -> GateProfile:
     """Return the canonical readiness/control profile for a risk tier."""
 
     return _GATE_PROFILE_BY_TIER[risk_tier]
+
+
+def risk_authority_contract_from_metadata(
+    raw_authority_metadata: Mapping[str, object],
+) -> RiskAuthorityContract:
+    """Deserialize stable authority metadata into the canonical typed contract."""
+
+    ignored_claims = _optional_string_tuple(
+        raw_authority_metadata,
+        "ignored_model_authority_claims",
+    )
+    try:
+        return RiskAuthorityContract(
+            risk_tier=_required_enum(
+                raw_authority_metadata,
+                "risk_tier",
+                RiskTier,
+            ),
+            authority_effect=_required_enum(
+                raw_authority_metadata,
+                "authority_effect",
+                AuthorityEffect,
+            ),
+            content_type=_required_enum(
+                raw_authority_metadata,
+                "content_type",
+                AiOutputContentType,
+            ),
+            canonical_owner=_required_enum(
+                raw_authority_metadata,
+                "canonical_owner",
+                CanonicalOwner,
+            ),
+            source_of_truth=_required_enum(
+                raw_authority_metadata,
+                "source_of_truth",
+                SourceOfTruthCategory,
+            ),
+            intended_sink=_required_enum(
+                raw_authority_metadata,
+                "intended_sink",
+                IntendedSink,
+            ),
+            gate_profile=_required_enum(
+                raw_authority_metadata,
+                "gate_profile",
+                GateProfile,
+            ),
+            capital_relevant=_required_bool(
+                raw_authority_metadata,
+                "capital_relevant",
+            ),
+            durable_authority=_required_bool(
+                raw_authority_metadata,
+                "durable_authority",
+            ),
+            externally_visible=_required_bool(
+                raw_authority_metadata,
+                "externally_visible",
+            ),
+            governance_impact=_required_bool(
+                raw_authority_metadata,
+                "governance_impact",
+            ),
+            evidence_sufficient=_required_bool(
+                raw_authority_metadata,
+                "evidence_sufficient",
+            ),
+            ignored_model_authority_claims=ignored_claims,
+        )
+    except KeyError as exc:
+        raise ValueError("risk_authority field is invalid.") from exc
+
+
+def reclassify_risk_authority_contract(
+    contract: RiskAuthorityContract,
+) -> RiskAuthorityContract:
+    """Recompute tier and gate from immutable contract attributes."""
+
+    return classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=contract.content_type,
+            authority_effect=contract.authority_effect,
+            canonical_owner=contract.canonical_owner,
+            source_of_truth=contract.source_of_truth,
+            intended_sink=contract.intended_sink,
+            capital_relevant=contract.capital_relevant,
+            durable_authority=contract.durable_authority,
+            externally_visible=contract.externally_visible,
+            governance_impact=contract.governance_impact,
+            evidence_sufficient=contract.evidence_sufficient,
+        )
+    )
+
+
+def _required_enum[TEnum: Enum](
+    metadata: Mapping[str, object],
+    key: str,
+    enum_type: type[TEnum],
+) -> TEnum:
+    value = _required_value(
+        metadata,
+        key,
+    )
+    if isinstance(
+        value,
+        enum_type,
+    ):
+        return value
+    if isinstance(value, str):
+        cleaned_value = value.strip().lower()
+        try:
+            return enum_type(cleaned_value)
+        except ValueError as exc:
+            raise ValueError(
+                f"risk_authority.{key} has unsupported value {value!r}.",
+            ) from exc
+    raise ValueError(f"risk_authority.{key} must be a string.")
+
+
+def _required_bool(
+    metadata: Mapping[str, object],
+    key: str,
+) -> bool:
+    value = _required_value(
+        metadata,
+        key,
+    )
+    if not isinstance(value, bool):
+        raise ValueError(f"risk_authority.{key} must be a boolean.")
+    return value
+
+
+def _optional_string_tuple(
+    metadata: Mapping[str, object],
+    key: str,
+) -> tuple[str, ...]:
+    value = metadata.get(
+        key,
+        (),
+    )
+    if not isinstance(
+        value,
+        Sequence,
+    ) or isinstance(
+        value,
+        str,
+    ):
+        raise ValueError(f"risk_authority.{key} must be a list of strings.")
+    values = tuple(value)
+    if not all(isinstance(item, str) for item in values):
+        raise ValueError(f"risk_authority.{key} must be a list of strings.")
+    return values
+
+
+def _required_value(
+    metadata: Mapping[str, object],
+    key: str,
+) -> object:
+    if key not in metadata:
+        raise ValueError(f"risk_authority.{key} is required.")
+    return metadata[key]
 
 
 def _risk_tier_for(request: RiskAuthorityClassificationInput) -> RiskTier:

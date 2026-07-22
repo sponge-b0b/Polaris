@@ -200,14 +200,32 @@ Standard read-only discovery and diagnostic shell commands are allowed.
 
 ## Repository Analysis Tools
 
-For structural dependency lookups or codebase architecture questions, invoke the `.agents/skills/using-graphify` skill. Do not attempt to manually open, read, or parse raw files inside `graphify-out/` during a standard session.
+Before editing any files or changing code patterns, you must leverage the project's native discovery tool belt to map context, enforce safety guards, and isolate change blast radiuses.
 
-## Repository Analysis Tools
+### repowise
 
-Before editing any Python files or changing code patterns, you must leverage the project's native discovery tool belt to map context, enforce safety guards, and isolate change blast radiuses.
+This project maintains a codebase status registry and documentation layout inside the `.repowise/` directory tracking synchronization state, file health, and system hotspots.
 
-- **For Behavioral Location, Mapping Source Contexts, Code Health, and File Risk Auditing:** Invoke the `.agents/skills/using-repowise` skill. You must explicitly alert the user if Repowise flags a target implementation destination as a highly brittle or high-risk file hotspot before code edits begin.
-- **For Structural Invariants & Code Dependency Maps:** Invoke the `.agents/skills/using-graphify` skill. Do not attempt to manually open, read, or parse raw files inside `graphify-out/` during a standard session.
+For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `.agents/skills/repowise` skill or instructions before doing anything else.
+
+Rules:
+- Before code edits begin, first check `repowise status`. You must explicitly alert the user if a target implementation destination is flagged as a highly brittle or high-risk file hotspot.
+- If the index is flagged as stale or running on a degraded embedder, execute `repowise reindex --embedder ollama` to forcefully synchronize the snapshot with the current git commit.
+- For active codebase tracking during development, run `repowise watch` to handle incremental background directory syncing and keep metrics fresh.
+- Use `repowise health` to pull system-wide performance findings and score calculations before running macro structural optimizations.
+
+### graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+For structural dependency lookups or codebase architecture questions, use the installed `.agents/skills/graphify` skill or instructions before doing anything else.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
 ## Agent skills
 

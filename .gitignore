@@ -248,6 +248,9 @@ graphify-out/
 .graphify.toml
 .graphifyignore
 
+#Codegraph
+.codegraph/
+
 # VS Code
 .vscode/
 

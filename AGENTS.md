@@ -208,36 +208,17 @@ This project maintains a codebase status registry and documentation layout insid
 
 For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `.agents/skills/repowise` skill or instructions before doing anything else.
 
-Rules:
-- Before code edits begin, first check `repowise status`. You must explicitly alert the user if a target implementation destination is flagged as a highly brittle or high-risk file hotspot.
-- If the index is flagged as stale or running on a degraded embedder, execute `repowise reindex --embedder ollama` to forcefully synchronize the snapshot with the current git commit.
-- For active codebase tracking during development, run `repowise watch` to handle incremental background directory syncing and keep metrics fresh.
-- Use `repowise health` to pull system-wide performance findings and score calculations before running macro structural optimizations.
-
 ### graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 For structural dependency lookups or codebase architecture questions, use the installed `.agents/skills/graphify` skill or instructions before doing anything else.
 
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
-
 ### codegraph
 
 This project leverages an active edge-synthesizer engine to bridge dynamic runtime call flows, framework decorators, and decoupled execution targets.
 
 For tracing implicit function paths, event loops, or dynamic string-keyed dispatches in Python, use the installed `.agents/skills/codegraph` skill before tracing raw files manually.
-
-Rules:
-- For tracing Python-specific routing (FastAPI/Django decorators), event emitters (`emit`/`on` loops), or callback handlers, rely on CodeGraph to close the path end-to-end. 
-- Do not attempt to guess dynamic targets using standard grep or static graph lookups when a flow crosses asynchronous or interface boundaries.
-- Only trust synthesized edges that resolve fully. If a dynamic trace indicates a dead-end or partial match, log it as an architectural blind-spot instead of attempting deep file reads on broken paths.
-- After implementing structural, routing, or event loop modifications, execute `codegraph project index . --name myproject` to update the dynamic edge graph layer.
 
 ## Agent skills
 
@@ -252,14 +233,3 @@ The default triage labels are used: `needs-triage`, `needs-info`, `ready-for-age
 ### Domain docs
 
 This repo uses a single-context domain-doc layout with root `CONTEXT.md` and optional root `docs/adr/`. See `docs/agents/domain.md`.
-
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
-
-- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
-
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
-<!-- CODEGRAPH_END -->

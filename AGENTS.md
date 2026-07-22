@@ -162,17 +162,9 @@ Rules:
 - Do not emit duplicate lifecycle events from multiple layers.
 - Reuse established emitter and span conventions; do not invent parallel telemetry systems.
 
-## Secrets, Live Services, and Test Verification
+## Secrets
 
-- Never place credentials, passwords, tokens, or full authenticated connection strings in source, tests, plans, or documentation.
-- Tests use environment variables or redacted placeholders.
-- Do not run a full test suite by default. First determine whether full-suite verification is necessary for the change scope.
-- Prefer targeted tests tied directly to changed files, affected boundaries, and known regression risks.
-- Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana.
-- If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start the services yourself and run the tests.
-- Do not wait for unavailable services to time out when the test is unnecessary.
-- Use timeout values that reasonably match expected command duration; if the estimate is wrong, diagnose and adjust rather than using excessive defaults.
-- Report optional live validations separately from required service-free verification.
+Never place credentials, passwords, tokens, or full authenticated connection strings in source, tests, plans, or documentation.
 
 ## Authorized Docker Operations
 

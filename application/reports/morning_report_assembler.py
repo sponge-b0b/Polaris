@@ -2,28 +2,33 @@ from __future__ import annotations
 
 from typing import Any
 
-from application.reports.morning_report_models import MorningReportDocument
-from application.reports.morning_report_models import ReportBullet
-from application.reports.morning_report_models import ReportMetric
-from application.reports.morning_report_models import ReportSection
-from application.reports.morning_report_models import ReportTable
-from application.reports.morning_report_models import ReportTableRow
-from application.reports.morning_report_models import format_confidence
-from application.reports.morning_report_models import format_currency
-from application.reports.morning_report_models import format_percent
-from application.reports.morning_report_models import format_regime
-from application.reports.morning_report_models import format_score
-from application.reports.morning_report_sections import BoundaryMapping
-from application.reports.morning_report_sections import first_score
-from application.reports.morning_report_sections import first_text
-from application.reports.morning_report_sections import get_execution_id
-from application.reports.morning_report_sections import get_node_outputs
-from application.reports.morning_report_sections import get_path
-from application.reports.morning_report_sections import get_symbol
-from application.reports.morning_report_sections import get_workflow_status
-from application.reports.morning_report_sections import safe_list
-from application.reports.morning_report_sections import safe_mapping
-from application.reports.morning_report_sections import summarize_long_text
+from application.reports.authority import morning_report_authority
+from application.reports.morning_report_models import (
+    MorningReportDocument,
+    ReportBullet,
+    ReportMetric,
+    ReportSection,
+    ReportTable,
+    ReportTableRow,
+    format_confidence,
+    format_currency,
+    format_percent,
+    format_regime,
+    format_score,
+)
+from application.reports.morning_report_sections import (
+    BoundaryMapping,
+    first_score,
+    first_text,
+    get_execution_id,
+    get_node_outputs,
+    get_path,
+    get_symbol,
+    get_workflow_status,
+    safe_list,
+    safe_mapping,
+    summarize_long_text,
+)
 
 
 class MorningReportAssembler:
@@ -59,6 +64,10 @@ class MorningReportAssembler:
             workflow_result,
             portfolio_snapshot=portfolio_snapshot,
         )
+        run_errors = self._run_errors(
+            workflow_result,
+        )
+        evidence_sufficient = not run_errors and status.casefold() == "succeeded"
 
         return MorningReportDocument(
             title="Polaris Morning Financial Report",
@@ -86,8 +95,9 @@ class MorningReportAssembler:
             recommended_action_plan=self._build_recommended_action_plan(
                 workflow_result,
             ),
-            run_errors=self._run_errors(
-                workflow_result,
+            run_errors=run_errors,
+            authority=morning_report_authority(
+                evidence_sufficient=evidence_sufficient,
             ),
         )
 
@@ -236,7 +246,8 @@ class MorningReportAssembler:
         summary = (
             f"Polaris completed the morning workflow with a {market_bias} market bias, "
             f"{risk_posture} risk posture, and {execution_posture} execution posture. "
-            f"Portfolio positioning is currently characterized as {portfolio_posture.lower()}."
+            "Portfolio positioning is currently characterized as "
+            f"{portfolio_posture.lower()}."
         )
 
         interpretation = self._strategy_interpretation(
@@ -1015,8 +1026,9 @@ class MorningReportAssembler:
         summary = self._summary_from_node(
             fundamental,
             fallback=(
-                f"The macro backdrop is {regime.lower()} with {fed_stance.lower()} Fed posture, "
-                f"{liquidity.lower()} liquidity, and {inflation.lower()} inflation conditions."
+                f"The macro backdrop is {regime.lower()} with "
+                f"{fed_stance.lower()} Fed posture, {liquidity.lower()} "
+                f"liquidity, and {inflation.lower()} inflation conditions."
             ),
         )
 
@@ -1902,7 +1914,8 @@ class MorningReportAssembler:
         summary = (
             f"Portfolio risk is classified as {risk_regime.lower()} with "
             f"composite risk at {format_score(composite_risk)}, risk pressure at "
-            f"{format_score(risk_pressure)}, and stability at {format_score(stability_score)}. "
+            f"{format_score(risk_pressure)}, and stability at "
+            f"{format_score(stability_score)}. "
             f"The execution guard is {guard_mode.lower()}."
         )
 
@@ -2193,9 +2206,11 @@ class MorningReportAssembler:
         )
 
         summary = (
-            "This action plan is decision support only. It does not authorize or execute trades. "
-            f"Current synthesis posture is {strategy_posture.lower()}, portfolio status is "
-            f"{portfolio_status.lower()}, trade-package direction is {direction.lower()}, and "
+            "This action plan is decision support only. It does not authorize or "
+            "execute trades. Current synthesis posture is "
+            f"{strategy_posture.lower()}, portfolio status is "
+            f"{portfolio_status.lower()}, trade-package direction is "
+            f"{direction.lower()}, and "
             f"execution guard mode is {guard_mode.lower()}."
         )
 
@@ -2223,10 +2238,16 @@ class MorningReportAssembler:
         if not recommendations:
             recommendations = (
                 ReportBullet(
-                    text="Maintain current review posture until stronger signal alignment is available.",
+                    text=(
+                        "Maintain current review posture until stronger signal "
+                        "alignment is available."
+                    ),
                 ),
                 ReportBullet(
-                    text="Confirm any portfolio changes with human review, policy, and governance checks.",
+                    text=(
+                        "Confirm any portfolio changes with human review, policy, "
+                        "and governance checks."
+                    ),
                 ),
             )
 
@@ -2358,20 +2379,26 @@ class MorningReportAssembler:
                     label="Primary decision frame",
                     text=(
                         f"Evaluate {strategy_posture.lower()} positioning with a "
-                        f"{portfolio_status.lower()} portfolio gate before changing exposure."
+                        f"{portfolio_status.lower()} portfolio gate before "
+                        "changing exposure."
                     ),
                 ),
                 ReportBullet(
                     label="Capital discipline",
                     text=(
-                        f"Use the {format_confidence(scale_factor)} capital scale factor and "
-                        f"{format_confidence(position_size)} position-size hint as review inputs, "
+                        f"Use the {format_confidence(scale_factor)} capital scale "
+                        "factor and "
+                        f"{format_confidence(position_size)} position-size hint "
+                        "as review inputs, "
                         "not execution instructions."
                     ),
                 ),
                 ReportBullet(
                     label="Governance",
-                    text="Human approval remains required before any trading or allocation action.",
+                    text=(
+                        "Human approval remains required before any trading or "
+                        "allocation action."
+                    ),
                 ),
                 *self._strategy_rationale_bullets(
                     strategy=strategy,
@@ -2522,7 +2549,9 @@ class MorningReportAssembler:
             strategy_features.get(
                 "thesis",
             ),
-            fallback="No selected thesis was available from the strategy synthesis output.",
+            fallback=(
+                "No selected thesis was available from the strategy synthesis output."
+            ),
         )
         narrative = first_text(
             strategy.get(
@@ -3044,7 +3073,8 @@ class MorningReportAssembler:
             )
             return (
                 f"Primary synthesis guidance is to {primary.lower()}. "
-                f"Execution posture is {execution_posture.lower()}, so changes should remain "
+                f"Execution posture is {execution_posture.lower()}, so changes "
+                "should remain "
                 "risk-aware and subject to human review."
             )
         if risk_recommendations:
@@ -3057,7 +3087,8 @@ class MorningReportAssembler:
             )
 
         return (
-            "No high-conviction strategy directive was produced. Maintain a review posture "
+            "No high-conviction strategy directive was produced. Maintain a "
+            "review posture "
             "until market, portfolio, and risk signals are more clearly aligned."
         )
 
@@ -3105,7 +3136,10 @@ class MorningReportAssembler:
                 text="Review the portfolio posture before changing risk exposure.",
             ),
             ReportBullet(
-                text="Treat this report as decision support; human approval remains required for action.",
+                text=(
+                    "Treat this report as decision support; human approval "
+                    "remains required for action."
+                ),
             ),
         )
 
@@ -3173,7 +3207,8 @@ class MorningReportAssembler:
                 text=(
                     f"Market breadth is {breadth_regime.lower()} with a "
                     f"breadth score of {format_score(breadth_score)} and "
-                    f"price / A-D divergence marked {self._format_bool(price_ad_divergence).lower()}."
+                    "price / A-D divergence marked "
+                    f"{self._format_bool(price_ad_divergence).lower()}."
                 ),
             )
         )
@@ -3442,7 +3477,10 @@ class MorningReportAssembler:
             if not base_text:
                 continue
             normalized = base_text[0].lower() + base_text[1:]
-            text = f"Consider {normalized} only after human review and portfolio constraint checks."
+            text = (
+                f"Consider {normalized} only after human review and portfolio "
+                "constraint checks."
+            )
             if text in seen:
                 continue
             seen.add(

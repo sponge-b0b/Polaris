@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal
-from decimal import InvalidOperation
-from typing import TypeAlias
+from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 
+from application.reports.authority import (
+    REPORT_AUTHORITY_LIMITATIONS,
+    morning_report_authority,
+)
+from domain.authority import RiskAuthorityContract
 
-ReportScalar: TypeAlias = str | int | float | bool | None
+type ReportScalar = str | int | float | bool | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +103,10 @@ class MorningReportDocument:
     recommended_action_plan: ReportSection
     run_errors: tuple[str, ...] = ()
     appendix: ReportSection | None = None
+    authority: RiskAuthorityContract = field(
+        default_factory=morning_report_authority,
+    )
+    authority_limitations: tuple[str, ...] = REPORT_AUTHORITY_LIMITATIONS
 
 
 # ============================================================

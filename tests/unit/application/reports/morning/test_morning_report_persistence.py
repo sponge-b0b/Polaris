@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 
 from application.reports import MorningReportMarkdownRenderer
+from application.reports.authority import ReportAuthorityViolationError
 from application.reports.morning_report_models import (
     MorningReportDocument,
     ReportBullet,
@@ -236,6 +237,81 @@ async def test_morning_report_persistence_service_persists_full_bundle() -> None
     assert repository.report.markdown_body == markdown
     assert repository.sections[0].summary == _long_response()
     assert repository.artifacts[0].artifact_type == "json"
+
+
+def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
+    document = _document()
+    markdown = MorningReportMarkdownRenderer().render(
+        document,
+    )
+
+    bundle = MorningReportPersistenceMapper().build_bundle(
+        document,
+        markdown_body=markdown,
+        artifact_references=(
+            ReportArtifactReference.from_path(
+                Path("/tmp/morning_report.md"),
+            ),
+        ),
+    )
+
+    risk_authority = cast(
+        dict[str, Any],
+        bundle.report.metadata["risk_authority"],
+    )
+    assert risk_authority["risk_tier"] == "vigilant"
+    assert risk_authority["content_type"] == "report"
+    assert risk_authority["authority_effect"] == "advisory_context"
+    assert risk_authority["canonical_owner"] == "report_service"
+    assert risk_authority["source_of_truth"] == "presentation_output"
+    assert risk_authority["intended_sink"] == "report"
+    assert risk_authority["gate_profile"] == "vigilant_decision_evidence"
+    assert risk_authority["capital_relevant"] is True
+    assert risk_authority["externally_visible"] is True
+    assert bundle.report.metadata["report_authority_failure_mode"] == "none"
+    assert bundle.report.metadata["report_authority_fail_closed"] is False
+    assert bundle.report.metadata["report_authority_boundary"] == (
+        "presentation_report_is_decision_support_not_portfolio_strategy_governance_"
+        "readiness_or_execution_authority"
+    )
+    payload_boundary = cast(
+        dict[str, Any],
+        bundle.report.structured_payload["authority_boundary"],
+    )
+    assert payload_boundary["risk_authority"] == risk_authority
+    assert bundle.sections[0].metadata["risk_authority"] == risk_authority
+    assert bundle.artifacts[0].metadata["risk_authority"] == risk_authority
+
+
+def test_morning_report_mapper_fails_closed_on_unsupported_capital_advice() -> None:
+    section = ReportSection(
+        title="Executive Summary",
+        summary="Buy 100 shares of SPY at the open.",
+    )
+    document = MorningReportDocument(
+        title="Polaris Morning Financial Report",
+        subtitle="Decision-support report for SPY",
+        symbol="SPY",
+        execution_id="exec-capital-advice",
+        generated_at="2026-05-30T13:30:00Z",
+        status="Succeeded",
+        executive_summary=section,
+        portfolio_snapshot=ReportSection.unavailable("Portfolio Snapshot"),
+        macro_backdrop=ReportSection.unavailable("Macro / Fundamental Backdrop"),
+        technical_setup=ReportSection.unavailable("Technical Setup"),
+        news_sentiment=ReportSection.unavailable("News & Sentiment"),
+        risk_assessment=ReportSection.unavailable("Risk Assessment"),
+        recommended_action_plan=ReportSection.unavailable("Recommended Action Plan"),
+    )
+
+    with pytest.raises(
+        ReportAuthorityViolationError,
+        match="unsupported_capital_advice",
+    ):
+        MorningReportPersistenceMapper().build_bundle(
+            document,
+            markdown_body="# Published report\n\nBuy 100 shares of SPY.",
+        )
 
 
 def _document() -> MorningReportDocument:

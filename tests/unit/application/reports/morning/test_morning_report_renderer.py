@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from application.reports import MorningReportAssembler, MorningReportMarkdownRenderer
+from application.reports.authority import ReportAuthorityViolationError
 from application.reports.morning_report_models import (
     MorningReportDocument,
     ReportBullet,
@@ -154,6 +155,49 @@ def test_renderer_rejects_unsafe_reasoning_trace_before_publication() -> None:
     )
 
     with pytest.raises(ReasoningTraceViolationError, match="morning_report.markdown"):
+        MorningReportMarkdownRenderer().render(
+            _document_with_section(section),
+        )
+
+
+def test_renderer_exposes_report_authority_boundary_and_limitations() -> None:
+    rendered = MorningReportMarkdownRenderer().render(
+        _document_with_section(
+            ReportSection(
+                title="Executive Summary",
+                summary="Visible advisory context.",
+            )
+        ),
+    )
+
+    assert "## Authority Boundary" in rendered
+    assert "non-authoritative decision support" in rendered
+    assert (
+        "not a portfolio, strategy, governance, readiness, or execution decision"
+        in rendered
+    )
+    assert "| Risk Tier | vigilant |" in rendered
+    assert "| Intended Sink | report |" in rendered
+    assert "| Authority Effect | advisory_context |" in rendered
+    assert "| Source of Truth | presentation_output |" in rendered
+    assert "| Canonical Owner | report_service |" in rendered
+    assert "Workflow execution: `exec-safe`" in rendered
+    assert "Broker execution, governance approval" in rendered
+
+
+def test_renderer_fails_closed_on_report_model_authority_claims() -> None:
+    section = ReportSection(
+        title="Executive Summary",
+        summary=(
+            "This report is governance-approved, production-ready, and the "
+            "final portfolio decision."
+        ),
+    )
+
+    with pytest.raises(
+        ReportAuthorityViolationError,
+        match="unsafe_authority_escalation",
+    ):
         MorningReportMarkdownRenderer().render(
             _document_with_section(section),
         )

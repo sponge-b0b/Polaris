@@ -6,9 +6,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from application.reports.authority import (
+    ensure_report_publication_authority,
+    report_authority_metadata,
+)
 from application.reports.morning_report_models import (
     MorningReportDocument,
+    ReportMetric,
     ReportSection,
+    ReportTable,
 )
 from core.storage.persistence.reports import (
     JsonObject,
@@ -81,12 +87,35 @@ class MorningReportPersistenceMapper:
             "morning_report",
             document.execution_id,
         )
+        safe_markdown_body = _publication_text(
+            markdown_body,
+            boundary_name="morning_report.persistence.markdown_body",
+            allow_empty=False,
+            strip_safe_text=False,
+        )
+        safe_publication_text = _strip_known_authority_disclosure(
+            safe_markdown_body,
+        )
+        ensure_report_publication_authority(
+            contract=document.authority,
+            content_texts=(
+                *_document_text_values(
+                    document,
+                ),
+                safe_publication_text,
+            ),
+            boundary_name="morning_report.persistence",
+        )
+        authority_metadata = report_authority_metadata(
+            document.authority,
+        )
         sections = tuple(
             _section_record(
                 report_id,
                 key,
                 section,
                 display_order=index,
+                authority_metadata=authority_metadata,
             )
             for index, (key, section) in enumerate(
                 _document_sections(
@@ -100,18 +129,12 @@ class MorningReportPersistenceMapper:
                 report_id,
                 reference,
                 index=index,
+                authority_metadata=authority_metadata,
             )
             for index, reference in enumerate(
                 artifact_references,
                 start=1,
             )
-        )
-
-        safe_markdown_body = _publication_text(
-            markdown_body,
-            boundary_name="morning_report.persistence.markdown_body",
-            allow_empty=False,
-            strip_safe_text=False,
         )
 
         return ReportPersistenceBundle(
@@ -129,8 +152,9 @@ class MorningReportPersistenceMapper:
                 ),
                 markdown_body=safe_markdown_body,
                 structured_payload=_json_object(
-                    asdict(
+                    _document_payload(
                         document,
+                        authority_metadata=authority_metadata,
                     ),
                     boundary_name="morning_report.persistence.structured_payload",
                 ),
@@ -139,6 +163,7 @@ class MorningReportPersistenceMapper:
                     "execution_id": document.execution_id,
                     "status": document.status,
                     "workflow_name": workflow_name,
+                    **authority_metadata,
                 },
             ),
             sections=sections,
@@ -236,6 +261,7 @@ def _section_record(
     section: ReportSection,
     *,
     display_order: int,
+    authority_metadata: JsonObject,
 ) -> ReportSectionRecord:
     return ReportSectionRecord(
         section_id=f"{report_id}:section:{section_key}",
@@ -255,6 +281,7 @@ def _section_record(
         ),
         metadata={
             "section_key": section_key,
+            **authority_metadata,
         },
     )
 
@@ -264,6 +291,7 @@ def _artifact_record(
     reference: ReportArtifactReference,
     *,
     index: int,
+    authority_metadata: JsonObject,
 ) -> ReportArtifactRecord:
     return ReportArtifactRecord(
         artifact_id=f"{report_id}:artifact:{index}",
@@ -274,8 +302,131 @@ def _artifact_record(
         description=reference.description,
         metadata={
             "source": "cli",
+            **authority_metadata,
         },
     )
+
+
+def _document_payload(
+    document: MorningReportDocument,
+    *,
+    authority_metadata: JsonObject,
+) -> dict[str, Any]:
+    payload = asdict(
+        document,
+    )
+    payload.pop(
+        "authority",
+        None,
+    )
+    payload["authority_boundary"] = authority_metadata
+    return payload
+
+
+def _document_text_values(
+    document: MorningReportDocument,
+) -> tuple[str, ...]:
+    values = [
+        document.title,
+        document.subtitle,
+        document.symbol,
+        document.execution_id,
+        document.generated_at,
+        document.status,
+        *document.run_errors,
+    ]
+    for section in (
+        document.executive_summary,
+        document.portfolio_snapshot,
+        document.macro_backdrop,
+        document.technical_setup,
+        document.news_sentiment,
+        document.risk_assessment,
+        document.recommended_action_plan,
+    ):
+        values.extend(
+            _section_text_values(
+                section,
+            )
+        )
+    if document.appendix is not None:
+        values.extend(
+            _section_text_values(
+                document.appendix,
+            )
+        )
+    return tuple(value for value in values if value)
+
+
+def _section_text_values(
+    section: ReportSection,
+) -> tuple[str, ...]:
+    values = [
+        section.title,
+        section.summary,
+    ]
+    for metric in section.metrics:
+        values.extend(
+            _metric_text_values(
+                metric,
+            )
+        )
+    for bullet in (
+        *section.bullets,
+        *section.risks,
+        *section.recommendations,
+    ):
+        values.extend((bullet.label or "", bullet.text))
+    for table in section.tables:
+        values.extend(
+            _table_text_values(
+                table,
+            )
+        )
+    return tuple(value for value in values if value)
+
+
+def _metric_text_values(
+    metric: ReportMetric,
+) -> tuple[str, ...]:
+    return (
+        metric.label,
+        metric.value,
+        metric.note or "",
+    )
+
+
+def _table_text_values(
+    table: ReportTable,
+) -> tuple[str, ...]:
+    values = [
+        table.title,
+    ]
+    for row in table.rows:
+        values.extend((row.label, row.value, row.note or ""))
+    return tuple(value for value in values if value)
+
+
+def _strip_known_authority_disclosure(
+    markdown_body: str,
+) -> str:
+    heading = "## Authority Boundary"
+    start = markdown_body.find(
+        heading,
+    )
+    if start == -1:
+        return markdown_body
+
+    next_section = markdown_body.find(
+        "\n## ",
+        start
+        + len(
+            heading,
+        ),
+    )
+    if next_section == -1:
+        return markdown_body[:start]
+    return markdown_body[:start] + markdown_body[next_section:]
 
 
 def _parse_generated_at(

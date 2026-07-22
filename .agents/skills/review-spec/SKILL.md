@@ -89,3 +89,32 @@ A change can pass one axis and fail the other:
 - Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
 
 Reporting them separately stops one axis from masking the other.
+
+## Remediation Loop & Human Handoff Rules
+
+You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors. If your verification pass reveals ANY specification mismatches or standards violations, follow this exact sequence:
+
+### 1. First-Pass Failure: Parent Issue Creation
+- Create a single, dedicated parent GitHub issue titled: `[Spec Review] <Feature Name>`.
+- Populate the description field with the complete aggregated breakdown of Spec and Standards findings.
+- Natively link or cross-reference this new tracking issue to the original project Specification issue.
+
+### 2. The Human Handoff Intercept
+Because the `/to-tickets` skill is explicitly locked to `allow_implicit_invocation: false`, you cannot execute the slicing step yourself. You MUST halt operations and present a clear **Human Action Block** instructing the user to run the tool manually.
+- **Required Terminal Output Template:**
+  > ⚠️ **Spec Review Failed with [X] Findings.**
+  > I have created the parent tracking issue: **`[Spec Review] <Feature Name> #<Issue_ID>`**.
+  > 
+  > Please run the following command to slice these findings into tracked child tickets:
+  > ```
+  > $to-tickets [Spec Review] <Feature Name> #<Issue_ID>
+  > ```
+
+### 3. Handling Recursive Passes & Secondary Findings
+When the user re-runs this `/review-spec` skill after completing their child remediation tickets, perform a fresh audit. If new or remaining findings pop up:
+- **DO NOT** create a brand-new parent issue.
+- Open the *existing* parent "Spec Review" issue and append the new failures to the bottom of the body under a fresh, dated header: `## Re-review Findings [YYYY-MM-DD HH:MM]`.
+- Re-trigger the **Human Handoff Intercept** block, giving the user the exact same terminal command to force a `/to-tickets` delta update pass.
+
+### 4. The Exit Gate
+You are only authorized to automatically log a closing comment and **Close** the parent "Spec Review" GitHub issue when a complete audit run returns exactly zero specification or standards findings.

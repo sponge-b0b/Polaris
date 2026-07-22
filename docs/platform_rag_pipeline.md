@@ -540,6 +540,31 @@ After synthesis, Self-RAG reflection evaluates support and usefulness. An
 unsupported or suspicious answer is replaced with the canonical safe grounding
 failure response.
 
+### Agentic-RAG boundary
+
+Polaris uses an adaptive, graph-orchestrated RAG loop, not a fully autonomous
+planner-style RAG agent. The pipeline is intentionally more capable than linear
+retrieve-once/generate-once RAG: model-backed routing can rewrite conversational
+queries, classify complexity, choose direct/retrieval/deep-research paths, add
+HyDE expansion, grade retrieved evidence with CRAG, perform a corrective query
+rewrite, retrieve again, and verify the generated answer with Self-RAG.
+
+The loop remains code-owned and bounded. Application DI currently composes
+`RagServiceGraph` with `max_loops=1`, so weak evidence can trigger at most one
+corrective rewrite and re-retrieval cycle before the graph either generates from
+sufficient evidence, uses explicitly allowed web fallback, or fails closed. This
+is not an open-ended agent that decomposes arbitrary questions into subquestions,
+plans multiple independent retrieval passes, resolves contradictions recursively,
+or repeats until a model decides it has enough evidence.
+
+This boundary is deliberate: models provide typed decisions at specific stages,
+while platform code owns the allowed graph topology, loop budget, corrective
+actions, fallback permissions, fail-closed behavior, telemetry, and persistence
+boundaries. Complex multi-document questions are supported by hybrid/vector,
+structured, graph, reranking, HyDE, CRAG, and Self-RAG stages, but they are still
+handled within this deterministic service graph rather than by an unbounded
+reasoning-and-retrieval agent.
+
 ## Open-source web fallback
 
 Transient web fallback is disabled by default. Enable it explicitly in `.env`:

@@ -51,6 +51,17 @@ Every platform value belongs to one of these classes:
 | 3. Transient runtime or presentation data | Runtime routing, renderer-only formatting, CLI state, temporary aggregation, or human-readable projection | Do not treat as system-of-record. Serialize only at runtime, report, artifact, or transport boundaries. |
 | 4. Telemetry or diagnostic data | Timing, retries, trace identity, provider status, failure details, fallback provenance, and operational counters | Persist through telemetry/runtime observability stores, not business-state tables unless the value is also a business decision. |
 
+AI-adjacent outputs also carry canonical risk and authority metadata through
+`domain.authority.RiskAuthorityContract`. That contract is orthogonal to the data
+class above: content type does not determine authority by itself. The contract
+records the `Baseline`, `Enhanced`, `Vigilant`, or `Prohibited / Outside
+Authority` tier; authority of effect; canonical owner; source-of-truth category;
+intended sink; and gate profile. The deterministic classifier escalates from
+platform-known facts such as capital relevance, durable authority, external
+visibility, governance impact, evidence sufficiency, and sink type. Model output
+or model-provided metadata must not self-declare authority, production readiness,
+governance approval, residual-risk acceptance, or a lower tier.
+
 ## Boundary and precision rules
 
 1. Application services and intelligence components must exchange typed domain
@@ -316,14 +327,17 @@ fields must retain the original precision.
    attribution, and weighting outputs.
 4. Make agents construct typed results before runtime serialization.
 5. Move risk output ownership from integration to the domain layer.
-6. Make strategy signal results immutable and remove `Any`/mutable collections.
-7. Update the sentiment persistence record and serializer to the existing
+6. Attach `RiskAuthorityContract` metadata at AI-adjacent output boundaries
+   that feed durable records, reports, recommendations, RAG answers, strategy
+   synthesis, evaluation gates, or future tool responses.
+7. Make strategy signal results immutable and remove `Any`/mutable collections.
+8. Update the sentiment persistence record and serializer to the existing
    canonical schema and service vocabulary; add lossless service-to-record-to-ORM
    round-trip tests.
-8. Promote stable deterministic backtest parameters to typed scenario/config
+9. Promote stable deterministic backtest parameters to typed scenario/config
    fields.
-9. Remove internal rounding and leave formatting to presentation boundaries.
-10. Remove compatibility aliases and fabricated identity fallbacks after direct
+10. Remove internal rounding and leave formatting to presentation boundaries.
+11. Remove compatibility aliases and fabricated identity fallbacks after direct
     consumers and tests are migrated.
 
 ### B. Core contract candidates requiring Step 6 approval

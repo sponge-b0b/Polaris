@@ -246,6 +246,22 @@ For each durable business concept there must be one authoritative model, owner, 
 - telemetry
 - presentation output
 
+### Risk tier and authority metadata
+
+`domain.authority.RiskAuthorityContract` is the canonical typed metadata contract
+for AI-adjacent output authority. It classifies outputs into `Baseline`,
+`Enhanced`, `Vigilant`, or `Prohibited / Outside Authority` risk tiers while
+keeping authority of effect separate from content type. The contract records the
+platform owner, source-of-truth category, intended sink, and selected gate
+profile.
+
+Risk tier selection is deterministic and platform-owned. Callers provide
+platform-known attributes such as capital relevance, durable authority, external
+visibility, governance impact, evidence sufficiency, and sink type; generated
+model text or metadata may not declare itself authoritative, production-ready,
+governance-approved, residual-risk-accepted, or lower risk than the platform
+classification.
+
 ## Policy and Governance
 
 Policy answers **“May this happen?”** with `ALLOW` or `DENY`.

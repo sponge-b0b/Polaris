@@ -57,6 +57,7 @@ a typed, attributable, deterministic boundary.
 | Runtime notifications | `EventBus` and typed `RuntimeEvent` | Runtime publishers/subscribers | Runtime event and telemetry sinks | Ad hoc notification buses or telemetry-owned runtime events |
 | Policy decisions | `PolicyEngine` | Canonical runtime/facade path | Runtime/audit evidence | Interface or node bypasses |
 | Governance decisions | `GovernanceEngine` | Canonical runtime/facade path | Runtime/audit evidence | Local allow/deny logic that bypasses governance |
+| AI risk tier and authority metadata | `domain.authority.RiskAuthorityContract` with `RiskAuthorityClassifier` | Platform-known classification input at the producing boundary | Persisted only as metadata on the owning runtime evidence, canonical record, report, RAG answer, recommendation, evaluation gate, or future tool response | Model-generated claims declaring authority, approval, production readiness, residual-risk acceptance, or lower risk |
 | Trace identity | Polaris `TraceContext` and observability boundary | Runtime context, events, async tasks, providers, datastores | Telemetry traces as configured | Vendor tracing objects as internal platform contracts |
 | External access | Client → provider → application service | Typed provider protocols and service requests/results | Curated records only after explicit projection | Agents calling vendor SDKs or application services containing transport code |
 | Dependency lifecycle | Dishka | Application and request scopes | None | Hidden globals, manual request-scoped construction, or unclosed resources |
@@ -154,6 +155,15 @@ Provider/client boundary data
 | Graph projection | Relationship projection generated from canonical lineage and RAG/domain records | RAG graph projection operations | Neo4j | Multi-hop retrieval, provenance traversal, relationship explanation | A system of record, ad hoc Cypher write path, or substitute for PostgreSQL lineage |
 
 ### Output contracts and schema versioning
+
+AI-adjacent output boundaries use `domain.authority.RiskAuthorityContract` to
+carry risk tier, authority effect, content type, canonical owner, source-of-truth
+category, intended sink, and gate profile. This authority contract classifies the
+output boundary; it does not make a raw node output projectable by itself and does
+not replace the owning typed result contract. Model-provided text or metadata is
+never an authority source for downgrading tier, declaring governance approval,
+declaring production readiness, accepting residual risk, or converting advisory
+content into a canonical decision.
 
 A projectable runtime output must expose a stable `output_contract` and
 `output_schema_version`. A projector supports explicit contract/version pairs
@@ -299,6 +309,9 @@ Before changing a model, service, node, repository, schema, or projector, answer
 10. Does this create a duplicate source, writer, schema, payload, or projection?
 11. Are stable fields being hidden in metadata?
 12. Can retry, replay, resume, or reprojection create duplicates?
+13. If AI-adjacent content is emitted, which `RiskAuthorityContract` tier,
+    authority effect, owner, source-of-truth category, intended sink, and gate
+    profile apply?
 
 If ownership is ambiguous or two components claim to be authoritative, stop and
 resolve the ledger before implementation.

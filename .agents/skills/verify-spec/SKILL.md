@@ -14,6 +14,23 @@ Validate the entire project repository as a unified system to catch cross-module
 - **Scope Expansion Invariant:** For formatting, linting, and typing checks, never use partial paths or git status filters. Every static analysis step must evaluate the full repository state (`.`).
 - **Testing Blueprint Invariant:** You are strictly forbidden from guessing which integration tests to execute or blindly running the entire monolithic suite of thousands of tests. You must read and follow the category filters outlined in `docs/testing_guide.md` to isolate the correct test suites.
 
+## Execution Rules & Constraints
+
+### 1. Test Targeting & Scope Identification
+- Do not run a full test suite by default. First determine whether full-suite verification is necessary for the change scope.
+- Prefer targeted tests tied directly to changed files, affected boundaries, and known regression risks.
+- Report optional live validations separately from required service-free verification.
+
+### 2. Environment & Service Dependency Check
+- Ensure all tests use environment variables or redacted placeholders.
+- Before running integration or live-service tests, identify required infrastructure services: `PostgreSQL`, `Qdrant`, `Neo4j`, `LiteLLM`, `Ollama`, `Langfuse`, `BGE reranker`, `Prometheus`, `Jaeger`, or `Grafana`.
+- If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. 
+- **Authorization Override**: If service-free tests do not meet required acceptance criteria, you are authorized to start the required Docker services yourself and run the tests.
+
+### 3. Timeouts & Efficiency Guardrails
+- Do not wait for unavailable services to time out when the test is unnecessary.
+- Use timeout values that reasonably match expected command duration; if the estimate is wrong, diagnose and adjust rather than using excessive defaults.
+
 ---
 
 ## Execution Steps
@@ -59,7 +76,7 @@ uv run graphify query "Identify any new architectural anomalies or unmapped cros
 
 ### Example 1: Pre-Review Integration Verification (Model Migration Spec)
 **User:** "All individual implementation tickets for the model migration spec are closed. Let's do a final specification verification."
-**Agent Response:** *"I am invoking the verify-spec skill. I will run repository-wide static analysis checks, read docs/testing_guide.md to isolate the relevant strategy and synthesis test categories, execute those targeted integration tests, and run a Graphify architectural drift pass."*
+**Agent Response:** *"I am invoking the verify-spec skill. I will run repository-wide static analysis checks, read docs/testing_guide.md to isolate the relevant strategy and synthesis test categories, and execute those targeted integration tests."*
 ```bash
 # 1. Run global static analysis
 uv run ruff format --check .
@@ -72,7 +89,3 @@ cat docs/testing_guide.md
 
 # 3. Execute only the relevant macro test directories
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/core/strategy/ tests/core/synthesis/
-
-# 4. Check for graph architectural regressions
-uv run graphify update .
-```

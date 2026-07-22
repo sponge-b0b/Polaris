@@ -23,7 +23,6 @@ readme = "README.md"
 description = "Polaris Portfolio Intelligence and Workflow Orchestration Platform"
 requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.13.0",
     "alpaca-py",
     "alphavantage-api-client",
     "asyncpg>=0.29.0",
@@ -35,7 +34,6 @@ dependencies = [
     "langchain",
     "langgraph",
     "massive",
-    "mypy",
     "newsapi-python",
     "numpy",
     "ollama",
@@ -47,15 +45,10 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "pydantic-settings",
     "pydantic>=2.7.0",
-    "pyright",
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
     "python-dotenv",
     "qdrant-client",
     "reportlab",
     "requests",
-    "ruff",
     "sentence-transformers",
     "sqlalchemy>=2.0.0",
     "ta",
@@ -68,9 +61,6 @@ dependencies = [
     "html5lib>=1.1",
     "lxml>=6.1.1",
     "httpx>=0.28.1",
-    "repowise>=0.16.0",
-    "pylint>=4.0.5",
-    "pytest-alembic>=0.12.1",
     "flagembedding>=1.4.0",
     "mcp>=1.27,<2",
     "deepeval>=4.1.0",
@@ -83,6 +73,15 @@ dependencies = [
 [project.scripts]
 polaris = "interfaces.cli.main:main"
 polaris-mcp = "mcp_server.server:main"
+
+[dependency-groups]
+dev = [
+    "alembic>=1.18.5",
+    "pytest>=9.1.1",
+    "pytest-alembic>=0.12.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+]
 
 [tool.ruff]
 line-length = 88
@@ -100,7 +99,7 @@ select = [
 
 [tool.mypy]
 python_version = "3.12"
-explicit_package_bases = true
+#explicit_package_bases = true
 
 # =============================================================================
 # MyPy type checking configuration settings

@@ -68,6 +68,13 @@ from application.evaluations.rag_evaluation_metrics import (
     rag_evaluation_metric_specs,
     rag_threshold_profile,
 )
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+    select_risk_authority_gate,
+)
 
 __all__ = [
     "ApplicationEvaluationsDIProvider",
@@ -105,6 +112,11 @@ __all__ = [
     "EvaluationRunService",
     "EvaluationRunServiceRequest",
     "EvaluationRunServiceResult",
+    "RiskAuthorityGateDecision",
+    "RiskAuthorityGateDecisionStatus",
+    "RiskAuthorityGateEvidence",
+    "RiskAuthorityGateFailureMode",
+    "select_risk_authority_gate",
     "MODEL_REPLACEMENT_DATASET_SLICE_NAME",
     "MODEL_REPLACEMENT_MINIMUM_TIMEOUT_SECONDS",
     "ModelReplacementGateSection",

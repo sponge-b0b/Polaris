@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import uuid4
 
 from application.evaluations.contracts import (
@@ -20,6 +20,11 @@ from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
     rag_evaluation_metric_specs,
 )
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateEvidence,
+    select_risk_authority_gate,
+)
 from config.rag_model_config import RagModelConfig
 from config.settings import Settings
 from config.strategy_model_config import StrategyModelConfig
@@ -27,6 +32,16 @@ from core.storage.persistence.evaluation import (
     EvaluationCaseRecord,
     JsonObject,
     JsonValue,
+)
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskAuthorityContract,
+    SourceOfTruthCategory,
+    classify_risk_authority,
 )
 from domain.evaluation import (
     EvaluationCase,
@@ -273,6 +288,7 @@ class _EvaluationAccumulator:
     langfuse_skipped_count: int
     persistence_runs_written: int
     persistence_metric_results_written: int
+    authority_gate_decision: RiskAuthorityGateDecision | None
 
     @property
     def passed(self) -> bool:
@@ -394,6 +410,12 @@ class ModelReplacementValidationGate:
         skipped_count = 0
         persistence_runs_written = 0
         persistence_metric_results_written = 0
+        authority_contract = _authority_contract_for_section(section)
+        authority_evidence = _authority_gate_evidence(gate_id, section, loaded_cases)
+        authority_gate_decision = select_risk_authority_gate(
+            authority_contract,
+            evidence=authority_evidence,
+        )
 
         grouped_cases = _group_cases_by_target_and_dataset(loaded_cases)
         for (target_type, dataset), cases in grouped_cases.items():
@@ -416,6 +438,8 @@ class ModelReplacementValidationGate:
                     evaluator_model=request.evaluator_model,
                     dataset=dataset,
                     timeout_seconds=request.timeout_seconds,
+                    authority_metadata=authority_contract.to_metadata(),
+                    authority_gate_evidence=authority_evidence,
                 )
             )
             run_ids.append(result.run.run_id)
@@ -426,6 +450,8 @@ class ModelReplacementValidationGate:
                 result.persistence_result.metric_results_written
             )
             projection = result.langfuse_projection_result
+            if result.authority_gate_decision is not None:
+                authority_gate_decision = result.authority_gate_decision
             if projection is not None:
                 exported_count += projection.exported_count
                 pending_count += projection.pending_count
@@ -443,6 +469,7 @@ class ModelReplacementValidationGate:
             langfuse_skipped_count=skipped_count,
             persistence_runs_written=persistence_runs_written,
             persistence_metric_results_written=persistence_metric_results_written,
+            authority_gate_decision=authority_gate_decision,
         )
 
 
@@ -623,11 +650,127 @@ def _filter_cases(
     )
 
 
+def _authority_contract_for_section(
+    section: ModelReplacementGateSection,
+) -> RiskAuthorityContract:
+    if section is ModelReplacementGateSection.STRUCTURED_OUTPUT:
+        return classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.TOOL_RESPONSE,
+                authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+                canonical_owner=CanonicalOwner.EVALUATION_SERVICE,
+                source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+                intended_sink=IntendedSink.EVALUATION_GATE,
+            )
+        )
+    if section is ModelReplacementGateSection.RAG:
+        return classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.RAG_ANSWER,
+                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+                canonical_owner=CanonicalOwner.RAG_SERVICE,
+                source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+                intended_sink=IntendedSink.RAG_ANSWER,
+                externally_visible=True,
+            )
+        )
+    if section is ModelReplacementGateSection.STRATEGY:
+        return classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.STRATEGY_SYNTHESIS,
+                authority_effect=AuthorityEffect.DETERMINISTIC_PLATFORM_DECISION,
+                canonical_owner=CanonicalOwner.STRATEGY_SERVICE,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+                capital_relevant=True,
+                durable_authority=True,
+            )
+        )
+    if section is ModelReplacementGateSection.EXECUTION_RISK_RECOMMENDATION:
+        return classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
+                authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+                canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                intended_sink=IntendedSink.RECOMMENDATION,
+                capital_relevant=True,
+                externally_visible=True,
+            )
+        )
+    return classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.TOOL_RESPONSE,
+            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+            canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
+            source_of_truth=SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD,
+            intended_sink=IntendedSink.MCP_TOOL_RESPONSE,
+            externally_visible=True,
+        )
+    )
+
+
+def _authority_gate_evidence(
+    gate_id: str,
+    section: ModelReplacementGateSection,
+    loaded_cases: tuple[_LoadedCase, ...],
+) -> RiskAuthorityGateEvidence:
+    decision_evidence_ids = (
+        (f"model_replacement_gate:{gate_id}:{section.value}",)
+        if section
+        in {
+            ModelReplacementGateSection.STRATEGY,
+            ModelReplacementGateSection.EXECUTION_RISK_RECOMMENDATION,
+        }
+        else ()
+    )
+    return RiskAuthorityGateEvidence(
+        provenance_record_ids=_case_ids(loaded_cases),
+        decision_evidence_ids=decision_evidence_ids,
+        model_replacement_gate_ids=(gate_id,),
+    )
+
+
+def _authority_gate_details(
+    decision: RiskAuthorityGateDecision | None,
+) -> dict[str, JsonValue]:
+    if decision is None:
+        return {}
+    details: dict[str, JsonValue] = {
+        "authority_gate_status": decision.status.value,
+        "authority_gate_failure_mode": decision.failure_mode.value,
+        "authority_gate_message": decision.message,
+        "provenance_record_ids": decision.evidence.provenance_record_ids,
+        "decision_evidence_ids": decision.evidence.decision_evidence_ids,
+        "model_replacement_gate_ids": decision.evidence.model_replacement_gate_ids,
+        "authority_gate_metric_result_count": decision.evidence.metric_result_count,
+    }
+    if decision.risk_tier is not None:
+        details["selected_risk_tier"] = decision.risk_tier.value
+    if decision.gate_profile is not None:
+        details["selected_gate_profile"] = decision.gate_profile.value
+    if decision.expected_risk_tier is not None:
+        details["expected_risk_tier"] = decision.expected_risk_tier.value
+    if decision.expected_gate_profile is not None:
+        details["expected_gate_profile"] = decision.expected_gate_profile.value
+    if decision.authority_metadata is not None:
+        details["authority_metadata"] = cast(
+            JsonValue,
+            dict(decision.authority_metadata),
+        )
+    if decision.evidence.model_replacement_gate_ids:
+        details["model_replacement_gate_id"] = (
+            decision.evidence.model_replacement_gate_ids[0]
+        )
+    return details
+
+
 def _evaluation_section_result(
     section: ModelReplacementGateSection,
     cases: tuple[_LoadedCase, ...],
     accumulator: _EvaluationAccumulator,
 ) -> ModelReplacementGateSectionResult:
+    authority_details = _authority_gate_details(accumulator.authority_gate_decision)
     if not cases:
         return _missing_cases_section(section)
     if accumulator.unsupported_case_ids:
@@ -645,6 +788,7 @@ def _evaluation_section_result(
                 "unsupported_reason": "no_supported_metrics_for_target_type",
                 "unsupported_case_ids": accumulator.unsupported_case_ids,
                 "unsupported_target_types": accumulator.unsupported_target_types,
+                **authority_details,
             },
             run_ids=accumulator.run_ids,
             case_ids=_case_ids(cases),
@@ -655,7 +799,11 @@ def _evaluation_section_result(
             section=section,
             status=ModelReplacementGateStatus.UNSUPPORTED,
             message="No supported DeepEval metrics are configured for this section.",
-            details={"case_count": len(cases), "case_ids": _case_ids(cases)},
+            details={
+                "case_count": len(cases),
+                "case_ids": _case_ids(cases),
+                **authority_details,
+            },
             case_ids=_case_ids(cases),
         )
     status = (
@@ -675,6 +823,7 @@ def _evaluation_section_result(
             "case_count": len(cases),
             "case_ids": _case_ids(cases),
             "run_statuses": tuple(status.value for status in accumulator.statuses),
+            **authority_details,
         },
         run_ids=accumulator.run_ids,
         case_ids=_case_ids(cases),

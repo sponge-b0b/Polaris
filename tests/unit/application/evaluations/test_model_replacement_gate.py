@@ -14,6 +14,7 @@ from application.evaluations import (
     ModelReplacementValidationGate,
     ModelReplacementValidationMode,
     ModelReplacementValidationRequest,
+    RiskAuthorityGateFailureMode,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_slice_definition_by_name,
 )
@@ -167,6 +168,25 @@ async def test_replacement_gate_runs_complete_replacement_validation() -> None:
         request.run_id.startswith("model_replacement_gate_gate-001_")
         for request in run_service.requests
     )
+    assert all(request.authority_metadata for request in run_service.requests)
+    assert all(request.authority_gate_evidence for request in run_service.requests)
+    assert {
+        request.authority_metadata["gate_profile"] for request in run_service.requests
+    } >= {"enhanced_provenance", "vigilant_decision_evidence"}
+    execution_section = _section(
+        result,
+        ModelReplacementGateSection.EXECUTION_RISK_RECOMMENDATION,
+    )
+    assert execution_section.details["selected_risk_tier"] == "vigilant"
+    assert (
+        execution_section.details["selected_gate_profile"]
+        == "vigilant_decision_evidence"
+    )
+    assert (
+        execution_section.details["authority_gate_failure_mode"]
+        == RiskAuthorityGateFailureMode.NONE.value
+    )
+    assert execution_section.details["model_replacement_gate_id"] == "gate-001"
 
 
 def test_gate_requires_explicit_settings_dependency() -> None:

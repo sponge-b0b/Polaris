@@ -2,30 +2,39 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from time import perf_counter
 from typing import Protocol
 
-from application.evaluations.contracts import EvaluationLangfuseProjectionRequest
-from application.evaluations.contracts import EvaluationLangfuseProjectionResult
-from core.storage.persistence.evaluation import EvaluationPersistenceRepository
-from application.evaluations.contracts import EvaluationRunServiceRequest
-from application.evaluations.contracts import EvaluationRunServiceResult
+from application.evaluations.contracts import (
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionResult,
+    EvaluationRunServiceRequest,
+    EvaluationRunServiceResult,
+)
 from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_definition_by_name,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationStatus
-from integration.providers.llm_evaluation import EvaluationProvider
-from integration.providers.llm_evaluation import EvaluationProviderRequest
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    select_risk_authority_gate,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceRepository,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
+from domain.evaluation import EvaluationRun, EvaluationStatus
+from integration.providers.llm_evaluation import (
+    EvaluationProvider,
+    EvaluationProviderRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +94,50 @@ class EvaluationRunService:
                 metric_count=len(request.metrics),
                 dataset_id=dataset_id,
             )
+        authority_gate_decision = _select_authority_gate(request)
+        if (
+            authority_gate_decision is not None
+            and authority_gate_decision.status is RiskAuthorityGateDecisionStatus.FAILED
+        ):
+            errored_run = EvaluationRun(
+                run_id=request.run_id,
+                target_type=request.target_type,
+                status=EvaluationStatus.ERRORED,
+                evaluator_provider=request.evaluator_provider,
+                evaluator_model=request.evaluator_model,
+                dataset=request.dataset,
+                case_ids=tuple(case.case_id for case in request.cases),
+                started_at=started_at,
+                completed_at=datetime.now(UTC),
+                error_message=(
+                    "risk authority gate failed: "
+                    f"{authority_gate_decision.failure_mode.value}"
+                ),
+            )
+            error_result = await self.repository.persist_evaluation_bundle(
+                EvaluationPersistenceBundle(
+                    runs=(EvaluationRunRecord.from_domain(errored_run),)
+                )
+            )
+            if self.telemetry is not None:
+                await self.telemetry.emit_run_failed(
+                    run_id=request.run_id,
+                    target_type=request.target_type,
+                    evaluator_provider=request.evaluator_provider,
+                    evaluator_model=request.evaluator_model,
+                    case_count=len(request.cases),
+                    dataset_id=dataset_id,
+                    duration_seconds=perf_counter() - started_monotonic,
+                    error=RuntimeError(authority_gate_decision.message),
+                )
+            return EvaluationRunServiceResult(
+                run=errored_run,
+                metric_results=(),
+                persistence_result=_combine_persistence_results(
+                    initial_result, error_result
+                ),
+                authority_gate_decision=authority_gate_decision,
+            )
         try:
             provider_result = await self.provider.evaluate(
                 EvaluationProviderRequest(
@@ -129,6 +182,7 @@ class EvaluationRunService:
                 persistence_result=_combine_persistence_results(
                     initial_result, error_result
                 ),
+                authority_gate_decision=authority_gate_decision,
             )
 
         completed_run = EvaluationRun(
@@ -189,6 +243,7 @@ class EvaluationRunService:
                 initial_result, final_result
             ),
             langfuse_projection_result=projection_result,
+            authority_gate_decision=authority_gate_decision,
         )
 
     async def _project_scores(
@@ -230,6 +285,17 @@ class EvaluationRunService:
                 export_results=(),
                 failed_count=failed_count,
             )
+
+
+def _select_authority_gate(
+    request: EvaluationRunServiceRequest,
+) -> RiskAuthorityGateDecision | None:
+    if request.authority_metadata is None:
+        return None
+    return select_risk_authority_gate(
+        request.authority_metadata,
+        evidence=request.authority_gate_evidence,
+    )
 
 
 def _dataset_records(

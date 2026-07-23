@@ -15,6 +15,9 @@ from application.evaluations import (
     EvaluationRunService,
     EvaluationRunServiceRequest,
     EvaluationTelemetry,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_slice_definition_by_name,
 )
@@ -29,6 +32,15 @@ from core.storage.persistence.evaluation import (
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskAuthorityClassifier,
+    SourceOfTruthCategory,
+)
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -233,6 +245,23 @@ def _case(dataset: EvaluationDatasetReference) -> EvaluationCase:
     )
 
 
+def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
+    return (
+        RiskAuthorityClassifier()
+        .classify(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.RAG_ANSWER,
+                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+                canonical_owner=CanonicalOwner.RAG_SERVICE,
+                source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+                intended_sink=IntendedSink.RAG_ANSWER,
+                externally_visible=True,
+            )
+        )
+        .to_metadata()
+    )
+
+
 def _metric() -> EvaluationMetricSpec:
     return EvaluationMetricSpec(
         metric_name="faithfulness",
@@ -291,6 +320,76 @@ async def test_run_service_persists_cases_running_run_and_results() -> None:
     assert repository.cases["case-1"].dataset_id == "dataset-1"
     assert repository.runs["run-1"].status is EvaluationStatus.PASSED
     assert repository.metric_results[0].metric_name == "faithfulness"
+
+
+@pytest.mark.asyncio
+async def test_run_service_fails_closed_when_gate_evidence_is_missing() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    projection_service = FakeProjectionService([])
+    service = EvaluationRunService(
+        FakeProvider(), repository, projection_service=projection_service
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-risk-gate",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+        )
+    )
+
+    assert result.run.status is EvaluationStatus.ERRORED
+    assert result.authority_gate_decision is not None
+    assert (
+        result.authority_gate_decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    )
+    assert (
+        result.authority_gate_decision.failure_mode
+        is RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED
+    )
+    assert result.authority_gate_decision.selected_profile == "enhanced_provenance"
+    assert "risk authority gate" in (result.run.error_message or "")
+    assert repository.metric_results == []
+    assert projection_service.requests == []
+
+
+@pytest.mark.asyncio
+async def test_run_service_records_selected_authority_gate_profile() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    service = EvaluationRunService(
+        FakeProvider(), repository, FakeProjectionService([])
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-risk-gate",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=RiskAuthorityGateEvidence(
+                provenance_record_ids=("rag-document-1",),
+            ),
+        )
+    )
+
+    assert result.run.status is EvaluationStatus.PASSED
+    assert result.authority_gate_decision is not None
+    assert result.authority_gate_decision.risk_tier.value == "enhanced"
+    assert result.authority_gate_decision.selected_profile == "enhanced_provenance"
+    assert (
+        result.authority_gate_decision.failure_mode is RiskAuthorityGateFailureMode.NONE
+    )
 
 
 @pytest.mark.asyncio

@@ -1,23 +1,31 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
+
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateEvidence,
+)
 from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
 )
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import JsonObject
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationTargetType
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+    JsonObject,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationTargetType,
+)
 from integration.providers.llm_evaluation import EvaluationMetricSpec
 
 
@@ -112,6 +120,8 @@ class EvaluationRunServiceRequest:
     evaluator_model: str
     dataset: EvaluationDatasetReference | None = None
     timeout_seconds: float | None = None
+    authority_metadata: Mapping[str, object] | None = None
+    authority_gate_evidence: RiskAuthorityGateEvidence | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.run_id, "run_id")
@@ -133,6 +143,7 @@ class EvaluationRunServiceResult:
     metric_results: tuple[EvaluationMetricResult, ...]
     persistence_result: EvaluationPersistenceResult
     langfuse_projection_result: EvaluationLangfuseProjectionResult | None = None
+    authority_gate_decision: RiskAuthorityGateDecision | None = None
 
     @property
     def metric_result_count(self) -> int:

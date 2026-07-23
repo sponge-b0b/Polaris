@@ -14,11 +14,11 @@ from domain.authority import (
     IntendedSink,
     RiskAuthorityClassificationInput,
     RiskAuthorityContract,
-    RiskTier,
     SourceOfTruthCategory,
     authority_contract_metadata,
     classify_risk_authority,
     model_authority_claim_keys_from_text,
+    risk_authority_decision_profile_for_tier,
 )
 
 type JsonScalar = str | int | float | bool | None
@@ -158,7 +158,7 @@ def validate_report_publication_authority(
 ) -> ReportAuthorityValidation:
     """Fail closed before report text crosses an external or durable sink."""
 
-    if contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY:
+    if risk_authority_decision_profile_for_tier(contract.risk_tier).prohibits_boundary:
         return ReportAuthorityValidation(
             failure_mode=ReportAuthorityFailureMode.OUTSIDE_AUTHORITY,
         )

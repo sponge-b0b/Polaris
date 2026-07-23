@@ -13,10 +13,15 @@ from domain.authority import (
     RiskAuthorityClassificationInput,
     RiskAuthorityClassifier,
     RiskAuthorityContract,
+    RiskAuthorityDecisionProfile,
+    RiskAuthorityValidation,
     RiskTier,
     SourceOfTruthCategory,
+    coerce_risk_authority_contract,
     reclassify_risk_authority_contract,
     risk_authority_contract_from_metadata,
+    risk_authority_decision_profile_for_tier,
+    validate_risk_authority_metadata,
 )
 from tests.helpers.risk_authority_examples import (
     advisory_tool_response_authority_input,
@@ -181,3 +186,77 @@ def test_contract_metadata_parser_rejects_malformed_boundary_values() -> None:
 
     with pytest.raises(ValueError, match="risk_authority.evidence_sufficient"):
         risk_authority_contract_from_metadata(metadata)
+
+
+def test_authority_metadata_coercion_accepts_contracts_and_mapping_payloads() -> None:
+    contract = classify(rag_answer_authority_input())
+
+    assert coerce_risk_authority_contract(contract) is contract
+    assert coerce_risk_authority_contract(contract.to_metadata()) == contract
+
+    with pytest.raises(ValueError, match="risk_authority must be a metadata object"):
+        coerce_risk_authority_contract("enhanced")
+
+
+def test_authority_metadata_validation_recomputes_platform_owned_profile() -> None:
+    metadata = classify(recommendation_explanation_authority_input()).to_metadata()
+    metadata["risk_tier"] = "baseline"
+    metadata["gate_profile"] = "baseline_internal"
+
+    validation = validate_risk_authority_metadata(metadata)
+
+    assert isinstance(validation, RiskAuthorityValidation)
+    assert validation.contract.risk_tier is RiskTier.BASELINE
+    assert validation.expected_contract.risk_tier is RiskTier.VIGILANT
+    assert validation.platform_consistent is False
+    assert (
+        validation.expected_profile.gate_profile
+        is GateProfile.VIGILANT_DECISION_EVIDENCE
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "risk_tier",
+        "expected_profile",
+    ),
+    [
+        (
+            RiskTier.BASELINE,
+            RiskAuthorityDecisionProfile(
+                risk_tier=RiskTier.BASELINE,
+                gate_profile=GateProfile.BASELINE_INTERNAL,
+            ),
+        ),
+        (
+            RiskTier.ENHANCED,
+            RiskAuthorityDecisionProfile(
+                risk_tier=RiskTier.ENHANCED,
+                gate_profile=GateProfile.ENHANCED_PROVENANCE,
+                requires_provenance_evidence=True,
+            ),
+        ),
+        (
+            RiskTier.VIGILANT,
+            RiskAuthorityDecisionProfile(
+                risk_tier=RiskTier.VIGILANT,
+                gate_profile=GateProfile.VIGILANT_DECISION_EVIDENCE,
+                requires_provenance_evidence=True,
+                requires_decision_evidence=True,
+            ),
+        ),
+        (
+            RiskTier.PROHIBITED_OUTSIDE_AUTHORITY,
+            RiskAuthorityDecisionProfile(
+                risk_tier=RiskTier.PROHIBITED_OUTSIDE_AUTHORITY,
+                gate_profile=GateProfile.PROHIBITED_BOUNDARY,
+                prohibits_boundary=True,
+            ),
+        ),
+    ],
+)
+def test_risk_tier_dispatch_uses_canonical_decision_profiles(
+    risk_tier: RiskTier,
+    expected_profile: RiskAuthorityDecisionProfile,
+) -> None:
+    assert risk_authority_decision_profile_for_tier(risk_tier) == expected_profile

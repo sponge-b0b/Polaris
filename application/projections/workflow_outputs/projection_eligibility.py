@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, cast
@@ -23,11 +22,9 @@ from domain.authority import (
     IntendedSink,
     RiskAuthorityClassificationInput,
     RiskAuthorityContract,
-    RiskTier,
     SourceOfTruthCategory,
     classify_risk_authority,
-    reclassify_risk_authority_contract,
-    risk_authority_contract_from_metadata,
+    validate_risk_authority_metadata,
 )
 
 WorkflowProjectionExecutionMode = CompletedRunExecutionMode
@@ -259,7 +256,7 @@ def _evaluate_authority_contract(
         )
 
     try:
-        authority_contract = _authority_contract_from_metadata(raw_authority_metadata)
+        validation = validate_risk_authority_metadata(raw_authority_metadata)
     except ValueError as exc:
         return None, _skipped(
             node_output,
@@ -267,6 +264,7 @@ def _evaluate_authority_contract(
             f"Projection requires well-formed risk authority metadata: {exc}",
         )
 
+    authority_contract = validation.contract
     if authority_contract.intended_sink is not intended_sink:
         return authority_contract, _skipped(
             node_output,
@@ -279,11 +277,7 @@ def _evaluate_authority_contract(
             authority_contract=authority_contract,
         )
 
-    expected_contract = _reclassify_authority_contract(authority_contract)
-    if (
-        authority_contract.risk_tier is not expected_contract.risk_tier
-        or authority_contract.gate_profile is not expected_contract.gate_profile
-    ):
+    if not validation.platform_consistent:
         return authority_contract, _skipped(
             node_output,
             WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT,
@@ -294,7 +288,7 @@ def _evaluate_authority_contract(
             authority_contract=authority_contract,
         )
 
-    if authority_contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY:
+    if validation.selected_profile.prohibits_boundary:
         return authority_contract, _skipped(
             node_output,
             WorkflowOutputProjectionSkipReason.PROHIBITED_OUTSIDE_AUTHORITY,
@@ -318,22 +312,6 @@ def _classify_internal_baseline_runtime_evidence() -> RiskAuthorityContract:
             intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
         )
     )
-
-
-def _authority_contract_from_metadata(
-    raw_authority_metadata: object,
-) -> RiskAuthorityContract:
-    if not isinstance(raw_authority_metadata, Mapping):
-        raise ValueError("risk_authority must be a metadata object.")
-    return risk_authority_contract_from_metadata(
-        cast(Mapping[str, object], raw_authority_metadata),
-    )
-
-
-def _reclassify_authority_contract(
-    contract: RiskAuthorityContract,
-) -> RiskAuthorityContract:
-    return reclassify_risk_authority_contract(contract)
 
 
 def _persistence_boundary_decision(

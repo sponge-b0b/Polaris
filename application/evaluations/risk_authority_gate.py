@@ -8,8 +8,7 @@ from domain.authority import (
     GateProfile,
     RiskAuthorityContract,
     RiskTier,
-    reclassify_risk_authority_contract,
-    risk_authority_contract_from_metadata,
+    validate_risk_authority_metadata,
 )
 
 
@@ -129,7 +128,7 @@ def select_risk_authority_gate(
         )
 
     try:
-        contract = _coerce_authority_contract(authority_metadata)
+        validation = validate_risk_authority_metadata(authority_metadata)
     except ValueError as exc:
         return RiskAuthorityGateDecision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
@@ -141,12 +140,10 @@ def select_risk_authority_gate(
             evidence=gate_evidence,
         )
 
+    contract = validation.contract
     selected_metadata = contract.to_metadata()
-    expected_contract = reclassify_risk_authority_contract(contract)
-    if (
-        contract.risk_tier is not expected_contract.risk_tier
-        or contract.gate_profile is not expected_contract.gate_profile
-    ):
+    expected_contract = validation.expected_contract
+    if not validation.platform_consistent:
         return RiskAuthorityGateDecision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.METADATA_INCONSISTENT,
@@ -162,7 +159,8 @@ def select_risk_authority_gate(
             expected_gate_profile=expected_contract.gate_profile,
         )
 
-    if contract.gate_profile is GateProfile.PROHIBITED_BOUNDARY:
+    decision_profile = validation.selected_profile
+    if decision_profile.prohibits_boundary:
         return RiskAuthorityGateDecision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.PROHIBITED_BOUNDARY,
@@ -175,7 +173,7 @@ def select_risk_authority_gate(
             expected_gate_profile=expected_contract.gate_profile,
         )
 
-    if contract.gate_profile is GateProfile.VIGILANT_DECISION_EVIDENCE and not (
+    if decision_profile.requires_decision_evidence and not (
         gate_evidence.has_decision_evidence
     ):
         return RiskAuthorityGateDecision(
@@ -190,7 +188,7 @@ def select_risk_authority_gate(
             expected_gate_profile=expected_contract.gate_profile,
         )
 
-    if _requires_provenance_evidence(contract.gate_profile) and not (
+    if decision_profile.requires_provenance_evidence and not (
         gate_evidence.has_provenance_evidence
     ):
         return RiskAuthorityGateDecision(
@@ -218,27 +216,12 @@ def select_risk_authority_gate(
     )
 
 
-def _coerce_authority_contract(
-    authority_metadata: Mapping[str, object] | RiskAuthorityContract,
-) -> RiskAuthorityContract:
-    if isinstance(authority_metadata, RiskAuthorityContract):
-        return authority_metadata
-    return risk_authority_contract_from_metadata(authority_metadata)
-
-
 def _metadata_copy(
     authority_metadata: Mapping[str, object] | RiskAuthorityContract,
 ) -> Mapping[str, object]:
     if isinstance(authority_metadata, RiskAuthorityContract):
         return authority_metadata.to_metadata()
     return dict(authority_metadata)
-
-
-def _requires_provenance_evidence(gate_profile: GateProfile) -> bool:
-    return gate_profile in {
-        GateProfile.ENHANCED_PROVENANCE,
-        GateProfile.VIGILANT_DECISION_EVIDENCE,
-    }
 
 
 def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:

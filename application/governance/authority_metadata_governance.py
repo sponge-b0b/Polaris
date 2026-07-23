@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Final, cast
@@ -14,8 +14,7 @@ from domain.authority import (
     RISK_AUTHORITY_METADATA_KEY,
     RiskAuthorityContract,
     RiskTier,
-    reclassify_risk_authority_contract,
-    risk_authority_contract_from_metadata,
+    validate_risk_authority_metadata,
 )
 
 AUTHORITY_GOVERNANCE_RULE_NAME: Final = "authority_metadata_governance"
@@ -67,7 +66,9 @@ class AuthorityMetadataGovernanceRule(BaseGovernanceRule):
             )
 
         try:
-            contract = _coerce_authority_contract(extraction.raw_authority_metadata)
+            validation = validate_risk_authority_metadata(
+                extraction.raw_authority_metadata,
+            )
         except ValueError as exc:
             return _malformed_authority_result(
                 rule_name=self.rule_name,
@@ -76,8 +77,9 @@ class AuthorityMetadataGovernanceRule(BaseGovernanceRule):
                 error=exc,
             )
 
-        expected_contract = reclassify_risk_authority_contract(contract)
-        if _authority_profile_is_inconsistent(contract, expected_contract):
+        contract = validation.contract
+        expected_contract = validation.expected_contract
+        if not validation.platform_consistent:
             return _inconsistent_authority_result(
                 rule_name=self.rule_name,
                 subject_family=subject_family,
@@ -149,16 +151,6 @@ def _malformed_authority_result(
     )
 
 
-def _authority_profile_is_inconsistent(
-    contract: RiskAuthorityContract,
-    expected_contract: RiskAuthorityContract,
-) -> bool:
-    return (
-        contract.risk_tier is not expected_contract.risk_tier
-        or contract.gate_profile is not expected_contract.gate_profile
-    )
-
-
 def _inconsistent_authority_result(
     *,
     rule_name: str,
@@ -203,28 +195,9 @@ def _authority_governance_result(
             metadata_source=metadata_source,
             contract=contract,
         )
-    if contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY:
-        return _prohibited_authority_result(
-            rule_name=rule_name,
-            subject_family=subject_family,
-            metadata_source=metadata_source,
-            contract=contract,
-        )
-    if contract.risk_tier is RiskTier.BASELINE:
-        return _baseline_authority_result(
-            rule_name=rule_name,
-            subject_family=subject_family,
-            metadata_source=metadata_source,
-            contract=contract,
-        )
-    if contract.risk_tier is RiskTier.ENHANCED:
-        return _enhanced_authority_result(
-            rule_name=rule_name,
-            subject_family=subject_family,
-            metadata_source=metadata_source,
-            contract=contract,
-        )
-    return _vigilant_authority_result(
+
+    result_builder = _AUTHORITY_GOVERNANCE_RESULT_BY_TIER[contract.risk_tier]
+    return result_builder(
         rule_name=rule_name,
         subject_family=subject_family,
         metadata_source=metadata_source,
@@ -375,6 +348,18 @@ def _vigilant_authority_result(
     )
 
 
+type _AuthorityGovernanceResultBuilder = Callable[..., GovernanceResult]
+
+_AUTHORITY_GOVERNANCE_RESULT_BY_TIER: Final[
+    dict[RiskTier, _AuthorityGovernanceResultBuilder]
+] = {
+    RiskTier.BASELINE: _baseline_authority_result,
+    RiskTier.ENHANCED: _enhanced_authority_result,
+    RiskTier.VIGILANT: _vigilant_authority_result,
+    RiskTier.PROHIBITED_OUTSIDE_AUTHORITY: _prohibited_authority_result,
+}
+
+
 def _metadata_required(context: Mapping[str, Any]) -> bool:
     value = context.get(AUTHORITY_METADATA_REQUIRED_CONTEXT_KEY)
     return isinstance(value, bool) and value
@@ -480,16 +465,6 @@ def _mapping_from_object(value: object) -> Mapping[object, object] | None:
     if isinstance(value, Mapping):
         return cast(Mapping[object, object], value)
     return None
-
-
-def _coerce_authority_contract(raw_authority_metadata: object) -> RiskAuthorityContract:
-    if isinstance(raw_authority_metadata, RiskAuthorityContract):
-        return raw_authority_metadata
-    if not isinstance(raw_authority_metadata, Mapping):
-        raise ValueError("risk_authority must be a metadata object.")
-    return risk_authority_contract_from_metadata(
-        cast(Mapping[str, object], raw_authority_metadata),
-    )
 
 
 def _result_metadata(

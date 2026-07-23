@@ -18,6 +18,16 @@ from domain.authority import (
     reclassify_risk_authority_contract,
     risk_authority_contract_from_metadata,
 )
+from tests.helpers.risk_authority_examples import (
+    advisory_tool_response_authority_input,
+    outside_authority_tool_response_input,
+    rag_answer_authority_input,
+    recommendation_explanation_authority_input,
+    recommendation_record_authority_input,
+    report_presentation_authority_input,
+    runtime_evidence_authority_input,
+    strategy_synthesis_authority_input,
+)
 
 
 def classify(
@@ -27,15 +37,7 @@ def classify(
 
 
 def test_internal_runtime_evidence_is_baseline_and_immutable() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RUNTIME_EVIDENCE,
-            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-            canonical_owner=CanonicalOwner.RUNTIME,
-            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
-            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
-        )
-    )
+    contract = classify(runtime_evidence_authority_input())
 
     assert contract.risk_tier is RiskTier.BASELINE
     assert contract.gate_profile is GateProfile.BASELINE_INTERNAL
@@ -46,16 +48,7 @@ def test_internal_runtime_evidence_is_baseline_and_immutable() -> None:
 
 
 def test_durable_domain_records_escalate_beyond_baseline() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
-            authority_effect=AuthorityEffect.CANONICAL_RECORD,
-            canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
-            durable_authority=True,
-        )
-    )
+    contract = classify(recommendation_record_authority_input())
 
     assert contract.risk_tier is RiskTier.ENHANCED
     assert contract.gate_profile is GateProfile.ENHANCED_PROVENANCE
@@ -63,17 +56,7 @@ def test_durable_domain_records_escalate_beyond_baseline() -> None:
 
 
 def test_capital_relevant_external_recommendations_are_vigilant() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
-            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-            canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.RECOMMENDATION,
-            capital_relevant=True,
-            externally_visible=True,
-        )
-    )
+    contract = classify(recommendation_explanation_authority_input())
 
     assert contract.risk_tier is RiskTier.VIGILANT
     assert contract.gate_profile is GateProfile.VIGILANT_DECISION_EVIDENCE
@@ -88,56 +71,25 @@ def test_capital_relevant_external_recommendations_are_vigilant() -> None:
     ),
     [
         (
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.RAG_ANSWER,
-                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-                canonical_owner=CanonicalOwner.RAG_SERVICE,
-                source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-                intended_sink=IntendedSink.RAG_ANSWER,
-                externally_visible=True,
-                evidence_sufficient=True,
-            ),
+            rag_answer_authority_input(),
             RiskTier.ENHANCED,
             CanonicalOwner.RAG_SERVICE,
             IntendedSink.RAG_ANSWER,
         ),
         (
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.REPORT,
-                authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-                canonical_owner=CanonicalOwner.REPORT_SERVICE,
-                source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-                intended_sink=IntendedSink.REPORT,
-                externally_visible=True,
-            ),
+            report_presentation_authority_input(),
             RiskTier.ENHANCED,
             CanonicalOwner.REPORT_SERVICE,
             IntendedSink.REPORT,
         ),
         (
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.STRATEGY_SYNTHESIS,
-                authority_effect=AuthorityEffect.DETERMINISTIC_PLATFORM_DECISION,
-                canonical_owner=CanonicalOwner.STRATEGY_SERVICE,
-                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
-                capital_relevant=True,
-                durable_authority=True,
-            ),
+            strategy_synthesis_authority_input(),
             RiskTier.VIGILANT,
             CanonicalOwner.STRATEGY_SERVICE,
             IntendedSink.DURABLE_DOMAIN_RECORD,
         ),
         (
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.TOOL_RESPONSE,
-                authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-                canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
-                source_of_truth=SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD,
-                intended_sink=IntendedSink.MCP_TOOL_RESPONSE,
-                externally_visible=True,
-                capital_relevant=True,
-            ),
+            advisory_tool_response_authority_input(),
             RiskTier.VIGILANT,
             CanonicalOwner.APPLICATION_SERVICE,
             IntendedSink.MCP_TOOL_RESPONSE,
@@ -160,17 +112,7 @@ def test_representative_ai_output_families_receive_authority_metadata(
 
 
 def test_prohibited_outside_authority_selects_prohibited_boundary_gate() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.TOOL_RESPONSE,
-            authority_effect=AuthorityEffect.OUTSIDE_AUTHORITY,
-            canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
-            source_of_truth=SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD,
-            intended_sink=IntendedSink.MCP_TOOL_RESPONSE,
-            capital_relevant=True,
-            externally_visible=True,
-        )
-    )
+    contract = classify(outside_authority_tool_response_input())
 
     assert contract.risk_tier is RiskTier.PROHIBITED_OUTSIDE_AUTHORITY
     assert contract.gate_profile is GateProfile.PROHIBITED_BOUNDARY
@@ -178,14 +120,7 @@ def test_prohibited_outside_authority_selects_prohibited_boundary_gate() -> None
 
 def test_model_metadata_cannot_self_promote_or_downgrade_authority() -> None:
     contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
-            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-            canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.RECOMMENDATION,
-            capital_relevant=True,
-            externally_visible=True,
+        recommendation_explanation_authority_input(
             model_provided_metadata={
                 "risk_tier": "baseline",
                 "authority_effect": "governance_decision",
@@ -209,16 +144,7 @@ def test_model_metadata_cannot_self_promote_or_downgrade_authority() -> None:
 
 
 def test_contract_metadata_is_boundary_safe_and_uses_stable_values() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RAG_ANSWER,
-            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-            canonical_owner=CanonicalOwner.RAG_SERVICE,
-            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-            intended_sink=IntendedSink.RAG_ANSWER,
-            externally_visible=True,
-        )
-    )
+    contract = classify(rag_answer_authority_input())
 
     assert contract.to_metadata() == {
         "risk_tier": "enhanced",
@@ -238,16 +164,7 @@ def test_contract_metadata_is_boundary_safe_and_uses_stable_values() -> None:
 
 
 def test_contract_metadata_round_trips_through_canonical_parser() -> None:
-    contract = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.REPORT,
-            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-            canonical_owner=CanonicalOwner.REPORT_SERVICE,
-            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-            intended_sink=IntendedSink.REPORT,
-            externally_visible=True,
-        )
-    )
+    contract = classify(report_presentation_authority_input())
 
     parsed_contract = risk_authority_contract_from_metadata(contract.to_metadata())
 
@@ -259,16 +176,7 @@ def test_contract_metadata_round_trips_through_canonical_parser() -> None:
 
 
 def test_contract_metadata_parser_rejects_malformed_boundary_values() -> None:
-    metadata = classify(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RAG_ANSWER,
-            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-            canonical_owner=CanonicalOwner.RAG_SERVICE,
-            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-            intended_sink=IntendedSink.RAG_ANSWER,
-            externally_visible=True,
-        )
-    ).to_metadata()
+    metadata = classify(rag_answer_authority_input()).to_metadata()
     metadata["evidence_sufficient"] = "yes"
 
     with pytest.raises(ValueError, match="risk_authority.evidence_sufficient"):

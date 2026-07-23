@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestMetricRecord,
+)
 
 
 def test_backtest_metric_requires_timezone_aware_recorded_at() -> None:
@@ -34,7 +35,7 @@ def test_backtest_artifact_requires_timezone_aware_generated_at() -> None:
 
 
 def test_backtest_metric_and_artifact_accept_timezone_aware_timestamps() -> None:
-    timestamp = datetime(2026, 6, 25, 12, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 6, 25, 12, tzinfo=UTC)
 
     metric = BacktestMetricRecord(
         metric_id="metric-1",

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +74,6 @@ class JsonlRuntimeTelemetrySink(RuntimeTelemetrySink):
 
         with open(
             self.file_path,
-            "r",
             encoding="utf-8",
         ) as file:
             for line in file:

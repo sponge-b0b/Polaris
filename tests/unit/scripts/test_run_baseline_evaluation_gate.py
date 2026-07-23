@@ -4,8 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.run_baseline_evaluation_gate import ReleaseGateOptions
-from scripts.run_baseline_evaluation_gate import run_release_gate
+from scripts.run_baseline_evaluation_gate import ReleaseGateOptions, run_release_gate
 
 
 class FakeEvaluationGateService:

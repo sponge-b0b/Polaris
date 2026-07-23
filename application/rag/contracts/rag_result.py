@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
-from collections.abc import Sequence
-from typing import Mapping
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.contracts.rag_quality_models import RagReflectionScores
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
+from application.rag.contracts.rag_quality_models import (
+    RagCorrectiveAction,
+    RagReflectionScores,
+)
 from application.rag.contracts.rag_request import RagRequest
 from core.storage.persistence.rag import JsonObject
 
@@ -41,7 +39,7 @@ class RagResult:
     corrective_actions: tuple[RagCorrectiveAction, ...] = ()
     error: str | None = None
     generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     metadata: JsonObject = field(default_factory=dict)
 
@@ -344,7 +342,7 @@ def _datetime_from_payload(
     value: object,
 ) -> datetime:
     if value is None:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     if isinstance(
         value,
         datetime,

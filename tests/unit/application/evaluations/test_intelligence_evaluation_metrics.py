@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from application.evaluations import INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS
-from application.evaluations import INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION
-from application.evaluations import EvaluationMetricEngine
-from application.evaluations import intelligence_evaluation_metric_specs
-from application.evaluations import intelligence_threshold_profile
+from application.evaluations import (
+    INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS,
+    INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION,
+    EvaluationMetricEngine,
+    intelligence_evaluation_metric_specs,
+    intelligence_threshold_profile,
+)
 from domain.evaluation import EvaluationTargetType
 
 

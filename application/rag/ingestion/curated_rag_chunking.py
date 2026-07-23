@@ -7,11 +7,13 @@ from typing import cast
 
 from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import JsonValue
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import new_rag_chunk_id
+from core.storage.persistence.rag import (
+    JsonObject,
+    JsonValue,
+    RagChunkRecord,
+    RagDocumentRecord,
+    new_rag_chunk_id,
+)
 from core.storage.persistence.reports import ReportRecord
 
 _HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")

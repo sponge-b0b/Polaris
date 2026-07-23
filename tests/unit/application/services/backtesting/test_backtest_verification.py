@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from json import dumps
 from types import SimpleNamespace
@@ -13,14 +11,15 @@ from typing import Any
 import pytest
 
 from application.persistence.backtesting import backtest_result_to_persistence_bundle
-from application.services.backtesting import BacktestApplicationService
-from application.services.backtesting import BacktestExpectedOutcome
-from application.services.backtesting import BacktestRunRequest
-from application.services.backtesting import BacktestScenario
+from application.services.backtesting import (
+    BacktestApplicationService,
+    BacktestExpectedOutcome,
+    BacktestRunRequest,
+    BacktestScenario,
+)
 from application.services.base import ServiceRequest
 
-
-_FIXED_TIME = datetime(2026, 1, 10, 12, 0, tzinfo=timezone.utc)
+_FIXED_TIME = datetime(2026, 1, 10, 12, 0, tzinfo=UTC)
 
 
 class DeterministicGoldenWorkflowFacade:
@@ -577,7 +576,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "synthesis_weights": {"bull": "0.20", "bear": "0.60", "sideways": "0.20"},
             "degraded_reasons": (),
             "invalidated_perspectives": (),
-            "thesis": "Bearish hypothesis selected from deterministic downside evidence.",
+            "thesis": "Bearish hypothesis selected from deterministic downside evidence.",  # noqa: E501
         },
         "sideways": {
             "selected_perspective": "sideways",
@@ -629,7 +628,7 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "synthesis_weights": {"bull": "0.20", "bear": "0.58", "sideways": "0.22"},
             "degraded_reasons": (),
             "invalidated_perspectives": ("bull",),
-            "thesis": "Bearish hypothesis selected after bullish hypothesis invalidation.",
+            "thesis": "Bearish hypothesis selected after bullish hypothesis invalidation.",  # noqa: E501
         },
     }
     return configs[case_name]
@@ -702,14 +701,14 @@ def _strategy_hypothesis(perspective: str) -> dict[str, Any]:
                 "reliability": "0.70",
                 "supports": [],
                 "contradicts": [perspective],
-                "explanation": f"Partially contradicts the deterministic {perspective} hypothesis.",
+                "explanation": f"Partially contradicts the deterministic {perspective} hypothesis.",  # noqa: E501
             }
         ],
         "key_assumptions": [
             {
                 "assumption_id": f"assumption-{perspective}-trend",
                 "perspective": perspective,
-                "description": f"The deterministic {perspective} evidence remains valid.",
+                "description": f"The deterministic {perspective} evidence remains valid.",  # noqa: E501
                 "confidence": "0.75",
                 "evidence_ids": [f"ev-{perspective}-trend"],
             }
@@ -718,7 +717,7 @@ def _strategy_hypothesis(perspective: str) -> dict[str, Any]:
             {
                 "condition_id": f"invalidate-{perspective}-trend",
                 "perspective": perspective,
-                "description": f"Invalidate {perspective} if evidence strength falls below threshold.",
+                "description": f"Invalidate {perspective} if evidence strength falls below threshold.",  # noqa: E501
                 "observed_value": "0.72",
                 "operator": "lt",
                 "threshold": "0.35",

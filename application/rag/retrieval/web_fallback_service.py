@@ -5,8 +5,10 @@ from time import perf_counter
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.web_retrieval_provider import WebRetrievalProvider
-from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
+from integration.providers.rag.web_retrieval_provider import (
+    WebRetrievalProvider,
+    WebRetrievalRequest,
+)
 
 
 class RagWebFallbackService:

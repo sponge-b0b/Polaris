@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
-from typing import runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationThreshold
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationMetricResult,
+    EvaluationStatus,
+    EvaluationThreshold,
+)
 
 
 @dataclass(frozen=True, slots=True)

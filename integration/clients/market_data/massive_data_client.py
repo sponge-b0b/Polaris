@@ -1,10 +1,11 @@
 import asyncio
-import pandas as pd
+from collections.abc import Iterable
+from datetime import UTC, date, datetime, timedelta
+from typing import cast, overload
 
-from datetime import datetime, timedelta, timezone, date
+import pandas as pd
 from massive import RESTClient
 from massive.rest.models.aggs import Agg
-from typing import Iterable, cast, overload, Optional
 
 from config.settings import Settings
 
@@ -48,7 +49,7 @@ class MassiveDataClient:
         timespan: str,
         *,
         start_date: date,
-        end_date: Optional[date] = None,
+        end_date: date | None = None,
     ) -> pd.DataFrame: ...
 
     async def get_symbol_data(
@@ -57,9 +58,9 @@ class MassiveDataClient:
         multiplier: int,
         timespan: str,
         *,
-        days: Optional[int] = None,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        days: int | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> pd.DataFrame:
 
         from_date = date.today()
@@ -98,7 +99,7 @@ class MassiveDataClient:
 
             timestamp = datetime.fromtimestamp(
                 int(agg.timestamp) / 1000,
-                tz=timezone.utc,
+                tz=UTC,
             )
 
             rows.append(

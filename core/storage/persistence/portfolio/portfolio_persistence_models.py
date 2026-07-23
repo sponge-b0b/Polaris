@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
 
 @dataclass(
@@ -437,7 +437,7 @@ class PortfolioEquityHistoryPointRecord:
         object.__setattr__(
             self,
             "observed_at",
-            self.observed_at.astimezone(timezone.utc),
+            self.observed_at.astimezone(UTC),
         )
         _require_optional_non_negative_float(self.equity, "equity")
         _require_optional_non_negative_float(self.base_value, "base_value")
@@ -536,7 +536,7 @@ def new_portfolio_equity_history_point_id(
     clean_timeframe = require_non_empty_identifier(timeframe, "timeframe")
     if observed_at.tzinfo is None or observed_at.utcoffset() is None:
         raise ValueError("observed_at must be timezone-aware.")
-    normalized_observed_at = observed_at.astimezone(timezone.utc)
+    normalized_observed_at = observed_at.astimezone(UTC)
     return ":".join(
         (
             "portfolio_equity_history_point",
@@ -574,7 +574,7 @@ def new_portfolio_position_history_id(
     )
 
     if clean_execution_id is None:
-        return f"portfolio_position_history:{clean_account_id}:{clean_symbol}:{uuid4().hex}"
+        return f"portfolio_position_history:{clean_account_id}:{clean_symbol}:{uuid4().hex}"  # noqa: E501
 
     parts = [
         "portfolio_position_history",

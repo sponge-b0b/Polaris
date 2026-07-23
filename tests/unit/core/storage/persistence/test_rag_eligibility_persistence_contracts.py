@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
-from core.storage.persistence.rag import new_rag_source_eligibility_id
+from core.storage.persistence.rag import (
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+    new_rag_source_eligibility_id,
+)
 
 
 def test_rag_source_eligibility_record_is_metadata_only_typed_and_immutable() -> None:
@@ -171,5 +172,5 @@ def _timestamp() -> datetime:
         31,
         14,
         0,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )

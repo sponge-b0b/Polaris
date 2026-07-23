@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from core.storage.persistence.health import PersistenceHealthCheckCategory
-from core.storage.persistence.health import PersistenceHealthCheckResult
-from core.storage.persistence.health import PersistenceHealthReport
-from core.storage.persistence.health import PersistenceHealthStatus
+from core.storage.persistence.health import (
+    PersistenceHealthCheckCategory,
+    PersistenceHealthCheckResult,
+    PersistenceHealthReport,
+    PersistenceHealthStatus,
+)
 
 
 def test_health_check_result_normalizes_boundary_fields() -> None:

@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
 
 
 def test_evaluation_case_preserves_canonical_identifiers_and_context() -> None:
@@ -141,7 +142,8 @@ def test_evaluation_models_are_immutable() -> None:
     )
 
     with pytest.raises(FrozenInstanceError):
-        setattr(dataset, "name", "replacement")
+        field_name = "name"
+        setattr(dataset, field_name, "replacement")
 
 
 def test_score_bounds_are_validated() -> None:

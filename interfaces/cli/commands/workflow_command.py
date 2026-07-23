@@ -1,35 +1,29 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.commands.workflow_command_boundary import (
     build_interactive_input_reader,
-)
-from interfaces.cli.commands.workflow_command_boundary import build_progress_renderer
-from interfaces.cli.commands.workflow_command_boundary import emit_control_notification
-from interfaces.cli.commands.workflow_command_boundary import (
+    build_progress_renderer,
+    emit_control_notification,
     emit_rendered_workflow_output,
-)
-from interfaces.cli.commands.workflow_command_boundary import (
     render_workflow_output_with_fallback,
-)
-from interfaces.cli.commands.workflow_command_boundary import (
     validate_workflow_artifact_format,
 )
 from interfaces.cli.formatters.console_formatter import format_workflow_list
-from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.formatters.json_formatter import to_jsonable
+from interfaces.cli.formatters.json_formatter import format_json, to_jsonable
 from interfaces.cli.rendering.workflow_rendering import (
     workflow_exception_to_render_envelope,
 )
 from interfaces.cli.services.async_runner import run_cli_async
-from interfaces.cli.services.workflow_command_service import WorkflowCommandService
-from interfaces.cli.services.workflow_command_service import WorkflowRunCommandRequest
+from interfaces.cli.services.workflow_command_service import (
+    WorkflowCommandService,
+    WorkflowRunCommandRequest,
+)
 
 workflow_app = typer.Typer(
     help="Run and inspect registered runtime workflows.",
@@ -79,8 +73,10 @@ def list_workflows(
         ),
     ] = None,
     output_format: OutputFormat = "console",
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
+    if plugin_dirs is None:
+        plugin_dirs = []
     summaries = run_cli_async(
         _list_workflow_summaries(
             tag=tag,
@@ -113,8 +109,10 @@ def describe_workflow(
         ),
     ],
     output_format: OutputFormat = "json",
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
+    if plugin_dirs is None:
+        plugin_dirs = []
     description = run_cli_async(
         _describe_workflow(
             workflow_name,
@@ -197,7 +195,7 @@ def run_workflow(
             "--metadata",
             help="Metadata as key=value. May be repeated.",
         ),
-    ] = [],
+    ] = None,
     output_format: RunOutputFormat = None,
     output: Annotated[
         Path | None,
@@ -210,8 +208,12 @@ def run_workflow(
             ),
         ),
     ] = None,
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
+    if plugin_dirs is None:
+        plugin_dirs = []
+    if metadata is None:
+        metadata = []
     validate_workflow_artifact_format(
         output_format,
     )

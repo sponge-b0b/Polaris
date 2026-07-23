@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from application.evaluations import EvaluationMetricDefinition
-from application.evaluations import EvaluationMetricEngine
-from application.evaluations import RAG_BUILTIN_METRIC_DEFINITIONS
-from application.evaluations import RAG_CUSTOM_METRIC_DEFINITIONS
-from application.evaluations import RAG_EVALUATION_METRIC_DEFINITIONS
-from application.evaluations import RAG_EVALUATION_THRESHOLD_PROFILE_VERSION
-from application.evaluations import rag_evaluation_metric_specs
-from application.evaluations import rag_threshold_profile
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
+from application.evaluations import (
+    RAG_BUILTIN_METRIC_DEFINITIONS,
+    RAG_CUSTOM_METRIC_DEFINITIONS,
+    RAG_EVALUATION_METRIC_DEFINITIONS,
+    RAG_EVALUATION_THRESHOLD_PROFILE_VERSION,
+    EvaluationMetricDefinition,
+    EvaluationMetricEngine,
+    rag_evaluation_metric_specs,
+    rag_threshold_profile,
+)
+from domain.evaluation import EvaluationTargetType, EvaluationThreshold
 
 
 def test_rag_metric_definitions_include_required_builtin_and_custom_metrics() -> None:

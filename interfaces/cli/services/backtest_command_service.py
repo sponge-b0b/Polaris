@@ -2,22 +2,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
-from typing import cast
+from typing import Literal, cast
 
-from application.persistence.backtesting import BacktestPersistenceService
-from application.persistence.backtesting import BacktestRunPersistenceFilters
-from application.services.backtesting import BacktestApplicationService
-from application.services.backtesting import BacktestResult
-from application.services.backtesting import BacktestRunRequest
-from application.services.backtesting import load_backtest_scenario
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
+from application.persistence.backtesting import (
+    BacktestPersistenceService,
+    BacktestRunPersistenceFilters,
+)
+from application.services.backtesting import (
+    BacktestApplicationService,
+    BacktestResult,
+    BacktestRunRequest,
+    load_backtest_scenario,
+)
+from application.services.base import ServiceRequest, ServiceRunner
 from core.bootstrap.di_providers import application_request_scope
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestPersistenceBundle
-from core.storage.persistence.backtesting import BacktestPersistenceResult
-from core.storage.persistence.backtesting import BacktestRunRecord
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestPersistenceBundle,
+    BacktestPersistenceResult,
+    BacktestRunRecord,
+)
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 
 

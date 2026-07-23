@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
-from typing import Final
-from typing import cast
+from datetime import UTC, datetime
+from typing import Final, cast
 
 from application.persistence.sentiment import SentimentPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
@@ -12,21 +10,21 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
-from domain.workflow_outputs import SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.sentiment import (
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
+from domain.workflow_outputs import (
+    SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 SENTIMENT_SNAPSHOT_PROJECTOR_NAME: Final = "sentiment_snapshot_projector"
 SENTIMENT_SNAPSHOT_PROJECTOR_NODE_NAMES: Final = ("sentiment_agent",)

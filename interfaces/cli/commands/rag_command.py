@@ -1,27 +1,24 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
-from interfaces.cli.services.async_runner import run_cli_async
-from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
 from application.rag.contracts.rag_operation_models import (
+    RagIngestOperationRequest,
     RagProcessEmbeddingsOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
     RagProcessGraphOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
     RagRebuildProjectionOperationRequest,
 )
-from interfaces.cli.services.rag_command_service import RagAskCommandRequest
-from interfaces.cli.services.rag_command_service import RagCommandService
-from interfaces.cli.services.rag_command_service import render_rag_ask_result
-from interfaces.cli.services.rag_command_service import render_rag_operation_result
-from interfaces.cli.services.rag_command_service import render_rag_projection_readiness
+from interfaces.cli.services.async_runner import run_cli_async
+from interfaces.cli.services.rag_command_service import (
+    RagAskCommandRequest,
+    RagCommandService,
+    render_rag_ask_result,
+    render_rag_operation_result,
+    render_rag_projection_readiness,
+)
 
 rag_app = typer.Typer(
     help="Query the platform-native RAG pipeline.",
@@ -52,35 +49,35 @@ def ask_rag(
             "-s",
             help="Limit retrieval to one symbol. Repeat for multiple symbols.",
         ),
-    ] = [],
+    ] = None,
     source_types: Annotated[
         list[str],
         typer.Option(
             "--source-type",
             help="Limit retrieval to one source type. Repeat for multiple types.",
         ),
-    ] = [],
+    ] = None,
     source_tables: Annotated[
         list[str],
         typer.Option(
             "--source-table",
             help="Limit retrieval to one source table. Repeat for multiple tables.",
         ),
-    ] = [],
+    ] = None,
     agent_names: Annotated[
         list[str],
         typer.Option(
             "--agent-name",
             help="Limit retrieval to one agent name. Repeat for multiple agents.",
         ),
-    ] = [],
+    ] = None,
     report_types: Annotated[
         list[str],
         typer.Option(
             "--report-type",
             help="Limit retrieval to one report type. Repeat for multiple reports.",
         ),
-    ] = [],
+    ] = None,
     workflow_name: Annotated[
         str | None,
         typer.Option(
@@ -135,10 +132,20 @@ def ask_rag(
         bool,
         typer.Option(
             "--web/--no-web",
-            help="Permit transient open-source web fallback when curated context is insufficient.",
+            help="Permit transient open-source web fallback when curated context is insufficient.",  # noqa: E501
         ),
     ] = False,
 ) -> None:
+    if report_types is None:
+        report_types = []
+    if agent_names is None:
+        agent_names = []
+    if source_tables is None:
+        source_tables = []
+    if source_types is None:
+        source_types = []
+    if symbols is None:
+        symbols = []
     result = _run_cli_command(
         RagCommandService().ask(
             RagAskCommandRequest(
@@ -185,7 +192,7 @@ def ingest_rag(
         str,
         typer.Option(
             "--source",
-            help="Curated source to ingest: reports, agent-signals, recommendations, market, macro, news, sentiment, portfolio, or backtests.",
+            help="Curated source to ingest: reports, agent-signals, recommendations, market, macro, news, sentiment, portfolio, or backtests.",  # noqa: E501
         ),
     ],
     limit: Annotated[
@@ -277,7 +284,7 @@ def process_rag_graph(
         bool,
         typer.Option(
             "--execute",
-            help="Execute graph projection processing. Without this flag, performs a dry run.",
+            help="Execute graph projection processing. Without this flag, performs a dry run.",  # noqa: E501
         ),
     ] = False,
 ) -> None:
@@ -309,7 +316,7 @@ def rebuild_rag_projection(
         bool,
         typer.Option(
             "--confirm-delete",
-            help="Confirm destructive projection cleanup. Without this flag, performs a dry run.",
+            help="Confirm destructive projection cleanup. Without this flag, performs a dry run.",  # noqa: E501
         ),
     ] = False,
 ) -> None:

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.news import NewsAnalysisSnapshotRecord, NewsArticleRecord
 
 
 class NewsPersistenceSerializer:

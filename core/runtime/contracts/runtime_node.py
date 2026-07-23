@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.state.runtime_context import RuntimeContext
@@ -45,7 +45,7 @@ class RuntimeNode(ABC):
         self,
         context: RuntimeContext,
     ) -> RuntimeNodeOutput:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         try:
             self.validate_context(context)
@@ -54,7 +54,7 @@ class RuntimeNode(ABC):
                 context=context,
             )
 
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
 
             return self._with_execution_metadata(
                 output=output,
@@ -64,7 +64,7 @@ class RuntimeNode(ABC):
             )
 
         except Exception as exc:
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
 
             return RuntimeNodeOutput.failure_output(
                 errors=[

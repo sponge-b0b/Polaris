@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-import pytest
-
 from unittest.mock import patch
 
+import pytest
 from dishka import make_container
 
 from core.bootstrap.workflow_providers import WorkflowInfrastructureProvider
+from core.telemetry.events.telemetry_event import TelemetryEvent
 from core.telemetry.integrations.opentelemetry import (
     OpenTelemetryConfig,
     OpenTelemetrySink,
 )
 from core.telemetry.logging import TelemetryLogger
-from core.telemetry.events.telemetry_event import TelemetryEvent
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
@@ -288,7 +287,7 @@ def test_workflow_infrastructure_provider_wires_telemetry_logger_by_default() ->
     assert logger_sinks[0].logger_name == "polaris.telemetry"
 
 
-def test_workflow_infrastructure_provider_does_not_wire_telemetry_logger_when_disabled() -> (
+def test_workflow_infrastructure_provider_does_not_wire_telemetry_logger_when_disabled() -> (  # noqa: E501
     None
 ):
     container = make_container(

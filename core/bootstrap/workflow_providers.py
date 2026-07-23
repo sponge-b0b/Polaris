@@ -3,9 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from core.bootstrap.dishka_runtime_adapter import DishkaRuntimeAdapter
 from core.plugins.lifecycle.plugin_lifecycle_manager import PluginLifecycleManager
@@ -23,11 +21,12 @@ from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.telemetry.integrations.opentelemetry import OpenTelemetryConfig
 from core.telemetry.integrations.prometheus import PrometheusMetricsExporter
 from core.telemetry.observability.observability_manager import ObservabilityManager
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrap
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from core.workflow.execution.workflow_facade import WorkflowFacade
-from core.workflow.execution.workflow_facade import WorkflowFacadeConfig
+from core.workflow.bootstrap.workflow_bootstrap import (
+    WorkflowBootstrap,
+    WorkflowBootstrapConfig,
+    WorkflowBootstrapResult,
+)
+from core.workflow.execution.workflow_facade import WorkflowFacade, WorkflowFacadeConfig
 
 
 class WorkflowInfrastructureProvider(Provider):

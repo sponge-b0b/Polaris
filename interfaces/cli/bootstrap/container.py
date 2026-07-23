@@ -8,17 +8,15 @@ from typing import TypeVar
 
 from dishka import Container
 
+from application.projections.workflow_outputs import (
+    subscribe_default_workflow_output_projection,
+)
 from config.provider_profiles import apply_provider_profile
 from config.settings import Settings
 from core.bootstrap.di_providers import application_sync_request_scope
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     configuration_setting_names,
-)
-from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     emergency_log_configuration_failure,
-)
-from application.projections.workflow_outputs import (
-    subscribe_default_workflow_output_projection,
 )
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,

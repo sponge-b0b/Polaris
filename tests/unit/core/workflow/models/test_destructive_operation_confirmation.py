@@ -4,8 +4,6 @@ import pytest
 
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
-)
-from core.workflow.models.destructive_operation_confirmation import (
     DestructiveWorkflowOperation,
 )
 

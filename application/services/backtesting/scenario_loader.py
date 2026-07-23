@@ -2,21 +2,18 @@ from __future__ import annotations
 
 import importlib
 import json
-
+from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Mapping
 from typing import cast
 
 from application.services.backtesting.backtest_request import (
+    BacktestExpectationType,
     BacktestExpectedOutcome,
-)
-from application.services.backtesting.backtest_request import BacktestExpectationType
-from application.services.backtesting.backtest_request import (
     BacktestInitialPosition,
+    BacktestScenario,
 )
-from application.services.backtesting.backtest_request import BacktestScenario
 
 
 def load_backtest_scenario(

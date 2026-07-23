@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
@@ -105,6 +106,17 @@ _MODEL_AUTHORITY_CLAIM_KEYS: Final[frozenset[str]] = frozenset(
         "requires_governance",
         "skip_governance",
     }
+)
+
+type AuthorityClaimPattern = tuple[str, re.Pattern[str]]
+
+_MODEL_AUTHORITY_CLAIM_PATTERNS: Final[tuple[AuthorityClaimPattern, ...]] = (
+    ("authority_effect", re.compile(r"(?i)\bauthority[-_ ]effect\b")),
+    ("authority_level", re.compile(r"(?i)\b(?:authoritative|authority[-_ ]level)\b")),
+    ("governance_approved", re.compile(r"(?i)\bgovernance[-_ ]approved\b")),
+    ("production_ready", re.compile(r"(?i)\bproduction[-_ ]ready\b")),
+    ("residual_risk_accepted", re.compile(r"(?i)\bresidual[-_ ]risk[-_ ]accepted\b")),
+    ("risk_tier", re.compile(r"(?i)\brisk[-_ ]tier\b")),
 )
 
 _VIGILANT_AUTHORITY_EFFECTS: Final[frozenset[AuthorityEffect]] = frozenset(
@@ -228,6 +240,20 @@ def gate_profile_for_tier(risk_tier: RiskTier) -> GateProfile:
     """Return the canonical readiness/control profile for a risk tier."""
 
     return _GATE_PROFILE_BY_TIER[risk_tier]
+
+
+def model_authority_claim_keys_from_text(
+    text: str,
+    *,
+    extra_patterns: Sequence[AuthorityClaimPattern] = (),
+) -> tuple[str, ...]:
+    """Detect model-text claims that must not self-promote output authority."""
+
+    return tuple(
+        claim_key
+        for claim_key, pattern in (*_MODEL_AUTHORITY_CLAIM_PATTERNS, *extra_patterns)
+        if pattern.search(text)
+    )
 
 
 def risk_authority_contract_from_metadata(

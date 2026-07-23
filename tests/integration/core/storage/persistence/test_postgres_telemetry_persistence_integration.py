@@ -2,28 +2,24 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from application.persistence.telemetry import TelemetryEventPersistenceFilters
-from application.persistence.telemetry import TelemetryPersistenceService
+from application.persistence.telemetry import (
+    TelemetryEventPersistenceFilters,
+    TelemetryPersistenceService,
+    TelemetryTracePersistenceFilters,
+)
 from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSink,
-)
-from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSinkConfig,
 )
-from application.persistence.telemetry import TelemetryTracePersistenceFilters
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryTraceModel
+from core.database.models.telemetry import TelemetryEventModel, TelemetryTraceModel
 from core.storage.persistence.repositories import (
     PostgresTelemetryPersistenceRepository,
 )
@@ -36,7 +32,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for PostgreSQL telemetry integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for PostgreSQL telemetry integration tests.",  # noqa: E501
 )
 
 
@@ -86,7 +82,7 @@ async def test_telemetry_sink_persists_events_and_assembles_terminal_trace_state
     span_id = uuid4().hex[:16]
     parent_span_id = uuid4().hex[:16]
     execution_id = f"execution-{uuid4().hex}"
-    started_at = datetime(2026, 6, 29, 12, tzinfo=timezone.utc)
+    started_at = datetime(2026, 6, 29, 12, tzinfo=UTC)
     await _delete_test_records(postgres_session_factory, correlation_id)
 
     started_event = TelemetryEvent(

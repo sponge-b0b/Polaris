@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
+from core.storage.persistence.attribution import (
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 
 
 class AttributionPersistenceSerializer:

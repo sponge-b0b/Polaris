@@ -21,6 +21,7 @@ from domain.authority import (
     SourceOfTruthCategory,
     authority_contract_metadata,
     classify_risk_authority,
+    model_authority_claim_keys_from_text,
     model_authority_claims_from_payloads,
 )
 
@@ -61,14 +62,6 @@ _STALE_OR_SUBSTITUTED_FLAGS: Final[frozenset[str]] = frozenset(
     }
 )
 _CITATION_TOKEN = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_-]*)\]")
-_AUTHORITY_CLAIM_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
-    ("authority_effect", re.compile(r"(?i)\bauthority[-_ ]effect\b")),
-    ("authority_level", re.compile(r"(?i)\b(?:authoritative|authority[-_ ]level)\b")),
-    ("governance_approved", re.compile(r"(?i)\bgovernance[-_ ]approved\b")),
-    ("production_ready", re.compile(r"(?i)\bproduction[-_ ]ready\b")),
-    ("residual_risk_accepted", re.compile(r"(?i)\bresidual[-_ ]risk[-_ ]accepted\b")),
-    ("risk_tier", re.compile(r"(?i)\brisk[-_ ]tier\b")),
-)
 
 
 class RagAuthorityFailureMode(StrEnum):
@@ -346,11 +339,7 @@ def _metadata_has_stale_or_substituted_flag(metadata: Mapping[str, object]) -> b
 
 
 def _authority_claims_from_answer_text(answer_text: str) -> tuple[str, ...]:
-    return tuple(
-        claim
-        for claim, pattern in _AUTHORITY_CLAIM_PATTERNS
-        if pattern.search(answer_text)
-    )
+    return model_authority_claim_keys_from_text(answer_text)
 
 
 def _provider_authority_claims(metadata: JsonObject) -> dict[str, object]:

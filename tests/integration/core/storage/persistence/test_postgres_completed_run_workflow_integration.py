@@ -2,28 +2,26 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from typing import Any
-from typing import cast
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from core.database.models.completed_runs import CompletedRunArtifactModel
-from core.database.models.completed_runs import CompletedWorkflowNodeOutputModel
-from core.database.models.completed_runs import CompletedWorkflowRunModel
+from core.database.models.completed_runs import (
+    CompletedRunArtifactModel,
+    CompletedWorkflowNodeOutputModel,
+    CompletedWorkflowRunModel,
+)
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
-from core.workflow.execution.workflow_facade import WorkflowFacade
-from core.workflow.execution.workflow_facade import WorkflowFacadeConfig
+from core.workflow.execution.workflow_facade import WorkflowFacade, WorkflowFacadeConfig
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.models.workflow_node_definition import WorkflowNodeDefinition
 
@@ -31,7 +29,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for workflow archive integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for workflow archive integration tests.",  # noqa: E501
 )
 
 

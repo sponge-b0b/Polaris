@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.rag.qdrant_rag_client import QdrantRagClient
-from integration.clients.rag.qdrant_rag_client import QdrantSearchQuery
-from integration.clients.rag.qdrant_rag_client import QdrantUpsertPoint
+from integration.clients.rag.qdrant_rag_client import (
+    QdrantRagClient,
+    QdrantSearchQuery,
+    QdrantUpsertPoint,
+)
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorCollectionReadiness
-from integration.providers.rag.vector_index_models import VectorCollectionStatus
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
+from integration.providers.rag.vector_index_models import (
+    VectorCollectionReadiness,
+    VectorCollectionStatus,
+    VectorIndexPoint,
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 from integration.providers.rag.vector_index_provider import VectorIndexProvider
 
 

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Annotated
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
 from application.ai_optimization import AiOptimizationTarget
 from core.storage.persistence.ai_artifacts import AiArtifactType
-from interfaces.cli.services.ai_command_service import AiCommandService
-from interfaces.cli.services.ai_command_service import render_ai_artifact_command_result
-from interfaces.cli.services.ai_command_service import render_ai_artifacts
-from interfaces.cli.services.ai_command_service import render_ai_optimize_result
+from interfaces.cli.services.ai_command_service import (
+    AiCommandService,
+    render_ai_artifact_command_result,
+    render_ai_artifacts,
+    render_ai_optimize_result,
+)
 from interfaces.cli.services.async_runner import run_cli_async
 
 ai_app = typer.Typer(

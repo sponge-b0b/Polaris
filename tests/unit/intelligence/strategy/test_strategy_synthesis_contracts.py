@@ -3,14 +3,16 @@ from __future__ import annotations
 import pytest
 
 from intelligence.strategy.hypothesis import StrategyPerspective
-from intelligence.strategy.synthesis import StrategyHypothesisEvaluation
-from intelligence.strategy.synthesis import StrategySynthesisDecision
-from intelligence.strategy.synthesis import StrategySynthesisDegradedReason
-from intelligence.strategy.synthesis import StrategySynthesisSelectionStatus
-from intelligence.strategy.synthesis import normalize_strategy_hypothesis_evaluations
+from intelligence.strategy.synthesis import (
+    StrategyHypothesisEvaluation,
+    StrategySynthesisDecision,
+    StrategySynthesisDegradedReason,
+    StrategySynthesisSelectionStatus,
+    normalize_strategy_hypothesis_evaluations,
+)
 
 
-def test_strategy_hypothesis_evaluations_normalize_to_synthesis_weights_and_selection() -> (
+def test_strategy_hypothesis_evaluations_normalize_to_synthesis_weights_and_selection() -> (  # noqa: E501
     None
 ):
     evaluations = normalize_strategy_hypothesis_evaluations(

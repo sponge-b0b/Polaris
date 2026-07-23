@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timedelta
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import StrEnum
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
 
 @dataclass(
@@ -327,7 +327,7 @@ class PersistenceArchiveMarkerRecord:
         return result
 
 
-class PersistenceRetentionPlanAction(str, Enum):
+class PersistenceRetentionPlanAction(StrEnum):
     """
     Dry-run lifecycle actions reported by retention planning.
     """

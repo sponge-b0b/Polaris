@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from core.database.models.strategy import StrategyHypothesisEvaluationModel
-from core.database.models.strategy import StrategyHypothesisModel
-from core.database.models.strategy import StrategySynthesisDecisionModel
+from core.database.models.strategy import (
+    StrategyHypothesisEvaluationModel,
+    StrategyHypothesisModel,
+    StrategySynthesisDecisionModel,
+)
 from core.storage.persistence.serializers.strategy_persistence_serializer import (
     StrategyPersistenceSerializer,
 )
-
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_evaluation
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_hypothesis
 from tests.unit.core.storage.persistence.strategy_fixtures import (
+    strategy_evaluation,
+    strategy_hypothesis,
     strategy_synthesis_decision,
 )
 

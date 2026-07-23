@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Table
-from sqlalchemy import Text
+from sqlalchemy import Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
 
 
 def test_agent_intelligence_models_are_imported_into_base_metadata() -> None:

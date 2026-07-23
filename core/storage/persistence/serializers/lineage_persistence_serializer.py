@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 from core.database.models.lineage import PersistenceLineageLinkModel
-from core.storage.persistence.lineage.lineage_persistence_models import JsonObject
 from core.storage.persistence.lineage.lineage_persistence_models import (
+    JsonObject,
     PersistenceLineage,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkRecord,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceRecordIdentity,
 )
 

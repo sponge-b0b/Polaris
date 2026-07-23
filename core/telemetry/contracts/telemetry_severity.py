@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class TelemetrySeverity(str, Enum):
+class TelemetrySeverity(StrEnum):
     """
     Platform telemetry severity levels.
     """

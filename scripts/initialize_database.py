@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import asyncio
 
-from core.database.base import Base
-from core.database.postgres import engine
-
 # Import model modules so SQLAlchemy attaches them to Base.metadata.
 import core.database.models  # noqa: F401
+from core.database.base import Base
+from core.database.postgres import engine
 
 
 async def initialize_database() -> None:

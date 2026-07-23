@@ -1,4 +1,4 @@
-from typing import Protocol, Dict, List, Any, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -12,15 +12,15 @@ class MarketEventsProvider(Protocol):
     async def get_fed_events(
         self,
         days_ahead: int = 14,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
 
     async def get_economic_events(
         self,
         days_ahead: int = 14,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
 
     async def get_earnings_events(
         self,
         horizon: str = "3month",
         symbols: set[str] | None = None,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...

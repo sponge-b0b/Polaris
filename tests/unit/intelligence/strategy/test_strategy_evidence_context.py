@@ -4,14 +4,14 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from intelligence.strategy.hypothesis import StrategyEvidenceContext
-from intelligence.strategy.hypothesis import StrategyEvidenceInputQuality
-from intelligence.strategy.hypothesis import StrategyEvidenceInputStatus
-from intelligence.strategy.hypothesis import StrategyEvidenceItem
 from intelligence.strategy.hypothesis import (
+    StrategyEvidenceContext,
+    StrategyEvidenceInputQuality,
+    StrategyEvidenceInputStatus,
+    StrategyEvidenceItem,
+    StrategyPerspective,
     strategy_evidence_context_from_node_outputs,
 )
-from intelligence.strategy.hypothesis import StrategyPerspective
 
 
 def _evidence(

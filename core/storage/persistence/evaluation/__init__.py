@@ -2,39 +2,19 @@ from __future__ import annotations
 
 from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationArtifactRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationCaseRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
-    EvaluationDatasetRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationDatasetCaseReplacement,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
+    EvaluationDatasetRecord,
     EvaluationMetricResultRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationPersistenceBundle,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationPersistenceResult,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationRunRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import JsonArray
-from core.storage.persistence.evaluation.evaluation_persistence_models import JsonObject
-from core.storage.persistence.evaluation.evaluation_persistence_models import JsonScalar
-from core.storage.persistence.evaluation.evaluation_persistence_models import JsonValue
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
+    JsonArray,
+    JsonObject,
+    JsonScalar,
+    JsonValue,
     LangfuseProjectionStatus,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     new_evaluation_artifact_id,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     new_evaluation_metric_result_id,
 )
 from core.storage.persistence.evaluation.evaluation_persistence_repository import (

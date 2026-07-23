@@ -1,32 +1,23 @@
 from __future__ import annotations
 
-from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetryEvent
-from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetryEventType
-from core.telemetry.attribution.telemetry_attribution import TelemetryAttribution
+from core.runtime.telemetry.runtime_telemetry import (
+    RuntimeTelemetryEvent,
+    RuntimeTelemetryEventType,
+)
 from core.telemetry.attribution.telemetry_attribution import (
+    TelemetryAttribution,
     TelemetryAttributionManager,
 )
 from core.telemetry.contracts import TelemetryEvent as ExportedTelemetryEvent
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import (
     MAX_TELEMETRY_EXCEPTION_MESSAGE_CHARACTERS,
-)
-from core.telemetry.events.telemetry_exception_details import (
     MAX_TELEMETRY_EXCEPTION_TYPE_CHARACTERS,
-)
-from core.telemetry.events.telemetry_exception_details import (
     MAX_TELEMETRY_STACK_TRACE_CHARACTERS,
-)
-from core.telemetry.events.telemetry_exception_details import (
     TELEMETRY_EXCEPTION_TEXT_TRUNCATION_MARKER,
-)
-from core.telemetry.events.telemetry_exception_details import (
     TELEMETRY_STACK_TRACE_TRUNCATION_MARKER,
-)
-from core.telemetry.events.telemetry_exception_details import (
     TelemetryExceptionDetails,
 )
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.sinks.runtime_telemetry_sink import CoreTelemetryRuntimeSink
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 

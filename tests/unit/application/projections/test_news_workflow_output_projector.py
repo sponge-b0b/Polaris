@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -12,28 +11,28 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     NEWS_ANALYSIS_PROJECTOR_NAME,
-)
-from application.projections.workflow_outputs.projectors import (
     NewsAnalysisWorkflowOutputProjector,
-)
-from application.projections.workflow_outputs.projectors import (
     build_news_analysis_projector_registration,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.news import NewsPersistenceBundle
-from core.storage.persistence.news import NewsPersistenceRepository
-from core.storage.persistence.news import NewsPersistenceResult
-from domain.workflow_outputs import NEWS_ANALYSIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
+from core.storage.persistence.news import (
+    NewsPersistenceBundle,
+    NewsPersistenceRepository,
+    NewsPersistenceResult,
+)
+from domain.workflow_outputs import (
+    NEWS_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 @pytest.mark.asyncio
@@ -107,7 +106,7 @@ async def test_news_projector_persists_snapshot_without_unqualified_articles() -
 
 
 @pytest.mark.asyncio
-async def test_news_projector_skips_snapshot_for_degraded_output_but_persists_articles() -> (
+async def test_news_projector_skips_snapshot_for_degraded_output_but_persists_articles() -> (  # noqa: E501
     None
 ):
     repository = _FakeNewsRepository()

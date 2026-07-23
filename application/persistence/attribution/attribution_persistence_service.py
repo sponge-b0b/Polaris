@@ -4,18 +4,20 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.storage.persistence.attribution import AttributionPersistenceBundle
-from core.storage.persistence.attribution import AttributionPersistenceRepository
-from core.storage.persistence.attribution import AttributionPersistenceResult
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.attribution import (
+    AttributionPersistenceBundle,
+    AttributionPersistenceRepository,
+    AttributionPersistenceResult,
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.query import PersistenceCommonQuery, PersistenceListResult
 
 
 @dataclass(

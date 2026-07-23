@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceLineagePath
-from core.storage.persistence.lineage import PersistenceLineagePathSegment
-from core.storage.persistence.lineage import PersistenceLineageTraversalDirection
-from core.storage.persistence.lineage import PersistenceLineageTraversalRequest
-from core.storage.persistence.lineage import PersistenceLineageTraversalResult
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import new_persistence_lineage_link_id
+from core.storage.persistence.lineage import (
+    PersistenceLineageLinkRecord,
+    PersistenceLineagePath,
+    PersistenceLineagePathSegment,
+    PersistenceLineageTraversalDirection,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
+    new_persistence_lineage_link_id,
+)
 
 
 def test_lineage_traversal_request_normalizes_and_bounds_queries() -> None:
@@ -471,6 +472,6 @@ def _link(
             2026,
             5,
             30,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         ),
     )

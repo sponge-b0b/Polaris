@@ -4,15 +4,20 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
-from core.storage.persistence.runtime import RuntimePersistenceRepository
-from core.storage.persistence.runtime import RuntimePersistenceResult
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.lineage import (
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.runtime import (
+    RuntimePersistenceRepository,
+    RuntimePersistenceResult,
+    WorkflowStateSnapshotRecord,
+)
 
 
 @dataclass(

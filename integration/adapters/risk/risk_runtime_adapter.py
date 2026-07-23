@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 
 """
 Converts RiskSignalContract → RuntimeNodeOutput

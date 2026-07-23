@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "8c0d1e2f3a4b"
@@ -237,11 +237,11 @@ def upgrade() -> None:
             name="ck_evaluation_runs_case_ids_array",
         ),
         sa.CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
             name="ck_evaluation_runs_langfuse_projection_status",
         ),
         sa.CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
             name="ck_evaluation_runs_status",
         ),
         sa.ForeignKeyConstraint(
@@ -351,7 +351,7 @@ def upgrade() -> None:
             name="ck_evaluation_metric_results_error_details_object",
         ),
         sa.CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
             name="ck_evaluation_metric_results_langfuse_projection_status",
         ),
         sa.CheckConstraint(
@@ -359,7 +359,7 @@ def upgrade() -> None:
             name="ck_evaluation_metric_results_score_range",
         ),
         sa.CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
             name="ck_evaluation_metric_results_status",
         ),
         sa.CheckConstraint(

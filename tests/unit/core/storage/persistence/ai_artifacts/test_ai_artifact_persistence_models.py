@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
 import hashlib
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.ai_artifacts import JsonObject
-from core.storage.persistence.ai_artifacts import new_ai_prompt_program_artifact_id
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+    JsonObject,
+    new_ai_prompt_program_artifact_id,
+)
 
 
 def test_ai_prompt_program_artifact_record_normalizes_required_fields() -> None:
@@ -18,7 +19,7 @@ def test_ai_prompt_program_artifact_record_normalizes_required_fields() -> None:
         artifact_type="langfuse_prompt",
         approval_status="approved",
         approved_by=" ai-reviewer ",
-        approved_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
+        approved_at=datetime(2026, 7, 15, tzinfo=UTC),
         active=True,
     )
 

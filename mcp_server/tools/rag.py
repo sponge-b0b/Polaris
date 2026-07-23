@@ -8,24 +8,24 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import cast
 
-from application.rag.contracts.rag_context import RagRetrievalFilters
-from application.rag.contracts.rag_context import (
-    RagRetrievedContext as DomainRagRetrievedContext,
-)
-from application.rag.contracts.rag_context import RagSource
-from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_result import RagResult
-from application.rag.rag_service import RagService
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import JsonValue
 
-
+from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
+from application.rag.contracts.rag_context import (
+    RagRetrievedContext as DomainRagRetrievedContext,
+)
+from application.rag.contracts.rag_request import RagRequest
+from application.rag.contracts.rag_result import RagResult
+from application.rag.rag_service import RagService
+from mcp_server.contracts.models import (
+    RagAskRequest,
+    RagAskResponse,
+    RagCitation,
+    RagReflectionScores,
+    RagRetrievedContext,
+)
 from mcp_server.lifespan import McpApplicationContext
-from mcp_server.contracts.models import RagAskRequest
-from mcp_server.contracts.models import RagAskResponse
-from mcp_server.contracts.models import RagCitation
-from mcp_server.contracts.models import RagReflectionScores
-from mcp_server.contracts.models import RagRetrievedContext
 from mcp_server.request_scope import mcp_dependency_scope
 from mcp_server.telemetry import McpToolFailureCategory
 

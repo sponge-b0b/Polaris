@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.audit.audit_emission import PersistenceAuditEmission
-from application.persistence.recommendations import RecommendationPersistenceFilters
-from application.persistence.recommendations import RecommendationPersistenceService
-from application.persistence.recommendations import TradeSetupPersistenceFilters
-from application.persistence.recommendations import WatchlistPersistenceFilters
+from application.persistence.recommendations import (
+    RecommendationPersistenceFilters,
+    RecommendationPersistenceService,
+    TradeSetupPersistenceFilters,
+    WatchlistPersistenceFilters,
+)
 from core.storage.persistence.audit import PersistenceAuditEventResult
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceResult,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+)
 
 
 class FakeRecommendationRepository:
@@ -241,7 +244,7 @@ async def test_recommendation_persistence_service_emits_non_fatal_audit_events()
 
 
 @pytest.mark.asyncio
-async def test_recommendation_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (
+async def test_recommendation_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (  # noqa: E501
     None
 ):
     repository = FakeRecommendationRepository()
@@ -422,4 +425,4 @@ def _watchlist_item() -> WatchlistItemRecord:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

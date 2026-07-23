@@ -1,21 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import RecommendationOutcomeModel
-from core.database.models.recommendations import RecommendationRationaleModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
+from core.database.models.recommendations import (
+    RecommendationModel,
+    RecommendationOutcomeModel,
+    RecommendationRationaleModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+)
 
 
 class RecommendationPersistenceSerializer:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 from core.database.models.audit import PersistenceAuditEventModel
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+)
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
 
 
 class PersistenceAuditEventSerializer:

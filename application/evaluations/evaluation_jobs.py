@@ -3,29 +3,34 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
-from application.evaluations.contracts import EvaluationLangfuseProjectionRequest
+from application.evaluations.contracts import (
+    EvaluationLangfuseProjectionRequest,
+    EvaluationRunServiceRequest,
+)
 from application.evaluations.evaluation_result_service import EvaluationResultService
-from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.evaluation_run_service import (
     EvaluationRunScoreProjectionService,
+    EvaluationRunService,
 )
-from application.evaluations.evaluation_run_service import EvaluationRunService
+from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
+    rag_evaluation_metric_specs,
 )
-from application.evaluations.rag_evaluation_metrics import rag_evaluation_metric_specs
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationTargetType
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationTargetType,
+)
 from integration.providers.llm_evaluation import EvaluationMetricSpec
-from application.evaluations.contracts import EvaluationRunServiceRequest
 
 logger = logging.getLogger(__name__)
 
@@ -159,9 +164,10 @@ class EvaluationJobProcessor:
             if job_type in _PROJECTION_JOB_TYPES:
                 return await self._process_projection_job(request, job_type)
         except Exception as exc:
-            logger.exception(
+            logger.debug(
                 "Evaluation job failed.",
                 extra={"job_id": request.job_id, "job_type": job_type.value},
+                exc_info=True,
             )
             return EvaluationJobResult(
                 job_id=request.job_id,

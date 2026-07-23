@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from application.services.backtesting import BacktestInitialPosition
-from application.services.backtesting import BacktestScenario
+from application.services.backtesting import BacktestInitialPosition, BacktestScenario
 from application.services.backtesting.simulated_portfolio_ledger import (
     BacktestPortfolioLedger,
 )
@@ -19,7 +16,7 @@ def test_ledger_fills_long_trade_from_trade_packager_and_execution_guard() -> No
     ledger = BacktestPortfolioLedger(
         scenario,
     )
-    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
 
     snapshot, fills = ledger.apply_workflow_outputs(
         timestamp=timestamp,
@@ -58,7 +55,7 @@ def test_ledger_marks_existing_position_to_market_without_trade_intent() -> None
     ledger = BacktestPortfolioLedger(
         scenario,
     )
-    timestamp = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 2, tzinfo=UTC)
 
     snapshot, fills = ledger.apply_workflow_outputs(
         timestamp=timestamp,
@@ -84,7 +81,7 @@ def test_ledger_rejects_buy_when_cash_is_insufficient() -> None:
     ledger = BacktestPortfolioLedger(
         scenario,
     )
-    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
 
     snapshot, fills = ledger.apply_workflow_outputs(
         timestamp=timestamp,
@@ -118,7 +115,7 @@ def test_ledger_uses_scenario_parameter_prices_for_deterministic_replay() -> Non
     ledger = BacktestPortfolioLedger(
         scenario,
     )
-    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
 
     snapshot, fills = ledger.apply_workflow_outputs(
         timestamp=timestamp,

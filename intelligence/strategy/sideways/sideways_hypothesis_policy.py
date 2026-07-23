@@ -1,30 +1,34 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
+from intelligence.strategy.hypothesis.breadth import (
+    BreadthMessageRule,
+    breadth_messages,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.contracts import StrategyPerspective
+from intelligence.strategy.hypothesis.evidence import (
+    StrategyAssumption,
+    StrategyEvidenceItem,
+    StrategyInvalidationCondition,
+    StrategyInvalidationOperator,
+)
+from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.hypothesis.policy_support import (
     breadth_context_from_evidence,
+    clamp_01,
+    data_quality_flags,
+    deduplicate_values,
+    evidence_for_perspective,
+    evidence_reliability,
+    numeric_evidence_value,
+    string_evidence_value,
 )
-from intelligence.strategy.hypothesis.policy_support import clamp_01
-from intelligence.strategy.hypothesis.policy_support import data_quality_flags
-from intelligence.strategy.hypothesis.policy_support import deduplicate_values
-from intelligence.strategy.hypothesis.policy_support import evidence_for_perspective
-from intelligence.strategy.hypothesis.policy_support import evidence_reliability
-from intelligence.strategy.hypothesis.policy_support import numeric_evidence_value
-from intelligence.strategy.hypothesis.policy_support import string_evidence_value
-from intelligence.strategy.hypothesis.breadth import BreadthMessageRule
-from intelligence.strategy.hypothesis.breadth import breadth_messages
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.evidence import StrategyAssumption
-from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationOperator
-from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
-
 
 _SIDEWAYS_BREADTH_SIGNAL_RULES = (
     BreadthMessageRule(
@@ -316,14 +320,14 @@ def _sideways_assumptions(
         StrategyAssumption(
             assumption_id="sideways.range_requires_contained_directionality",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways posture requires directional evidence to remain contained.",
+            description="Sideways posture requires directional evidence to remain contained.",  # noqa: E501
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="sideways.mean_reversion_requires_stable_volatility",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways strength assumes volatility does not expand into breakout conditions.",
+            description="Sideways strength assumes volatility does not expand into breakout conditions.",  # noqa: E501
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -341,7 +345,7 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.trend_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by strong trend breakout pressure.",
+            description="Sideways case is invalidated by strong trend breakout pressure.",  # noqa: E501
             observed_value=trend_strength,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,
@@ -359,7 +363,7 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.sentiment_directional_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by extreme sentiment directionality.",
+            description="Sideways case is invalidated by extreme sentiment directionality.",  # noqa: E501
             observed_value=abs(sentiment_score),
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,
@@ -368,7 +372,7 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.technical_directional_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by extreme technical directionality.",
+            description="Sideways case is invalidated by extreme technical directionality.",  # noqa: E501
             observed_value=abs(technical_score),
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,

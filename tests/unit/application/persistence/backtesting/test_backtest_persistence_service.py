@@ -1,30 +1,34 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
 
-from application.persistence.backtesting import BacktestPersistenceService
-from application.persistence.backtesting import BacktestRunPersistenceFilters
-from application.services.backtesting import BacktestFill
-from application.services.backtesting import BacktestMetrics
-from application.services.backtesting import BacktestPortfolioSnapshot
-from application.services.backtesting import BacktestResult
-from application.services.backtesting import BacktestScenario
-from application.services.backtesting import BacktestStepResult
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestFillRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPersistenceBundle
-from core.storage.persistence.backtesting import BacktestPersistenceResult
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestScenarioRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
+from application.persistence.backtesting import (
+    BacktestPersistenceService,
+    BacktestRunPersistenceFilters,
+)
+from application.services.backtesting import (
+    BacktestFill,
+    BacktestMetrics,
+    BacktestPortfolioSnapshot,
+    BacktestResult,
+    BacktestScenario,
+    BacktestStepResult,
+)
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestFillRecord,
+    BacktestMetricRecord,
+    BacktestPersistenceBundle,
+    BacktestPersistenceResult,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestScenarioRecord,
+    BacktestStepRecord,
+)
 
 
 class FakeBacktestRepository:
@@ -201,7 +205,7 @@ async def test_backtest_persistence_service_uses_typed_run_filters() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 6, 14, 14, tzinfo=timezone.utc)
+    return datetime(2026, 6, 14, 14, tzinfo=UTC)
 
 
 def _scenario() -> BacktestScenario:

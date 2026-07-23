@@ -1,33 +1,41 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
-from typing import cast
+from typing import Literal, cast
 
 from sqlalchemy import Table
 from sqlalchemy.orm import DeclarativeBase
 
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
 from core.database.models.agent_signals import AgentSignalModel
 from core.database.models.macro import MacroRegimeSnapshotModel
-from core.database.models.market import MarketBreadthSnapshotModel
-from core.database.models.market import MarketContextSnapshotModel
-from core.database.models.market import MarketEventSnapshotModel
-from core.database.models.market import TechnicalAnalysisSnapshotModel
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
-from core.database.models.portfolio_state import PortfolioStateHistoryModel
-from core.database.models.portfolio_state import PortfolioStateLatestModel
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import RecommendationOutcomeModel
-from core.database.models.recommendations import RecommendationRationaleModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
+from core.database.models.market import (
+    MarketBreadthSnapshotModel,
+    MarketContextSnapshotModel,
+    MarketEventSnapshotModel,
+    TechnicalAnalysisSnapshotModel,
+)
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
+from core.database.models.portfolio import (
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
+from core.database.models.portfolio_state import (
+    PortfolioStateHistoryModel,
+    PortfolioStateLatestModel,
+)
+from core.database.models.recommendations import (
+    RecommendationModel,
+    RecommendationOutcomeModel,
+    RecommendationRationaleModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
 from core.database.models.sentiment import SentimentSnapshotModel
 
 CoverageKind = Literal["relational", "payload", "not_persisted"]

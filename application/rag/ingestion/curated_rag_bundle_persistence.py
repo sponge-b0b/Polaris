@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from core.storage.persistence.rag import RagPersistenceBundle
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagPersistenceResult
+from core.storage.persistence.rag import (
+    RagPersistenceBundle,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+)
 
 
 class CuratedRagBundlePersister:

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
 from opentelemetry.trace import StatusCode
-import pytest
 
-from core.telemetry.context import get_active_telemetry_context
-from core.telemetry.context import telemetry_context_scope
+from core.telemetry.context import get_active_telemetry_context, telemetry_context_scope
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.events.telemetry_event import (
     TelemetryEvent,

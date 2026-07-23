@@ -6,8 +6,6 @@ from typing import Protocol
 
 from core.storage.persistence.ai_artifacts.ai_artifact_persistence_models import (
     AiArtifactType,
-)
-from core.storage.persistence.ai_artifacts.ai_artifact_persistence_models import (
     AiPromptProgramArtifactRecord,
 )
 

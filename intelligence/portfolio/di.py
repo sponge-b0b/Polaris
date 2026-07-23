@@ -3,11 +3,11 @@ from dishka import Provider, Scope, provide
 from application.services.base import ServiceRunner
 from application.services.portfolio.portfolio_service import PortfolioService
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
-from intelligence.portfolio.management.portfolio_state_builder import (
-    PortfolioStateBuilder,
-)
 from intelligence.portfolio.management.portfolio_manager_agent import (
     PortfolioManagerAgent,
+)
+from intelligence.portfolio.management.portfolio_state_builder import (
+    PortfolioStateBuilder,
 )
 
 

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
-from typing import Mapping
-from typing import Self
+from typing import Any, Self
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
@@ -13,10 +12,10 @@ from domain.workflow_outputs import (
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.contracts import validate_confidence
 from intelligence.strategy.hypothesis.runtime import (
     strategy_evidence_context_from_node_outputs,
 )
-from intelligence.strategy.hypothesis.contracts import validate_confidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +69,7 @@ class StrategyPerspectiveWeights:
 
 
 class StrategyPerspectiveWeightingEngine(RuntimeNode):
-    """Compute deterministic strategy-perspective weights from StrategyEvidenceContext."""
+    """Compute deterministic strategy-perspective weights from StrategyEvidenceContext."""  # noqa: E501
 
     node_name = "strategy_perspective_weighting_engine"
     node_type = "strategy_perspective_weighting_engine"
@@ -122,7 +121,7 @@ class StrategyPerspectiveWeightingEngine(RuntimeNode):
 def calculate_strategy_perspective_weights(
     evidence_context: StrategyEvidenceContext,
 ) -> StrategyPerspectiveWeights:
-    """Calculate normalized bull/bear/sideways perspective weights from shared evidence."""
+    """Calculate normalized bull/bear/sideways perspective weights from shared evidence."""  # noqa: E501
 
     evidence = evidence_context.evidence_by_id()
     sentiment_directional = _numeric_value(evidence, "sentiment.directional_score")

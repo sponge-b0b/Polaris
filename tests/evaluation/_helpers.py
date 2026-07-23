@@ -1,31 +1,36 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, cast
 
-from application.evaluations.contracts import EvaluationLangfuseProjectionRequest
-from application.evaluations.contracts import EvaluationLangfuseProjectionResult
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
-from integration.providers.llm_evaluation import EvaluationMetricSpec
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import EvaluationProviderResult
-
+from application.evaluations.contracts import (
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionResult,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
+from integration.providers.llm_evaluation import (
+    EvaluationMetricSpec,
+    EvaluationProviderRequest,
+    EvaluationProviderResult,
+)
 
 JsonRow = dict[str, Any]
 

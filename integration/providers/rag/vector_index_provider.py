@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Protocol
-from typing import runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorCollectionReadiness
-from integration.providers.rag.vector_index_models import VectorCollectionStatus
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
+from integration.providers.rag.vector_index_models import (
+    VectorCollectionReadiness,
+    VectorCollectionStatus,
+    VectorIndexPoint,
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 
 
 @runtime_checkable

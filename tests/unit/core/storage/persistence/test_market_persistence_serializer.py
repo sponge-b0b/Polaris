@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.market import MarketBreadthSnapshotModel
-from core.database.models.market import MarketContextSnapshotModel
-from core.database.models.market import MarketEventSnapshotModel
-from core.database.models.market import MarketIndicatorModel
-from core.database.models.market import MarketOhlcvModel
-from core.database.models.market import TechnicalAnalysisSnapshotModel
+from core.database.models.market import (
+    MarketBreadthSnapshotModel,
+    MarketContextSnapshotModel,
+    MarketEventSnapshotModel,
+    MarketIndicatorModel,
+    MarketOhlcvModel,
+    TechnicalAnalysisSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import MarketIndicatorRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    MarketIndicatorRecord,
+    MarketOhlcvRecord,
+    TechnicalAnalysisSnapshotRecord,
+)
 from core.storage.persistence.serializers.market_persistence_serializer import (
     MarketPersistenceSerializer,
 )
@@ -228,4 +231,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

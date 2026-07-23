@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-import pytest
 from collections.abc import Callable
 
-from integration.providers.rag.embedding_provider import EmbeddingInput
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
+import pytest
+
+from integration.providers.rag.embedding_provider import (
+    EmbeddingInput,
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
 
 
 def test_embedding_contracts_validate_and_expose_dimensions() -> None:

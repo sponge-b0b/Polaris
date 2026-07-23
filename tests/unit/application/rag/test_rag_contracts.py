@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from application.rag.contracts.rag_context import (
+    RagRetrievalFilters,
+    RagRetrievedContext,
+    RagSource,
+)
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagRetrievalFilters
-from application.rag.contracts.rag_context import RagSource
 
 
 def test_rag_request_normalizes_query_and_serializes_filters() -> None:
@@ -19,8 +20,8 @@ def test_rag_request_normalizes_query_and_serializes_filters() -> None:
             source_tables=("rag_chunks", " ", "reports"),
             symbols=("SPY",),
             workflow_name="morning_report",
-            as_of_start=datetime(2026, 6, 1, tzinfo=timezone.utc),
-            as_of_end=datetime(2026, 6, 15, tzinfo=timezone.utc),
+            as_of_start=datetime(2026, 6, 1, tzinfo=UTC),
+            as_of_end=datetime(2026, 6, 15, tzinfo=UTC),
             metadata={"source": "unit-test"},
         ),
         route="hybrid",
@@ -67,8 +68,8 @@ def test_rag_request_validates_required_fields() -> None:
 
     with pytest.raises(ValueError, match="as_of_start"):
         RagRetrievalFilters(
-            as_of_start=datetime(2026, 6, 15, tzinfo=timezone.utc),
-            as_of_end=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            as_of_start=datetime(2026, 6, 15, tzinfo=UTC),
+            as_of_end=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
 
@@ -169,7 +170,7 @@ def _source() -> RagSource:
         title="Morning Report",
         chunk_id="chunk-1",
         section_name="breadth_snapshot",
-        generated_at=datetime(2026, 6, 15, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 6, 15, tzinfo=UTC),
         workflow_name="morning_report",
         execution_id="exec-1",
         metadata={"symbol": "SPY"},

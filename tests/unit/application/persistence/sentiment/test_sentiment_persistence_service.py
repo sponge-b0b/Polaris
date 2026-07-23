@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.sentiment import SentimentPersistenceService
-from application.persistence.sentiment import SentimentSnapshotPersistenceFilters
-from application.persistence.sentiment import SentimentSourcePersistenceFilters
-from core.storage.persistence.sentiment import SentimentPersistenceBundle
-from core.storage.persistence.sentiment import SentimentPersistenceResult
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
+from application.persistence.sentiment import (
+    SentimentPersistenceService,
+    SentimentSnapshotPersistenceFilters,
+    SentimentSourcePersistenceFilters,
+)
+from core.storage.persistence.sentiment import (
+    SentimentPersistenceBundle,
+    SentimentPersistenceResult,
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
 
 
 class FakeSentimentRepository:
@@ -121,7 +124,7 @@ async def test_sentiment_persistence_service_uses_typed_filters() -> None:
     )
     service = SentimentPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     snapshots = await service.list_snapshots(
         SentimentSnapshotPersistenceFilters(
@@ -207,7 +210,7 @@ def test_sentiment_time_window_filters_require_ordered_bounds(
         SentimentSnapshotPersistenceFilters | SentimentSourcePersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -275,4 +278,4 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

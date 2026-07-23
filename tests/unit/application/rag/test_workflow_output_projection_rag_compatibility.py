@@ -1,48 +1,55 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
 import pytest
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
     WorkflowOutputProjectionOperationsService,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
+    WorkflowOutputProjectionService,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectionService
 from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
 from application.rag.ingestion.curated_rag_document_builder import (
     CuratedRagDocumentBuilder,
 )
-from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from application.rag.ingestion.curated_rag_models import CuratedRagSource
+from application.rag.ingestion.curated_rag_models import (
+    CuratedRagBuildOptions,
+    CuratedRagSource,
+)
 from application.rag.ingestion.curated_rag_structured_sources import (
     source_candidate_for_structured_source,
 )
-from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
-from application.rag.ingestion.rag_source_loaders import PortfolioRagSourceLoader
+from application.rag.ingestion.rag_source_loaders import (
+    CuratedRagSourceLoaderRegistry,
+    PortfolioRagSourceLoader,
+)
 from application.rag.operations.rag_ingestion_operations import (
     RagIngestionOperationsService,
 )
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceRepository
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
-from core.storage.persistence.rag import RagEligibilitySourceCandidate
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import evaluate_default_rag_source_eligibility
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioExpansionPersistenceRepository,
+    PortfolioRiskSnapshotRecord,
+)
+from core.storage.persistence.projections import (
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobRepository,
+    WorkflowOutputProjectionJobStatus,
+)
+from core.storage.persistence.rag import (
+    RagEligibilitySourceCandidate,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+    RagSourceEligibilityRecord,
+    evaluate_default_rag_source_eligibility,
+)
 
 
 class FakePortfolioExpansionRepository:
@@ -257,7 +264,7 @@ def test_raw_completed_run_outputs_remain_ineligible_for_rag() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_postgres_sources() -> (
+async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_postgres_sources() -> (  # noqa: E501
     None
 ):
     risk = _risk_record()
@@ -326,7 +333,7 @@ async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_post
 
 
 @pytest.mark.asyncio
-async def test_projection_retry_replays_projection_without_triggering_rag_ingestion() -> (
+async def test_projection_retry_replays_projection_without_triggering_rag_ingestion() -> (  # noqa: E501
     None
 ):
     job = WorkflowOutputProjectionJobRecord(

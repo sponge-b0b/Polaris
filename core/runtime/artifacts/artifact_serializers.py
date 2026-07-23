@@ -3,10 +3,8 @@ from __future__ import annotations
 import csv
 import io
 import json
-from dataclasses import asdict
-from dataclasses import is_dataclass
-from typing import Any
-from typing import Protocol
+from dataclasses import asdict, is_dataclass
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 

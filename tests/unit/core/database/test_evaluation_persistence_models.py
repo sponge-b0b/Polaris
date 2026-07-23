@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from sqlalchemy import Table
 
-from core.database.models.evaluation import EvaluationArtifactModel
-from core.database.models.evaluation import EvaluationCaseModel
-from core.database.models.evaluation import EvaluationDatasetModel
-from core.database.models.evaluation import EvaluationMetricResultModel
-from core.database.models.evaluation import EvaluationRunModel
+from core.database.models.evaluation import (
+    EvaluationArtifactModel,
+    EvaluationCaseModel,
+    EvaluationDatasetModel,
+    EvaluationMetricResultModel,
+    EvaluationRunModel,
+)
 
 
 def test_evaluation_dataset_model_defines_first_class_fields() -> None:

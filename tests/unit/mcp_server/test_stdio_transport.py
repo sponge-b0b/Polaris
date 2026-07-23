@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
-import tempfile
 import sys
+import tempfile
+from datetime import timedelta
 from textwrap import dedent
 
-from mcp import ClientSession
-from mcp import StdioServerParameters
+import pytest
+from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from pydantic import SecretStr
-import pytest
 
 import mcp_server.server as server_module
-from mcp_server.settings import McpServerSettings
-from mcp_server.settings import McpTransport
+from mcp_server.settings import McpServerSettings, McpTransport
 from mcp_server.tools.allowlist import APPROVED_MCP_TOOL_NAMES
 
 
@@ -87,7 +85,7 @@ async def test_stdio_client_session_lists_and_invokes_fake_backed_tool() -> None
 
         server._mcp_server.lifespan = fake_lifespan
         run_stdio_server(McpServerSettings())
-        """,
+        """,  # noqa: E501
     )
     parameters = StdioServerParameters(
         command=sys.executable,

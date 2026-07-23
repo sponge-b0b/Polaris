@@ -1,5 +1,4 @@
-from dishka import Provider
-from dishka import Scope
+from dishka import Provider, Scope
 
 from integration.clients.di import IntegrationClientsDIProvider
 from integration.providers.di import IntegrationProvidersDIProvider

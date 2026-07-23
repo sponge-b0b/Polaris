@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 """
 Polaris Market Event Scoring Engine (CORE INTELLIGENCE LAYER)
@@ -28,8 +28,8 @@ OUTPUT IS USED BY:
 
 
 def score_event(
-    event: Dict[str, Any],
-) -> Dict[str, Any]:
+    event: dict[str, Any],
+) -> dict[str, Any]:
     """
     Convert raw normalized event into scored event.
     """
@@ -77,9 +77,9 @@ def score_event(
 
 
 def _score_fed_event(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     base: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     subtype = event.get("subtype", "speech")
 
@@ -108,9 +108,9 @@ def _score_fed_event(
 
 
 def _score_macro_event(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     base: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     # macro events are slower-moving but regime-relevant
     importance_weight = 1.2
@@ -133,9 +133,9 @@ def _score_macro_event(
 
 
 def _score_earnings_event(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     base: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     weight = float(event.get("market_cap_weight", 0.01))
 
@@ -161,9 +161,9 @@ def _score_earnings_event(
 
 
 def _default_score(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     base: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     return {
         **event,

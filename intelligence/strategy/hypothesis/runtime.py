@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
-
 
 STRATEGY_EVIDENCE_BUILDER_NODE = "strategy_evidence_builder"
 STRATEGY_EVIDENCE_CONTEXT_OUTPUT = "strategy_evidence_context"

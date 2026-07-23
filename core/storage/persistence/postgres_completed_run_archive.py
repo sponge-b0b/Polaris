@@ -1,22 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
-from typing import Callable
-from typing import TypeAlias
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.storage.persistence.completed_run_archive import CompletedRunArchive
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunArchive,
+    CompletedRunBundle,
+)
 from core.storage.persistence.repositories.postgres_completed_run_repository import (
     PostgresCompletedRunRepository,
 )
 
-CompletedRunArchiveSessionFactory: TypeAlias = Callable[
+type CompletedRunArchiveSessionFactory = Callable[
     [],
     AbstractAsyncContextManager[AsyncSession],
 ]
-CompletedRunRepositoryFactory: TypeAlias = Callable[
+type CompletedRunRepositoryFactory = Callable[
     [AsyncSession],
     PostgresCompletedRunRepository,
 ]

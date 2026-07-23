@@ -1,23 +1,25 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.retrieval.retrieval_quality import Bm25LexicalRetriever
-from application.rag.retrieval.retrieval_quality import ParentDocumentExpander
-from application.rag.retrieval.retrieval_quality import RagContextDeduplicator
-from application.rag.retrieval.retrieval_quality import RankedRagChunk
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from application.rag.retrieval.retrieval_quality import (
+    Bm25LexicalRetriever,
+    ParentDocumentExpander,
+    RagContextDeduplicator,
+    RankedRagChunk,
+)
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagPersistenceRepository,
+)
 
 
 def test_bm25_orders_fixed_corpus_deterministically() -> None:
@@ -38,7 +40,7 @@ def test_bm25_orders_fixed_corpus_deterministically() -> None:
 
 
 @pytest.mark.asyncio
-async def test_parent_expansion_returns_one_canonical_parent_for_multiple_child_hits() -> (
+async def test_parent_expansion_returns_one_canonical_parent_for_multiple_child_hits() -> (  # noqa: E501
     None
 ):
     document = _document(
@@ -131,7 +133,7 @@ def _document(document_id: str, content_text: str) -> RagDocumentRecord:
         source_type="morning_report",
         title="Morning Report",
         content_text=content_text,
-        generated_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 6, 1, tzinfo=UTC),
     )
 
 

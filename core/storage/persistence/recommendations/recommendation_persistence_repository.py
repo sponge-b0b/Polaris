@@ -1,27 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.recommendations.recommendation_persistence_models import (
     RecommendationOutcomeRecord,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     RecommendationPersistenceBundle,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     RecommendationPersistenceResult,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     RecommendationRationaleRecord,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     RecommendationRecord,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     TradeSetupRecord,
-)
-from core.storage.persistence.recommendations.recommendation_persistence_models import (
     WatchlistItemRecord,
 )
 

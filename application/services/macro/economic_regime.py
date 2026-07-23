@@ -1,12 +1,9 @@
-from typing import Dict
-
-
-def classify_economic_regime(
-    inflation_analysis: Dict,
-    fed_analysis: Dict,
-    liquidity_analysis: Dict,
-    yield_curve_analysis: Dict,
-) -> Dict:
+def classify_economic_regime(  # noqa: C901
+    inflation_analysis: dict,
+    fed_analysis: dict,
+    liquidity_analysis: dict,
+    yield_curve_analysis: dict,
+) -> dict:
     """
     Polaris Macro Regime Classifier.
 

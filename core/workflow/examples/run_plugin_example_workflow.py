@@ -6,7 +6,6 @@ import importlib
 from core.plugins.runtime.plugin_discovery import PluginDiscovery
 from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime
 
-
 PLUGIN_DIR = "plugins/example_market_plugin"
 
 

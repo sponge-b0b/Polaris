@@ -8,33 +8,32 @@ import os
 import sys
 from collections.abc import Sequence
 
-from mcp.server.fastmcp import Context
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.types import ToolAnnotations
 from starlette.types import ASGIApp
 
 from mcp_server.auth import protect_streamable_http_app
-from mcp_server.lifespan import McpApplicationContext
-from mcp_server.lifespan import mcp_application_lifespan
-from mcp_server.contracts.models import CompletedRunGetRequest
-from mcp_server.contracts.models import CompletedRunGetResponse
-from mcp_server.contracts.models import CompletedRunsListRequest
-from mcp_server.contracts.models import CompletedRunsListResponse
-from mcp_server.contracts.models import RagAskRequest
-from mcp_server.contracts.models import RagAskResponse
-from mcp_server.contracts.models import RagStatusRequest
-from mcp_server.contracts.models import RagStatusResponse
-from mcp_server.contracts.models import WorkflowDescribeRequest
-from mcp_server.contracts.models import WorkflowDescribeResponse
-from mcp_server.contracts.models import WorkflowsListRequest
-from mcp_server.contracts.models import WorkflowsListResponse
-from mcp_server.settings import McpServerSettings
-from mcp_server.settings import McpTransport
+from mcp_server.contracts.models import (
+    CompletedRunGetRequest,
+    CompletedRunGetResponse,
+    CompletedRunsListRequest,
+    CompletedRunsListResponse,
+    RagAskRequest,
+    RagAskResponse,
+    RagStatusRequest,
+    RagStatusResponse,
+    WorkflowDescribeRequest,
+    WorkflowDescribeResponse,
+    WorkflowsListRequest,
+    WorkflowsListResponse,
+)
+from mcp_server.lifespan import McpApplicationContext, mcp_application_lifespan
+from mcp_server.settings import McpServerSettings, McpTransport
+from mcp_server.tools.allowlist import validate_registered_tool_allowlist
 from mcp_server.tools.completed_run_get import execute_completed_run_get
 from mcp_server.tools.completed_runs import execute_completed_runs_list
-from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.rag import execute_rag_ask
-from mcp_server.tools.allowlist import validate_registered_tool_allowlist
+from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.workflow_describe import execute_workflow_describe
 from mcp_server.tools.workflows import execute_workflows_list
 
@@ -145,7 +144,7 @@ async def polaris_workflow_describe(
 
 @server.tool(
     name="polaris_completed_runs_list",
-    description="List completed Polaris workflow execution IDs with deterministic pagination.",
+    description="List completed Polaris workflow execution IDs with deterministic pagination.",  # noqa: E501
     annotations=ToolAnnotations(
         readOnlyHint=True,
         destructiveHint=False,
@@ -169,7 +168,7 @@ async def polaris_completed_runs_list(
 
 @server.tool(
     name="polaris_completed_run_get",
-    description="Load one completed Polaris workflow run summary with selected sections.",
+    description="Load one completed Polaris workflow run summary with selected sections.",  # noqa: E501
     annotations=ToolAnnotations(
         readOnlyHint=True,
         destructiveHint=False,

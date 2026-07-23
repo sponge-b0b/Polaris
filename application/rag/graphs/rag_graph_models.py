@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from application.rag.routing.query_routing_models import RagConversationMemory
 from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_quality_models import RagContextEvaluation
-from application.rag.contracts.rag_quality_models import RagContextQuality
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.contracts.rag_quality_models import RagSelfReflection
+from application.rag.contracts.rag_quality_models import (
+    RagContextEvaluation,
+    RagContextQuality,
+    RagCorrectiveAction,
+    RagSelfReflection,
+)
 from application.rag.contracts.rag_request import RagRequest
+from application.rag.routing.query_routing_models import RagConversationMemory
 
 
 class RagConversationMemoryProvider(Protocol):

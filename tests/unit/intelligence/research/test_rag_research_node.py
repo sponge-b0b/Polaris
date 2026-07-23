@@ -4,8 +4,7 @@ from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from intelligence.research.rag import RagResearchNode
-from intelligence.research.rag import RagResearchNodeConfig
+from intelligence.research.rag import RagResearchNode, RagResearchNodeConfig
 
 
 class FakeRagService:

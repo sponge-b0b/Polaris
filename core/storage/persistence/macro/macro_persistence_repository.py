@@ -6,17 +6,9 @@ from typing import Protocol
 
 from core.storage.persistence.macro.macro_persistence_models import (
     EconomicCalendarEventRecord,
-)
-from core.storage.persistence.macro.macro_persistence_models import (
     MacroObservationRecord,
-)
-from core.storage.persistence.macro.macro_persistence_models import (
     MacroPersistenceBundle,
-)
-from core.storage.persistence.macro.macro_persistence_models import (
     MacroPersistenceResult,
-)
-from core.storage.persistence.macro.macro_persistence_models import (
     MacroRegimeSnapshotRecord,
 )
 

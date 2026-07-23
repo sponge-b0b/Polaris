@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-
-import pytest
 from typing import cast
 
-from intelligence.strategy.hypothesis import StrategyAssumption
-from intelligence.strategy.hypothesis import StrategyEvidenceItem
-from intelligence.strategy.hypothesis import StrategyInvalidationCondition
-from intelligence.strategy.hypothesis import StrategyInvalidationOperator
-from intelligence.strategy.hypothesis import StrategyJsonScalar
-from intelligence.strategy.hypothesis import StrategyPerspective
-from intelligence.strategy.hypothesis import evaluate_invalidation_operator
+import pytest
+
+from intelligence.strategy.hypothesis import (
+    StrategyAssumption,
+    StrategyEvidenceItem,
+    StrategyInvalidationCondition,
+    StrategyInvalidationOperator,
+    StrategyJsonScalar,
+    StrategyPerspective,
+    evaluate_invalidation_operator,
+)
 
 
 def test_strategy_evidence_item_round_trips_deterministically() -> None:
@@ -30,7 +32,7 @@ def test_strategy_evidence_item_round_trips_deterministically() -> None:
     assert StrategyEvidenceItem.from_dict(evidence.to_dict()) == evidence
     assert evidence.to_canonical_json() == (
         '{"contradicts":["bear"],"evidence_id":"breadth.confirmation",'
-        '"explanation":"Breadth confirms the bullish case.","name":"advance_decline_strength",'
+        '"explanation":"Breadth confirms the bullish case.","name":"advance_decline_strength",'  # noqa: E501
         '"observed_value":0.72,"reliability":0.77,"source":"technical_analysis",'
         '"strength":0.81,"supports":["bull"]}'
     )
@@ -153,13 +155,13 @@ def test_strategy_invalidation_condition_round_trips_and_evaluates() -> None:
     assert condition.is_invalidated() is True
     assert StrategyInvalidationCondition.from_dict(condition.to_dict()) == condition
     assert condition.to_canonical_json() == (
-        '{"condition_id":"risk.max_drawdown","description":"Bull case is invalidated if drawdown pressure is too high.",'
+        '{"condition_id":"risk.max_drawdown","description":"Bull case is invalidated if drawdown pressure is too high.",'  # noqa: E501
         '"evidence_id":"risk.drawdown","invalidated":true,"observed_value":0.18,'
         '"operator":"gte","perspective":"bull","threshold":0.15}'
     )
 
 
-def test_strategy_invalidation_condition_rejects_callback_like_or_nonscalar_thresholds() -> (
+def test_strategy_invalidation_condition_rejects_callback_like_or_nonscalar_thresholds() -> (  # noqa: E501
     None
 ):
     with pytest.raises(ValueError, match="invalidation operator"):

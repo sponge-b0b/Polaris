@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
-from typing import Iterator
 
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
@@ -21,15 +20,16 @@ from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
     SpanExporter,
 )
-from opentelemetry.sdk.trace.id_generator import IdGenerator
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
-from opentelemetry.trace import NonRecordingSpan
-from opentelemetry.trace import Span
-from opentelemetry.trace import SpanContext
-from opentelemetry.trace import Status
-from opentelemetry.trace import StatusCode
-from opentelemetry.trace import TraceFlags
-from opentelemetry.trace import set_span_in_context
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
+from opentelemetry.trace import (
+    NonRecordingSpan,
+    Span,
+    SpanContext,
+    Status,
+    StatusCode,
+    TraceFlags,
+    set_span_in_context,
+)
 
 from core.telemetry.events.telemetry_event import (
     TelemetryEvent,
@@ -39,12 +39,12 @@ from core.telemetry.integrations.opentelemetry.opentelemetry_config import (
     OpenTelemetryConfig,
 )
 from core.telemetry.sanitization import sanitize_telemetry_mapping
-from core.telemetry.tracing.operation_lifecycle import (
-    is_terminal_operation_event,
-)
-from core.telemetry.tracing.operation_lifecycle import resolve_operation_name
 from core.telemetry.sinks.telemetry_sink import (
     TelemetrySink,
+)
+from core.telemetry.tracing.operation_lifecycle import (
+    is_terminal_operation_event,
+    resolve_operation_name,
 )
 
 _MAX_OPEN_SPANS = 4096
@@ -313,7 +313,7 @@ class OpenTelemetrySink(TelemetrySink):
             self._closed_span_keys.popitem(last=False)
 
     def _finish_incomplete_spans(self) -> None:
-        ended_at_ns = _timestamp_ns(datetime.now(timezone.utc))
+        ended_at_ns = _timestamp_ns(datetime.now(UTC))
         while self._open_spans:
             key, operation_span = self._open_spans.popitem(last=False)
             operation_span.span.set_attribute("telemetry.lifecycle.incomplete", True)

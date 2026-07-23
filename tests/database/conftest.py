@@ -9,10 +9,9 @@ from pytest_alembic import Config as PytestAlembicConfig
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
-from core.database.base import Base
-
 # Import model modules so SQLAlchemy attaches them to Base.metadata.
 import core.database.models  # noqa: F401
+from core.database.base import Base
 
 
 def _quote_identifier(identifier: str) -> str:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Protocol
 
-from application.observability import AiObservabilityOperationalStatus
-from application.observability import AiObservabilityOperationalStatusService
+from application.observability import (
+    AiObservabilityOperationalStatus,
+    AiObservabilityOperationalStatusService,
+)
 from core.bootstrap.di_providers import application_request_scope
 
 

@@ -1,12 +1,10 @@
-from application.services.base.application_service import ApplicationService
 from application.services.base.application_service import (
+    ApplicationService,
     ValidatingApplicationService,
 )
 from application.services.base.service_request import ServiceRequest
-from application.services.base.service_result import ServiceDegradation
-from application.services.base.service_result import ServiceResult
-from application.services.base.service_runner import ServiceRunner
-from application.services.base.service_runner import ServiceRunnerConfig
+from application.services.base.service_result import ServiceDegradation, ServiceResult
+from application.services.base.service_runner import ServiceRunner, ServiceRunnerConfig
 
 __all__ = [
     "ApplicationService",

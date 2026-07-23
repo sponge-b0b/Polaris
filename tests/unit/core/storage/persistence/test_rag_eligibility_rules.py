@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.rag import DEFAULT_RAG_ELIGIBILITY_REVIEWER
-from core.storage.persistence.rag import DEFAULT_RAG_ELIGIBILITY_RULE_VERSION
-from core.storage.persistence.rag import DefaultRagEligibilityRules
-from core.storage.persistence.rag import RagEligibilitySourceCandidate
-from core.storage.persistence.rag import evaluate_default_rag_source_eligibility
+from core.storage.persistence.rag import (
+    DEFAULT_RAG_ELIGIBILITY_REVIEWER,
+    DEFAULT_RAG_ELIGIBILITY_RULE_VERSION,
+    DefaultRagEligibilityRules,
+    RagEligibilitySourceCandidate,
+    evaluate_default_rag_source_eligibility,
+)
 
 
 @pytest.mark.parametrize(
@@ -303,5 +304,5 @@ def _timestamp() -> datetime:
         1,
         12,
         0,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )

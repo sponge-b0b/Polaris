@@ -9,25 +9,22 @@ from domain.workflow_outputs import (
     RISK_AGGREGATE_SIGNAL_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
+from integration.adapters.risk import (
+    risk_runtime_adapter,
+)
 from integration.contracts.risk.risk_signal_contract import (
     RiskSignalContract,
-)
-
-from intelligence.risk.regime import (
-    risk_regime_coupling,
 )
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
     extract_technical_breadth_context,
 )
-
-from integration.adapters.risk import (
-    risk_runtime_adapter,
-)
 from intelligence.risk.breadth_annotations import (
     annotate_risk_runtime_output,
     deduplicate_strings,
+)
+from intelligence.risk.regime import (
+    risk_regime_coupling,
 )
 
 

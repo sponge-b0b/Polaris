@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.validation import DEFAULT_EXTERNAL_SOURCE_SPEC
-from core.storage.persistence.validation import DEFAULT_ORDER_RULES
-from core.storage.persistence.validation import DEFAULT_SCORE_SPECS
-from core.storage.persistence.validation import DEFAULT_TIMESTAMP_FIELDS
-from core.storage.persistence.validation import PersistenceExpectedLineage
-from core.storage.persistence.validation import PersistenceExternalSourceValidationSpec
-from core.storage.persistence.validation import PersistenceRecordValidationTarget
-from core.storage.persistence.validation import PersistenceScoreValidationSpec
-from core.storage.persistence.validation import PersistenceTimestampOrderRule
-from core.storage.persistence.validation import PersistenceValidationBatchResult
-from core.storage.persistence.validation import PersistenceValidationResult
 from core.storage.persistence.validation import (
+    DEFAULT_EXTERNAL_SOURCE_SPEC,
+    DEFAULT_ORDER_RULES,
+    DEFAULT_SCORE_SPECS,
+    DEFAULT_TIMESTAMP_FIELDS,
+    PersistenceExpectedLineage,
+    PersistenceExternalSourceValidationSpec,
+    PersistenceRecordValidationTarget,
+    PersistenceScoreValidationSpec,
+    PersistenceTimestampOrderRule,
+    PersistenceValidationBatchResult,
+    PersistenceValidationResult,
     validate_lineage_source_and_dedupe_fields,
+    validate_timestamp_and_score_fields,
 )
-from core.storage.persistence.validation import validate_timestamp_and_score_fields
 
 
 class ValidationPersistenceService:
@@ -39,7 +38,7 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,
+        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[
@@ -81,7 +80,7 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,
+        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[
@@ -118,7 +117,7 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,
+        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[

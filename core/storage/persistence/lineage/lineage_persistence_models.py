@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
 from uuid import uuid4
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
 
 
 @dataclass(

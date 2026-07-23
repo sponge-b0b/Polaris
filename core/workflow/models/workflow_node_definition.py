@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any
-from typing import Type
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 
@@ -22,7 +20,7 @@ class WorkflowNodeDefinition:
 
     name: str
 
-    node_type: Type[RuntimeNode]
+    node_type: type[RuntimeNode]
 
     # ============================================================
     # DAG DEPENDENCIES

@@ -4,17 +4,21 @@ from dataclasses import dataclass
 from json import dumps
 from typing import Self
 
-from intelligence.strategy.hypothesis.contracts import Confidence
-from intelligence.strategy.hypothesis.contracts import DirectionalBias
-from intelligence.strategy.hypothesis.contracts import HypothesisStrength
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.contracts import parse_strategy_perspective
-from intelligence.strategy.hypothesis.contracts import validate_confidence
-from intelligence.strategy.hypothesis.contracts import validate_directional_bias
-from intelligence.strategy.hypothesis.contracts import validate_hypothesis_strength
-from intelligence.strategy.hypothesis.evidence import StrategyAssumption
-from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
+from intelligence.strategy.hypothesis.contracts import (
+    Confidence,
+    DirectionalBias,
+    HypothesisStrength,
+    StrategyPerspective,
+    parse_strategy_perspective,
+    validate_confidence,
+    validate_directional_bias,
+    validate_hypothesis_strength,
+)
+from intelligence.strategy.hypothesis.evidence import (
+    StrategyAssumption,
+    StrategyEvidenceItem,
+    StrategyInvalidationCondition,
+)
 from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 

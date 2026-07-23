@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
+from typing import Any
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
@@ -254,7 +253,7 @@ class AttributionEngine(RuntimeNode):
 
     def _agreement_score(
         self,
-        contribution_map: Dict[str, float],
+        contribution_map: dict[str, float],
     ) -> float:
         """
         Measures directional agreement across agents.

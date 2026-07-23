@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
-from typing import Any, Dict, Optional
 
 
 class FearGreedSentimentClient:
@@ -37,8 +38,8 @@ class FearGreedSentimentClient:
 
     async def get_fear_greed_sentiment(
         self,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> Dict[str, Any]:
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
 
         if client is not None:
             current = await self.get_current_index(client)
@@ -74,8 +75,8 @@ class FearGreedSentimentClient:
 
     async def get_current_index(
         self,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> Dict[str, Any]:
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
         """
         Fetch current Fear & Greed index.
         """
@@ -103,7 +104,7 @@ class FearGreedSentimentClient:
     # FETCH RAW DATA
     # ============================================================
 
-    async def _get_raw_data(self, client: httpx.AsyncClient) -> Dict[str, Any]:
+    async def _get_raw_data(self, client: httpx.AsyncClient) -> dict[str, Any]:
 
         response = await client.get(
             self.BASE_URL,

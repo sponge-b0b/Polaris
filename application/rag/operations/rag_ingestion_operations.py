@@ -4,19 +4,24 @@ from collections.abc import Sequence
 from time import perf_counter
 from typing import Protocol
 
-from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from application.rag.ingestion.curated_rag_models import CuratedRagSource
-from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
-from application.rag.contracts.rag_operation_models import RagOperationDetail
-from application.rag.contracts.rag_operation_models import RagOperationResult
-from application.rag.contracts.rag_operation_models import RagProjectionConfig
-from application.rag.operations.rag_operation_telemetry import RagOperationTelemetry
+from application.rag.contracts.rag_operation_models import (
+    RagIngestOperationRequest,
+    RagOperationDetail,
+    RagOperationResult,
+    RagProjectionConfig,
+)
+from application.rag.ingestion.curated_rag_models import (
+    CuratedRagBuildOptions,
+    CuratedRagSource,
+)
 from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from application.rag.operations.rag_operation_telemetry import RagOperationTelemetry
+from core.storage.persistence.rag import (
+    RagPersistenceRepository,
+    RagPersistenceResult,
+    RagSourceEligibilityRecord,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-
 
 RAG_INGEST_SOURCE_REPORTS = "reports"
 RAG_INGEST_SOURCE_AGENT_SIGNALS = "agent-signals"

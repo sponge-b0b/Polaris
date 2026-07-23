@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from application.evaluations.contracts import EvaluationCaseBuildRequest
-from application.evaluations.contracts import utc_now
+from application.evaluations.contracts import EvaluationCaseBuildRequest, utc_now
 from domain.evaluation import EvaluationCase
 
 

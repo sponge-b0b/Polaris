@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from config.rag_model_config import RagModelConfig
 from config.settings import Settings
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
 from integration.clients.rag.bge_reranker_client import BgeRerankerClient
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClientConfig
-from integration.clients.rag.searxng_search_client import SearxngSearchClient
+from integration.clients.rag.crawl4ai_content_client import (
+    Crawl4AiContentClient,
+    Crawl4AiContentClientConfig,
+)
 from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
 from integration.clients.rag.qdrant_rag_client import QdrantRagClient
+from integration.clients.rag.searxng_search_client import SearxngSearchClient
 
 
 class RagClientsDIProvider(Provider):

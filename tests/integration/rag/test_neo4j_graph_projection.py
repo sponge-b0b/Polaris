@@ -3,12 +3,16 @@ from __future__ import annotations
 import pytest
 
 from config.settings import Settings
-from integration.clients.rag.neo4j_rag_client import Neo4jNode
-from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
-from integration.clients.rag.neo4j_rag_client import Neo4jRelationship
-from integration.clients.rag.neo4j_rag_client import Neo4jSearchQuery
-from integration.providers.rag.graph_projection_models import GraphNodeType
-from integration.providers.rag.graph_projection_models import GraphRelationshipType
+from integration.clients.rag.neo4j_rag_client import (
+    Neo4jNode,
+    Neo4jRagClient,
+    Neo4jRelationship,
+    Neo4jSearchQuery,
+)
+from integration.providers.rag.graph_projection_models import (
+    GraphNodeType,
+    GraphRelationshipType,
+)
 
 
 @pytest.mark.asyncio

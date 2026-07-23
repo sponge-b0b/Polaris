@@ -1,25 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
-from typing import Sequence
 
-from core.storage.persistence.rag.rag_persistence_models import JsonObject
-
-from core.storage.persistence.rag.rag_persistence_models import RagAnswerLogRecord
-from core.storage.persistence.rag.rag_persistence_models import RagCanonicalRecordCounts
-from core.storage.persistence.rag.rag_persistence_models import RagChunkRecord
-from core.storage.persistence.rag.rag_persistence_models import RagDocumentRecord
-from core.storage.persistence.rag.rag_persistence_models import RagEmbeddingJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagGraphJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagPersistenceResult
-from core.storage.persistence.rag.rag_persistence_models import RagQueryLogRecord
 from core.storage.persistence.rag.rag_persistence_models import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceResult,
+    RagQueryLogRecord,
     RagRecordPersistenceResult,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagSourceEligibilityRecord,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagSourceEligibilityResult,
 )
 

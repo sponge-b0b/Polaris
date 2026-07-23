@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Mapping
 
-from application.services.backtesting.backtest_request import BacktestExpectationType
-from application.services.backtesting.backtest_request import BacktestScenario
+from application.services.backtesting.backtest_request import (
+    BacktestExpectationType,
+    BacktestScenario,
+)
 
 
 @dataclass(
@@ -205,7 +205,7 @@ class BacktestResult:
         scenario: BacktestScenario,
         timestamp: datetime | None = None,
     ) -> BacktestResult:
-        now = timestamp or datetime.now(timezone.utc)
+        now = timestamp or datetime.now(UTC)
         return cls(
             backtest_run_id=backtest_run_id,
             scenario=scenario,

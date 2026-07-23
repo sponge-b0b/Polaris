@@ -1,34 +1,39 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
 from application.observability import AiObservationType
+from application.rag.contracts.rag_context import (
+    RagRetrievalFilters,
+    RagRetrievedContext,
+    RagSource,
+)
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
-from application.rag.contracts.rag_context import RagRetrievalFilters
-from application.rag.retrieval.rag_retriever import RagRetriever
-from application.rag.retrieval.rag_retriever import RagRetrieverConfig
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from application.rag.retrieval.rag_retriever import RagRetriever, RagRetrieverConfig
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagPersistenceRepository,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
-from integration.providers.rag.reranking_provider import RerankRequest
-from integration.providers.rag.reranking_provider import RerankResult
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
+from integration.providers.rag.embedding_provider import (
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
+from integration.providers.rag.reranking_provider import RerankRequest, RerankResult
+from integration.providers.rag.vector_index_models import (
+    VectorIndexPoint,
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 
 
@@ -38,7 +43,7 @@ async def test_rag_retriever_fuses_bm25_and_dense_results_deterministically() ->
         documents=(
             _document(
                 "document-a",
-                "# Breadth\n\nMarket breadth risk is weak and liquidity risk is elevated.",
+                "# Breadth\n\nMarket breadth risk is weak and liquidity risk is elevated.",  # noqa: E501
                 source_id="report-a",
             ),
             _document(
@@ -252,8 +257,8 @@ async def test_rag_retriever_applies_deterministic_as_of_range_filter() -> None:
         RagRequest(
             query="breadth evidence",
             filters=RagRetrievalFilters(
-                as_of_start=datetime(2026, 6, 15, tzinfo=timezone.utc),
-                as_of_end=datetime(2026, 6, 30, tzinfo=timezone.utc),
+                as_of_start=datetime(2026, 6, 15, tzinfo=UTC),
+                as_of_end=datetime(2026, 6, 30, tzinfo=UTC),
             ),
             top_k=2,
             request_id="request-date-range",
@@ -696,7 +701,7 @@ def _document(
         content_text=content_text,
         workflow_name="morning_report",
         execution_id="exec-1",
-        generated_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 6, 1, tzinfo=UTC),
     )
 
 

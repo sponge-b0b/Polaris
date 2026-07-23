@@ -3,15 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime
-from sqlalchemy import Float
-from sqlalchemy import Index
-from sqlalchemy import String
-from sqlalchemy import Text
-from sqlalchemy import func
+from sqlalchemy import DateTime, Float, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database.base import Base
 

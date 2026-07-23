@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
-from integration.providers.llm_evaluation import EvaluationMetricSpec
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import EvaluationProviderResult
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
+from integration.providers.llm_evaluation import (
+    EvaluationMetricSpec,
+    EvaluationProviderRequest,
+    EvaluationProviderResult,
+)
 
 
 def test_metric_spec_requires_matching_threshold_metric() -> None:

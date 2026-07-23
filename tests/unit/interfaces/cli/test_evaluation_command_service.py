@@ -2,34 +2,39 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from application.evaluations import EvaluationDatasetSeedItem
-from application.evaluations import EvaluationDatasetSeedRequest
-from application.evaluations import EvaluationDatasetSeedResult
-from application.evaluations import EvaluationResultBundle
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import EvaluationRunServiceResult
-from config.settings import Settings
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from interfaces.cli.services.evaluation_command_service import EvaluationCommandService
-from interfaces.cli.services.evaluation_command_service import (
-    render_evaluation_dataset_seed_result,
+from application.evaluations import (
+    EvaluationDatasetSeedItem,
+    EvaluationDatasetSeedRequest,
+    EvaluationDatasetSeedResult,
+    EvaluationResultBundle,
+    EvaluationRunServiceRequest,
+    EvaluationRunServiceResult,
 )
-from interfaces.cli.services.evaluation_command_service import render_evaluation_results
-from interfaces.cli.services.evaluation_command_service import render_evaluation_status
+from config.settings import Settings
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
+from interfaces.cli.services.evaluation_command_service import (
+    EvaluationCommandService,
+    render_evaluation_dataset_seed_result,
+    render_evaluation_results,
+    render_evaluation_status,
+)
 
 
 @dataclass(slots=True)

@@ -3,23 +3,26 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceRepository
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
-from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.audit.audit_emission import PersistenceAuditEmission
-from application.persistence.audit.audit_emission import PersistenceAuditEmitter
 from application.persistence.audit.audit_emission import (
+    PersistenceAuditEmission,
+    PersistenceAuditEmitter,
     emit_persistence_audit_events_non_fatal,
 )
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.query import PersistenceListResult
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceRepository,
+    RecommendationPersistenceResult,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+)
 
 
 @dataclass(

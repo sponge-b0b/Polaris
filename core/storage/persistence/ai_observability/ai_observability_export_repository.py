@@ -1,19 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.ai_observability.ai_observability_export_models import (
     AiObservabilityExportJobClaim,
-)
-from core.storage.persistence.ai_observability.ai_observability_export_models import (
     AiObservabilityExportJobRecord,
-)
-from core.storage.persistence.ai_observability.ai_observability_export_models import (
     AiObservabilityExportJobStatus,
-)
-from core.storage.persistence.ai_observability.ai_observability_export_models import (
     AiObservabilityExportQueueStatus,
 )
 

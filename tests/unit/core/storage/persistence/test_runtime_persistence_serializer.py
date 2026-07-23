@@ -1,25 +1,28 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
-from core.database.models.runtime import WorkflowStateSnapshotModel
-from core.storage.persistence.runtime import WorkflowEventRecord
-from core.storage.persistence.runtime import WorkflowNodeRunRecord
-from core.storage.persistence.runtime import WorkflowRunRecord
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+    WorkflowStateSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.runtime import (
+    WorkflowEventRecord,
+    WorkflowNodeRunRecord,
+    WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
+)
 from core.storage.persistence.serializers.runtime_persistence_serializer import (
     RuntimePersistenceSerializer,
 )
 
 
 def test_workflow_run_serializer_round_trips_model_boundary_values() -> None:
-    started_at = datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
-    completed_at = datetime(2026, 5, 30, 14, 2, tzinfo=timezone.utc)
+    started_at = datetime(2026, 5, 30, 14, tzinfo=UTC)
+    completed_at = datetime(2026, 5, 30, 14, 2, tzinfo=UTC)
     record = WorkflowRunRecord(
         workflow_name="morning_report",
         execution_id="exec-serializer-1",
@@ -43,7 +46,7 @@ def test_workflow_run_serializer_round_trips_model_boundary_values() -> None:
 
 
 def test_node_run_serializer_round_trips_and_defaults_missing_wave_index() -> None:
-    completed_at = datetime(2026, 5, 30, 14, 3, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 5, 30, 14, 3, tzinfo=UTC)
     record = WorkflowNodeRunRecord(
         workflow_name="morning_report",
         execution_id="exec-serializer-1",
@@ -73,7 +76,7 @@ def test_node_run_serializer_round_trips_and_defaults_missing_wave_index() -> No
 
 
 def test_event_serializer_round_trips_model_boundary_values() -> None:
-    timestamp = datetime(2026, 5, 30, 14, 4, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 30, 14, 4, tzinfo=UTC)
     record = WorkflowEventRecord(
         event_id="event-serializer-1",
         event_type="runtime.node.completed",
@@ -97,7 +100,7 @@ def test_event_serializer_round_trips_model_boundary_values() -> None:
 
 
 def test_workflow_state_snapshot_serializer_round_trips_model_boundary_values() -> None:
-    timestamp = datetime(2026, 5, 30, 14, 5, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 30, 14, 5, tzinfo=UTC)
     record = WorkflowStateSnapshotRecord(
         snapshot_id="snapshot-serializer-1",
         workflow_name="morning_report",

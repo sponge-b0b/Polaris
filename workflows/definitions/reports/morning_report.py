@@ -8,119 +8,99 @@ from core.workflow.models.workflow_node_definition import (
 )
 
 # ============================================================
-# PORTFOLIO STATE
-# ============================================================
-
-from intelligence.portfolio.management.portfolio_state_builder import (
-    PortfolioStateBuilder,
-)
-
-# ============================================================
 # ANALYST TEAM
 # ============================================================
-
 from intelligence.analysts.fundamental.fundamental_agent import (
     FundamentalAgent,
 )
-
 from intelligence.analysts.technical.technical_agent import (
     TechnicalAgent,
 )
 
 # ============================================================
-# RESEARCH TEAM
-# ============================================================
-
-from intelligence.research.news.news_agent import (
-    NewsAgent,
-)
-
-from intelligence.research.sentiment.sentiment_agent import (
-    SentimentAgent,
-)
-
-# ============================================================
-# STRATEGY TEAM
-# ============================================================
-
-from intelligence.strategy.bull.bull_agent import (
-    BullAgent,
-)
-
-from intelligence.strategy.bear.bear_agent import (
-    BearAgent,
-)
-
-from intelligence.strategy.sideways.sideways_agent import (
-    SidewaysAgent,
-)
-
-from intelligence.strategy.hypothesis.evidence_builder import (
-    StrategyEvidenceBuilder,
-)
-
-from intelligence.strategy.synthesis.strategy_synthesis_agent import (
-    StrategySynthesisAgent,
-)
-
-# ============================================================
 # ATTRIBUTION ENGINE
 # ============================================================
-
 from intelligence.attribution.attribution_engine import (
     AttributionEngine,
 )
-
-# ============================================================
-# STRATEGY PERSPECTIVE WEIGHTING ENGINE
-# ============================================================
-
-from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
-    StrategyPerspectiveWeightingEngine,
-)
-
-# ============================================================
-# RISK TEAM
-# ============================================================
-
-from intelligence.risk.drawdown.drawdown_risk_agent import (
-    DrawdownRiskAgent,
-)
-
-from intelligence.risk.exposure.exposure_risk_agent import (
-    ExposureRiskAgent,
-)
-
-from intelligence.risk.volatility.volatility_risk_agent import (
-    VolatilityRiskAgent,
-)
-
-from intelligence.risk.aggregation.risk_signal_builder import (
-    RiskSignalBuilder,
-)
-
-from intelligence.risk.aggregation.risk_aggregator_agent import (
-    RiskAggregatorAgent,
-)
-
-# ============================================================
-# PORTFOLIO MANAGEMENT
-# ============================================================
-
-from intelligence.portfolio.management.portfolio_manager_agent import (
-    PortfolioManagerAgent,
+from intelligence.execution.execution_risk.execution_risk_guard import (
+    ExecutionRiskGuard,
 )
 
 # ============================================================
 # EXECUTION
 # ============================================================
-
 from intelligence.execution.trade_packaging.trade_packager import (
     TradePackager,
 )
 
-from intelligence.execution.execution_risk.execution_risk_guard import (
-    ExecutionRiskGuard,
+# ============================================================
+# PORTFOLIO MANAGEMENT
+# ============================================================
+from intelligence.portfolio.management.portfolio_manager_agent import (
+    PortfolioManagerAgent,
+)
+
+# ============================================================
+# PORTFOLIO STATE
+# ============================================================
+from intelligence.portfolio.management.portfolio_state_builder import (
+    PortfolioStateBuilder,
+)
+
+# ============================================================
+# RESEARCH TEAM
+# ============================================================
+from intelligence.research.news.news_agent import (
+    NewsAgent,
+)
+from intelligence.research.sentiment.sentiment_agent import (
+    SentimentAgent,
+)
+from intelligence.risk.aggregation.risk_aggregator_agent import (
+    RiskAggregatorAgent,
+)
+from intelligence.risk.aggregation.risk_signal_builder import (
+    RiskSignalBuilder,
+)
+
+# ============================================================
+# RISK TEAM
+# ============================================================
+from intelligence.risk.drawdown.drawdown_risk_agent import (
+    DrawdownRiskAgent,
+)
+from intelligence.risk.exposure.exposure_risk_agent import (
+    ExposureRiskAgent,
+)
+from intelligence.risk.volatility.volatility_risk_agent import (
+    VolatilityRiskAgent,
+)
+from intelligence.strategy.bear.bear_agent import (
+    BearAgent,
+)
+
+# ============================================================
+# STRATEGY TEAM
+# ============================================================
+from intelligence.strategy.bull.bull_agent import (
+    BullAgent,
+)
+from intelligence.strategy.hypothesis.evidence_builder import (
+    StrategyEvidenceBuilder,
+)
+from intelligence.strategy.sideways.sideways_agent import (
+    SidewaysAgent,
+)
+from intelligence.strategy.synthesis.strategy_synthesis_agent import (
+    StrategySynthesisAgent,
+)
+
+# ============================================================
+# STRATEGY PERSPECTIVE WEIGHTING ENGINE
+# ============================================================
+from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
+    StrategyPerspectiveWeightingEngine,
 )
 
 

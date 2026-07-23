@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-from typing import Protocol
-from typing import TypeVar
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -11,14 +9,8 @@ from config.settings import Settings
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.providers.llm_structured_output.structured_output_provider import (
     StructuredLlmProvider,
-)
-from integration.providers.llm_structured_output.structured_output_provider import (
     StructuredLlmProviderExecutor,
-)
-from integration.providers.llm_structured_output.structured_output_provider import (
     StructuredLlmRequest,
-)
-from integration.providers.llm_structured_output.structured_output_provider import (
     StructuredLlmResult,
 )
 
@@ -150,7 +142,7 @@ class _InstructorNativeClientAdapter:
         )
 
 
-def _messages_for(
+def _messages_for[ResponseModelT: BaseModel](
     request: StructuredLlmRequest[ResponseModelT],
 ) -> list[dict[str, str]]:
     messages: list[dict[str, str]] = []

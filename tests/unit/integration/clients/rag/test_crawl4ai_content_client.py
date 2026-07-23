@@ -7,8 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClientConfig
+from integration.clients.rag.crawl4ai_content_client import (
+    Crawl4AiContentClient,
+    Crawl4AiContentClientConfig,
+)
 from integration.clients.rag.web_retrieval_models import WebSearchCandidate
 
 
@@ -33,7 +35,7 @@ async def test_crawl4ai_client_returns_successful_markdown_documents() -> None:
     assert documents[0].markdown == "# Market Update\n\nBreadth improved."
     assert (
         documents[0].content_hash
-        == sha256("# Market Update\n\nBreadth improved.".encode("utf-8")).hexdigest()
+        == sha256(b"# Market Update\n\nBreadth improved.").hexdigest()
     )
     assert crawler.urls == ["https://example.com/market"]
 

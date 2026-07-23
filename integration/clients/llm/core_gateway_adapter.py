@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import cast
 
-from core.llm.llm_gateway import LLMChatResponseFormat
-from core.llm.llm_gateway import LLMGateway
-from core.llm.llm_gateway import LLMJsonResult
-from core.llm.llm_gateway import LLMMessage
-from core.llm.llm_gateway import LLMMetadata
-from core.llm.llm_gateway import LLMTextResult
-from integration.clients.llm.litellm_gateway_client import LiteLlmGatewayChatRequest
-from integration.clients.llm.litellm_gateway_client import LiteLlmGatewayClient
-from integration.clients.llm.litellm_gateway_client import LiteLlmGatewayMessage
-from integration.clients.llm.litellm_gateway_client import LiteLlmGatewayRole
+from core.llm.llm_gateway import (
+    LLMChatResponseFormat,
+    LLMGateway,
+    LLMJsonResult,
+    LLMMessage,
+    LLMMetadata,
+    LLMTextResult,
+)
+from integration.clients.llm.litellm_gateway_client import (
+    LiteLlmGatewayChatRequest,
+    LiteLlmGatewayClient,
+    LiteLlmGatewayMessage,
+    LiteLlmGatewayRole,
+)
 
 _ALLOWED_ROLES = frozenset({"system", "user", "assistant"})
 

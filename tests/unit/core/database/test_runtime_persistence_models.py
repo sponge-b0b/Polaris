@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import CheckConstraint
-from sqlalchemy import Table
+from sqlalchemy import CheckConstraint, Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
-from core.database.models.runtime import WorkflowStateSnapshotModel
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+    WorkflowStateSnapshotModel,
+)
 
 
 def test_runtime_models_are_imported_into_base_metadata() -> None:

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunBundle,
+    CompletedRunRecord,
+)
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
@@ -208,7 +209,7 @@ async def test_archive_run_propagates_repository_errors() -> None:
 
 
 def _bundle() -> CompletedRunBundle:
-    completed_at = datetime(2026, 6, 21, 12, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 6, 21, 12, tzinfo=UTC)
     return CompletedRunBundle(
         run=CompletedRunRecord(
             run_id="run-1",

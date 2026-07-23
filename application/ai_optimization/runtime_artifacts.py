@@ -3,12 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.ai_artifacts import approval_status_value
-from core.storage.persistence.ai_artifacts import artifact_type_value
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactPersistenceRepository,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+    approval_status_value,
+    artifact_type_value,
+)
 
 RAG_ANSWER_GENERATION_ARTIFACT_TARGET = "rag_answer_generation"
 

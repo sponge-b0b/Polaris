@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import new_rag_embedding_job_id
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    new_rag_embedding_job_id,
+)
 
 
 def build_embedding_jobs(

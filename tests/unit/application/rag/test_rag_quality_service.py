@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.rag.graphs import RagContextQuality
-from application.rag.graphs import RagCorrectiveAction
-from application.rag.quality.rag_quality_service import RagQualityModelOutputError
-from application.rag.quality.rag_quality_service import RagQualityService
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.graphs import RagContextQuality, RagCorrectiveAction
+from application.rag.quality.rag_quality_service import (
+    RagQualityModelOutputError,
+    RagQualityService,
+)
+from core.storage.persistence.rag import JsonObject
 from integration.providers.rag.quality_evaluation_provider import (
     RagQualityModelOperation,
+    RagQualityModelRequest,
+    RagQualityModelResult,
 )
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelRequest
-from core.storage.persistence.rag import JsonObject
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelResult
 
 
 @pytest.mark.asyncio
@@ -190,7 +189,7 @@ def _context(context_id: str = "context-1") -> RagRetrievedContext:
             source_type="market_context",
             document_id="document-1",
             title="Market context",
-            generated_at=datetime(2026, 6, 24, tzinfo=timezone.utc),
+            generated_at=datetime(2026, 6, 24, tzinfo=UTC),
         ),
         score=0.9,
         rank=0,

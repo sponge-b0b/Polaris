@@ -2,23 +2,22 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from time import perf_counter
 from typing import Any
 
-from sqlalchemy import delete
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.telemetry import AgentMetricModel
-from core.database.models.telemetry import ProviderMetricModel
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryMetricModel
-from core.database.models.telemetry import TelemetryTraceModel
-from core.database.models.telemetry import WorkflowMetricModel
+from core.database.models.telemetry import (
+    AgentMetricModel,
+    ProviderMetricModel,
+    TelemetryEventModel,
+    TelemetryMetricModel,
+    TelemetryTraceModel,
+    WorkflowMetricModel,
+)
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 DEFAULT_TELEMETRY_RETENTION_DAYS = 30

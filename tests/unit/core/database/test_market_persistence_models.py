@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Boolean
-from sqlalchemy import String
-from sqlalchemy import Table
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Boolean, String, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.market import MarketBreadthSnapshotModel
-from core.database.models.market import MarketContextSnapshotModel
-from core.database.models.market import MarketEventSnapshotModel
-from core.database.models.market import MarketIndicatorModel
-from core.database.models.market import MarketOhlcvModel
-from core.database.models.market import TechnicalAnalysisSnapshotModel
+from core.database.models.market import (
+    MarketBreadthSnapshotModel,
+    MarketContextSnapshotModel,
+    MarketEventSnapshotModel,
+    MarketIndicatorModel,
+    MarketOhlcvModel,
+    TechnicalAnalysisSnapshotModel,
+)
 
 
 def test_market_models_are_imported_into_base_metadata() -> None:

@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.audit.audit_emission import PersistenceAuditEmission
-from application.persistence.news import NewsAnalysisSnapshotPersistenceFilters
-from application.persistence.news import NewsArticlePersistenceFilters
-from application.persistence.news import NewsPersistenceService
+from application.persistence.news import (
+    NewsAnalysisSnapshotPersistenceFilters,
+    NewsArticlePersistenceFilters,
+    NewsPersistenceService,
+)
 from core.storage.persistence.audit import PersistenceAuditEventResult
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
-from core.storage.persistence.news import NewsPersistenceBundle
-from core.storage.persistence.news import NewsPersistenceResult
+from core.storage.persistence.news import (
+    NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+    NewsPersistenceResult,
+)
 
 
 class FakeNewsRepository:
@@ -150,7 +153,7 @@ async def test_news_persistence_service_emits_non_fatal_audit_events() -> None:
 
 
 @pytest.mark.asyncio
-async def test_news_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (
+async def test_news_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (  # noqa: E501
     None
 ):
     repository = FakeNewsRepository()
@@ -195,7 +198,7 @@ async def test_news_persistence_service_uses_typed_filters() -> None:
     )
     service = NewsPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     articles = await service.list_articles(
         NewsArticlePersistenceFilters(
@@ -242,7 +245,7 @@ async def test_news_persistence_service_returns_query_result_envelopes() -> None
     )
     service = NewsPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     article_result = await service.list_articles_result(
         NewsArticlePersistenceFilters(
@@ -342,7 +345,7 @@ def test_news_time_window_filters_require_ordered_bounds(
         NewsArticlePersistenceFilters | NewsAnalysisSnapshotPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -414,4 +417,4 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

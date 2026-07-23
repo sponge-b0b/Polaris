@@ -1,38 +1,43 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.rag.operations.embedding_job_processor import EmbeddingJobProcessor
 from application.rag.operations.embedding_job_processor import (
+    EmbeddingJobProcessor,
     EmbeddingJobProcessorConfig,
 )
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagCanonicalRecordCounts
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceResult,
+    RagQueryLogRecord,
+    RagRecordPersistenceResult,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
-from integration.providers.rag.vector_index_models import VectorCollectionReadiness
-from integration.providers.rag.vector_index_models import VectorCollectionStatus
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
+from integration.providers.rag.embedding_provider import (
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
+from integration.providers.rag.vector_index_models import (
+    VectorCollectionReadiness,
+    VectorCollectionStatus,
+    VectorIndexPoint,
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 
 
 @pytest.mark.asyncio
@@ -465,7 +470,7 @@ def _job(
         target_store="qdrant",
         embedding_model="bge-large",
         status="queued",
-        queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        queued_at=datetime(2026, 5, 30, tzinfo=UTC),
         attempts=attempts,
         metadata={"source_type": "morning_report"},
     )

@@ -1,22 +1,19 @@
 from typing import Any
 
-from domain.workflow_outputs import (
-    RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT,
-    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
-)
-
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import (
     RuntimeNodeOutput,
 )
-
-from integration.contracts.risk.risk_signal_contract import (
-    RiskSignalContract,
+from domain.workflow_outputs import (
+    RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
 from integration.adapters.risk import (
     risk_runtime_adapter,
+)
+from integration.contracts.risk.risk_signal_contract import (
+    RiskSignalContract,
 )
 
 

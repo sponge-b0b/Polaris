@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Literal
 
-from application.rag.routing.query_routing_models import RagQueryModelExecution
-from application.rag.routing.query_routing_models import RagRetrievalRoute
 from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_quality_models import RagContextEvaluation
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.contracts.rag_quality_models import RagSelfReflection
+from application.rag.contracts.rag_quality_models import (
+    RagContextEvaluation,
+    RagCorrectiveAction,
+    RagSelfReflection,
+)
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.routing.query_routing_models import (
+    RagQueryModelExecution,
+    RagRetrievalRoute,
+)
 from application.rag.security.rag_security import safe_grounding_failure_answer
 from core.storage.persistence.rag import JsonObject
 

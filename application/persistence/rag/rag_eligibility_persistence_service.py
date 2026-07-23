@@ -3,14 +3,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
 from core.storage.persistence.query import PersistenceListResult
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.rag import (
+    RagPersistenceRepository,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+)
 
 
 @dataclass(

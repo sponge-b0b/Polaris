@@ -6,7 +6,6 @@ from core.workflow.models.workflow_graph_definition import (
 from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
-
 from plugins.example_market_plugin.runtime_nodes import (
     ExamplePluginMarketNode,
 )

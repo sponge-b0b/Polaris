@@ -1,29 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.rag import RagAnswerLogModel
-from core.database.models.rag import RagChunkModel
-from core.database.models.rag import RagDocumentModel
-from core.database.models.rag import RagEmbeddingJobModel
-from core.database.models.rag import RagGraphJobModel
-from core.database.models.rag import RagQueryLogModel
-from core.database.models.rag import RagSourceEligibilityModel
-from core.storage.persistence.rag.rag_persistence_models import JsonObject
-from core.storage.persistence.rag.rag_persistence_models import RagAnswerLogRecord
-from core.storage.persistence.rag.rag_persistence_models import RagChunkRecord
-from core.storage.persistence.rag.rag_persistence_models import RagDocumentRecord
-from core.storage.persistence.rag.rag_persistence_models import RagEmbeddingJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagGraphJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagQueryLogRecord
+from core.database.models.rag import (
+    RagAnswerLogModel,
+    RagChunkModel,
+    RagDocumentModel,
+    RagEmbeddingJobModel,
+    RagGraphJobModel,
+    RagQueryLogModel,
+    RagSourceEligibilityModel,
+)
 from core.storage.persistence.rag.rag_persistence_models import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagQueryLogRecord,
     RagQueryModelExecutionRecord,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagQueryReflectionScores,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagSourceEligibilityRecord,
 )
 

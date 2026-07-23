@@ -1,31 +1,39 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 from config.settings import DEFAULT_RAG_HYBRID_EMBEDDING_MODEL
-
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestMetricRecord,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestStepRecord,
+)
 from core.storage.persistence.macro import MacroRegimeSnapshotRecord
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    TechnicalAnalysisSnapshotRecord,
+)
 from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioRiskSnapshotRecord,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+)
 from core.storage.persistence.reports import ReportRecord
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
+from core.storage.persistence.strategy import (
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+)
 
-CuratedRagSource: TypeAlias = (
+type CuratedRagSource = (
     ReportRecord
     | AgentSignalRecord
     | RecommendationRecord

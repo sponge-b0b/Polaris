@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.state.runtime_context import RuntimeContext
@@ -32,7 +30,7 @@ class RuntimeCheckpoint:
 
     runtime_id: str
 
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     wave_index: int = 0
 
@@ -183,7 +181,7 @@ class RuntimeCheckpoint:
                 created_at_raw,
             )
             if created_at_raw
-            else datetime.now(timezone.utc)
+            else datetime.now(UTC)
         )
 
         workflow_id = data.get("workflow_id")

@@ -1,26 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
-from core.storage.persistence.attribution import AttributionPersistenceBundle
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
+from core.storage.persistence.attribution import (
+    AttributionPersistenceBundle,
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (  # noqa: E501
     PostgresAttributionPersistenceRepository,
 )
 from core.storage.persistence.serializers.attribution_persistence_serializer import (
@@ -367,7 +371,7 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 
 
 def _full_explanation() -> str:

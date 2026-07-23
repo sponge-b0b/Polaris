@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server.settings import McpServerSettings
-from mcp_server.telemetry import McpTelemetry
 from application.projections.workflow_outputs import (
     subscribe_default_workflow_output_projection,
 )
+from mcp_server.settings import McpServerSettings
+from mcp_server.telemetry import McpTelemetry
 
 if TYPE_CHECKING:
     from dishka import AsyncContainer

@@ -2,38 +2,36 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import Table
-from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import Table, delete
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
-from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+)
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
+from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
     PostgresRuntimePersistenceRepository,
 )
-from core.storage.persistence.runtime import RuntimePersistenceEventSubscriber
-from core.storage.persistence.runtime import WorkflowEventRecord
-from core.storage.persistence.runtime import WorkflowNodeRunRecord
-from core.storage.persistence.runtime import WorkflowRunRecord
+from core.storage.persistence.runtime import (
+    RuntimePersistenceEventSubscriber,
+    WorkflowEventRecord,
+    WorkflowNodeRunRecord,
+    WorkflowRunRecord,
+)
 
 TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for Postgres persistence integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for Postgres persistence integration tests.",  # noqa: E501
 )
 
 
@@ -113,8 +111,8 @@ async def test_postgres_runtime_repository_persists_and_reads_runtime_records(
     postgres_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     execution_id = f"runtime-repository-{uuid4().hex}"
-    started_at = datetime(2026, 5, 30, 15, tzinfo=timezone.utc)
-    completed_at = datetime(2026, 5, 30, 15, 1, tzinfo=timezone.utc)
+    started_at = datetime(2026, 5, 30, 15, tzinfo=UTC)
+    completed_at = datetime(2026, 5, 30, 15, 1, tzinfo=UTC)
     await _delete_test_records(
         postgres_session_factory,
         execution_id,
@@ -202,7 +200,7 @@ async def test_event_bus_subscriber_projects_runtime_events_to_postgres(
     postgres_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     execution_id = f"runtime-subscriber-{uuid4().hex}"
-    timestamp = datetime(2026, 5, 30, 15, 5, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 30, 15, 5, tzinfo=UTC)
     await _delete_test_records(
         postgres_session_factory,
         execution_id,

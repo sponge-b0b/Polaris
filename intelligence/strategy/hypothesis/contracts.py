@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from math import isfinite
-from typing import TypeAlias
 
 
-class StrategyPerspective(str, Enum):
+class StrategyPerspective(StrEnum):
     """Canonical independent strategy hypothesis perspectives."""
 
     BULL = "bull"
@@ -13,12 +12,12 @@ class StrategyPerspective(str, Enum):
     SIDEWAYS = "sideways"
 
 
-StrategyJsonScalar: TypeAlias = str | int | float | bool | None
-DirectionalBias: TypeAlias = float
-HypothesisStrength: TypeAlias = float
-Confidence: TypeAlias = float
-EvidenceStrength: TypeAlias = float
-EvidenceReliability: TypeAlias = float
+type StrategyJsonScalar = str | int | float | bool | None
+type DirectionalBias = float
+type HypothesisStrength = float
+type Confidence = float
+type EvidenceStrength = float
+type EvidenceReliability = float
 
 
 def parse_strategy_perspective(
@@ -101,7 +100,7 @@ def validate_strategy_json_scalar(
             raise ValueError(f"{field_name} must be finite.")
         return value
     raise TypeError(
-        f"{field_name} must be a JSON-compatible scalar: str, int, float, bool, or None."
+        f"{field_name} must be a JSON-compatible scalar: str, int, float, bool, or None."  # noqa: E501
     )
 
 

@@ -2,23 +2,22 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.database.models.portfolio import PortfolioEquityHistoryPointModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import new_portfolio_equity_history_point_id
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+from core.storage.persistence.portfolio import (
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExpansionPersistenceBundle,
+    new_portfolio_equity_history_point_id,
+)
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
     PostgresPortfolioExpansionPersistenceRepository,
 )
 
@@ -26,7 +25,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for portfolio persistence integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for portfolio persistence integration tests.",  # noqa: E501
 )
 
 
@@ -54,7 +53,7 @@ async def test_portfolio_equity_history_is_idempotent_and_queryable(
     postgres_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     account_id = f"portfolio-equity-integration-{uuid4().hex}"
-    observed_at = datetime(2026, 6, 30, 14, tzinfo=timezone.utc)
+    observed_at = datetime(2026, 6, 30, 14, tzinfo=UTC)
     record = PortfolioEquityHistoryPointRecord(
         portfolio_equity_history_point_id=new_portfolio_equity_history_point_id(
             account_id=account_id,

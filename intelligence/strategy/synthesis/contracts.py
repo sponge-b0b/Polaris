@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from json import dumps
 from math import isclose
 from typing import Self
 
-from intelligence.strategy.hypothesis.contracts import Confidence
-from intelligence.strategy.hypothesis.contracts import DirectionalBias
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.contracts import parse_strategy_perspective
-from intelligence.strategy.hypothesis.contracts import validate_confidence
-from intelligence.strategy.hypothesis.contracts import validate_directional_bias
+from intelligence.strategy.hypothesis.contracts import (
+    Confidence,
+    DirectionalBias,
+    StrategyPerspective,
+    parse_strategy_perspective,
+    validate_confidence,
+    validate_directional_bias,
+)
 from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
-class StrategySynthesisSelectionStatus(str, Enum):
+class StrategySynthesisSelectionStatus(StrEnum):
     """Canonical selection status for a strategy hypothesis candidate."""
 
     CANDIDATE = "candidate"
@@ -26,7 +28,7 @@ class StrategySynthesisSelectionStatus(str, Enum):
     DEGRADED = "degraded"
 
 
-class StrategySynthesisDegradedReason(str, Enum):
+class StrategySynthesisDegradedReason(StrEnum):
     """Typed reasons why synthesis cannot produce a clean selected decision."""
 
     MISSING_HYPOTHESIS = "missing_hypothesis"

@@ -1,20 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
-from typing import Iterable
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
+from enum import StrEnum
 from uuid import uuid4
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
 
 
-class AiObservabilityExportJobStatus(str, Enum):
+class AiObservabilityExportJobStatus(StrEnum):
     """Durable AI-observability export job lifecycle status."""
 
     PENDING = "pending"

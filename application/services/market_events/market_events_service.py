@@ -1,23 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
+from application.services.base import ServiceRequest, ServiceResult
 from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
-
+from application.services.market_events import earnings_clusters, event_scoring
 from application.services.market_events.market_events_request import (
     MarketEventsRequest,
 )
 from application.services.market_events.market_events_result import (
     MarketEventsResult,
 )
-from application.services.market_events import earnings_clusters
-from application.services.market_events import event_scoring
 
 if TYPE_CHECKING:
     from integration.providers.market_events.market_events_provider import (
@@ -201,8 +197,8 @@ class MarketEventsService(ApplicationService, ValidatingApplicationService):
 
     def _normalize_macro_events(
         self,
-        events: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        events: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
 
         return [
             {
@@ -220,8 +216,8 @@ class MarketEventsService(ApplicationService, ValidatingApplicationService):
 
     def _normalize_fed_events(
         self,
-        events: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        events: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
 
         return [
             {
@@ -239,8 +235,8 @@ class MarketEventsService(ApplicationService, ValidatingApplicationService):
 
     def _normalize_earnings_events(
         self,
-        events: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        events: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
 
         return [
             {
@@ -262,8 +258,8 @@ class MarketEventsService(ApplicationService, ValidatingApplicationService):
 
     def _aggregate_pressure(
         self,
-        events: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        events: list[dict[str, Any]],
+    ) -> dict[str, Any]:
 
         if not events:
             return {

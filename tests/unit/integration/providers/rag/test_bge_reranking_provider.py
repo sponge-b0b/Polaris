@@ -4,11 +4,9 @@ from typing import cast
 
 import pytest
 
-from integration.clients.rag.bge_reranker_client import BgeRerankItem
-from integration.clients.rag.bge_reranker_client import BgeRerankerClient
+from integration.clients.rag.bge_reranker_client import BgeRerankerClient, BgeRerankItem
 from integration.providers.rag.bge_reranking_provider import BgeRerankingProvider
-from integration.providers.rag.reranking_provider import RerankCandidate
-from integration.providers.rag.reranking_provider import RerankRequest
+from integration.providers.rag.reranking_provider import RerankCandidate, RerankRequest
 
 
 @pytest.mark.asyncio

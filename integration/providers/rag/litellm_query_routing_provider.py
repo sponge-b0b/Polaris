@@ -3,13 +3,14 @@ from __future__ import annotations
 from time import perf_counter
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.llm import LITELLM_PROVIDER_NAME
-from integration.clients.llm import LiteLlmGatewayClient
+from integration.clients.llm import LITELLM_PROVIDER_NAME, LiteLlmGatewayClient
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.query_routing_provider import RagQueryModelConfig
-from integration.providers.rag.query_routing_provider import RagQueryModelProvider
-from integration.providers.rag.query_routing_provider import RagQueryModelRequest
-from integration.providers.rag.query_routing_provider import RagQueryModelResult
+from integration.providers.rag.query_routing_provider import (
+    RagQueryModelConfig,
+    RagQueryModelProvider,
+    RagQueryModelRequest,
+    RagQueryModelResult,
+)
 
 
 class LiteLlmRagQueryModelProvider(RagQueryModelProvider):

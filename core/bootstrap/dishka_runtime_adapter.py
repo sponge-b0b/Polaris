@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from typing import Any
-from typing import Type
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 
@@ -35,7 +34,7 @@ class DishkaRuntimeAdapter:
 
     def get(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
     ) -> RuntimeNode:
         """
         Resolve RuntimeNode from Dishka container.
@@ -58,7 +57,7 @@ class DishkaRuntimeAdapter:
 
     def resolve(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
     ) -> RuntimeNode:
         """
         Alias for get(), matching alternate container adapter conventions.
@@ -70,7 +69,7 @@ class DishkaRuntimeAdapter:
 
     def _resolve(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
     ) -> Any:
         if self.use_scope:
             scoped_container = self.container()

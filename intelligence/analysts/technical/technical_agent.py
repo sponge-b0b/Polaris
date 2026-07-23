@@ -1,42 +1,36 @@
 from __future__ import annotations
 
 from time import perf_counter
-from typing import Any, Dict
+from typing import Any
 
-from application.observability import AiObservationStatus
-from application.observability import static_prompt_hash
-from core.llm.llm_service import LLMService
-
-from core.runtime.contracts.runtime_node import RuntimeNode
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-
-from core.utils.utils import _safe_float
-
-from intelligence.prompts.system.technical_agent_prompt import (
-    TECHNICAL_AGENT_SYSTEM_PROMPT,
-)
-
-from intelligence.observability import IntelligenceAiObservabilityProjectorPort
-from intelligence.observability import IntelligenceAiObservabilityRecorder
-from intelligence.observability import llm_model_name
-from intelligence.observability import record_intelligence_generation_observation
-from intelligence.telemetry import telemetry_context_from_runtime
-
+from application.observability import AiObservationStatus, static_prompt_hash
+from application.services.base import ServiceRequest, ServiceRunner
 from application.services.technical.technical_analysis_service import (
     TechnicalAnalysisService,
 )
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
 from application.services.technical.technical_request import (
     TechnicalAnalysisRequest,
 )
+from core.llm.llm_service import LLMService
+from core.runtime.contracts.runtime_node import RuntimeNode
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from core.utils.utils import _safe_float
 from domain.workflow_outputs import (
     TECHNICAL_ANALYSIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
+from intelligence.observability import (
+    IntelligenceAiObservabilityProjectorPort,
+    IntelligenceAiObservabilityRecorder,
+    llm_model_name,
+    record_intelligence_generation_observation,
+)
+from intelligence.prompts.system.technical_agent_prompt import (
+    TECHNICAL_AGENT_SYSTEM_PROMPT,
+)
+from intelligence.telemetry import telemetry_context_from_runtime
 
 TECHNICAL_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(TECHNICAL_AGENT_SYSTEM_PROMPT)
 
@@ -558,8 +552,8 @@ class TechnicalAgent(RuntimeNode):
 
     def _calculate_execution_readiness(
         self,
-        regime: Dict[str, Any],
-        volatility: Dict[str, Any],
+        regime: dict[str, Any],
+        volatility: dict[str, Any],
     ) -> float:
 
         confidence = float(
@@ -598,9 +592,9 @@ class TechnicalAgent(RuntimeNode):
 
     def _calculate_signal_quality(
         self,
-        regime: Dict[str, Any],
-        trend: Dict[str, Any],
-        volatility: Dict[str, Any],
+        regime: dict[str, Any],
+        trend: dict[str, Any],
+        volatility: dict[str, Any],
     ) -> float:
 
         confidence = float(
@@ -638,9 +632,9 @@ class TechnicalAgent(RuntimeNode):
     def _build_breadth_state(
         self,
         *,
-        breadth: Dict[str, Any],
-        market_context: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        breadth: dict[str, Any],
+        market_context: dict[str, Any],
+    ) -> dict[str, Any]:
 
         has_breadth = bool(
             breadth.get(
@@ -751,7 +745,7 @@ class TechnicalAgent(RuntimeNode):
 
     def _breadth_signal_tags(
         self,
-        breadth_state: Dict[str, Any],
+        breadth_state: dict[str, Any],
     ) -> list[str]:
 
         if not breadth_state.get(
@@ -771,7 +765,7 @@ class TechnicalAgent(RuntimeNode):
 
     def _breadth_risk_flags(
         self,
-        breadth_state: Dict[str, Any],
+        breadth_state: dict[str, Any],
     ) -> list[str]:
 
         if not breadth_state.get(
@@ -832,7 +826,7 @@ class TechnicalAgent(RuntimeNode):
 
     def _breadth_recommendations(
         self,
-        breadth_state: Dict[str, Any],
+        breadth_state: dict[str, Any],
     ) -> list[str]:
 
         if not breadth_state.get(
@@ -882,13 +876,13 @@ class TechnicalAgent(RuntimeNode):
     def build_llm_context(
         self,
         symbol: str,
-        snapshot: Dict[str, Any],
-        trend: Dict[str, Any],
-        volatility: Dict[str, Any],
-        breadth: Dict[str, Any],
-        market_context: Dict[str, Any],
-        raw_regime: Dict[str, Any],
-        regime: Dict[str, Any],
+        snapshot: dict[str, Any],
+        trend: dict[str, Any],
+        volatility: dict[str, Any],
+        breadth: dict[str, Any],
+        market_context: dict[str, Any],
+        raw_regime: dict[str, Any],
+        regime: dict[str, Any],
     ) -> str:
 
         return f"""

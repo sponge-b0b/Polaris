@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Iterable
 from typing import Any
-from typing import Iterable
 
 from core.telemetry.events.telemetry_event import TelemetryEvent
 from core.telemetry.metrics.metrics_store import MetricsStore

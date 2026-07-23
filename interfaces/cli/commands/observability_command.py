@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -9,8 +8,6 @@ from interfaces.cli.formatters.json_formatter import format_json
 from interfaces.cli.services.async_runner import run_cli_async
 from interfaces.cli.services.observability_command_service import (
     ObservabilityCommandService,
-)
-from interfaces.cli.services.observability_command_service import (
     render_ai_observability_status,
 )
 

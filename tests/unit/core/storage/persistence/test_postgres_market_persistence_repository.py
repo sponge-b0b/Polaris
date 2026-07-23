@@ -1,31 +1,33 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.market import MarketBreadthSnapshotModel
-from core.database.models.market import MarketContextSnapshotModel
-from core.database.models.market import MarketEventSnapshotModel
-from core.database.models.market import MarketIndicatorModel
-from core.database.models.market import MarketOhlcvModel
-from core.database.models.market import TechnicalAnalysisSnapshotModel
+from core.database.models.market import (
+    MarketBreadthSnapshotModel,
+    MarketContextSnapshotModel,
+    MarketEventSnapshotModel,
+    MarketIndicatorModel,
+    MarketOhlcvModel,
+    TechnicalAnalysisSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import MarketIndicatorRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import MarketPersistenceBundle
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    MarketIndicatorRecord,
+    MarketOhlcvRecord,
+    MarketPersistenceBundle,
+    TechnicalAnalysisSnapshotRecord,
+)
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
     PostgresMarketPersistenceRepository,
 )
 from core.storage.persistence.serializers.market_persistence_serializer import (
@@ -404,4 +406,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

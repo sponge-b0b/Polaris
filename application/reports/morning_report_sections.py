@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
-
 
 BoundaryMapping = Mapping[str, Any]
 

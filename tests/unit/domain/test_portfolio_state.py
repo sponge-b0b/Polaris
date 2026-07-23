@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
-from dataclasses import fields
-from datetime import datetime
-from datetime import timezone
+from dataclasses import FrozenInstanceError, fields
+from datetime import UTC, datetime
 
 import pytest
 
@@ -13,7 +11,7 @@ from domain.portfolio.models.portfolio_state import PortfolioState
 def _minimal_state() -> PortfolioState:
     return PortfolioState(
         account_id="acct-1",
-        timestamp=datetime(2026, 6, 6, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 6, 6, tzinfo=UTC),
         equity=100_000.0,
         peak_equity=105_000.0,
         portfolio_value=101_000.0,

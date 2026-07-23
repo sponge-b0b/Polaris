@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
 from uuid import uuid4
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
 
 
 @dataclass(
@@ -863,9 +860,9 @@ def new_rag_embedding_job_id(
     )
 
     if chunk_id is not None and chunk_id.strip():
-        return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{chunk_id.strip()}"
+        return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{chunk_id.strip()}"  # noqa: E501
 
-    return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{document_id.strip()}:{uuid4().hex}"
+    return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{document_id.strip()}:{uuid4().hex}"  # noqa: E501
 
 
 def new_rag_graph_job_id(
@@ -889,9 +886,9 @@ def new_rag_graph_job_id(
     )
 
     if chunk_id is not None and chunk_id.strip():
-        return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{chunk_id.strip()}"
+        return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{chunk_id.strip()}"  # noqa: E501
 
-    return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{document_id.strip()}:{uuid4().hex}"
+    return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{document_id.strip()}:{uuid4().hex}"  # noqa: E501
 
 
 def new_rag_query_log_id() -> str:

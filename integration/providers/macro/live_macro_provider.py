@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from domain.macro.models import MacroDataSnapshot
-from domain.macro.models import MacroIndicatorObservation
+from domain.macro.models import MacroDataSnapshot, MacroIndicatorObservation
 from integration.clients.macro.fred_macro_client import (
     FredMacroClient,
     FredSeriesObservation,

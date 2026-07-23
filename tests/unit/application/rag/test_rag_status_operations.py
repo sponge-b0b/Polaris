@@ -1,30 +1,37 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessConfig
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
+from application.rag.contracts.rag_operation_models import (
+    RagProjectionReadinessConfig,
+    RagStatusOperationRequest,
+)
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
-from core.storage.persistence.rag import RagCanonicalRecordCounts
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from core.storage.persistence.rag import (
+    RagCanonicalRecordCounts,
+    RagEmbeddingJobRecord,
+    RagPersistenceRepository,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.embedding_provider import EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
+from integration.providers.rag.embedding_provider import (
+    EmbeddingProvider,
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
 from integration.providers.rag.graph_projection_models import GraphStoreStatus
 from integration.providers.rag.graph_projection_provider import GraphProjectionProvider
-from integration.providers.rag.reranking_provider import RerankingProvider
-from integration.providers.rag.reranking_provider import RerankRequest
-from integration.providers.rag.reranking_provider import RerankResult
+from integration.providers.rag.reranking_provider import (
+    RerankingProvider,
+    RerankRequest,
+    RerankResult,
+)
 from integration.providers.rag.vector_index_models import VectorCollectionReadiness
 from integration.providers.rag.vector_index_provider import (
     VectorCollectionLifecycleProvider,
@@ -133,7 +140,7 @@ class FailingVectorProvider(FakeVectorProvider):
 
 
 @pytest.mark.asyncio
-async def test_status_preserves_partial_diagnostics_when_projection_is_unavailable() -> (
+async def test_status_preserves_partial_diagnostics_when_projection_is_unavailable() -> (  # noqa: E501
     None
 ):
     service = RagStatusOperationsService(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
@@ -10,11 +9,10 @@ from application.services.base import ServiceResult, ServiceRunner
 from application.services.macro.macro_result import MacroAnalysisResult
 from application.services.macro.macro_service import MacroService
 from core.llm.llm_service import LLMService
-from domain.macro.models import MacroDataSnapshot
-from domain.macro.models import MacroIndicatorObservation
-from domain.workflow_outputs import MACRO_ANALYSIS_OUTPUT_CONTRACT
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.macro.models import MacroDataSnapshot, MacroIndicatorObservation
+from domain.workflow_outputs import MACRO_ANALYSIS_OUTPUT_CONTRACT
 from intelligence.analysts.fundamental.fundamental_agent import FundamentalAgent
 
 

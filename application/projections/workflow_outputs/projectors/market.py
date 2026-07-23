@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
-from typing import Final
-from typing import cast
+from datetime import UTC, datetime
+from typing import Final, cast
 
 from application.persistence.market import MarketPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
@@ -12,22 +10,22 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
-from domain.workflow_outputs import TECHNICAL_ANALYSIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    TechnicalAnalysisSnapshotRecord,
+)
+from domain.workflow_outputs import (
+    TECHNICAL_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 TECHNICAL_MARKET_PROJECTOR_NAME: Final = "technical_market_projector"
 TECHNICAL_MARKET_PROJECTOR_NODE_NAMES: Final = ("technical_agent",)

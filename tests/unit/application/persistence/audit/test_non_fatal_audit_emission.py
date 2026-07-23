@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.persistence.audit.audit_emission import NonFatalPersistenceAuditEmitter
-from application.persistence.audit.audit_emission import PersistenceAuditEmission
+from application.persistence.audit.audit_emission import (
+    NonFatalPersistenceAuditEmitter,
+    PersistenceAuditEmission,
+)
 from application.persistence.audit.audit_persistence_service import (
     AuditPersistenceService,
 )
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventResult
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventResult,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 
 
@@ -179,4 +182,4 @@ def _emission(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

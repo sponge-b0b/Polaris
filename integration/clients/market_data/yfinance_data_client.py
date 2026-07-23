@@ -264,7 +264,7 @@ class YFinanceDataClient:
         )
         return [
             self._coerce_symbol_result(symbol=symbol, result=result)
-            for symbol, result in zip(symbols, results)
+            for symbol, result in zip(symbols, results, strict=False)
         ]
 
     async def _fetch_summary_batch(
@@ -289,7 +289,7 @@ class YFinanceDataClient:
         )
         return [
             self._coerce_summary_result(symbol=symbol, result=result)
-            for symbol, result in zip(symbols, results)
+            for symbol, result in zip(symbols, results, strict=False)
         ]
 
     async def _fetch_symbol_history(
@@ -658,7 +658,7 @@ class YFinanceDataClient:
     ) -> DataFrame:
         valid_results = [
             (symbol, result)
-            for symbol, result in zip(symbols, results)
+            for symbol, result in zip(symbols, results, strict=False)
             if isinstance(result, pd.DataFrame) and not result.empty
         ]
         if not valid_results:

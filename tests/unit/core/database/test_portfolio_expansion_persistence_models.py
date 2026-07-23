@@ -2,21 +2,18 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Boolean
-from sqlalchemy import DateTime
-from sqlalchemy import Float
-from sqlalchemy import String
-from sqlalchemy import Table
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, String, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioEquityHistoryPointModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioEquityHistoryPointModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
 
 
 def test_portfolio_expansion_models_are_imported_into_base_metadata() -> None:

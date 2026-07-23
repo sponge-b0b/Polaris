@@ -4,20 +4,16 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
+    WorkflowOutputProjectionOutcome,
     WorkflowOutputProjectionReconciliationRequest,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionReconciliationResult,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
+    WorkflowOutputProjectionRetryResult,
+    WorkflowOutputProjectionStatus,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectionRetryResult
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
 
 
 def test_projection_request_is_immutable_and_cleans_identifiers() -> None:

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 
@@ -105,7 +104,7 @@ async def test_observability_records_workflow_and_node_domain_metrics() -> None:
 
 
 @pytest.mark.asyncio
-async def test_observability_records_application_provider_and_intelligence_domain_metrics() -> (
+async def test_observability_records_application_provider_and_intelligence_domain_metrics() -> (  # noqa: E501
     None
 ):
     observability_manager = ObservabilityManager()

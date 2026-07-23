@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Table
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.macro import EconomicCalendarEventModel
-from core.database.models.macro import MacroObservationModel
-from core.database.models.macro import MacroRegimeSnapshotModel
+from core.database.models.macro import (
+    EconomicCalendarEventModel,
+    MacroObservationModel,
+    MacroRegimeSnapshotModel,
+)
 
 
 def test_macro_models_are_imported_into_base_metadata() -> None:

@@ -2,49 +2,43 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 from typer.testing import CliRunner
 
-from application.rag.contracts.rag_context import RagRetrievedContext
+import interfaces.cli.services.rag_command_service as rag_command_service_module
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
-)
-from application.rag.contracts.rag_operation_models import RagGraphProjectionReadiness
-from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
-from application.rag.contracts.rag_operation_models import RagOperationDetail
-from application.rag.contracts.rag_operation_models import RagOperationResult
-from application.rag.contracts.rag_operation_models import RagModelReadiness
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import RagVectorProjectionReadiness
-from application.rag.contracts.rag_operation_models import (
+    RagGraphProjectionReadiness,
+    RagIngestOperationRequest,
+    RagModelReadiness,
+    RagOperationDetail,
+    RagOperationResult,
     RagProcessEmbeddingsOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
     RagProcessGraphOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
+    RagProjectionReadinessResult,
     RagRebuildProjectionOperationRequest,
+    RagVectorProjectionReadiness,
 )
-from application.rag.contracts.rag_context import RagSource
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import rag_command
-import interfaces.cli.services.rag_command_service as rag_command_service_module
-from interfaces.cli.services.rag_command_service import RagAskCommandRequest
-from interfaces.cli.services.rag_command_service import RagAskCommandResult
-from interfaces.cli.services.rag_command_service import RagCommandService
-from interfaces.cli.services.rag_command_service import default_rag_embedding_context
-from interfaces.cli.services.rag_command_service import default_rag_ingestion_context
-from interfaces.cli.services.rag_command_service import default_rag_projection_context
-from interfaces.cli.services.rag_command_service import default_rag_status_context
-from interfaces.cli.services.rag_command_service import default_rag_service_context
-from interfaces.cli.services.rag_command_service import render_rag_ask_result
-from interfaces.cli.services.rag_command_service import render_rag_operation_result
-from interfaces.cli.services.rag_command_service import render_rag_projection_readiness
+from interfaces.cli.services.rag_command_service import (
+    RagAskCommandRequest,
+    RagAskCommandResult,
+    RagCommandService,
+    default_rag_embedding_context,
+    default_rag_ingestion_context,
+    default_rag_projection_context,
+    default_rag_service_context,
+    default_rag_status_context,
+    render_rag_ask_result,
+    render_rag_operation_result,
+    render_rag_projection_readiness,
+)
 
 
 class FakeRagService:
@@ -146,8 +140,8 @@ def test_rag_command_service_builds_filtered_request() -> None:
                 workflow_name="morning_report",
                 execution_id="execution-1",
                 runtime_id="runtime-1",
-                as_of_start=datetime(2026, 1, 1, tzinfo=timezone.utc),
-                as_of_end=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                as_of_start=datetime(2026, 1, 1, tzinfo=UTC),
+                as_of_end=datetime(2026, 1, 2, tzinfo=UTC),
                 top_k=3,
                 allow_web=True,
             )
@@ -673,7 +667,7 @@ def _answered_result(
         title="Morning Report",
         chunk_id="chunk-1",
         section_name="Technical Breadth",
-        generated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 1, 1, tzinfo=UTC),
         workflow_name="morning_report",
         execution_id="execution-1",
     )

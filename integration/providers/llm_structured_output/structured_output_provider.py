@@ -203,7 +203,7 @@ class StructuredLlmProviderExecutor:
                     ),
                 )
             except TimeoutError as exc:
-                logger.exception(
+                logger.debug(
                     "Structured output provider timed out.",
                     extra={
                         "provider_name": request.provider_name,
@@ -211,6 +211,7 @@ class StructuredLlmProviderExecutor:
                         "schema_name": request.schema_ref.schema_name,
                         "attempt": attempt,
                     },
+                    exc_info=True,
                 )
                 result = _failure_result(
                     request,
@@ -226,7 +227,7 @@ class StructuredLlmProviderExecutor:
                 last_error_message = _structured_output_validation_error_message(exc)
                 if attempt < request.retry_policy.maximum_attempts:
                     continue
-                logger.exception(
+                logger.debug(
                     last_error_message,
                     extra={
                         "provider_name": request.provider_name,
@@ -234,6 +235,7 @@ class StructuredLlmProviderExecutor:
                         "schema_name": request.schema_ref.schema_name,
                         "attempt": attempt,
                     },
+                    exc_info=True,
                 )
                 result = _failure_result(
                     request,
@@ -245,7 +247,7 @@ class StructuredLlmProviderExecutor:
                 telemetry_payload.update(_result_telemetry_payload(result))
                 raise _StructuredOutputRetryExhausted(result) from exc
             except Exception as exc:
-                logger.exception(
+                logger.debug(
                     "Structured output provider call failed.",
                     extra={
                         "provider_name": request.provider_name,
@@ -253,6 +255,7 @@ class StructuredLlmProviderExecutor:
                         "schema_name": request.schema_ref.schema_name,
                         "attempt": attempt,
                     },
+                    exc_info=True,
                 )
                 result = _failure_result(
                     request,

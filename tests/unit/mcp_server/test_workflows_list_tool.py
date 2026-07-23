@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-
 import asyncio
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
-import pytest
 
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
 from core.workflow.execution.workflow_service import WorkflowSummary
-from mcp_server.lifespan import McpApplicationContext
 from mcp_server.contracts.models import WorkflowsListRequest
+from mcp_server.lifespan import McpApplicationContext
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
 from mcp_server.tools.workflows import execute_workflows_list

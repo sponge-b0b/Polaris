@@ -55,7 +55,9 @@ class FinnhubNewsClient:
         )
         all_news: list[dict[str, Any]] = []
         failures = 0
-        for source, result in zip(("company_news", "market_news"), results):
+        for source, result in zip(
+            ("company_news", "market_news"), results, strict=False
+        ):
             if isinstance(result, asyncio.CancelledError):
                 raise result
             if isinstance(result, BaseException):

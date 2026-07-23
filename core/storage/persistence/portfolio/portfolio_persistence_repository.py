@@ -1,31 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.portfolio.portfolio_persistence_models import (
     PortfolioAllocationSnapshotRecord,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
-    PortfolioExpansionPersistenceBundle,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
-    PortfolioExpansionPersistenceResult,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
     PortfolioEquityHistoryPointRecord,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
+    PortfolioExpansionPersistenceBundle,
+    PortfolioExpansionPersistenceResult,
     PortfolioExposureSnapshotRecord,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
     PortfolioPositionHistoryRecord,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
     PortfolioPositionLatestRecord,
-)
-from core.storage.persistence.portfolio.portfolio_persistence_models import (
     PortfolioRiskSnapshotRecord,
 )
 

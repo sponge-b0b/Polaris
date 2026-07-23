@@ -2,22 +2,12 @@
 
 from application.structured_outputs.intelligence_workflow_outputs import (
     DirectionalScore,
-)
-from application.structured_outputs.intelligence_workflow_outputs import NonEmptyString
-from application.structured_outputs.intelligence_workflow_outputs import Score
-from application.structured_outputs.intelligence_workflow_outputs import (
+    NonEmptyString,
+    Score,
     StructuredMorningReportSection,
-)
-from application.structured_outputs.intelligence_workflow_outputs import (
     StructuredRecommendationExplanation,
-)
-from application.structured_outputs.intelligence_workflow_outputs import (
     StructuredStrategyHypothesisEvaluation,
-)
-from application.structured_outputs.intelligence_workflow_outputs import (
     StructuredStrategySynthesisOutput,
-)
-from application.structured_outputs.intelligence_workflow_outputs import (
     StructuredWorkflowOutputModel,
 )
 

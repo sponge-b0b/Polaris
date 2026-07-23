@@ -10,11 +10,11 @@ from intelligence.analysts.technical.technical_breadth_context import (
 )
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
-from intelligence.strategy.synthesis.contracts import StrategyHypothesisEvaluation
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
-from intelligence.strategy.synthesis.contracts import StrategySynthesisDegradedReason
-from intelligence.strategy.synthesis.contracts import StrategySynthesisSelectionStatus
 from intelligence.strategy.synthesis.contracts import (
+    StrategyHypothesisEvaluation,
+    StrategySynthesisDecision,
+    StrategySynthesisDegradedReason,
+    StrategySynthesisSelectionStatus,
     normalize_strategy_hypothesis_evaluations,
 )
 

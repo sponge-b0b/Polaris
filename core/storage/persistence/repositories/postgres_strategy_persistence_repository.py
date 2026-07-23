@@ -3,25 +3,28 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.strategy import StrategyHypothesisEvaluationModel
-from core.database.models.strategy import StrategyHypothesisModel
-from core.database.models.strategy import StrategySynthesisDecisionModel
+from core.database.models.strategy import (
+    StrategyHypothesisEvaluationModel,
+    StrategyHypothesisModel,
+    StrategySynthesisDecisionModel,
+)
 from core.storage.persistence.serializers.strategy_persistence_serializer import (
     StrategyPersistenceSerializer,
 )
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisPersistenceResult
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceResult
-from core.storage.persistence.strategy import StrategyPersistenceRepository
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisPersistenceResult,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategyPersistenceRepository,
+    StrategyPersistenceResult,
+    StrategySynthesisDecisionRecord,
+)
 
 
 class PostgresStrategyPersistenceRepository(StrategyPersistenceRepository):

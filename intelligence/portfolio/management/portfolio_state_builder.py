@@ -2,25 +2,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.runtime.contracts.runtime_node import RuntimeNode
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-
-from application.services.portfolio.portfolio_service import PortfolioService
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
+from application.services.base import ServiceRequest, ServiceRunner
 from application.services.portfolio.portfolio_request import (
     PortfolioAnalysisRequest,
 )
+from application.services.portfolio.portfolio_service import PortfolioService
+from core.runtime.contracts.runtime_node import RuntimeNode
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from domain.workflow_outputs import (
     PORTFOLIO_STATE_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-from intelligence.telemetry import telemetry_context_from_runtime
 from intelligence.portfolio.management.portfolio_state_policy import (
     build_portfolio_state_decision,
 )
+from intelligence.telemetry import telemetry_context_from_runtime
 
 
 class PortfolioStateBuilder(RuntimeNode):

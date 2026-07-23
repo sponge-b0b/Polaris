@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
-from typing import cast
+from typing import Protocol, cast
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
 from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
 from core.storage.persistence.market.market_persistence_repository import (

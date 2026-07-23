@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.runtime.artifacts.artifact_ref import ArtifactKind
-from core.runtime.artifacts.artifact_ref import ArtifactRef
+from core.runtime.artifacts.artifact_ref import ArtifactKind, ArtifactRef
 from core.runtime.artifacts.artifact_serializers import (
     ArtifactSerializerRegistry,
 )

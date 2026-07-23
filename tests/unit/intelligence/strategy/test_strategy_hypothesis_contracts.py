@@ -5,15 +5,16 @@ from collections.abc import Callable
 
 import pytest
 
-from intelligence.strategy.hypothesis import StrategyPerspective
-from intelligence.strategy.hypothesis import parse_strategy_perspective
-from intelligence.strategy.hypothesis import validate_confidence
-from intelligence.strategy.hypothesis import validate_directional_bias
-from intelligence.strategy.hypothesis import validate_evidence_strength
-from intelligence.strategy.hypothesis import validate_hypothesis_strength
-from intelligence.strategy.hypothesis import validate_reliability
-from intelligence.strategy.hypothesis import validate_strategy_json_scalar
-
+from intelligence.strategy.hypothesis import (
+    StrategyPerspective,
+    parse_strategy_perspective,
+    validate_confidence,
+    validate_directional_bias,
+    validate_evidence_strength,
+    validate_hypothesis_strength,
+    validate_reliability,
+    validate_strategy_json_scalar,
+)
 
 UnitValidator = Callable[[float], float]
 

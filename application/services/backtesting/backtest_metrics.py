@@ -4,9 +4,11 @@ from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 
 from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_result import BacktestFill
-from application.services.backtesting.backtest_result import BacktestMetrics
-from application.services.backtesting.backtest_result import BacktestStepResult
+from application.services.backtesting.backtest_result import (
+    BacktestFill,
+    BacktestMetrics,
+    BacktestStepResult,
+)
 
 TRADING_DAYS_PER_YEAR = Decimal("252")
 

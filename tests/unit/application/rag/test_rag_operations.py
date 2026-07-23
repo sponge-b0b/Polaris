@@ -1,48 +1,47 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from application.rag.contracts.rag_operation_models import (
+    RagIngestOperationRequest,
+    RagProcessEmbeddingsOperationRequest,
+    RagProcessGraphOperationRequest,
+    RagProjectionConfig,
+    RagRebuildProjectionOperationRequest,
+)
+from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
 from application.rag.operations.rag_embedding_operations import (
     RagEmbeddingJobOperationsService,
 )
 from application.rag.operations.rag_ingestion_operations import (
     RagIngestionOperationsService,
 )
-from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
-from application.rag.contracts.rag_operation_models import (
-    RagProcessEmbeddingsOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
-    RagProcessGraphOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import RagProjectionConfig
-from application.rag.contracts.rag_operation_models import (
-    RagRebuildProjectionOperationRequest,
-)
 from application.rag.operations.rag_projection_operations import (
     RagProjectionOperationsService,
 )
-from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagCanonicalRecordCounts
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
+from core.storage.persistence.rag import (
+    RagAnswerLogRecord,
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceResult,
+    RagQueryLogRecord,
+    RagRecordPersistenceResult,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+)
 from core.storage.persistence.rag.rag_persistence_models import JsonObject
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.vector_index_models import VectorCollectionReadiness
-from integration.providers.rag.vector_index_models import VectorCollectionStatus
+from integration.providers.rag.vector_index_models import (
+    VectorCollectionReadiness,
+    VectorCollectionStatus,
+)
 
 
 class FakeRagRepository:

@@ -7,8 +7,10 @@ import pytest
 
 from application.observability import AiObservabilityOperationalStatusService
 from config.settings import Settings
-from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
-from core.storage.persistence.ai_observability import AiObservabilityExportQueueStatus
+from core.storage.persistence.ai_observability import (
+    AiObservabilityExportJobRepository,
+    AiObservabilityExportQueueStatus,
+)
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 

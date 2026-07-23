@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import StrEnum
 
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import JsonValue
+from core.storage.persistence.rag import JsonObject, JsonValue
 
 
 def _validate_optional_non_empty(value: str | None, field_name: str) -> None:

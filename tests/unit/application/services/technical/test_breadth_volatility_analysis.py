@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from application.services.technical import breadth_analysis
-from application.services.technical import volatility_analysis
+from application.services.technical import breadth_analysis, volatility_analysis
 
 
 def test_volatility_breadth_confirmation_uses_raw_market_context() -> None:

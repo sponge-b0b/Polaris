@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
-from typing import Any, Dict, List, Optional
+
 from config.settings import Settings
 from core.utils.utils import _safe_float
 
@@ -65,8 +67,8 @@ class AlphaVantageSentimentClient:
     async def get_news_sentiment(
         self,
         symbol: str = "SPY",
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> Dict[str, Any]:
+        client: httpx.AsyncClient | None = None,
+    ) -> dict[str, Any]:
 
         if client is not None:
             raw = await self._fetch_news_sentiment(symbol, client)
@@ -82,8 +84,8 @@ class AlphaVantageSentimentClient:
         # ARTICLE AGGREGATION
         # ========================================================
 
-        weighted_scores: List[float] = []
-        relevance_scores: List[float] = []
+        weighted_scores: list[float] = []
+        relevance_scores: list[float] = []
 
         article_sentiments = []
 
@@ -207,7 +209,7 @@ class AlphaVantageSentimentClient:
 
     async def _fetch_news_sentiment(
         self, symbol: str, client: httpx.AsyncClient
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         params: dict[str, str | int | float | bool | None] = {
             "function": "NEWS_SENTIMENT",
@@ -231,9 +233,9 @@ class AlphaVantageSentimentClient:
 
     def _extract_ticker_data(
         self,
-        article: Dict[str, Any],
+        article: dict[str, Any],
         symbol: str,
-    ) -> Dict[str, Any] | None:
+    ) -> dict[str, Any] | None:
 
         ticker_sentiment = article.get(
             "ticker_sentiment",
@@ -252,8 +254,8 @@ class AlphaVantageSentimentClient:
 
     def _compute_confidence(
         self,
-        weighted_scores: List[float],
-        relevance_scores: List[float],
+        weighted_scores: list[float],
+        relevance_scores: list[float],
     ) -> float:
 
         if not weighted_scores:
@@ -317,7 +319,7 @@ class AlphaVantageSentimentClient:
     def _empty_response(
         self,
         symbol: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return {
             "symbol": symbol,

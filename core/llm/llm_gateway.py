@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Literal
-from typing import Protocol
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Literal, Protocol
 
 LLMChatResponseFormat = Literal["text", "json"]
 LLMMessage = Mapping[str, str]

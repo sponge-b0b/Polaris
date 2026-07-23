@@ -1,42 +1,36 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from time import perf_counter
-from typing import Any, Dict
+from typing import Any
 
-from application.observability import AiObservationStatus
-from application.observability import static_prompt_hash
-from core.llm.llm_service import LLMService
-
-from core.runtime.contracts.runtime_node import RuntimeNode
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-
-from intelligence.prompts.system.sentiment_agent_prompt import (
-    SENTIMENT_AGENT_SYSTEM_PROMPT,
-)
-
-from intelligence.observability import IntelligenceAiObservabilityProjectorPort
-from intelligence.observability import IntelligenceAiObservabilityRecorder
-from intelligence.observability import llm_model_name
-from intelligence.observability import record_intelligence_generation_observation
-from intelligence.telemetry import telemetry_context_from_runtime
-
-from application.services.sentiment.sentiment_service import (
-    SentimentService,
-)
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
+from application.observability import AiObservationStatus, static_prompt_hash
+from application.services.base import ServiceRequest, ServiceRunner
 from application.services.sentiment.sentiment_request import (
     SentimentSnapshotRequest,
 )
+from application.services.sentiment.sentiment_service import (
+    SentimentService,
+)
+from core.llm.llm_service import LLMService
+from core.runtime.contracts.runtime_node import RuntimeNode
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from domain.workflow_outputs import (
     SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
+from intelligence.observability import (
+    IntelligenceAiObservabilityProjectorPort,
+    IntelligenceAiObservabilityRecorder,
+    llm_model_name,
+    record_intelligence_generation_observation,
+)
+from intelligence.prompts.system.sentiment_agent_prompt import (
+    SENTIMENT_AGENT_SYSTEM_PROMPT,
+)
+from intelligence.telemetry import telemetry_context_from_runtime
 
 SENTIMENT_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(SENTIMENT_AGENT_SYSTEM_PROMPT)
 
@@ -208,7 +202,7 @@ class SentimentAgent(RuntimeNode):
         # LLM FAILURE SAFETY
         # ========================================================
 
-        if not isinstance(llm_response, Dict) or "error" in llm_response:
+        if not isinstance(llm_response, dict) or "error" in llm_response:
             llm_status = AiObservationStatus.DEGRADED
             llm_response = {
                 "summary": ("Sentiment interpretation unavailable."),
@@ -436,7 +430,7 @@ class SentimentAgent(RuntimeNode):
 
     def _build_llm_context(
         self,
-        sentiment_data: Dict[str, Any],
+        sentiment_data: dict[str, Any],
     ) -> str:
 
         sentiment = sentiment_data.get(

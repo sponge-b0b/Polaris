@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+)
 from core.storage.persistence.serializers.report_persistence_serializer import (
     ReportPersistenceSerializer,
 )
@@ -19,7 +20,7 @@ def test_report_serializer_preserves_full_markdown_and_structured_payload() -> N
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body=full_markdown,
         structured_payload={"full_response": "x" * 4000},
         metadata={"symbol": "SPY"},
@@ -66,8 +67,8 @@ def test_report_serializer_converts_section_and_artifact_records() -> None:
 
 def test_report_serializer_converts_version_and_publication_records() -> None:
     full_markdown = "# Versioned Report\n" + ("Full content. " * 50)
-    created_at = datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
-    published_at = datetime(2026, 5, 30, 14, 5, tzinfo=timezone.utc)
+    created_at = datetime(2026, 5, 30, 14, tzinfo=UTC)
+    published_at = datetime(2026, 5, 30, 14, 5, tzinfo=UTC)
     version = ReportVersionRecord(
         version_id="morning_report:exec-1:version:1",
         report_id="morning_report:exec-1",

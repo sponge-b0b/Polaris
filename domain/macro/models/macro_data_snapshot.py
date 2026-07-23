@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -91,7 +90,7 @@ class MacroDataSnapshot:
     observations: tuple[MacroIndicatorObservation, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the snapshot at a runtime, persistence, or presentation boundary."""
+        """Serialize the snapshot at a runtime, persistence, or presentation boundary."""  # noqa: E501
 
         result: dict[str, Any] = {
             "cpi": self.cpi,

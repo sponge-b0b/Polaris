@@ -1,23 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
-from typing import Mapping
 
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
+from application.services.base import ServiceRequest, ServiceRunner
 from application.services.market_events.market_events_request import MarketEventsRequest
 from application.services.market_events.market_events_result import MarketEventsResult
 from application.services.market_events.market_events_service import MarketEventsService
 from core.runtime.contracts.runtime_node import RuntimeNode
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from domain.workflow_outputs import (
     STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
-from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from intelligence.strategy.hypothesis.context import (
+    StrategyEvidenceContext,
+    StrategyEvidenceInputStatus,
+)
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
@@ -82,7 +83,7 @@ class StrategyEvidenceBuilder(RuntimeNode):
                 "symbol": evidence_context.symbol,
                 "market_events_status": market_events_status,
                 "missing_required_inputs": evidence_context.has_missing_required_inputs,
-                "degraded_required_inputs": evidence_context.has_degraded_required_inputs,
+                "degraded_required_inputs": evidence_context.has_degraded_required_inputs,  # noqa: E501
             },
             execution_metadata={
                 "evidence_fingerprint": evidence_fingerprint,

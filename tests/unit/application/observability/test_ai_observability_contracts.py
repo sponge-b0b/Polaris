@@ -1,26 +1,28 @@
 from __future__ import annotations
 
-import pytest
-
-from typing import Mapping
+from collections.abc import Mapping
 from typing import cast
 
-from application.observability import AiEvaluationObservation
-from application.observability import AiEvaluationScore
-from application.observability import AiGenerationObservation
-from application.observability import AiObservation
-from application.observability import AiObservationFamily
-from application.observability import AiObservationStatus
-from application.observability import AiObservationType
-from application.observability import AiObservabilityCapturePolicy
-from application.observability import AiObservabilityCorrelationIds
-from application.observability import AiObservabilityExportResult
-from application.observability import AiObservabilityExportStatus
-from application.observability import AiPromptVersionReference
-from application.observability import AiRedactionMode
-from application.observability import AiRerankingObservation
-from application.observability import AiRetrievalObservation
-from application.observability import AiScoreResult
+import pytest
+
+from application.observability import (
+    AiEvaluationObservation,
+    AiEvaluationScore,
+    AiGenerationObservation,
+    AiObservabilityCapturePolicy,
+    AiObservabilityCorrelationIds,
+    AiObservabilityExportResult,
+    AiObservabilityExportStatus,
+    AiObservation,
+    AiObservationFamily,
+    AiObservationStatus,
+    AiObservationType,
+    AiPromptVersionReference,
+    AiRedactionMode,
+    AiRerankingObservation,
+    AiRetrievalObservation,
+    AiScoreResult,
+)
 
 
 def test_ai_observation_types_map_to_canonical_families() -> None:

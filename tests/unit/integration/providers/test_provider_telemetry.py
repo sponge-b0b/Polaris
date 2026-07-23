@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-
 from typing import Any
 
 import pytest
 
-from core.telemetry.context import get_active_telemetry_context
-from core.telemetry.context import telemetry_context_scope
+from core.telemetry.context import get_active_telemetry_context, telemetry_context_scope
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.events.telemetry_event import TelemetryEventLevel

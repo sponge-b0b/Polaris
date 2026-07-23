@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 
-from application.services.base import ServiceRunner
-from application.services.base import ServiceResult
-from application.services.portfolio.portfolio_service import PortfolioService
+from application.services.base import ServiceResult, ServiceRunner
 from application.services.portfolio.portfolio_result import PortfolioAnalysisResult
+from application.services.portfolio.portfolio_service import PortfolioService
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from domain.portfolio.models.portfolio_state import PortfolioState

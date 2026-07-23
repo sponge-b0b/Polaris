@@ -1,12 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     AgentSignalPersistenceResult,
-)
-from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     AgentSignalRecord,
 )
 

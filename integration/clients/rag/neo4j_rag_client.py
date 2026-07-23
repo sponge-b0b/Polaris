@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
-from typing import Protocol
-from typing import cast
+from typing import Any, Protocol, cast
 
-from neo4j import AsyncGraphDatabase
-from neo4j import RoutingControl
+from neo4j import AsyncGraphDatabase, RoutingControl
 
 from config.settings import Settings
 from core.storage.persistence.rag import JsonObject
-
 
 _NODE_LABELS = {
     "WorkflowRun": "WorkflowRun",
@@ -276,7 +272,7 @@ def _record_value(record: object, key: str, default: object) -> object:
     if isinstance(record, Mapping):
         return record.get(key, default)
     if hasattr(record, "get"):
-        getter = getattr(record, "get")
+        getter = record.get
         return getter(key, default)
     return default
 
@@ -336,4 +332,4 @@ RETURN document.document_id AS document_id,
        related_entities
 ORDER BY score DESC, document.generated_at DESC, document.document_id
 LIMIT $limit
-"""
+"""  # noqa: E501

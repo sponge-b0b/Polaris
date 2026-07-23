@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from core.storage.persistence.retention import PersistenceArchiveMarkerRecord
-from core.storage.persistence.retention import PersistenceRetentionPeriod
-from core.storage.persistence.retention import PersistenceRetentionPolicyRecord
-from core.storage.persistence.retention import new_persistence_archive_marker_id
-from core.storage.persistence.retention import new_persistence_retention_policy_id
+from core.storage.persistence.retention import (
+    PersistenceArchiveMarkerRecord,
+    PersistenceRetentionPeriod,
+    PersistenceRetentionPolicyRecord,
+    new_persistence_archive_marker_id,
+    new_persistence_retention_policy_id,
+)
 
 
 def test_retention_period_exposes_typed_duration_and_boundary_dict() -> None:

@@ -3,15 +3,14 @@ from __future__ import annotations
 from time import perf_counter
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.llm import LITELLM_PROVIDER_NAME
-from integration.clients.llm import LiteLlmGatewayClient
+from integration.clients.llm import LITELLM_PROVIDER_NAME, LiteLlmGatewayClient
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelConfig
 from integration.providers.rag.quality_evaluation_provider import (
+    RagQualityModelConfig,
     RagQualityModelProvider,
+    RagQualityModelRequest,
+    RagQualityModelResult,
 )
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelRequest
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelResult
 
 
 class LiteLlmRagQualityModelProvider(RagQualityModelProvider):

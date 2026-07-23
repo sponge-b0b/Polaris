@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from enum import Enum
+from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 
-class PolicyDecision(str, Enum):
+class PolicyDecision(StrEnum):
     ALLOW = "allow"
     WARN = "warn"
     DENY = "deny"

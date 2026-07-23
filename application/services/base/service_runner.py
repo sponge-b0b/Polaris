@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any
-from typing import Generic
-from typing import TypeVar
+from typing import Any, TypeVar
 
-from application.services.base.application_service import ApplicationService
 from application.services.base.application_service import (
+    ApplicationService,
     ValidatingApplicationService,
 )
 from application.services.base.service_request import ServiceRequest
 from application.services.base.service_result import ServiceResult
 from core.runtime.policies.policy_engine import PolicyEngine
-from core.telemetry.context import get_active_telemetry_context
-from core.telemetry.context import telemetry_context_scope
+from core.telemetry.context import get_active_telemetry_context, telemetry_context_scope
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
@@ -58,7 +54,7 @@ class ServiceRunnerConfig:
         return tuple(errors)
 
 
-class ServiceRunner(Generic[RequestPayloadT, ResultPayloadT]):
+class ServiceRunner[RequestPayloadT, ResultPayloadT]:
     """
     Canonical application-service orchestrator.
     """

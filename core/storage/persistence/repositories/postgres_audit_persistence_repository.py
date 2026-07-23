@@ -9,9 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.audit import PersistenceAuditEventModel
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventRepository
-from core.storage.persistence.audit import PersistenceAuditEventResult
+from core.storage.persistence.audit import (
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventRepository,
+    PersistenceAuditEventResult,
+)
 from core.storage.persistence.serializers.audit_persistence_serializer import (
     PersistenceAuditEventSerializer,
 )
@@ -115,7 +117,7 @@ def _insert_audit_event_statement(
     return insert(PersistenceAuditEventModel).values(**values)
 
 
-def _audit_event_query_statement(
+def _audit_event_query_statement(  # noqa: C901
     *,
     entity_type: str | None = None,
     entity_id: str | None = None,

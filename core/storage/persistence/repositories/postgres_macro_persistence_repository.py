@@ -4,20 +4,23 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.macro import EconomicCalendarEventModel
-from core.database.models.macro import MacroObservationModel
-from core.database.models.macro import MacroRegimeSnapshotModel
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroPersistenceBundle
-from core.storage.persistence.macro import MacroPersistenceResult
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
+from core.database.models.macro import (
+    EconomicCalendarEventModel,
+    MacroObservationModel,
+    MacroRegimeSnapshotModel,
+)
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroPersistenceBundle,
+    MacroPersistenceResult,
+    MacroRegimeSnapshotRecord,
+)
 from core.storage.persistence.macro.macro_persistence_repository import (
     MacroPersistenceRepository,
 )

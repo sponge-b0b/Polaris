@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.sentiment import SentimentSnapshotModel
-from core.database.models.sentiment import SentimentSourceModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
+from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.sentiment import (
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
 
 
 class SentimentPersistenceSerializer:

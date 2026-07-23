@@ -1,24 +1,7 @@
 from dishka import Provider, Scope, provide
 
-from integration.providers.macro.macro_provider import MacroProvider
-from integration.providers.market_data.market_data_provider import MarketDataProvider
-from integration.providers.market_events.market_events_provider import (
-    MarketEventsProvider,
-)
-from integration.providers.news.news_provider import NewsProvider
-from integration.providers.portfolio.portfolio_provider import PortfolioProvider
-from integration.providers.sentiment.sentiment_provider import SentimentProvider
-from core.runtime.policies.policy_engine import PolicyEngine
-from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from core.telemetry.emitters.application_service_telemetry import (
-    ApplicationServiceTelemetry,
-)
-from core.telemetry.observability.observability_manager import (
-    ObservabilityManager,
-)
-from application.services.base import ServiceRunner
 from application.services.backtesting import BacktestApplicationService
-
+from application.services.base import ServiceRunner
 from application.services.macro.macro_service import MacroService
 from application.services.market_events.market_events_service import MarketEventsService
 from application.services.news.news_service import NewsService
@@ -27,7 +10,23 @@ from application.services.sentiment.sentiment_service import SentimentService
 from application.services.technical.technical_analysis_service import (
     TechnicalAnalysisService,
 )
+from core.runtime.policies.policy_engine import PolicyEngine
+from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
+from core.telemetry.observability.observability_manager import (
+    ObservabilityManager,
+)
 from core.workflow.execution.workflow_facade import WorkflowFacade
+from integration.providers.macro.macro_provider import MacroProvider
+from integration.providers.market_data.market_data_provider import MarketDataProvider
+from integration.providers.market_events.market_events_provider import (
+    MarketEventsProvider,
+)
+from integration.providers.news.news_provider import NewsProvider
+from integration.providers.portfolio.portfolio_provider import PortfolioProvider
+from integration.providers.sentiment.sentiment_provider import SentimentProvider
 
 
 class AppServicesDIProvider(Provider):

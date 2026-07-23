@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 
 class PortfolioDecisionEngine:
@@ -25,8 +25,8 @@ class PortfolioDecisionEngine:
     def generate_trade_ticket(
         self,
         symbol: str,
-        synthesis: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        synthesis: dict[str, Any],
+    ) -> dict[str, Any]:
 
         bias = synthesis.get("bias", "neutral")
         confidence = synthesis.get("confidence", 0.5)
@@ -108,8 +108,8 @@ class PortfolioDecisionEngine:
 
     def _generate_risk_notes(
         self,
-        synthesis: Dict[str, Any],
-    ) -> List[str]:
+        synthesis: dict[str, Any],
+    ) -> list[str]:
 
         notes = []
 

@@ -1,36 +1,38 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.telemetry import AgentMetricModel
-from core.database.models.telemetry import ProviderMetricModel
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryMetricModel
-from core.database.models.telemetry import TelemetryTraceModel
-from core.database.models.telemetry import WorkflowMetricModel
+from core.database.models.telemetry import (
+    AgentMetricModel,
+    ProviderMetricModel,
+    TelemetryEventModel,
+    TelemetryMetricModel,
+    TelemetryTraceModel,
+    WorkflowMetricModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (
+from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (  # noqa: E501
     PostgresTelemetryPersistenceRepository,
 )
 from core.storage.persistence.serializers.telemetry_persistence_serializer import (
     TelemetryPersistenceSerializer,
 )
-from core.storage.persistence.telemetry import AgentMetricRecord
-from core.storage.persistence.telemetry import ProviderMetricRecord
-from core.storage.persistence.telemetry import TelemetryEventRecord
-from core.storage.persistence.telemetry import TelemetryMetricRecord
-from core.storage.persistence.telemetry import TelemetryPersistenceBundle
-from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.storage.persistence.telemetry import WorkflowMetricRecord
+from core.storage.persistence.telemetry import (
+    AgentMetricRecord,
+    ProviderMetricRecord,
+    TelemetryEventRecord,
+    TelemetryMetricRecord,
+    TelemetryPersistenceBundle,
+    TelemetryTraceRecord,
+    WorkflowMetricRecord,
+)
 
 
 class FakeScalarResult:
@@ -307,7 +309,7 @@ async def test_list_methods_return_filtered_typed_records() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 6, 1, 12, tzinfo=timezone.utc)
+    return datetime(2026, 6, 1, 12, tzinfo=UTC)
 
 
 def _lineage() -> PersistenceLineage:
@@ -373,7 +375,7 @@ def _trace() -> TelemetryTraceRecord:
         started_at=_timestamp(),
         lineage=_lineage(),
         parent_span_id="parent-span",
-        ended_at=datetime(2026, 6, 1, 12, 0, 1, tzinfo=timezone.utc),
+        ended_at=datetime(2026, 6, 1, 12, 0, 1, tzinfo=UTC),
         duration_seconds=1.0,
         status="failed",
         correlation_id="corr-1",

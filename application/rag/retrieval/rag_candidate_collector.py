@@ -2,16 +2,22 @@ from __future__ import annotations
 
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.retrieval.rag_retrieval_filters import RagRetrievalFilterEvaluator
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from integration.providers.rag.embedding_provider import EmbeddingInput
-from integration.providers.rag.embedding_provider import EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagPersistenceRepository,
+)
+from integration.providers.rag.embedding_provider import (
+    EmbeddingInput,
+    EmbeddingProvider,
+    EmbeddingRequest,
+    EmbeddingVector,
+)
+from integration.providers.rag.vector_index_models import (
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 from integration.providers.rag.vector_index_provider import VectorIndexProvider
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
 
 
 class RagCandidateCollector:

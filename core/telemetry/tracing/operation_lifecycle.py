@@ -35,7 +35,7 @@ TERMINAL_OPERATION_EVENT_TYPES = frozenset(
 )
 
 
-def resolve_operation_name(event: TelemetryEvent) -> str:
+def resolve_operation_name(event: TelemetryEvent) -> str:  # noqa: C901
     """Return the stable operation name shared by span lifecycle projections."""
     operation_kind = event.attributes.get("operation_kind")
     names_by_kind = {

@@ -2,40 +2,41 @@ from __future__ import annotations
 
 from time import perf_counter
 from typing import Any
-from application.rag.ingestion.curated_rag_chunking import build_agent_signal_chunks
-from application.rag.ingestion.curated_rag_chunking import build_report_chunks
+
 from application.rag.ingestion.curated_rag_bundle_persistence import (
     CuratedRagBundlePersister,
+)
+from application.rag.ingestion.curated_rag_chunking import (
+    build_agent_signal_chunks,
+    build_report_chunks,
 )
 from application.rag.ingestion.curated_rag_document_factory import (
     CuratedRagDocumentFactory,
 )
 from application.rag.ingestion.curated_rag_jobs import build_embedding_jobs
-from application.rag.ingestion.curated_rag_metadata import eligibility_error_message
-from application.rag.ingestion.curated_rag_metadata import evaluate_source_eligibility
-from application.rag.ingestion.curated_rag_metadata import raise_if_ineligible
 from application.rag.ingestion.curated_rag_metadata import (
+    eligibility_error_message,
+    evaluate_source_eligibility,
+    raise_if_ineligible,
     resolve_persisted_or_default_eligibility,
 )
-from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from application.rag.ingestion.curated_rag_models import CuratedRagSource
+from application.rag.ingestion.curated_rag_models import (
+    CuratedRagBuildOptions,
+    CuratedRagSource,
+)
 from application.rag.ingestion.curated_rag_structured_sources import (
     build_structured_source_bundle,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
     is_structured_curated_rag_source,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
+    require_structured_source_spec,
     structured_source_id,
 )
-from application.rag.ingestion.curated_rag_structured_sources import (
-    require_structured_source_spec,
-)
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.rag import RagPersistenceBundle
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
+from core.storage.persistence.rag import (
+    RagPersistenceBundle,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+    RagSourceEligibilityRecord,
+)
 from core.storage.persistence.reports import ReportRecord
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 

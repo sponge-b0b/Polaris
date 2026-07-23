@@ -4,17 +4,21 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.retention import PersistenceArchiveMarkerRecord
-from core.storage.persistence.retention import PersistenceRetentionCandidateRecord
-from core.storage.persistence.retention import PersistenceRetentionPeriod
-from core.storage.persistence.retention import PersistenceRetentionPlanAction
-from core.storage.persistence.retention import PersistenceRetentionPlanCandidate
-from core.storage.persistence.retention import PersistenceRetentionPlanResult
-from core.storage.persistence.retention import PersistenceRetentionPolicyRecord
-from core.storage.persistence.retention import new_persistence_archive_marker_id
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    clean_optional_identifier,
+)
+from core.storage.persistence.retention import (
+    PersistenceArchiveMarkerRecord,
+    PersistenceRetentionCandidateRecord,
+    PersistenceRetentionPeriod,
+    PersistenceRetentionPlanAction,
+    PersistenceRetentionPlanCandidate,
+    PersistenceRetentionPlanResult,
+    PersistenceRetentionPolicyRecord,
+    new_persistence_archive_marker_id,
+)
 
 
 @dataclass(
@@ -217,7 +221,7 @@ def _plan_candidate(
             candidate=candidate,
             policy=policy,
             action=PersistenceRetentionPlanAction.ARCHIVE,
-            reason="Candidate exceeds retention period and policy requires archive before deletion.",
+            reason="Candidate exceeds retention period and policy requires archive before deletion.",  # noqa: E501
             retention_period=policy.retention_period,
         )
 
@@ -234,7 +238,7 @@ def _plan_candidate(
         candidate=candidate,
         policy=policy,
         action=PersistenceRetentionPlanAction.RETAIN,
-        reason="Candidate exceeds retention period but policy does not allow archive or deletion.",
+        reason="Candidate exceeds retention period but policy does not allow archive or deletion.",  # noqa: E501
         retention_period=policy.retention_period,
     )
 

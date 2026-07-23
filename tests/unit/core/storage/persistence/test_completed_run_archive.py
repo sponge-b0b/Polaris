@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import FrozenInstanceError
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunArchive
-from core.storage.persistence.completed_run_archive import CompletedRunArtifactRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
 from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArchive,
+    CompletedRunArtifactRecord,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
     coerce_completed_run_execution_mode,
 )
 

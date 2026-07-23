@@ -7,16 +7,10 @@ from typing import Any
 
 from config.settings import DEFAULT_LITELLM_BASE_URL
 from integration.providers.ai_optimization.optimization_provider import (
-    DspyOptimizedArtifact,
-)
-from integration.providers.ai_optimization.optimization_provider import (
-    DspyOptimizedCaseOutput,
-)
-from integration.providers.ai_optimization.optimization_provider import (
     DspyOptimizationProviderRequest,
-)
-from integration.providers.ai_optimization.optimization_provider import (
     DspyOptimizationProviderResult,
+    DspyOptimizedArtifact,
+    DspyOptimizedCaseOutput,
 )
 
 

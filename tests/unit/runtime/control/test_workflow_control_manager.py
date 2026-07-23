@@ -5,9 +5,11 @@ from typing import Any
 
 import pytest
 
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
-from core.runtime.control import WorkflowControlSnapshot
+from core.runtime.control import (
+    WorkflowControlManager,
+    WorkflowControlSnapshot,
+    WorkflowControlState,
+)
 
 
 @pytest.mark.asyncio

@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventResult
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import require_non_empty_identifier
-
 from application.persistence.audit.audit_persistence_service import (
     AuditPersistenceService,
+)
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventResult,
+)
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    require_non_empty_identifier,
 )
 
 

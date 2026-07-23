@@ -5,8 +5,7 @@ import asyncio
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
-from typing import Protocol
+from typing import Any, Protocol
 
 PASSED_STATUS = "passed"
 
@@ -126,9 +125,9 @@ async def _resolve_seed_expectations(
         item = items[0]
         expectations.append(
             DatasetSeedExpectation(
-                name=str(getattr(item, "name")),
-                dataset_id=str(getattr(item, "dataset_id")),
-                expected_case_count=int(getattr(item, "case_count")),
+                name=str(item.name),
+                dataset_id=str(item.dataset_id),
+                expected_case_count=int(item.case_count),
             )
         )
     expected_total = sum(item.expected_case_count for item in expectations)
@@ -168,7 +167,7 @@ async def _verify_persisted_counts(
         print(f"Dataset listing failed: {getattr(result, 'error', 'unknown error')}")
         return False
 
-    persisted_by_name = {str(getattr(item, "name")): item for item in result.items}
+    persisted_by_name = {str(item.name): item for item in result.items}
     passed = True
     for expectation in expectations:
         persisted = persisted_by_name.get(expectation.name)
@@ -263,7 +262,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> ReleaseGateOptions:
         action="append",
         dest="datasets",
         default=[],
-        help="Canonical dataset name to gate. May be supplied more than once. Defaults to all canonical datasets.",
+        help="Canonical dataset name to gate. May be supplied more than once. Defaults to all canonical datasets.",  # noqa: E501
     )
     parser.add_argument(
         "--skip-seed",

@@ -6,24 +6,12 @@ from typing import Protocol
 
 from core.storage.persistence.market.market_persistence_models import (
     MarketBreadthSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketContextSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketEventSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketIndicatorRecord,
-)
-from core.storage.persistence.market.market_persistence_models import MarketOhlcvRecord
-from core.storage.persistence.market.market_persistence_models import (
+    MarketOhlcvRecord,
     MarketPersistenceBundle,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketPersistenceResult,
-)
-from core.storage.persistence.market.market_persistence_models import (
     TechnicalAnalysisSnapshotRecord,
 )
 

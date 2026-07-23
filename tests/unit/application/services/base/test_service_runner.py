@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-
 from typing import Any
 
 import pytest
 
-from application.services.base import ApplicationService
-from application.services.base import ServiceDegradation
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
-from application.services.base import ServiceRunner
-from application.services.base import ServiceRunnerConfig
+from application.services.base import (
+    ApplicationService,
+    ServiceDegradation,
+    ServiceRequest,
+    ServiceResult,
+    ServiceRunner,
+    ServiceRunnerConfig,
+)
 from core.runtime.policies.policy import BaseRuntimePolicy
 from core.runtime.policies.policy_engine import PolicyEngine
 from core.runtime.policies.policy_registry import PolicyRegistry

@@ -4,8 +4,7 @@ from core.runtime.lifecycle.runtime_lifecycle_failure import (
     RuntimeLifecycleFailureContext,
 )
 from core.runtime.lifecycle.runtime_lifecycle_hooks import RuntimeLifecycleHook
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import (
     TelemetryExceptionDetails,
 )

@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import RuntimeEvent, RuntimeEventType
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.runtime.telemetry.runtime_telemetry import InMemoryRuntimeTelemetrySink
-from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetry
-from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetryEventType
+from core.runtime.telemetry.runtime_telemetry import (
+    InMemoryRuntimeTelemetrySink,
+    RuntimeTelemetry,
+    RuntimeTelemetryEventType,
+)
 from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
 from core.telemetry.tracing.trace_context import TraceContext
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 
 
 @pytest.mark.asyncio
@@ -311,7 +313,7 @@ async def test_runtime_telemetry_hook_maps_workflow_progress_events() -> None:
         2026,
         5,
         26,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     await hook.on_runtime_event(

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from pytest_alembic.runner import MigrationContext
-from sqlalchemy import Engine
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 
 _PREVIOUS_REVISION = "f6a7b8c9d0e1"
 _RUNTIME_CONTEXT_V2_REVISION = "a7b8c9d0e1f2"
@@ -182,7 +180,7 @@ def _insert_completed_run(
     context: dict[str, Any],
     child_namespace_updates: dict[str, Any] | None = None,
 ) -> None:
-    now = datetime(2026, 6, 27, 14, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 27, 14, tzinfo=UTC)
     workflow_inputs = context["state"]["shared_state"]
     with engine.begin() as connection:
         connection.execute(

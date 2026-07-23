@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from application.observability import AiEvaluationDatasetBuildService
-from application.observability import AiEvaluationDatasetKind
-from application.observability import AiObservationType
-from application.observability import AiScoreResult
+from application.observability import (
+    AiEvaluationDatasetBuildService,
+    AiEvaluationDatasetKind,
+    AiObservationType,
+    AiScoreResult,
+)
 
 
 def test_build_service_creates_canonical_regression_dataset_cases() -> None:

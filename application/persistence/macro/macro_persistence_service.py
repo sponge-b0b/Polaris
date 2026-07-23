@@ -4,17 +4,20 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroPersistenceBundle
-from core.storage.persistence.macro import MacroPersistenceRepository
-from core.storage.persistence.macro import MacroPersistenceResult
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroPersistenceBundle,
+    MacroPersistenceRepository,
+    MacroPersistenceResult,
+    MacroRegimeSnapshotRecord,
+)
 from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
 
 
 @dataclass(

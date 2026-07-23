@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import new_portfolio_equity_history_point_id
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.portfolio import (
+    PortfolioEquityHistoryPointRecord,
+    new_portfolio_equity_history_point_id,
+)
 
 _REQUIRED_SERIES = (
     "timestamp",
@@ -23,12 +23,15 @@ def normalize_portfolio_equity_history(
     account_id: str,
     source: str,
     history: Mapping[str, Any],
-    lineage: PersistenceLineage = PersistenceLineage(),
+    lineage: PersistenceLineage | None = None,
 ) -> tuple[PortfolioEquityHistoryPointRecord, ...]:
     """Normalize one provider history payload into append-only equity points."""
 
     if not history:
         return ()
+
+    if lineage is None:
+        lineage = PersistenceLineage()
 
     series = {name: _require_series(history, name) for name in _REQUIRED_SERIES}
     lengths = {len(values) for values in series.values()}
@@ -90,7 +93,7 @@ def _observed_at(value: Any) -> datetime:
     if isinstance(value, datetime):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("timestamp datetimes must be timezone-aware.")
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
     if isinstance(value, bool):
         raise ValueError(
@@ -98,7 +101,7 @@ def _observed_at(value: Any) -> datetime:
         )
 
     try:
-        return datetime.fromtimestamp(float(value), timezone.utc)
+        return datetime.fromtimestamp(float(value), UTC)
     except (TypeError, ValueError, OSError) as exc:
         raise ValueError(
             "timestamp must be an epoch number or timezone-aware datetime."

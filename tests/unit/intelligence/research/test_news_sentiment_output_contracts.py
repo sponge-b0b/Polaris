@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
-from application.services.base import ServiceResult
-from application.services.base import ServiceRunner
+from application.services.base import ServiceResult, ServiceRunner
+from application.services.news.news_result import NewsArticle, NewsResult
 from application.services.news.news_service import NewsService
-from application.services.news.news_result import NewsArticle
-from application.services.news.news_result import NewsResult
 from application.services.sentiment.sentiment_result import SentimentSnapshotResult
 from application.services.sentiment.sentiment_service import SentimentService
 from core.llm.llm_service import LLMService
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
-from domain.workflow_outputs import NEWS_ANALYSIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT
+from domain.workflow_outputs import (
+    NEWS_ANALYSIS_OUTPUT_CONTRACT,
+    SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
+)
 from intelligence.research.news.news_agent import NewsAgent
 from intelligence.research.sentiment.sentiment_agent import SentimentAgent
 

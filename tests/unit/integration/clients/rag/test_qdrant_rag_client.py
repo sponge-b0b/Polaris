@@ -2,20 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
 from qdrant_client import models
 
 from config.settings import Settings
-from integration.clients.rag.qdrant_rag_client import QdrantRagClient
-from integration.clients.rag.qdrant_rag_client import QdrantSearchQuery
-from integration.clients.rag.qdrant_rag_client import QdrantUpsertPoint
-from integration.clients.rag.qdrant_rag_client import DENSE_VECTOR_NAME
-from integration.clients.rag.qdrant_rag_client import QdrantClientProtocol
-from integration.clients.rag.qdrant_rag_client import SPARSE_VECTOR_NAME
+from integration.clients.rag.qdrant_rag_client import (
+    DENSE_VECTOR_NAME,
+    SPARSE_VECTOR_NAME,
+    QdrantClientProtocol,
+    QdrantRagClient,
+    QdrantSearchQuery,
+    QdrantUpsertPoint,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +184,7 @@ async def test_qdrant_client_upsert_translates_named_dense_and_sparse_vectors() 
 
 
 @pytest.mark.asyncio
-async def test_qdrant_client_search_falls_back_to_qdrant_id_without_canonical_payload() -> (
+async def test_qdrant_client_search_falls_back_to_qdrant_id_without_canonical_payload() -> (  # noqa: E501
     None
 ):
     fake_client = FakeQdrantClient()

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
-from typing import Final
-from typing import cast
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
+from typing import Final, cast
 
 from application.persistence.macro import MacroPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
@@ -13,22 +10,22 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
-from domain.workflow_outputs import MACRO_ANALYSIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroRegimeSnapshotRecord,
+)
+from domain.workflow_outputs import (
+    MACRO_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 MACRO_ANALYSIS_PROJECTOR_NAME: Final = "macro_analysis_projector"
 MACRO_ANALYSIS_PROJECTOR_NODE_NAMES: Final = ("fundamental_agent",)

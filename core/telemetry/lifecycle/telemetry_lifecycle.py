@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.telemetry.events.telemetry_event import (
@@ -27,7 +26,7 @@ class TelemetryLifecycleEvent:
 
     level: TelemetryEventLevel = TelemetryEventLevel.INFO
 
-    timestamp: datetime = datetime.now(timezone.utc)
+    timestamp: datetime = datetime.now(UTC)
 
     payload: dict[str, Any] | None = None
 

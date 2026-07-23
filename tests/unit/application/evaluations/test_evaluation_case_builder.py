@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from application.evaluations import EvaluationCaseBuildRequest
-from application.evaluations import EvaluationCaseBuilder
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationTargetType
+from application.evaluations import EvaluationCaseBuilder, EvaluationCaseBuildRequest
+from domain.evaluation import EvaluationDatasetReference, EvaluationTargetType
 
 
 def test_case_builder_preserves_lineage_and_context() -> None:

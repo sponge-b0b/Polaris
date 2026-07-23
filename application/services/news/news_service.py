@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from application.services.base import ServiceDegradation
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
+from application.services.base import ServiceDegradation, ServiceRequest, ServiceResult
 from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
-
+from application.services.news import headline_filtering
 from application.services.news.news_request import NewsRequest
 from application.services.news.news_result import NewsArticle, NewsResult
-from application.services.news import headline_filtering
 
 if TYPE_CHECKING:
     from integration.providers.news.news_provider import NewsProvider
@@ -106,7 +102,7 @@ class NewsService(ApplicationService, ValidatingApplicationService):
         query = request.query
         limit = request.limit
 
-        raw_news: List[Dict[str, Any]] = []
+        raw_news: list[dict[str, Any]] = []
 
         # ========================================================
         # FETCH MULTI-SOURCE
@@ -127,6 +123,7 @@ class NewsService(ApplicationService, ValidatingApplicationService):
         for source_name, provider_result in zip(
             ("financial_news", "market_news"),
             provider_results,
+            strict=False,
         ):
             if isinstance(provider_result, BaseException):
                 if isinstance(provider_result, asyncio.CancelledError):
@@ -207,7 +204,7 @@ class NewsService(ApplicationService, ValidatingApplicationService):
 
     def _to_news_article(
         self,
-        article: Dict[str, Any],
+        article: dict[str, Any],
     ) -> NewsArticle:
         return NewsArticle(
             article_id=str(article["id"]),
@@ -228,8 +225,8 @@ class NewsService(ApplicationService, ValidatingApplicationService):
 
     def _normalize(
         self,
-        article: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        article: dict[str, Any],
+    ) -> dict[str, Any]:
 
         title = article.get("title") or article.get("headline", "")
         summary = article.get("description") or article.get("summary", "")
@@ -255,8 +252,8 @@ class NewsService(ApplicationService, ValidatingApplicationService):
 
     def _deduplicate(
         self,
-        articles: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        articles: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
 
         seen = set()
         output = []
@@ -278,9 +275,9 @@ class NewsService(ApplicationService, ValidatingApplicationService):
 
     def _score(
         self,
-        article: Dict[str, Any],
+        article: dict[str, Any],
         symbol: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         text = (
             (article.get("title") or "").lower()

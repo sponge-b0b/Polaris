@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any
 
-from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.formatters.json_formatter import to_jsonable
+from interfaces.cli.formatters.json_formatter import format_json, to_jsonable
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
 
 @dataclass(
@@ -211,7 +212,7 @@ class PersistenceAuditEventResult:
         cls,
         *,
         audit_event_id: str,
-    ) -> "PersistenceAuditEventResult":
+    ) -> PersistenceAuditEventResult:
         return cls(
             success=True,
             audit_event_id=audit_event_id,
@@ -222,7 +223,7 @@ class PersistenceAuditEventResult:
     def failed(
         cls,
         error: str,
-    ) -> "PersistenceAuditEventResult":
+    ) -> PersistenceAuditEventResult:
         return cls(
             success=False,
             error=error,

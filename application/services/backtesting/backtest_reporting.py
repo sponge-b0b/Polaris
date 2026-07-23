@@ -6,10 +6,11 @@ from datetime import datetime
 from decimal import Decimal
 
 from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_result import BacktestMetrics
-from application.services.backtesting.backtest_result import BacktestOutcomeVerification
-from application.services.backtesting.backtest_result import BacktestStepResult
-
+from application.services.backtesting.backtest_result import (
+    BacktestMetrics,
+    BacktestOutcomeVerification,
+    BacktestStepResult,
+)
 
 type BacktestVerificationResults = tuple[BacktestOutcomeVerification, ...]
 
@@ -119,7 +120,7 @@ def render_backtest_markdown_report(
             f"- Success: `{success}`",
             f"- Started: `{started_at.isoformat()}`",
             f"- Completed: `{completed_at.isoformat()}`",
-            f"- Simulation Window: `{scenario.start_date.isoformat()}` → `{scenario.end_date.isoformat()}`",
+            f"- Simulation Window: `{scenario.start_date.isoformat()}` → `{scenario.end_date.isoformat()}`",  # noqa: E501
             f"- Symbols: `{', '.join(scenario.symbols)}`",
             "",
             "## Portfolio Summary",
@@ -143,7 +144,7 @@ def render_backtest_markdown_report(
             f"| Profit Factor | {_format_decimal(metrics.profit_factor)} |",
             f"| Exposure | {_format_percent(metrics.exposure)} |",
             f"| Turnover | {_format_percent(metrics.turnover)} |",
-            f"| Benchmark Relative Return | {_format_percent(metrics.benchmark_relative_return)} |",
+            f"| Benchmark Relative Return | {_format_percent(metrics.benchmark_relative_return)} |",  # noqa: E501
             "",
             "## Deterministic Verification",
             "",
@@ -161,7 +162,7 @@ def render_backtest_markdown_report(
             "",
             "## Simulated Fills",
             "",
-            "| Timestamp | Symbol | Side | Quantity | Price | Status | Reason | Realized PnL |",
+            "| Timestamp | Symbol | Side | Quantity | Price | Status | Reason | Realized PnL |",  # noqa: E501
             "| --- | --- | --- | ---: | ---: | --- | --- | ---: |",
             *_fill_rows(
                 steps,
@@ -204,12 +205,7 @@ def _equity_rows(
     steps: tuple[BacktestStepResult, ...],
 ) -> tuple[str, ...]:
     return tuple(
-        "| {timestamp} | {equity} | {cash} | {market_value} |".format(
-            timestamp=step.timestamp.isoformat(),
-            equity=_format_currency(step.portfolio_snapshot.equity),
-            cash=_format_currency(step.portfolio_snapshot.cash),
-            market_value=_format_currency(step.portfolio_snapshot.market_value),
-        )
+        f"| {step.timestamp.isoformat()} | {_format_currency(step.portfolio_snapshot.equity)} | {_format_currency(step.portfolio_snapshot.cash)} | {_format_currency(step.portfolio_snapshot.market_value)} |"  # noqa: E501
         for step in steps
     )
 
@@ -221,7 +217,7 @@ def _fill_rows(
     for step in steps:
         for fill in step.simulated_fills:
             rows.append(
-                "| {timestamp} | {symbol} | {side} | {quantity} | {price} | {status} | {reason} | {realized_pnl} |".format(
+                "| {timestamp} | {symbol} | {side} | {quantity} | {price} | {status} | {reason} | {realized_pnl} |".format(  # noqa: E501
                     timestamp=fill.timestamp.isoformat(),
                     symbol=fill.symbol,
                     side=fill.side,

@@ -4,14 +4,14 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
-from application.projections.workflow_outputs import WorkflowOutputProjectionRegistry
 from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionOutcome,
+    WorkflowOutputProjectionRegistry,
     WorkflowOutputProjectionResolutionStatus,
+    WorkflowOutputProjectionStatus,
+    WorkflowOutputProjectorRegistration,
+    WorkflowOutputProjectorRequest,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectorRegistration
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
 
 
 @dataclass(frozen=True, slots=True)

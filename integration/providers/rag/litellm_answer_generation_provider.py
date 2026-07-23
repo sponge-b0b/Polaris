@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.llm import LITELLM_PROVIDER_NAME
-from integration.clients.llm import LiteLlmGatewayClient
+from integration.clients.llm import LITELLM_PROVIDER_NAME, LiteLlmGatewayClient
 from integration.providers.provider_telemetry import record_provider_call
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationProvider,
-)
-from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
-)
-from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationResult,
 )
 

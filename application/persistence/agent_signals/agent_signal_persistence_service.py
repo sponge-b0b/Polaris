@@ -3,13 +3,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from core.storage.persistence.agent_signals import AgentSignalPersistenceRepository
-from core.storage.persistence.agent_signals import AgentSignalPersistenceResult
-from core.storage.persistence.agent_signals import AgentSignalRecord
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.agent_signals import (
+    AgentSignalPersistenceRepository,
+    AgentSignalPersistenceResult,
+    AgentSignalRecord,
+)
 from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
 
 
 @dataclass(frozen=True, slots=True)

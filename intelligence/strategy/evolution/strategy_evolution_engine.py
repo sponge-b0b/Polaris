@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Any, List
+from typing import Any
 
 from core.runtime.execution.execution_graph import ExecutionGraph
 
@@ -16,7 +16,7 @@ class StrategyEvolutionEngine:
 
     def __init__(self) -> None:
 
-        self.history: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        self.history: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     # ============================================================
     # INGEST RUN (GRAPH-BASED)
@@ -25,8 +25,8 @@ class StrategyEvolutionEngine:
     def ingest_run(
         self,
         graph: ExecutionGraph,
-        attribution: Dict[str, Any],
-        outcome: Dict[str, Any] | None = None,
+        attribution: dict[str, Any],
+        outcome: dict[str, Any] | None = None,
     ) -> None:
 
         strategy_map = attribution.get(
@@ -77,7 +77,7 @@ class StrategyEvolutionEngine:
     def compute_performance(
         self,
         strategy: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         records = self.history.get(strategy, [])
 
@@ -108,7 +108,7 @@ class StrategyEvolutionEngine:
         self,
         strategy: str,
         window: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         records = self.history.get(strategy, [])
 
@@ -144,7 +144,7 @@ class StrategyEvolutionEngine:
     # SYSTEM SNAPSHOT
     # ============================================================
 
-    def system_snapshot(self) -> Dict[str, Any]:
+    def system_snapshot(self) -> dict[str, Any]:
 
         return {
             strategy: self.compute_performance(strategy)
@@ -158,8 +158,8 @@ class StrategyEvolutionEngine:
     def _compute_strategy_risk_exposure(
         self,
         strategy: str,
-        risk_map: Dict[str, Any],
-        node_influence: Dict[str, Any],
+        risk_map: dict[str, Any],
+        node_influence: dict[str, Any],
     ) -> float:
 
         exposure = 0.0

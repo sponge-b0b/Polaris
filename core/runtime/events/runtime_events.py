@@ -1,23 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-
-from datetime import datetime
-from datetime import timezone
-
-from enum import Enum
-
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
-from typing import Dict
-
 
 # ============================================================
 # RUNTIME EVENT TYPES
 # ============================================================
 
 
-class RuntimeEventType(str, Enum):
+class RuntimeEventType(StrEnum):
     """
     Canonical runtime event taxonomy.
 
@@ -233,7 +226,7 @@ class RuntimeEvent:
     # TIMING
     # ========================================================
 
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # ========================================================
     # EXECUTION LOCATION
@@ -247,11 +240,11 @@ class RuntimeEvent:
     # PAYLOAD
     # ========================================================
 
-    payload: Dict[str, Any] = field(
+    payload: dict[str, Any] = field(
         default_factory=dict,
     )
 
-    metadata: Dict[str, Any] = field(
+    metadata: dict[str, Any] = field(
         default_factory=dict,
     )
 
@@ -261,7 +254,7 @@ class RuntimeEvent:
 
     def to_dict(
         self,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return {
             "event_type": self.event_type.value,

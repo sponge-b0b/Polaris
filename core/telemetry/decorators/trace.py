@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import ParamSpec
-from typing import TypeVar
+from typing import ParamSpec, TypeVar
 
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.telemetry_emitter import TelemetryEmitter

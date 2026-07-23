@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
 
-class PersistenceHealthStatus(str, Enum):
+class PersistenceHealthStatus(StrEnum):
     """
     Aggregated or individual health status for persistence diagnostics.
     """
@@ -23,7 +24,7 @@ class PersistenceHealthStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
-class PersistenceHealthCheckCategory(str, Enum):
+class PersistenceHealthCheckCategory(StrEnum):
     """
     Persistence health-check categories required before API/RAG expansion.
     """

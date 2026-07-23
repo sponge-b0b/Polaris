@@ -150,7 +150,8 @@ def test_rag_model_config_is_immutable(
     config = RagModelConfig.from_settings(_settings(monkeypatch, tmp_path))
 
     with pytest.raises(FrozenInstanceError):
-        setattr(config, "synthesis_model", "replacement")
+        field_name = "synthesis_model"
+        setattr(config, field_name, "replacement")
 
 
 def test_settings_keep_general_embedding_but_remove_legacy_rag_aliases(

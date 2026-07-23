@@ -1,4 +1,4 @@
-from typing import Protocol, Dict, Any, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -12,8 +12,8 @@ class SentimentProvider(Protocol):
     async def get_news_sentiment(
         self,
         symbol: str = "SPY",
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...
 
     async def get_fear_greed_sentiment(
         self,
-    ) -> Dict[str, Any]: ...
+    ) -> dict[str, Any]: ...

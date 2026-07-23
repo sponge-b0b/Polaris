@@ -9,12 +9,13 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import httpx
+import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from pydantic import SecretStr
-import pytest
 from starlette.applications import Starlette
 
+import mcp_server.server as server_module
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
@@ -22,9 +23,7 @@ from core.workflow.execution.workflow_service import WorkflowSummary
 from mcp_server.auth import McpHttpAuthenticationBoundary
 from mcp_server.lifespan import McpApplicationContext
 from mcp_server.server import create_streamable_http_app
-import mcp_server.server as server_module
-from mcp_server.settings import McpServerSettings
-from mcp_server.settings import McpTransport
+from mcp_server.settings import McpServerSettings, McpTransport
 from mcp_server.telemetry import McpTelemetry
 from mcp_server.tools.allowlist import APPROVED_MCP_TOOL_NAMES
 

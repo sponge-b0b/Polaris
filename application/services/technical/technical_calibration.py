@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
+
 from core.utils.utils import _clamp, _safe_float
 
 
 def calibrate(
-    regime_output: Dict[str, Any],
-    trend: Dict[str, Any],
-    volatility: Dict[str, Any],
-    breadth: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    regime_output: dict[str, Any],
+    trend: dict[str, Any],
+    volatility: dict[str, Any],
+    breadth: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     breadth = breadth or {}
 
     score = _safe_float(regime_output.get("directional_technical_score"))

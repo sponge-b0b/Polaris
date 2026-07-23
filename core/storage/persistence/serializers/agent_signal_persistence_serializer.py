@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 from core.database.models.agent_signals import AgentSignalModel
 from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     AgentSignalRecord,
-)
-from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     JsonObject,
 )
 

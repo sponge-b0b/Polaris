@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from application.persistence.telemetry import TelemetryPersistenceService
 from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSink,
-)
-from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSinkConfig,
 )
-from application.persistence.telemetry import TelemetryPersistenceService
-from core.storage.persistence.telemetry import TelemetryPersistenceBundle
-from core.storage.persistence.telemetry import TelemetryPersistenceResult
+from core.storage.persistence.telemetry import (
+    TelemetryPersistenceBundle,
+    TelemetryPersistenceResult,
+)
 from core.telemetry.events.telemetry_event import TelemetryEvent
 
 
@@ -145,7 +144,7 @@ def _event() -> TelemetryEvent:
     return TelemetryEvent(
         event_type="runtime.workflow.started",
         source="runtime.engine",
-        timestamp=datetime(2026, 1, 2, 14, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 1, 2, 14, 30, tzinfo=UTC),
         workflow_id="morning_report",
         execution_id="exec-123",
         runtime_id="runtime-456",

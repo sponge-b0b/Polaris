@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from typing import Any
 from urllib.parse import urlparse
@@ -11,9 +10,7 @@ from urllib.parse import urlparse
 from core.telemetry.integrations.prometheus.prometheus_config import (
     PrometheusMetricsConfig,
 )
-from core.telemetry.metrics.metrics_store import MetricKind
-from core.telemetry.metrics.metrics_store import MetricPoint
-from core.telemetry.metrics.metrics_store import MetricsStore
+from core.telemetry.metrics.metrics_store import MetricKind, MetricPoint, MetricsStore
 
 _LABEL_VALUE_TYPES = (str, bool, int, float)
 

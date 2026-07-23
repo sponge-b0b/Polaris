@@ -1,45 +1,49 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any
-from typing import Protocol
-from typing import TypeVar
-from typing import cast
+from typing import Any, Protocol, TypeVar, cast
 
-from application.observability import AiObservationStatus
-from application.observability import AiObservationType
-from application.rag.observability import RagAiObservabilityProjectorPort
-from application.rag.observability import RagAiObservabilityRecorder
-from application.rag.observability import context_ids
-from application.rag.observability import context_scores
-from application.rag.observability import record_reranking_observation
-from application.rag.observability import record_retrieval_observation
-from application.rag.retrieval.rag_candidate_collector import RagCandidateCollector
+from application.observability import AiObservationStatus, AiObservationType
 from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.retrieval.rag_context_selector import RagContextSelector
 from application.rag.contracts.rag_request import RagRequest
+from application.rag.observability import (
+    RagAiObservabilityProjectorPort,
+    RagAiObservabilityRecorder,
+    context_ids,
+    context_scores,
+    record_reranking_observation,
+    record_retrieval_observation,
+)
+from application.rag.retrieval.rag_candidate_collector import RagCandidateCollector
+from application.rag.retrieval.rag_context_selector import RagContextSelector
 from application.rag.retrieval.rag_retrieval_filters import RagRetrievalFilterEvaluator
 from application.rag.retrieval.rag_retrieval_fusion import RagRetrievalFusion
-from application.rag.retrieval.retrieval_quality import Bm25LexicalRetriever
-from application.rag.retrieval.retrieval_quality import ParentDocumentExpander
-from application.rag.retrieval.retrieval_quality import RagContextDeduplicator
-from application.rag.retrieval.retrieval_quality import RankedRagChunk
+from application.rag.retrieval.retrieval_quality import (
+    Bm25LexicalRetriever,
+    ParentDocumentExpander,
+    RagContextDeduplicator,
+    RankedRagChunk,
+)
 from application.rag.retrieval.structured_retrieval import StructuredRagRetriever
-from config.settings import DEFAULT_RAG_HYBRID_EMBEDDING_MODEL
-from config.settings import DEFAULT_QDRANT_COLLECTION
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from config.settings import (
+    DEFAULT_QDRANT_COLLECTION,
+    DEFAULT_RAG_HYBRID_EMBEDDING_MODEL,
+)
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagPersistenceRepository,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.embedding_provider import EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingVector
+from integration.providers.rag.embedding_provider import (
+    EmbeddingProvider,
+    EmbeddingVector,
+)
 from integration.providers.rag.reranking_provider import RerankingProvider
-from integration.providers.rag.vector_index_provider import VectorIndexProvider
 from integration.providers.rag.vector_index_models import VectorSearchResult
-
+from integration.providers.rag.vector_index_provider import VectorIndexProvider
 
 _StageResultT = TypeVar("_StageResultT")
 

@@ -6,22 +6,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from application.evaluations.contracts import EvaluationDatasetRegistrationRequest
-from application.evaluations.contracts import EvaluationDatasetSeedItem
-from application.evaluations.contracts import EvaluationDatasetSeedRequest
-from application.evaluations.contracts import EvaluationDatasetSeedResult
-from application.evaluations.evaluation_datasets import EvaluationDatasetDefinition
-from application.evaluations.evaluation_datasets import (
-    canonical_evaluation_dataset_definition_by_name,
+from application.evaluations.contracts import (
+    EvaluationDatasetRegistrationRequest,
+    EvaluationDatasetSeedItem,
+    EvaluationDatasetSeedRequest,
+    EvaluationDatasetSeedResult,
 )
 from application.evaluations.evaluation_datasets import (
+    EvaluationDatasetDefinition,
+    canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_definitions,
 )
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetCaseReplacement
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceRepository
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetCaseReplacement,
+    EvaluationDatasetRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceRepository,
+)
 from domain.evaluation import EvaluationTargetType
 
 JsonRow = Mapping[str, object]

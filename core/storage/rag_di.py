@@ -2,54 +2,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.postgres import AsyncSessionLocal
-from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
-    PostgresAgentSignalPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (
-    PostgresAiObservabilityExportJobRepository,
-)
-from core.storage.persistence.repositories.postgres_ai_artifact_persistence_repository import (
-    PostgresAiArtifactPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
-    PostgresBacktestPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (
-    PostgresEvaluationPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (
-    PostgresMacroPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (
-    PostgresMarketPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_news_persistence_repository import (
-    PostgresNewsPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
-    PostgresPortfolioExpansionPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_rag_persistence_repository import (
-    PostgresRagPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (
-    PostgresRecommendationPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_report_persistence_repository import (
-    PostgresReportPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (
-    PostgresSentimentPersistenceRepository,
-)
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
-    PostgresWorkflowOutputProjectionJobRepository,
-)
 from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
 from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
@@ -58,6 +14,48 @@ from core.storage.persistence.portfolio import (
 )
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
 from core.storage.persistence.rag import RagPersistenceRepository
+from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501
+    PostgresAgentSignalPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_ai_artifact_persistence_repository import (  # noqa: E501
+    PostgresAiArtifactPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (  # noqa: E501
+    PostgresAiObservabilityExportJobRepository,
+)
+from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501
+    PostgresBacktestPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (  # noqa: E501
+    PostgresEvaluationPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
+    PostgresMacroPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
+    PostgresMarketPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_news_persistence_repository import (
+    PostgresNewsPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
+    PostgresPortfolioExpansionPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_rag_persistence_repository import (
+    PostgresRagPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
+    PostgresRecommendationPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501
+    PostgresReportPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
+    PostgresSentimentPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
+    PostgresWorkflowOutputProjectionJobRepository,
+)
 
 
 class RagPersistenceDIProvider(Provider):

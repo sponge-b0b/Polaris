@@ -1,23 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.runtime.runtime_persistence_models import (
     RuntimePersistenceResult,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowEventRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowNodeRunRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
-    WorkflowStateSnapshotRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
 )
 
 

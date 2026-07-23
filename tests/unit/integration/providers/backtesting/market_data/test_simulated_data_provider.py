@@ -3,10 +3,10 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from domain.market.models import SP500Data
 from integration.providers.backtesting.market_data.simulated_data_provider import (
     SimulatedDataProvider,
 )
-from domain.market.models import SP500Data
 
 
 @pytest.mark.asyncio

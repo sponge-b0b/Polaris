@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import TypeVar
 
 import pandas as pd
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import MarketPersistenceRepository
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (
+from core.storage.persistence.market import (
+    MarketContextSnapshotRecord,
+    MarketOhlcvRecord,
+    MarketPersistenceRepository,
+)
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
     PostgresMarketPersistenceRepository,
 )
 from domain.market.models import SP500Data
@@ -222,7 +222,7 @@ class PostgresHistoricalDataProvider(MarketDataProvider):
         )
 
 
-def _select_records(
+def _select_records[RecordT](
     *,
     records: Sequence[RecordT],
     days: int,

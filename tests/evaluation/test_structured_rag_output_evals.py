@@ -1,29 +1,35 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from application.evaluations import EvaluationRunService
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
-from application.evaluations import rag_evaluation_metric_specs
-from application.rag.contracts.rag_structured_answer import RagStructuredAnswer
-from application.rag.contracts.rag_structured_answer import RagStructuredAnswerQuality
-from application.rag.contracts.rag_structured_answer import RagStructuredCitation
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import EvaluationProviderResult
-from tests.evaluation._helpers import InMemoryEvaluationRepository
-from tests.evaluation._helpers import PassingEvaluationProvider
-from tests.evaluation._helpers import RecordingProjectionService
-from tests.evaluation._helpers import evaluation_case_from_row
+from application.evaluations import (
+    EvaluationRunService,
+    EvaluationRunServiceRequest,
+    canonical_evaluation_dataset_definition_by_name,
+    rag_evaluation_metric_specs,
+)
+from application.rag.contracts.rag_structured_answer import (
+    RagStructuredAnswer,
+    RagStructuredAnswerQuality,
+    RagStructuredCitation,
+)
+from domain.evaluation import EvaluationStatus, EvaluationTargetType
+from integration.providers.llm_evaluation import (
+    EvaluationProviderRequest,
+    EvaluationProviderResult,
+)
+from tests.evaluation._helpers import (
+    InMemoryEvaluationRepository,
+    PassingEvaluationProvider,
+    RecordingProjectionService,
+    evaluation_case_from_row,
+)
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
 
@@ -88,7 +94,7 @@ def test_active_rag_fixtures_are_structured_answer_schema_compatible(
                 ),
                 quality=RagStructuredAnswerQuality(
                     confidence_score=0.95,
-                    grounding_summary="Fixture answer is grounded in deterministic retrieval context.",
+                    grounding_summary="Fixture answer is grounded in deterministic retrieval context.",  # noqa: E501
                 ),
             )
 
@@ -123,7 +129,7 @@ def test_rag_metric_policy_covers_structured_output_regression_concerns() -> Non
 
 
 @pytest.mark.asyncio
-async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persistence_and_projection(
+async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persistence_and_projection(  # noqa: E501
     evaluation_fixture_dir: Path,
     load_jsonl_fixture: LoadJsonlFixture,
 ) -> None:

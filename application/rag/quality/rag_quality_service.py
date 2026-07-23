@@ -1,31 +1,26 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from time import perf_counter
 from typing import Any
-from typing import Mapping
-from typing import Sequence
-from typing import TypeVar
 
 from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_quality_models import RagContextEvaluation
-from application.rag.contracts.rag_quality_models import RagContextQuality
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.contracts.rag_quality_models import RagReflectionScores
-from application.rag.contracts.rag_quality_models import RagSelfReflection
+from application.rag.contracts.rag_quality_models import (
+    RagContextEvaluation,
+    RagContextQuality,
+    RagCorrectiveAction,
+    RagReflectionScores,
+    RagSelfReflection,
+)
 from application.rag.contracts.rag_request import RagRequest
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.quality_evaluation_provider import (
     RagQualityModelOperation,
-)
-from integration.providers.rag.quality_evaluation_provider import (
     RagQualityModelProvider,
+    RagQualityModelRequest,
 )
-from integration.providers.rag.quality_evaluation_provider import RagQualityModelRequest
-
-
-_EnumT = TypeVar("_EnumT", bound=StrEnum)
 
 _CONTEXT_KEYS = frozenset({"quality", "action", "retained_context_ids"})
 _REWRITE_KEYS = frozenset({"rewritten_query"})
@@ -315,7 +310,7 @@ def _require_exact_keys(
     actual = frozenset(payload)
     if actual != expected:
         raise RagQualityModelOutputError(
-            f"Model output keys must be exactly {sorted(expected)}; received {sorted(actual)}."
+            f"Model output keys must be exactly {sorted(expected)}; received {sorted(actual)}."  # noqa: E501
         )
 
 
@@ -346,11 +341,11 @@ def _required_string_sequence(
     return result
 
 
-def _required_enum(
+def _required_enum[EnumT: StrEnum](
     payload: Mapping[str, Any],
     key: str,
-    enum_type: type[_EnumT],
-) -> _EnumT:
+    enum_type: type[EnumT],
+) -> EnumT:
     value = _required_string(payload, key)
     try:
         return enum_type(value)

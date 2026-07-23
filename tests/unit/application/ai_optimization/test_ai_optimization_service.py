@@ -5,39 +5,51 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.ai_optimization import AiOptimizationRequest
-from application.ai_optimization import AiOptimizationService
-from application.ai_optimization import AiOptimizationStatus
-from application.ai_optimization import AiOptimizationTarget
-from application.evaluations import EvaluationLangfuseProjectionResult
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import EvaluationRunServiceResult
+from application.ai_optimization import (
+    AiOptimizationRequest,
+    AiOptimizationService,
+    AiOptimizationStatus,
+    AiOptimizationTarget,
+)
+from application.evaluations import (
+    EvaluationLangfuseProjectionResult,
+    EvaluationRunServiceRequest,
+    EvaluationRunServiceResult,
+)
 from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
 )
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceRepository
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
-from integration.providers.ai_optimization import DspyOptimizedArtifact
-from integration.providers.ai_optimization import DspyOptimizedCaseOutput
-from integration.providers.ai_optimization import DspyOptimizationProviderRequest
-from integration.providers.ai_optimization import DspyOptimizationProviderResult
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactPersistenceRepository,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceRepository,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
+from integration.providers.ai_optimization import (
+    DspyOptimizationProviderRequest,
+    DspyOptimizationProviderResult,
+    DspyOptimizedArtifact,
+    DspyOptimizedCaseOutput,
+)
 from integration.providers.llm_evaluation import EvaluationMetricSpec
 
 
@@ -335,7 +347,7 @@ async def test_optimization_service_scores_and_persists_draft_artifact() -> None
 
 
 @pytest.mark.asyncio
-async def test_optimization_service_does_not_persist_artifact_when_evaluation_errors() -> (
+async def test_optimization_service_does_not_persist_artifact_when_evaluation_errors() -> (  # noqa: E501
     None
 ):
     service = AiOptimizationService(

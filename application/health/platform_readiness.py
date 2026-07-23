@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from enum import Enum
-from typing import Protocol
+from datetime import UTC, datetime
+from enum import StrEnum
 from time import perf_counter
+from typing import Protocol
 
-from core.storage.persistence.health import PersistenceHealthCheckCategory
-from core.storage.persistence.health import PersistenceHealthReport
-from core.storage.persistence.health import PersistenceHealthStatus
+from core.storage.persistence.health import (
+    PersistenceHealthCheckCategory,
+    PersistenceHealthReport,
+    PersistenceHealthStatus,
+)
 
 ReadinessProbe = Callable[[], Awaitable[None]]
 
@@ -22,14 +21,14 @@ class PersistenceHealthChecker(Protocol):
     async def check_health(self) -> PersistenceHealthReport: ...
 
 
-class PlatformReadinessCategory(str, Enum):
+class PlatformReadinessCategory(StrEnum):
     POSTGRESQL = "postgresql"
     TELEMETRY_EXPORTER = "telemetry_exporter"
     PROVIDER = "provider"
     RUNTIME_PERSISTENCE = "runtime_persistence"
 
 
-class PlatformReadinessStatus(str, Enum):
+class PlatformReadinessStatus(StrEnum):
     READY = "ready"
     NOT_READY = "not_ready"
 

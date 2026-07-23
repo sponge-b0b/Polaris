@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.reports import ReportArtifactPersistenceFilters
-from application.persistence.reports import ReportPersistenceService
-from application.persistence.reports import ReportPublicationPersistenceFilters
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPersistenceResult
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
+from application.persistence.reports import (
+    ReportArtifactPersistenceFilters,
+    ReportPersistenceService,
+    ReportPublicationPersistenceFilters,
+)
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPersistenceResult,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+)
 
 
 class FakeReportRepository:
@@ -238,7 +241,7 @@ async def test_report_persistence_service_returns_none_for_missing_records() -> 
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
+    return datetime(2026, 5, 30, 14, tzinfo=UTC)
 
 
 def _report() -> ReportRecord:
@@ -291,6 +294,6 @@ def _publication() -> ReportPublicationRecord:
         publication_target="markdown_archive",
         publication_status="published",
         requested_at=_timestamp(),
-        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=timezone.utc),
+        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=UTC),
         artifact_uri="/reports/morning_report.md",
     )

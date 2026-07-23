@@ -1,4 +1,5 @@
 import pandas as pd
+
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from domain.market.models import SP500Data
 from integration.providers.market_data.market_data_provider import MarketDataProvider

@@ -1,5 +1,6 @@
-import pandas as pd
 from typing import Protocol, runtime_checkable
+
+import pandas as pd
 
 from domain.market.models import SP500Data
 

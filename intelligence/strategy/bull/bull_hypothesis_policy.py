@@ -1,30 +1,34 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
+from intelligence.strategy.hypothesis.breadth import (
+    BreadthMessageRule,
+    breadth_messages,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.contracts import StrategyPerspective
+from intelligence.strategy.hypothesis.evidence import (
+    StrategyAssumption,
+    StrategyEvidenceItem,
+    StrategyInvalidationCondition,
+    StrategyInvalidationOperator,
+)
+from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.hypothesis.policy_support import (
     breadth_context_from_evidence,
+    clamp_01,
+    data_quality_flags,
+    deduplicate_values,
+    evidence_for_perspective,
+    evidence_reliability,
+    numeric_evidence_value,
+    string_evidence_value,
 )
-from intelligence.strategy.hypothesis.policy_support import clamp_01
-from intelligence.strategy.hypothesis.policy_support import data_quality_flags
-from intelligence.strategy.hypothesis.policy_support import deduplicate_values
-from intelligence.strategy.hypothesis.policy_support import evidence_for_perspective
-from intelligence.strategy.hypothesis.policy_support import evidence_reliability
-from intelligence.strategy.hypothesis.policy_support import numeric_evidence_value
-from intelligence.strategy.hypothesis.policy_support import string_evidence_value
-from intelligence.strategy.hypothesis.breadth import BreadthMessageRule
-from intelligence.strategy.hypothesis.breadth import breadth_messages
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.evidence import StrategyAssumption
-from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationOperator
-from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
-
 
 _BULL_BREADTH_SIGNAL_RULES = (
     BreadthMessageRule(
@@ -270,14 +274,14 @@ def _bull_assumptions(
         StrategyAssumption(
             assumption_id="bull.continuation_requires_positive_evidence",
             perspective=StrategyPerspective.BULL,
-            description="Bullish posture requires positive evidence to remain persistent.",
+            description="Bullish posture requires positive evidence to remain persistent.",  # noqa: E501
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="bull.strength_requires_follow_through",
             perspective=StrategyPerspective.BULL,
-            description="Bullish strength assumes trend and sentiment follow-through do not fail.",
+            description="Bullish strength assumes trend and sentiment follow-through do not fail.",  # noqa: E501
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -295,7 +299,7 @@ def _bull_invalidations(
         StrategyInvalidationCondition(
             condition_id="bull.sentiment_breakdown",
             perspective=StrategyPerspective.BULL,
-            description="Bull case is invalidated if sentiment turns materially bearish.",
+            description="Bull case is invalidated if sentiment turns materially bearish.",  # noqa: E501
             observed_value=sentiment_score,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=-0.25,
@@ -304,7 +308,7 @@ def _bull_invalidations(
         StrategyInvalidationCondition(
             condition_id="bull.technical_breakdown",
             perspective=StrategyPerspective.BULL,
-            description="Bull case is invalidated if technical structure turns bearish.",
+            description="Bull case is invalidated if technical structure turns bearish.",  # noqa: E501
             observed_value=technical_score,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=-0.25,

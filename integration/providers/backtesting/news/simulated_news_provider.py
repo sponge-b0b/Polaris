@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from typing import Any
+
 from integration.providers.news.news_provider import NewsProvider
 
 
@@ -13,7 +14,7 @@ class SimulatedNewsProvider(NewsProvider):
         query: str,
         sort_by: str = "publishedAt",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return []
 
@@ -21,6 +22,6 @@ class SimulatedNewsProvider(NewsProvider):
         self,
         symbol: str = "SPY",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return []

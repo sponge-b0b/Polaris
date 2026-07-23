@@ -4,27 +4,19 @@ from dataclasses import dataclass
 
 from typer.testing import CliRunner
 
-from application.evaluations import EvaluationDatasetSeedItem
-from application.evaluations import EvaluationDatasetSeedResult
+from application.evaluations import (
+    EvaluationDatasetSeedItem,
+    EvaluationDatasetSeedResult,
+)
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import evaluation_command
 from interfaces.cli.services.evaluation_command_service import (
     EvaluationDatasetListItem,
-)
-from interfaces.cli.services.evaluation_command_service import (
-    EvaluationDatasetSeedCommandResult,
-)
-from interfaces.cli.services.evaluation_command_service import (
     EvaluationDatasetsCommandResult,
-)
-from interfaces.cli.services.evaluation_command_service import (
-    EvaluationRunCommandResult,
-)
-from interfaces.cli.services.evaluation_command_service import (
-    EvaluationStatusCommandResult,
-)
-from interfaces.cli.services.evaluation_command_service import (
+    EvaluationDatasetSeedCommandResult,
     EvaluationResultsCommandResult,
+    EvaluationRunCommandResult,
+    EvaluationStatusCommandResult,
 )
 
 

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from intelligence.strategy.hypothesis import StrategyEvidenceInputStatus
-from intelligence.strategy.hypothesis import StrategyPerspective
-from intelligence.strategy.hypothesis import normalize_strategy_evidence_context
-
+from intelligence.strategy.hypothesis import (
+    StrategyEvidenceInputStatus,
+    StrategyPerspective,
+    normalize_strategy_evidence_context,
+)
 
 STRONG_BREADTH: dict[str, object] = {
     "has_breadth_data": True,

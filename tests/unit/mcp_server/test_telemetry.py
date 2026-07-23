@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-
-from collections.abc import Iterator
 import json
+from collections.abc import Iterator
 
 import pytest
 
@@ -12,8 +11,7 @@ from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from mcp_server.settings import McpTransport
-from mcp_server.telemetry import McpTelemetry
-from mcp_server.telemetry import McpToolFailureCategory
+from mcp_server.telemetry import McpTelemetry, McpToolFailureCategory
 
 
 def _credential_url(password: str) -> str:

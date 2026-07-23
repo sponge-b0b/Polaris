@@ -2,26 +2,24 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from core.runtime.checkpoints.checkpoint_manager import CheckpointManager
 from core.runtime.checkpoints.runtime_checkpoint import RuntimeCheckpoint
 from core.runtime.events.event_bus import EventBus
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.policies.policy_engine import PolicyEngine
 from core.runtime.state.runtime_context import RuntimeContext
 from core.workflow.compiler.workflow_compiler import CompiledWorkflow
+from core.workflow.execution.workflow_engine import WorkflowEngine
 from core.workflow.models.workflow_execution_plan import (
     ExecutionPlanNode,
     ExecutionWave,
     WorkflowExecutionPlan,
 )
-from core.workflow.execution.workflow_engine import WorkflowEngine
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +83,7 @@ class ReplayEngine:
         resume_from_checkpoint_position: bool = True,
         retry_failed_nodes: bool = True,
     ) -> ReplayResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         try:
             await self._require_replay_allowed(
@@ -125,16 +123,16 @@ class ReplayEngine:
                         "checkpoint_id": checkpoint.checkpoint_id,
                         "checkpoint_file": str(checkpoint_file),
                         "source_wave_index": checkpoint.wave_index,
-                        "resume_from_checkpoint_position": resume_from_checkpoint_position,
+                        "resume_from_checkpoint_position": resume_from_checkpoint_position,  # noqa: E501
                         "retry_failed_nodes": retry_failed_nodes,
-                        "remaining_node_count": replay_workflow.execution_plan.total_nodes(),
-                        "remaining_wave_count": replay_workflow.execution_plan.total_waves(),
+                        "remaining_node_count": replay_workflow.execution_plan.total_nodes(),  # noqa: E501
+                        "remaining_wave_count": replay_workflow.execution_plan.total_waves(),  # noqa: E501
                     },
                 )
             )
 
             if replay_workflow.execution_plan.total_nodes() == 0:
-                completed_at = datetime.now(timezone.utc)
+                completed_at = datetime.now(UTC)
 
                 await self._emit(
                     RuntimeEvent(
@@ -166,7 +164,7 @@ class ReplayEngine:
                         "completed_nodes": list(checkpoint.completed_nodes),
                         "failed_nodes": list(checkpoint.failed_nodes),
                         "skipped_nodes": list(checkpoint.skipped_nodes),
-                        "resume_from_checkpoint_position": resume_from_checkpoint_position,
+                        "resume_from_checkpoint_position": resume_from_checkpoint_position,  # noqa: E501
                         "retry_failed_nodes": retry_failed_nodes,
                         "remaining_node_count": 0,
                         "remaining_wave_count": 0,
@@ -181,7 +179,7 @@ class ReplayEngine:
                 checkpoint_on_completion=checkpoint_on_completion,
             )
 
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
 
             await self._emit(
                 RuntimeEvent(
@@ -214,13 +212,13 @@ class ReplayEngine:
                     "skipped_nodes": list(checkpoint.skipped_nodes),
                     "resume_from_checkpoint_position": resume_from_checkpoint_position,
                     "retry_failed_nodes": retry_failed_nodes,
-                    "remaining_node_count": replay_workflow.execution_plan.total_nodes(),
-                    "remaining_wave_count": replay_workflow.execution_plan.total_waves(),
+                    "remaining_node_count": replay_workflow.execution_plan.total_nodes(),  # noqa: E501
+                    "remaining_wave_count": replay_workflow.execution_plan.total_waves(),  # noqa: E501
                 },
             )
 
         except Exception as exc:
-            completed_at = datetime.now(timezone.utc)
+            completed_at = datetime.now(UTC)
 
             await self._emit(
                 RuntimeEvent(

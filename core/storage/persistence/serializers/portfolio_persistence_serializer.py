@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioEquityHistoryPointModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioEquityHistoryPointModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+)
 
 
 class PortfolioPersistenceSerializer:

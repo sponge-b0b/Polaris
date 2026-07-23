@@ -1,16 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import Enum
-from typing import Sequence
+from enum import StrEnum
 
 from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkRecord,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceRecordIdentity,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     require_non_empty_identifier,
 )
 
@@ -18,7 +14,7 @@ DEFAULT_LINEAGE_TRAVERSAL_DEPTH = 3
 DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT = 250
 
 
-class PersistenceLineageTraversalDirection(str, Enum):
+class PersistenceLineageTraversalDirection(StrEnum):
     """
     Direction for traversing persisted cross-record lineage links.
 

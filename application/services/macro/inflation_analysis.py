@@ -3,7 +3,7 @@ from typing import Any
 from domain.macro.models import MacroDataSnapshot
 
 
-def analyze_inflation_environment(
+def analyze_inflation_environment(  # noqa: C901
     macro_data: MacroDataSnapshot,
 ) -> dict[str, Any]:
     """

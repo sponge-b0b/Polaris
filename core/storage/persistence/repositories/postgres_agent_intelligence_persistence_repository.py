@@ -4,35 +4,27 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import Select, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501
     AgentIntelligencePersistenceBundle,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentIntelligencePersistenceResult,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentReasoningRecord,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentRecommendationRecord,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentRiskAssessmentRecord,
 )
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_repository import (
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_repository import (  # noqa: E501
     AgentIntelligencePersistenceRepository,
 )
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (
+from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501
     AgentIntelligencePersistenceSerializer,
 )
 

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.idempotency import PersistenceIdempotencyKey
-from core.storage.persistence.idempotency import build_persistence_idempotency_key
-from core.storage.persistence.idempotency import symbol_idempotency_component
-from core.storage.persistence.idempotency import timestamp_idempotency_component
+from core.storage.persistence.idempotency import (
+    PersistenceIdempotencyKey,
+    build_persistence_idempotency_key,
+    symbol_idempotency_component,
+    timestamp_idempotency_component,
+)
 
 
 def test_persistence_idempotency_key_builds_stable_key() -> None:
@@ -127,4 +128,4 @@ def test_idempotency_key_is_immutable() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

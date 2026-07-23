@@ -5,7 +5,6 @@ import inspect
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
-from typing import Type
 
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
@@ -123,7 +122,7 @@ class PluginWorkflowLoader:
                 )
                 continue
 
-            workflow_class: Type[WorkflowGraphDefinition] = object_value
+            workflow_class: type[WorkflowGraphDefinition] = object_value
 
             try:
                 workflow = workflow_class()

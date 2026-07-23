@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
 from core.runtime.contracts.runtime_node import RuntimeNode
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.control import WorkflowControlManager, WorkflowControlState
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.lifecycle.runtime_lifecycle_hooks import NoOpRuntimeLifecycleHook
 from core.runtime.lifecycle.runtime_lifecycle_manager import RuntimeLifecycleManager
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 
 
 class SuccessfulRuntimeNode(RuntimeNode):
@@ -105,7 +105,7 @@ def test_runtime_engine_uses_injected_control_manager() -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_engine_marks_control_state_completed_after_successful_execution() -> (
+async def test_runtime_engine_marks_control_state_completed_after_successful_execution() -> (  # noqa: E501
     None
 ):
     control_manager = WorkflowControlManager()

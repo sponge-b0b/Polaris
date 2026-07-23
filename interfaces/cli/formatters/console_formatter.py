@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.formatters.workflow_payload import additional_workflow_payload
-from interfaces.cli.formatters.workflow_payload import ensure_workflow_render_envelope
-from interfaces.cli.formatters.workflow_payload import workflow_morning_report
-from interfaces.cli.formatters.workflow_payload import workflow_node_outputs
+from interfaces.cli.formatters.workflow_payload import (
+    additional_workflow_payload,
+    ensure_workflow_render_envelope,
+    workflow_morning_report,
+    workflow_node_outputs,
+)
 
 
 def format_workflow_list(

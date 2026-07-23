@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from core.security.sensitive_data import REDACTED_VALUE
-from core.security.sensitive_data import sanitize_sensitive_mapping
-from core.security.sensitive_data import sanitize_sensitive_value
+from core.security.sensitive_data import (
+    REDACTED_VALUE,
+    sanitize_sensitive_mapping,
+    sanitize_sensitive_value,
+)
 
 
 def test_sanitize_sensitive_mapping_redacts_nested_credentials_without_mutation() -> (

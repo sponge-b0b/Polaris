@@ -21,15 +21,15 @@ from core.runtime.governance import (
 from core.storage.persistence.recommendations import RecommendationRecord
 from core.storage.persistence.reports import ReportRecord
 from domain.authority import (
-    AiOutputContentType,
-    AuthorityEffect,
-    CanonicalOwner,
-    IntendedSink,
-    RiskAuthorityClassificationInput,
     RiskTier,
-    SourceOfTruthCategory,
     authority_contract_metadata,
     classify_risk_authority,
+)
+from tests.helpers.risk_authority_examples import (
+    authority_metadata_for_tier,
+    insufficient_runtime_evidence_authority_input,
+    recommendation_explanation_authority_input,
+    workflow_curation_authority_input,
 )
 
 
@@ -167,14 +167,7 @@ async def test_prohibited_outside_authority_is_observable_denial() -> None:
 @pytest.mark.asyncio
 async def test_model_output_cannot_approve_governance_or_skip_governance() -> None:
     contract = classify_risk_authority(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
-            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-            canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.RECOMMENDATION,
-            capital_relevant=True,
-            externally_visible=True,
+        recommendation_explanation_authority_input(
             model_provided_metadata={
                 "governance_approved": True,
                 "residual_risk_accepted": True,
@@ -235,84 +228,20 @@ def _authority_metadata(
     *,
     evidence_sufficient: bool = True,
 ) -> dict[str, object]:
-    if tier is RiskTier.BASELINE:
-        contract = classify_risk_authority(
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.RUNTIME_EVIDENCE,
-                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-                canonical_owner=CanonicalOwner.RUNTIME,
-                source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
-                intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
-                evidence_sufficient=evidence_sufficient,
-            )
-        )
-    elif tier is RiskTier.ENHANCED:
-        contract = classify_risk_authority(
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.RAG_ANSWER,
-                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-                canonical_owner=CanonicalOwner.RAG_SERVICE,
-                source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
-                intended_sink=IntendedSink.RAG_ANSWER,
-                externally_visible=True,
-                evidence_sufficient=evidence_sufficient,
-            )
-        )
-    elif tier is RiskTier.VIGILANT:
-        contract = classify_risk_authority(
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
-                authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
-                canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
-                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-                intended_sink=IntendedSink.RECOMMENDATION,
-                capital_relevant=True,
-                externally_visible=True,
-                evidence_sufficient=evidence_sufficient,
-            )
-        )
-    else:
-        contract = classify_risk_authority(
-            RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.TOOL_RESPONSE,
-                authority_effect=AuthorityEffect.OUTSIDE_AUTHORITY,
-                canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
-                source_of_truth=SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD,
-                intended_sink=IntendedSink.MCP_TOOL_RESPONSE,
-                capital_relevant=True,
-                externally_visible=True,
-                evidence_sufficient=evidence_sufficient,
-            )
-        )
-    return contract.to_metadata()
+    return authority_metadata_for_tier(
+        tier,
+        evidence_sufficient=evidence_sufficient,
+    )
 
 
 def _enhanced_metadata_with_insufficient_evidence() -> dict[str, object]:
-    contract = classify_risk_authority(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.RUNTIME_EVIDENCE,
-            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
-            canonical_owner=CanonicalOwner.RUNTIME,
-            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
-            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
-            evidence_sufficient=False,
-        )
-    )
+    contract = classify_risk_authority(insufficient_runtime_evidence_authority_input())
     assert contract.risk_tier is RiskTier.ENHANCED
     return contract.to_metadata()
 
 
 def _workflow_curation_decision() -> WorkflowOutputProjectionEligibilityDecision:
-    contract = classify_risk_authority(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.DURABLE_RECORD,
-            authority_effect=AuthorityEffect.CANONICAL_RECORD,
-            canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
-            durable_authority=True,
-        )
-    )
+    contract = classify_risk_authority(workflow_curation_authority_input())
     return WorkflowOutputProjectionEligibilityDecision(
         status=WorkflowOutputProjectionEligibilityStatus.ELIGIBLE,
         node_name="curated_node",

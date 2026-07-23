@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from core.telemetry.events.telemetry_event import TelemetryEvent
@@ -55,7 +53,7 @@ class TelemetryAttribution:
 
     correlation_id: str | None = None
 
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     attributes: dict[str, Any] = field(
         default_factory=dict,
@@ -95,7 +93,7 @@ class TelemetryAttribution:
         created_at = (
             datetime.fromisoformat(created_at_raw)
             if created_at_raw
-            else datetime.now(timezone.utc)
+            else datetime.now(UTC)
         )
 
         return cls(

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import pytest
-
 from dishka import make_container
 
 from core.bootstrap.workflow_providers import WorkflowInfrastructureProvider
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
+from core.runtime.control import WorkflowControlManager, WorkflowControlState
 from core.runtime.events import EventBus
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.postgres_completed_run_archive import (

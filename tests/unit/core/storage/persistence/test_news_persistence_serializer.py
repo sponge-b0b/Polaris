@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
+from core.storage.persistence.news import NewsAnalysisSnapshotRecord, NewsArticleRecord
 from core.storage.persistence.serializers.news_persistence_serializer import (
     NewsPersistenceSerializer,
 )
@@ -131,4 +128,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

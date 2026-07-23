@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
-from typing import Awaitable
-from typing import Callable
 
 from core.plugins.lifecycle.plugin_lifecycle_hooks import (
     PluginLifecycleHook,
@@ -130,7 +128,7 @@ class PluginLifecycleManager:
             "fail_fast": self.fail_fast,
         }
 
-    async def _dispatch(
+    async def _dispatch(  # noqa: C901
         self,
         lifecycle_event: str,
         callback: PluginHookCallback,
@@ -166,7 +164,7 @@ class PluginLifecycleManager:
         if self._failure_handler is None:
             return
 
-        for hook, result in zip(self._hooks, results):
+        for hook, result in zip(self._hooks, results, strict=False):
             if isinstance(result, BaseException):
                 await self._failure_handler(
                     lifecycle_event,

@@ -1,22 +1,18 @@
 from __future__ import annotations
-from domain.workflow_outputs import STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT
 
 import ast
 import asyncio
 from pathlib import Path
+from typing import Any, cast
 
-from typing import Any
-from typing import cast
-
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
-from application.services.base import ServiceRunner
+from application.services.base import ServiceRequest, ServiceResult, ServiceRunner
 from application.services.market_events.market_events_request import MarketEventsRequest
 from application.services.market_events.market_events_result import MarketEventsResult
 from application.services.market_events.market_events_service import MarketEventsService
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
+from domain.workflow_outputs import STRATEGY_EVIDENCE_CONTEXT_OUTPUT_CONTRACT
 from intelligence.strategy.hypothesis import StrategyEvidenceInputStatus
 from intelligence.strategy.hypothesis.evidence_builder import StrategyEvidenceBuilder
 

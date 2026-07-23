@@ -1,33 +1,35 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
-from collections.abc import Sequence
-from contextlib import AbstractAsyncContextManager
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from typing import Protocol
-from typing import TypeVar
+from datetime import UTC, datetime
+from typing import Protocol, TypeVar
 from uuid import uuid4
 
-from application.evaluations import EvaluationResultBundle
-from application.evaluations import EvaluationDatasetSeedRequest
-from application.evaluations import EvaluationDatasetSeedResult
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import EvaluationRunServiceResult
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
-from application.evaluations import canonical_evaluation_dataset_definitions
-from application.evaluations import intelligence_evaluation_metric_specs
-from application.evaluations import rag_evaluation_metric_specs
+from application.evaluations import (
+    EvaluationDatasetSeedRequest,
+    EvaluationDatasetSeedResult,
+    EvaluationResultBundle,
+    EvaluationRunServiceRequest,
+    EvaluationRunServiceResult,
+    canonical_evaluation_dataset_definition_by_name,
+    canonical_evaluation_dataset_definitions,
+    intelligence_evaluation_metric_specs,
+    rag_evaluation_metric_specs,
+)
 from config.settings import Settings
 from core.bootstrap.di_providers import application_request_scope
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationTargetType
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationTargetType,
+)
 from integration.providers.llm_evaluation import EvaluationMetricSpec
 
 logger = logging.getLogger(__name__)
@@ -219,7 +221,7 @@ class EvaluationCommandService:
                         )
                     )
         except Exception as exc:
-            logger.exception("Evaluation dataset listing failed.")
+            logger.debug("Evaluation dataset listing failed.", exc_info=True)
             return EvaluationDatasetsCommandResult(success=False, error=str(exc))
         return EvaluationDatasetsCommandResult(success=True, items=tuple(items))
 
@@ -237,7 +239,7 @@ class EvaluationCommandService:
             async with self._dataset_seed_service_context() as seed_service:
                 result = await seed_service.seed_canonical_datasets(request)
         except Exception as exc:
-            logger.exception("Evaluation dataset seed failed.")
+            logger.debug("Evaluation dataset seed failed.", exc_info=True)
             return EvaluationDatasetSeedCommandResult(success=False, error=str(exc))
         return EvaluationDatasetSeedCommandResult(success=True, seed_result=result)
 
@@ -322,7 +324,7 @@ class EvaluationCommandService:
             async with self._result_service_context() as result_service:
                 bundle = await result_service.get_run_results(run_id)
         except Exception as exc:
-            logger.exception("Evaluation result lookup failed.")
+            logger.debug("Evaluation result lookup failed.", exc_info=True)
             return EvaluationResultsCommandResult(success=False, error=str(exc))
         if bundle is None:
             return EvaluationResultsCommandResult(
@@ -360,7 +362,7 @@ class EvaluationCommandService:
             async with self._run_service_context() as run_service:
                 result = await run_service.run_evaluation(request)
         except Exception as exc:
-            logger.exception("Evaluation run failed.")
+            logger.debug("Evaluation run failed.", exc_info=True)
             return EvaluationRunCommandResult(
                 success=False,
                 message="Evaluation run failed.",
@@ -460,7 +462,7 @@ async def default_evaluation_dataset_seed_context() -> AsyncIterator[
 
 
 @asynccontextmanager
-async def _default_evaluation_dependency_context(
+async def _default_evaluation_dependency_context[DependencyT](
     dependency_type: type[DependencyT],
 ) -> AsyncIterator[DependencyT]:
     async with application_request_scope() as request_container:

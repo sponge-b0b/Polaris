@@ -1,32 +1,29 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import field
-from dataclasses import fields
-from dataclasses import is_dataclass
-from datetime import date
-from datetime import datetime
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, fields, is_dataclass
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Protocol
-from typing import cast
-from typing import runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 from uuid import UUID
 
-from core.storage.persistence.export import PersistenceExportDestinationType
-from core.storage.persistence.export import PersistenceExportFormat
-from core.storage.persistence.export import PersistenceExportRequest
-from core.storage.persistence.export import PersistenceExportResult
-from core.storage.persistence.lineage import DEFAULT_LINEAGE_TRAVERSAL_DEPTH
-from core.storage.persistence.lineage import DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonScalar
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import PersistenceLineageTraversalResult
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.export import (
+    PersistenceExportDestinationType,
+    PersistenceExportFormat,
+    PersistenceExportRequest,
+    PersistenceExportResult,
+)
+from core.storage.persistence.lineage import (
+    DEFAULT_LINEAGE_TRAVERSAL_DEPTH,
+    DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
+    JsonObject,
+    JsonScalar,
+    JsonValue,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
+    require_non_empty_identifier,
+)
 
 
 @runtime_checkable
@@ -373,7 +370,7 @@ class JsonPersistenceExportService:
             return JsonPersistenceExportResult(
                 export_result=PersistenceExportResult.failed(
                     request=request.export_request,
-                    error=f"Report history export source not found: {request.report_id}.",
+                    error=f"Report history export source not found: {request.report_id}.",  # noqa: E501
                     metadata={
                         "report_id": request.report_id,
                     },
@@ -386,7 +383,7 @@ class JsonPersistenceExportService:
             return JsonPersistenceExportResult(
                 export_result=PersistenceExportResult.failed(
                     request=request.export_request,
-                    error="Report history export source does not expose a report bundle.",
+                    error="Report history export source does not expose a report bundle.",  # noqa: E501
                     metadata={
                         "report_id": request.report_id,
                     },

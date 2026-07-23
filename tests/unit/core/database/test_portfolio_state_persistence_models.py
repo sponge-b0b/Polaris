@@ -1,19 +1,17 @@
 from __future__ import annotations
 
+import ast
 from collections import Counter
 from dataclasses import fields
-from datetime import datetime
-from datetime import timezone
-import ast
+from datetime import UTC, datetime
 
-from sqlalchemy import Boolean
-from sqlalchemy import Float
-from sqlalchemy import Integer
-from sqlalchemy import String
+from sqlalchemy import Boolean, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 
-from core.database.models.portfolio_state import PortfolioStateHistoryModel
-from core.database.models.portfolio_state import PortfolioStateLatestModel
+from core.database.models.portfolio_state import (
+    PortfolioStateHistoryModel,
+    PortfolioStateLatestModel,
+)
 from core.storage.persistence.serializers.portfolio_state_serializer import (
     PortfolioStateSerializer,
 )
@@ -24,7 +22,7 @@ def build_portfolio_state() -> PortfolioState:
     return PortfolioState(
         snapshot_id="snapshot-1",
         account_id="account-1",
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         schema_version=2,
         equity=100_000.123456,
         peak_equity=105_000.234567,

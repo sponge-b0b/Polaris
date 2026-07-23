@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-from typing import Protocol
-from typing import cast
-from uuid import NAMESPACE_URL
-from uuid import uuid5
+from typing import Any, Protocol, cast
+from uuid import NAMESPACE_URL, uuid5
 
-from qdrant_client import AsyncQdrantClient
-from qdrant_client import models
+from qdrant_client import AsyncQdrantClient, models
 
 from config.settings import Settings
 from core.storage.persistence.rag import JsonObject
@@ -49,6 +45,12 @@ class QdrantSearchHit:
     point_id: str
     score: float
     payload: JsonObject
+
+
+class _QdrantScoredPoint(Protocol):
+    id: object
+    score: float
+    payload: object
 
 
 @dataclass(
@@ -372,29 +374,14 @@ def _build_filter(
 def _search_hit_from_qdrant(
     hit: object,
 ) -> QdrantSearchHit:
-    payload = _payload_from_qdrant(
-        getattr(
-            hit,
-            "payload",
-            {},
-        )
-    )
+    qdrant_hit = cast(_QdrantScoredPoint, hit)
+    payload = _payload_from_qdrant(qdrant_hit.payload)
     return QdrantSearchHit(
         point_id=_canonical_point_id(
-            qdrant_point_id=str(
-                getattr(
-                    hit,
-                    "id",
-                )
-            ),
+            qdrant_point_id=str(qdrant_hit.id),
             payload=payload,
         ),
-        score=float(
-            getattr(
-                hit,
-                "score",
-            )
-        ),
+        score=float(qdrant_hit.score),
         payload=payload,
     )
 

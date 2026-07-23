@@ -1,40 +1,37 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from copy import deepcopy
-from collections.abc import Mapping
-
-from datetime import date
-from datetime import datetime
-from datetime import time
-from datetime import timezone
-from typing import Any
-from typing import Protocol
+from datetime import UTC, date, datetime, time
+from typing import Any, Protocol
 from uuid import uuid4
 
-from application.services.backtesting.backtest_request import BacktestRunRequest
-from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_request import (
-    BacktestWorkflowStepRequest,
-)
 from application.services.backtesting.backtest_metrics import compute_backtest_metrics
 from application.services.backtesting.backtest_reporting import build_backtest_artifacts
-from application.services.backtesting.backtest_result import BacktestResult
-from application.services.backtesting.backtest_result import BacktestStepResult
+from application.services.backtesting.backtest_request import (
+    BacktestRunRequest,
+    BacktestScenario,
+    BacktestWorkflowStepRequest,
+)
+from application.services.backtesting.backtest_result import (
+    BacktestResult,
+    BacktestStepResult,
+)
 from application.services.backtesting.backtest_verification import (
     verify_backtest_outcomes,
 )
 from application.services.backtesting.simulated_portfolio_ledger import (
     BacktestPortfolioLedger,
 )
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
-from application.services.base.application_service import ApplicationService
-from application.services.base.application_service import ValidatingApplicationService
+from application.services.base import ServiceRequest, ServiceResult
+from application.services.base.application_service import (
+    ApplicationService,
+    ValidatingApplicationService,
+)
 
 
 def _system_clock() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _new_backtest_run_id() -> str:
@@ -245,7 +242,7 @@ class BacktestApplicationService(
 def _utc_timestamp(value: datetime) -> datetime:
     if value.tzinfo is None:
         raise ValueError("Backtest clock must return a timezone-aware datetime.")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def _simulation_timeline(
@@ -255,7 +252,7 @@ def _simulation_timeline(
         datetime.combine(
             current_date,
             time.min,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
         for current_date in _date_range(
             scenario.start_date,

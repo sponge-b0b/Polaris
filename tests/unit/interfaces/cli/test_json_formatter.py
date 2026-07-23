@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import json
-
 from dataclasses import dataclass
 from types import ModuleType
 
-from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.formatters.json_formatter import to_jsonable
+from interfaces.cli.formatters.json_formatter import format_json, to_jsonable
 
 
 @dataclass(frozen=True, slots=True)

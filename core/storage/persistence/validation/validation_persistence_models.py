@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from enum import Enum
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from enum import Enum, StrEnum
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    PersistenceRecordIdentity,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
 
-class PersistenceValidationSeverity(str, Enum):
+class PersistenceValidationSeverity(StrEnum):
     """
     Non-destructive validation issue severity for persisted platform records.
     """
@@ -22,7 +23,7 @@ class PersistenceValidationSeverity(str, Enum):
     ERROR = "error"
 
 
-class PersistenceValidationStatus(str, Enum):
+class PersistenceValidationStatus(StrEnum):
     """
     Aggregated validation status for one record or a batch of records.
     """

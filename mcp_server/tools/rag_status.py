@@ -5,26 +5,28 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from mcp.server.fastmcp.exceptions import ToolError
+
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
+    RagGraphProjectionReadiness,
+    RagProjectionReadinessResult,
+    RagStatusOperationRequest,
+    RagVectorProjectionReadiness,
 )
-from application.rag.contracts.rag_operation_models import RagGraphProjectionReadiness
 from application.rag.contracts.rag_operation_models import (
     RagModelReadiness as DomainModelReadiness,
 )
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
-from application.rag.contracts.rag_operation_models import RagVectorProjectionReadiness
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
-from mcp.server.fastmcp.exceptions import ToolError
-
+from mcp_server.contracts.models import (
+    RagCanonicalReadiness,
+    RagGraphReadiness,
+    RagModelReadiness,
+    RagStatusRequest,
+    RagStatusResponse,
+    RagVectorReadiness,
+)
 from mcp_server.lifespan import McpApplicationContext
-from mcp_server.contracts.models import RagCanonicalReadiness
-from mcp_server.contracts.models import RagGraphReadiness
-from mcp_server.contracts.models import RagModelReadiness
-from mcp_server.contracts.models import RagStatusRequest
-from mcp_server.contracts.models import RagStatusResponse
-from mcp_server.contracts.models import RagVectorReadiness
 from mcp_server.request_scope import mcp_dependency_scope
 from mcp_server.telemetry import McpToolFailureCategory
 

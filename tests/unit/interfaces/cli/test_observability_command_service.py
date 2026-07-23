@@ -8,8 +8,6 @@ from application.observability import AiObservabilityOperationalStatus
 from core.storage.persistence.ai_observability import AiObservabilityExportQueueStatus
 from interfaces.cli.services.observability_command_service import (
     ObservabilityCommandService,
-)
-from interfaces.cli.services.observability_command_service import (
     render_ai_observability_status,
 )
 

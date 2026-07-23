@@ -3,16 +3,22 @@ from __future__ import annotations
 from typing import cast
 
 from application.rag.ingestion.curated_rag_chunking import hash_text
-from application.rag.ingestion.curated_rag_metadata import agent_signal_metadata
-from application.rag.ingestion.curated_rag_metadata import report_metadata
+from application.rag.ingestion.curated_rag_metadata import (
+    agent_signal_metadata,
+    report_metadata,
+)
 from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from application.rag.ingestion.curated_rag_rendering import agent_signal_title
-from application.rag.ingestion.curated_rag_rendering import render_agent_signal_text
+from application.rag.ingestion.curated_rag_rendering import (
+    agent_signal_title,
+    render_agent_signal_text,
+)
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import new_rag_document_id
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagDocumentRecord,
+    RagSourceEligibilityRecord,
+    new_rag_document_id,
+)
 from core.storage.persistence.reports import ReportRecord
 
 

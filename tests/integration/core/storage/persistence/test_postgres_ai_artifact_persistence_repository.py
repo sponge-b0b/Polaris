@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timezone
-from dataclasses import replace
 import hashlib
 import os
-from typing import Any
-from typing import cast
+from collections.abc import AsyncIterator
+from dataclasses import replace
+from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import Table
-from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import Table, delete
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.database.models.ai_artifacts import AiPromptProgramArtifactModel
-from core.database.models.evaluation import EvaluationDatasetModel
-from core.database.models.evaluation import EvaluationRunModel
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
+from core.database.models.evaluation import EvaluationDatasetModel, EvaluationRunModel
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+)
 from core.storage.persistence.repositories import (
     PostgresAiArtifactPersistenceRepository,
 )
@@ -32,7 +28,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for AI artifact repository integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for AI artifact repository integration tests.",  # noqa: E501
 )
 
 
@@ -112,7 +108,7 @@ async def test_postgres_ai_artifact_repository_create_read_list_approve_deactiva
             approved = await repository.approve_artifact(
                 record.artifact_id,
                 approved_by="integration-test-reviewer",
-                approved_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
+                approved_at=datetime(2026, 7, 15, tzinfo=UTC),
             )
 
         assert loaded == created

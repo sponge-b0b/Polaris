@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 """
 Deterministic headline filtering layer.
@@ -64,8 +64,8 @@ HIGH_SIGNAL_KEYWORDS = {
 
 
 def filter(
-    articles: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    articles: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Filter and score headlines deterministically.
     """
@@ -152,7 +152,7 @@ def _score_headline(
 
 
 def _get_text(
-    article: Dict[str, Any],
+    article: dict[str, Any],
 ) -> str:
 
     return article.get("title") or article.get("headline") or ""

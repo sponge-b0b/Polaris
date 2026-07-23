@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+import core.storage.rag_di as rag_di
 from application.rag.operations.rag_embedding_operations import (
     RagEmbeddingJobOperationsService,
 )
@@ -18,14 +19,15 @@ from application.rag.operations.rag_status_operations import RagStatusOperations
 from application.rag.rag_service import RagService
 from config.settings import Settings
 from core.bootstrap.di_providers import get_async_di_container
-import core.storage.rag_di as rag_di
 from core.storage.persistence.rag import RagPersistenceRepository
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
-from integration.clients.rag import bge_m3_embedding_client
-from integration.clients.rag import neo4j_rag_client
-from integration.clients.rag import qdrant_rag_client
+from integration.clients.rag import (
+    bge_m3_embedding_client,
+    neo4j_rag_client,
+    qdrant_rag_client,
+)
 from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
 from integration.clients.rag.qdrant_rag_client import QdrantRagClient
 

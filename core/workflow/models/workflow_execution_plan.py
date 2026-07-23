@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any
-from typing import Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +124,7 @@ class WorkflowExecutionPlan:
         default_factory=dict,
     )
 
-    def validate(
+    def validate(  # noqa: C901
         self,
     ) -> None:
         if not self.workflow_name.strip():

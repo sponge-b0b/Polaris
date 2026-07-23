@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import AbstractAsyncContextManager
-from typing import Callable
 from weakref import WeakSet
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.persistence.agent_signals import AgentSignalPersistenceService
-from application.projections.workflow_outputs.projection_eligibility import (
-    WorkflowOutputProjectionEligibilityPolicy,
-)
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
@@ -18,69 +14,66 @@ from application.persistence.portfolio import PortfolioPersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
-from application.projections.workflow_outputs.projection_event_subscriber import (
-    WorkflowOutputProjectionEventSubscriber,
+from application.projections.workflow_outputs.projection_eligibility import (
+    WorkflowOutputProjectionEligibilityPolicy,
 )
 from application.projections.workflow_outputs.projection_event_subscriber import (
+    WorkflowOutputProjectionEventSubscriber,
     WorkflowOutputProjectionEventSubscriberConfig,
 )
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
-    WorkflowOutputProjectorRegistration,
-)
-from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionRegistry,
-)
-from application.projections.workflow_outputs.projectors import (
-    build_macro_analysis_projector_registration,
-    build_recommendation_projector_registrations,
-    build_risk_signal_projector_registrations,
-    build_news_analysis_projector_registration,
-    build_portfolio_state_projector_registration,
-    build_sentiment_snapshot_projector_registration,
-    build_strategy_projector_registrations,
-    build_technical_market_projector_registration,
+    WorkflowOutputProjectorRegistration,
 )
 from application.projections.workflow_outputs.projection_service import (
     WorkflowOutputProjectionService,
+)
+from application.projections.workflow_outputs.projectors import (
+    build_macro_analysis_projector_registration,
+    build_news_analysis_projector_registration,
+    build_portfolio_state_projector_registration,
+    build_recommendation_projector_registrations,
+    build_risk_signal_projector_registrations,
+    build_sentiment_snapshot_projector_registration,
+    build_strategy_projector_registrations,
+    build_technical_market_projector_registration,
 )
 from core.runtime.events.event_bus import EventBus
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
-from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
+from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501
     PostgresAgentSignalPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
     PostgresMacroPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
     PostgresMarketPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_news_persistence_repository import (
     PostgresNewsPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_portfolio_state_repository import (
     PostgresPortfolioStateRepository,
 )
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
     PostgresRecommendationPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
     PostgresSentimentPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501
     PostgresStrategyPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
     PostgresWorkflowOutputProjectionJobRepository,
 )
 from core.telemetry.observability.observability_manager import ObservabilityManager

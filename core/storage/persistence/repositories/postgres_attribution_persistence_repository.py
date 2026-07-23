@@ -4,22 +4,24 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import Select, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
-from core.storage.persistence.attribution import AttributionPersistenceBundle
-from core.storage.persistence.attribution import AttributionPersistenceRepository
-from core.storage.persistence.attribution import AttributionPersistenceResult
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
+from core.storage.persistence.attribution import (
+    AttributionPersistenceBundle,
+    AttributionPersistenceRepository,
+    AttributionPersistenceResult,
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
 from core.storage.persistence.serializers.attribution_persistence_serializer import (
     AttributionPersistenceSerializer,
 )

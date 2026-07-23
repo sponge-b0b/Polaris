@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import socket
-
 from http import HTTPStatus
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import pytest
 
-from core.telemetry.integrations.prometheus import PrometheusMetricsConfig
-from core.telemetry.integrations.prometheus import PrometheusMetricsExporter
+from core.telemetry.integrations.prometheus import (
+    PrometheusMetricsConfig,
+    PrometheusMetricsExporter,
+)
 from core.telemetry.metrics.metrics_store import MetricsStore
 
 

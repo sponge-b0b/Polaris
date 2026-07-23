@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -36,14 +35,14 @@ from application.services.sentiment.sentiment_result import (
     SentimentSnapshotResult,
 )
 from application.services.sentiment.sentiment_service import SentimentService
+from application.services.technical.technical_analysis_service import (
+    TechnicalAnalysisService,
+)
 from application.services.technical.technical_request import (
     TechnicalAnalysisRequest,
 )
 from application.services.technical.technical_result import (
     TechnicalAnalysisResult,
-)
-from application.services.technical.technical_analysis_service import (
-    TechnicalAnalysisService,
 )
 from domain.macro.models import MacroDataSnapshot
 from domain.market.models import SP500Data

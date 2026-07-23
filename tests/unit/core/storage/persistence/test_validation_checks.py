@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 
 from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.validation import PersistenceRecordValidationTarget
-from core.storage.persistence.validation import PersistenceScoreValidationSpec
-from core.storage.persistence.validation import PersistenceTimestampOrderRule
-from core.storage.persistence.validation import PersistenceValidationSeverity
-from core.storage.persistence.validation import PersistenceValidationStatus
-from core.storage.persistence.validation import validate_score_fields
-from core.storage.persistence.validation import validate_timestamp_and_score_fields
-from core.storage.persistence.validation import validate_timestamp_fields
+from core.storage.persistence.validation import (
+    PersistenceRecordValidationTarget,
+    PersistenceScoreValidationSpec,
+    PersistenceTimestampOrderRule,
+    PersistenceValidationSeverity,
+    PersistenceValidationStatus,
+    validate_score_fields,
+    validate_timestamp_and_score_fields,
+    validate_timestamp_fields,
+)
 
 
 @dataclass(
@@ -42,9 +42,9 @@ class RepresentativeSignalRecord:
 
 def test_timestamp_validation_accepts_aware_ordered_representative_record() -> None:
     record = RepresentativeReportRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
-        published_at=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
-        requested_at=datetime(2026, 5, 30, 12, 45, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
+        published_at=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
+        requested_at=datetime(2026, 5, 30, 12, 45, tzinfo=UTC),
         confidence=0.82,
         setup_quality=0.76,
         risk_score=0.24,
@@ -57,20 +57,20 @@ def test_timestamp_validation_accepts_aware_ordered_representative_record() -> N
             record,
         ),
         required_timestamp_field_names=("generated_at",),
-        now=datetime(2026, 5, 30, 15, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 15, 0, tzinfo=UTC),
     )
 
     assert result.status == PersistenceValidationStatus.PASSED
     assert result.issue_count == 0
 
 
-def test_timestamp_validation_reports_required_missing_naive_future_and_order_issues() -> (
+def test_timestamp_validation_reports_required_missing_naive_future_and_order_issues() -> (  # noqa: E501
     None
 ):
     record = RepresentativeReportRecord(
         generated_at=None,
         published_at=datetime(2026, 5, 30, 12, 0),
-        requested_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+        requested_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
         confidence=0.82,
         setup_quality=0.76,
         risk_score=0.24,
@@ -83,7 +83,7 @@ def test_timestamp_validation_reports_required_missing_naive_future_and_order_is
             record,
         ),
         required_timestamp_field_names=("generated_at",),
-        now=datetime(2026, 5, 30, 11, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 11, 0, tzinfo=UTC),
         future_tolerance=timedelta(),
     )
 
@@ -131,7 +131,7 @@ def test_timestamp_validation_reports_type_and_required_missing_field() -> None:
 
 def test_score_validation_accepts_canonical_representative_ranges() -> None:
     record = RepresentativeSignalRecord(
-        observed_at=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        observed_at=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
         directional_score=-0.4,
         sentiment_score=0.25,
         contribution_score=0.8,
@@ -151,7 +151,7 @@ def test_score_validation_accepts_canonical_representative_ranges() -> None:
 
 def test_score_validation_reports_ratio_signed_and_non_numeric_issues() -> None:
     record = RepresentativeSignalRecord(
-        observed_at=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        observed_at=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
         directional_score=1.4,
         sentiment_score=-1.2,
         contribution_score="high",
@@ -179,7 +179,7 @@ def test_score_validation_reports_ratio_signed_and_non_numeric_issues() -> None:
 
 def test_custom_score_spec_validates_setup_quality_style_fields() -> None:
     record = RepresentativeReportRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
         published_at=None,
         requested_at=None,
         confidence=0.95,
@@ -212,9 +212,9 @@ def test_combined_timestamp_and_score_validation_merges_non_destructive_results(
     None
 ):
     record = RepresentativeReportRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
-        published_at=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
-        requested_at=datetime(2026, 5, 30, 12, 45, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
+        published_at=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
+        requested_at=datetime(2026, 5, 30, 12, 45, tzinfo=UTC),
         confidence=1.2,
         setup_quality=0.76,
         risk_score=0.24,
@@ -233,7 +233,7 @@ def test_combined_timestamp_and_score_validation_merges_non_destructive_results(
                 later_field_name="published_at",
             ),
         ),
-        now=datetime(2026, 5, 30, 15, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 15, 0, tzinfo=UTC),
     )
 
     assert result.status == PersistenceValidationStatus.FAILED

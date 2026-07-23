@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.projections.workflow_outputs import (
     build_default_workflow_output_projection_subscriber,
-)
-from application.projections.workflow_outputs import (
     subscribe_default_workflow_output_projection,
-)
-from application.projections.workflow_outputs import (
     subscribe_workflow_output_projection_event_subscriber,
 )
 from application.projections.workflow_outputs.bootstrap import ProjectionSessionFactory

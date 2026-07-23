@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
-from typing import Final
-from uuid import NAMESPACE_URL
-from uuid import uuid5
+from typing import TYPE_CHECKING, Final
+from uuid import NAMESPACE_URL, uuid5
 
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunRecord,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+    require_non_empty_identifier,
+)
 
 if TYPE_CHECKING:
     from application.projections.workflow_outputs.projection_models import (

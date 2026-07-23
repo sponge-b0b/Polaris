@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.macro import EconomicCalendarEventModel
-from core.database.models.macro import MacroObservationModel
-from core.database.models.macro import MacroRegimeSnapshotModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
+from core.database.models.macro import (
+    EconomicCalendarEventModel,
+    MacroObservationModel,
+    MacroRegimeSnapshotModel,
+)
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroRegimeSnapshotRecord,
+)
 
 
 class MacroPersistenceSerializer:

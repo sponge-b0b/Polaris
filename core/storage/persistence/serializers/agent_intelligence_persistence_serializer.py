@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
-from core.storage.persistence.agent_intelligence import AgentReasoningRecord
-from core.storage.persistence.agent_intelligence import AgentRecommendationRecord
-from core.storage.persistence.agent_intelligence import AgentRiskAssessmentRecord
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
+from core.storage.persistence.agent_intelligence import (
+    AgentReasoningRecord,
+    AgentRecommendationRecord,
+    AgentRiskAssessmentRecord,
+)
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 
 
 class AgentIntelligencePersistenceSerializer:

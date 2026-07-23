@@ -7,19 +7,19 @@ if TYPE_CHECKING:
         MarketDataProvider,
     )
 
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
+from application.services.base import ServiceRequest, ServiceResult
 from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
-
-from application.services.technical import breadth_analysis
-from application.services.technical import technical_calibration
-from application.services.technical import technical_indicators
-from application.services.technical import technical_regime
-from application.services.technical import trend_analysis
-from application.services.technical import volatility_analysis
+from application.services.technical import (
+    breadth_analysis,
+    technical_calibration,
+    technical_indicators,
+    technical_regime,
+    trend_analysis,
+    volatility_analysis,
+)
 from application.services.technical.technical_request import (
     TechnicalAnalysisRequest,
 )

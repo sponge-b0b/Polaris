@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from enum import Enum
-from typing import Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from enum import StrEnum
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    JsonValue,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 from core.storage.persistence.query import PersistenceTimeRange
 
 
-class PersistenceExportFormat(str, Enum):
+class PersistenceExportFormat(StrEnum):
     """
     Supported persistence export payload formats.
 
@@ -26,7 +27,7 @@ class PersistenceExportFormat(str, Enum):
     CSV = "csv"
 
 
-class PersistenceExportDestinationType(str, Enum):
+class PersistenceExportDestinationType(StrEnum):
     """
     Supported destination categories for persistence exports.
     """

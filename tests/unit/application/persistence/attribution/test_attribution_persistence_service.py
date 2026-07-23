@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.attribution import AttributionPersistenceFilters
-from application.persistence.attribution import AttributionPersistenceService
 from application.persistence.attribution import (
+    AttributionPersistenceFilters,
+    AttributionPersistenceService,
     RecommendationAttributionPersistenceFilters,
+    SignalAttributionPersistenceFilters,
 )
-from application.persistence.attribution import SignalAttributionPersistenceFilters
-from core.storage.persistence.attribution import AttributionPersistenceBundle
-from core.storage.persistence.attribution import AttributionPersistenceResult
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.attribution import (
+    AttributionPersistenceBundle,
+    AttributionPersistenceResult,
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 
 
 class FakeAttributionRepository:
@@ -235,7 +238,7 @@ async def test_attribution_persistence_service_builds_typed_bundle() -> None:
 
 
 @pytest.mark.asyncio
-async def test_attribution_persistence_service_delegates_individual_persist_methods() -> (
+async def test_attribution_persistence_service_delegates_individual_persist_methods() -> (  # noqa: E501
     None
 ):
     repository = FakeAttributionRepository()
@@ -287,7 +290,7 @@ async def test_attribution_persistence_service_uses_typed_filters() -> None:
     )
     service = AttributionPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     attributions = await service.list_attributions(
         AttributionPersistenceFilters(
@@ -405,7 +408,7 @@ def test_attribution_time_window_filters_require_ordered_bounds(
         | RecommendationAttributionPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -640,7 +643,7 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 
 
 def _full_explanation() -> str:

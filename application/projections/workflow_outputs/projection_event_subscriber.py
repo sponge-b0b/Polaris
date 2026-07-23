@@ -6,13 +6,10 @@ from typing import Protocol
 
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRequest,
 )
 from core.runtime.events.event_bus import EventBus
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 
 logger = logging.getLogger(__name__)
 

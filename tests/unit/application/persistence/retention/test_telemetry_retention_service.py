@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from application.persistence.retention import TelemetryRetentionConfig
-from application.persistence.retention import TelemetryRetentionService
+from application.persistence.retention import (
+    TelemetryRetentionConfig,
+    TelemetryRetentionService,
+)
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 

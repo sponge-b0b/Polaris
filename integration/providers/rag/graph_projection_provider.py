@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from integration.providers.rag.graph_projection_models import GraphProjection
-from integration.providers.rag.graph_projection_models import GraphSearchQuery
-from integration.providers.rag.graph_projection_models import GraphSearchResult
-from integration.providers.rag.graph_projection_models import GraphStoreStatus
+from integration.providers.rag.graph_projection_models import (
+    GraphProjection,
+    GraphSearchQuery,
+    GraphSearchResult,
+    GraphStoreStatus,
+)
 
 
 class GraphProjectionProvider(Protocol):

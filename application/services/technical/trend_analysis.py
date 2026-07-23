@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
+
 from core.utils.utils import _clamp, _safe_float
 
 
@@ -29,8 +30,8 @@ def stability_to_risk(
 
 
 def analyze(
-    technical_result: Dict[str, Any],
-) -> Dict[str, Any]:
+    technical_result: dict[str, Any],
+) -> dict[str, Any]:
     """
     Analyze trend using the technical result produced by
     technical_indicators.compute().
@@ -610,7 +611,7 @@ def _determine_strategy_environment(
     trend_score: float,
     trend_strength: float,
     trend_regime: str,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     bull = 1.0
     bear = 1.0
     sideways = 1.0

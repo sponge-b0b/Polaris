@@ -4,12 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import Select
-from sqlalchemy import and_
-from sqlalchemy import exists
-from sqlalchemy import func
-from sqlalchemy import select
-from sqlalchemy import update
+from sqlalchemy import Select, and_, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,10 +12,12 @@ from sqlalchemy.sql import Executable
 
 from core.database.models.completed_runs import CompletedWorkflowRunModel
 from core.database.models.projections import WorkflowOutputProjectionJobModel
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.projections import ProjectionJobClaim
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
+from core.storage.persistence.projections import (
+    MissingProjectionRunRecord,
+    ProjectionJobClaim,
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobStatus,
+)
 
 
 class PostgresWorkflowOutputProjectionJobRepository:

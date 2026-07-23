@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.health import HealthPersistenceFilters
-from application.persistence.health import HealthPersistenceService
+from application.persistence.health import (
+    HealthPersistenceFilters,
+    HealthPersistenceService,
+)
 from core.storage.persistence.health import PersistenceHealthStatus
 
 

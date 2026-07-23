@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.reports import ReportModel
-from core.database.models.reports import ReportPublicationModel
-from core.database.models.reports import ReportVersionModel
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
-from core.storage.persistence.repositories.postgres_report_persistence_repository import (
+from core.database.models.reports import (
+    ReportModel,
+    ReportPublicationModel,
+    ReportVersionModel,
+)
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+)
+from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501
     PostgresReportPersistenceRepository,
 )
 
@@ -193,7 +195,7 @@ async def test_get_report_round_trips_model_to_record() -> None:
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body="# Full report\n",
         structured_payload={"symbol": "SPY"},
         metadata_payload={"source": "test"},
@@ -226,7 +228,7 @@ async def test_get_version_round_trips_model_to_record() -> None:
         version_id="morning_report:exec-1:version:1",
         report_id="morning_report:exec-1",
         version_number=1,
-        created_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
         title="Morning Report",
         markdown_body="# Full version\n",
         structured_payload={"symbol": "SPY"},
@@ -262,8 +264,8 @@ async def test_list_publications_round_trips_models_to_records() -> None:
         version_id="morning_report:exec-1:version:1",
         publication_target="markdown_archive",
         publication_status="published",
-        requested_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
-        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=timezone.utc),
+        requested_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
+        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=UTC),
         artifact_uri="/reports/morning_report.md",
         metadata_payload={"source": "test"},
     )
@@ -297,7 +299,7 @@ def _report() -> ReportRecord:
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body="# Full report\n",
         structured_payload={"symbol": "SPY"},
     )
@@ -328,7 +330,7 @@ def _version() -> ReportVersionRecord:
         version_id="morning_report:exec-1:version:1",
         report_id="morning_report:exec-1",
         version_number=1,
-        created_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
         markdown_body="# Full report version\n",
         structured_payload={"symbol": "SPY"},
     )
@@ -341,7 +343,7 @@ def _publication() -> ReportPublicationRecord:
         version_id="morning_report:exec-1:version:1",
         publication_target="markdown_archive",
         publication_status="published",
-        requested_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
-        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=timezone.utc),
+        requested_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
+        published_at=datetime(2026, 5, 30, 14, 5, tzinfo=UTC),
         artifact_uri="/reports/morning_report.md",
     )

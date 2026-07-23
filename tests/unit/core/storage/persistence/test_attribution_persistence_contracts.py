@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.attribution import AttributionPersistenceBundle
-from core.storage.persistence.attribution import AttributionPersistenceResult
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
-from core.storage.persistence.attribution import new_attribution_record_id
-from core.storage.persistence.attribution import new_recommendation_attribution_id
-from core.storage.persistence.attribution import new_signal_attribution_id
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.attribution import (
+    AttributionPersistenceBundle,
+    AttributionPersistenceResult,
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+    new_attribution_record_id,
+    new_recommendation_attribution_id,
+    new_signal_attribution_id,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 
-_TIMESTAMP = datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+_TIMESTAMP = datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 _SIGNAL_ID = "agent-signal-1"
 _RECOMMENDATION_ID = "recommendation-1"
 _FULL_EXPLANATION = "Full attribution explanation must not be truncated. " * 200

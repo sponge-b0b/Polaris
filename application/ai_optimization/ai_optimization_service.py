@@ -1,37 +1,45 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
-from application.ai_optimization.contracts import AiOptimizationRequest
-from application.ai_optimization.contracts import AiOptimizationResult
-from application.ai_optimization.contracts import AiOptimizationStatus
-from application.ai_optimization.contracts import coerce_ai_optimization_target
 from application.ai_optimization.contracts import (
+    AiOptimizationRequest,
+    AiOptimizationResult,
+    AiOptimizationStatus,
+    coerce_ai_optimization_target,
     evaluation_target_type_for_optimization,
 )
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import EvaluationRunServiceResult
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.ai_artifacts import JsonObject
-from core.storage.persistence.ai_artifacts import new_ai_prompt_program_artifact_id
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceRepository
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from integration.providers.ai_optimization import DspyOptimizationProviderProtocol
-from integration.providers.ai_optimization import DspyOptimizationProviderRequest
-from integration.providers.ai_optimization import DspyOptimizationProviderResult
+from application.evaluations import (
+    EvaluationRunServiceRequest,
+    EvaluationRunServiceResult,
+)
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactPersistenceRepository,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+    JsonObject,
+    new_ai_prompt_program_artifact_id,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationPersistenceRepository,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
+from integration.providers.ai_optimization import (
+    DspyOptimizationProviderProtocol,
+    DspyOptimizationProviderRequest,
+    DspyOptimizationProviderResult,
+)
 
 
 class AiOptimizationEvaluationRunner(Protocol):

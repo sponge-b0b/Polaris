@@ -6,12 +6,14 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.telemetry import AgentMetricModel
-from core.database.models.telemetry import ProviderMetricModel
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryMetricModel
-from core.database.models.telemetry import TelemetryTraceModel
-from core.database.models.telemetry import WorkflowMetricModel
+from core.database.models.telemetry import (
+    AgentMetricModel,
+    ProviderMetricModel,
+    TelemetryEventModel,
+    TelemetryMetricModel,
+    TelemetryTraceModel,
+    WorkflowMetricModel,
+)
 
 
 def _index_names(table: Table) -> set[str]:

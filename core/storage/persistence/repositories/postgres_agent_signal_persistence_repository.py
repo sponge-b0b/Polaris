@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database.models.agent_signals import AgentSignalModel
 from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     AgentSignalPersistenceResult,
-)
-from core.storage.persistence.agent_signals.agent_signal_persistence_models import (
     AgentSignalRecord,
 )
 from core.storage.persistence.agent_signals.agent_signal_persistence_repository import (

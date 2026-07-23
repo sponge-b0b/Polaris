@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
-
 from ta.momentum import RSIIndicator
-from ta.trend import EMAIndicator
-from ta.trend import MACD
+from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
 
 from core.utils.utils import _clamp, _safe_bool, _safe_float
@@ -262,7 +260,7 @@ def _prepare_context_series(df: pd.DataFrame, name: str) -> pd.DataFrame:
 def _latest_context_snapshot(
     df: pd.DataFrame | None,
     name: str,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     if df is None:
         return {
             name: 0.0,
@@ -288,7 +286,7 @@ def _latest_context_snapshot(
     }
 
 
-def _empty_sp500_context() -> Dict[str, float]:
+def _empty_sp500_context() -> dict[str, float]:
     return {
         "market_cap_index": 0.0,
         "market_cap_index_20": 0.0,
@@ -463,7 +461,7 @@ def _derive_ad_line_trend_score(latest: pd.Series) -> float:
     return _clamp(trend_score, -1.0, 1.0)
 
 
-def _derive_sp500_context(sp500_df: pd.DataFrame | None) -> Dict[str, float]:
+def _derive_sp500_context(sp500_df: pd.DataFrame | None) -> dict[str, float]:
 
     if sp500_df is None:
         return _empty_sp500_context()
@@ -519,7 +517,7 @@ def derive_market_context(
     vix_df: pd.DataFrame | None = None,
     vvix_df: pd.DataFrame | None = None,
     sp500_df: pd.DataFrame | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     _validate_optional_context_df(vix_df, "VIX")
     _validate_optional_context_df(vvix_df, "VVIX")
@@ -537,7 +535,7 @@ def derive_market_context(
     }
 
 
-def latest_snapshot(df: pd.DataFrame) -> Dict[str, float]:
+def latest_snapshot(df: pd.DataFrame) -> dict[str, float]:
     latest = df.iloc[-1]
 
     return {
@@ -567,7 +565,7 @@ def latest_snapshot(df: pd.DataFrame) -> Dict[str, float]:
     }
 
 
-def derive_micro_regime(snapshot: Dict[str, float]) -> Dict[str, Any]:
+def derive_micro_regime(snapshot: dict[str, float]) -> dict[str, Any]:
     trend_score = 0.0
 
     if snapshot["ema_21"] > snapshot["ema_50"]:
@@ -612,7 +610,7 @@ def compute(
     vix_df: pd.DataFrame | None = None,
     vvix_df: pd.DataFrame | None = None,
     sp500_df: pd.DataFrame | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
 
     indicator_df = apply_standard_indicators(symbol_df)
     snapshot = latest_snapshot(indicator_df)

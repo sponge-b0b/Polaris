@@ -6,8 +6,7 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.sentiment import SentimentSnapshotModel
-from core.database.models.sentiment import SentimentSourceModel
+from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
 
 
 def test_sentiment_models_are_imported_into_base_metadata() -> None:

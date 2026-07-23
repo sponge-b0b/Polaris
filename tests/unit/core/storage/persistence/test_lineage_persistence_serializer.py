@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 from core.database.models.lineage import PersistenceLineageLinkModel
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceLineageLinkRecord,
+    PersistenceRecordIdentity,
+)
 from core.storage.persistence.serializers.lineage_persistence_serializer import (
     PersistenceLineageLinkSerializer,
 )
@@ -67,6 +68,6 @@ def _link() -> PersistenceLineageLinkRecord:
             runtime_id="runtime-1",
             node_name="recommendation_node",
         ),
-        created_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"confidence": 0.9},
     )

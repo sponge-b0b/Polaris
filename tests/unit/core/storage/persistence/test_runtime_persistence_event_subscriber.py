@@ -1,33 +1,35 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
-from datetime import datetime
-from datetime import timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from types import TracebackType
-from typing import Sequence
 from typing import cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
-from core.storage.persistence.runtime import RuntimePersistenceEventSubscriber
-from core.storage.persistence.runtime import RuntimePersistenceEventSubscriberConfig
-from core.storage.persistence.runtime import RuntimePersistenceResult
-from core.storage.persistence.runtime import WorkflowEventRecord
-from core.storage.persistence.runtime import WorkflowNodeRunRecord
-from core.storage.persistence.runtime import WorkflowRunRecord
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
+from core.runtime.events import RuntimeEvent, RuntimeEventType
+from core.storage.persistence.runtime import (
+    RuntimePersistenceEventSubscriber,
+    RuntimePersistenceEventSubscriberConfig,
+    RuntimePersistenceResult,
+    WorkflowEventRecord,
+    WorkflowNodeRunRecord,
+    WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
+)
 from core.storage.persistence.runtime.runtime_persistence_repository import (
     RuntimePersistenceRepository,
 )
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
-from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime
+from core.workflow.bootstrap.workflow_bootstrap import (
+    WorkflowBootstrapConfig,
+    build_workflow_runtime,
+)
 
 
-class ExampleEnum(str, Enum):
+class ExampleEnum(StrEnum):
     VALUE = "value"
 
 
@@ -148,12 +150,12 @@ def _workflow_event(
         workflow_id="workflow-id-1",
         execution_id="exec-1",
         runtime_id="runtime-1",
-        timestamp=datetime(2026, 5, 30, 12, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, 12, tzinfo=UTC),
         payload={
             "workflow_name": "morning_report",
             "state": "completed",
             "duration_seconds": 42.5,
-            "generated_at": datetime(2026, 5, 30, 12, tzinfo=timezone.utc),
+            "generated_at": datetime(2026, 5, 30, 12, tzinfo=UTC),
             "enum_value": ExampleEnum.VALUE,
         },
         metadata={
@@ -171,7 +173,7 @@ def _node_event() -> RuntimeEvent:
         runtime_id="runtime-1",
         node_name="macro_node",
         wave_index=2,
-        timestamp=datetime(2026, 5, 30, 12, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, 12, tzinfo=UTC),
         payload={
             "workflow_name": "morning_report",
             "node_type": "macro",

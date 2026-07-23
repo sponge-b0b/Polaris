@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from application.evaluations import RAG_CUSTOM_METRIC_DEFINITIONS
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
+from application.evaluations import (
+    RAG_CUSTOM_METRIC_DEFINITIONS,
+    canonical_evaluation_dataset_definition_by_name,
+)
 from domain.evaluation import EvaluationTargetType
 
 pytestmark = pytest.mark.eval_security

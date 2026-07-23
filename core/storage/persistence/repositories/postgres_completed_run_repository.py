@@ -1,25 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
-from core.database.models.completed_runs import CompletedRunArtifactModel
-from core.database.models.completed_runs import CompletedWorkflowNodeOutputModel
-from core.database.models.completed_runs import CompletedWorkflowRunModel
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunArtifactRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
+from core.database.models.completed_runs import (
+    CompletedRunArtifactModel,
+    CompletedWorkflowNodeOutputModel,
+    CompletedWorkflowRunModel,
+)
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArtifactRecord,
+    CompletedRunBundle,
+)
 from core.storage.persistence.serializers.completed_run_serializer import (
     CompletedRunModelSerializer,
 )
@@ -211,7 +210,7 @@ class PostgresCompletedRunRepository:
         max_age_days: int,
     ) -> int:
         cutoff = datetime.now(
-            timezone.utc,
+            UTC,
         ) - timedelta(
             days=max_age_days,
         )

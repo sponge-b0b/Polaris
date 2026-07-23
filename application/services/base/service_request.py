@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import Generic
-from typing import TypeVar
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from core.telemetry.contracts.telemetry_context import TelemetryContext
@@ -19,7 +15,7 @@ RequestPayloadT = TypeVar("RequestPayloadT")
     frozen=True,
     slots=True,
 )
-class ServiceRequest(Generic[RequestPayloadT]):
+class ServiceRequest[RequestPayloadT]:
     """
     Canonical application-service request envelope.
     """
@@ -28,7 +24,7 @@ class ServiceRequest(Generic[RequestPayloadT]):
     request_name: str = field(default="")
 
     def __post_init__(self) -> None:
-        # If no request name was passed, infer it at runtime from the actual object instance
+        # If no request name was passed, infer it at runtime from the actual object instance  # noqa: E501
         if not self.request_name:
             # object.__setattr__ is required to bypass frozen=True
             object.__setattr__(self, "request_name", type(self.payload).__name__)
@@ -37,7 +33,7 @@ class ServiceRequest(Generic[RequestPayloadT]):
         default_factory=lambda: str(uuid4()),
     )
     created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     correlation_id: str | None = None
     telemetry_context: TelemetryContext | None = None

@@ -1,29 +1,31 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import RecommendationOutcomeModel
-from core.database.models.recommendations import RecommendationRationaleModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
+from core.database.models.recommendations import (
+    RecommendationModel,
+    RecommendationOutcomeModel,
+    RecommendationRationaleModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationPersistenceBundle,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+)
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
     PostgresRecommendationPersistenceRepository,
 )
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (
@@ -351,4 +353,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

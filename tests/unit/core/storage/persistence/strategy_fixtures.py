@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisRecord,
+    StrategySynthesisDecisionRecord,
+)
 
 
 def strategy_hypothesis(*, symbol: str = "spy") -> StrategyHypothesisRecord:
@@ -120,4 +121,4 @@ def lineage() -> PersistenceLineage:
 
 
 def timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

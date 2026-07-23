@@ -9,8 +9,7 @@ from enum import StrEnum
 from time import perf_counter
 from uuid import uuid4
 
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.tracing.trace_context import TraceContext
 from mcp_server.settings import McpTransport

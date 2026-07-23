@@ -10,91 +10,107 @@ from __future__ import annotations
 
 from application.persistence.agent_intelligence import (
     AgentIntelligencePersistenceService,
-)
-from application.persistence.agent_intelligence import AgentReasoningPersistenceFilters
-from application.persistence.agent_intelligence import (
+    AgentReasoningPersistenceFilters,
     AgentRecommendationPersistenceFilters,
-)
-from application.persistence.agent_intelligence import (
     AgentRiskAssessmentPersistenceFilters,
 )
-from application.persistence.attribution import AttributionPersistenceFilters
-from application.persistence.attribution import AttributionPersistenceService
 from application.persistence.attribution import (
+    AttributionPersistenceFilters,
+    AttributionPersistenceService,
     RecommendationAttributionPersistenceFilters,
+    SignalAttributionPersistenceFilters,
 )
-from application.persistence.attribution import SignalAttributionPersistenceFilters
-from application.persistence.backtesting import BacktestPersistenceService
-from application.persistence.backtesting import BacktestRunPersistenceFilters
-from application.persistence.audit import AuditPersistenceFilters
-from application.persistence.audit import AuditPersistenceService
-from application.persistence.diagnostics import DiagnosticsPersistenceFilters
-from application.persistence.diagnostics import DiagnosticsPersistenceService
+from application.persistence.audit import (
+    AuditPersistenceFilters,
+    AuditPersistenceService,
+)
+from application.persistence.backtesting import (
+    BacktestPersistenceService,
+    BacktestRunPersistenceFilters,
+)
+from application.persistence.diagnostics import (
+    DiagnosticsPersistenceFilters,
+    DiagnosticsPersistenceService,
+)
 from application.persistence.export import JsonPersistenceExportService
-from application.persistence.health import HealthPersistenceFilters
-from application.persistence.health import HealthPersistenceService
+from application.persistence.health import (
+    HealthPersistenceFilters,
+    HealthPersistenceService,
+)
 from application.persistence.lineage import LineagePersistenceService
-from application.persistence.macro import EconomicCalendarEventPersistenceFilters
-from application.persistence.macro import MacroObservationPersistenceFilters
-from application.persistence.macro import MacroPersistenceService
-from application.persistence.macro import MacroRegimeSnapshotPersistenceFilters
-from application.persistence.market import MarketBreadthSnapshotPersistenceFilters
-from application.persistence.market import MarketContextSnapshotPersistenceFilters
-from application.persistence.market import MarketEventSnapshotPersistenceFilters
-from application.persistence.market import MarketIndicatorPersistenceFilters
-from application.persistence.market import MarketOhlcvPersistenceFilters
-from application.persistence.market import MarketPersistenceService
-from application.persistence.market import TechnicalAnalysisSnapshotPersistenceFilters
-from application.persistence.news import NewsAnalysisSnapshotPersistenceFilters
-from application.persistence.news import NewsArticlePersistenceFilters
-from application.persistence.news import NewsPersistenceService
+from application.persistence.macro import (
+    EconomicCalendarEventPersistenceFilters,
+    MacroObservationPersistenceFilters,
+    MacroPersistenceService,
+    MacroRegimeSnapshotPersistenceFilters,
+)
+from application.persistence.market import (
+    MarketBreadthSnapshotPersistenceFilters,
+    MarketContextSnapshotPersistenceFilters,
+    MarketEventSnapshotPersistenceFilters,
+    MarketIndicatorPersistenceFilters,
+    MarketOhlcvPersistenceFilters,
+    MarketPersistenceService,
+    TechnicalAnalysisSnapshotPersistenceFilters,
+)
+from application.persistence.news import (
+    NewsAnalysisSnapshotPersistenceFilters,
+    NewsArticlePersistenceFilters,
+    NewsPersistenceService,
+)
 from application.persistence.portfolio import (
     PortfolioAllocationSnapshotPersistenceFilters,
-)
-from application.persistence.portfolio import (
     PortfolioEquityHistoryPersistenceFilters,
-)
-from application.persistence.portfolio import (
     PortfolioExposureSnapshotPersistenceFilters,
+    PortfolioLatestPositionPersistenceFilters,
+    PortfolioPersistenceService,
+    PortfolioPositionHistoryPersistenceFilters,
+    PortfolioRiskSnapshotPersistenceFilters,
 )
-from application.persistence.portfolio import PortfolioLatestPositionPersistenceFilters
-from application.persistence.portfolio import PortfolioPersistenceService
-from application.persistence.portfolio import PortfolioPositionHistoryPersistenceFilters
-from application.persistence.portfolio import PortfolioRiskSnapshotPersistenceFilters
-from application.persistence.recommendations import RecommendationPersistenceFilters
-from application.persistence.recommendations import RecommendationPersistenceService
-from application.persistence.recommendations import TradeSetupPersistenceFilters
-from application.persistence.recommendations import WatchlistPersistenceFilters
-from application.persistence.rag import RagEligibilityPersistenceFilters
-from application.persistence.rag import RagEligibilityPersistenceService
-from application.persistence.reports import ReportArtifactPersistenceFilters
-from application.persistence.reports import ReportPersistenceService
-from application.persistence.reports import ReportPublicationPersistenceFilters
-from application.persistence.retention import RetentionPersistenceService
-from application.persistence.retention import TelemetryRetentionConfig
-from application.persistence.retention import TelemetryRetentionService
-from application.persistence.retention import RetentionPlanningFilters
-from application.persistence.sentiment import SentimentPersistenceService
-from application.persistence.sentiment import SentimentSnapshotPersistenceFilters
-from application.persistence.sentiment import SentimentSourcePersistenceFilters
+from application.persistence.rag import (
+    RagEligibilityPersistenceFilters,
+    RagEligibilityPersistenceService,
+)
+from application.persistence.recommendations import (
+    RecommendationPersistenceFilters,
+    RecommendationPersistenceService,
+    TradeSetupPersistenceFilters,
+    WatchlistPersistenceFilters,
+)
+from application.persistence.reports import (
+    ReportArtifactPersistenceFilters,
+    ReportPersistenceService,
+    ReportPublicationPersistenceFilters,
+)
+from application.persistence.retention import (
+    RetentionPersistenceService,
+    RetentionPlanningFilters,
+    TelemetryRetentionConfig,
+    TelemetryRetentionService,
+)
+from application.persistence.sentiment import (
+    SentimentPersistenceService,
+    SentimentSnapshotPersistenceFilters,
+    SentimentSourcePersistenceFilters,
+)
 from application.persistence.strategy import (
     StrategyHypothesisEvaluationPersistenceFilters,
+    StrategyHypothesisPersistenceFilters,
+    StrategyPersistenceService,
+    StrategySynthesisDecisionPersistenceFilters,
 )
-from application.persistence.strategy import StrategyHypothesisPersistenceFilters
-from application.persistence.strategy import StrategyPersistenceService
-from application.persistence.strategy import StrategySynthesisDecisionPersistenceFilters
-from application.persistence.telemetry import AgentMetricPersistenceFilters
-from application.persistence.telemetry import ProviderMetricPersistenceFilters
-from application.persistence.telemetry import TelemetryEventPersistenceFilters
-from application.persistence.telemetry import TelemetryMetricPersistenceFilters
-from application.persistence.telemetry import TelemetryPersistenceService
-from application.persistence.telemetry import TelemetryTracePersistenceFilters
-from application.persistence.telemetry import WorkflowMetricPersistenceFilters
+from application.persistence.telemetry import (
+    AgentMetricPersistenceFilters,
+    ProviderMetricPersistenceFilters,
+    TelemetryEventPersistenceFilters,
+    TelemetryMetricPersistenceFilters,
+    TelemetryPersistenceService,
+    TelemetryTracePersistenceFilters,
+    WorkflowMetricPersistenceFilters,
+)
 from application.persistence.validation import ValidationPersistenceService
 from application.persistence.workflow_audit import (
     WorkflowStateSnapshotPersistenceFilters,
-)
-from application.persistence.workflow_audit import (
     WorkflowStateSnapshotPersistenceService,
 )
 

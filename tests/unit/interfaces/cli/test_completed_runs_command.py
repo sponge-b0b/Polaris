@@ -1,31 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
-from typing import AsyncIterator
 
 import pytest
 from typer.testing import CliRunner
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
     WorkflowOutputProjectionReconciliationRequest,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionReconciliationResult,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRetryResult
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRetryResult,
     WorkflowOutputProjectionStatusRequest,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionStatusResult,
 )
-
 from core.runtime.state.runtime_context import RuntimeContext
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
 from interfaces.cli.app import create_app

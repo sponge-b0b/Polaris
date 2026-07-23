@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 
-from application.observability import AiObservation
-from application.observability import AiObservabilityExportResult
+from application.observability import AiObservabilityExportResult, AiObservation
 
 
 @dataclass(slots=True)

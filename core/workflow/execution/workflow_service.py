@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -11,9 +10,9 @@ from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.state_manager import StateManager
 from core.workflow.compiler.workflow_compiler import CompiledWorkflow
 from core.workflow.execution.workflow_runner import (
+    WorkflowRunner,
     WorkflowRunRequest,
     WorkflowRunResult,
-    WorkflowRunner,
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry

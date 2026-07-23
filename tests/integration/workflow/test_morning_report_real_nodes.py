@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
 
-from application.services.backtesting import BacktestApplicationService
-from application.services.backtesting import BacktestExpectedOutcome
-from application.services.backtesting import BacktestRunRequest
-from application.services.backtesting import BacktestScenario
+from application.services.backtesting import (
+    BacktestApplicationService,
+    BacktestExpectedOutcome,
+    BacktestRunRequest,
+    BacktestScenario,
+)
 from application.services.base import ServiceRequest
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 
-
-_FIXED_BACKTEST_TIME = datetime(2026, 1, 10, 12, 0, tzinfo=timezone.utc)
+_FIXED_BACKTEST_TIME = datetime(2026, 1, 10, 12, 0, tzinfo=UTC)
 _PROVIDER_ENV = {
     "PROVIDER_PROFILE": "backtest_synthetic",
     "MACRO_PROVIDER": "backtest_macro_provider",
@@ -182,7 +181,7 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
     ]
     assert result.started_at == _FIXED_BACKTEST_TIME
     assert result.completed_at == _FIXED_BACKTEST_TIME
-    assert result.steps[0].timestamp == datetime(2026, 1, 1, tzinfo=timezone.utc)
+    assert result.steps[0].timestamp == datetime(2026, 1, 1, tzinfo=UTC)
     assert result.steps[0].workflow_run_id == "backtest-real-golden-step-000000"
     assert tuple(result.steps[0].node_outputs) == (
         "attribution_engine",

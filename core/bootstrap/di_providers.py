@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from collections.abc import Iterator
-from collections.abc import Sequence
-from contextlib import asynccontextmanager
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Iterator, Sequence
+from contextlib import asynccontextmanager, contextmanager
 
-from dishka import AsyncContainer
-from dishka import Container
-from dishka import Provider
+from dishka import AsyncContainer, Container, Provider
 
 from application.persistence.di import ApplicationPersistenceDIProvider
 from application.projections.workflow_outputs.di import (
@@ -16,32 +11,32 @@ from application.projections.workflow_outputs.di import (
 )
 from application.services.di import AppServicesDIProvider
 from config.settings import Settings
-from core.bootstrap.app_container import build_app_container
-from core.bootstrap.app_container import build_async_app_container
+from core.bootstrap.app_container import build_app_container, build_async_app_container
 from core.bootstrap.workflow_providers import WorkflowInfrastructureProvider
 from core.llm.di import CoreLLMsDIProvider
-from core.storage.di import CoreStorageDIProvider
-from core.storage.di import InMemoryCoreStorageDIProvider
+from core.storage.di import CoreStorageDIProvider, InMemoryCoreStorageDIProvider
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     emergency_log_configuration_failure,
 )
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
 from integration.clients.di import IntegrationClientsDIProvider
 from integration.providers.backtesting.di import BacktestingProvidersDIProvider
-from integration.providers.di import BacktestDataDIProvider
-from integration.providers.di import BacktestEventsDIProvider
-from integration.providers.di import BacktestMacroDIProvider
-from integration.providers.di import BacktestNewsDIProvider
-from integration.providers.di import BacktestPortfolioDIProvider
-from integration.providers.di import BacktestPostgresDataDIProvider
-from integration.providers.di import BacktestSentimentDIProvider
-from integration.providers.di import IntegrationProvidersDIProvider
-from integration.providers.di import LiveDataDIProvider
-from integration.providers.di import LiveEventsDIProvider
-from integration.providers.di import LiveMacroDIProvider
-from integration.providers.di import LiveNewsDIProvider
-from integration.providers.di import LivePortfolioDIProvider
-from integration.providers.di import LiveSentimentDIProvider
+from integration.providers.di import (
+    BacktestDataDIProvider,
+    BacktestEventsDIProvider,
+    BacktestMacroDIProvider,
+    BacktestNewsDIProvider,
+    BacktestPortfolioDIProvider,
+    BacktestPostgresDataDIProvider,
+    BacktestSentimentDIProvider,
+    IntegrationProvidersDIProvider,
+    LiveDataDIProvider,
+    LiveEventsDIProvider,
+    LiveMacroDIProvider,
+    LiveNewsDIProvider,
+    LivePortfolioDIProvider,
+    LiveSentimentDIProvider,
+)
 from intelligence.analysts.di import IntelligenceAnalystsDIProvider
 from intelligence.attribution.di import IntelligenceAttributionDIProvider
 from intelligence.di import IntelligenceDIProvider
@@ -97,7 +92,7 @@ def _selected_integration_providers(settings: Settings) -> tuple[Provider, ...]:
             candidates={
                 settings.LIVE_DATA_PROVIDER: LiveDataDIProvider,
                 settings.BACKTEST_DATA_PROVIDER: BacktestDataDIProvider,
-                settings.BACKTEST_POSTGRES_DATA_PROVIDER: BacktestPostgresDataDIProvider,
+                settings.BACKTEST_POSTGRES_DATA_PROVIDER: BacktestPostgresDataDIProvider,  # noqa: E501
             },
         ),
         _select_provider(

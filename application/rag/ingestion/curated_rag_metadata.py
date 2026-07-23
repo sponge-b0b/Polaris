@@ -2,25 +2,23 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from application.rag.ingestion.curated_rag_structured_sources import (
-    is_structured_curated_rag_source,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
-    source_candidate_for_structured_source,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
-    structured_source_timestamp,
-)
-from application.rag.ingestion.curated_rag_models import CuratedRagSource
 from application.rag.ingestion.curated_rag_models import (
+    CuratedRagBuildOptions,
+    CuratedRagSource,
     CuratedRagSourceNotEligibleError,
 )
+from application.rag.ingestion.curated_rag_structured_sources import (
+    is_structured_curated_rag_source,
+    source_candidate_for_structured_source,
+    structured_source_timestamp,
+)
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.rag import DefaultRagEligibilityRules
-from core.storage.persistence.rag import RagEligibilitySourceCandidate
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagSourceEligibilityRecord
+from core.storage.persistence.rag import (
+    DefaultRagEligibilityRules,
+    RagEligibilitySourceCandidate,
+    RagPersistenceRepository,
+    RagSourceEligibilityRecord,
+)
 from core.storage.persistence.reports import ReportRecord
 
 

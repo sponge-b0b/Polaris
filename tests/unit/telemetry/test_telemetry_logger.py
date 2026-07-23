@@ -5,11 +5,10 @@ from typing import Any
 
 import pytest
 
-from core.telemetry.events.telemetry_event import TelemetryEvent
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import (
     TelemetryExceptionDetails,
 )
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.logging import TelemetryLogger
 
 
@@ -58,10 +57,7 @@ async def test_telemetry_logger_emits_structured_log_extra(
 
     assert len(records) == 1
     record = records[0]
-    telemetry = getattr(
-        record,
-        "telemetry",
-    )
+    telemetry = record.telemetry
 
     assert isinstance(
         telemetry,
@@ -95,17 +91,17 @@ async def test_telemetry_logger_emits_structured_log_extra(
     assert structured["payload"] == {
         "status": "succeeded",
     }
-    assert getattr(record, "event_id") == "event-1"
-    assert getattr(record, "event_type") == "runtime.workflow.completed"
-    assert getattr(record, "severity") == "info"
-    assert getattr(record, "workflow_id") == "morning_report"
-    assert getattr(record, "execution_id") == "execution-1"
-    assert getattr(record, "runtime_id") == "runtime-1"
-    assert getattr(record, "node_name") == "technical_node"
-    assert getattr(record, "correlation_id") == "correlation-1"
-    assert getattr(record, "trace_id") == "trace-1"
-    assert getattr(record, "span_id") == "span-1"
-    assert getattr(record, "parent_span_id") == "parent-span-1"
+    assert record.event_id == "event-1"
+    assert record.event_type == "runtime.workflow.completed"
+    assert record.severity == "info"
+    assert record.workflow_id == "morning_report"
+    assert record.execution_id == "execution-1"
+    assert record.runtime_id == "runtime-1"
+    assert record.node_name == "technical_node"
+    assert record.correlation_id == "correlation-1"
+    assert record.trace_id == "trace-1"
+    assert record.span_id == "span-1"
+    assert record.parent_span_id == "parent-span-1"
 
     message = record.getMessage()
     assert "runtime.workflow.completed" in message
@@ -144,10 +140,7 @@ async def test_telemetry_logger_can_omit_payload_and_attributes(
             )
         )
 
-    telemetry = getattr(
-        caplog.records[-1],
-        "telemetry",
-    )
+    telemetry = caplog.records[-1].telemetry
 
     assert isinstance(
         telemetry,
@@ -184,7 +177,7 @@ async def test_telemetry_logger_redacts_nested_secrets_without_mutating_event(
     with caplog.at_level(logging.ERROR, logger=logger_name):
         await telemetry_logger.emit(event)
 
-    structured = getattr(caplog.records[-1], "telemetry")
+    structured = caplog.records[-1].telemetry
     assert structured["attributes"]["api_key"] == "[REDACTED]"
     assert structured["attributes"]["token_count"] == 42
     assert structured["payload"]["request"]["authorization"] == "[REDACTED]"
@@ -219,7 +212,7 @@ async def test_telemetry_logger_renders_sanitized_traceback_exactly_once(
 
     record = caplog.records[-1]
     message = record.getMessage()
-    structured = getattr(record, "telemetry")
+    structured = record.telemetry
 
     assert message.count("Traceback (most recent call last):") == 1
     assert "super-secret" not in message

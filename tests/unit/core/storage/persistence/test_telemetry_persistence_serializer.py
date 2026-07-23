@@ -1,24 +1,27 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.telemetry import AgentMetricModel
-from core.database.models.telemetry import ProviderMetricModel
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryMetricModel
-from core.database.models.telemetry import TelemetryTraceModel
-from core.database.models.telemetry import WorkflowMetricModel
+from core.database.models.telemetry import (
+    AgentMetricModel,
+    ProviderMetricModel,
+    TelemetryEventModel,
+    TelemetryMetricModel,
+    TelemetryTraceModel,
+    WorkflowMetricModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.serializers.telemetry_persistence_serializer import (
     TelemetryPersistenceSerializer,
 )
-from core.storage.persistence.telemetry import AgentMetricRecord
-from core.storage.persistence.telemetry import ProviderMetricRecord
-from core.storage.persistence.telemetry import TelemetryEventRecord
-from core.storage.persistence.telemetry import TelemetryMetricRecord
-from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.storage.persistence.telemetry import WorkflowMetricRecord
+from core.storage.persistence.telemetry import (
+    AgentMetricRecord,
+    ProviderMetricRecord,
+    TelemetryEventRecord,
+    TelemetryMetricRecord,
+    TelemetryTraceRecord,
+    WorkflowMetricRecord,
+)
 
 
 def test_telemetry_serializer_converts_event_records() -> None:
@@ -127,7 +130,7 @@ def test_telemetry_serializer_converts_provider_metrics() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 6, 1, 12, tzinfo=timezone.utc)
+    return datetime(2026, 6, 1, 12, tzinfo=UTC)
 
 
 def _lineage() -> PersistenceLineage:
@@ -190,7 +193,7 @@ def _trace() -> TelemetryTraceRecord:
         started_at=_timestamp(),
         lineage=_lineage(),
         parent_span_id="parent-span",
-        ended_at=datetime(2026, 6, 1, 12, 0, 1, tzinfo=timezone.utc),
+        ended_at=datetime(2026, 6, 1, 12, 0, 1, tzinfo=UTC),
         duration_seconds=1.0,
         status="failed",
         correlation_id="corr-1",

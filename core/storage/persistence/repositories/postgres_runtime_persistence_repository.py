@@ -3,31 +3,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowStateSnapshotModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+    WorkflowStateSnapshotModel,
+)
 from core.storage.persistence.runtime.runtime_persistence_models import (
     RuntimePersistenceResult,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowEventRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowNodeRunRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
-    WorkflowStateSnapshotRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
 )
 from core.storage.persistence.runtime.runtime_persistence_repository import (
     RuntimePersistenceRepository,

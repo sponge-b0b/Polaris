@@ -3,9 +3,11 @@ from __future__ import annotations
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.clients.rag.bge_reranker_client import BgeRerankerClient
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.reranking_provider import RerankingProvider
-from integration.providers.rag.reranking_provider import RerankRequest
-from integration.providers.rag.reranking_provider import RerankResult
+from integration.providers.rag.reranking_provider import (
+    RerankingProvider,
+    RerankRequest,
+    RerankResult,
+)
 
 
 class BgeRerankingProvider(RerankingProvider):

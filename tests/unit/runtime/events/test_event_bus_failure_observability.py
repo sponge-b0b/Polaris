@@ -4,9 +4,7 @@ import asyncio
 
 import pytest
 
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 
 
 def build_event() -> RuntimeEvent:
@@ -27,7 +25,7 @@ def build_event() -> RuntimeEvent:
 
 
 @pytest.mark.asyncio
-async def test_event_bus_reports_subscriber_failure_without_blocking_successful_handler() -> (
+async def test_event_bus_reports_subscriber_failure_without_blocking_successful_handler() -> (  # noqa: E501
     None
 ):
     event_bus = EventBus()

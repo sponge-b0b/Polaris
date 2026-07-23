@@ -1,20 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
-from core.storage.persistence.attribution import AttributionRecord
-from core.storage.persistence.attribution import RecommendationAttributionRecord
-from core.storage.persistence.attribution import SignalAttributionRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
+from core.storage.persistence.attribution import (
+    AttributionRecord,
+    RecommendationAttributionRecord,
+    SignalAttributionRecord,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 from core.storage.persistence.serializers.attribution_persistence_serializer import (
     AttributionPersistenceSerializer,
 )
-
 
 _FULL_EXPLANATION = "Full attribution explanation must not be truncated. " * 200
 
@@ -208,4 +212,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

@@ -4,18 +4,18 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
-from core.storage.persistence.news import NewsPersistenceBundle
-from core.storage.persistence.news import NewsPersistenceResult
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
+from core.storage.persistence.news import (
+    NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+    NewsPersistenceResult,
+)
 from core.storage.persistence.news.news_persistence_repository import (
     NewsPersistenceRepository,
 )

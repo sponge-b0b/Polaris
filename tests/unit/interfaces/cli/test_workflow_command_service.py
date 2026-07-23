@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
 import interfaces.cli.services.workflow_command_service as workflow_command_service
-from interfaces.cli.services.workflow_command_service import MorningReportCommandRequest
-from interfaces.cli.services.workflow_command_service import WorkflowCommandService
-from interfaces.cli.services.workflow_command_service import WorkflowRunCommandRequest
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
+from interfaces.cli.services.workflow_command_service import (
+    MorningReportCommandRequest,
+    WorkflowCommandService,
+    WorkflowRunCommandRequest,
+)
 
 
 def _runtime_scope_from_builder(
@@ -281,8 +280,7 @@ async def test_workflow_command_service_forwards_progress_notifications(
 async def test_workflow_command_service_forwards_interactive_control_commands(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from core.runtime.control import WorkflowControlSnapshot
-    from core.runtime.control import WorkflowControlState
+    from core.runtime.control import WorkflowControlSnapshot, WorkflowControlState
 
     commands: list[tuple[str, str]] = []
     messages: list[str] = []

@@ -9,9 +9,11 @@ from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.telemetry.tracing.trace_context import TraceContext
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 
 
 class ConcurrentTraceNode(RuntimeNode):

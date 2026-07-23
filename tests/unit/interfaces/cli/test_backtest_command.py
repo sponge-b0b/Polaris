@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
 import json
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,13 +12,17 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from application.services.backtesting import BacktestResult
-from application.services.backtesting import BacktestApplicationService
-from application.services.backtesting import BacktestScenario
+from application.services.backtesting import (
+    BacktestApplicationService,
+    BacktestResult,
+    BacktestScenario,
+)
 from application.services.base import ServiceRunner
 from interfaces.cli.app import create_app
-from interfaces.cli.services.backtest_command_service import BacktestCommandService
-from interfaces.cli.services.backtest_command_service import BacktestRunCommandRequest
+from interfaces.cli.services.backtest_command_service import (
+    BacktestCommandService,
+    BacktestRunCommandRequest,
+)
 
 
 class FakeWorkflowFacade:
@@ -179,8 +179,8 @@ def test_backtest_run_cli_renders_console_result(
         backtest_run_id="backtest-fake",
         scenario=scenario,
         success=True,
-        started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        completed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        completed_at=datetime(2026, 1, 1, tzinfo=UTC),
         status="succeeded",
         artifacts={
             "console": "Backtest: Fake CLI result\nStatus: succeeded",

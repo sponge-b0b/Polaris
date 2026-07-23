@@ -3,17 +3,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
 from core.storage.persistence.query import PersistenceListResult
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisPersistenceResult
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceRepository
-from core.storage.persistence.strategy import StrategyPersistenceResult
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisPersistenceResult,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategyPersistenceRepository,
+    StrategyPersistenceResult,
+    StrategySynthesisDecisionRecord,
+)
 
 
 @dataclass(frozen=True, slots=True)

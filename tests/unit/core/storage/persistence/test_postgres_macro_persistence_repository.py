@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.macro import EconomicCalendarEventModel
-from core.database.models.macro import MacroObservationModel
-from core.database.models.macro import MacroRegimeSnapshotModel
+from core.database.models.macro import (
+    EconomicCalendarEventModel,
+    MacroObservationModel,
+    MacroRegimeSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroPersistenceBundle
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroPersistenceBundle,
+    MacroRegimeSnapshotRecord,
+)
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
     PostgresMacroPersistenceRepository,
 )
 from core.storage.persistence.serializers.macro_persistence_serializer import (
@@ -298,4 +300,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

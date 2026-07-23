@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import pytest
 
 from config.settings import Settings
 from domain.evaluation import EvaluationStatus
-from integration.providers.llm_evaluation import DeepEvalEvaluationProvider
-from integration.providers.llm_evaluation import EvaluationMetricSpec
-from integration.providers.llm_evaluation import EvaluationProviderRequest
+from integration.providers.llm_evaluation import (
+    DeepEvalEvaluationProvider,
+    EvaluationMetricSpec,
+    EvaluationProviderRequest,
+)
 from tests.evaluation._helpers import evaluation_case_from_row
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]

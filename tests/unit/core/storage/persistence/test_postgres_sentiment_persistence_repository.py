@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.sentiment import SentimentSnapshotModel
-from core.database.models.sentiment import SentimentSourceModel
+from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
     PostgresSentimentPersistenceRepository,
 )
-from core.storage.persistence.sentiment import SentimentPersistenceBundle
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
+from core.storage.persistence.sentiment import (
+    SentimentPersistenceBundle,
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
 from core.storage.persistence.serializers.sentiment_persistence_serializer import (
     SentimentPersistenceSerializer,
 )
@@ -96,7 +95,7 @@ async def test_persist_sentiment_bundle_inserts_append_only_records() -> None:
 
 
 @pytest.mark.asyncio
-async def test_sentiment_idempotency_review_keeps_snapshots_and_sources_append_only() -> (
+async def test_sentiment_idempotency_review_keeps_snapshots_and_sources_append_only() -> (  # noqa: E501
     None
 ):
     session = FakeAsyncSession()
@@ -245,4 +244,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

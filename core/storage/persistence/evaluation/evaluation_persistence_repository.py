@@ -3,28 +3,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from domain.evaluation import EvaluationTargetType
 from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationArtifactRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationCaseRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationDatasetRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationMetricResultRecord,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationPersistenceBundle,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationPersistenceResult,
-)
-from core.storage.persistence.evaluation.evaluation_persistence_models import (
     EvaluationRunRecord,
 )
+from domain.evaluation import EvaluationTargetType
 
 
 class EvaluationPersistenceRepository(Protocol):

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from core.runtime.state.runtime_context import RuntimeContext
-from core.workflow.compiler.workflow_compiler import CompiledWorkflow
-from core.workflow.compiler.workflow_compiler import WorkflowCompiler
-from core.workflow.execution.workflow_engine import WorkflowEngine
-from core.workflow.execution.workflow_engine import WorkflowExecutionResult
+from core.workflow.compiler.workflow_compiler import CompiledWorkflow, WorkflowCompiler
+from core.workflow.execution.workflow_engine import (
+    WorkflowEngine,
+    WorkflowExecutionResult,
+)
 from core.workflow.registry.workflow_registry import WorkflowRegistry
 
 

@@ -32,8 +32,7 @@ def test_backtest_domain_schema_has_first_class_timestamps(
     alembic_runner: MigrationContext,
     alembic_engine: object,
 ) -> None:
-    from sqlalchemy import Engine
-    from sqlalchemy import inspect
+    from sqlalchemy import Engine, inspect
 
     engine = alembic_engine
     assert isinstance(engine, Engine)
@@ -57,8 +56,7 @@ def test_rag_query_audit_schema_has_promoted_fields(
     alembic_runner: MigrationContext,
     alembic_engine: object,
 ) -> None:
-    from sqlalchemy import Engine
-    from sqlalchemy import inspect
+    from sqlalchemy import Engine, inspect
 
     engine = alembic_engine
     assert isinstance(engine, Engine)
@@ -98,8 +96,7 @@ def test_strategy_persistence_migration_creates_canonical_schema(
     alembic_runner: MigrationContext,
     alembic_engine: object,
 ) -> None:
-    from sqlalchemy import Engine
-    from sqlalchemy import inspect
+    from sqlalchemy import Engine, inspect
 
     engine = alembic_engine
     assert isinstance(engine, Engine)

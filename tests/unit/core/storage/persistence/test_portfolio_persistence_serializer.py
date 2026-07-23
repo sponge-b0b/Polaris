@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioEquityHistoryPointModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioEquityHistoryPointModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+)
 from core.storage.persistence.serializers.portfolio_persistence_serializer import (
     PortfolioPersistenceSerializer,
 )
@@ -229,4 +232,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

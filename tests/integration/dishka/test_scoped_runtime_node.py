@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from dishka import Provider
-from dishka import Scope
-from dishka import make_container
-from dishka import provide
+from dishka import Provider, Scope, make_container, provide
 
 from core.bootstrap.dishka_runtime_adapter import DishkaRuntimeAdapter
 from core.runtime.contracts.runtime_node import RuntimeNode

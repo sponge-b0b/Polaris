@@ -1,13 +1,13 @@
 from __future__ import annotations
+
 from typing import Any
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.providers.portfolio.portfolio_provider import (
-    PortfolioProvider,
-)
-
 from integration.providers.backtesting.portfolio.simulated_portfolio_provider import (
     SimulatedPortfolioProvider,
+)
+from integration.providers.portfolio.portfolio_provider import (
+    PortfolioProvider,
 )
 from integration.providers.provider_telemetry import record_provider_call
 

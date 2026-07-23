@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import fields
-from datetime import UTC
-from datetime import datetime
-from typing import Any
-from typing import Final
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, Final, cast
 
 from application.persistence.portfolio import PortfolioPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
@@ -15,32 +11,32 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
-from core.storage.persistence.portfolio import new_portfolio_allocation_snapshot_id
-from core.storage.persistence.portfolio import new_portfolio_equity_history_point_id
-from core.storage.persistence.portfolio import new_portfolio_exposure_snapshot_id
-from core.storage.persistence.portfolio import new_portfolio_position_history_id
-from core.storage.persistence.portfolio import new_portfolio_position_latest_id
-from core.storage.persistence.portfolio import new_portfolio_risk_snapshot_id
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+    new_portfolio_allocation_snapshot_id,
+    new_portfolio_equity_history_point_id,
+    new_portfolio_exposure_snapshot_id,
+    new_portfolio_position_history_id,
+    new_portfolio_position_latest_id,
+    new_portfolio_risk_snapshot_id,
+)
 from domain.portfolio.models.portfolio_state import PortfolioState
-from domain.workflow_outputs import PORTFOLIO_STATE_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from domain.workflow_outputs import (
+    PORTFOLIO_STATE_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 PORTFOLIO_STATE_PROJECTOR_NAME: Final = "portfolio_state_projector"
 PORTFOLIO_STATE_PROJECTOR_NODE_NAMES: Final = ("portfolio_state_builder",)

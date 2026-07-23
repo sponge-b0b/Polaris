@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
@@ -35,8 +34,8 @@ def test_filter_evaluator_preserves_temporal_and_tuple_matching_policy() -> None
     evaluator = RagRetrievalFilterEvaluator()
     filters = RagRetrievalFilters(
         symbols=("SPY", "QQQ"),
-        as_of_start=datetime(2026, 6, 10, tzinfo=timezone.utc),
-        as_of_end=datetime(2026, 6, 20, tzinfo=timezone.utc),
+        as_of_start=datetime(2026, 6, 10, tzinfo=UTC),
+        as_of_end=datetime(2026, 6, 20, tzinfo=UTC),
     )
 
     assert evaluator.matches(

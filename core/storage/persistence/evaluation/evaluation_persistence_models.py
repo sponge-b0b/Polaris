@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
 from uuid import uuid4
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
-JsonArray: TypeAlias = Sequence[JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
+type JsonArray = Sequence[JsonValue]
 
 
 class LangfuseProjectionStatus(StrEnum):

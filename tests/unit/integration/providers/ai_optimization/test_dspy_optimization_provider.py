@@ -4,10 +4,11 @@ import json
 
 import pytest
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationTargetType
-from integration.providers.ai_optimization import DspyOptimizationProvider
-from integration.providers.ai_optimization import DspyOptimizationProviderRequest
+from domain.evaluation import EvaluationCase, EvaluationTargetType
+from integration.providers.ai_optimization import (
+    DspyOptimizationProvider,
+    DspyOptimizationProviderRequest,
+)
 
 
 @pytest.mark.asyncio

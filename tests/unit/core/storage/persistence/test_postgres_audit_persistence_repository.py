@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -12,10 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.audit import PersistenceAuditEventModel
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_audit_persistence_repository import (
+from core.storage.persistence.repositories.postgres_audit_persistence_repository import (  # noqa: E501
     PostgresPersistenceAuditEventRepository,
 )
 from core.storage.persistence.serializers.audit_persistence_serializer import (
@@ -136,8 +136,8 @@ async def test_list_audit_events_returns_typed_records_and_filters_query() -> No
     )
     session = FakeAsyncSession(result=FakeExecuteResult([model]))
     repository = PostgresPersistenceAuditEventRepository(cast(AsyncSession, session))
-    start = datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 13, 0, tzinfo=UTC)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     records = await repository.list_audit_events(
         entity_type="recommendation",
@@ -188,7 +188,7 @@ def _event() -> PersistenceAuditEventRecord:
         entity_type="recommendation",
         entity_id="rec-1",
         action="upsert",
-        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=UTC),
         actor=PersistenceAuditActor(
             system_source="recommendation-service",
             actor_id="user-1",

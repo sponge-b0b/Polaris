@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from application.rag.graphs import RagCorrectiveAction
 from application.rag.contracts.rag_quality_models import RagReflectionScores
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.graphs import RagCorrectiveAction
 
 
 def test_rag_result_quality_fields_round_trip() -> None:

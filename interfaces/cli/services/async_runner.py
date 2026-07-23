@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-
 from collections.abc import Coroutine
-from typing import Any
-from typing import TypeVar
-
+from typing import Any, TypeVar
 
 ResultT = TypeVar(
     "ResultT",
 )
 
 
-def run_cli_async(
+def run_cli_async[ResultT](
     awaitable: Coroutine[Any, Any, ResultT],
 ) -> ResultT:
     """

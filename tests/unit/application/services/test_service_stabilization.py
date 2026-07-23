@@ -23,13 +23,13 @@ from application.services.technical.technical_analysis_service import (
 from application.services.technical.technical_request import TechnicalAnalysisRequest
 from core.llm.llm_service import LLMService
 from core.runtime.state.runtime_context import RuntimeContext
-from domain.macro.models import MacroDataSnapshot
-from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
+from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from domain.macro.models import MacroDataSnapshot
 from integration.providers.macro.macro_provider import MacroProvider
 from integration.providers.market_events.market_events_provider import (
     MarketEventsProvider,

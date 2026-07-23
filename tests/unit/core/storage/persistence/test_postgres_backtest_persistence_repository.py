@@ -1,29 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.backtesting import BacktestRunModel
-from core.database.models.backtesting import BacktestStepModel
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestFillRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPersistenceBundle
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestScenarioRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
-from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
+from core.database.models.backtesting import BacktestRunModel, BacktestStepModel
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestFillRecord,
+    BacktestMetricRecord,
+    BacktestPersistenceBundle,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestScenarioRecord,
+    BacktestStepRecord,
+)
+from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501
     PostgresBacktestPersistenceRepository,
 )
 
@@ -169,7 +167,7 @@ async def test_list_steps_round_trips_models_to_records() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 6, 14, 14, tzinfo=timezone.utc)
+    return datetime(2026, 6, 14, 14, tzinfo=UTC)
 
 
 def _scenario() -> BacktestScenarioRecord:

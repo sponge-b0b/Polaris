@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from typing import TYPE_CHECKING
-from typing import Any
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import (
@@ -44,8 +40,8 @@ class GovernanceEvaluationResult:
     subject_type: str
     results: tuple[GovernanceResult, ...]
     failures: tuple[GovernanceEvaluationFailure, ...] = ()
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -155,7 +151,7 @@ class GovernanceEngine:
         rule_names: list[str] | None = None,
         emit_telemetry: bool = True,
     ) -> GovernanceEvaluationResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         rules = self._select_rules(
             rule_names=rule_names,
@@ -189,7 +185,7 @@ class GovernanceEngine:
                 return_exceptions=True,
             )
 
-            for rule, gathered_result in zip(rules, gathered):
+            for rule, gathered_result in zip(rules, gathered, strict=False):
                 if isinstance(gathered_result, GovernanceResult):
                     results.append(gathered_result)
                     continue
@@ -221,7 +217,7 @@ class GovernanceEngine:
                         )
                     )
 
-        completed_at = datetime.now(timezone.utc)
+        completed_at = datetime.now(UTC)
 
         evaluation_result = GovernanceEvaluationResult(
             subject_type=subject.__class__.__name__,

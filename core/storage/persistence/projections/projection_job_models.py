@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
-from typing import Iterable
+from enum import StrEnum
 
 
-class WorkflowOutputProjectionJobStatus(str, Enum):
+class WorkflowOutputProjectionJobStatus(StrEnum):
     """Durable workflow-output projection job lifecycle status."""
 
     PENDING = "pending"

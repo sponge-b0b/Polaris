@@ -2,42 +2,18 @@ from __future__ import annotations
 
 from core.storage.persistence.market.market_persistence_models import (
     MarketBreadthSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketContextSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketEventSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketIndicatorRecord,
-)
-from core.storage.persistence.market.market_persistence_models import MarketOhlcvRecord
-from core.storage.persistence.market.market_persistence_models import (
+    MarketOhlcvRecord,
     MarketPersistenceBundle,
-)
-from core.storage.persistence.market.market_persistence_models import (
     MarketPersistenceResult,
-)
-from core.storage.persistence.market.market_persistence_models import (
     TechnicalAnalysisSnapshotRecord,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_market_breadth_snapshot_id,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_market_context_snapshot_id,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_market_event_snapshot_id,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_market_indicator_id,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_market_ohlcv_id,
-)
-from core.storage.persistence.market.market_persistence_models import (
     new_technical_analysis_snapshot_id,
 )
 from core.storage.persistence.market.market_persistence_repository import (

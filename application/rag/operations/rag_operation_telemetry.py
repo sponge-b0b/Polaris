@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from application.rag.contracts.rag_operation_models import RagOperationDetail
-from application.rag.contracts.rag_operation_models import RagOperationResult
+from application.rag.contracts.rag_operation_models import (
+    RagOperationDetail,
+    RagOperationResult,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 
 

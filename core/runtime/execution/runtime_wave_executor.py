@@ -5,9 +5,12 @@ from typing import Any
 
 from core.runtime.artifacts.artifact_manager import ArtifactManager
 from core.runtime.contracts.runtime_node import RuntimeNode
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
+from core.runtime.control import WorkflowControlManager, WorkflowControlState
 from core.runtime.events import RuntimeEventType
+from core.runtime.execution.runtime_context_transitions import (
+    CANCELLED_WORKFLOW_OUTPUT_NAME,
+    RuntimeContextTransitions,
+)
 from core.runtime.execution.runtime_event_publisher import RuntimeEventPublisher
 from core.runtime.execution.runtime_execution_context import (
     RuntimeExecutionLocation,
@@ -15,10 +18,6 @@ from core.runtime.execution.runtime_execution_context import (
     RuntimeNodeInvocation,
 )
 from core.runtime.execution.runtime_node_executor import RuntimeNodeExecutor
-from core.runtime.execution.runtime_context_transitions import (
-    CANCELLED_WORKFLOW_OUTPUT_NAME,
-    RuntimeContextTransitions,
-)
 from core.runtime.lifecycle.runtime_lifecycle_manager import RuntimeLifecycleManager
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -131,7 +130,7 @@ class RuntimeWaveExecutor:
             *tasks,
             return_exceptions=True,
         )
-        for scheduled_location, result in zip(task_locations, results):
+        for scheduled_location, result in zip(task_locations, results, strict=False):
             if isinstance(result, RuntimeNodeExecutionResult):
                 node_location = result.location
                 node_result: RuntimeNodeOutput | BaseException = result.output

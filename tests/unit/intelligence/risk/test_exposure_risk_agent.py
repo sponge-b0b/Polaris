@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from domain.workflow_outputs import RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
 from core.runtime.state.runtime_context import RuntimeContext
+from domain.workflow_outputs import (
+    RISK_EXPOSURE_SIGNAL_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.risk.exposure.exposure_risk_agent import ExposureRiskAgent
 
 

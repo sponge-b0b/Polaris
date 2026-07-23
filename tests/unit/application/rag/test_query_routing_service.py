@@ -5,22 +5,27 @@ from typing import cast
 
 import pytest
 
-from application.rag.routing.query_routing_models import RagConversationMemory
-from application.rag.routing.query_routing_models import RagConversationRole
-from application.rag.routing.query_routing_models import RagConversationTurn
-from application.rag.routing.query_routing_models import RagQueryComplexity
-from application.rag.routing.query_routing_models import RagQueryContext
-from application.rag.routing.query_routing_service import RagQueryRoutingService
-from application.rag.routing.query_routing_models import RagRetrievalRoute
-from application.rag.routing.query_routing_service import RagRoutingModelOutputError
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import JsonValue
+from application.rag.routing.query_routing_models import (
+    RagConversationMemory,
+    RagConversationRole,
+    RagConversationTurn,
+    RagQueryComplexity,
+    RagQueryContext,
+    RagRetrievalRoute,
+)
+from application.rag.routing.query_routing_service import (
+    RagQueryRoutingService,
+    RagRoutingModelOutputError,
+)
+from core.storage.persistence.rag import JsonObject, JsonValue
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.query_routing_provider import RagQueryModelOperation
-from integration.providers.rag.query_routing_provider import RagQueryModelRequest
-from integration.providers.rag.query_routing_provider import RagQueryModelResult
+from integration.providers.rag.query_routing_provider import (
+    RagQueryModelOperation,
+    RagQueryModelRequest,
+    RagQueryModelResult,
+)
 
 
 @pytest.mark.asyncio
@@ -119,7 +124,7 @@ async def test_deep_research_generates_hyde_expansion() -> None:
         {"route": "deep_research"},
         {
             "hypothetical_document": (
-                "A multi-source assessment compares breadth, volatility, and macro risk."
+                "A multi-source assessment compares breadth, volatility, and macro risk."  # noqa: E501
             )
         },
     )
@@ -127,7 +132,7 @@ async def test_deep_research_generates_hyde_expansion() -> None:
     decision = await RagQueryRoutingService(provider).route(
         RagQueryContext(
             request_id="route-3",
-            query="Assess whether the current market regime supports adding equity risk.",
+            query="Assess whether the current market regime supports adding equity risk.",  # noqa: E501
         )
     )
 

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from collections.abc import Mapping
 
-from application.services.backtesting.backtest_request import BacktestInitialPosition
-from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_result import BacktestFill
-from application.services.backtesting.backtest_result import BacktestPortfolioSnapshot
+from application.services.backtesting.backtest_request import (
+    BacktestInitialPosition,
+    BacktestScenario,
+)
+from application.services.backtesting.backtest_result import (
+    BacktestFill,
+    BacktestPortfolioSnapshot,
+)
 
 
 @dataclass(

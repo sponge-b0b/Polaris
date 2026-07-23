@@ -1,6 +1,5 @@
 from core.runtime.artifacts.artifact_manager import ArtifactManager
-from core.runtime.artifacts.artifact_ref import ArtifactKind
-from core.runtime.artifacts.artifact_ref import ArtifactRef
+from core.runtime.artifacts.artifact_ref import ArtifactKind, ArtifactRef
 from core.runtime.artifacts.artifact_serializers import (
     ArtifactSerializer,
     ArtifactSerializerRegistry,
@@ -11,9 +10,7 @@ from core.runtime.artifacts.artifact_serializers import (
     SerializedArtifact,
     TextArtifactSerializer,
 )
-from core.runtime.artifacts.artifact_store import ArtifactStore
-from core.runtime.artifacts.artifact_store import LocalArtifactStore
-
+from core.runtime.artifacts.artifact_store import ArtifactStore, LocalArtifactStore
 
 __all__ = [
     "ArtifactKind",

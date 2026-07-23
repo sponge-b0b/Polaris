@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import CheckConstraint
-from sqlalchemy import Table
+from sqlalchemy import CheckConstraint, Table
 
 from core.database.models.completed_runs import CompletedWorkflowRunModel
 

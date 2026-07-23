@@ -6,11 +6,13 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import RecommendationOutcomeModel
-from core.database.models.recommendations import RecommendationRationaleModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
+from core.database.models.recommendations import (
+    RecommendationModel,
+    RecommendationOutcomeModel,
+    RecommendationRationaleModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
 
 
 def test_recommendation_models_are_imported_into_base_metadata() -> None:

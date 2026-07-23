@@ -1,25 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence import RagEligibilityPersistenceFilters
-from application.persistence import RagEligibilityPersistenceService
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagCanonicalRecordCounts
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.rag import RagSourceEligibilityResult
+from application.persistence import (
+    RagEligibilityPersistenceFilters,
+    RagEligibilityPersistenceService,
+)
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagAnswerLogRecord,
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceResult,
+    RagQueryLogRecord,
+    RagRecordPersistenceResult,
+    RagSourceEligibilityRecord,
+    RagSourceEligibilityResult,
+)
 
 
 class FakeRagPersistenceRepository:
@@ -291,6 +294,6 @@ def _eligibility() -> RagSourceEligibilityRecord:
         eligible=True,
         reason="Curated report is suitable for future RAG source building.",
         quality_score=0.91,
-        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"reviewer": "default_rules"},
     )

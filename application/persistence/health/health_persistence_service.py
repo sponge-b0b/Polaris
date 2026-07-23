@@ -1,25 +1,21 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Awaitable
-from collections.abc import Callable
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import inspect
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from core.database.base import Base
-from core.storage.persistence.health import PersistenceHealthCheckCategory
-from core.storage.persistence.health import PersistenceHealthCheckResult
-from core.storage.persistence.health import PersistenceHealthReport
-from core.storage.persistence.lineage import JsonValue
-from core.storage.persistence.lineage import clean_optional_identifier
-
+from core.storage.persistence.health import (
+    PersistenceHealthCheckCategory,
+    PersistenceHealthCheckResult,
+    PersistenceHealthReport,
+)
+from core.storage.persistence.lineage import JsonValue, clean_optional_identifier
 
 ConnectivityChecker = Callable[[], Awaitable[None]]
 DatabaseTableLoader = Callable[[], Awaitable[Sequence[str]]]

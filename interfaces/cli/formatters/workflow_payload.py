@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from interfaces.cli.rendering.workflow_rendering import WorkflowRenderEnvelope
 from interfaces.cli.rendering.workflow_rendering import (
+    WorkflowRenderEnvelope,
     workflow_result_to_render_envelope,
 )
 

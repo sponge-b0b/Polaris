@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import CheckConstraint
-from sqlalchemy import Table
-from sqlalchemy import Text
+from sqlalchemy import CheckConstraint, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
 
 
 def test_attribution_models_are_imported_into_base_metadata() -> None:
@@ -63,7 +63,7 @@ def test_signal_attribution_model_links_to_agent_signal_and_preserves_explanatio
     assert columns.universe.nullable is True
 
 
-def test_recommendation_attribution_model_links_recommendations_and_optional_signal() -> (
+def test_recommendation_attribution_model_links_recommendations_and_optional_signal() -> (  # noqa: E501
     None
 ):
     columns = RecommendationAttributionModel.__table__.c

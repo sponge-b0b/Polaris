@@ -1,26 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.telemetry import AgentMetricRecord
-from core.storage.persistence.telemetry import ProviderMetricRecord
-from core.storage.persistence.telemetry import TelemetryEventRecord
-from core.storage.persistence.telemetry import TelemetryMetricRecord
-from core.storage.persistence.telemetry import TelemetryPersistenceBundle
-from core.storage.persistence.telemetry import TelemetryPersistenceResult
-from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.storage.persistence.telemetry import WorkflowMetricRecord
-from core.storage.persistence.telemetry import new_agent_metric_id
-from core.storage.persistence.telemetry import new_provider_metric_id
-from core.storage.persistence.telemetry import new_telemetry_event_id
-from core.storage.persistence.telemetry import new_telemetry_metric_id
-from core.storage.persistence.telemetry import new_telemetry_trace_record_id
-from core.storage.persistence.telemetry import new_workflow_metric_id
+from core.storage.persistence.telemetry import (
+    AgentMetricRecord,
+    ProviderMetricRecord,
+    TelemetryEventRecord,
+    TelemetryMetricRecord,
+    TelemetryPersistenceBundle,
+    TelemetryPersistenceResult,
+    TelemetryTraceRecord,
+    WorkflowMetricRecord,
+    new_agent_metric_id,
+    new_provider_metric_id,
+    new_telemetry_event_id,
+    new_telemetry_metric_id,
+    new_telemetry_trace_record_id,
+    new_workflow_metric_id,
+)
 
 
 def test_telemetry_event_record_is_typed_immutable_and_operational() -> None:
@@ -119,7 +120,7 @@ def test_metric_records_reject_non_finite_values(
 
 def test_trace_record_validates_span_timing() -> None:
     started_at = _timestamp()
-    ended_at = datetime(2026, 5, 30, 14, 1, tzinfo=timezone.utc)
+    ended_at = datetime(2026, 5, 30, 14, 1, tzinfo=UTC)
     record = TelemetryTraceRecord(
         trace_record_id="trace-record-1",
         trace_id="trace-1",
@@ -168,7 +169,7 @@ def test_trace_record_validates_span_timing() -> None:
             operation_name="workflow.execute",
             source="runtime",
             started_at=started_at,
-            ended_at=datetime(2026, 5, 30, 13, tzinfo=timezone.utc),
+            ended_at=datetime(2026, 5, 30, 13, tzinfo=UTC),
         )
 
 
@@ -328,4 +329,4 @@ def test_telemetry_id_helpers_are_stable() -> None:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
+    return datetime(2026, 5, 30, 14, tzinfo=UTC)

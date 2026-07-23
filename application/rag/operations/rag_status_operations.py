@@ -4,22 +4,26 @@ from time import perf_counter
 
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
+    RagGraphProjectionReadiness,
+    RagModelReadiness,
+    RagProjectionReadinessConfig,
+    RagProjectionReadinessResult,
+    RagStatusOperationRequest,
+    RagVectorProjectionReadiness,
 )
-from application.rag.contracts.rag_operation_models import RagGraphProjectionReadiness
-from application.rag.contracts.rag_operation_models import RagModelReadiness
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessConfig
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
-from application.rag.contracts.rag_operation_models import RagVectorProjectionReadiness
 from core.storage.persistence.rag import RagPersistenceRepository
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.embedding_provider import EmbeddingInput
-from integration.providers.rag.embedding_provider import EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingRequest
+from integration.providers.rag.embedding_provider import (
+    EmbeddingInput,
+    EmbeddingProvider,
+    EmbeddingRequest,
+)
 from integration.providers.rag.graph_projection_provider import GraphProjectionProvider
-from integration.providers.rag.reranking_provider import RerankCandidate
-from integration.providers.rag.reranking_provider import RerankingProvider
-from integration.providers.rag.reranking_provider import RerankRequest
+from integration.providers.rag.reranking_provider import (
+    RerankCandidate,
+    RerankingProvider,
+    RerankRequest,
+)
 from integration.providers.rag.vector_index_provider import (
     VectorCollectionLifecycleProvider,
 )

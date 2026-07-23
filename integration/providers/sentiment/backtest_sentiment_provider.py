@@ -1,10 +1,11 @@
-from typing import Any, Dict
+from typing import Any
+
+from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.providers.backtesting.sentiment.simulated_sentiment_provider import (
     SimulatedSentimentProvider,
 )
-from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.providers.sentiment.sentiment_provider import SentimentProvider
 from integration.providers.provider_telemetry import record_provider_call
+from integration.providers.sentiment.sentiment_provider import SentimentProvider
 
 
 class BacktestSentimentProvider(SentimentProvider):
@@ -20,7 +21,7 @@ class BacktestSentimentProvider(SentimentProvider):
     async def get_news_sentiment(
         self,
         symbol: str = "SPY",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return await record_provider_call(
             self.telemetry,
@@ -33,7 +34,7 @@ class BacktestSentimentProvider(SentimentProvider):
 
     async def get_fear_greed_sentiment(
         self,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return await record_provider_call(
             self.telemetry,

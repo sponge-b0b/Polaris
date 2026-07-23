@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.runtime import RuntimePersistenceResult
-from core.storage.persistence.runtime import WorkflowEventRecord
-from core.storage.persistence.runtime import WorkflowNodeRunRecord
-from core.storage.persistence.runtime import WorkflowRunRecord
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
-from core.storage.persistence.runtime import new_random_workflow_state_snapshot_id
-from core.storage.persistence.runtime import new_workflow_state_snapshot_id
 from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.runtime import (
+    RuntimePersistenceResult,
+    WorkflowEventRecord,
+    WorkflowNodeRunRecord,
+    WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
+    new_random_workflow_state_snapshot_id,
+    new_workflow_state_snapshot_id,
+)
 
 
 def test_workflow_run_record_is_typed_and_immutable() -> None:
@@ -105,7 +106,7 @@ def test_workflow_node_run_record_validates_node_fields() -> None:
 def test_workflow_state_snapshot_record_is_typed_immutable_and_preserves_state() -> (
     None
 ):
-    timestamp = datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
     record = WorkflowStateSnapshotRecord(
         snapshot_id=" workflow-state-snapshot-1 ",
         workflow_name=" morning_report ",
@@ -160,7 +161,7 @@ def test_workflow_state_snapshot_record_validates_required_fields(
         "workflow_name": "morning_report",
         "execution_id": "exec-1",
         "workflow_status": "running",
-        "timestamp": datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 5, 31, 14, 0, tzinfo=UTC),
     }
     values.update(kwargs)
 
@@ -169,7 +170,7 @@ def test_workflow_state_snapshot_record_validates_required_fields(
 
 
 def test_workflow_state_snapshot_id_helpers_are_stable_and_validated() -> None:
-    timestamp = datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 
     snapshot_id = new_workflow_state_snapshot_id(
         workflow_name=" morning_report ",
@@ -208,7 +209,7 @@ def test_workflow_event_record_validates_event_fields() -> None:
         event_type="runtime.node.completed",
         workflow_name="morning_report",
         execution_id="exec-1",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         node_name="macro_analysis",
         payload={"progress": 1.0},
     )
@@ -221,7 +222,7 @@ def test_workflow_event_record_validates_event_fields() -> None:
             event_type=" ",
             workflow_name="morning_report",
             execution_id="exec-1",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
     with pytest.raises(ValueError, match="wave_index"):
@@ -229,7 +230,7 @@ def test_workflow_event_record_validates_event_fields() -> None:
             event_type="runtime.node.completed",
             workflow_name="morning_report",
             execution_id="exec-1",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             wave_index=-1,
         )
 

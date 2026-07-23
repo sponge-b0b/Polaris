@@ -1,30 +1,34 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
+from intelligence.strategy.hypothesis.breadth import (
+    BreadthMessageRule,
+    breadth_messages,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
+from intelligence.strategy.hypothesis.contracts import StrategyPerspective
+from intelligence.strategy.hypothesis.evidence import (
+    StrategyAssumption,
+    StrategyEvidenceItem,
+    StrategyInvalidationCondition,
+    StrategyInvalidationOperator,
+)
+from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.hypothesis.policy_support import (
     breadth_context_from_evidence,
+    clamp_01,
+    data_quality_flags,
+    deduplicate_values,
+    evidence_for_perspective,
+    evidence_reliability,
+    numeric_evidence_value,
+    string_evidence_value,
 )
-from intelligence.strategy.hypothesis.policy_support import clamp_01
-from intelligence.strategy.hypothesis.policy_support import data_quality_flags
-from intelligence.strategy.hypothesis.policy_support import deduplicate_values
-from intelligence.strategy.hypothesis.policy_support import evidence_for_perspective
-from intelligence.strategy.hypothesis.policy_support import evidence_reliability
-from intelligence.strategy.hypothesis.policy_support import numeric_evidence_value
-from intelligence.strategy.hypothesis.policy_support import string_evidence_value
-from intelligence.strategy.hypothesis.breadth import BreadthMessageRule
-from intelligence.strategy.hypothesis.breadth import breadth_messages
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.evidence import StrategyAssumption
-from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationCondition
-from intelligence.strategy.hypothesis.evidence import StrategyInvalidationOperator
-from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
-
 
 _BEAR_BREADTH_SIGNAL_RULES = (
     BreadthMessageRule(
@@ -251,14 +255,14 @@ def _bear_assumptions(
         StrategyAssumption(
             assumption_id="bear.downside_requires_negative_evidence",
             perspective=StrategyPerspective.BEAR,
-            description="Bearish posture requires negative evidence to remain persistent.",
+            description="Bearish posture requires negative evidence to remain persistent.",  # noqa: E501
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="bear.strength_requires_risk_or_trend_pressure",
             perspective=StrategyPerspective.BEAR,
-            description="Bearish strength assumes risk pressure or trend pressure does not unwind.",
+            description="Bearish strength assumes risk pressure or trend pressure does not unwind.",  # noqa: E501
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -276,7 +280,7 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.sentiment_reversal",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if sentiment turns materially bullish.",
+            description="Bear case is invalidated if sentiment turns materially bullish.",  # noqa: E501
             observed_value=sentiment_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.25,
@@ -285,7 +289,7 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.technical_reversal",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if technical structure turns bullish.",
+            description="Bear case is invalidated if technical structure turns bullish.",  # noqa: E501
             observed_value=technical_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.25,
@@ -294,7 +298,7 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.breadth_reacceleration",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if market breadth strongly reaccelerates.",
+            description="Bear case is invalidated if market breadth strongly reaccelerates.",  # noqa: E501
             observed_value=breadth_confirmation_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.45,
@@ -303,7 +307,7 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.risk_pressure_collapse",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if aggregate risk pressure collapses.",
+            description="Bear case is invalidated if aggregate risk pressure collapses.",  # noqa: E501
             observed_value=risk_pressure,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=0.15,

@@ -1,13 +1,12 @@
 from dishka import Provider, Scope, provide
 
-from core.llm.llm_service import LLMService
 from application.services.base import ServiceRunner
 from application.services.macro.macro_service import MacroService
 from application.services.technical.technical_analysis_service import (
     TechnicalAnalysisService,
 )
+from core.llm.llm_service import LLMService
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
-
 from intelligence.analysts.fundamental.fundamental_agent import FundamentalAgent
 from intelligence.analysts.technical.technical_agent import TechnicalAgent
 

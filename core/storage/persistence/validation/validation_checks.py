@@ -1,24 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 from numbers import Real
-from typing import Iterable
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 from core.storage.persistence.validation.validation_persistence_models import (
     PersistenceValidationIssue,
-)
-from core.storage.persistence.validation.validation_persistence_models import (
     PersistenceValidationResult,
-)
-from core.storage.persistence.validation.validation_persistence_models import (
     PersistenceValidationSeverity,
 )
 
@@ -298,7 +294,7 @@ def validate_timestamp_fields(
     Validate timestamp shape and ordering without mutating the target record.
     """
 
-    validation_now = now if now is not None else datetime.now(timezone.utc)
+    validation_now = now if now is not None else datetime.now(UTC)
     issues: list[PersistenceValidationIssue] = []
     timestamp_fields = _normalized_field_names(
         timestamp_field_names,
@@ -804,11 +800,11 @@ def _validate_timestamp_value(
             )
         )
         comparable_value = value.replace(
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
     else:
         comparable_value = value.astimezone(
-            timezone.utc,
+            UTC,
         )
 
     comparable_now = _aware_utc(
@@ -895,10 +891,10 @@ def _aware_utc(
 ) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
     return value.astimezone(
-        timezone.utc,
+        UTC,
     )
 
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from core.runtime.state.state_manager import StateManager
-from core.storage.persistence.completed_run_archive import CompletedRunArchive
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunArchive,
+    CompletedRunBundle,
+)
 
 
 class InMemoryCompletedRunArchive(CompletedRunArchive):

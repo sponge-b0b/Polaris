@@ -5,7 +5,6 @@ from intelligence.analysts.technical.technical_breadth_context import (
 )
 from intelligence.risk.regime import risk_regime_coupling
 
-
 BASE_RISK = {
     "composite_risk": 0.40,
     "risk_pressure": 0.40,

@@ -4,8 +4,8 @@ from pathlib import Path
 
 from alembic.config import Config
 
-from core.database.base import Base
 import core.database.models  # noqa: F401
+from core.database.base import Base
 
 
 def test_alembic_config_points_to_migrations_directory() -> None:

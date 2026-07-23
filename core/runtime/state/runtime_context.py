@@ -1,19 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import ClassVar
-from typing import Mapping
+from datetime import UTC, datetime
+from typing import Any, ClassVar
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
-from pydantic import Field
-from pydantic import field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.telemetry.tracing.trace_context import TraceContext
-
 
 RUNTIME_CONTEXT_SCHEMA_VERSION = 2
 
@@ -38,7 +32,7 @@ class RuntimeContext(BaseModel):
 
     mode: str = "live"
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     simulation_time: datetime | None = None
 

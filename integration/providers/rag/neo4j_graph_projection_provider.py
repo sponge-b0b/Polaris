@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.rag.neo4j_rag_client import Neo4jNode
-from integration.clients.rag.neo4j_rag_client import Neo4jRagClient
-from integration.clients.rag.neo4j_rag_client import Neo4jRelationship
-from integration.clients.rag.neo4j_rag_client import Neo4jSearchQuery
+from integration.clients.rag.neo4j_rag_client import (
+    Neo4jNode,
+    Neo4jRagClient,
+    Neo4jRelationship,
+    Neo4jSearchQuery,
+)
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.graph_projection_models import GraphProjection
-from integration.providers.rag.graph_projection_models import GraphSearchQuery
-from integration.providers.rag.graph_projection_models import GraphSearchResult
-from integration.providers.rag.graph_projection_models import GraphStoreStatus
+from integration.providers.rag.graph_projection_models import (
+    GraphProjection,
+    GraphSearchQuery,
+    GraphSearchResult,
+    GraphStoreStatus,
+)
 from integration.providers.rag.graph_projection_provider import GraphProjectionProvider
 
 

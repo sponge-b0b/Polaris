@@ -2,21 +2,24 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
 from application.rag.ingestion.curated_rag_models import CuratedRagSource
-from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
-from application.rag.ingestion.rag_source_loaders import StrategyRagSourceLoader
+from application.rag.ingestion.rag_source_loaders import (
+    CuratedRagSourceLoaderRegistry,
+    StrategyRagSourceLoader,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceRepository
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
+from core.storage.persistence.strategy import (
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategyPersistenceRepository,
+    StrategySynthesisDecisionRecord,
+)
 
 
 @dataclass(slots=True)

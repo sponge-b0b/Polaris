@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
+from core.runtime.control import WorkflowControlManager, WorkflowControlState
 from core.runtime.events import EventBus
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
-from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime
-from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime_async
+from core.workflow.bootstrap.workflow_bootstrap import (
+    WorkflowBootstrapConfig,
+    build_workflow_runtime,
+    build_workflow_runtime_async,
+)
 
 
 def bootstrap_config() -> WorkflowBootstrapConfig:

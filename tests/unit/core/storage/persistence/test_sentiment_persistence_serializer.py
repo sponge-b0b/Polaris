@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.sentiment import SentimentSnapshotModel
-from core.database.models.sentiment import SentimentSourceModel
+from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
+from core.storage.persistence.sentiment import (
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
 from core.storage.persistence.serializers.sentiment_persistence_serializer import (
     SentimentPersistenceSerializer,
 )
@@ -154,4 +154,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

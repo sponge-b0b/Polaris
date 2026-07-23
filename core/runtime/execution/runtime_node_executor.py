@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 
 from core.runtime.events import RuntimeEventType
+from core.runtime.execution.runtime_context_transitions import (
+    RuntimeContextTransitions,
+)
 from core.runtime.execution.runtime_event_publisher import RuntimeEventPublisher
 from core.runtime.execution.runtime_execution_context import (
     RuntimeExecutionLocation,
     RuntimeNodeExecutionResult,
     RuntimeNodeInvocation,
-)
-from core.runtime.execution.runtime_context_transitions import (
-    RuntimeContextTransitions,
 )
 from core.runtime.lifecycle.runtime_lifecycle_manager import RuntimeLifecycleManager
 from core.runtime.state.runtime_context import RuntimeContext
@@ -202,7 +202,7 @@ class RuntimeNodeExecutor:
                 invocation.node.run(invocation.location.context),
                 timeout=timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return RuntimeNodeOutput.failure_output(
                 errors=[
                     {

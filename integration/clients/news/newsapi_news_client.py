@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from newsapi import NewsApiClient as NewsRESTClient
+
 from config.settings import Settings
 
 
@@ -42,7 +44,7 @@ class NewsApiNewsClient:
         language: str = "en",
         sort_by: str = "publishedAt",
         page_size: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Search all indexed articles.
 
@@ -67,10 +69,10 @@ class NewsApiNewsClient:
 
     async def get_top_headlines(
         self,
-        category: Optional[str] = None,
+        category: str | None = None,
         country: str = "us",
         page_size: int = 25,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Retrieve top headlines.
 
@@ -95,9 +97,9 @@ class NewsApiNewsClient:
 
     async def get_market_news(
         self,
-        symbols: Optional[List[str]] = None,
+        symbols: list[str] | None = None,
         page_size: int = 25,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Retrieve market-focused news.
 
@@ -133,8 +135,8 @@ class NewsApiNewsClient:
 
     def _normalize_response(
         self,
-        response: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Standardize NewsAPI responses.
 

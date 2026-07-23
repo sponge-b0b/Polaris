@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import Generic
-from typing import TypeVar
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 
 ResultPayloadT = TypeVar("ResultPayloadT")
 
@@ -41,7 +37,7 @@ class ServiceDegradation:
     frozen=True,
     slots=True,
 )
-class ServiceResult(Generic[ResultPayloadT]):
+class ServiceResult[ResultPayloadT]:
     """
     Canonical application-service result envelope.
     """
@@ -57,7 +53,7 @@ class ServiceResult(Generic[ResultPayloadT]):
     attempts: int = 1
     duration_seconds: float | None = None
     completed_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     metadata: dict[str, Any] = field(
         default_factory=dict,

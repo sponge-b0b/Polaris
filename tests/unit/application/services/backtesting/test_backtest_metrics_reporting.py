@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import json
-from datetime import date
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from application.services.backtesting import BacktestFill
-from application.services.backtesting import BacktestPortfolioSnapshot
-from application.services.backtesting import BacktestScenario
-from application.services.backtesting import BacktestStepResult
-from application.services.backtesting import build_backtest_artifacts
-from application.services.backtesting import compute_backtest_metrics
-from application.services.backtesting import render_backtest_markdown_report
+from application.services.backtesting import (
+    BacktestFill,
+    BacktestPortfolioSnapshot,
+    BacktestScenario,
+    BacktestStepResult,
+    build_backtest_artifacts,
+    compute_backtest_metrics,
+    render_backtest_markdown_report,
+)
 
 
 def test_compute_backtest_metrics_from_deterministic_equity_curve_and_fills() -> None:
@@ -209,5 +209,5 @@ def _timestamp(
         2026,
         1,
         day,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )

@@ -6,22 +6,25 @@ from dataclasses import dataclass
 from application.persistence.backtesting.backtest_result_persistence_mapper import (
     backtest_result_to_persistence_bundle,
 )
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
 from application.services.backtesting import BacktestResult
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestFillRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPersistenceBundle
-from core.storage.persistence.backtesting import BacktestPersistenceRepository
-from core.storage.persistence.backtesting import BacktestPersistenceResult
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestScenarioRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestFillRecord,
+    BacktestMetricRecord,
+    BacktestPersistenceBundle,
+    BacktestPersistenceRepository,
+    BacktestPersistenceResult,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestScenarioRecord,
+    BacktestStepRecord,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceListResult
+from core.storage.persistence.query import PersistenceCommonQuery, PersistenceListResult
 
 
 @dataclass(

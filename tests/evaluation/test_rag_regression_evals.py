@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import pytest
 
-from application.evaluations import canonical_evaluation_dataset_definitions
-from application.evaluations import rag_evaluation_metric_specs
-from application.evaluations import rag_threshold_profile
+from application.evaluations import (
+    canonical_evaluation_dataset_definitions,
+    rag_evaluation_metric_specs,
+    rag_threshold_profile,
+)
 from domain.evaluation import EvaluationTargetType
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]

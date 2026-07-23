@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from application.reports import MorningReportAssembler
-
+from application.reports import MorningReportAssembler, ReportSection
 
 FULL_MACRO_LLM_RESPONSE = (
     "Macro desk full response line one.\n\n"
@@ -229,13 +228,10 @@ def test_assembler_degrades_missing_nodes_into_unavailable_sections() -> None:
 
 
 def _metric_value(
-    section: object,
+    section: ReportSection,
     label: str,
 ) -> str:
-    metrics = getattr(
-        section,
-        "metrics",
-    )
+    metrics = section.metrics
     for metric in metrics:
         if metric.label == label:
             return metric.value
@@ -244,13 +240,10 @@ def _metric_value(
 
 
 def _bullet_text(
-    section: object,
+    section: ReportSection,
     label: str,
 ) -> str:
-    bullets = getattr(
-        section,
-        "bullets",
-    )
+    bullets = section.bullets
     for bullet in bullets:
         if bullet.label == label:
             return bullet.text
@@ -259,14 +252,11 @@ def _bullet_text(
 
 
 def _table_value(
-    section: object,
+    section: ReportSection,
     title: str,
     label: str,
 ) -> str:
-    tables = getattr(
-        section,
-        "tables",
-    )
+    tables = section.tables
     for table in tables:
         if table.title != title:
             continue
@@ -465,7 +455,7 @@ def _complete_workflow_result() -> dict[str, object]:
                         "directional_score": 0.54,
                         "confidence": 0.68,
                         "regime": "constructive",
-                        "llm_response": "Sentiment desk full response. SENTIMENT_LLM_END",
+                        "llm_response": "Sentiment desk full response. SENTIMENT_LLM_END",  # noqa: E501
                         "features": {
                             "composite_sentiment": 0.57,
                             "fear_greed_state": "neutral",

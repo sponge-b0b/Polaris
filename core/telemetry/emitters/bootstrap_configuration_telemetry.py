@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from core.security.sensitive_data import sanitize_sensitive_value
 from core.telemetry.context import get_active_telemetry_context
 from core.telemetry.contracts.telemetry_context import TelemetryContext
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 _CONFIGURATION_FAILURE_EVENT = "platform.bootstrap.configuration_failed"

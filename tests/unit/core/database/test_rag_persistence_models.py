@@ -6,13 +6,15 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.rag import RagAnswerLogModel
-from core.database.models.rag import RagChunkModel
-from core.database.models.rag import RagDocumentModel
-from core.database.models.rag import RagEmbeddingJobModel
-from core.database.models.rag import RagGraphJobModel
-from core.database.models.rag import RagQueryLogModel
-from core.database.models.rag import RagSourceEligibilityModel
+from core.database.models.rag import (
+    RagAnswerLogModel,
+    RagChunkModel,
+    RagDocumentModel,
+    RagEmbeddingJobModel,
+    RagGraphJobModel,
+    RagQueryLogModel,
+    RagSourceEligibilityModel,
+)
 
 
 def test_rag_models_are_imported_into_base_metadata() -> None:

@@ -2,28 +2,23 @@ from __future__ import annotations
 
 import asyncio
 import os
-
 from dataclasses import dataclass
 from enum import StrEnum
 from time import perf_counter
-from typing import Any
-from typing import Protocol
-from typing import cast
+from typing import Any, Protocol, cast
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationThreshold
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationMetricResult,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationThreshold,
+)
 from integration.providers.llm_evaluation.evaluation_provider import (
     EvaluationMetricSpec,
-)
-from integration.providers.llm_evaluation.evaluation_provider import EvaluationProvider
-from integration.providers.llm_evaluation.evaluation_provider import (
+    EvaluationProvider,
     EvaluationProviderRequest,
-)
-from integration.providers.llm_evaluation.evaluation_provider import (
     EvaluationProviderResult,
 )
 from integration.providers.provider_telemetry import record_provider_call
@@ -417,12 +412,14 @@ def _build_metric(
     criteria: str | None = None,
     evaluation_steps: tuple[str, ...] = (),
 ) -> Any:
-    from deepeval.metrics import AnswerRelevancyMetric
-    from deepeval.metrics import ContextualPrecisionMetric
-    from deepeval.metrics import ContextualRecallMetric
-    from deepeval.metrics import ContextualRelevancyMetric
-    from deepeval.metrics import FaithfulnessMetric
-    from deepeval.metrics import HallucinationMetric
+    from deepeval.metrics import (
+        AnswerRelevancyMetric,
+        ContextualPrecisionMetric,
+        ContextualRecallMetric,
+        ContextualRelevancyMetric,
+        FaithfulnessMetric,
+        HallucinationMetric,
+    )
 
     metric_classes = {
         DeepEvalMetricName.FAITHFULNESS.value: FaithfulnessMetric,

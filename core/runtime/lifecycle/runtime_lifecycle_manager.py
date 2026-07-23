@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
-from typing import Iterable
 
 from core.runtime.artifacts.artifact_ref import ArtifactRef
 from core.runtime.events.runtime_events import RuntimeEvent
@@ -308,7 +306,7 @@ class RuntimeLifecycleManager:
 
         failures = [
             (hook, result)
-            for hook, result in zip(self._hooks, results)
+            for hook, result in zip(self._hooks, results, strict=False)
             if isinstance(result, BaseException)
         ]
         if self._failure_handler is not None:

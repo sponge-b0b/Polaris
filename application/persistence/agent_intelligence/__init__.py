@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-from application.persistence.agent_intelligence.agent_intelligence_persistence_service import (
+from application.persistence.agent_intelligence.agent_intelligence_persistence_service import (  # noqa: E501
     AgentIntelligencePersistenceService,
-)
-from application.persistence.agent_intelligence.agent_intelligence_persistence_service import (
     AgentReasoningPersistenceFilters,
-)
-from application.persistence.agent_intelligence.agent_intelligence_persistence_service import (
     AgentRecommendationPersistenceFilters,
-)
-from application.persistence.agent_intelligence.agent_intelligence_persistence_service import (
     AgentRiskAssessmentPersistenceFilters,
 )
 

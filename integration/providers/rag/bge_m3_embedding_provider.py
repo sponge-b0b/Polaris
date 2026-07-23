@@ -3,9 +3,11 @@ from __future__ import annotations
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
+from integration.providers.rag.embedding_provider import (
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
 
 
 class BgeM3EmbeddingProvider:

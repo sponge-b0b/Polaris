@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, cast
-from config.settings import Settings
 
 from alpaca.trading.client import TradingClient
-from alpaca.trading.models import PortfolioHistory, TradeAccount, Position
+from alpaca.trading.models import PortfolioHistory, Position, TradeAccount
 from alpaca.trading.requests import GetPortfolioHistoryRequest
+
+from config.settings import Settings
 
 
 class AlpacaPortfolioClient:
@@ -94,7 +95,7 @@ class AlpacaPortfolioClient:
             0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long Call/Put, 3=Spreads/Straddles.
             options_trading_level (Optional[int]): The effective options trading level of the account. This is the minimum between account options_approved_level and account configurations max_options_trading_level.
             0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long, 3=Spreads/Straddles.
-        """
+        """  # noqa: E501
         account = cast(TradeAccount, await asyncio.to_thread(self.client.get_account))
 
         return account.model_dump(mode="json")
@@ -129,7 +130,7 @@ class AlpacaPortfolioClient:
             avg_entry_swap_rate (Optional[str]): The average exchange rate the price was converted into the local currency at.
             usd (USDPositionValues): Represents the position in USD values.
             qty_available (Optional[str]): Total number of shares available minus open orders.
-        """
+        """  # noqa: E501
 
         positions = cast(
             list[Position], await asyncio.to_thread(self.client.get_all_positions)

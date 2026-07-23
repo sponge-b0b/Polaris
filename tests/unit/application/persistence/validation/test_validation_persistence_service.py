@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.validation import ValidationPersistenceService
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.validation import PersistenceExpectedLineage
-from core.storage.persistence.validation import PersistenceExternalSourceValidationSpec
-from core.storage.persistence.validation import PersistenceRecordValidationTarget
-from core.storage.persistence.validation import PersistenceValidationStatus
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from core.storage.persistence.validation import (
+    PersistenceExpectedLineage,
+    PersistenceExternalSourceValidationSpec,
+    PersistenceRecordValidationTarget,
+    PersistenceValidationStatus,
+)
 
 
 @dataclass(
@@ -40,7 +42,7 @@ class RepresentativeManualRecord:
 async def test_validation_service_coordinates_checks_for_valid_curated_record() -> None:
     service = ValidationPersistenceService()
     record = RepresentativeCuratedRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
         confidence=0.82,
         lineage=PersistenceLineage(
             workflow_name="morning_report",
@@ -60,7 +62,7 @@ async def test_validation_service_coordinates_checks_for_valid_curated_record() 
         ),
         require_lineage=True,
         required_timestamp_field_names=("generated_at",),
-        now=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
     )
 
     assert result.status == PersistenceValidationStatus.PASSED
@@ -74,7 +76,7 @@ async def test_validation_service_returns_typed_issues_without_mutating_record()
 ):
     service = ValidationPersistenceService()
     record = RepresentativeCuratedRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
         confidence=1.4,
         lineage=PersistenceLineage(
             workflow_name="morning_report",
@@ -92,7 +94,7 @@ async def test_validation_service_returns_typed_issues_without_mutating_record()
             workflow_name="morning_report",
             execution_id="exec-2",
         ),
-        now=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
     )
 
     assert result.status == PersistenceValidationStatus.FAILED
@@ -107,7 +109,7 @@ async def test_validation_service_returns_typed_issues_without_mutating_record()
 
 
 @pytest.mark.asyncio
-async def test_validation_service_warns_for_manual_records_created_outside_workflows() -> (
+async def test_validation_service_warns_for_manual_records_created_outside_workflows() -> (  # noqa: E501
     None
 ):
     service = ValidationPersistenceService()
@@ -132,7 +134,7 @@ async def test_validation_service_batches_representative_records() -> None:
             record_id="article-1",
         ),
         record=RepresentativeCuratedRecord(
-            generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+            generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
             confidence=0.82,
             lineage=PersistenceLineage(
                 workflow_name="morning_report",
@@ -148,7 +150,7 @@ async def test_validation_service_batches_representative_records() -> None:
             record_id="article-2",
         ),
         record=RepresentativeCuratedRecord(
-            generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+            generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
             confidence=-0.1,
             lineage=PersistenceLineage(
                 workflow_name="morning_report",
@@ -169,7 +171,7 @@ async def test_validation_service_batches_representative_records() -> None:
             execution_id="exec-1",
         ),
         required_timestamp_field_names=("generated_at",),
-        now=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
     )
 
     assert batch.status == PersistenceValidationStatus.FAILED
@@ -184,7 +186,7 @@ async def test_validation_service_batches_representative_records() -> None:
 async def test_validation_service_accepts_custom_source_specs() -> None:
     service = ValidationPersistenceService()
     record = RepresentativeCuratedRecord(
-        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, 13, 0, tzinfo=UTC),
         confidence=0.82,
         lineage=PersistenceLineage(
             workflow_name="morning_report",
@@ -204,7 +206,7 @@ async def test_validation_service_accepts_custom_source_specs() -> None:
         source_spec=PersistenceExternalSourceValidationSpec(
             dedupe_key_field_names=("source",),
         ),
-        now=datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 5, 30, 14, 0, tzinfo=UTC),
     )
 
     assert result.status == PersistenceValidationStatus.PASSED

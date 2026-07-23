@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -13,10 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.completed_runs import CompletedWorkflowRunModel
 from core.database.models.projections import WorkflowOutputProjectionJobModel
-from core.storage.persistence.projections import ProjectionJobClaim
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (
+from core.storage.persistence.projections import (
+    ProjectionJobClaim,
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobStatus,
+)
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
     PostgresWorkflowOutputProjectionJobRepository,
 )
 
@@ -302,7 +302,7 @@ async def test_recover_stale_running_jobs_marks_jobs_failed() -> None:
     )
 
     recovered = await repository.recover_stale_running_jobs(
-        started_before=datetime(2026, 7, 9, 12, tzinfo=timezone.utc),
+        started_before=datetime(2026, 7, 9, 12, tzinfo=UTC),
         error="projection worker interrupted",
     )
 
@@ -353,7 +353,7 @@ def _job_record() -> WorkflowOutputProjectionJobRecord:
 
 def _job_model(
     *,
-    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.PENDING,
+    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.PENDING,  # noqa: E501
     attempt_count: int = 0,
 ) -> WorkflowOutputProjectionJobModel:
     record = _job_record()
@@ -370,10 +370,10 @@ def _job_model(
         status=status.value,
         attempt_count=attempt_count,
         last_error=None,
-        created_at=datetime(2026, 7, 9, 12, tzinfo=timezone.utc),
+        created_at=datetime(2026, 7, 9, 12, tzinfo=UTC),
         started_at=None,
         completed_at=None,
-        updated_at=datetime(2026, 7, 9, 12, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 9, 12, tzinfo=UTC),
     )
 
 
@@ -391,7 +391,7 @@ def _run_model() -> CompletedWorkflowRunModel:
         outputs_json={},
         metadata_payload={},
         errors_json=[],
-        completed_at=datetime(2026, 7, 9, 12, tzinfo=timezone.utc),
+        completed_at=datetime(2026, 7, 9, 12, tzinfo=UTC),
     )
 
 

@@ -1,20 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from core.storage.persistence.portfolio import (
     InMemoryPortfolioExpansionPersistenceRepository,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExpansionPersistenceBundle,
+    PortfolioPositionLatestRecord,
 )
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
 
-
-_BASE_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
+_BASE_TIME = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.mark.asyncio

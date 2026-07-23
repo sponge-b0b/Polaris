@@ -1,31 +1,30 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import replace
-from datetime import UTC
-from datetime import datetime
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from time import perf_counter
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import JsonValue
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import new_rag_graph_job_id
+from core.storage.persistence.rag import (
+    JsonObject,
+    JsonValue,
+    RagDocumentRecord,
+    RagGraphJobRecord,
+    RagPersistenceRepository,
+    new_rag_graph_job_id,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.graph_projection_models import GraphNode
-from integration.providers.rag.graph_projection_models import GraphNodeType
-from integration.providers.rag.graph_projection_models import GraphProjection
-from integration.providers.rag.graph_projection_models import GraphRelationship
-from integration.providers.rag.graph_projection_models import GraphRelationshipType
-from integration.providers.rag.graph_projection_models import GraphSearchQuery
+from integration.providers.rag.graph_projection_models import (
+    GraphNode,
+    GraphNodeType,
+    GraphProjection,
+    GraphRelationship,
+    GraphRelationshipType,
+    GraphSearchQuery,
+)
 from integration.providers.rag.graph_projection_provider import GraphProjectionProvider
-
 
 NEO4J_TARGET_STORE = "neo4j"
 DEFAULT_GRAPH_MODEL = "polaris-rag-graph-v1"
@@ -760,7 +759,7 @@ def _metadata_object_scalar(metadata: JsonObject, key: str) -> JsonValue:
     return None
 
 
-def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:
+def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:  # noqa: C901
     table = document.source_table
     if table == "agent_signals":
         return GraphNodeType.AGENT_SIGNAL

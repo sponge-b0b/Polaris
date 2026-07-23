@@ -1,44 +1,34 @@
 from __future__ import annotations
 
 import logging
-
-from collections.abc import AsyncIterator
-from collections.abc import Awaitable
-from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
-from typing import TypeVar
 
-from application.rag.contracts.rag_context import RagRetrievalFilters
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
+from application.rag.contracts.rag_operation_models import (
+    RagIngestOperationRequest,
+    RagOperationResult,
+    RagProcessEmbeddingsOperationRequest,
+    RagProcessGraphOperationRequest,
+    RagProjectionReadinessResult,
+    RagRebuildProjectionOperationRequest,
+    RagStatusOperationRequest,
+)
+from application.rag.contracts.rag_request import RagRequest
+from application.rag.contracts.rag_result import RagResult
 from application.rag.operations.rag_embedding_operations import (
     RagEmbeddingJobOperationsService,
 )
 from application.rag.operations.rag_ingestion_operations import (
     RagIngestionOperationsService,
 )
-from application.rag.contracts.rag_operation_models import RagIngestOperationRequest
-from application.rag.contracts.rag_operation_models import RagOperationResult
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import (
-    RagProcessEmbeddingsOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
-    RagProcessGraphOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import (
-    RagRebuildProjectionOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
 from application.rag.operations.rag_projection_operations import (
     RagProjectionOperationsService,
 )
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
-from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_result import RagResult
 from application.rag.rag_service import RagService
 from core.bootstrap.di_providers import application_request_scope
 
@@ -251,14 +241,10 @@ class RagCommandService:
             return await service.run(request)
 
 
-_RagDependency = TypeVar("_RagDependency")
-_RagOperationDependency = TypeVar("_RagOperationDependency")
-
-
-async def _run_operation(
-    service: _RagOperationDependency | None,
-    context_factory: Callable[[], AbstractAsyncContextManager[_RagOperationDependency]],
-    callback: Callable[[_RagOperationDependency], Awaitable[RagOperationResult]],
+async def _run_operation[RagOperationDependency](
+    service: RagOperationDependency | None,
+    context_factory: Callable[[], AbstractAsyncContextManager[RagOperationDependency]],
+    callback: Callable[[RagOperationDependency], Awaitable[RagOperationResult]],
 ) -> RagOperationResult:
     if service is not None:
         return await callback(service)
@@ -266,11 +252,11 @@ async def _run_operation(
         return await callback(resolved_service)
 
 
-async def _run_status_operation(
-    service: _RagOperationDependency | None,
-    context_factory: Callable[[], AbstractAsyncContextManager[_RagOperationDependency]],
+async def _run_status_operation[RagOperationDependency](
+    service: RagOperationDependency | None,
+    context_factory: Callable[[], AbstractAsyncContextManager[RagOperationDependency]],
     callback: Callable[
-        [_RagOperationDependency], Awaitable[RagProjectionReadinessResult]
+        [RagOperationDependency], Awaitable[RagProjectionReadinessResult]
     ],
 ) -> RagProjectionReadinessResult:
     if service is not None:
@@ -280,9 +266,9 @@ async def _run_status_operation(
 
 
 @asynccontextmanager
-async def _default_rag_dependency_context(
-    dependency_type: type[_RagDependency],
-) -> AsyncIterator[_RagDependency]:
+async def _default_rag_dependency_context[RagDependency](
+    dependency_type: type[RagDependency],
+) -> AsyncIterator[RagDependency]:
     """Resolve one request-scoped dependency from canonical composition."""
 
     async with application_request_scope() as request_container:
@@ -488,7 +474,7 @@ def render_rag_projection_readiness(
         f"- Embedding jobs: {_display_value(canonical.embedding_job_count)}",
         f"- Graph jobs: {_display_value(canonical.graph_job_count)}",
         f"- Pending embedding jobs: {_display_value(canonical.pending_embedding_jobs)}",
-        f"- Retryable embedding jobs: {_display_value(canonical.retryable_embedding_jobs)}",
+        f"- Retryable embedding jobs: {_display_value(canonical.retryable_embedding_jobs)}",  # noqa: E501
         f"- Failed embedding jobs: {_display_value(canonical.failed_embedding_jobs)}",
         "",
         "Qdrant Projection",

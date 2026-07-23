@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.macro import EconomicCalendarEventModel
-from core.database.models.macro import MacroObservationModel
-from core.database.models.macro import MacroRegimeSnapshotModel
+from core.database.models.macro import (
+    EconomicCalendarEventModel,
+    MacroObservationModel,
+    MacroRegimeSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroRegimeSnapshotRecord,
+)
 from core.storage.persistence.serializers.macro_persistence_serializer import (
     MacroPersistenceSerializer,
 )
@@ -151,4 +154,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

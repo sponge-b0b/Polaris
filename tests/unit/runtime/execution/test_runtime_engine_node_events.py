@@ -6,22 +6,22 @@ import pytest
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.control import WorkflowControlManager
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.lifecycle.runtime_lifecycle_manager import RuntimeLifecycleManager
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.runtime.telemetry.runtime_telemetry import (
     InMemoryRuntimeTelemetrySink,
     RuntimeTelemetry,
     RuntimeTelemetryEventType,
 )
 from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 
 
 class SuccessfulRuntimeNode(RuntimeNode):
@@ -108,7 +108,7 @@ def collect_events() -> tuple[EventBus, list[RuntimeEvent]]:
 
 
 @pytest.mark.asyncio
-async def test_runtime_engine_emits_events_for_disabled_and_dependency_skipped_nodes() -> (
+async def test_runtime_engine_emits_events_for_disabled_and_dependency_skipped_nodes() -> (  # noqa: E501
     None
 ):
     event_bus, events = collect_events()
@@ -372,7 +372,7 @@ class CancelledRuntimeNode(RuntimeNode):
 
 
 @pytest.mark.asyncio
-async def test_runtime_timeout_retains_node_trace_and_one_terminal_lifecycle_event() -> (
+async def test_runtime_timeout_retains_node_trace_and_one_terminal_lifecycle_event() -> (  # noqa: E501
     None
 ):
     telemetry_sink = InMemoryRuntimeTelemetrySink()

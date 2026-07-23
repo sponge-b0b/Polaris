@@ -1,22 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite
-from typing import Mapping
-from typing import Sequence
 
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
-)
-from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context,
 )
-from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
-from intelligence.strategy.hypothesis.context import StrategyEvidenceInputQuality
-from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
+from intelligence.strategy.hypothesis.context import (
+    StrategyEvidenceContext,
+    StrategyEvidenceInputQuality,
+    StrategyEvidenceInputStatus,
+)
+from intelligence.strategy.hypothesis.contracts import (
+    StrategyJsonScalar,
+    StrategyPerspective,
+)
 from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
-from intelligence.strategy.hypothesis.contracts import StrategyJsonScalar
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,7 +475,7 @@ def _unit_float(value: object, *, default: float) -> float:
     return min(1.0, max(0.0, numeric))
 
 
-def _perspectives_for_value(
+def _perspectives_for_value(  # noqa: C901
     *,
     evidence_id: str,
     observed_value: StrategyJsonScalar,

@@ -1,39 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from typing import Sequence
+from datetime import UTC, datetime
 from typing import cast
 
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionReconciliationRequest,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionReconciliationResult,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRequest,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRetryRequest,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRetryResult,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
 )
 from application.projections.workflow_outputs.projection_service import (
     WorkflowOutputProjectionService,
 )
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
+from core.storage.persistence.projections import (
+    MissingProjectionRunRecord,
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobRepository,
+    WorkflowOutputProjectionJobStatus,
+)
 
 
 @dataclass(frozen=True, slots=True)

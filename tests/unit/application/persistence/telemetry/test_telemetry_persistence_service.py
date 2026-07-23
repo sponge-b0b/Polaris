@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.telemetry import AgentMetricPersistenceFilters
-from application.persistence.telemetry import ProviderMetricPersistenceFilters
-from application.persistence.telemetry import TelemetryEventPersistenceFilters
-from application.persistence.telemetry import TelemetryMetricPersistenceFilters
-from application.persistence.telemetry import TelemetryPersistenceService
-from application.persistence.telemetry import TelemetryTracePersistenceFilters
-from application.persistence.telemetry import WorkflowMetricPersistenceFilters
-from core.storage.persistence.telemetry import AgentMetricRecord
-from core.storage.persistence.telemetry import ProviderMetricRecord
-from core.storage.persistence.telemetry import TelemetryEventRecord
-from core.storage.persistence.telemetry import TelemetryMetricRecord
-from core.storage.persistence.telemetry import TelemetryPersistenceBundle
-from core.storage.persistence.telemetry import TelemetryPersistenceResult
-from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.storage.persistence.telemetry import WorkflowMetricRecord
+from application.persistence.telemetry import (
+    AgentMetricPersistenceFilters,
+    ProviderMetricPersistenceFilters,
+    TelemetryEventPersistenceFilters,
+    TelemetryMetricPersistenceFilters,
+    TelemetryPersistenceService,
+    TelemetryTracePersistenceFilters,
+    WorkflowMetricPersistenceFilters,
+)
+from core.storage.persistence.telemetry import (
+    AgentMetricRecord,
+    ProviderMetricRecord,
+    TelemetryEventRecord,
+    TelemetryMetricRecord,
+    TelemetryPersistenceBundle,
+    TelemetryPersistenceResult,
+    TelemetryTraceRecord,
+    WorkflowMetricRecord,
+)
 
 
 class FakeTelemetryRepository:
@@ -405,7 +408,7 @@ async def test_telemetry_persistence_service_uses_typed_filters() -> None:
     )
     service = TelemetryPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     events = await service.list_events(
         TelemetryEventPersistenceFilters(
@@ -643,7 +646,7 @@ def test_telemetry_time_window_filters_require_ordered_bounds(
         | ProviderMetricPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -699,7 +702,7 @@ def _trace() -> TelemetryTraceRecord:
         operation_name="execute_workflow",
         source="runtime",
         started_at=_timestamp(),
-        ended_at=datetime(2026, 5, 31, 14, 1, tzinfo=timezone.utc),
+        ended_at=datetime(2026, 5, 31, 14, 1, tzinfo=UTC),
         duration_seconds=60.0,
         status="succeeded",
         correlation_id="corr-1",
@@ -769,4 +772,4 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

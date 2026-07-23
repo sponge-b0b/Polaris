@@ -5,14 +5,14 @@ from __future__ import annotations
 import secrets
 
 import httpx
-from pydantic import SecretStr
 import pytest
+from pydantic import SecretStr
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 import mcp_server.auth as auth_module
-from mcp_server.auth import protect_streamable_http_app
 import mcp_server.server as server_module
+from mcp_server.auth import protect_streamable_http_app
 from mcp_server.settings import McpServerSettings, McpTransport
 
 _TEST_TOKEN = "unit-test-bearer"

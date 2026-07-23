@@ -4,11 +4,15 @@ from typing import cast
 
 import pytest
 
-from integration.clients.rag.bge_m3_embedding_client import BgeM3Embedding
-from integration.clients.rag.bge_m3_embedding_client import BgeM3EmbeddingClient
+from integration.clients.rag.bge_m3_embedding_client import (
+    BgeM3Embedding,
+    BgeM3EmbeddingClient,
+)
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingInput
-from integration.providers.rag.embedding_provider import EmbeddingRequest
+from integration.providers.rag.embedding_provider import (
+    EmbeddingInput,
+    EmbeddingRequest,
+)
 
 
 class FakeBgeM3EmbeddingClient:

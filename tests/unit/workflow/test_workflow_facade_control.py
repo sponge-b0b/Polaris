@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from core.runtime.control import WorkflowControlManager
-from core.runtime.control import WorkflowControlState
+from core.runtime.control import WorkflowControlManager, WorkflowControlState
 from core.runtime.events import EventBus
-from core.workflow.execution.workflow_facade import WorkflowFacade
-from core.workflow.execution.workflow_facade import WorkflowFacadeConfig
+from core.workflow.execution.workflow_facade import WorkflowFacade, WorkflowFacadeConfig
 
 
 def facade_config() -> WorkflowFacadeConfig:

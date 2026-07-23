@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -12,11 +10,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.lineage import PersistenceLineageLinkModel
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import new_persistence_lineage_link_id
-from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceLineageLinkRecord,
+    PersistenceRecordIdentity,
+    new_persistence_lineage_link_id,
+)
+from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501
     PostgresPersistenceLineageLinkRepository,
 )
 from core.storage.persistence.serializers.lineage_persistence_serializer import (
@@ -382,7 +382,7 @@ def _link() -> PersistenceLineageLinkRecord:
             runtime_id="runtime-1",
             node_name="recommendation_node",
         ),
-        created_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"confidence": 0.9},
     )
 
@@ -417,7 +417,7 @@ def _link_between(
             runtime_id="runtime-1",
             node_name="lineage_node",
         ),
-        created_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, tzinfo=UTC),
     )
 
 

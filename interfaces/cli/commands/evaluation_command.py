@@ -1,23 +1,18 @@
 from __future__ import annotations
 
-from typing import Annotated
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
 from interfaces.cli.services.async_runner import run_cli_async
-from interfaces.cli.services.evaluation_command_service import EvaluationCommandService
 from interfaces.cli.services.evaluation_command_service import (
+    EvaluationCommandService,
     render_evaluation_dataset_seed_result,
-)
-from interfaces.cli.services.evaluation_command_service import (
     render_evaluation_datasets,
-)
-from interfaces.cli.services.evaluation_command_service import render_evaluation_results
-from interfaces.cli.services.evaluation_command_service import (
+    render_evaluation_results,
     render_evaluation_run_result,
+    render_evaluation_status,
 )
-from interfaces.cli.services.evaluation_command_service import render_evaluation_status
 
 evaluation_app = typer.Typer(
     help="Run and inspect Polaris LLM evaluations.",

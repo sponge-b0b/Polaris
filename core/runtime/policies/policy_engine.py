@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from core.runtime.policies.policy import RuntimePolicy
 from core.runtime.policies.policy_registry import PolicyRegistry
@@ -51,9 +47,9 @@ class PolicyEvaluationResult:
 
     failures: tuple[PolicyEvaluationFailure, ...] = ()
 
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
-    completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     metadata: dict[str, Any] = field(
         default_factory=dict,
@@ -166,7 +162,7 @@ class PolicyEngine:
         policy_names: list[str] | None = None,
         emit_telemetry: bool = True,
     ) -> PolicyEvaluationResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         policies = self._select_policies(
             policy_names=policy_names,
@@ -206,6 +202,7 @@ class PolicyEngine:
             for policy, gathered_result in zip(
                 policies,
                 gathered,
+                strict=False,
             ):
                 if isinstance(gathered_result, PolicyResult):
                     results.append(
@@ -238,7 +235,7 @@ class PolicyEngine:
                         )
                     )
 
-        completed_at = datetime.now(timezone.utc)
+        completed_at = datetime.now(UTC)
 
         evaluation_result = PolicyEvaluationResult(
             subject_type=subject.__class__.__name__,

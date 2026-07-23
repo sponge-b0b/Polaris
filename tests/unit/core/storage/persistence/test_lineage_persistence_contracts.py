@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceLineageLinkResult
-from core.storage.persistence.lineage import PersistenceRecordContext
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import PersistenceSourceReference
-from core.storage.persistence.lineage import build_source_reference
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import new_persistence_lineage_link_id
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceLineageLinkRecord,
+    PersistenceLineageLinkResult,
+    PersistenceRecordContext,
+    PersistenceRecordIdentity,
+    PersistenceSourceReference,
+    build_source_reference,
+    clean_optional_identifier,
+    new_persistence_lineage_link_id,
+    require_non_empty_identifier,
+)
 
 
 def test_persistence_lineage_is_typed_normalized_and_immutable() -> None:
@@ -118,7 +118,7 @@ def test_record_identity_requires_record_type_and_id() -> None:
 
 
 def test_record_context_validates_timestamp_order() -> None:
-    created_at = datetime(2026, 5, 30, 13, 0, tzinfo=timezone.utc)
+    created_at = datetime(2026, 5, 30, 13, 0, tzinfo=UTC)
     updated_at = created_at + timedelta(minutes=5)
     context = PersistenceRecordContext(
         identity=PersistenceRecordIdentity(
@@ -187,7 +187,7 @@ def test_lineage_link_record_preserves_cross_record_relationship() -> None:
             runtime_id="runtime-1",
             node_name="recommendation_node",
         ),
-        created_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"reason": "report recommendation"},
     )
 
@@ -222,7 +222,7 @@ def test_lineage_link_record_validates_required_fields(
             record_id="signal-1",
         ),
         "relationship_type": "uses",
-        "created_at": datetime(2026, 5, 30, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 5, 30, tzinfo=UTC),
     }
     values.update(kwargs)
 
@@ -242,7 +242,7 @@ def test_lineage_link_record_rejects_self_links() -> None:
             source_record=identity,
             target_record=identity,
             relationship_type="references",
-            created_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            created_at=datetime(2026, 5, 30, tzinfo=UTC),
         )
 
 

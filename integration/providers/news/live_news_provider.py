@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.clients.news.finnhub_news_client import FinnhubNewsClient
@@ -26,9 +26,9 @@ class LiveNewsProvider(NewsProvider):
         query: str,
         sort_by: str = "publishedAt",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
-        async def fetch_financial_news() -> List[Dict[str, Any]]:
+        async def fetch_financial_news() -> list[dict[str, Any]]:
             response = await self.newsapi_news_client.get_financial_news(
                 query=query,
                 sort_by=sort_by,
@@ -65,7 +65,7 @@ class LiveNewsProvider(NewsProvider):
         self,
         symbol: str = "SPY",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return await record_provider_call(
             self.telemetry,

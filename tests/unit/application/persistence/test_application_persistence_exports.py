@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import importlib
-import os
 import inspect
+import os
 from collections.abc import Sequence
-from typing import get_args
-from typing import get_origin
-from typing import get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 os.environ.setdefault(
     "POLARIS_DATABASE_URL", "postgresql+asyncpg://localhost/polaris_test"
@@ -14,7 +12,6 @@ os.environ.setdefault(
 
 import application.persistence as persistence
 from core.storage.persistence.query import PersistenceListResult
-
 
 _DOMAIN_MODULES = (
     "application.persistence.agent_intelligence",
@@ -135,7 +132,7 @@ def test_application_persistence_root_does_not_export_infrastructure_types() -> 
         assert not any(fragment in export_name for fragment in forbidden_fragments)
 
 
-def test_application_persistence_services_preserve_list_apis_and_add_result_envelopes() -> (
+def test_application_persistence_services_preserve_list_apis_and_add_result_envelopes() -> (  # noqa: E501
     None
 ):
     for module_name in _DOMAIN_MODULES:

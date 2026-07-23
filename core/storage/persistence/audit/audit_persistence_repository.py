@@ -6,8 +6,6 @@ from typing import Protocol
 
 from core.storage.persistence.audit.audit_persistence_models import (
     PersistenceAuditEventRecord,
-)
-from core.storage.persistence.audit.audit_persistence_models import (
     PersistenceAuditEventResult,
 )
 

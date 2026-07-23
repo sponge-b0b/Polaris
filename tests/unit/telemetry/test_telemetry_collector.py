@@ -6,8 +6,7 @@ import pytest
 
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.metrics.metrics_store import MetricPoint
-from core.telemetry.metrics.metrics_store import MetricsStore
+from core.telemetry.metrics.metrics_store import MetricPoint, MetricsStore
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 
 
@@ -75,13 +74,13 @@ async def test_non_fail_fast_reports_failed_sink_and_delivers_to_healthy_sink(
     assert len(caplog.records) == 1
     record = caplog.records[0]
     assert record.exc_info is not None
-    assert getattr(record, "telemetry_sink") == "FailingEmitSink"
-    assert getattr(record, "telemetry_operation") == "emit"
-    assert getattr(record, "event_id") == "event-1"
-    assert getattr(record, "event_type") == "workflow.failed"
-    assert getattr(record, "trace_id") == "trace-1"
-    assert getattr(record, "span_id") == "span-1"
-    assert getattr(record, "correlation_id") == "correlation-1"
+    assert record.telemetry_sink == "FailingEmitSink"
+    assert record.telemetry_operation == "emit"
+    assert record.event_id == "event-1"
+    assert record.event_type == "workflow.failed"
+    assert record.trace_id == "trace-1"
+    assert record.span_id == "span-1"
+    assert record.correlation_id == "correlation-1"
     assert "sink emit failed" in caplog.text
 
     failure_points = _failure_points(metrics_store)

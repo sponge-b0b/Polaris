@@ -2,24 +2,24 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from core.database.models.completed_runs import CompletedRunArtifactModel
-from core.database.models.completed_runs import CompletedWorkflowNodeOutputModel
-from core.database.models.completed_runs import CompletedWorkflowRunModel
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.database.models.completed_runs import (
+    CompletedRunArtifactModel,
+    CompletedWorkflowNodeOutputModel,
+    CompletedWorkflowRunModel,
+)
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunBundle,
+    CompletedRunRecord,
+)
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
@@ -28,7 +28,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for completed-run archive integration tests.",
+    reason="POLARIS_TEST_DATABASE_URL is required for completed-run archive integration tests.",  # noqa: E501
 )
 
 
@@ -159,7 +159,7 @@ def _bundle(
     execution_id: str,
     suffix: str,
 ) -> CompletedRunBundle:
-    completed_at = datetime(2026, 6, 21, 12, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 6, 21, 12, tzinfo=UTC)
     return CompletedRunBundle(
         run=CompletedRunRecord(
             run_id=f"run-{execution_id}",

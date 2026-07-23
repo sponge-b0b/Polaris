@@ -1,22 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
+
 import pytest
 
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from interfaces.cli.services.workflow_progress_service import (
     WorkflowProgressNotification,
-)
-from interfaces.cli.services.workflow_progress_service import (
     WorkflowProgressSubscription,
-)
-from interfaces.cli.services.workflow_progress_service import (
     format_workflow_progress_notification,
-)
-from interfaces.cli.services.workflow_progress_service import (
     progress_notification_from_event,
 )
 
@@ -33,7 +25,7 @@ def build_event(
         workflow_id="morning_report",
         runtime_id="runtime-123",
         timestamp=datetime.now(
-            timezone.utc,
+            UTC,
         ),
         node_name=node_name,
         wave_index=wave_index,

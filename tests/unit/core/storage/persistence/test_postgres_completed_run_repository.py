@@ -1,24 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.completed_runs import CompletedRunArtifactModel
-from core.database.models.completed_runs import CompletedWorkflowNodeOutputModel
-from core.database.models.completed_runs import CompletedWorkflowRunModel
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunArtifactRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.database.models.completed_runs import (
+    CompletedRunArtifactModel,
+    CompletedWorkflowNodeOutputModel,
+    CompletedWorkflowRunModel,
+)
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArtifactRecord,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+)
 from core.storage.persistence.repositories.postgres_completed_run_repository import (
     PostgresCompletedRunRepository,
 )
@@ -252,7 +254,7 @@ def _bundle() -> CompletedRunBundle:
 
 
 def _run_record() -> CompletedRunRecord:
-    completed_at = datetime(2026, 6, 21, 12, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 6, 21, 12, tzinfo=UTC)
     return CompletedRunRecord(
         run_id="run-1",
         workflow_name="morning_report",
@@ -277,7 +279,7 @@ def _run_record() -> CompletedRunRecord:
 
 
 def _node_record() -> CompletedNodeOutputRecord:
-    completed_at = datetime(2026, 6, 21, 12, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 6, 21, 12, tzinfo=UTC)
     return CompletedNodeOutputRecord(
         node_output_id="node-output-1",
         run_id="run-1",

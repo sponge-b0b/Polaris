@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 
-from dataclasses import dataclass
-from dataclasses import field
-
-from application.observability import DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE
-from application.observability import DEFAULT_STATIC_PROMPT_VERSION
-from application.observability import static_prompt_hash
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.observability import (
+    DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE,
+    DEFAULT_STATIC_PROMPT_VERSION,
+    static_prompt_hash,
+)
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.security.rag_security import sanitize_retrieved_context
 from core.storage.persistence.rag import JsonObject

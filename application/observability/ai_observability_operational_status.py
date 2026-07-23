@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 from config.settings import Settings
-from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
-from core.storage.persistence.ai_observability import AiObservabilityExportQueueStatus
+from core.storage.persistence.ai_observability import (
+    AiObservabilityExportJobRepository,
+    AiObservabilityExportQueueStatus,
+)
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 AiObservabilityHealthStatus = Literal[
@@ -48,7 +50,7 @@ class AiObservabilityOperationalStatus:
 
 @dataclass(frozen=True, slots=True)
 class AiObservabilityOperationalStatusService:
-    """Expose Langfuse projection health without reading Langfuse as a source of truth."""
+    """Expose Langfuse projection health without reading Langfuse as a source of truth."""  # noqa: E501
 
     repository: AiObservabilityExportJobRepository
     settings: Settings

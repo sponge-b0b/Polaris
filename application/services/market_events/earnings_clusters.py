@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 """
 Polaris Earnings Events Engine
@@ -21,8 +21,8 @@ They define:
 
 
 def get_clusters(
-    events: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Convert earnings events into volatility-impact events.
     """

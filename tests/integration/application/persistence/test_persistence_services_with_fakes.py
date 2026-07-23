@@ -4,17 +4,19 @@ from typing import cast
 
 import pytest
 
-from application.persistence import AgentIntelligencePersistenceService
-from application.persistence import AttributionPersistenceService
-from application.persistence import MacroPersistenceService
-from application.persistence import MarketPersistenceService
-from application.persistence import NewsPersistenceService
-from application.persistence import PortfolioPersistenceService
-from application.persistence import RecommendationPersistenceService
-from application.persistence import ReportPersistenceService
-from application.persistence import SentimentPersistenceService
-from application.persistence import TelemetryPersistenceService
-from application.persistence import WorkflowStateSnapshotPersistenceService
+from application.persistence import (
+    AgentIntelligencePersistenceService,
+    AttributionPersistenceService,
+    MacroPersistenceService,
+    MarketPersistenceService,
+    NewsPersistenceService,
+    PortfolioPersistenceService,
+    RecommendationPersistenceService,
+    ReportPersistenceService,
+    SentimentPersistenceService,
+    TelemetryPersistenceService,
+    WorkflowStateSnapshotPersistenceService,
+)
 from core.storage.persistence.agent_intelligence import (
     AgentIntelligencePersistenceRepository,
 )
@@ -23,10 +25,14 @@ from core.storage.persistence.macro import MacroPersistenceRepository
 from core.storage.persistence.market import MarketPersistenceRepository
 from core.storage.persistence.news import NewsPersistenceRepository
 from core.storage.persistence.portfolio import PortfolioExpansionPersistenceRepository
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceRepository
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPersistenceRepository
+from core.storage.persistence.recommendations import (
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceRepository,
+)
+from core.storage.persistence.reports import (
+    ReportPersistenceBundle,
+    ReportPersistenceRepository,
+)
 from core.storage.persistence.runtime import RuntimePersistenceRepository
 from core.storage.persistence.sentiment import SentimentPersistenceRepository
 from core.storage.persistence.telemetry import TelemetryPersistenceRepository

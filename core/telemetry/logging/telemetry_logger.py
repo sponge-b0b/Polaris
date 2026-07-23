@@ -71,7 +71,7 @@ class TelemetryLogger(TelemetrySink):
             "include_attributes": self.include_attributes,
         }
 
-    def _message(
+    def _message(  # noqa: C901
         self,
         event: TelemetryEvent,
         *,

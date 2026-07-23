@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol, cast
 
 import pytest
 
@@ -44,6 +44,11 @@ async def test_get_full_portfolio_snapshot_resolves_async_methods(
     assert not hasattr(snapshot["portfolio"], "__await__")
 
 
+class _PortfolioHistoryFilter(Protocol):
+    period: object
+    timeframe: object
+
+
 class _FakePortfolioHistory:
     def model_dump(
         self,
@@ -70,8 +75,9 @@ class _CapturingTradingClient:
         *,
         history_filter: object,
     ) -> _FakePortfolioHistory:
-        self.period = str(getattr(history_filter, "period"))
-        self.timeframe = str(getattr(history_filter, "timeframe"))
+        typed_filter = cast(_PortfolioHistoryFilter, history_filter)
+        self.period = str(typed_filter.period)
+        self.timeframe = str(typed_filter.timeframe)
         return _FakePortfolioHistory()
 
 

@@ -4,8 +4,7 @@ from typing import cast
 
 from sqlalchemy import DateTime
 
-from core.database.models.backtesting import BacktestArtifactModel
-from core.database.models.backtesting import BacktestMetricModel
+from core.database.models.backtesting import BacktestArtifactModel, BacktestMetricModel
 
 
 def test_backtest_metric_has_required_domain_timestamp() -> None:

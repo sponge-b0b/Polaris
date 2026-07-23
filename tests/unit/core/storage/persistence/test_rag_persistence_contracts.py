@@ -1,28 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagQueryModelExecutionRecord
-from core.storage.persistence.rag import RagQueryReflectionScores
-from core.storage.persistence.rag import RagRecordPersistenceResult
-from core.storage.persistence.rag import new_rag_answer_log_id
-from core.storage.persistence.rag import new_rag_graph_job_id
-from core.storage.persistence.rag import new_rag_query_log_id
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceBundle
-from core.storage.persistence.rag import RagPersistenceResult
-from core.storage.persistence.rag import new_rag_chunk_id
-from core.storage.persistence.rag import new_rag_document_id
-from core.storage.persistence.rag import new_rag_embedding_job_id
+from core.storage.persistence.rag import (
+    RagAnswerLogRecord,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceBundle,
+    RagPersistenceResult,
+    RagQueryLogRecord,
+    RagQueryModelExecutionRecord,
+    RagQueryReflectionScores,
+    RagRecordPersistenceResult,
+    new_rag_answer_log_id,
+    new_rag_chunk_id,
+    new_rag_document_id,
+    new_rag_embedding_job_id,
+    new_rag_graph_job_id,
+    new_rag_query_log_id,
+)
 
 
 def test_rag_document_record_is_typed_and_immutable() -> None:
@@ -57,7 +58,7 @@ def test_rag_document_record_validates_required_fields(
         "source_type": "morning_report",
         "title": "Morning Report",
         "content_text": "Full curated text",
-        "generated_at": datetime(2026, 5, 30, tzinfo=timezone.utc),
+        "generated_at": datetime(2026, 5, 30, tzinfo=UTC),
     }
     values.update(kwargs)
 
@@ -87,7 +88,7 @@ def test_rag_chunk_and_embedding_job_records_validate_state() -> None:
             target_store="qdrant",
             embedding_model="bge-large",
             status="queued",
-            queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            queued_at=datetime(2026, 5, 30, tzinfo=UTC),
             attempts=-1,
         )
 
@@ -148,7 +149,7 @@ def _document() -> RagDocumentRecord:
         content_hash="hash-1",
         workflow_name="morning_report",
         execution_id="exec-1",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"audience": "human"},
     )
 
@@ -172,7 +173,7 @@ def _job() -> RagEmbeddingJobRecord:
         target_store="qdrant",
         embedding_model="bge-large",
         status="queued",
-        queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        queued_at=datetime(2026, 5, 30, tzinfo=UTC),
     )
 
 
@@ -192,7 +193,7 @@ def test_rag_graph_query_and_answer_records_validate_state() -> None:
             retrieval_route="hybrid",
             top_k=0,
             status="started",
-            started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            started_at=datetime(2026, 5, 30, tzinfo=UTC),
         )
 
     with pytest.raises(ValueError, match="duration_ms"):
@@ -202,7 +203,7 @@ def test_rag_graph_query_and_answer_records_validate_state() -> None:
             retrieval_route="hybrid",
             top_k=5,
             status="failed",
-            started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            started_at=datetime(2026, 5, 30, tzinfo=UTC),
             duration_ms=-1.0,
         )
 
@@ -212,7 +213,7 @@ def test_rag_graph_query_and_answer_records_validate_state() -> None:
             query_id="query-1",
             answer_text="Answer",
             status="completed",
-            completed_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            completed_at=datetime(2026, 5, 30, tzinfo=UTC),
             confidence_score=1.01,
         )
 
@@ -225,7 +226,7 @@ def test_rag_query_log_validates_first_class_audit_fields() -> None:
             retrieval_route="hybrid",
             top_k=5,
             status="completed",
-            started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            started_at=datetime(2026, 5, 30, tzinfo=UTC),
             context_count=-1,
         )
 
@@ -236,7 +237,7 @@ def test_rag_query_log_validates_first_class_audit_fields() -> None:
             retrieval_route="hybrid",
             top_k=5,
             status="completed",
-            started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            started_at=datetime(2026, 5, 30, tzinfo=UTC),
             grounding_score=1.01,
         )
 
@@ -247,7 +248,7 @@ def test_rag_query_log_validates_first_class_audit_fields() -> None:
             retrieval_route="hybrid",
             top_k=5,
             status="completed",
-            started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            started_at=datetime(2026, 5, 30, tzinfo=UTC),
             model_executions=tuple(
                 RagQueryModelExecutionRecord(
                     operation="route",
@@ -303,7 +304,7 @@ def _graph_job() -> RagGraphJobRecord:
         target_store="neo4j",
         graph_model="neo4j-v1",
         status="queued",
-        queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        queued_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"projection": "entities"},
     )
 
@@ -341,8 +342,8 @@ def _query_log() -> RagQueryLogRecord:
         ),
         corrective_actions=("rewrite", "proceed"),
         status="completed",
-        started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
-        completed_at=datetime(2026, 5, 30, 0, 0, 1, tzinfo=timezone.utc),
+        started_at=datetime(2026, 5, 30, tzinfo=UTC),
+        completed_at=datetime(2026, 5, 30, 0, 0, 1, tzinfo=UTC),
         duration_ms=12.5,
         metadata={"trace_id": "trace-1"},
     )
@@ -360,6 +361,6 @@ def _answer_log() -> RagAnswerLogRecord:
         source_count=2,
         citations={"items": ["chunk-1"]},
         sources={"chunks": ["chunk-1", "chunk-2"]},
-        completed_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        completed_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"trace_id": "trace-1"},
     )

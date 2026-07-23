@@ -3,34 +3,25 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.reports import ReportArtifactModel
-from core.database.models.reports import ReportModel
-from core.database.models.reports import ReportPublicationModel
-from core.database.models.reports import ReportSectionModel
-from core.database.models.reports import ReportVersionModel
+from core.database.models.reports import (
+    ReportArtifactModel,
+    ReportModel,
+    ReportPublicationModel,
+    ReportSectionModel,
+    ReportVersionModel,
+)
 from core.storage.persistence.reports.report_persistence_models import (
     ReportArtifactRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPersistenceBundle,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPersistenceResult,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPublicationRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import ReportRecord
-from core.storage.persistence.reports.report_persistence_models import (
+    ReportRecord,
     ReportSectionRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportVersionRecord,
 )
 from core.storage.persistence.reports.report_persistence_repository import (

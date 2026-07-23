@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from core.storage.persistence.ai_observability import AiObservabilityExportJobClaim
-from core.storage.persistence.ai_observability import AiObservabilityExportJobRecord
-from core.storage.persistence.ai_observability import AiObservabilityExportJobStatus
+from core.storage.persistence.ai_observability import (
+    AiObservabilityExportJobClaim,
+    AiObservabilityExportJobRecord,
+    AiObservabilityExportJobStatus,
+)
 
 
 def test_ai_observability_export_job_record_coerces_status() -> None:

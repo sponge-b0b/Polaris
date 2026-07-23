@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import logging
-
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.checkpoints.checkpoint_manager import CheckpointManager
 from core.runtime.events.event_bus import EventBus
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.state_manager import StateManager
 from core.workflow.compiler.workflow_compiler import CompiledWorkflow
-
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +125,7 @@ class WorkflowEngine:
         compiled_workflow.execution_plan.validate()
 
         started_at = datetime.now(
-            timezone.utc,
+            UTC,
         )
 
         self.runtime_engine.register_many(
@@ -159,7 +154,7 @@ class WorkflowEngine:
             )
 
             completed_at = datetime.now(
-                timezone.utc,
+                UTC,
             )
 
             success = not bool(
@@ -217,7 +212,7 @@ class WorkflowEngine:
 
         except Exception as exc:
             completed_at = datetime.now(
-                timezone.utc,
+                UTC,
             )
 
             failed_context = self._append_context_error(

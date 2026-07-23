@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Protocol
 
-from integration.clients.rag.web_retrieval_models import CrawledWebDocument
-from integration.clients.rag.web_retrieval_models import WebSearchCandidate
+from integration.clients.rag.web_retrieval_models import (
+    CrawledWebDocument,
+    WebSearchCandidate,
+)
 
 
 class Crawl4AiCrawler(Protocol):
@@ -98,8 +98,7 @@ class Crawl4AiContentClient:
         return BrowserConfig(**kwargs)
 
     def _run_config(self) -> object:
-        from crawl4ai import CacheMode
-        from crawl4ai import CrawlerRunConfig
+        from crawl4ai import CacheMode, CrawlerRunConfig
 
         return CrawlerRunConfig(
             cache_mode=(

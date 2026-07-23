@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.validation import PersistenceExpectedLineage
-from core.storage.persistence.validation import PersistenceExternalSourceValidationSpec
-from core.storage.persistence.validation import PersistenceRecordValidationTarget
-from core.storage.persistence.validation import PersistenceValidationSeverity
-from core.storage.persistence.validation import PersistenceValidationStatus
-from core.storage.persistence.validation import validate_lineage_fields
-from core.storage.persistence.validation import (
-    validate_lineage_source_and_dedupe_fields,
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
 )
-from core.storage.persistence.validation import validate_source_and_dedupe_fields
+from core.storage.persistence.validation import (
+    PersistenceExpectedLineage,
+    PersistenceExternalSourceValidationSpec,
+    PersistenceRecordValidationTarget,
+    PersistenceValidationSeverity,
+    PersistenceValidationStatus,
+    validate_lineage_fields,
+    validate_lineage_source_and_dedupe_fields,
+    validate_source_and_dedupe_fields,
+)
 
 
 @dataclass(

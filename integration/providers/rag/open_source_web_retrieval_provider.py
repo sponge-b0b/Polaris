@@ -3,16 +3,19 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Protocol
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.security.rag_security import sanitize_untrusted_text
 from core.storage.persistence.rag import JsonValue
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.rag.web_retrieval_models import CrawledWebDocument
-from integration.clients.rag.web_retrieval_models import WebSearchCandidate
+from integration.clients.rag.web_retrieval_models import (
+    CrawledWebDocument,
+    WebSearchCandidate,
+)
 from integration.providers.provider_telemetry import record_provider_call
-from integration.providers.rag.web_retrieval_provider import WebRetrievalProvider
-from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
+from integration.providers.rag.web_retrieval_provider import (
+    WebRetrievalProvider,
+    WebRetrievalRequest,
+)
 
 
 class WebSearchClient(Protocol):

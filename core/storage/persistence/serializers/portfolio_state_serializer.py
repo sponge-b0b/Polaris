@@ -3,13 +3,12 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import Any
 
-from domain.portfolio.models.portfolio_state import (
-    PortfolioState,
-)
-
 from core.database.models.portfolio_state import (
     PortfolioStateHistoryModel,
     PortfolioStateLatestModel,
+)
+from domain.portfolio.models.portfolio_state import (
+    PortfolioState,
 )
 
 

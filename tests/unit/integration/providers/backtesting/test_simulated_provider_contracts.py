@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from inspect import Parameter
-from inspect import signature
-from typing import Callable
+from collections.abc import Callable
+from inspect import Parameter, signature
 from typing import cast
+
 import pytest
 
 from integration.providers.backtesting.macro.simulated_macro_provider import (

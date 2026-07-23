@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.control.workflow_control_snapshot import WorkflowControlSnapshot
 from core.runtime.control.workflow_control_state import WorkflowControlState
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 
 
 class WorkflowControlManager:
@@ -325,7 +322,7 @@ class WorkflowControlManager:
             ),
             metadata=merged_metadata,
             updated_at=datetime.now(
-                timezone.utc,
+                UTC,
             ),
         )
         self._snapshots[execution_id] = snapshot
@@ -438,8 +435,8 @@ class WorkflowControlManager:
             WorkflowControlState.CANCELLING: (
                 RuntimeEventType.WORKFLOW_PROGRESS_CANCELLING
             ),
-            WorkflowControlState.CANCELLED: RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED,
-            WorkflowControlState.COMPLETED: RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED,
+            WorkflowControlState.CANCELLED: RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED,  # noqa: E501
+            WorkflowControlState.COMPLETED: RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED,  # noqa: E501
             WorkflowControlState.FAILED: RuntimeEventType.WORKFLOW_PROGRESS_FAILED,
         }.get(
             state,

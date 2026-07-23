@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypeAlias
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
 
-IdempotencyComponent: TypeAlias = str | int | float | bool | datetime
+type IdempotencyComponent = str | int | float | bool | datetime
 
 
 @dataclass(

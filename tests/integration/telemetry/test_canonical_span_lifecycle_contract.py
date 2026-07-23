@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
-import pytest
 from sqlalchemy.dialects import postgresql
 
 from core.storage.persistence.lineage import PersistenceLineage
@@ -15,8 +14,7 @@ from core.storage.persistence.repositories import (
     postgres_telemetry_persistence_repository as repository_module,
 )
 from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.integrations.opentelemetry.opentelemetry_config import (
     OpenTelemetryConfig,
 )
@@ -73,9 +71,9 @@ def test_trace_persistence_updates_the_canonical_span_record() -> None:
         span_id="0123456789abcdef",
         operation_name="application.service",
         source="application",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
         lineage=PersistenceLineage(),
-        ended_at=datetime.now(timezone.utc),
+        ended_at=datetime.now(UTC),
         duration_seconds=0.25,
         status="succeeded",
     )

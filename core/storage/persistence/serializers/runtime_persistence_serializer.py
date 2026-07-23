@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowStateSnapshotModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+    WorkflowStateSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.runtime.runtime_persistence_models import JsonObject
 from core.storage.persistence.runtime.runtime_persistence_models import (
+    JsonObject,
     WorkflowEventRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowNodeRunRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
-    WorkflowStateSnapshotRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
 )
 
 

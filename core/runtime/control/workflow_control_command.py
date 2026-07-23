@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 
-class WorkflowControlCommand(str, Enum):
+class WorkflowControlCommand(StrEnum):
     """
     Canonical workflow control command types.
     """
@@ -31,6 +29,6 @@ class WorkflowControlRequest:
     metadata: dict[str, Any] | None = None
     requested_at: datetime = field(
         default_factory=lambda: datetime.now(
-            timezone.utc,
+            UTC,
         )
     )

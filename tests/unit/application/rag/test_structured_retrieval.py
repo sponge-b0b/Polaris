@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.rag.retrieval.structured_retrieval import MarketStructuredRagRetriever
-from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_context import RagRetrievalFilters
+from application.rag.contracts.rag_request import RagRequest
+from application.rag.retrieval.structured_retrieval import MarketStructuredRagRetriever
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
 from core.storage.persistence.market.market_persistence_repository import (
@@ -21,8 +20,8 @@ from core.storage.persistence.market.market_persistence_repository import (
 async def test_structured_retrieval_uses_only_typed_market_repository_path() -> None:
     repository = FakeMarketRepository(
         records=(
-            _snapshot("older", datetime(2026, 6, 1, tzinfo=timezone.utc), 0.4),
-            _snapshot("latest", datetime(2026, 6, 2, tzinfo=timezone.utc), 0.8),
+            _snapshot("older", datetime(2026, 6, 1, tzinfo=UTC), 0.4),
+            _snapshot("latest", datetime(2026, 6, 2, tzinfo=UTC), 0.8),
         )
     )
     retriever = MarketStructuredRagRetriever(
@@ -140,7 +139,7 @@ def _snapshot(
 @pytest.mark.asyncio
 async def test_structured_retrieval_honors_source_type_and_lineage_filters() -> None:
     repository = FakeMarketRepository(
-        records=(_snapshot("latest", datetime(2026, 6, 2, tzinfo=timezone.utc), 0.8),)
+        records=(_snapshot("latest", datetime(2026, 6, 2, tzinfo=UTC), 0.8),)
     )
     retriever = MarketStructuredRagRetriever(
         cast(MarketPersistenceRepository, repository)

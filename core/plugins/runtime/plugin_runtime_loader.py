@@ -4,7 +4,7 @@ import importlib
 import inspect
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Type
+from typing import Any
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.factory.runtime_node_factory import RuntimeNodeFactory
@@ -122,7 +122,7 @@ class PluginRuntimeLoader:
                 )
                 continue
 
-            node_class: Type[RuntimeNode] = object_value
+            node_class: type[RuntimeNode] = object_value
             node_name = self._node_registration_name(
                 node_class=node_class,
                 fallback_name=object_name,
@@ -234,7 +234,7 @@ class PluginRuntimeLoader:
 
     def _node_registration_name(
         self,
-        node_class: Type[RuntimeNode],
+        node_class: type[RuntimeNode],
         fallback_name: str,
     ) -> str:
         node_name = getattr(

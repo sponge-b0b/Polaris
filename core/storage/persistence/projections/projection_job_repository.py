@@ -1,19 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.projections.projection_job_models import (
     MissingProjectionRunRecord,
-)
-from core.storage.persistence.projections.projection_job_models import (
     ProjectionJobClaim,
-)
-from core.storage.persistence.projections.projection_job_models import (
     WorkflowOutputProjectionJobRecord,
-)
-from core.storage.persistence.projections.projection_job_models import (
     WorkflowOutputProjectionJobStatus,
 )
 

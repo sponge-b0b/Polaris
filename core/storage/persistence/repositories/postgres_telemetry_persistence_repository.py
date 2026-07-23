@@ -4,31 +4,33 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import case
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.telemetry import AgentMetricModel
-from core.database.models.telemetry import ProviderMetricModel
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryMetricModel
-from core.database.models.telemetry import TelemetryTraceModel
-from core.database.models.telemetry import WorkflowMetricModel
+from core.database.models.telemetry import (
+    AgentMetricModel,
+    ProviderMetricModel,
+    TelemetryEventModel,
+    TelemetryMetricModel,
+    TelemetryTraceModel,
+    WorkflowMetricModel,
+)
 from core.storage.persistence.serializers.telemetry_persistence_serializer import (
     TelemetryPersistenceSerializer,
 )
-from core.storage.persistence.telemetry import AgentMetricRecord
-from core.storage.persistence.telemetry import ProviderMetricRecord
-from core.storage.persistence.telemetry import TelemetryEventRecord
-from core.storage.persistence.telemetry import TelemetryMetricRecord
-from core.storage.persistence.telemetry import TelemetryPersistenceBundle
-from core.storage.persistence.telemetry import TelemetryPersistenceRepository
-from core.storage.persistence.telemetry import TelemetryPersistenceResult
-from core.storage.persistence.telemetry import TelemetryTraceRecord
-from core.storage.persistence.telemetry import WorkflowMetricRecord
+from core.storage.persistence.telemetry import (
+    AgentMetricRecord,
+    ProviderMetricRecord,
+    TelemetryEventRecord,
+    TelemetryMetricRecord,
+    TelemetryPersistenceBundle,
+    TelemetryPersistenceRepository,
+    TelemetryPersistenceResult,
+    TelemetryTraceRecord,
+    WorkflowMetricRecord,
+)
 
 
 class PostgresTelemetryPersistenceRepository(TelemetryPersistenceRepository):

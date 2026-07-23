@@ -6,9 +6,11 @@ from typing import cast
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from core.storage.persistence.rag import JsonObject
-from integration.providers.rag.reranking_provider import RerankCandidate
-from integration.providers.rag.reranking_provider import RerankingProvider
-from integration.providers.rag.reranking_provider import RerankRequest
+from integration.providers.rag.reranking_provider import (
+    RerankCandidate,
+    RerankingProvider,
+    RerankRequest,
+)
 
 
 class RagContextSelector:

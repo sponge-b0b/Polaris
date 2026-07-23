@@ -5,11 +5,13 @@ from typing import Any
 
 import pytest
 
-from core.storage.persistence.validation import PersistenceValidationBatchResult
-from core.storage.persistence.validation import PersistenceValidationIssue
-from core.storage.persistence.validation import PersistenceValidationResult
-from core.storage.persistence.validation import PersistenceValidationSeverity
-from core.storage.persistence.validation import PersistenceValidationStatus
+from core.storage.persistence.validation import (
+    PersistenceValidationBatchResult,
+    PersistenceValidationIssue,
+    PersistenceValidationResult,
+    PersistenceValidationSeverity,
+    PersistenceValidationStatus,
+)
 
 
 def test_validation_issue_normalizes_fields_and_serializes_boundary_shape() -> None:

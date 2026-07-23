@@ -3,10 +3,8 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
-from application.observability import AiObservationStatus
-from application.observability import static_prompt_hash
-from application.services.base import ServiceRequest
-from application.services.base import ServiceRunner
+from application.observability import AiObservationStatus, static_prompt_hash
+from application.services.base import ServiceRequest, ServiceRunner
 from application.services.macro.macro_request import MacroAnalysisRequest
 from application.services.macro.macro_result import MacroAnalysisResult
 from application.services.macro.macro_service import MacroService
@@ -19,16 +17,16 @@ from domain.workflow_outputs import (
     MACRO_ANALYSIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-from intelligence.observability import IntelligenceAiObservabilityProjectorPort
-from intelligence.observability import IntelligenceAiObservabilityRecorder
-from intelligence.observability import llm_model_name
-from intelligence.observability import record_intelligence_generation_observation
+from intelligence.observability import (
+    IntelligenceAiObservabilityProjectorPort,
+    IntelligenceAiObservabilityRecorder,
+    llm_model_name,
+    record_intelligence_generation_observation,
+)
 from intelligence.prompts.system.fundamental_agent_prompt import (
     FUNDAMENTAL_AGENT_SYSTEM_PROMPT,
 )
-
 from intelligence.telemetry import telemetry_context_from_runtime
-
 
 FUNDAMENTAL_AGENT_SYSTEM_PROMPT_HASH = static_prompt_hash(
     FUNDAMENTAL_AGENT_SYSTEM_PROMPT

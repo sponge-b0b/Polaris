@@ -8,10 +8,11 @@ import logging
 from mcp.server.fastmcp.exceptions import ToolError
 
 from core.workflow.execution.workflow_facade import WorkflowFacade
-
+from mcp_server.contracts.models import (
+    CompletedRunsListRequest,
+    CompletedRunsListResponse,
+)
 from mcp_server.lifespan import McpApplicationContext
-from mcp_server.contracts.models import CompletedRunsListRequest
-from mcp_server.contracts.models import CompletedRunsListResponse
 from mcp_server.request_scope import mcp_dependency_scope
 from mcp_server.telemetry import McpToolFailureCategory
 

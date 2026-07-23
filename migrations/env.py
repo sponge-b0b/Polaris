@@ -11,11 +11,10 @@ from sqlalchemy.ext.asyncio import (
     async_engine_from_config,
 )
 
-from core.database.base import Base
-from core.database.settings import PostgresSettings
-
 # Import model modules so SQLAlchemy attaches them to Base.metadata.
 import core.database.models  # noqa: F401
+from core.database.base import Base
+from core.database.settings import PostgresSettings
 
 config = context.config
 

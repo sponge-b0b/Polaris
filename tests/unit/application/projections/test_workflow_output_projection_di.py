@@ -10,8 +10,10 @@ from application.persistence.portfolio import PortfolioPersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
-from application.projections.workflow_outputs import WorkflowOutputProjectionDIProvider
-from application.projections.workflow_outputs import WorkflowOutputProjectionService
+from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionDIProvider,
+    WorkflowOutputProjectionService,
+)
 from core.storage.persistence.agent_signals import AgentSignalPersistenceRepository
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.macro import MacroPersistenceRepository

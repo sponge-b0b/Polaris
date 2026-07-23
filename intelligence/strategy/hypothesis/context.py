@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from hashlib import sha256
 from json import dumps
 from typing import Self
@@ -10,7 +10,7 @@ from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
-class StrategyEvidenceInputStatus(str, Enum):
+class StrategyEvidenceInputStatus(StrEnum):
     """Quality status for an upstream evidence input."""
 
     AVAILABLE = "available"

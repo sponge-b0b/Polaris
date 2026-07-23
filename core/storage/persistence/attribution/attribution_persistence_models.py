@@ -1,15 +1,33 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Protocol
 from uuid import uuid4
 
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.lineage import require_non_empty_identifier
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+    clean_optional_identifier,
+    require_non_empty_identifier,
+)
+
+
+class _AgentAttributionFields(Protocol):
+    @property
+    def agent_name(self) -> str | None: ...
+
+    @property
+    def agent_type(self) -> str | None: ...
+
+
+class _ScopedAttributionFields(Protocol):
+    @property
+    def symbol(self) -> str | None: ...
+
+    @property
+    def universe(self) -> str | None: ...
 
 
 @dataclass(
@@ -457,13 +475,13 @@ def _set_required_text(
 
 
 def _set_optional_agent_fields(
-    record: object,
+    record: _AgentAttributionFields,
 ) -> None:
     object.__setattr__(
         record,
         "agent_name",
         clean_optional_identifier(
-            getattr(record, "agent_name"),
+            record.agent_name,
             "agent_name",
         ),
     )
@@ -471,27 +489,27 @@ def _set_optional_agent_fields(
         record,
         "agent_type",
         clean_optional_identifier(
-            getattr(record, "agent_type"),
+            record.agent_type,
             "agent_type",
         ),
     )
 
 
 def _set_optional_scope_fields(
-    record: object,
+    record: _ScopedAttributionFields,
 ) -> None:
     object.__setattr__(
         record,
         "symbol",
         _clean_optional_symbol(
-            getattr(record, "symbol"),
+            record.symbol,
         ),
     )
     object.__setattr__(
         record,
         "universe",
         clean_optional_identifier(
-            getattr(record, "universe"),
+            record.universe,
             "universe",
         ),
     )

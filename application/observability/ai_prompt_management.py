@@ -6,9 +6,7 @@ from enum import StrEnum
 
 from application.observability.ai_observability_contracts import (
     AiGenerationObservation,
-)
-from application.observability.ai_observability_contracts import AiObservation
-from application.observability.ai_observability_contracts import (
+    AiObservation,
     AiPromptVersionReference,
 )
 

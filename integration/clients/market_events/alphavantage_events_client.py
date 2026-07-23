@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
-import httpx
-from datetime import datetime
 from collections.abc import Set
-from typing import Optional, Any, Dict, List
-from config.settings import Settings
+from datetime import datetime
+from typing import Any
 
+import httpx
+
+from config.settings import Settings
 
 DEFAULT_EARNINGS_SYMBOLS = frozenset(
     {
@@ -57,8 +58,8 @@ class AlphaVantageEarningsClient:
         self,
         horizon: str = "3month",
         symbols: Set[str] | None = None,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> List[Dict[str, Any]]:
+        client: httpx.AsyncClient | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Fetch upcoming earnings calendar events.
 
@@ -116,10 +117,10 @@ class AlphaVantageEarningsClient:
         self,
         csv_text: str,
         symbols: Set[str] | None = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         reader = csv.DictReader(io.StringIO(csv_text))
 
-        events: List[Dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
 
         symbol_filter = {s.upper() for s in symbols} if symbols else None
 

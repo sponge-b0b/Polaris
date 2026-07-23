@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable
 
 from core.runtime.events.runtime_events import RuntimeEvent
 from core.runtime.lifecycle.runtime_lifecycle_hooks import RuntimeLifecycleHook

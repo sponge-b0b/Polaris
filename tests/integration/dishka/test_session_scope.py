@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import pytest
-
-from dishka import Provider
-from dishka import Scope
-from dishka import make_container
-from dishka import provide
+from dishka import Provider, Scope, make_container, provide
+from dishka.exceptions import NoFactoryError
 
 
 class SessionScopedService:
@@ -80,9 +77,7 @@ async def test_app_scope_cannot_directly_resolve_session_dependency() -> None:
         SessionScopeProvider(),
     )
 
-    with pytest.raises(
-        Exception,
-    ):
+    with pytest.raises(NoFactoryError):
         container.get(
             SessionScopedService,
         )

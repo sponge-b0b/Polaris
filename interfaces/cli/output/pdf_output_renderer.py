@@ -7,22 +7,25 @@ from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Flowable
-from reportlab.platypus import ListFlowable
-from reportlab.platypus import ListItem
-from reportlab.platypus import Paragraph
-from reportlab.platypus import SimpleDocTemplate
-from reportlab.platypus import Spacer
-from reportlab.platypus import Table
-from reportlab.platypus import TableStyle
+from reportlab.platypus import (
+    Flowable,
+    ListFlowable,
+    ListItem,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
-from application.reports import MorningReportDocument
-from application.reports import ReportBullet
-from application.reports import ReportSection
-from application.reports import ReportTable
+from application.reports import (
+    MorningReportDocument,
+    ReportBullet,
+    ReportSection,
+    ReportTable,
+)
 
 
 class MorningReportPdfRenderer:
@@ -110,7 +113,7 @@ class MarkdownPdfRenderer:
     Minimal generic markdown-to-PDF renderer for workflow fallbacks.
     """
 
-    def render(
+    def render(  # noqa: C901
         self,
         markdown: str,
         *,

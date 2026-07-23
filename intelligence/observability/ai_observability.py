@@ -5,14 +5,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from application.observability import AiGenerationObservation
+from application.observability import (
+    AiGenerationObservation,
+    AiObservabilityCorrelationIds,
+    AiObservabilityExportResult,
+    AiObservation,
+    AiObservationStatus,
+    AiObservationType,
+    AiPromptVersionReference,
+)
 from application.observability.ai_observability_contracts import AiMetadata
-from application.observability import AiObservation
-from application.observability import AiObservationStatus
-from application.observability import AiObservationType
-from application.observability import AiObservabilityCorrelationIds
-from application.observability import AiObservabilityExportResult
-from application.observability import AiPromptVersionReference
 from core.runtime.state.runtime_context import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -50,13 +52,14 @@ class IntelligenceAiObservabilityRecorder:
         try:
             await self.projector.project(observation)
         except Exception:
-            logger.exception(
+            logger.debug(
                 "Intelligence AI-observability projection failed.",
                 extra={
                     "observation_type": observation.observation_type.value,
                     "observation_name": observation.name,
                     "observation_id": observation.correlation_ids.observation_id,
                 },
+                exc_info=True,
             )
 
 

@@ -1,5 +1,4 @@
-from dishka import Provider
-from dishka import Scope
+from dishka import Provider, Scope
 
 from application.services.di import AppServicesDIProvider
 

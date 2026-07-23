@@ -141,7 +141,7 @@ async def test_application_service_telemetry_emits_service_failed_with_exception
 
 
 @pytest.mark.asyncio
-async def test_application_service_telemetry_emits_service_failed_with_string_error() -> (
+async def test_application_service_telemetry_emits_service_failed_with_string_error() -> (  # noqa: E501
     None
 ):
     sink = InMemoryTelemetrySink()

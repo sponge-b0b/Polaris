@@ -274,9 +274,10 @@ class EvaluationRunService:
                 )
             return result
         except Exception:
-            logger.exception(
+            logger.debug(
                 "Langfuse evaluation-score projection request failed.",
                 extra={"run_id": run_record.run_id},
+                exc_info=True,
             )
             failed_count = _metric_result_case_count(metric_result_records)
             if self.telemetry is not None:

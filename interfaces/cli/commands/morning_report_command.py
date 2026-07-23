@@ -6,36 +6,33 @@ from typing import Annotated
 
 import typer
 
-from application.reports import MorningReportAssembler
-from application.reports import MorningReportDocument
-from application.reports import MorningReportMarkdownRenderer
-from application.reports import MorningReportPersistenceService
-from application.reports import ReportArtifactReference
+from application.reports import (
+    MorningReportAssembler,
+    MorningReportDocument,
+    MorningReportMarkdownRenderer,
+    MorningReportPersistenceService,
+    ReportArtifactReference,
+)
 from core.bootstrap.di_providers import application_request_scope
 from core.storage.persistence.reports import ReportPersistenceResult
 from interfaces.cli.commands.workflow_command_boundary import (
     build_interactive_input_reader,
-)
-from interfaces.cli.commands.workflow_command_boundary import build_progress_renderer
-from interfaces.cli.commands.workflow_command_boundary import emit_control_notification
-from interfaces.cli.commands.workflow_command_boundary import emit_cli_status_line
-from interfaces.cli.commands.workflow_command_boundary import (
+    build_progress_renderer,
+    emit_cli_status_line,
+    emit_control_notification,
     emit_rendered_workflow_output,
-)
-from interfaces.cli.commands.workflow_command_boundary import (
     render_workflow_output_with_fallback,
-)
-from interfaces.cli.commands.workflow_command_boundary import (
     validate_workflow_artifact_format,
 )
-from interfaces.cli.rendering.workflow_rendering import WorkflowRenderEnvelope
 from interfaces.cli.rendering.workflow_rendering import (
+    WorkflowRenderEnvelope,
     workflow_exception_to_render_envelope,
 )
 from interfaces.cli.services.async_runner import run_cli_async
-from interfaces.cli.services.workflow_command_service import MorningReportCommandRequest
-from interfaces.cli.services.workflow_command_service import WorkflowCommandService
-
+from interfaces.cli.services.workflow_command_service import (
+    MorningReportCommandRequest,
+    WorkflowCommandService,
+)
 
 DEFAULT_MORNING_REPORT_WORKFLOW = "morning_report"
 
@@ -87,8 +84,10 @@ def morning_report(
             "--plugin-dir",
             help="Plugin directory to autoload before running the workflow.",
         ),
-    ] = [],
+    ] = None,
 ) -> None:
+    if plugin_dirs is None:
+        plugin_dirs = []
     validate_workflow_artifact_format(
         output_format,
     )

@@ -1,44 +1,32 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Awaitable
-from typing import Callable
-from typing import TypeAlias
 from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
-from core.storage.persistence.runtime.runtime_persistence_models import JsonObject
-from core.storage.persistence.runtime.runtime_persistence_models import JsonValue
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from core.storage.persistence.runtime.runtime_persistence_models import (
+    JsonObject,
+    JsonValue,
     RuntimePersistenceResult,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowEventRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowNodeRunRecord,
-)
-from core.storage.persistence.runtime.runtime_persistence_models import (
     WorkflowRunRecord,
 )
 from core.storage.persistence.runtime.runtime_persistence_repository import (
     RuntimePersistenceRepository,
 )
 
-RuntimePersistenceSessionFactory: TypeAlias = Callable[
+type RuntimePersistenceSessionFactory = Callable[
     [],
     AbstractAsyncContextManager[AsyncSession],
 ]
-RuntimePersistenceRepositoryFactory: TypeAlias = Callable[
+type RuntimePersistenceRepositoryFactory = Callable[
     [AsyncSession],
     RuntimePersistenceRepository,
 ]
@@ -151,7 +139,7 @@ class RuntimePersistenceEventSubscriber:
 def _default_repository_factory(
     session: AsyncSession,
 ) -> RuntimePersistenceRepository:
-    from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (
+    from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
         PostgresRuntimePersistenceRepository,
     )
 

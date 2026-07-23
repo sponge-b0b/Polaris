@@ -1,37 +1,35 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from sqlalchemy import Select
-from sqlalchemy import func
-from sqlalchemy import null
-from sqlalchemy import select
-from sqlalchemy import update
+from sqlalchemy import Select, func, null, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
-from core.database.models.evaluation import EvaluationArtifactModel
-from core.database.models.evaluation import EvaluationCaseModel
-from core.database.models.evaluation import EvaluationDatasetModel
-from core.database.models.evaluation import EvaluationMetricResultModel
-from core.database.models.evaluation import EvaluationRunModel
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetCaseReplacement
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from core.storage.persistence.evaluation import JsonObject
-from core.storage.persistence.evaluation import LangfuseProjectionStatus
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
+from core.database.models.evaluation import (
+    EvaluationArtifactModel,
+    EvaluationCaseModel,
+    EvaluationDatasetModel,
+    EvaluationMetricResultModel,
+    EvaluationRunModel,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationDatasetCaseReplacement,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+    JsonObject,
+    LangfuseProjectionStatus,
+)
+from domain.evaluation import EvaluationStatus, EvaluationTargetType
 
 
 class PostgresEvaluationPersistenceRepository:

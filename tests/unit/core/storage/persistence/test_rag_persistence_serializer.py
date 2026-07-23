@@ -1,24 +1,27 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
-from core.database.models.rag import RagAnswerLogModel
-from core.database.models.rag import RagChunkModel
-from core.database.models.rag import RagDocumentModel
-from core.database.models.rag import RagEmbeddingJobModel
-from core.database.models.rag import RagGraphJobModel
-from core.database.models.rag import RagQueryLogModel
-from core.database.models.rag import RagSourceEligibilityModel
-from core.storage.persistence.rag import RagAnswerLogRecord
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagQueryLogRecord
-from core.storage.persistence.rag import RagQueryModelExecutionRecord
-from core.storage.persistence.rag import RagQueryReflectionScores
-from core.storage.persistence.rag import RagSourceEligibilityRecord
+from core.database.models.rag import (
+    RagAnswerLogModel,
+    RagChunkModel,
+    RagDocumentModel,
+    RagEmbeddingJobModel,
+    RagGraphJobModel,
+    RagQueryLogModel,
+    RagSourceEligibilityModel,
+)
+from core.storage.persistence.rag import (
+    RagAnswerLogRecord,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagQueryLogRecord,
+    RagQueryModelExecutionRecord,
+    RagQueryReflectionScores,
+    RagSourceEligibilityRecord,
+)
 from core.storage.persistence.serializers.rag_persistence_serializer import (
     RagPersistenceSerializer,
 )
@@ -122,7 +125,7 @@ def _document(
         content_hash="hash-1",
         workflow_name="morning_report",
         execution_id="exec-1",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"audience": "human"},
     )
 
@@ -146,7 +149,7 @@ def _job() -> RagEmbeddingJobRecord:
         target_store="qdrant",
         embedding_model="bge-large",
         status="queued",
-        queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        queued_at=datetime(2026, 5, 30, tzinfo=UTC),
     )
 
 
@@ -159,7 +162,7 @@ def _eligibility() -> RagSourceEligibilityRecord:
         eligible=True,
         reason="Curated report is suitable for future RAG source building.",
         quality_score=0.91,
-        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        reviewed_timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"reviewer": "default_rules"},
     )
 
@@ -230,7 +233,7 @@ def _graph_job() -> RagGraphJobRecord:
         target_store="neo4j",
         graph_model="neo4j-v1",
         status="queued",
-        queued_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        queued_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"projection": "entities"},
     )
 
@@ -268,8 +271,8 @@ def _query_log() -> RagQueryLogRecord:
         ),
         corrective_actions=("rewrite", "proceed"),
         status="completed",
-        started_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
-        completed_at=datetime(2026, 5, 30, 0, 0, 1, tzinfo=timezone.utc),
+        started_at=datetime(2026, 5, 30, tzinfo=UTC),
+        completed_at=datetime(2026, 5, 30, 0, 0, 1, tzinfo=UTC),
         duration_ms=12.5,
         metadata={"trace_id": "trace-1"},
     )
@@ -287,6 +290,6 @@ def _answer_log() -> RagAnswerLogRecord:
         source_count=2,
         citations={"items": ["chunk-1"]},
         sources={"chunks": ["chunk-1", "chunk-2"]},
-        completed_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        completed_at=datetime(2026, 5, 30, tzinfo=UTC),
         metadata={"trace_id": "trace-1"},
     )

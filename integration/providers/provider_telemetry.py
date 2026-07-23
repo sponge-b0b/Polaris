@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-
-from collections.abc import Awaitable
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from time import perf_counter
-from typing import Any
-from typing import TypeVar
+from typing import Any, TypeVar
 
-from core.telemetry.context import get_active_telemetry_context
-from core.telemetry.context import telemetry_context_scope
+from core.telemetry.context import get_active_telemetry_context, telemetry_context_scope
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 
 R = TypeVar("R")
 
 
-async def record_provider_call(
+async def record_provider_call[R](
     telemetry: IntegrationTelemetry | None,
     provider_name: str,
     operation: str,

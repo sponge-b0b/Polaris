@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from core.utils.utils import (
     _get_value,
     _safe_bool,

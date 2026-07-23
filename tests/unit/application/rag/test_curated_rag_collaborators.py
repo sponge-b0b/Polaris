@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -18,11 +17,13 @@ from application.rag.ingestion.curated_rag_document_factory import (
 )
 from application.rag.ingestion.curated_rag_metadata import evaluate_source_eligibility
 from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagPersistenceResult
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagPersistenceRepository,
+    RagPersistenceResult,
+)
 from core.storage.persistence.reports import ReportRecord
 
 
@@ -94,7 +95,7 @@ def _report() -> ReportRecord:
         report_id="morning_report:exec-step-10",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 6, 25, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 6, 25, tzinfo=UTC),
         markdown_body="# Morning Report\n\nDeterministic curated content.",
         workflow_name="morning_report",
         execution_id="exec-step-10",

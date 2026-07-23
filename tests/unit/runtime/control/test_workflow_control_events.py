@@ -5,9 +5,7 @@ import asyncio
 import pytest
 
 from core.runtime.control import WorkflowControlManager
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 
 
 def create_event_collector() -> tuple[EventBus, list[RuntimeEvent]]:

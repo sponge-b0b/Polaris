@@ -21,8 +21,6 @@ from core.workflow.bootstrap.workflow_bootstrap import (
 )
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
-)
-from core.workflow.models.destructive_operation_confirmation import (
     DestructiveWorkflowOperation,
 )
 from core.workflow.models.workflow_graph_definition import (

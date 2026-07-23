@@ -1,20 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
 import hashlib
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from typer.testing import CliRunner
 
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+)
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import ai_command
-from interfaces.cli.services.ai_command_service import AiArtifactCommandResult
-from interfaces.cli.services.ai_command_service import AiArtifactListCommandResult
-from interfaces.cli.services.ai_command_service import AiOptimizeCommandResult
+from interfaces.cli.services.ai_command_service import (
+    AiArtifactCommandResult,
+    AiArtifactListCommandResult,
+    AiOptimizeCommandResult,
+)
 
 
 @dataclass(slots=True)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import (

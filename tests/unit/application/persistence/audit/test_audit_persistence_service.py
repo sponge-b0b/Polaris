@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.audit import AuditPersistenceFilters
-from application.persistence.audit import AuditPersistenceService
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventResult
+from application.persistence.audit import (
+    AuditPersistenceFilters,
+    AuditPersistenceService,
+)
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventResult,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 
 
@@ -64,8 +67,8 @@ async def test_list_audit_events_preserves_sequence_api_and_result_envelope() ->
         execution_id=" exec-1 ",
         runtime_id=" runtime-1 ",
         node_name=" recommendation_node ",
-        start=datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc),
-        end=datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 5, 31, 13, 0, tzinfo=UTC),
+        end=datetime(2026, 5, 31, 15, 0, tzinfo=UTC),
     )
 
     records = await service.list_audit_events(
@@ -87,7 +90,7 @@ async def test_list_audit_events_preserves_sequence_api_and_result_envelope() ->
         31,
         13,
         0,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
     assert result.query.metadata["entity_type"] == "recommendation"
     assert result.query.metadata["action"] == "upsert"
@@ -102,16 +105,16 @@ async def test_list_audit_events_preserves_sequence_api_and_result_envelope() ->
         "execution_id": "exec-1",
         "runtime_id": "runtime-1",
         "node_name": "recommendation_node",
-        "start": datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc),
-        "end": datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc),
+        "start": datetime(2026, 5, 31, 13, 0, tzinfo=UTC),
+        "end": datetime(2026, 5, 31, 15, 0, tzinfo=UTC),
     }
 
 
 def test_audit_filters_validate_time_window() -> None:
     with pytest.raises(ValueError, match="start"):
         AuditPersistenceFilters(
-            start=datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc),
-            end=datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc),
+            start=datetime(2026, 5, 31, 15, 0, tzinfo=UTC),
+            end=datetime(2026, 5, 31, 13, 0, tzinfo=UTC),
         )
 
 
@@ -182,7 +185,7 @@ def _event() -> PersistenceAuditEventRecord:
         entity_type="recommendation",
         entity_id="rec-1",
         action="upsert",
-        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=UTC),
         actor=PersistenceAuditActor(
             system_source="recommendation-service",
             actor_id="user-1",

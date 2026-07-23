@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
-)
-from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context,
-)
-from intelligence.analysts.technical.technical_breadth_context import (
     extract_technical_breadth_context_from_features,
 )
 

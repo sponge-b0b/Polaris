@@ -3,25 +3,28 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import RecommendationOutcomeModel
-from core.database.models.recommendations import RecommendationRationaleModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
-from core.storage.persistence.recommendations.recommendation_persistence_repository import (
+from core.database.models.recommendations import (
+    RecommendationModel,
+    RecommendationOutcomeModel,
+    RecommendationRationaleModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceResult,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+)
+from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501
     RecommendationPersistenceRepository,
 )
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (

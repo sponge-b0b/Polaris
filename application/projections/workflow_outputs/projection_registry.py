@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from enum import Enum
-from typing import TYPE_CHECKING
-from typing import Iterable
-from typing import Protocol
-from typing import TypeVar
+from enum import StrEnum
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from application.projections.workflow_outputs.projection_models import (
@@ -30,7 +28,7 @@ class WorkflowOutputProjector(Protocol):
         ...
 
 
-class WorkflowOutputProjectionResolutionStatus(str, Enum):
+class WorkflowOutputProjectionResolutionStatus(StrEnum):
     """Exact registry resolution status for a workflow output contract."""
 
     SUPPORTED = "supported"

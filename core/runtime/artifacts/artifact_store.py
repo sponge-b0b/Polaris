@@ -4,14 +4,12 @@ import hashlib
 import json
 import mimetypes
 import re
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from core.runtime.artifacts.artifact_ref import ArtifactKind
-from core.runtime.artifacts.artifact_ref import ArtifactRef
+from core.runtime.artifacts.artifact_ref import ArtifactKind, ArtifactRef
 
 
 class ArtifactStore(ABC):

@@ -7,9 +7,8 @@ from domain.workflow_outputs import (
     RISK_AGGREGATE_INPUT_SIGNAL_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
-from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 from integration.adapters.risk import risk_runtime_adapter
+from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 
 
 class RiskSignalBuilder(RuntimeNode):

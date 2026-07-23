@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from integration.contracts.risk.risk_signal_contract import RiskSignalContract
 from intelligence.analysts.technical.technical_breadth_context import (

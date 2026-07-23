@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 
-from application.persistence.health import HealthPersistenceFilters
-from application.persistence.health import HealthPersistenceService
+from application.persistence.health import (
+    HealthPersistenceFilters,
+    HealthPersistenceService,
+)
 from core.storage.persistence.health import PersistenceHealthReport
 
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Protocol
 
-from application.rag.operations.rag_ingestion_operations import apply_limit
-from application.rag.contracts.rag_operation_models import RagOperationDetail
-from application.rag.contracts.rag_operation_models import RagOperationResult
 from application.rag.contracts.rag_operation_models import (
+    RagOperationDetail,
+    RagOperationResult,
     RagProcessEmbeddingsOperationRequest,
 )
+from application.rag.operations.rag_ingestion_operations import apply_limit
 from application.rag.operations.rag_operation_telemetry import RagOperationTelemetry
 from core.storage.persistence.rag import RagPersistenceRepository
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -12,28 +11,28 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     SENTIMENT_SNAPSHOT_PROJECTOR_NAME,
-)
-from application.projections.workflow_outputs.projectors import (
     SentimentSnapshotWorkflowOutputProjector,
-)
-from application.projections.workflow_outputs.projectors import (
     build_sentiment_snapshot_projector_registration,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.sentiment import SentimentPersistenceBundle
-from core.storage.persistence.sentiment import SentimentPersistenceRepository
-from core.storage.persistence.sentiment import SentimentPersistenceResult
-from domain.workflow_outputs import SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
+from core.storage.persistence.sentiment import (
+    SentimentPersistenceBundle,
+    SentimentPersistenceRepository,
+    SentimentPersistenceResult,
+)
+from domain.workflow_outputs import (
+    SENTIMENT_SNAPSHOT_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 @pytest.mark.asyncio

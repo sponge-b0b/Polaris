@@ -1,28 +1,28 @@
 from __future__ import annotations
 
 import logging
-
-from dataclasses import dataclass
-from dataclasses import replace
-from datetime import UTC
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from time import perf_counter
 
-from config.settings import DEFAULT_QDRANT_COLLECTION
-from config.settings import DEFAULT_VECTOR_SIZE
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from config.settings import DEFAULT_QDRANT_COLLECTION, DEFAULT_VECTOR_SIZE
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagEmbeddingJobRecord,
+    RagPersistenceRepository,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
-from integration.providers.rag.embedding_provider import EmbeddingInput
-from integration.providers.rag.embedding_provider import EmbeddingProvider
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
+from integration.providers.rag.embedding_provider import (
+    EmbeddingInput,
+    EmbeddingProvider,
+    EmbeddingRequest,
+    EmbeddingVector,
+)
+from integration.providers.rag.vector_index_models import vector_point_from_chunk
 from integration.providers.rag.vector_index_provider import (
     VectorCollectionLifecycleProvider,
+    VectorIndexProvider,
 )
-from integration.providers.rag.vector_index_provider import VectorIndexProvider
-from integration.providers.rag.vector_index_models import vector_point_from_chunk
 
 logger = logging.getLogger(__name__)
 

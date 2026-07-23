@@ -1,37 +1,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from uuid import UUID
 
 import pytest
 
 from application.persistence.export.json_persistence_export_service import (
     JsonPersistenceExportResult,
-)
-from application.persistence.export.json_persistence_export_service import (
     JsonPersistenceExportService,
-)
-from core.storage.persistence.export import PersistenceExportDestination
-from core.storage.persistence.export import PersistenceExportDestinationType
-from core.storage.persistence.export import PersistenceExportFormat
-from core.storage.persistence.export import PersistenceExportRequest
-from application.persistence.export.json_persistence_export_service import (
     ReportHistoryExportRequest,
 )
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceLineagePath
-from core.storage.persistence.lineage import PersistenceLineagePathSegment
-from core.storage.persistence.lineage import PersistenceLineageTraversalDirection
-from core.storage.persistence.lineage import PersistenceLineageTraversalRequest
-from core.storage.persistence.lineage import PersistenceLineageTraversalResult
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.export import (
+    PersistenceExportDestination,
+    PersistenceExportDestinationType,
+    PersistenceExportFormat,
+    PersistenceExportRequest,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineageLinkRecord,
+    PersistenceLineagePath,
+    PersistenceLineagePathSegment,
+    PersistenceLineageTraversalDirection,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
+)
 
 
-class SampleRegime(str, Enum):
+class SampleRegime(StrEnum):
     BULLISH = "bullish"
 
 
@@ -83,7 +82,7 @@ class UnsupportedRecord:
 
 
 @pytest.mark.asyncio
-async def test_json_export_service_serializes_selected_typed_records_to_json_payload() -> (
+async def test_json_export_service_serializes_selected_typed_records_to_json_payload() -> (  # noqa: E501
     None
 ):
     service = JsonPersistenceExportService()

@@ -1,36 +1,36 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
-from collections.abc import Sequence
-from contextlib import AbstractAsyncContextManager
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from dataclasses import replace
-from datetime import UTC
-from datetime import datetime
-from typing import Protocol
-from typing import TypeVar
-from typing import cast
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from typing import Protocol, TypeVar, cast
 from uuid import uuid4
 
-from application.ai_optimization import AiOptimizationRequest
-from application.ai_optimization import AiOptimizationResult
-from application.ai_optimization import AiOptimizationTarget
-from application.ai_optimization import coerce_ai_optimization_target
-from application.ai_optimization import evaluation_target_type_for_optimization
-from application.evaluations import EvaluationRunService
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
-from application.evaluations import intelligence_evaluation_metric_specs
-from application.evaluations import rag_evaluation_metric_specs
+from application.ai_optimization import (
+    AiOptimizationRequest,
+    AiOptimizationResult,
+    AiOptimizationTarget,
+    coerce_ai_optimization_target,
+    evaluation_target_type_for_optimization,
+)
+from application.evaluations import (
+    EvaluationRunService,
+    canonical_evaluation_dataset_definition_by_name,
+    intelligence_evaluation_metric_specs,
+    rag_evaluation_metric_specs,
+)
 from config.settings import Settings
 from core.bootstrap.di_providers import application_request_scope
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.ai_artifacts import approval_status_value
-from core.storage.persistence.ai_artifacts import artifact_type_value
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactPersistenceRepository,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+    approval_status_value,
+    artifact_type_value,
+)
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from domain.evaluation import EvaluationTargetType
 from integration.providers.ai_optimization import DspyOptimizationProvider
@@ -189,7 +189,7 @@ class AiCommandService:
             async with self._optimization_service_context() as service:
                 result = await service.optimize(request)
         except Exception as exc:
-            logger.exception("AI optimization command failed.")
+            logger.debug("AI optimization command failed.", exc_info=True)
             return AiOptimizeCommandResult(
                 success=False,
                 message="AI optimization failed.",
@@ -220,7 +220,7 @@ class AiCommandService:
                     )
                 )
         except Exception as exc:
-            logger.exception("AI artifact listing failed.")
+            logger.debug("AI artifact listing failed.", exc_info=True)
             return AiArtifactListCommandResult(success=False, error=str(exc))
         return AiArtifactListCommandResult(success=True, artifacts=artifacts)
 
@@ -238,7 +238,7 @@ class AiCommandService:
                     approved_at=datetime.now(UTC),
                 )
         except Exception as exc:
-            logger.exception("AI artifact approval failed.")
+            logger.debug("AI artifact approval failed.", exc_info=True)
             return AiArtifactCommandResult(
                 success=False,
                 message="AI artifact approval failed.",
@@ -286,7 +286,7 @@ class AiCommandService:
                     replace(artifact, active=True)
                 )
         except Exception as exc:
-            logger.exception("AI artifact activation failed.")
+            logger.debug("AI artifact activation failed.", exc_info=True)
             return AiArtifactCommandResult(
                 success=False,
                 message="AI artifact activation failed.",
@@ -303,7 +303,7 @@ class AiCommandService:
             async with self._artifact_repository_context() as repository:
                 artifact = await repository.deactivate_artifact(artifact_id)
         except Exception as exc:
-            logger.exception("AI artifact deactivation failed.")
+            logger.debug("AI artifact deactivation failed.", exc_info=True)
             return AiArtifactCommandResult(
                 success=False,
                 message="AI artifact deactivation failed.",
@@ -388,7 +388,7 @@ async def default_ai_artifact_repository_context() -> AsyncIterator[
 
 
 @asynccontextmanager
-async def _default_dependency_context(
+async def _default_dependency_context[DependencyT](
     dependency_type: type[DependencyT],
 ) -> AsyncIterator[DependencyT]:
     async with application_request_scope() as request_container:

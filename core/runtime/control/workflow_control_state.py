@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class WorkflowControlState(str, Enum):
+class WorkflowControlState(StrEnum):
     """
     Canonical cooperative workflow control lifecycle state.
     """

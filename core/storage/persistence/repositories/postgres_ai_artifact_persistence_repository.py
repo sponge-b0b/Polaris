@@ -4,23 +4,21 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import Select
-from sqlalchemy import func
-from sqlalchemy import null
-from sqlalchemy import select
-from sqlalchemy import update
+from sqlalchemy import Select, func, null, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
 from core.database.models.ai_artifacts import AiPromptProgramArtifactModel
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
-from core.storage.persistence.ai_artifacts import JsonObject
-from core.storage.persistence.ai_artifacts import approval_status_value
-from core.storage.persistence.ai_artifacts import artifact_type_value
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+    JsonObject,
+    approval_status_value,
+    artifact_type_value,
+)
 
 
 class PostgresAiArtifactPersistenceRepository:

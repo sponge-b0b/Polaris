@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.macro import EconomicCalendarEventPersistenceFilters
-from application.persistence.macro import MacroObservationPersistenceFilters
-from application.persistence.macro import MacroPersistenceService
-from application.persistence.macro import MacroRegimeSnapshotPersistenceFilters
-from core.storage.persistence.macro import EconomicCalendarEventRecord
-from core.storage.persistence.macro import MacroObservationRecord
-from core.storage.persistence.macro import MacroPersistenceBundle
-from core.storage.persistence.macro import MacroPersistenceResult
-from core.storage.persistence.macro import MacroRegimeSnapshotRecord
+from application.persistence.macro import (
+    EconomicCalendarEventPersistenceFilters,
+    MacroObservationPersistenceFilters,
+    MacroPersistenceService,
+    MacroRegimeSnapshotPersistenceFilters,
+)
+from core.storage.persistence.macro import (
+    EconomicCalendarEventRecord,
+    MacroObservationRecord,
+    MacroPersistenceBundle,
+    MacroPersistenceResult,
+    MacroRegimeSnapshotRecord,
+)
 
 
 class FakeMacroRepository:
@@ -148,7 +151,7 @@ async def test_macro_persistence_service_uses_typed_filters() -> None:
     )
     service = MacroPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     observations = await service.list_observations(
         MacroObservationPersistenceFilters(
@@ -267,7 +270,7 @@ def test_macro_time_window_filters_require_ordered_bounds(
         | EconomicCalendarEventPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -358,4 +361,4 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

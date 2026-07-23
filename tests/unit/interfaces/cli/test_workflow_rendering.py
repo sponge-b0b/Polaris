@@ -1,30 +1,27 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from collections.abc import Callable
-from contextlib import asynccontextmanager
 import json
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 from typer.testing import CliRunner
 
-from interfaces.cli.app import create_app
-from interfaces.cli.commands import morning_report_command
-from interfaces.cli.commands import workflow_command
 import interfaces.cli.services.workflow_command_service as workflow_command_service
-from interfaces.cli.services.workflow_command_service import MorningReportCommandRequest
-from interfaces.cli.services.workflow_command_service import WorkflowRunCommandRequest
+from interfaces.cli.app import create_app
+from interfaces.cli.commands import morning_report_command, workflow_command
 from interfaces.cli.formatters.console_formatter import format_workflow_run
 from interfaces.cli.formatters.json_formatter import format_json
 from interfaces.cli.formatters.markdown_formatter import format_workflow_run_markdown
-from interfaces.cli.rendering.workflow_rendering import WorkflowRenderEnvelope
 from interfaces.cli.rendering.workflow_rendering import (
+    WorkflowRenderEnvelope,
     workflow_exception_to_render_envelope,
-)
-from interfaces.cli.rendering.workflow_rendering import (
     workflow_result_to_render_envelope,
+)
+from interfaces.cli.services.workflow_command_service import (
+    MorningReportCommandRequest,
+    WorkflowRunCommandRequest,
 )
 
 
@@ -1188,7 +1185,7 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.55,
                             "confidence": 0.7,
                             "regime": "constructive",
-                            "llm_response": "Macro full LLM response for the CLI report.",
+                            "llm_response": "Macro full LLM response for the CLI report.",  # noqa: E501
                             "features": {
                                 "macro_state": {
                                     "fed_stance": "pause",
@@ -1205,7 +1202,7 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.42,
                             "confidence": 0.8,
                             "regime": "bullish",
-                            "llm_response": "Technical full LLM response for the CLI report.",
+                            "llm_response": "Technical full LLM response for the CLI report.",  # noqa: E501
                             "features": {
                                 "regime": {
                                     "execution_readiness": 0.8,
@@ -1230,7 +1227,7 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                         "success": True,
                         "outputs": {
                             "regime": "high_relevance",
-                            "llm_response": "News full LLM response for the CLI report.",
+                            "llm_response": "News full LLM response for the CLI report.",  # noqa: E501
                             "features": {
                                 "headline_count": 3,
                                 "market_relevance": "high_relevance",
@@ -1247,7 +1244,7 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.5,
                             "confidence": 0.65,
                             "regime": "neutral",
-                            "llm_response": "Sentiment full LLM response for the CLI report.",
+                            "llm_response": "Sentiment full LLM response for the CLI report.",  # noqa: E501
                             "features": {
                                 "composite_sentiment": 0.52,
                                 "fear_greed_state": "neutral",

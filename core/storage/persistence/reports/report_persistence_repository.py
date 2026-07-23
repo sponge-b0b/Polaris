@@ -1,25 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.reports.report_persistence_models import (
     ReportArtifactRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPersistenceBundle,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPersistenceResult,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPublicationRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import ReportRecord
-from core.storage.persistence.reports.report_persistence_models import (
+    ReportRecord,
     ReportSectionRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportVersionRecord,
 )
 

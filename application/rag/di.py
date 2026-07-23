@@ -1,117 +1,120 @@
 from __future__ import annotations
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
-from application.ai_optimization import ActiveAiPromptArtifactResolver
-from application.ai_optimization import AiPromptArtifactResolver
+from application.ai_optimization import (
+    ActiveAiPromptArtifactResolver,
+    AiPromptArtifactResolver,
+)
 from application.observability import AiObservabilityProjector
+from application.rag.contracts.rag_operation_models import (
+    RagProjectionConfig,
+    RagProjectionReadinessConfig,
+)
+from application.rag.generation.answer_generator import RagAnswerGenerator
+from application.rag.graphs.rag_service_graph import RagServiceGraph
 from application.rag.ingestion.curated_rag_bundle_persistence import (
     CuratedRagBundlePersister,
 )
 from application.rag.ingestion.curated_rag_document_builder import (
     CuratedRagDocumentBuilder,
-)
-from application.rag.ingestion.curated_rag_document_builder import (
     CuratedRagIngestionService,
 )
 from application.rag.ingestion.curated_rag_document_factory import (
     CuratedRagDocumentFactory,
 )
-from application.rag.operations.embedding_job_processor import EmbeddingJobProcessor
+from application.rag.ingestion.rag_source_loaders import (
+    AgentSignalRagSourceLoader,
+    BacktestRagSourceLoader,
+    CuratedRagSourceLoaderRegistry,
+    MacroRagSourceLoader,
+    MarketRagSourceLoader,
+    NewsRagSourceLoader,
+    PortfolioRagSourceLoader,
+    RecommendationRagSourceLoader,
+    ReportRagSourceLoader,
+    SentimentRagSourceLoader,
+    StrategyRagSourceLoader,
+)
 from application.rag.operations.embedding_job_processor import (
+    EmbeddingJobProcessor,
     EmbeddingJobProcessorConfig,
 )
-from application.rag.generation.answer_generator import RagAnswerGenerator
-from application.rag.projections.graph_projection import GraphProjectionJobProcessor
-from application.rag.projections.graph_projection import Neo4jGraphRetriever
-from application.rag.graphs.rag_service_graph import RagServiceGraph
-from application.rag.routing.query_routing_service import RagQueryRoutingService
 from application.rag.operations.rag_embedding_operations import (
     RagEmbeddingJobOperationsService,
 )
 from application.rag.operations.rag_ingestion_operations import (
     RagIngestionOperationsService,
 )
-from application.rag.contracts.rag_operation_models import RagProjectionConfig
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessConfig
 from application.rag.operations.rag_projection_operations import (
     RagProjectionOperationsService,
 )
-from application.rag.ingestion.rag_source_loaders import AgentSignalRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import BacktestRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import CuratedRagSourceLoaderRegistry
-from application.rag.ingestion.rag_source_loaders import MacroRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import MarketRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import NewsRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import PortfolioRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import RecommendationRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import ReportRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import SentimentRagSourceLoader
-from application.rag.ingestion.rag_source_loaders import StrategyRagSourceLoader
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
+from application.rag.projections.graph_projection import (
+    GraphProjectionJobProcessor,
+    Neo4jGraphRetriever,
+)
 from application.rag.quality.rag_quality_service import RagQualityService
-from application.rag.retrieval.rag_retriever import RagRetriever
-from application.rag.retrieval.rag_retriever import RagRetrieverConfig
-from application.rag.security.rag_security import RagSecurityGuard
 from application.rag.rag_service import RagService
+from application.rag.retrieval.rag_retriever import RagRetriever, RagRetrieverConfig
 from application.rag.retrieval.structured_retrieval import MarketStructuredRagRetriever
 from application.rag.retrieval.web_fallback_service import RagWebFallbackService
+from application.rag.routing.query_routing_service import RagQueryRoutingService
+from application.rag.security.rag_security import RagSecurityGuard
 from config.rag_model_config import RagModelConfig
 from config.settings import Settings
 from core.storage.persistence.ai_artifacts import AiArtifactPersistenceRepository
 from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (
+from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501
     PostgresAgentSignalPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (
+from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501
     PostgresBacktestPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
     PostgresMacroPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
     PostgresMarketPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_news_persistence_repository import (
     PostgresNewsPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
     PostgresPortfolioExpansionPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
     PostgresRecommendationPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_report_persistence_repository import (
+from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501
     PostgresReportPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
     PostgresSentimentPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501
     PostgresStrategyPersistenceRepository,
 )
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
 from integration.providers.rag.bge_reranking_provider import BgeRerankingProvider
-from integration.providers.rag.open_source_web_retrieval_provider import (
-    OpenSourceWebRetrievalProvider,
-)
-from integration.providers.rag.neo4j_graph_projection_provider import (
-    Neo4jGraphProjectionProvider,
-)
-from integration.providers.rag.structured_answer_generation_provider import (
-    StructuredRagAnswerGenerationProvider,
-)
 from integration.providers.rag.litellm_quality_evaluation_provider import (
     LiteLlmRagQualityModelProvider,
 )
 from integration.providers.rag.litellm_query_routing_provider import (
     LiteLlmRagQueryModelProvider,
 )
+from integration.providers.rag.neo4j_graph_projection_provider import (
+    Neo4jGraphProjectionProvider,
+)
+from integration.providers.rag.open_source_web_retrieval_provider import (
+    OpenSourceWebRetrievalProvider,
+)
 from integration.providers.rag.qdrant_vector_index_provider import (
     QdrantVectorIndexProvider,
+)
+from integration.providers.rag.structured_answer_generation_provider import (
+    StructuredRagAnswerGenerationProvider,
 )
 
 

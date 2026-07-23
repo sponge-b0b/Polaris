@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Mapping
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
+from core.runtime.events import EventBus, RuntimeEvent
 from interfaces.cli.formatters.json_formatter import to_jsonable
-
 
 ProgressNotificationHandler = Callable[
     ["WorkflowProgressNotification"],

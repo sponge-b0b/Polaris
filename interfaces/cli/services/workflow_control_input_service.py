@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable
-from collections.abc import Callable
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Protocol
-from typing import TextIO
 import select
 import sys
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any, Protocol, TextIO
 
 from core.runtime.control import WorkflowControlSnapshot
-
 
 AsyncLineReader = Callable[
     [],

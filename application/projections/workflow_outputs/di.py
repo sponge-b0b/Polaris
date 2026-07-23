@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -15,24 +13,24 @@ from application.persistence.strategy import StrategyPersistenceService
 from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionEligibilityPolicy,
 )
-from application.projections.workflow_outputs.projection_registry import (
-    WorkflowOutputProjectionRegistry,
-)
-from application.projections.workflow_outputs.projectors import (
-    build_macro_analysis_projector_registration,
-    build_recommendation_projector_registrations,
-    build_risk_signal_projector_registrations,
-    build_news_analysis_projector_registration,
-    build_portfolio_state_projector_registration,
-    build_sentiment_snapshot_projector_registration,
-    build_strategy_projector_registrations,
-    build_technical_market_projector_registration,
-)
 from application.projections.workflow_outputs.projection_operations import (
     WorkflowOutputProjectionOperationsService,
 )
+from application.projections.workflow_outputs.projection_registry import (
+    WorkflowOutputProjectionRegistry,
+)
 from application.projections.workflow_outputs.projection_service import (
     WorkflowOutputProjectionService,
+)
+from application.projections.workflow_outputs.projectors import (
+    build_macro_analysis_projector_registration,
+    build_news_analysis_projector_registration,
+    build_portfolio_state_projector_registration,
+    build_recommendation_projector_registrations,
+    build_risk_signal_projector_registrations,
+    build_sentiment_snapshot_projector_registration,
+    build_strategy_projector_registrations,
+    build_technical_market_projector_registration,
 )
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository

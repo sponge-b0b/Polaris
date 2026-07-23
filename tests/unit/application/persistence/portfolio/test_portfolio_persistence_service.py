@@ -1,32 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.portfolio import (
     PortfolioAllocationSnapshotPersistenceFilters,
-)
-from application.persistence.portfolio import (
     PortfolioEquityHistoryPersistenceFilters,
-)
-from application.persistence.portfolio import (
     PortfolioExposureSnapshotPersistenceFilters,
+    PortfolioLatestPositionPersistenceFilters,
+    PortfolioPersistenceService,
+    PortfolioPositionHistoryPersistenceFilters,
+    PortfolioRiskSnapshotPersistenceFilters,
 )
-from application.persistence.portfolio import PortfolioLatestPositionPersistenceFilters
-from application.persistence.portfolio import PortfolioPersistenceService
-from application.persistence.portfolio import PortfolioPositionHistoryPersistenceFilters
-from application.persistence.portfolio import PortfolioRiskSnapshotPersistenceFilters
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceResult
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExpansionPersistenceBundle,
+    PortfolioExpansionPersistenceResult,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+)
 from domain.portfolio.models.portfolio_state import PortfolioState
 
 
@@ -270,7 +267,7 @@ async def test_portfolio_persistence_service_uses_typed_expansion_filters() -> N
     )
     service = PortfolioPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     equity_history = await service.list_equity_history_points(
         PortfolioEquityHistoryPersistenceFilters(
@@ -376,7 +373,7 @@ async def test_portfolio_persistence_service_preserves_v2_state_repository() -> 
         state_repository,
     )
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     await service.persist_state_snapshot(state)
     latest_state = await service.get_latest_state(" acct-1 ")
@@ -414,7 +411,7 @@ async def test_portfolio_persistence_service_preserves_v2_state_repository() -> 
 
 
 @pytest.mark.asyncio
-async def test_portfolio_persistence_service_requires_state_repository_for_state_methods() -> (
+async def test_portfolio_persistence_service_requires_state_repository_for_state_methods() -> (  # noqa: E501
     None
 ):
     service = PortfolioPersistenceService(FakePortfolioExpansionRepository())
@@ -442,7 +439,7 @@ def test_portfolio_time_window_filters_require_ordered_bounds(
         | PortfolioAllocationSnapshotPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -630,4 +627,4 @@ def _account_id() -> str:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

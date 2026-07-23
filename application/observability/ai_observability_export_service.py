@@ -1,33 +1,31 @@
 from __future__ import annotations
 
 import logging
-from time import perf_counter
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from time import perf_counter
 
-from application.observability.ai_observability_contracts import AiObservation
 from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityExportStatus,
+    AiObservation,
 )
-from application.observability.langfuse_projection import AiObservabilitySink
-from application.observability.langfuse_projection import LangfuseExportClient
-from application.observability.langfuse_projection import LangfuseObservationMapper
-from application.observability.langfuse_projection import LangfusePayload
-from core.storage.persistence.ai_observability import AiObservabilityExportJobClaim
-from core.storage.persistence.ai_observability import AiObservabilityExportJobRecord
-from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository
-from core.storage.persistence.ai_observability import JsonObject
-from core.storage.persistence.ai_observability import JsonValue
-from core.storage.persistence.ai_observability import new_ai_observability_export_job_id
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from application.observability.langfuse_projection import (
+    AiObservabilitySink,
+    LangfuseExportClient,
+    LangfuseObservationMapper,
+    LangfusePayload,
+)
+from core.storage.persistence.ai_observability import (
+    AiObservabilityExportJobClaim,
+    AiObservabilityExportJobRecord,
+    AiObservabilityExportJobRepository,
+    JsonObject,
+    JsonValue,
+    new_ai_observability_export_job_id,
+)
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import TelemetryExceptionDetails
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
@@ -223,7 +221,7 @@ class AiObservabilityExportWorker:
         except Exception as exc:
             retry_after_seconds = self.default_retry_delay_seconds
             retry_at = datetime.now(UTC) + timedelta(seconds=retry_after_seconds)
-            logger.exception(
+            logger.debug(
                 "Durable Langfuse AI-observability export failed.",
                 extra={
                     "export_job_id": job.export_job_id,
@@ -233,6 +231,7 @@ class AiObservabilityExportWorker:
                     "attempt_count": job.attempt_count,
                     "max_attempts": job.max_attempts,
                 },
+                exc_info=True,
             )
             failed_job = await self.repository.mark_failed(
                 job.export_job_id,
@@ -406,9 +405,10 @@ def _record_ai_observability_metric(
             attributes=dict(attributes or {}),
         )
     except Exception:
-        logger.exception(
+        logger.debug(
             "Failed to record AI-observability metric.",
             extra={"metric_name": name},
+            exc_info=True,
         )
 
 
@@ -428,9 +428,10 @@ def _observe_ai_observability_metric(
             attributes=dict(attributes or {}),
         )
     except Exception:
-        logger.exception(
+        logger.debug(
             "Failed to observe AI-observability metric.",
             extra={"metric_name": name},
+            exc_info=True,
         )
 
 
@@ -501,9 +502,10 @@ async def _emit_ai_observability_export_event(
     try:
         await observability_manager.emit(event)
     except Exception:
-        logger.exception(
+        logger.debug(
             "Failed to emit AI-observability export telemetry event.",
             extra={"event_type": event_type, "export_job_id": job.export_job_id},
+            exc_info=True,
         )
 
 

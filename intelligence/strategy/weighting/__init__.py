@@ -1,10 +1,6 @@
 from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
-    StrategyPerspectiveWeights,
-)
-from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     StrategyPerspectiveWeightingEngine,
-)
-from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
+    StrategyPerspectiveWeights,
     calculate_strategy_perspective_weights,
 )
 

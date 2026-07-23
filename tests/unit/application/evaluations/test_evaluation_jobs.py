@@ -5,29 +5,37 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.evaluations import EvaluationJobProcessor
-from application.evaluations import EvaluationJobRequest
-from application.evaluations import EvaluationJobStatus
-from application.evaluations import EvaluationJobType
-from application.evaluations import EvaluationLangfuseProjectionRequest
-from application.evaluations import EvaluationLangfuseProjectionResult
-from application.evaluations import EvaluationResultService
-from application.evaluations import EvaluationRunService
-from core.storage.persistence.evaluation import EvaluationArtifactRecord
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationPersistenceBundle
-from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import EvaluationProviderResult
+from application.evaluations import (
+    EvaluationJobProcessor,
+    EvaluationJobRequest,
+    EvaluationJobStatus,
+    EvaluationJobType,
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionResult,
+    EvaluationResultService,
+    EvaluationRunService,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationMetricResultRecord,
+    EvaluationPersistenceBundle,
+    EvaluationPersistenceResult,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
+from integration.providers.llm_evaluation import (
+    EvaluationProviderRequest,
+    EvaluationProviderResult,
+)
 
 
 @dataclass(slots=True)

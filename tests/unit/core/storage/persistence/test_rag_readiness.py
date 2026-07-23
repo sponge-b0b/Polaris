@@ -2,43 +2,50 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from application.persistence import AgentIntelligencePersistenceService
-from application.persistence import AttributionPersistenceService
-from application.persistence import MacroPersistenceService
-from application.persistence import MarketPersistenceService
-from application.persistence import NewsPersistenceService
-from application.persistence import PortfolioPersistenceService
-from application.persistence import RecommendationPersistenceService
-from application.persistence import ReportPersistenceService
-from application.persistence import SentimentPersistenceService
-from core.database.models.agent_intelligence import AgentReasoningModel
-from core.database.models.agent_intelligence import AgentRecommendationModel
-from core.database.models.agent_intelligence import AgentRiskAssessmentModel
+from application.persistence import (
+    AgentIntelligencePersistenceService,
+    AttributionPersistenceService,
+    MacroPersistenceService,
+    MarketPersistenceService,
+    NewsPersistenceService,
+    PortfolioPersistenceService,
+    RecommendationPersistenceService,
+    ReportPersistenceService,
+    SentimentPersistenceService,
+)
+from core.database.models.agent_intelligence import (
+    AgentReasoningModel,
+    AgentRecommendationModel,
+    AgentRiskAssessmentModel,
+)
 from core.database.models.agent_signals import AgentSignalModel
-from core.database.models.attribution import AttributionRecordModel
-from core.database.models.attribution import RecommendationAttributionModel
-from core.database.models.attribution import SignalAttributionModel
+from core.database.models.attribution import (
+    AttributionRecordModel,
+    RecommendationAttributionModel,
+    SignalAttributionModel,
+)
 from core.database.models.macro import MacroRegimeSnapshotModel
 from core.database.models.market import TechnicalAnalysisSnapshotModel
 from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
 from core.database.models.portfolio_state import PortfolioStateHistoryModel
-from core.database.models.recommendations import RecommendationModel
-from core.database.models.recommendations import TradeSetupModel
-from core.database.models.recommendations import WatchlistItemModel
-from core.database.models.reports import ReportModel
-from core.database.models.reports import ReportSectionModel
+from core.database.models.recommendations import (
+    RecommendationModel,
+    TradeSetupModel,
+    WatchlistItemModel,
+)
+from core.database.models.reports import ReportModel, ReportSectionModel
 from core.database.models.sentiment import SentimentSnapshotModel
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from core.storage.persistence.rag import RagDocumentRecord, RagPersistenceRepository
 from core.storage.persistence.repositories import PostgresRagPersistenceRepository
 
 
@@ -246,7 +253,7 @@ def _document_for_source(
         source_type=source.source_type,
         title=f"RAG readiness source: {source.name}",
         content_text=f"Curated source text for {source.name}.",
-        generated_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 6, 1, tzinfo=UTC),
         metadata={
             "canonical_source": source.name,
             "projection_status": "not_projected",

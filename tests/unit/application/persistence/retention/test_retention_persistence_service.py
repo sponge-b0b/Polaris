@@ -1,23 +1,25 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from application.persistence.retention import RetentionPersistenceService
-from application.persistence.retention import RetentionPlanningFilters
-from core.storage.persistence.retention import PersistenceRetentionCandidateRecord
-from core.storage.persistence.retention import PersistenceRetentionPeriod
-from core.storage.persistence.retention import PersistenceRetentionPlanAction
-from core.storage.persistence.retention import PersistenceRetentionPolicyRecord
-from core.storage.persistence.retention import new_persistence_retention_policy_id
+from application.persistence.retention import (
+    RetentionPersistenceService,
+    RetentionPlanningFilters,
+)
+from core.storage.persistence.retention import (
+    PersistenceRetentionCandidateRecord,
+    PersistenceRetentionPeriod,
+    PersistenceRetentionPlanAction,
+    PersistenceRetentionPolicyRecord,
+    new_persistence_retention_policy_id,
+)
 
 
 @pytest.mark.asyncio
-async def test_retention_planning_reports_archive_and_delete_candidates_without_execution() -> (
+async def test_retention_planning_reports_archive_and_delete_candidates_without_execution() -> (  # noqa: E501
     None
 ):
     service = RetentionPersistenceService()

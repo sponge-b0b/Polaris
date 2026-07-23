@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -51,6 +51,7 @@ class FredEventsClient:
             series_names,
             self.SERIES_TO_RELEASE_ID.values(),
             results,
+            strict=False,
         ):
             if isinstance(result, asyncio.CancelledError):
                 raise result
@@ -103,7 +104,7 @@ class FredEventsClient:
         series_name: str,
         release_dates: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events: list[dict[str, Any]] = []
         for item in release_dates:
             date_str = item.get("date")
@@ -114,7 +115,7 @@ class FredEventsClient:
             except ValueError:
                 continue
             if event_time.tzinfo is None:
-                event_time = event_time.replace(tzinfo=timezone.utc)
+                event_time = event_time.replace(tzinfo=UTC)
             if event_time < now or (event_time - now).days > days_ahead:
                 continue
             events.append(

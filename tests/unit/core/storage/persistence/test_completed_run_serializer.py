@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
-from typing import Mapping
+from datetime import UTC, datetime
 from typing import cast
 
 from pydantic import BaseModel
@@ -14,8 +13,6 @@ from core.storage.persistence.completed_run_archive import CompletedRunExecution
 from core.storage.persistence.serializers.completed_run_serializer import (
     CompletedRunModelSerializer,
     CompletedRunPersistenceSerializer,
-)
-from core.storage.persistence.serializers.completed_run_serializer import (
     sanitize_json_value,
 )
 

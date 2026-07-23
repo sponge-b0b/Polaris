@@ -1,11 +1,10 @@
 from dishka import Provider, Scope, provide
 
-from core.llm.llm_service import LLMService
 from application.services.base import ServiceRunner
 from application.services.news.news_service import NewsService
 from application.services.sentiment.sentiment_service import SentimentService
+from core.llm.llm_service import LLMService
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
-
 from intelligence.research.news.news_agent import NewsAgent
 from intelligence.research.sentiment.sentiment_agent import SentimentAgent
 

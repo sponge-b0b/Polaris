@@ -4,19 +4,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501
     AgentIntelligencePersistenceBundle,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentIntelligencePersistenceResult,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentReasoningRecord,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentRecommendationRecord,
-)
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (
     AgentRiskAssessmentRecord,
 )
 

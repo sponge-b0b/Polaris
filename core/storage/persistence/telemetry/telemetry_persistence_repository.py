@@ -1,31 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.telemetry.telemetry_persistence_models import (
     AgentMetricRecord,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     ProviderMetricRecord,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     TelemetryEventRecord,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     TelemetryMetricRecord,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     TelemetryPersistenceBundle,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     TelemetryPersistenceResult,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     TelemetryTraceRecord,
-)
-from core.storage.persistence.telemetry.telemetry_persistence_models import (
     WorkflowMetricRecord,
 )
 

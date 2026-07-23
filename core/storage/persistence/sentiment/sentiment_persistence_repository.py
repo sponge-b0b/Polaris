@@ -6,14 +6,8 @@ from typing import Protocol
 
 from core.storage.persistence.sentiment.sentiment_persistence_models import (
     SentimentPersistenceBundle,
-)
-from core.storage.persistence.sentiment.sentiment_persistence_models import (
     SentimentPersistenceResult,
-)
-from core.storage.persistence.sentiment.sentiment_persistence_models import (
     SentimentSnapshotRecord,
-)
-from core.storage.persistence.sentiment.sentiment_persistence_models import (
     SentimentSourceRecord,
 )
 

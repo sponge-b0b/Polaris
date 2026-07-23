@@ -3,19 +3,22 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPersistenceRepository
-from core.storage.persistence.reports import ReportPersistenceResult
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
 from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPersistenceRepository,
+    ReportPersistenceResult,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+)
 
 
 @dataclass(

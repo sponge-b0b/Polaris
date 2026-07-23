@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 
 def build_features(
-    sentiment_snapshot: Dict[str, Any],
-    previous_snapshot: Dict[str, Any] | None = None,
-    risk_state: Dict[str, Any] | None = None,
-) -> Dict[str, Any]:
+    sentiment_snapshot: dict[str, Any],
+    previous_snapshot: dict[str, Any] | None = None,
+    risk_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Build deterministic sentiment features.
     """

@@ -323,9 +323,10 @@ class EvaluationTelemetry:
                 )
             )
         except Exception:
-            logger.exception(
+            logger.debug(
                 "Evaluation telemetry event emission failed.",
                 extra={"event_type": event_type, "run_id": run_id},
+                exc_info=True,
             )
 
     def _increment(
@@ -344,9 +345,10 @@ class EvaluationTelemetry:
                 attributes=attributes,
             )
         except Exception:
-            logger.exception(
+            logger.debug(
                 "Evaluation telemetry counter recording failed.",
                 extra={"metric_name": name},
+                exc_info=True,
             )
 
     def _observe(
@@ -365,9 +367,10 @@ class EvaluationTelemetry:
                 attributes=attributes,
             )
         except Exception:
-            logger.exception(
+            logger.debug(
                 "Evaluation telemetry histogram recording failed.",
                 extra={"metric_name": name},
+                exc_info=True,
             )
 
 

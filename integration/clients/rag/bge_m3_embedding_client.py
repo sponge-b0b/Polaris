@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
-from typing import cast
+from typing import Protocol, cast
 
 import numpy as np
 from FlagEmbedding import BGEM3FlagModel

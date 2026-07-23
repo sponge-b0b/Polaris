@@ -7,8 +7,10 @@ import pytest
 from qdrant_client import AsyncQdrantClient
 
 from config.settings import Settings
-from integration.clients.rag.qdrant_rag_client import QdrantRagClient
-from integration.clients.rag.qdrant_rag_client import QdrantClientProtocol
+from integration.clients.rag.qdrant_rag_client import (
+    QdrantClientProtocol,
+    QdrantRagClient,
+)
 
 
 @pytest.mark.asyncio

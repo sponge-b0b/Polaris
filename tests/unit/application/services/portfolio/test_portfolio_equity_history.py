@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -41,7 +40,7 @@ def test_normalize_portfolio_equity_history_builds_full_precision_points() -> No
         6,
         5,
         20,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
     assert points[0].equity == 100_000.123456789
     assert points[0].cashflow_payload == {"withdrawal": 10.5}
@@ -54,7 +53,7 @@ def test_normalize_portfolio_equity_history_builds_full_precision_points() -> No
 
 
 def test_normalize_portfolio_equity_history_accepts_aware_datetimes() -> None:
-    observed_at = datetime(2026, 6, 5, 14, tzinfo=timezone.utc)
+    observed_at = datetime(2026, 6, 5, 14, tzinfo=UTC)
 
     points = normalize_portfolio_equity_history(
         account_id="acct-1",

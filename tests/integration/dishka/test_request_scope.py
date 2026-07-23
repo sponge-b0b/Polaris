@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import pytest
+from dishka import Provider, Scope, make_container, provide
+from dishka.exceptions import NoFactoryError
 
-from dishka import Provider
-from dishka import Scope
-from dishka import make_container
-from dishka import provide
-
+from core.bootstrap.dishka_runtime_adapter import DishkaRuntimeAdapter
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.bootstrap.dishka_runtime_adapter import DishkaRuntimeAdapter
 
 
 class RequestScopedService(RuntimeNode):
@@ -66,7 +63,7 @@ async def test_dishka_request_scope_creates_new_instance_per_scope() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dishka_app_container_without_scope_cannot_resolve_request_dependency() -> (
+async def test_dishka_app_container_without_scope_cannot_resolve_request_dependency() -> (  # noqa: E501
     None
 ):
     container = make_container(
@@ -78,9 +75,7 @@ async def test_dishka_app_container_without_scope_cannot_resolve_request_depende
         use_scope=False,
     )
 
-    with pytest.raises(
-        Exception,
-    ):
+    with pytest.raises(NoFactoryError):
         adapter._resolve(
             RequestScopedService,
         )

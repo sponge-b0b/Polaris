@@ -5,8 +5,10 @@ from collections.abc import Mapping
 from intelligence.analysts.technical.technical_breadth_context import (
     TechnicalBreadthContext,
 )
-from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
-from intelligence.strategy.hypothesis.context import StrategyEvidenceInputStatus
+from intelligence.strategy.hypothesis.context import (
+    StrategyEvidenceContext,
+    StrategyEvidenceInputStatus,
+)
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 

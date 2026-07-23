@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
-from typing import Mapping
-from typing import Protocol
-from typing import cast
+from typing import Any, Protocol, cast
 
+from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
-from application.rag.contracts.rag_context import RagRetrievalFilters
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput

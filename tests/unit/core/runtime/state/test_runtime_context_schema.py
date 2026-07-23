@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from core.runtime.state.runtime_context import RUNTIME_CONTEXT_SCHEMA_VERSION
-from core.runtime.state.runtime_context import RuntimeContext
-from core.runtime.state.runtime_context import UnsupportedRuntimeContextSchemaError
+from core.runtime.state.runtime_context import (
+    RUNTIME_CONTEXT_SCHEMA_VERSION,
+    RuntimeContext,
+    UnsupportedRuntimeContextSchemaError,
+)
 
 
 def test_runtime_context_round_trips_canonical_schema() -> None:

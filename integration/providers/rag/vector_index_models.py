@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any
 
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
+from core.storage.persistence.rag import JsonObject, RagChunkRecord
 from integration.providers.rag.embedding_provider import SparseEmbeddingVector
 
 

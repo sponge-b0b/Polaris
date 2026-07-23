@@ -5,11 +5,13 @@ import pytest
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
+from domain.evaluation import (
+    EvaluationMetricResult,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
 
 
 @pytest.mark.asyncio

@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,36 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database.models.lineage import PersistenceLineageLinkModel
 from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkRecord,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkResult,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceRecordIdentity,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    DEFAULT_LINEAGE_TRAVERSAL_DEPTH,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    PersistenceLineagePath,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    PersistenceLineagePathSegment,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    PersistenceLineageTraversalDirection,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    PersistenceLineageTraversalRequest,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
-    PersistenceLineageTraversalResult,
 )
 from core.storage.persistence.lineage.lineage_persistence_repository import (
     PersistenceLineageLinkRepository,
+)
+from core.storage.persistence.lineage.lineage_traversal_models import (
+    DEFAULT_LINEAGE_TRAVERSAL_DEPTH,
+    DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
+    PersistenceLineagePath,
+    PersistenceLineagePathSegment,
+    PersistenceLineageTraversalDirection,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
 )
 from core.storage.persistence.serializers.lineage_persistence_serializer import (
     PersistenceLineageLinkSerializer,

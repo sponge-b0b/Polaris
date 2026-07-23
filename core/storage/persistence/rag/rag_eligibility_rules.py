@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
-from core.storage.persistence.rag.rag_persistence_models import JsonObject
-from core.storage.persistence.rag.rag_persistence_models import JsonValue
 from core.storage.persistence.rag.rag_persistence_models import (
+    JsonObject,
+    JsonValue,
     RagSourceEligibilityRecord,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     new_rag_source_eligibility_id,
 )
 
@@ -244,14 +240,14 @@ class DefaultRagEligibilityRules:
     writes, or ingestion workflows.
     """
 
-    def evaluate(
+    def evaluate(  # noqa: C901
         self,
         candidate: RagEligibilitySourceCandidate,
         *,
         reviewed_timestamp: datetime | None = None,
     ) -> RagSourceEligibilityRecord:
         reviewed_at = reviewed_timestamp or datetime.now(
-            timezone.utc,
+            UTC,
         )
         table = candidate.source_table
         source_type = candidate.source_type
@@ -260,7 +256,7 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Raw runtime records are operational state and are not curated RAG sources.",
+                reason="Raw runtime records are operational state and are not curated RAG sources.",  # noqa: E501
                 quality_score=0.0,
                 rule_name="raw_runtime_ineligible",
                 reviewed_timestamp=reviewed_at,
@@ -270,7 +266,7 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Raw telemetry records are observability data and are not curated RAG sources.",
+                reason="Raw telemetry records are observability data and are not curated RAG sources.",  # noqa: E501
                 quality_score=0.0,
                 rule_name="raw_telemetry_ineligible",
                 reviewed_timestamp=reviewed_at,
@@ -323,7 +319,7 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=True,
-                reason="Meaningful agent signals and reasoning are eligible RAG sources.",
+                reason="Meaningful agent signals and reasoning are eligible RAG sources.",  # noqa: E501
                 quality_score=_quality_score(candidate, 0.86),
                 rule_name="meaningful_agent_intelligence_eligible",
                 reviewed_timestamp=reviewed_at,
@@ -355,7 +351,7 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Recommendations without rationales are not curated RAG sources by default.",
+                reason="Recommendations without rationales are not curated RAG sources by default.",  # noqa: E501
                 quality_score=0.0,
                 rule_name="recommendation_without_rationale_ineligible",
                 reviewed_timestamp=reviewed_at,

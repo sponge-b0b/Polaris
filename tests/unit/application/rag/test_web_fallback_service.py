@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.retrieval.web_fallback_service import RagWebFallbackService
-from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
 
 
 class FakeWebRetrievalProvider:

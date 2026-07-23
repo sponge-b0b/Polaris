@@ -5,8 +5,10 @@ import pytest
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapConfig
-from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime_async
+from core.workflow.bootstrap.workflow_bootstrap import (
+    WorkflowBootstrapConfig,
+    build_workflow_runtime_async,
+)
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.models.workflow_node_definition import WorkflowNodeDefinition
 

@@ -5,7 +5,6 @@ import logging
 from typing import Any
 
 import pytest
-
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
@@ -13,11 +12,12 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from application.persistence.telemetry.telemetry_event_mapper import (
     TelemetryPersistenceMapper,
 )
-from application.services.base import ApplicationService
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
-from application.services.base import ServiceRunner
-
+from application.services.base import (
+    ApplicationService,
+    ServiceRequest,
+    ServiceResult,
+    ServiceRunner,
+)
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.control import WorkflowControlManager
 from core.runtime.events import EventBus
@@ -45,9 +45,11 @@ from core.telemetry.observability.observability_manager import ObservabilityMana
 from core.telemetry.sinks.runtime_telemetry_sink import CoreTelemetryRuntimeSink
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.telemetry.tracing.trace_context import TraceContext
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 from integration.providers.provider_telemetry import record_provider_call
 from intelligence.telemetry.runtime_context import telemetry_context_from_runtime
 

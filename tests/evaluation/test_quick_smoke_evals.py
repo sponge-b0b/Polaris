@@ -1,22 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import pytest
 
-from application.evaluations import EvaluationRunService
-from application.evaluations import EvaluationRunServiceRequest
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
+from application.evaluations import (
+    EvaluationRunService,
+    EvaluationRunServiceRequest,
+    canonical_evaluation_dataset_definition_by_name,
+)
+from domain.evaluation import (
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
 from integration.providers.llm_evaluation import EvaluationMetricSpec
-from tests.evaluation._helpers import InMemoryEvaluationRepository
-from tests.evaluation._helpers import PassingEvaluationProvider
-from tests.evaluation._helpers import RecordingProjectionService
-from tests.evaluation._helpers import evaluation_case_from_row
+from tests.evaluation._helpers import (
+    InMemoryEvaluationRepository,
+    PassingEvaluationProvider,
+    RecordingProjectionService,
+    evaluation_case_from_row,
+)
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
 

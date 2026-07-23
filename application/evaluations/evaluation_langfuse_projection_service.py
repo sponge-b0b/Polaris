@@ -5,27 +5,26 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol
 
-from application.evaluations.contracts import EvaluationLangfuseProjectionRequest
-from application.evaluations.contracts import EvaluationLangfuseProjectionResult
-from application.observability.ai_observability_contracts import AiEvaluationObservation
+from application.evaluations.contracts import (
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionResult,
+)
 from application.observability.ai_observability_contracts import (
+    AiEvaluationObservation,
     AiObservabilityCorrelationIds,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityExportStatus,
+    AiObservationStatus,
+    AiObservationType,
+    AiScoreProjection,
+    AiScoreResult,
 )
-from application.observability.ai_observability_contracts import AiObservationStatus
-from application.observability.ai_observability_contracts import AiObservationType
-from application.observability.ai_observability_contracts import AiScoreProjection
-from application.observability.ai_observability_contracts import AiScoreResult
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationMetricResultRecord,
+    EvaluationRunRecord,
+)
+from domain.evaluation import EvaluationStatus, EvaluationTargetType
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +53,13 @@ class EvaluationLangfuseProjectionService:
             try:
                 export_result = await self.projector.project(observation)
             except Exception as exc:
-                logger.exception(
+                logger.debug(
                     "Langfuse evaluation-score projection failed.",
                     extra={
                         "run_id": request.run.run_id,
                         "observation_id": observation.correlation_ids.observation_id,
                     },
+                    exc_info=True,
                 )
                 export_result = AiObservabilityExportResult.failed(
                     idempotency_key=observation.idempotency_key(),

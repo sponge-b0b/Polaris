@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from intelligence.attribution.attribution_engine import AttributionEngine
 

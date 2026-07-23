@@ -8,15 +8,16 @@ from typing import cast
 import pytest
 from mcp.types import ToolAnnotations
 
-from mcp_server.contracts.models import TOOL_INPUT_MODELS
-from mcp_server.contracts.models import TOOL_OUTPUT_MODELS
+from mcp_server.contracts.models import TOOL_INPUT_MODELS, TOOL_OUTPUT_MODELS
 from mcp_server.server import server
-from mcp_server.tools.allowlist import APPROVED_MCP_TOOL_NAMES
-from mcp_server.tools.allowlist import MCP_TOOL_ANNOTATION_REQUIREMENTS
-from mcp_server.tools.allowlist import PROHIBITED_MCP_TOOL_NAMES
-from mcp_server.tools.allowlist import PROHIBITED_MCP_TOOL_PREFIXES
-from mcp_server.tools.allowlist import RegisteredMcpTool
-from mcp_server.tools.allowlist import validate_registered_tool_allowlist
+from mcp_server.tools.allowlist import (
+    APPROVED_MCP_TOOL_NAMES,
+    MCP_TOOL_ANNOTATION_REQUIREMENTS,
+    PROHIBITED_MCP_TOOL_NAMES,
+    PROHIBITED_MCP_TOOL_PREFIXES,
+    RegisteredMcpTool,
+    validate_registered_tool_allowlist,
+)
 
 
 def _registered_tools() -> dict[str, RegisteredMcpTool]:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Any
 
 
 @dataclass
@@ -30,4 +30,4 @@ class TradeIntentContract:
     confidence: float
 
     # Explainability
-    reasoning: Dict[str, Any] = field(default_factory=dict)
+    reasoning: dict[str, Any] = field(default_factory=dict)

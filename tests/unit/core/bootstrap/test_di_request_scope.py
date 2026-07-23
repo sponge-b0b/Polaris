@@ -109,11 +109,9 @@ def test_sync_application_container_owns_in_memory_portfolio_repository() -> Non
     from core.bootstrap.workflow_providers import WorkflowInfrastructureProvider
     from core.storage.persistence.portfolio import (
         InMemoryPortfolioExpansionPersistenceRepository,
-    )
-    from core.storage.persistence.portfolio import (
         PortfolioExpansionPersistenceRepository,
     )
-    from core.storage.persistence.portfolio.in_memory_portfolio_state_repository import (
+    from core.storage.persistence.portfolio.in_memory_portfolio_state_repository import (  # noqa: E501
         InMemoryPortfolioStateRepository,
     )
     from core.storage.persistence.portfolio.portfolio_state_repository import (

@@ -1,25 +1,28 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
 from core.storage.persistence.rag import RagChunkRecord
-from integration.clients.rag.qdrant_rag_client import QdrantCollectionReadiness
-from integration.clients.rag.qdrant_rag_client import QdrantCollectionStatus
-from integration.clients.rag.qdrant_rag_client import QdrantRagClient
-from integration.clients.rag.qdrant_rag_client import QdrantSearchHit
-from integration.clients.rag.qdrant_rag_client import QdrantSearchQuery
-from integration.clients.rag.qdrant_rag_client import QdrantUpsertPoint
+from integration.clients.rag.qdrant_rag_client import (
+    QdrantCollectionReadiness,
+    QdrantCollectionStatus,
+    QdrantRagClient,
+    QdrantSearchHit,
+    QdrantSearchQuery,
+    QdrantUpsertPoint,
+)
+from integration.providers.rag.embedding_provider import SparseEmbeddingVector
 from integration.providers.rag.qdrant_vector_index_provider import (
     QdrantVectorIndexProvider,
 )
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import vector_point_from_chunk
+from integration.providers.rag.vector_index_models import (
+    VectorIndexPoint,
+    VectorSearchQuery,
+    vector_point_from_chunk,
+)
 
 
 class FakeQdrantRagClient:
@@ -188,7 +191,7 @@ def test_vector_point_from_chunk_preserves_chunk_payload_and_vectors() -> None:
             "source_table": "reports",
             "source_record_id": "report-1",
             "symbol": "SPY",
-            "created_at": datetime(2026, 6, 15, tzinfo=timezone.utc).isoformat(),
+            "created_at": datetime(2026, 6, 15, tzinfo=UTC).isoformat(),
         },
     )
     sparse = SparseEmbeddingVector(indices=(1,), values=(0.7,))

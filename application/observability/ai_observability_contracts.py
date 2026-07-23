@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import UTC
-from datetime import datetime
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Mapping
 
 AiMetadataValue = str | int | float | bool | None
 AiMetadata = Mapping[str, AiMetadataValue]

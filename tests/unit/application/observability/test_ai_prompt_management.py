@@ -2,21 +2,23 @@ from __future__ import annotations
 
 import pytest
 
-from application.observability import APPROVED_LANGFUSE_PROMPT_SOURCE
-from application.observability import DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE
-from application.observability import DEFAULT_STATIC_PROMPT_VERSION
-from application.observability import AiGenerationObservation
-from application.observability import AiObservationType
-from application.observability import AiPromptGovernanceError
-from application.observability import AiPromptGovernancePolicy
-from application.observability import AiPromptPromotionPolicy
-from application.observability import AiPromptPromotionRequest
-from application.observability import AiPromptPromotionStatus
-from application.observability import AiPromptVersionReference
-from application.observability import LangfuseObservationMapper
-from application.observability import AiObservabilityCapturePolicy
-from application.observability import static_prompt_hash
-from application.observability import static_prompt_reference
+from application.observability import (
+    APPROVED_LANGFUSE_PROMPT_SOURCE,
+    DEFAULT_SOURCE_CONTROLLED_PROMPT_SOURCE,
+    DEFAULT_STATIC_PROMPT_VERSION,
+    AiGenerationObservation,
+    AiObservabilityCapturePolicy,
+    AiObservationType,
+    AiPromptGovernanceError,
+    AiPromptGovernancePolicy,
+    AiPromptPromotionPolicy,
+    AiPromptPromotionRequest,
+    AiPromptPromotionStatus,
+    AiPromptVersionReference,
+    LangfuseObservationMapper,
+    static_prompt_hash,
+    static_prompt_reference,
+)
 
 
 def test_static_prompt_reference_records_deterministic_hash_and_source() -> None:

@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceResult
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
-from core.storage.persistence.strategy import new_strategy_decision_id
-from core.storage.persistence.strategy import new_strategy_evaluation_id
-from core.storage.persistence.strategy import new_strategy_hypothesis_id
-
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_evaluation
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_hypothesis
+from core.storage.persistence.strategy import (
+    StrategyPersistenceBundle,
+    StrategyPersistenceResult,
+    StrategySynthesisDecisionRecord,
+    new_strategy_decision_id,
+    new_strategy_evaluation_id,
+    new_strategy_hypothesis_id,
+)
 from tests.unit.core.storage.persistence.strategy_fixtures import (
+    strategy_evaluation,
+    strategy_hypothesis,
     strategy_synthesis_decision,
 )
 
@@ -122,6 +122,6 @@ def test_strategy_record_score_validation() -> None:
             uncertainty=0.25,
             thesis="Invalid score.",
             evidence_fingerprint="fingerprint-1",
-            created_at=datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 5, 31, 13, 0, tzinfo=UTC),
             lineage=PersistenceLineage(execution_id="exec-1"),
         )

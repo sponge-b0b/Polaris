@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import Protocol
+from typing import Any, Protocol
 
 from core.runtime.governance.governance_result import GovernanceResult
 

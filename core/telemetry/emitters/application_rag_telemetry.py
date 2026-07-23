@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.telemetry.contracts.telemetry_context import TelemetryContext
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import TelemetryExceptionDetails
 from core.telemetry.observability.observability_manager import ObservabilityManager
 

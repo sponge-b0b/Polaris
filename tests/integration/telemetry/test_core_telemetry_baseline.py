@@ -16,9 +16,11 @@ from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.runtime_telemetry_sink import CoreTelemetryRuntimeSink
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from core.workflow.models.workflow_execution_plan import ExecutionPlanNode
-from core.workflow.models.workflow_execution_plan import ExecutionWave
-from core.workflow.models.workflow_execution_plan import WorkflowExecutionPlan
+from core.workflow.models.workflow_execution_plan import (
+    ExecutionPlanNode,
+    ExecutionWave,
+    WorkflowExecutionPlan,
+)
 
 
 class BaselineRuntimeNode(RuntimeNode):

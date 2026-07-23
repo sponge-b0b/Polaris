@@ -5,28 +5,26 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from application.observability.ai_observability_contracts import AiEvaluationObservation
-from application.observability.ai_observability_contracts import AiGenerationObservation
-from application.observability.ai_observability_contracts import AiMetadata
-from application.observability.ai_observability_contracts import AiObservation
-from application.observability.ai_observability_contracts import AiObservationStatus
-from application.observability.ai_observability_contracts import AiObservationType
 from application.observability.ai_observability_contracts import (
-    AiPromptVersionReference,
-)
-from application.observability.ai_observability_contracts import (
+    AiEvaluationObservation,
+    AiGenerationObservation,
+    AiMetadata,
     AiObservabilityCorrelationIds,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
+    AiObservation,
+    AiObservationStatus,
+    AiObservationType,
+    AiPromptVersionReference,
+    AiRerankingObservation,
+    AiRetrievalObservation,
+    AiScoreProjection,
+    AiScoreResult,
 )
-from application.observability.ai_observability_contracts import AiRerankingObservation
-from application.observability.ai_observability_contracts import AiRetrievalObservation
-from application.observability.ai_observability_contracts import AiScoreProjection
-from application.observability.ai_observability_contracts import AiScoreResult
 from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_quality_models import RagContextEvaluation
-from application.rag.contracts.rag_quality_models import RagSelfReflection
+from application.rag.contracts.rag_quality_models import (
+    RagContextEvaluation,
+    RagSelfReflection,
+)
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.routing.query_routing_models import RagQueryModelExecution
@@ -67,13 +65,14 @@ class RagAiObservabilityRecorder:
         try:
             await self.projector.project(observation)
         except Exception:
-            logger.exception(
+            logger.debug(
                 "RAG AI-observability projection failed.",
                 extra={
                     "observation_type": observation.observation_type.value,
                     "observation_name": observation.name,
                     "observation_id": observation.correlation_ids.observation_id,
                 },
+                exc_info=True,
             )
 
 

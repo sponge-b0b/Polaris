@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from application.health import PlatformReadinessCategory
-from application.health import PlatformReadinessProbe
-from application.health import PlatformReadinessService
-from application.health import PlatformReadinessStatus
-from core.storage.persistence.health import PersistenceHealthCheckCategory
-from core.storage.persistence.health import PersistenceHealthCheckResult
-from core.storage.persistence.health import PersistenceHealthReport
+from application.health import (
+    PlatformReadinessCategory,
+    PlatformReadinessProbe,
+    PlatformReadinessService,
+    PlatformReadinessStatus,
+)
+from core.storage.persistence.health import (
+    PersistenceHealthCheckCategory,
+    PersistenceHealthCheckResult,
+    PersistenceHealthReport,
+)
 
 
 class StubPersistenceHealthService:

@@ -3,29 +3,24 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from application.persistence.telemetry import TelemetryPersistenceService
-from application.persistence.telemetry import TelemetryTracePersistenceFilters
+from application.persistence.telemetry import (
+    TelemetryPersistenceService,
+    TelemetryTracePersistenceFilters,
+)
 from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSink,
-)
-from application.persistence.telemetry.telemetry_persistence_sink import (
     TelemetryPersistenceSinkConfig,
 )
-from core.database.models.telemetry import TelemetryEventModel
-from core.database.models.telemetry import TelemetryTraceModel
+from core.database.models.telemetry import TelemetryEventModel, TelemetryTraceModel
 from core.storage.persistence.repositories import (
     PostgresTelemetryPersistenceRepository,
 )
@@ -158,7 +153,7 @@ def _trace_events(
     trace_id: str,
     span_ids: dict[str, str],
 ) -> tuple[TelemetryEvent, ...]:
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     workflow_span_id = span_ids["runtime.workflow"]
     node_span_id = span_ids["runtime.node"]
     service_span_id = span_ids["application.service"]

@@ -2,38 +2,36 @@
 
 from __future__ import annotations
 
-
 import ast
 import asyncio
-from collections.abc import AsyncIterator
-from collections.abc import Iterable
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import sys
+from collections.abc import AsyncIterator, Iterable
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from textwrap import dedent
 from types import SimpleNamespace
 from typing import Any, cast
 
 import httpx
+import pytest
 from dishka import AsyncContainer
-from mcp import ClientSession
-from mcp import StdioServerParameters
+from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import SecretStr
-import pytest
 from starlette.applications import Starlette
 
+import mcp_server.server as server_module
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
+    RagGraphProjectionReadiness,
+    RagModelReadiness,
+    RagProjectionReadinessResult,
+    RagStatusOperationRequest,
+    RagVectorProjectionReadiness,
 )
-from application.rag.contracts.rag_operation_models import RagGraphProjectionReadiness
-from application.rag.contracts.rag_operation_models import RagModelReadiness
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
-from application.rag.contracts.rag_operation_models import RagVectorProjectionReadiness
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.runtime.state.runtime_context import RuntimeContext
@@ -43,24 +41,26 @@ from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
 from core.workflow.execution.workflow_service import WorkflowSummary
 from mcp_server.auth import McpHttpAuthenticationBoundary
+from mcp_server.contracts.models import (
+    CompletedRunGetRequest,
+    CompletedRunsListRequest,
+    RagAskRequest,
+    RagStatusRequest,
+    WorkflowDescribeRequest,
+    WorkflowsListRequest,
+)
+from mcp_server.lifespan import McpApplicationContext
+from mcp_server.server import create_streamable_http_app
+from mcp_server.settings import McpServerSettings, McpTransport
+from mcp_server.telemetry import McpTelemetry
+from mcp_server.tools.allowlist import (
+    APPROVED_MCP_TOOL_NAMES,
+    validate_registered_tool_allowlist,
+)
 from mcp_server.tools.completed_run_get import execute_completed_run_get
 from mcp_server.tools.completed_runs import execute_completed_runs_list
-from mcp_server.lifespan import McpApplicationContext
-from mcp_server.contracts.models import CompletedRunGetRequest
-from mcp_server.contracts.models import CompletedRunsListRequest
-from mcp_server.contracts.models import RagAskRequest
-from mcp_server.contracts.models import RagStatusRequest
-from mcp_server.contracts.models import WorkflowDescribeRequest
-from mcp_server.contracts.models import WorkflowsListRequest
-from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.rag import execute_rag_ask
-from mcp_server.server import create_streamable_http_app
-import mcp_server.server as server_module
-from mcp_server.settings import McpServerSettings
-from mcp_server.settings import McpTransport
-from mcp_server.telemetry import McpTelemetry
-from mcp_server.tools.allowlist import APPROVED_MCP_TOOL_NAMES
-from mcp_server.tools.allowlist import validate_registered_tool_allowlist
+from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.workflow_describe import execute_workflow_describe
 from mcp_server.tools.workflows import execute_workflows_list
 
@@ -69,7 +69,7 @@ def _credential_url(password: str) -> str:
     return "postgresql://user:" + password + "@localhost/polaris"
 
 
-_GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+_GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
 
 
 class _FakeRagService:
@@ -377,7 +377,7 @@ async def test_stdio_and_streamable_http_expose_identical_tool_schemas(
 
         server._mcp_server.lifespan = fake_lifespan
         run_stdio_server(McpServerSettings())
-        """,
+        """,  # noqa: E501
     )
     stdio_parameters = StdioServerParameters(
         command=sys.executable,

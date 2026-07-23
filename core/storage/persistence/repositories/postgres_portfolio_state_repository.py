@@ -4,8 +4,7 @@ from dataclasses import fields
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,19 +12,15 @@ from core.database.models.portfolio_state import (
     PortfolioStateHistoryModel,
     PortfolioStateLatestModel,
 )
-
 from core.storage.persistence.portfolio.portfolio_state_repository import (
     PortfolioStateRepository,
 )
-
 from core.storage.persistence.serializers.portfolio_state_serializer import (
     PortfolioStateSerializer,
 )
-
 from domain.portfolio.models.portfolio_state import (
     PortfolioState,
 )
-
 
 _PORTFOLIO_STATE_FIELD_NAMES = tuple(field.name for field in fields(PortfolioState))
 _LATEST_INSERT_FIELD_NAMES = (

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -13,28 +12,28 @@ from application.projections.workflow_outputs.projection_identity import (
 )
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionStatus,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
     MACRO_ANALYSIS_PROJECTOR_NAME,
-)
-from application.projections.workflow_outputs.projectors import (
     MacroAnalysisWorkflowOutputProjector,
-)
-from application.projections.workflow_outputs.projectors import (
     build_macro_analysis_projector_registration,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.macro import MacroPersistenceBundle
-from core.storage.persistence.macro import MacroPersistenceRepository
-from core.storage.persistence.macro import MacroPersistenceResult
-from domain.workflow_outputs import MACRO_ANALYSIS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonObject,
+)
+from core.storage.persistence.macro import (
+    MacroPersistenceBundle,
+    MacroPersistenceRepository,
+    MacroPersistenceResult,
+)
+from domain.workflow_outputs import (
+    MACRO_ANALYSIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 @pytest.mark.asyncio

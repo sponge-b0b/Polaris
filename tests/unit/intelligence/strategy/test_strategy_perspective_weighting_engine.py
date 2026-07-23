@@ -3,19 +3,17 @@ from __future__ import annotations
 import pytest
 
 from core.runtime.state.runtime_context import RuntimeContext
-from domain.workflow_outputs import STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT
-from domain.workflow_outputs import WORKFLOW_OUTPUT_SCHEMA_VERSION_V1
+from domain.workflow_outputs import (
+    STRATEGY_PERSPECTIVE_WEIGHTS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 from intelligence.strategy.hypothesis.context import StrategyEvidenceContext
 from intelligence.strategy.hypothesis.normalization import (
     normalize_strategy_evidence_context,
 )
 from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     StrategyPerspectiveWeightingEngine,
-)
-from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     StrategyPerspectiveWeights,
-)
-from intelligence.strategy.weighting.strategy_perspective_weighting_engine import (
     calculate_strategy_perspective_weights,
 )
 
@@ -123,7 +121,7 @@ async def test_strategy_perspective_weights_are_independent_of_hypothesis_output
     )
 
 
-def test_strategy_perspective_weights_can_prefer_sideways_without_directional_bias() -> (
+def test_strategy_perspective_weights_can_prefer_sideways_without_directional_bias() -> (  # noqa: E501
     None
 ):
     evidence_context = _evidence_context(

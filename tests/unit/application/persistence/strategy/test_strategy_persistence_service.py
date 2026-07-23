@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 import os
+from collections.abc import Sequence
 from typing import cast
 
 import pytest
@@ -12,20 +12,21 @@ os.environ.setdefault(
 
 from application.persistence.strategy import (
     StrategyHypothesisEvaluationPersistenceFilters,
+    StrategyHypothesisPersistenceFilters,
+    StrategyPersistenceService,
+    StrategySynthesisDecisionPersistenceFilters,
 )
-from application.persistence.strategy import StrategyHypothesisPersistenceFilters
-from application.persistence.strategy import StrategyPersistenceService
-from application.persistence.strategy import StrategySynthesisDecisionPersistenceFilters
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategyPersistenceRepository
-from core.storage.persistence.strategy import StrategyPersistenceResult
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
-
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_evaluation
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_hypothesis
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategyPersistenceRepository,
+    StrategyPersistenceResult,
+    StrategySynthesisDecisionRecord,
+)
 from tests.unit.core.storage.persistence.strategy_fixtures import (
+    strategy_evaluation,
+    strategy_hypothesis,
     strategy_synthesis_decision,
 )
 

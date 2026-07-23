@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from core.runtime.checkpoints.runtime_checkpoint import RuntimeCheckpoint
 from core.runtime.events.event_bus import EventBus
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 from core.runtime.state.runtime_context import RuntimeContext
 
 
@@ -54,7 +52,7 @@ class CheckpointManager:
         skipped_nodes: tuple[str, ...] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Path:
-        timestamp = datetime.now(timezone.utc).strftime(
+        timestamp = datetime.now(UTC).strftime(
             "%Y%m%d_%H%M%S",
         )
 
@@ -71,7 +69,7 @@ class CheckpointManager:
             skipped_nodes=skipped_nodes,
             metadata={
                 **dict(metadata or {}),
-                "saved_at": datetime.now(timezone.utc).isoformat(),
+                "saved_at": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -129,7 +127,6 @@ class CheckpointManager:
 
         with open(
             file_path,
-            "r",
             encoding="utf-8",
         ) as file:
             payload: dict[str, Any] = json.load(file)

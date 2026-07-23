@@ -8,6 +8,7 @@ from typing import Final, cast
 
 from domain.authority import (
     AiOutputContentType,
+    AuthorityClaimPattern,
     AuthorityEffect,
     CanonicalOwner,
     IntendedSink,
@@ -17,6 +18,7 @@ from domain.authority import (
     SourceOfTruthCategory,
     authority_contract_metadata,
     classify_risk_authority,
+    model_authority_claim_keys_from_text,
 )
 
 type JsonScalar = str | int | float | bool | None
@@ -46,16 +48,7 @@ _ALLOWED_REPORT_AUTHORITY_EFFECTS: Final[frozenset[AuthorityEffect]] = frozenset
         AuthorityEffect.ADVISORY_CONTEXT,
     }
 )
-_AUTHORITY_CLAIM_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
-    ("authority_effect", re.compile(r"(?i)\bauthority[-_ ]effect\b")),
-    ("authority_level", re.compile(r"(?i)\b(?:authoritative|authority[-_ ]level)\b")),
-    ("governance_approved", re.compile(r"(?i)\bgovernance[-_ ]approved\b")),
-    ("production_ready", re.compile(r"(?i)\bproduction[-_ ]ready\b")),
-    (
-        "residual_risk_accepted",
-        re.compile(r"(?i)\bresidual[-_ ]risk[-_ ]accepted\b"),
-    ),
-    ("risk_tier", re.compile(r"(?i)\brisk[-_ ]tier\b")),
+_REPORT_AUTHORITY_CLAIM_PATTERNS: Final[tuple[AuthorityClaimPattern, ...]] = (
     (
         "portfolio_decision_authority",
         re.compile(r"(?i)\b(?:final|authoritative|approved)\s+portfolio\s+decision\b"),
@@ -221,10 +214,9 @@ def ensure_report_publication_authority(
 
 
 def _authority_claims_from_text(text: str) -> tuple[str, ...]:
-    return tuple(
-        claim_key
-        for claim_key, pattern in _AUTHORITY_CLAIM_PATTERNS
-        if pattern.search(text)
+    return model_authority_claim_keys_from_text(
+        text,
+        extra_patterns=_REPORT_AUTHORITY_CLAIM_PATTERNS,
     )
 
 

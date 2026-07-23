@@ -1,26 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import MarketIndicatorRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import MarketPersistenceBundle
-from core.storage.persistence.market import MarketPersistenceResult
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
-from core.storage.persistence.market import new_market_breadth_snapshot_id
-from core.storage.persistence.market import new_market_context_snapshot_id
-from core.storage.persistence.market import new_market_event_snapshot_id
-from core.storage.persistence.market import new_market_indicator_id
-from core.storage.persistence.market import new_market_ohlcv_id
-from core.storage.persistence.market import new_technical_analysis_snapshot_id
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    MarketIndicatorRecord,
+    MarketOhlcvRecord,
+    MarketPersistenceBundle,
+    MarketPersistenceResult,
+    TechnicalAnalysisSnapshotRecord,
+    new_market_breadth_snapshot_id,
+    new_market_context_snapshot_id,
+    new_market_event_snapshot_id,
+    new_market_indicator_id,
+    new_market_ohlcv_id,
+    new_technical_analysis_snapshot_id,
+)
 
 
 def test_market_ohlcv_record_is_typed_normalized_and_immutable() -> None:
@@ -592,4 +593,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

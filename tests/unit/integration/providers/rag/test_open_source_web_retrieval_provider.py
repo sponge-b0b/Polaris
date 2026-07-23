@@ -1,26 +1,24 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.rag.web_retrieval_models import CrawledWebDocument
-from integration.clients.rag.web_retrieval_models import WebSearchCandidate
-from integration.providers.rag.open_source_web_retrieval_provider import (
-    OpenSourceWebRetrievalProvider,
+from integration.clients.rag.web_retrieval_models import (
+    CrawledWebDocument,
+    WebSearchCandidate,
 )
 from integration.providers.rag.open_source_web_retrieval_provider import (
+    OpenSourceWebRetrievalProvider,
     sanitize_web_content,
 )
 from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
 
 
 @pytest.mark.asyncio
-async def test_open_source_provider_sanitizes_and_marks_transient_untrusted_context() -> (
+async def test_open_source_provider_sanitizes_and_marks_transient_untrusted_context() -> (  # noqa: E501
     None
 ):
     search_client = FakeSearchClient(

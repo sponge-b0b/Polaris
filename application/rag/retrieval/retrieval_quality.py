@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import math
 import re
-
 from collections import Counter
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import cast
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagPersistenceRepository
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagPersistenceRepository,
+)
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 _STOP_WORDS = frozenset(

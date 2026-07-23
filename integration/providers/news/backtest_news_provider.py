@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from typing import Any
+
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from integration.providers.news.news_provider import NewsProvider
 from integration.providers.provider_telemetry import record_provider_call
@@ -19,7 +20,7 @@ class BacktestNewsProvider(NewsProvider):
         query: str,
         sort_by: str = "publishedAt",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return await record_provider_call(
             self.telemetry,
@@ -36,7 +37,7 @@ class BacktestNewsProvider(NewsProvider):
         self,
         symbol: str = "SPY",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return await record_provider_call(
             self.telemetry,

@@ -4,15 +4,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventRepository
-from core.storage.persistence.audit import PersistenceAuditEventResult
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.audit import (
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventRepository,
+    PersistenceAuditEventResult,
+)
 from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from core.storage.persistence.query import PersistenceCommonQuery, PersistenceListResult
 
 
 @dataclass(

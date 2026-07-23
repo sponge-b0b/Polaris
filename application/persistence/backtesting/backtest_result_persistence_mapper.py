@@ -2,21 +2,21 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 from application.services.backtesting import BacktestResult
-from core.storage.persistence.backtesting import JsonArray
-from core.storage.persistence.backtesting import JsonObject
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestFillRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPersistenceBundle
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestScenarioRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
-
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestFillRecord,
+    BacktestMetricRecord,
+    BacktestPersistenceBundle,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestScenarioRecord,
+    BacktestStepRecord,
+    JsonArray,
+    JsonObject,
+)
 
 MIME_TYPES = {
     "console": "text/plain",

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING
-from typing import Any
-from typing import Awaitable
-from typing import Callable
-
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 from core.telemetry.events.telemetry_exception_details import (
     TelemetryExceptionDetails,
 )
@@ -159,6 +155,7 @@ class EventBus:
             for handler, result in zip(
                 handlers,
                 results,
+                strict=False,
             )
             if isinstance(
                 result,

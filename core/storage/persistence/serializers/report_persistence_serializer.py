@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.reports import ReportArtifactModel
-from core.database.models.reports import ReportModel
-from core.database.models.reports import ReportPublicationModel
-from core.database.models.reports import ReportSectionModel
-from core.database.models.reports import ReportVersionModel
-from core.storage.persistence.reports.report_persistence_models import JsonObject
+from core.database.models.reports import (
+    ReportArtifactModel,
+    ReportModel,
+    ReportPublicationModel,
+    ReportSectionModel,
+    ReportVersionModel,
+)
 from core.storage.persistence.reports.report_persistence_models import (
+    JsonObject,
     ReportArtifactRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportPublicationRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import ReportRecord
-from core.storage.persistence.reports.report_persistence_models import (
+    ReportRecord,
     ReportSectionRecord,
-)
-from core.storage.persistence.reports.report_persistence_models import (
     ReportVersionRecord,
 )
 

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -14,7 +12,7 @@ from core.telemetry.events.telemetry_exception_details import (
 )
 
 
-class TelemetryEventLevel(str, Enum):
+class TelemetryEventLevel(StrEnum):
     """Generic telemetry event severity."""
 
     DEBUG = "debug"
@@ -31,7 +29,7 @@ class TelemetryEvent:
     event_type: str
     source: str
     event_id: str = field(default_factory=lambda: uuid4().hex)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     level: TelemetryEventLevel = TelemetryEventLevel.INFO
     workflow_id: str | None = None
     execution_id: str | None = None
@@ -83,7 +81,7 @@ class TelemetryEvent:
         timestamp = (
             datetime.fromisoformat(str(timestamp_raw))
             if timestamp_raw
-            else datetime.now(timezone.utc)
+            else datetime.now(UTC)
         )
         level_raw = data.get(
             "level",

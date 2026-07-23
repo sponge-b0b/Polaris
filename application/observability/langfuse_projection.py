@@ -2,32 +2,27 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
-from application.observability.ai_observability_contracts import AiEvaluationObservation
-from application.observability.ai_observability_contracts import AiGenerationObservation
-from application.observability.ai_observability_contracts import AiObservation
 from application.observability.ai_observability_contracts import (
+    AiEvaluationObservation,
+    AiGenerationObservation,
     AiObservabilityCapturePolicy,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityCorrelationIds,
-)
-from application.observability.ai_observability_contracts import (
     AiObservabilityExportResult,
+    AiObservation,
+    AiRedactionMode,
+    AiRerankingObservation,
+    AiRetrievalObservation,
+    AiScoreProjection,
 )
-from application.observability.ai_observability_contracts import AiRedactionMode
-from application.observability.ai_prompt_management import AiPromptGovernancePolicy
 from application.observability.ai_observability_security import (
     AiObservabilityRedactionReport,
+    sanitize_metadata,
+    sanitize_text,
 )
-from application.observability.ai_observability_security import sanitize_metadata
-from application.observability.ai_observability_security import sanitize_text
-from application.observability.ai_observability_contracts import AiRerankingObservation
-from application.observability.ai_observability_contracts import AiRetrievalObservation
-from application.observability.ai_observability_contracts import AiScoreProjection
+from application.observability.ai_prompt_management import AiPromptGovernancePolicy
 
 logger = logging.getLogger(__name__)
 
@@ -188,13 +183,14 @@ class LangfuseAiObservabilitySink:
         try:
             response = await self.client.export(self.mapper.to_payload(observation))
         except Exception as exc:
-            logger.exception(
+            logger.debug(
                 "Langfuse AI-observability export failed.",
                 extra={
                     "idempotency_key": idempotency_key,
                     "observation_type": observation.observation_type.value,
                     "observation_name": observation.name,
                 },
+                exc_info=True,
             )
             return AiObservabilityExportResult.failed(
                 idempotency_key=idempotency_key,

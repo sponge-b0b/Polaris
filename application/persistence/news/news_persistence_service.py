@@ -4,22 +4,24 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.storage.persistence.lineage import clean_optional_identifier
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
-from core.storage.persistence.news import NewsPersistenceBundle
-from core.storage.persistence.news import NewsPersistenceRepository
-from core.storage.persistence.news import NewsPersistenceResult
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.audit.audit_emission import PersistenceAuditEmission
-from application.persistence.audit.audit_emission import PersistenceAuditEmitter
 from application.persistence.audit.audit_emission import (
+    PersistenceAuditEmission,
+    PersistenceAuditEmitter,
     emit_persistence_audit_events_non_fatal,
 )
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.lineage import clean_optional_identifier
+from core.storage.persistence.news import (
+    NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+    NewsPersistenceRepository,
+    NewsPersistenceResult,
+)
+from core.storage.persistence.query import PersistenceCommonQuery, PersistenceListResult
 
 
 @dataclass(

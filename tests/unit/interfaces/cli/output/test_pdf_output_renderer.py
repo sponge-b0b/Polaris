@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from application.reports.morning_report_models import MorningReportDocument
-from application.reports.morning_report_models import ReportBullet
-from application.reports.morning_report_models import ReportMetric
-from application.reports.morning_report_models import ReportSection
-from application.reports.morning_report_models import ReportTable
-from application.reports.morning_report_models import ReportTableRow
-from interfaces.cli.output import MarkdownPdfRenderer
-from interfaces.cli.output import MorningReportPdfRenderer
+from application.reports.morning_report_models import (
+    MorningReportDocument,
+    ReportBullet,
+    ReportMetric,
+    ReportSection,
+    ReportTable,
+    ReportTableRow,
+)
+from interfaces.cli.output import MarkdownPdfRenderer, MorningReportPdfRenderer
 
 
 def test_markdown_pdf_renderer_produces_pdf_bytes() -> None:

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import UTC
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -48,7 +46,7 @@ class EvaluationDatasetReference:
         object.__setattr__(self, "tags", _clean_tuple(self.tags))
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the reference at a persistence, telemetry, or transport boundary."""
+        """Serialize the reference at a persistence, telemetry, or transport boundary."""  # noqa: E501
 
         return {
             "dataset_id": self.dataset_id,
@@ -76,7 +74,7 @@ class EvaluationThreshold:
         return score >= self.minimum_score
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the threshold at a persistence, telemetry, or transport boundary."""
+        """Serialize the threshold at a persistence, telemetry, or transport boundary."""  # noqa: E501
 
         return {
             "metric_name": self.metric_name,
@@ -273,7 +271,7 @@ class EvaluationMetricResult:
         return self.score.passed
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the metric result at a persistence, telemetry, or transport boundary."""
+        """Serialize the metric result at a persistence, telemetry, or transport boundary."""  # noqa: E501
 
         return {
             "run_id": self.run_id,

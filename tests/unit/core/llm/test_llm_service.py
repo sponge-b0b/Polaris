@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pytest
 
-from core.llm.llm_gateway import LLMChatResponseFormat
-from core.llm.llm_gateway import LLMJsonResult
-from core.llm.llm_gateway import LLMMessage
-from core.llm.llm_gateway import LLMMetadata
-from core.llm.llm_gateway import LLMTextResult
+from core.llm.llm_gateway import (
+    LLMChatResponseFormat,
+    LLMJsonResult,
+    LLMMessage,
+    LLMMetadata,
+    LLMTextResult,
+)
 from core.llm.llm_service import LLMService
 
 

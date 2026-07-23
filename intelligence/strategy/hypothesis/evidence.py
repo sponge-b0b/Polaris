@@ -1,24 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from json import dumps
 from typing import Self
 
-from intelligence.strategy.hypothesis.contracts import Confidence
-from intelligence.strategy.hypothesis.contracts import EvidenceReliability
-from intelligence.strategy.hypothesis.contracts import EvidenceStrength
-from intelligence.strategy.hypothesis.contracts import StrategyJsonScalar
-from intelligence.strategy.hypothesis.contracts import StrategyPerspective
-from intelligence.strategy.hypothesis.contracts import parse_strategy_perspective
-from intelligence.strategy.hypothesis.contracts import validate_confidence
-from intelligence.strategy.hypothesis.contracts import validate_evidence_strength
-from intelligence.strategy.hypothesis.contracts import validate_reliability
-from intelligence.strategy.hypothesis.contracts import validate_strategy_json_scalar
+from intelligence.strategy.hypothesis.contracts import (
+    Confidence,
+    EvidenceReliability,
+    EvidenceStrength,
+    StrategyJsonScalar,
+    StrategyPerspective,
+    parse_strategy_perspective,
+    validate_confidence,
+    validate_evidence_strength,
+    validate_reliability,
+    validate_strategy_json_scalar,
+)
 from intelligence.strategy.hypothesis.serialization import require_serialized_list
 
 
-class StrategyInvalidationOperator(str, Enum):
+class StrategyInvalidationOperator(StrEnum):
     """Supported deterministic invalidation comparison operators."""
 
     GREATER_THAN = "gt"

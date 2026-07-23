@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -100,7 +99,7 @@ def live_deepeval_settings(
     missing = _missing_live_deepeval_env()
     if not run_live_evaluations and not evaluation_required:
         pytest.skip(
-            f"Set {LIVE_EVAL_ENV}=true and configure {', '.join(_REQUIRED_DEEPEVAL_ENV)} "
+            f"Set {LIVE_EVAL_ENV}=true and configure {', '.join(_REQUIRED_DEEPEVAL_ENV)} "  # noqa: E501
             "to run live DeepEval evaluation tests."
         )
     if missing:

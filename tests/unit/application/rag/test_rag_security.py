@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.security.rag_security import RagSecurityGuard
-from application.rag.contracts.rag_context import RagSource
-from application.rag.security.rag_security import inspect_prompt_injection
-from application.rag.security.rag_security import inspect_suspicious_output
-from application.rag.security.rag_security import sanitize_untrusted_text
+from application.rag.security.rag_security import (
+    RagSecurityGuard,
+    inspect_prompt_injection,
+    inspect_suspicious_output,
+    sanitize_untrusted_text,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
@@ -124,7 +124,7 @@ def _context(text: str) -> RagRetrievedContext:
             source_type="morning_report",
             document_id="document-1",
             title="Morning Report",
-            generated_at=datetime(2026, 6, 24, tzinfo=timezone.utc),
+            generated_at=datetime(2026, 6, 24, tzinfo=UTC),
         ),
         score=0.9,
         rank=0,

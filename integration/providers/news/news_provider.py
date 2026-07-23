@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -14,10 +14,10 @@ class NewsProvider(Protocol):
         query: str,
         sort_by: str = "publishedAt",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
 
     async def get_market_news(
         self,
         symbol: str = "SPY",
         limit: int = 20,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...

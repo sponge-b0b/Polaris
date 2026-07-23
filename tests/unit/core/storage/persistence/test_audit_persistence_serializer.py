@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 from core.database.models.audit import PersistenceAuditEventModel
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.serializers.audit_persistence_serializer import (
     PersistenceAuditEventSerializer,
@@ -26,7 +27,7 @@ def test_audit_serializer_flattens_typed_event_record() -> None:
     assert values["system_source"] == "recommendation-service"
     assert values["actor_id"] == "user-1"
     assert values["actor_type"] == "human"
-    assert values["timestamp"] == datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    assert values["timestamp"] == datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
     assert values["workflow_name"] == "morning_report"
     assert values["execution_id"] == "exec-1"
     assert values["runtime_id"] == "runtime-1"
@@ -63,7 +64,7 @@ def _event() -> PersistenceAuditEventRecord:
         entity_type="recommendation",
         entity_id="rec-1",
         action="upsert",
-        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 31, 14, 0, tzinfo=UTC),
         actor=PersistenceAuditActor(
             system_source="recommendation-service",
             actor_id="user-1",

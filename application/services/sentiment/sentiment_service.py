@@ -1,25 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from application.services.base import ServiceDegradation
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
+from application.services.base import ServiceDegradation, ServiceRequest, ServiceResult
 from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
-
+from application.services.sentiment import sentiment_analysis, sentiment_fusion
 from application.services.sentiment.sentiment_request import (
     SentimentSnapshotRequest,
 )
 from application.services.sentiment.sentiment_result import (
     SentimentSnapshotResult,
 )
-from application.services.sentiment import sentiment_analysis
-from application.services.sentiment import sentiment_fusion
 
 if TYPE_CHECKING:
     from integration.providers.sentiment.sentiment_provider import (
@@ -112,6 +107,7 @@ class SentimentService(ApplicationService, ValidatingApplicationService):
         for provider_name, provider_result in zip(
             ("fear_greed", "news_sentiment"),
             provider_results,
+            strict=False,
         ):
             if isinstance(provider_result, BaseException):
                 if isinstance(provider_result, asyncio.CancelledError):
@@ -209,7 +205,7 @@ class SentimentService(ApplicationService, ValidatingApplicationService):
     # FEAR & GREED NORMALIZATION (-1 → +1)
     # ============================================================
 
-    def _normalize_fear_greed(self, fg: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_fear_greed(self, fg: dict[str, Any]) -> dict[str, Any]:
         """
         Converts Fear & Greed index into normalized sentiment space.
         Assumes typical 0–100 scale.

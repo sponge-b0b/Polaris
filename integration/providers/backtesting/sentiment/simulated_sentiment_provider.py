@@ -1,4 +1,5 @@
-from typing import Any, Dict
+from typing import Any
+
 from integration.providers.sentiment.sentiment_provider import SentimentProvider
 
 
@@ -11,12 +12,12 @@ class SimulatedSentimentProvider(SentimentProvider):
     async def get_news_sentiment(
         self,
         symbol: str = "SPY",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return {}
 
     async def get_fear_greed_sentiment(
         self,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
 
         return {}

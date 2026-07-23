@@ -13,10 +13,12 @@ from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.events.telemetry_event import TelemetryEventLevel
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.clients.market_data import yfinance_data_client as client_module
 from domain.market.models import SP500Data
-from integration.clients.market_data.yfinance_data_client import YFinanceClientOptions
-from integration.clients.market_data.yfinance_data_client import YFinanceDataClient
+from integration.clients.market_data import yfinance_data_client as client_module
+from integration.clients.market_data.yfinance_data_client import (
+    YFinanceClientOptions,
+    YFinanceDataClient,
+)
 from integration.providers.backtesting.market_data.simulated_data_provider import (
     SimulatedDataProvider,
 )

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.persistence.diagnostics import DiagnosticsPersistenceFilters
-from application.persistence.diagnostics import DiagnosticsPersistenceService
-from application.persistence.health import HealthPersistenceFilters
-from application.persistence.health import HealthPersistenceService
+from application.persistence.diagnostics import (
+    DiagnosticsPersistenceFilters,
+    DiagnosticsPersistenceService,
+)
+from application.persistence.health import (
+    HealthPersistenceFilters,
+    HealthPersistenceService,
+)
 from core.storage.persistence.health import PersistenceHealthStatus
 
 

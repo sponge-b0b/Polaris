@@ -3,9 +3,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from core.security.sensitive_data import REDACTED_VALUE
-from core.security.sensitive_data import sanitize_sensitive_mapping
-from core.security.sensitive_data import sanitize_sensitive_value
+from core.security.sensitive_data import (
+    REDACTED_VALUE,
+    sanitize_sensitive_mapping,
+    sanitize_sensitive_value,
+)
 
 
 def sanitize_telemetry_value(

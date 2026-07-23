@@ -3,17 +3,23 @@ from __future__ import annotations
 from collections.abc import Callable
 from html import escape
 from pathlib import Path
-from application.reports import MorningReportAssembler
-from application.reports import MorningReportMarkdownRenderer
-from interfaces.cli.output.pdf_output_renderer import MarkdownPdfRenderer
-from interfaces.cli.output.pdf_output_renderer import MorningReportPdfRenderer
+
+from application.reports import MorningReportAssembler, MorningReportMarkdownRenderer
 from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.output.workflow_output import CliOutputFormat
-from interfaces.cli.output.workflow_output import WorkflowOutputArtifact
-from interfaces.cli.output.workflow_output import WorkflowOutputBundle
-from interfaces.cli.output.workflow_output import output_path_for_format
-from interfaces.cli.rendering.workflow_rendering import WorkflowRenderEnvelope
-from interfaces.cli.rendering.workflow_rendering import render_workflow_output
+from interfaces.cli.output.pdf_output_renderer import (
+    MarkdownPdfRenderer,
+    MorningReportPdfRenderer,
+)
+from interfaces.cli.output.workflow_output import (
+    CliOutputFormat,
+    WorkflowOutputArtifact,
+    WorkflowOutputBundle,
+    output_path_for_format,
+)
+from interfaces.cli.rendering.workflow_rendering import (
+    WorkflowRenderEnvelope,
+    render_workflow_output,
+)
 
 PdfRenderer = Callable[[str], bytes]
 
@@ -226,10 +232,10 @@ def render_html_document(
             '  <meta name="viewport" content="width=device-width, initial-scale=1">',
             f"  <title>{escaped_title}</title>",
             "  <style>",
-            "    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 2rem auto; max-width: 960px; line-height: 1.55; color: #17202a; }",
+            "    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 2rem auto; max-width: 960px; line-height: 1.55; color: #17202a; }",  # noqa: E501
             "    h1, h2, h3 { color: #0b1f3a; }",
             "    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }",
-            "    th, td { border: 1px solid #d5d8dc; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }",
+            "    th, td { border: 1px solid #d5d8dc; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }",  # noqa: E501
             "    th { background: #f4f6f7; }",
             "    code, pre { background: #f4f6f7; border-radius: 4px; }",
             "    pre { padding: 1rem; overflow-x: auto; }",
@@ -244,7 +250,7 @@ def render_html_document(
     )
 
 
-def _render_basic_markdown_html(
+def _render_basic_markdown_html(  # noqa: C901
     markdown: str,
 ) -> str:
     lines: list[str] = []

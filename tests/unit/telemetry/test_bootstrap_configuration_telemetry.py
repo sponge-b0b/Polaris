@@ -8,8 +8,6 @@ from core.telemetry.context import telemetry_context_scope
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     BootstrapConfigurationTelemetry,
-)
-from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     emergency_log_configuration_failure,
 )
 from core.telemetry.events.telemetry_event import TelemetryEventLevel

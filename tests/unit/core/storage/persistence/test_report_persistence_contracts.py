@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.reports import ReportArtifactRecord
-from core.storage.persistence.reports import ReportPersistenceBundle
-from core.storage.persistence.reports import ReportPersistenceResult
-from core.storage.persistence.reports import ReportPublicationRecord
-from core.storage.persistence.reports import ReportRecord
-from core.storage.persistence.reports import ReportSectionRecord
-from core.storage.persistence.reports import ReportVersionRecord
-from core.storage.persistence.reports import new_report_publication_id
-from core.storage.persistence.reports import new_report_version_id
+from core.storage.persistence.reports import (
+    ReportArtifactRecord,
+    ReportPersistenceBundle,
+    ReportPersistenceResult,
+    ReportPublicationRecord,
+    ReportRecord,
+    ReportSectionRecord,
+    ReportVersionRecord,
+    new_report_publication_id,
+    new_report_version_id,
+)
 
 
 def test_report_record_is_typed_and_immutable() -> None:
@@ -22,7 +23,7 @@ def test_report_record_is_typed_and_immutable() -> None:
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body="# Full report\n",
         structured_payload={"symbol": "SPY"},
     )
@@ -51,7 +52,7 @@ def test_report_record_validates_required_fields(
         "report_id": "morning_report:exec-1",
         "report_type": "morning_report",
         "title": "Morning Report",
-        "generated_at": datetime(2026, 5, 30, tzinfo=timezone.utc),
+        "generated_at": datetime(2026, 5, 30, tzinfo=UTC),
         "markdown_body": "# Full report\n",
     }
     values.update(kwargs)
@@ -102,7 +103,7 @@ def test_report_persistence_bundle_and_result_validate_state() -> None:
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body="# Full report\n",
     )
     bundle = ReportPersistenceBundle(
@@ -145,7 +146,7 @@ def test_report_version_record_links_to_report_and_preserves_full_content() -> N
         version_id="morning_report:exec-1:version:1",
         report_id="morning_report:exec-1",
         version_number=1,
-        created_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
         title="Morning Report",
         markdown_body=markdown_body,
         structured_payload={"full_payload": "x" * 2000},
@@ -175,7 +176,7 @@ def test_report_version_record_validates_required_fields(
         "version_id": "morning_report:exec-1:version:1",
         "report_id": "morning_report:exec-1",
         "version_number": 1,
-        "created_at": datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 5, 30, 14, tzinfo=UTC),
         "markdown_body": "# Full report\n",
     }
     values.update(kwargs)
@@ -185,8 +186,8 @@ def test_report_version_record_validates_required_fields(
 
 
 def test_report_publication_record_links_to_report_and_optional_version() -> None:
-    requested_at = datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
-    published_at = datetime(2026, 5, 30, 14, 1, tzinfo=timezone.utc)
+    requested_at = datetime(2026, 5, 30, 14, tzinfo=UTC)
+    published_at = datetime(2026, 5, 30, 14, 1, tzinfo=UTC)
     publication = ReportPublicationRecord(
         publication_id="morning_report:exec-1:publication:markdown",
         report_id="morning_report:exec-1",
@@ -216,7 +217,7 @@ def test_report_publication_record_links_to_report_and_optional_version() -> Non
         (
             "published_at",
             {
-                "published_at": datetime(2026, 5, 30, 13, tzinfo=timezone.utc),
+                "published_at": datetime(2026, 5, 30, 13, tzinfo=UTC),
             },
         ),
     ],
@@ -231,7 +232,7 @@ def test_report_publication_record_validates_required_fields(
         "version_id": "morning_report:exec-1:version:1",
         "publication_target": "markdown_archive",
         "publication_status": "published",
-        "requested_at": datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        "requested_at": datetime(2026, 5, 30, 14, tzinfo=UTC),
     }
     values.update(kwargs)
 
@@ -240,7 +241,7 @@ def test_report_publication_record_validates_required_fields(
 
 
 def test_report_version_and_publication_id_helpers_are_stable() -> None:
-    requested_at = datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
+    requested_at = datetime(2026, 5, 30, 14, tzinfo=UTC)
     version_id = new_report_version_id(
         "morning_report:exec-1",
         2,
@@ -264,14 +265,14 @@ def test_report_persistence_bundle_can_include_versions_and_publications() -> No
         report_id="morning_report:exec-1",
         report_type="morning_report",
         title="Morning Report",
-        generated_at=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 30, tzinfo=UTC),
         markdown_body="# Full report\n",
     )
     version = ReportVersionRecord(
         version_id="morning_report:exec-1:version:1",
         report_id=report.report_id,
         version_number=1,
-        created_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
         markdown_body="# Full report\n",
     )
     publication = ReportPublicationRecord(
@@ -280,7 +281,7 @@ def test_report_persistence_bundle_can_include_versions_and_publications() -> No
         version_id=version.version_id,
         publication_target="markdown_archive",
         publication_status="pending",
-        requested_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+        requested_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
     )
 
     bundle = ReportPersistenceBundle(

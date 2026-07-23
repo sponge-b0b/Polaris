@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -12,34 +11,40 @@ from application.rag.ingestion.curated_rag_document_builder import (
 from application.rag.ingestion.curated_rag_models import CuratedRagBuildOptions
 from application.rag.ingestion.curated_rag_structured_sources import (
     StructuredCuratedRagSource,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
     structured_source_id,
-)
-from application.rag.ingestion.curated_rag_structured_sources import (
     structured_source_timestamp,
 )
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestMetricRecord,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestStepRecord,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.macro import MacroRegimeSnapshotRecord
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    TechnicalAnalysisSnapshotRecord,
+)
 from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioRiskSnapshotRecord,
+)
 from core.storage.persistence.rag import RagSourceEligibilityRecord
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
+from core.storage.persistence.recommendations import (
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+)
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategyPersistenceBundle
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisRecord,
+    StrategyPersistenceBundle,
+    StrategySynthesisDecisionRecord,
+)
 
 
 def _timestamp() -> datetime:
@@ -349,7 +354,7 @@ def test_structured_curated_sources_build_deterministic_human_readable_chunks(
     assert first.embedding_jobs
 
 
-def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypothesis_attribution() -> (
+def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypothesis_attribution() -> (  # noqa: E501
     None
 ):
     bundle = _strategy_bundle()
@@ -394,7 +399,7 @@ def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypot
     assert result.embedding_jobs
 
 
-def test_strategy_hypothesis_builds_attributable_why_why_not_and_invalidation_content() -> (
+def test_strategy_hypothesis_builds_attributable_why_why_not_and_invalidation_content() -> (  # noqa: E501
     None
 ):
     hypothesis = _strategy_hypothesis()
@@ -440,7 +445,7 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         confidence=0.78,
         regime="risk_on",
         uncertainty=0.22,
-        thesis="Bull perspective is selected because breadth and trend evidence dominate unresolved macro risks.",
+        thesis="Bull perspective is selected because breadth and trend evidence dominate unresolved macro risks.",  # noqa: E501
         evidence_fingerprint="fingerprint-1",
         created_at=_timestamp(),
         lineage=_lineage(),
@@ -453,12 +458,12 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         _strategy_hypothesis(
             perspective="bull",
             hypothesis_id="hypothesis-bull",
-            thesis="Bullish continuation is supported by stronger participation and trend confirmation.",
+            thesis="Bullish continuation is supported by stronger participation and trend confirmation.",  # noqa: E501
         ),
         _strategy_hypothesis(
             perspective="bear",
             hypothesis_id="hypothesis-bear",
-            thesis="Bearish reversal would require macro risk to overpower breadth confirmation.",
+            thesis="Bearish reversal would require macro risk to overpower breadth confirmation.",  # noqa: E501
             directional_bias=-0.55,
             hypothesis_strength=0.41,
             confidence=0.46,
@@ -466,7 +471,7 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         _strategy_hypothesis(
             perspective="sideways",
             hypothesis_id="hypothesis-sideways",
-            thesis="Sideways consolidation remains possible if breadth stalls without a volatility break.",
+            thesis="Sideways consolidation remains possible if breadth stalls without a volatility break.",  # noqa: E501
             directional_bias=0.0,
             hypothesis_strength=0.37,
             confidence=0.44,
@@ -493,7 +498,7 @@ def _strategy_hypothesis(
     *,
     perspective: str = "bull",
     hypothesis_id: str = "hypothesis-bull",
-    thesis: str = "Bullish continuation is supported by stronger participation and trend confirmation.",
+    thesis: str = "Bullish continuation is supported by stronger participation and trend confirmation.",  # noqa: E501
     directional_bias: float = 0.65,
     hypothesis_strength: float = 0.74,
     confidence: float = 0.81,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 DEFAULT_PROMETHEUS_LABEL_ALLOWLIST: tuple[str, ...] = (
     "source",
     "event_type",

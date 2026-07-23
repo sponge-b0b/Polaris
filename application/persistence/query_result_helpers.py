@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import TypeAlias
 from typing import TypeVar
 
-from core.storage.persistence.query import PersistenceAccountQuery
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceLineageQuery
-from core.storage.persistence.query import PersistenceListResult
-from core.storage.persistence.query import PersistenceSymbolQuery
-from core.storage.persistence.query import PersistenceTimeRange
+from core.storage.persistence.query import (
+    PersistenceAccountQuery,
+    PersistenceCommonQuery,
+    PersistenceLineageQuery,
+    PersistenceListResult,
+    PersistenceSymbolQuery,
+    PersistenceTimeRange,
+)
 
-MetadataScalar: TypeAlias = str | int | float | bool | None
+type MetadataScalar = str | int | float | bool | None
 TRecord = TypeVar("TRecord")
 
 
@@ -70,7 +70,7 @@ def build_common_query(
     )
 
 
-def build_list_result(
+def build_list_result[TRecord](
     records: Sequence[TRecord],
     *,
     query: PersistenceCommonQuery,

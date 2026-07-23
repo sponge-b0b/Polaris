@@ -1,34 +1,32 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from time import perf_counter
 from typing import Protocol
 
-from application.rag.operations.rag_embedding_operations import safe_int_attr
-from application.rag.contracts.rag_operation_models import RagOperationDetail
-from application.rag.contracts.rag_operation_models import RagOperationResult
 from application.rag.contracts.rag_operation_models import (
+    RagOperationDetail,
+    RagOperationResult,
     RagProcessGraphOperationRequest,
-)
-from application.rag.contracts.rag_operation_models import RagProjectionConfig
-from application.rag.contracts.rag_operation_models import (
+    RagProjectionConfig,
     RagRebuildProjectionOperationRequest,
 )
+from application.rag.operations.rag_embedding_operations import safe_int_attr
 from application.rag.operations.rag_operation_telemetry import RagOperationTelemetry
-from core.storage.persistence.rag import RagCanonicalRecordCounts
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagEmbeddingJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import new_rag_embedding_job_id
+from core.storage.persistence.rag import (
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagPersistenceRepository,
+    new_rag_embedding_job_id,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from integration.providers.rag.vector_index_models import VectorCollectionReadiness
 from integration.providers.rag.vector_index_provider import (
     VectorCollectionLifecycleProvider,
 )
-
 
 RAG_PROJECTION_QDRANT = "qdrant"
 RAG_PROJECTION_NEO4J = "neo4j"
@@ -170,7 +168,7 @@ class RagProjectionOperationsService:
             return RagOperationResult.failed(
                 operation=operation,
                 error=(
-                    f"Unsupported RAG projection '{projection}'. Supported projections: "
+                    f"Unsupported RAG projection '{projection}'. Supported projections: "  # noqa: E501
                     f"{', '.join(SUPPORTED_RAG_PROJECTIONS)}."
                 ),
                 dry_run=request.dry_run,

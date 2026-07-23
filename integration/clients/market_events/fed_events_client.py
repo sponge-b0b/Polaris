@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import feedparser
@@ -38,7 +38,7 @@ class FedEventsClient:
 
         parsed_events: list[dict[str, Any]] = []
         failed_sources: list[str] = []
-        for source, result in zip(keys, results):
+        for source, result in zip(keys, results, strict=False):
             if isinstance(result, asyncio.CancelledError):
                 raise result
             if isinstance(result, BaseException):
@@ -82,7 +82,7 @@ class FedEventsClient:
                 if "202" not in date_text:
                     continue
                 event_time = datetime.strptime(date_text, "%Y-%m-%d").replace(
-                    tzinfo=timezone.utc
+                    tzinfo=UTC
                 )
             except ValueError:
                 continue

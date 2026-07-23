@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
-from typing import Mapping
 from uuid import uuid4
 
 from core.runtime.state.runtime_context import RuntimeContext
@@ -109,7 +108,7 @@ class StateManager:
     def _generate_runtime_id(
         self,
     ) -> str:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         return f"runtime_{timestamp}_{uuid4().hex[:8]}"
 
     def _generate_execution_id(

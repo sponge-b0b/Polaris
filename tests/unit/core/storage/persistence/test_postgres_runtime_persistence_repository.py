@@ -1,28 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.runtime import WorkflowEventModel
-from core.database.models.runtime import WorkflowNodeRunModel
-from core.database.models.runtime import WorkflowRunModel
-from core.database.models.runtime import WorkflowStateSnapshotModel
-from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (
+from core.database.models.runtime import (
+    WorkflowEventModel,
+    WorkflowNodeRunModel,
+    WorkflowRunModel,
+    WorkflowStateSnapshotModel,
+)
+from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
     PostgresRuntimePersistenceRepository,
 )
-from core.storage.persistence.runtime import WorkflowEventRecord
-from core.storage.persistence.runtime import WorkflowNodeRunRecord
-from core.storage.persistence.runtime import WorkflowRunRecord
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
-from core.storage.persistence.lineage import PersistenceLineage
+from core.storage.persistence.runtime import (
+    WorkflowEventRecord,
+    WorkflowNodeRunRecord,
+    WorkflowRunRecord,
+    WorkflowStateSnapshotRecord,
+)
 from core.storage.persistence.serializers.runtime_persistence_serializer import (
     RuntimePersistenceSerializer,
 )
@@ -104,8 +106,8 @@ def build_workflow_run_record() -> WorkflowRunRecord:
         execution_id="exec-1",
         runtime_id="runtime-1",
         status="succeeded",
-        started_at=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
-        completed_at=datetime(2026, 5, 30, 14, 1, tzinfo=timezone.utc),
+        started_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
+        completed_at=datetime(2026, 5, 30, 14, 1, tzinfo=UTC),
         duration_seconds=60.0,
         mode="paper",
         metadata={"source": "test"},
@@ -119,7 +121,7 @@ def build_workflow_state_snapshot_record() -> WorkflowStateSnapshotRecord:
         workflow_name="morning_report",
         execution_id="exec-1",
         workflow_status="paused",
-        timestamp=datetime(2026, 5, 30, 14, 2, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, 14, 2, tzinfo=UTC),
         runtime_id="runtime-1",
         wave_index=1,
         checkpoint_reference="checkpoint-1",
@@ -273,7 +275,7 @@ async def test_persist_event_is_append_only_insert() -> None:
             event_type="runtime.node.completed",
             workflow_name="morning_report",
             execution_id="exec-1",
-            timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 5, 30, tzinfo=UTC),
             payload={"progress": 1.0},
         )
     )
@@ -349,7 +351,7 @@ async def test_list_events_returns_typed_records() -> None:
                 event_type="runtime.node.completed",
                 workflow_name="morning_report",
                 execution_id="exec-1",
-                timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 5, 30, tzinfo=UTC),
             )
         )
     )
@@ -465,8 +467,8 @@ async def test_list_workflow_state_snapshots_applies_filters_and_returns_records
         workflow_status="paused",
         checkpoint_reference="checkpoint-1",
         wave_index=1,
-        start=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
-        end=datetime(2026, 5, 30, 15, tzinfo=timezone.utc),
+        start=datetime(2026, 5, 30, 14, tzinfo=UTC),
+        end=datetime(2026, 5, 30, 15, tzinfo=UTC),
     )
 
     compiled = str(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
+
 from core.utils.utils import _clamp, _safe_float
 
 STRENGTH_THRESHOLD = 0.50
@@ -18,8 +19,8 @@ def stability_to_risk(
 
 
 def analyze(
-    technical_result: Dict[str, Any],
-) -> Dict[str, Any]:
+    technical_result: dict[str, Any],
+) -> dict[str, Any]:
 
     market_context = dict(
         technical_result.get(
@@ -440,7 +441,7 @@ def _determine_strategy_environment(
     breadth_score: float,
     breadth_regime: str,
     price_ad_divergence: bool,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     bull = 1.0
     bear = 1.0
     sideways = 1.0
@@ -492,7 +493,7 @@ def _determine_strategy_environment(
     }
 
 
-def _empty_result() -> Dict[str, Any]:
+def _empty_result() -> dict[str, Any]:
     return {
         "has_breadth_data": False,
         "ad_line": 0.0,

@@ -1,12 +1,8 @@
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.storage.persistence.portfolio import (
     InMemoryPortfolioExpansionPersistenceRepository,
-)
-from core.storage.persistence.portfolio import (
     PortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.portfolio.in_memory_portfolio_state_repository import (

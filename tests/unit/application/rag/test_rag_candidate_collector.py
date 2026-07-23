@@ -5,19 +5,25 @@ from typing import cast
 
 import pytest
 
-from application.rag.retrieval.rag_candidate_collector import RagCandidateCollector
 from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
+from application.rag.retrieval.rag_candidate_collector import RagCandidateCollector
 from application.rag.retrieval.rag_retrieval_filters import RagRetrievalFilterEvaluator
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagChunkRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from integration.providers.rag.embedding_provider import EmbeddingRequest
-from integration.providers.rag.embedding_provider import EmbeddingVector
-from integration.providers.rag.embedding_provider import SparseEmbeddingVector
-from integration.providers.rag.vector_index_models import VectorIndexPoint
-from integration.providers.rag.vector_index_models import VectorSearchQuery
-from integration.providers.rag.vector_index_models import VectorSearchResult
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagChunkRecord,
+    RagPersistenceRepository,
+)
+from integration.providers.rag.embedding_provider import (
+    EmbeddingRequest,
+    EmbeddingVector,
+    SparseEmbeddingVector,
+)
+from integration.providers.rag.vector_index_models import (
+    VectorIndexPoint,
+    VectorSearchQuery,
+    VectorSearchResult,
+)
 
 
 @pytest.mark.asyncio

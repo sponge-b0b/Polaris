@@ -3,19 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean
-from sqlalchemy import CheckConstraint
-from sqlalchemy import DateTime
-from sqlalchemy import Float
-from sqlalchemy import ForeignKey
-from sqlalchemy import Index
-from sqlalchemy import String
-from sqlalchemy import Text
-from sqlalchemy import UniqueConstraint
-from sqlalchemy import func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database.base import Base
 
@@ -166,11 +167,11 @@ class EvaluationRunModel(Base):
     __tablename__ = "evaluation_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
             name="ck_evaluation_runs_status",
         ),
         CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
             name="ck_evaluation_runs_langfuse_projection_status",
         ),
         CheckConstraint(
@@ -247,11 +248,11 @@ class EvaluationMetricResultModel(Base):
             name="ck_evaluation_metric_results_threshold_range",
         ),
         CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
             name="ck_evaluation_metric_results_status",
         ),
         CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
             name="ck_evaluation_metric_results_langfuse_projection_status",
         ),
         CheckConstraint(

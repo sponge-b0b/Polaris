@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-from core.utils.utils import _clamp, _safe_float
+from typing import Any
 
+from core.utils.utils import _clamp, _safe_float
 
 STABLE_RISK_THRESHOLD = 0.25
 NORMAL_RISK_THRESHOLD = 0.50
@@ -13,7 +13,7 @@ def stability_to_risk(stability_score: float) -> float:
     return _clamp((1.0 - stability_score) / 2.0, 0.0, 1.0)
 
 
-def analyze(technical_result: Dict[str, Any]) -> Dict[str, Any]:
+def analyze(technical_result: dict[str, Any]) -> dict[str, Any]:
     snapshot = dict(technical_result.get("snapshot", {}))
     market_context = dict(technical_result.get("market_context", {}))
 
@@ -72,8 +72,8 @@ def analyze(technical_result: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _compute_asset_volatility_score(
-    snapshot: Dict[str, Any],
-) -> tuple[float, Dict[str, float]]:
+    snapshot: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
     atr_percentile = _safe_float(snapshot.get("atr_14_percentile_252"))
     atr_trend_ratio = _safe_float(snapshot.get("atr_trend_ratio"))
     atr_change_5d = _safe_float(snapshot.get("atr_14_change_5d"))
@@ -105,8 +105,8 @@ def _compute_asset_volatility_score(
 
 
 def _compute_market_volatility_score(
-    market_context: Dict[str, Any],
-) -> tuple[float, Dict[str, float]]:
+    market_context: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
     if not market_context.get("has_vix"):
         return 0.0, {
             "vix_percentile_pressure": 0.0,
@@ -135,8 +135,8 @@ def _compute_market_volatility_score(
 
 
 def _compute_vol_of_vol_score(
-    market_context: Dict[str, Any],
-) -> tuple[float, Dict[str, float]]:
+    market_context: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
     if not market_context.get("has_vvix"):
         return 0.0, {
             "vvix_percentile_pressure": 0.0,
@@ -165,8 +165,8 @@ def _compute_vol_of_vol_score(
 
 
 def _compute_breadth_confirmation_score(
-    market_context: Dict[str, Any],
-) -> tuple[float, Dict[str, float]]:
+    market_context: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
     if not market_context.get("has_breadth"):
         return 0.0, {
             "raw_participation_score": 0.0,
@@ -341,7 +341,7 @@ def _determine_stability_state(volatility_risk_score: float) -> str:
 def _determine_strategy_environment(
     volatility_regime: str,
     stability_state: str,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     bull = 1.0
     bear = 1.0
     sideways = 1.0

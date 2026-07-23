@@ -30,39 +30,35 @@ from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
-from core.storage.persistence.runtime import RuntimePersistenceEventSubscriber
-from core.storage.persistence.runtime import RuntimePersistenceEventSubscriberConfig
-from core.telemetry.integrations.opentelemetry import OpenTelemetryConfig
-from core.telemetry.integrations.opentelemetry import OpenTelemetrySink
-from core.telemetry.integrations.prometheus import PrometheusMetricsConfig
-from core.telemetry.integrations.prometheus import PrometheusMetricsExporter
-from core.telemetry.logging import TelemetryLogger
+from core.storage.persistence.runtime import (
+    RuntimePersistenceEventSubscriber,
+    RuntimePersistenceEventSubscriberConfig,
+)
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     BootstrapConfigurationTelemetry,
-)
-from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     configuration_setting_names,
-)
-from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     emergency_log_configuration_failure,
 )
+from core.telemetry.integrations.opentelemetry import (
+    OpenTelemetryConfig,
+    OpenTelemetrySink,
+)
+from core.telemetry.integrations.prometheus import (
+    PrometheusMetricsConfig,
+    PrometheusMetricsExporter,
+)
+from core.telemetry.logging import TelemetryLogger
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.runtime_telemetry_sink import CoreTelemetryRuntimeSink
-from core.workflow.bootstrap.workflow_runtime_components import (
-    WorkflowBootstrapConfig,
-)
-from core.workflow.bootstrap.workflow_runtime_components import WorkflowFacadeConfig
-from core.workflow.bootstrap.workflow_runtime_components import (
-    WorkflowRuntimeComponents,
-)
-from core.workflow.bootstrap.workflow_runtime_components import (
-    WorkflowRuntimeOverrides,
-)
 from core.workflow.bootstrap.workflow_configuration import (
     WorkflowBootstrapConfigurationError,
-)
-from core.workflow.bootstrap.workflow_configuration import (
     validate_required_workflow_configuration,
+)
+from core.workflow.bootstrap.workflow_runtime_components import (
+    WorkflowBootstrapConfig,
+    WorkflowFacadeConfig,
+    WorkflowRuntimeComponents,
+    WorkflowRuntimeOverrides,
 )
 from core.workflow.compiler.workflow_compiler import WorkflowCompiler
 from core.workflow.execution.workflow_engine import WorkflowEngine
@@ -315,7 +311,7 @@ class WorkflowRuntimeAssembler:
             runtime_persistence_subscriber=overrides.runtime_persistence_subscriber,
         )
 
-    def _assemble_observability(
+    def _assemble_observability(  # noqa: C901
         self,
         config: WorkflowBootstrapConfig,
         overrides: WorkflowRuntimeOverrides,

@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.persistence import WorkflowStateSnapshotPersistenceFilters
-from application.persistence import WorkflowStateSnapshotPersistenceService
+from application.persistence import (
+    WorkflowStateSnapshotPersistenceFilters,
+    WorkflowStateSnapshotPersistenceService,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.runtime import RuntimePersistenceRepository
-from core.storage.persistence.runtime import RuntimePersistenceResult
-from core.storage.persistence.runtime import WorkflowStateSnapshotRecord
+from core.storage.persistence.runtime import (
+    RuntimePersistenceRepository,
+    RuntimePersistenceResult,
+    WorkflowStateSnapshotRecord,
+)
 
 
 class FakeRuntimePersistenceRepository:
@@ -102,8 +105,8 @@ async def test_workflow_state_snapshot_service_gets_snapshot_by_clean_id() -> No
 
 @pytest.mark.asyncio
 async def test_workflow_state_snapshot_service_lists_with_typed_filters() -> None:
-    start = datetime(2026, 5, 30, 14, tzinfo=timezone.utc)
-    end = datetime(2026, 5, 30, 15, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 30, 14, tzinfo=UTC)
+    end = datetime(2026, 5, 30, 15, tzinfo=UTC)
     repository = FakeRuntimePersistenceRepository(
         snapshots=(_snapshot(),),
     )
@@ -150,8 +153,8 @@ def test_workflow_state_snapshot_filters_reject_negative_wave_index() -> None:
 def test_workflow_state_snapshot_filters_reject_reversed_time_window() -> None:
     with pytest.raises(ValueError, match="start"):
         WorkflowStateSnapshotPersistenceFilters(
-            start=datetime(2026, 5, 30, 15, tzinfo=timezone.utc),
-            end=datetime(2026, 5, 30, 14, tzinfo=timezone.utc),
+            start=datetime(2026, 5, 30, 15, tzinfo=UTC),
+            end=datetime(2026, 5, 30, 14, tzinfo=UTC),
         )
 
 
@@ -172,7 +175,7 @@ def _snapshot() -> WorkflowStateSnapshotRecord:
         workflow_name="morning_report",
         execution_id="exec-1",
         workflow_status="paused",
-        timestamp=datetime(2026, 5, 30, 14, 2, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, 14, 2, tzinfo=UTC),
         runtime_id="runtime-1",
         wave_index=1,
         checkpoint_reference="checkpoint-1",

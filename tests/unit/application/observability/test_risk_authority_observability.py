@@ -5,30 +5,14 @@ from application.observability.risk_authority import (
     risk_authority_metadata_payload,
     risk_authority_payload,
 )
-from domain.authority import (
-    AiOutputContentType,
-    AuthorityEffect,
-    CanonicalOwner,
-    IntendedSink,
-    RiskAuthorityClassificationInput,
-    SourceOfTruthCategory,
-    classify_risk_authority,
-)
+from domain.authority import classify_risk_authority
+from tests.helpers.risk_authority_examples import workflow_curation_authority_input
 
 
 def test_risk_authority_attributes_flatten_contract_for_operational_boundaries() -> (
     None
 ):
-    contract = classify_risk_authority(
-        RiskAuthorityClassificationInput(
-            content_type=AiOutputContentType.DURABLE_RECORD,
-            authority_effect=AuthorityEffect.CANONICAL_RECORD,
-            canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
-            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-            intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
-            durable_authority=True,
-        )
-    )
+    contract = classify_risk_authority(workflow_curation_authority_input())
 
     attributes = risk_authority_attributes(
         contract,

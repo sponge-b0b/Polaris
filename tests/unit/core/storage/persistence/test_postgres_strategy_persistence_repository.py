@@ -1,28 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.strategy import StrategyHypothesisEvaluationModel
-from core.database.models.strategy import StrategyHypothesisModel
-from core.database.models.strategy import StrategySynthesisDecisionModel
-from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (
+from core.database.models.strategy import (
+    StrategyHypothesisEvaluationModel,
+    StrategyHypothesisModel,
+    StrategySynthesisDecisionModel,
+)
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501
     PostgresStrategyPersistenceRepository,
 )
-from core.storage.persistence.strategy import StrategyPersistenceBundle
 from core.storage.persistence.serializers.strategy_persistence_serializer import (
     StrategyPersistenceSerializer,
 )
-
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_evaluation
-from tests.unit.core.storage.persistence.strategy_fixtures import strategy_hypothesis
+from core.storage.persistence.strategy import StrategyPersistenceBundle
 from tests.unit.core.storage.persistence.strategy_fixtures import (
+    strategy_evaluation,
+    strategy_hypothesis,
     strategy_synthesis_decision,
 )
 

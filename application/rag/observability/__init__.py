@@ -2,36 +2,18 @@ from __future__ import annotations
 
 from application.rag.observability.rag_ai_observability import (
     RagAiObservabilityProjectorPort,
-)
-from application.rag.observability.rag_ai_observability import (
     RagAiObservabilityRecorder,
-)
-from application.rag.observability.rag_ai_observability import context_ids
-from application.rag.observability.rag_ai_observability import context_scores
-from application.rag.observability.rag_ai_observability import (
+    context_ids,
+    context_scores,
     record_answer_quality_observation,
-)
-from application.rag.observability.rag_ai_observability import record_crag_observation
-from application.rag.observability.rag_ai_observability import (
+    record_crag_observation,
     record_generation_observation,
-)
-from application.rag.observability.rag_ai_observability import record_hyde_observation
-from application.rag.observability.rag_ai_observability import (
+    record_hyde_observation,
     record_rag_query_observation,
-)
-from application.rag.observability.rag_ai_observability import (
     record_reranking_observation,
-)
-from application.rag.observability.rag_ai_observability import (
     record_retrieval_observation,
-)
-from application.rag.observability.rag_ai_observability import (
     record_routing_observation,
-)
-from application.rag.observability.rag_ai_observability import (
     record_security_observation,
-)
-from application.rag.observability.rag_ai_observability import (
     record_self_rag_observation,
 )
 

@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-
-from datetime import date
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
-from application.services.backtesting import BacktestApplicationService
-from application.services.backtesting import BacktestExpectedOutcome
-from application.services.backtesting import BacktestInitialPosition
-from application.services.backtesting import BacktestRunRequest
-from application.services.backtesting import BacktestScenario
-from application.services.backtesting import backtest_scenario_from_mapping
-from application.services.backtesting import load_backtest_scenario
+from application.services.backtesting import (
+    BacktestApplicationService,
+    BacktestExpectedOutcome,
+    BacktestInitialPosition,
+    BacktestRunRequest,
+    BacktestScenario,
+    backtest_scenario_from_mapping,
+    load_backtest_scenario,
+)
 from application.services.base import ServiceRequest
 
 
@@ -226,7 +225,7 @@ class FakeWorkflowFacade:
 
 
 @pytest.mark.asyncio
-async def test_backtest_application_service_executes_each_step_through_workflow_facade() -> (
+async def test_backtest_application_service_executes_each_step_through_workflow_facade() -> (  # noqa: E501
     None
 ):
     workflow_facade = FakeWorkflowFacade()

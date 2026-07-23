@@ -1,34 +1,29 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
-from typing import Sequence
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
-from application.projections.workflow_outputs import WorkflowOutputProjectionOutcome
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
     WorkflowOutputProjectionOperationsService,
-)
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionOutcome,
     WorkflowOutputProjectionReconciliationRequest,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionService
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionService,
+    WorkflowOutputProjectionStatus,
     WorkflowOutputProjectionStatusRequest,
 )
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.projections import ProjectionJobClaim
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
-from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
+from core.storage.persistence.projections import (
+    MissingProjectionRunRecord,
+    ProjectionJobClaim,
+    WorkflowOutputProjectionJobRecord,
+    WorkflowOutputProjectionJobRepository,
+    WorkflowOutputProjectionJobStatus,
+)
 
 
 class FakeProjectionService:
@@ -182,7 +177,7 @@ async def test_projection_operations_status_filters_jobs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_projection_operations_retry_projects_unique_runs_and_recovers_stale_jobs() -> (
+async def test_projection_operations_retry_projects_unique_runs_and_recovers_stale_jobs() -> (  # noqa: E501
     None
 ):
     started_before = datetime(2026, 1, 1, tzinfo=UTC)
@@ -282,7 +277,7 @@ async def test_projection_operations_reconcile_reports_missing_runs_in_dry_run()
 
 
 @pytest.mark.asyncio
-async def test_projection_operations_reconcile_filters_window_and_projects_missing_runs() -> (
+async def test_projection_operations_reconcile_filters_window_and_projects_missing_runs() -> (  # noqa: E501
     None
 ):
     before_window = MissingProjectionRunRecord(
@@ -388,7 +383,7 @@ def _job_record(
     *,
     projection_job_id: str = "job-1",
     run_id: str = "run-1",
-    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.FAILED,
+    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.FAILED,  # noqa: E501
 ) -> WorkflowOutputProjectionJobRecord:
     return WorkflowOutputProjectionJobRecord(
         projection_job_id=projection_job_id,

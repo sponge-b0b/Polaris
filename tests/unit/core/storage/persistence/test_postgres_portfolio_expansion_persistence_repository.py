@@ -1,31 +1,33 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.portfolio import PortfolioAllocationSnapshotModel
-from core.database.models.portfolio import PortfolioEquityHistoryPointModel
-from core.database.models.portfolio import PortfolioExposureSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioPositionLatestModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
+from core.database.models.portfolio import (
+    PortfolioAllocationSnapshotModel,
+    PortfolioEquityHistoryPointModel,
+    PortfolioExposureSnapshotModel,
+    PortfolioPositionHistoryModel,
+    PortfolioPositionLatestModel,
+    PortfolioRiskSnapshotModel,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExpansionPersistenceBundle,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+)
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.serializers.portfolio_persistence_serializer import (
@@ -112,7 +114,7 @@ async def test_persist_portfolio_bundle_inserts_history_and_upserts_latest() -> 
 
 
 @pytest.mark.asyncio
-async def test_portfolio_idempotency_review_latest_upserts_append_records_insert_only() -> (
+async def test_portfolio_idempotency_review_latest_upserts_append_records_insert_only() -> (  # noqa: E501
     None
 ):
     session = FakeAsyncSession()
@@ -403,4 +405,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 13, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)

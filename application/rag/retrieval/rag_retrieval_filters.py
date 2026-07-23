@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
-from datetime import datetime
+from datetime import date, datetime
 from typing import cast
 
 from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import JsonScalar
+from core.storage.persistence.rag import JsonObject, JsonScalar
 
 
 class RagRetrievalFilterEvaluator:

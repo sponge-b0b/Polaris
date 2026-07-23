@@ -1,18 +1,17 @@
 from dishka import Provider, Scope, provide
+
 from config.settings import Settings
 from core.llm.llm_gateway import LLMGateway
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
-from integration.clients.llm import LiteLlmCoreGatewayAdapter
-from integration.clients.llm import LiteLlmGatewayClient
-
+from integration.clients.llm import LiteLlmCoreGatewayAdapter, LiteLlmGatewayClient
 from integration.clients.macro.fred_macro_client import FredMacroClient
 from integration.clients.market_data.massive_data_client import MassiveDataClient
 from integration.clients.market_data.yfinance_data_client import YFinanceDataClient
-from integration.clients.market_events.fed_events_client import FedEventsClient
-from integration.clients.market_events.fred_events_client import FredEventsClient
 from integration.clients.market_events.alphavantage_events_client import (
     AlphaVantageEarningsClient,
 )
+from integration.clients.market_events.fed_events_client import FedEventsClient
+from integration.clients.market_events.fred_events_client import FredEventsClient
 from integration.clients.news.finnhub_news_client import FinnhubNewsClient
 from integration.clients.news.newsapi_news_client import NewsApiNewsClient
 from integration.clients.portfolio.alpaca_portfolio_client import AlpacaPortfolioClient

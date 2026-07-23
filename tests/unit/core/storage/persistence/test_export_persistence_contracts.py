@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.export import PersistenceExportDestination
-from core.storage.persistence.export import PersistenceExportDestinationType
-from core.storage.persistence.export import PersistenceExportFormat
-from core.storage.persistence.export import PersistenceExportRequest
-from core.storage.persistence.export import PersistenceExportResult
+from core.storage.persistence.export import (
+    PersistenceExportDestination,
+    PersistenceExportDestinationType,
+    PersistenceExportFormat,
+    PersistenceExportRequest,
+    PersistenceExportResult,
+)
 from core.storage.persistence.query import PersistenceTimeRange
 
 
@@ -38,11 +39,11 @@ def test_export_destination_normalizes_type_uri_and_metadata() -> None:
         destination.uri = "/tmp/other.json"  # type: ignore[misc]
 
 
-def test_export_request_supports_domain_time_range_format_and_destination_metadata() -> (
+def test_export_request_supports_domain_time_range_format_and_destination_metadata() -> (  # noqa: E501
     None
 ):
-    start = datetime(2026, 6, 1, 9, tzinfo=timezone.utc)
-    end = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 1, 9, tzinfo=UTC)
+    end = datetime(2026, 6, 1, 10, tzinfo=UTC)
     request = PersistenceExportRequest(
         export_id=" export-1 ",
         domains=(
@@ -111,8 +112,8 @@ def test_export_request_validates_domains_time_range_and_format() -> None:
         PersistenceExportRequest(
             domains=("reports",),
             time_range=PersistenceTimeRange(
-                start=datetime(2026, 6, 1, 10, tzinfo=timezone.utc),
-                end=datetime(2026, 6, 1, 9, tzinfo=timezone.utc),
+                start=datetime(2026, 6, 1, 10, tzinfo=UTC),
+                end=datetime(2026, 6, 1, 9, tzinfo=UTC),
             ),
         )
 

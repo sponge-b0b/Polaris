@@ -6,11 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.telemetry.observability.observability_manager import ObservabilityManager
-
 import mcp_server.lifespan as lifespan_module
-from mcp_server.lifespan import McpApplicationContext
-from mcp_server.lifespan import mcp_application_lifespan
+from core.telemetry.observability.observability_manager import ObservabilityManager
+from mcp_server.lifespan import McpApplicationContext, mcp_application_lifespan
 from mcp_server.server import server
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry

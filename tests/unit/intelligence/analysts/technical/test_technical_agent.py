@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 
-from application.services.base import ServiceRunner
-from application.services.base import ServiceResult
+from application.observability import AiObservationType
+from application.services.base import ServiceResult, ServiceRunner
 from application.services.technical.technical_analysis_service import (
     TechnicalAnalysisService,
 )
@@ -18,7 +16,6 @@ from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.contracts.telemetry_context import TelemetryContext
 from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.tracing.trace_context import TraceContext
-from application.observability import AiObservationType
 from intelligence.analysts.technical.technical_agent import TechnicalAgent
 from tests.helpers.recording_ai_observability import RecordingAiObservabilityProjector
 

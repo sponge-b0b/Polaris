@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 
 def synthesize(
-    features: Dict[str, Any],
-) -> Dict[str, Any]:
+    features: dict[str, Any],
+) -> dict[str, Any]:
     """
     Synthesize deterministic sentiment features into a fused state.
     """

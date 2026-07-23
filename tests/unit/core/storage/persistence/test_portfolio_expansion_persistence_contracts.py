@@ -1,27 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.portfolio import PortfolioAllocationSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceBundle
-from core.storage.persistence.portfolio import PortfolioExpansionPersistenceResult
-from core.storage.persistence.portfolio import PortfolioEquityHistoryPointRecord
-from core.storage.persistence.portfolio import PortfolioExposureSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioPositionLatestRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
-from core.storage.persistence.portfolio import new_portfolio_allocation_snapshot_id
-from core.storage.persistence.portfolio import new_portfolio_equity_history_point_id
-from core.storage.persistence.portfolio import new_portfolio_exposure_snapshot_id
-from core.storage.persistence.portfolio import new_portfolio_position_history_id
-from core.storage.persistence.portfolio import new_portfolio_position_latest_id
-from core.storage.persistence.portfolio import new_portfolio_risk_snapshot_id
+from core.storage.persistence.portfolio import (
+    PortfolioAllocationSnapshotRecord,
+    PortfolioEquityHistoryPointRecord,
+    PortfolioExpansionPersistenceBundle,
+    PortfolioExpansionPersistenceResult,
+    PortfolioExposureSnapshotRecord,
+    PortfolioPositionHistoryRecord,
+    PortfolioPositionLatestRecord,
+    PortfolioRiskSnapshotRecord,
+    new_portfolio_allocation_snapshot_id,
+    new_portfolio_equity_history_point_id,
+    new_portfolio_exposure_snapshot_id,
+    new_portfolio_position_history_id,
+    new_portfolio_position_latest_id,
+    new_portfolio_risk_snapshot_id,
+)
 
 
 def test_equity_history_record_is_normalized_immutable_and_stable() -> None:
@@ -507,4 +507,4 @@ def _position_history() -> PortfolioPositionHistoryRecord:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 30, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 30, 14, 0, tzinfo=UTC)

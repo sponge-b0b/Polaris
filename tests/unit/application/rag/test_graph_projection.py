@@ -1,31 +1,36 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
-from application.rag.projections.graph_projection import GraphProjectionJobProcessor
-from application.rag.projections.graph_projection import Neo4jGraphRetriever
-from application.rag.projections.graph_projection import RagGraphEntityExtractor
 from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
-from core.storage.persistence.rag import JsonObject
-from core.storage.persistence.rag import RagDocumentRecord
-from core.storage.persistence.rag import RagGraphJobRecord
-from core.storage.persistence.rag import RagPersistenceRepository
-from core.storage.persistence.rag import RagRecordPersistenceResult
+from application.rag.projections.graph_projection import (
+    GraphProjectionJobProcessor,
+    Neo4jGraphRetriever,
+    RagGraphEntityExtractor,
+)
+from core.storage.persistence.rag import (
+    JsonObject,
+    RagDocumentRecord,
+    RagGraphJobRecord,
+    RagPersistenceRepository,
+    RagRecordPersistenceResult,
+)
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from integration.providers.rag.graph_projection_models import GraphNodeType
-from integration.providers.rag.graph_projection_models import GraphProjection
-from integration.providers.rag.graph_projection_models import GraphRelationshipType
-from integration.providers.rag.graph_projection_models import GraphSearchQuery
-from integration.providers.rag.graph_projection_models import GraphSearchResult
-from integration.providers.rag.graph_projection_models import GraphStoreStatus
+from integration.providers.rag.graph_projection_models import (
+    GraphNodeType,
+    GraphProjection,
+    GraphRelationshipType,
+    GraphSearchQuery,
+    GraphSearchResult,
+    GraphStoreStatus,
+)
 from integration.providers.rag.graph_projection_provider import GraphProjectionProvider
 
 

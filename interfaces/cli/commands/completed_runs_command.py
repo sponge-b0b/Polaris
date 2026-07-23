@@ -1,45 +1,32 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Annotated, Any
+
 import typer
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
     WorkflowOutputProjectionOperationsService,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionReconciliationRequest,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionReconciliationResult,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRequest,
     WorkflowOutputProjectionRetryRequest,
-)
-from application.projections.workflow_outputs import WorkflowOutputProjectionRetryResult
-from application.projections.workflow_outputs import WorkflowOutputProjectionStatus
-from application.projections.workflow_outputs import (
+    WorkflowOutputProjectionRetryResult,
+    WorkflowOutputProjectionStatus,
     WorkflowOutputProjectionStatusRequest,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionStatusResult,
 )
 from core.bootstrap.di_providers import application_request_scope
-from core.storage.persistence.projections import MissingProjectionRunRecord
-from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from contextlib import asynccontextmanager
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
-from pathlib import Path
-from typing import Annotated
-from typing import Any
-from typing import AsyncIterator
-
-from core.workflow.models.destructive_operation_confirmation import (
-    DestructiveOperationConfirmation,
+from core.storage.persistence.projections import (
+    MissingProjectionRunRecord,
+    WorkflowOutputProjectionJobRecord,
 )
 from core.workflow.models.destructive_operation_confirmation import (
+    DestructiveOperationConfirmation,
     DestructiveWorkflowOperation,
 )
 from interfaces.cli.bootstrap.container import cli_runtime_scope
@@ -78,11 +65,13 @@ def archive_list(
         ),
     ],
     output_format: OutputFormat = "console",
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
     """
     List all archived execution IDs for a workflow.
     """
+    if plugin_dirs is None:
+        plugin_dirs = []
     execution_ids = run_cli_async(
         _list_completed_runs(
             workflow_name,
@@ -121,11 +110,13 @@ def archive_show(
         ),
     ],
     output_format: OutputFormat = "json",
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
     """
     Load and display a completed run from archive.
     """
+    if plugin_dirs is None:
+        plugin_dirs = []
     context = run_cli_async(
         _load_completed_run(
             workflow_name,
@@ -174,7 +165,7 @@ def archive_delete(
             help="Execution ID to delete.",
         ),
     ],
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
     confirm: Annotated[
         bool,
         typer.Option(
@@ -187,6 +178,8 @@ def archive_delete(
     """
     Delete a specific archived run.
     """
+    if plugin_dirs is None:
+        plugin_dirs = []
     if not confirm:
         typer.confirm(
             f"Delete archived run '{execution_id}' for workflow '{workflow_name}'?",
@@ -219,7 +212,7 @@ def archive_cleanup(
             help="Keep only the most recent N runs per workflow.",
         ),
     ] = None,
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
     confirm: Annotated[
         bool,
         typer.Option(
@@ -232,6 +225,8 @@ def archive_cleanup(
     """
     Clean up archived runs based on retention policy.
     """
+    if plugin_dirs is None:
+        plugin_dirs = []
     deleted = run_cli_async(
         _cleanup_completed_runs(
             max_age_days=max_age_days,
@@ -382,7 +377,7 @@ def retry_projection_jobs(
         int | None,
         typer.Option(
             "--stale-running-minutes",
-            help="Mark running jobs older than this many minutes as failed before retrying.",
+            help="Mark running jobs older than this many minutes as failed before retrying.",  # noqa: E501
         ),
     ] = None,
     dry_run: Annotated[

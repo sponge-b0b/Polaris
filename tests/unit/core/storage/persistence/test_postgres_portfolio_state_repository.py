@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import fields
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -157,7 +155,7 @@ def _portfolio_state() -> PortfolioState:
     return PortfolioState(
         snapshot_id="snapshot-1",
         account_id="account-1",
-        timestamp=datetime(2026, 5, 30, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 5, 30, tzinfo=UTC),
         schema_version=2,
         equity=100_000.123456,
         peak_equity=105_000.234567,

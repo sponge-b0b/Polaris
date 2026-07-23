@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 
-class ArtifactKind(str, Enum):
+class ArtifactKind(StrEnum):
     """
     Canonical artifact kind taxonomy.
     """
@@ -53,7 +51,7 @@ class ArtifactRef:
 
     uri: str
 
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     workflow_id: str | None = None
 
@@ -116,7 +114,7 @@ class ArtifactRef:
         created_at = (
             datetime.fromisoformat(created_at_raw)
             if created_at_raw
-            else datetime.now(timezone.utc)
+            else datetime.now(UTC)
         )
 
         artifact_ref = cls(

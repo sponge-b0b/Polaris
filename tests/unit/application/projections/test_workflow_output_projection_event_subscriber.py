@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from application.projections.workflow_outputs import CompletedRunProjectionSummary
 from application.projections.workflow_outputs import (
+    CompletedRunProjectionSummary,
     WorkflowOutputProjectionEventSubscriber,
-)
-from application.projections.workflow_outputs import (
     WorkflowOutputProjectionEventSubscriberConfig,
+    WorkflowOutputProjectionRequest,
 )
-from application.projections.workflow_outputs import WorkflowOutputProjectionRequest
 from core.runtime.events.event_bus import EventBus
-from core.runtime.events.runtime_events import RuntimeEvent
-from core.runtime.events.runtime_events import RuntimeEventType
+from core.runtime.events.runtime_events import RuntimeEvent, RuntimeEventType
 
 
 class FakeProjectionService:

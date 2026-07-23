@@ -6,11 +6,13 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.reports import ReportArtifactModel
-from core.database.models.reports import ReportModel
-from core.database.models.reports import ReportPublicationModel
-from core.database.models.reports import ReportSectionModel
-from core.database.models.reports import ReportVersionModel
+from core.database.models.reports import (
+    ReportArtifactModel,
+    ReportModel,
+    ReportPublicationModel,
+    ReportSectionModel,
+    ReportVersionModel,
+)
 
 
 def test_report_models_are_imported_into_base_metadata() -> None:

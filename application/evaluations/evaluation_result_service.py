@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from application.evaluations.contracts import EvaluationResultBundle
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationDatasetRecord
-from core.storage.persistence.evaluation import EvaluationRunRecord
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationDatasetRecord,
+    EvaluationPersistenceRepository,
+    EvaluationRunRecord,
+)
 from domain.evaluation import EvaluationTargetType
 
 

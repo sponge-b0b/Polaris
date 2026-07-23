@@ -4,14 +4,18 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.observability import AiObservation
-from application.observability import AiObservationStatus
-from application.observability import AiObservabilityExportResult
-from application.observability import AiObservationType
+from application.observability import (
+    AiObservabilityExportResult,
+    AiObservation,
+    AiObservationStatus,
+    AiObservationType,
+)
 from core.runtime.state.runtime_context import RuntimeContext
 from core.telemetry.tracing.trace_context import TraceContext
-from intelligence.observability import IntelligenceAiObservabilityRecorder
-from intelligence.observability import record_intelligence_generation_observation
+from intelligence.observability import (
+    IntelligenceAiObservabilityRecorder,
+    record_intelligence_generation_observation,
+)
 
 
 @dataclass(slots=True)

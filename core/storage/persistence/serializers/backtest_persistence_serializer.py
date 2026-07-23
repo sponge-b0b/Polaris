@@ -1,24 +1,27 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.backtesting import BacktestArtifactModel
-from core.database.models.backtesting import BacktestFillModel
-from core.database.models.backtesting import BacktestMetricModel
-from core.database.models.backtesting import BacktestPortfolioSnapshotModel
-from core.database.models.backtesting import BacktestRunModel
-from core.database.models.backtesting import BacktestScenarioModel
-from core.database.models.backtesting import BacktestStepModel
-from core.storage.persistence.backtesting import JsonArray
-from core.storage.persistence.backtesting import JsonObject
-from core.storage.persistence.backtesting import BacktestArtifactRecord
-from core.storage.persistence.backtesting import BacktestFillRecord
-from core.storage.persistence.backtesting import BacktestMetricRecord
-from core.storage.persistence.backtesting import BacktestPortfolioSnapshotRecord
-from core.storage.persistence.backtesting import BacktestRunRecord
-from core.storage.persistence.backtesting import BacktestScenarioRecord
-from core.storage.persistence.backtesting import BacktestStepRecord
+from core.database.models.backtesting import (
+    BacktestArtifactModel,
+    BacktestFillModel,
+    BacktestMetricModel,
+    BacktestPortfolioSnapshotModel,
+    BacktestRunModel,
+    BacktestScenarioModel,
+    BacktestStepModel,
+)
+from core.storage.persistence.backtesting import (
+    BacktestArtifactRecord,
+    BacktestFillRecord,
+    BacktestMetricRecord,
+    BacktestPortfolioSnapshotRecord,
+    BacktestRunRecord,
+    BacktestScenarioRecord,
+    BacktestStepRecord,
+    JsonArray,
+    JsonObject,
+)
 
 
 class BacktestPersistenceSerializer:

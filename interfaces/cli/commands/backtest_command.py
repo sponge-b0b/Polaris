@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
 from interfaces.cli.formatters.json_formatter import format_json
 from interfaces.cli.services.async_runner import run_cli_async
-from interfaces.cli.services.backtest_command_service import BacktestCommandService
-from interfaces.cli.services.backtest_command_service import BacktestListCommandRequest
 from interfaces.cli.services.backtest_command_service import (
+    BacktestCommandService,
+    BacktestListCommandRequest,
     BacktestReportCommandRequest,
+    BacktestRunCommandRequest,
+    BacktestShowCommandRequest,
 )
-from interfaces.cli.services.backtest_command_service import BacktestRunCommandRequest
-from interfaces.cli.services.backtest_command_service import BacktestShowCommandRequest
 
 backtest_app = typer.Typer(
     help="Run and inspect runtime-native backtests.",
@@ -93,8 +92,10 @@ def run_backtest(
             help="Checkpoint each workflow execution in the simulation timeline.",
         ),
     ] = True,
-    plugin_dirs: PluginDirs = [],
+    plugin_dirs: PluginDirs = None,
 ) -> None:
+    if plugin_dirs is None:
+        plugin_dirs = []
     _validate_backtest_output_format(
         output_format,
     )
@@ -342,13 +343,7 @@ def _render_run_list(
     ]
     for run in runs:
         lines.append(
-            " - {run_id} | {workflow} | {status} | success={success} | {completed}".format(
-                run_id=run.backtest_run_id,
-                workflow=run.workflow_name,
-                status=run.status,
-                success=run.success,
-                completed=run.completed_at.isoformat(),
-            )
+            f" - {run.backtest_run_id} | {run.workflow_name} | {run.status} | success={run.success} | {run.completed_at.isoformat()}"  # noqa: E501
         )
     return "\n".join(lines)
 
@@ -367,7 +362,7 @@ def _render_bundle_summary(
             f"Steps: {len(bundle.steps)}",
             f"Fills: {len(bundle.fills)}",
             f"Metrics: {len(bundle.metrics)}",
-            f"Artifacts: {', '.join(artifact.artifact_format for artifact in bundle.artifacts)}",
+            f"Artifacts: {', '.join(artifact.artifact_format for artifact in bundle.artifacts)}",  # noqa: E501
         )
     )
 

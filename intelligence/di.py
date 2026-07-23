@@ -4,7 +4,6 @@ from core.telemetry.emitters.intelligence_telemetry import IntelligenceTelemetry
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
-
 from intelligence.analysts.di import IntelligenceAnalystsDIProvider
 from intelligence.attribution.di import IntelligenceAttributionDIProvider
 from intelligence.execution.di import IntelligenceExecutionDIProvider

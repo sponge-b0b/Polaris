@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.lineage import LineagePersistenceService
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceLineageLinkResult
-from core.storage.persistence.lineage import PersistenceLineagePath
-from core.storage.persistence.lineage import PersistenceLineagePathSegment
-from core.storage.persistence.lineage import PersistenceLineageTraversalDirection
-from core.storage.persistence.lineage import PersistenceLineageTraversalRequest
-from core.storage.persistence.lineage import PersistenceLineageTraversalResult
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.lineage import new_persistence_lineage_link_id
+from core.storage.persistence.lineage import (
+    PersistenceLineageLinkRecord,
+    PersistenceLineageLinkResult,
+    PersistenceLineagePath,
+    PersistenceLineagePathSegment,
+    PersistenceLineageTraversalDirection,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
+    new_persistence_lineage_link_id,
+)
 
 
 @pytest.mark.asyncio
@@ -438,7 +439,7 @@ def _link(
             2026,
             5,
             30,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         ),
     )
 

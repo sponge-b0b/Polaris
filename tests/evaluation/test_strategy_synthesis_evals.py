@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import pytest
 
-from application.evaluations import canonical_evaluation_dataset_definition_by_name
-from application.evaluations import intelligence_evaluation_metric_specs
+from application.evaluations import (
+    canonical_evaluation_dataset_definition_by_name,
+    intelligence_evaluation_metric_specs,
+)
 from domain.evaluation import EvaluationTargetType
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]

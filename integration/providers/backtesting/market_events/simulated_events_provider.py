@@ -1,4 +1,5 @@
-from typing import Dict, List, Any
+from typing import Any
+
 from integration.providers.market_events.market_events_provider import (
     MarketEventsProvider,
 )
@@ -21,14 +22,14 @@ class SimulatedEventsProvider(MarketEventsProvider):
     async def get_fed_events(
         self,
         days_ahead: int = 14,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return []
 
     async def get_economic_events(
         self,
         days_ahead: int = 14,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return []
 
@@ -36,6 +37,6 @@ class SimulatedEventsProvider(MarketEventsProvider):
         self,
         horizon: str = "3month",
         symbols: set[str] | None = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
         return []

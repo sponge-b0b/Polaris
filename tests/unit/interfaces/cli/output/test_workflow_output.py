@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
-from interfaces.cli.output import WorkflowOutputArtifact
-from interfaces.cli.output import output_path_for_format
+from interfaces.cli.output import WorkflowOutputArtifact, output_path_for_format
 
 
 def test_output_path_for_format_uses_safe_utc_timestamp_and_extension() -> None:
@@ -73,8 +71,7 @@ def test_workflow_output_artifact_detects_binary_content() -> None:
 def test_emit_workflow_output_bundle_writes_text_artifact_and_stdout(
     tmp_path,
 ) -> None:
-    from interfaces.cli.output import WorkflowOutputBundle
-    from interfaces.cli.output import emit_workflow_output_bundle
+    from interfaces.cli.output import WorkflowOutputBundle, emit_workflow_output_bundle
 
     stdout_lines: list[str] = []
     status_lines: list[str] = []
@@ -109,8 +106,7 @@ def test_emit_workflow_output_bundle_writes_text_artifact_and_stdout(
 def test_emit_workflow_output_bundle_writes_binary_artifact(
     tmp_path,
 ) -> None:
-    from interfaces.cli.output import WorkflowOutputBundle
-    from interfaces.cli.output import emit_workflow_output_bundle
+    from interfaces.cli.output import WorkflowOutputBundle, emit_workflow_output_bundle
 
     artifact = WorkflowOutputArtifact(
         output_format="pdf",
@@ -133,8 +129,7 @@ def test_emit_workflow_output_bundle_writes_binary_artifact(
 def test_emit_workflow_output_bundle_writes_explicit_output_without_artifact(
     tmp_path,
 ) -> None:
-    from interfaces.cli.output import WorkflowOutputBundle
-    from interfaces.cli.output import emit_workflow_output_bundle
+    from interfaces.cli.output import WorkflowOutputBundle, emit_workflow_output_bundle
 
     bundle = WorkflowOutputBundle(
         stdout="plain stdout",

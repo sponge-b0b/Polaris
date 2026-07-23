@@ -2,32 +2,31 @@
 
 from __future__ import annotations
 
-
 import asyncio
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
-import pytest
 
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
+    RagGraphProjectionReadiness,
+    RagModelReadiness,
+    RagProjectionReadinessResult,
+    RagStatusOperationRequest,
+    RagVectorProjectionReadiness,
 )
-from application.rag.contracts.rag_operation_models import RagGraphProjectionReadiness
-from application.rag.contracts.rag_operation_models import RagModelReadiness
-from application.rag.contracts.rag_operation_models import RagProjectionReadinessResult
-from application.rag.contracts.rag_operation_models import RagStatusOperationRequest
-from application.rag.contracts.rag_operation_models import RagVectorProjectionReadiness
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from mcp_server.lifespan import McpApplicationContext
 from mcp_server.contracts.models import RagStatusRequest
-from mcp_server.tools.rag_status import execute_rag_status
+from mcp_server.lifespan import McpApplicationContext
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
+from mcp_server.tools.rag_status import execute_rag_status
 
 
 def _credential_url(password: str) -> str:

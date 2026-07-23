@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
-from core.storage.persistence.news import NewsPersistenceBundle
-from core.storage.persistence.news import NewsPersistenceResult
-from core.storage.persistence.news import new_news_analysis_snapshot_id
-from core.storage.persistence.news import new_news_article_id
+from core.storage.persistence.news import (
+    NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+    NewsPersistenceResult,
+    new_news_analysis_snapshot_id,
+    new_news_article_id,
+)
 
 
 def test_news_article_record_is_typed_normalized_and_immutable() -> None:
@@ -318,4 +319,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

@@ -4,26 +4,30 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.evaluations import EvaluationLangfuseProjectionRequest
-from application.evaluations import EvaluationLangfuseProjectionService
-from application.observability.ai_observability_contracts import AiEvaluationObservation
-from application.observability.ai_observability_contracts import (
-    AiObservabilityExportResult,
+from application.evaluations import (
+    EvaluationLangfuseProjectionRequest,
+    EvaluationLangfuseProjectionService,
 )
 from application.observability.ai_observability_contracts import (
+    AiEvaluationObservation,
+    AiObservabilityExportResult,
     AiObservabilityExportStatus,
 )
-from core.storage.persistence.evaluation import EvaluationCaseRecord
-from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.storage.persistence.evaluation import EvaluationRunRecord
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationDatasetReference
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
+from core.storage.persistence.evaluation import (
+    EvaluationCaseRecord,
+    EvaluationMetricResultRecord,
+    EvaluationRunRecord,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationDatasetReference,
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
 
 
 @dataclass(slots=True)

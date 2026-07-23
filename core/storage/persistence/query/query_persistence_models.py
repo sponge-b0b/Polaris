@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Generic
-from typing import Mapping
-from typing import Sequence
-from typing import TypeAlias
+from enum import StrEnum
 from typing import TypeVar
 
 from core.storage.persistence.lineage import clean_optional_identifier
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
 
 TRecord = TypeVar("TRecord")
 
@@ -22,7 +18,7 @@ DEFAULT_QUERY_LIMIT = 100
 DEFAULT_MAX_QUERY_LIMIT = 1000
 
 
-class PersistenceSortDirection(str, Enum):
+class PersistenceSortDirection(StrEnum):
     """
     Stable sort directions for persistence read/query boundaries.
     """
@@ -525,7 +521,7 @@ def _omit_none_str(
     frozen=True,
     slots=True,
 )
-class PersistenceReadResult(Generic[TRecord]):
+class PersistenceReadResult[TRecord]:
     """
     Typed envelope for single-record persistence reads.
 
@@ -562,7 +558,7 @@ class PersistenceReadResult(Generic[TRecord]):
     frozen=True,
     slots=True,
 )
-class PersistenceListResult(Generic[TRecord]):
+class PersistenceListResult[TRecord]:
     """
     Typed envelope for list persistence reads with pagination metadata.
     """

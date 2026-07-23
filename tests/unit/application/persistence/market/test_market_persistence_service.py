@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from application.persistence.market import MarketBreadthSnapshotPersistenceFilters
-from application.persistence.market import MarketContextSnapshotPersistenceFilters
-from application.persistence.market import MarketEventSnapshotPersistenceFilters
-from application.persistence.market import MarketIndicatorPersistenceFilters
-from application.persistence.market import MarketOhlcvPersistenceFilters
-from application.persistence.market import MarketPersistenceService
-from application.persistence.market import TechnicalAnalysisSnapshotPersistenceFilters
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import MarketIndicatorRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import MarketPersistenceBundle
-from core.storage.persistence.market import MarketPersistenceResult
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
+from application.persistence.market import (
+    MarketBreadthSnapshotPersistenceFilters,
+    MarketContextSnapshotPersistenceFilters,
+    MarketEventSnapshotPersistenceFilters,
+    MarketIndicatorPersistenceFilters,
+    MarketOhlcvPersistenceFilters,
+    MarketPersistenceService,
+    TechnicalAnalysisSnapshotPersistenceFilters,
+)
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    MarketIndicatorRecord,
+    MarketOhlcvRecord,
+    MarketPersistenceBundle,
+    MarketPersistenceResult,
+    TechnicalAnalysisSnapshotRecord,
+)
 
 
 class FakeMarketRepository:
@@ -223,7 +226,7 @@ async def test_market_persistence_service_uses_typed_filters() -> None:
     )
     service = MarketPersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     ohlcv = await service.list_ohlcv(
         MarketOhlcvPersistenceFilters(
@@ -397,7 +400,7 @@ def test_market_time_window_filters_require_ordered_bounds(
     ],
     args: dict[str, str],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -544,4 +547,4 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

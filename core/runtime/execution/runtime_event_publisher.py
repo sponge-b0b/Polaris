@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.control import WorkflowControlManager
-from core.runtime.events import EventBus
-from core.runtime.events import RuntimeEvent
-from core.runtime.events import RuntimeEventType
+from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from core.runtime.execution.runtime_execution_context import (
     RuntimeExecutionLocation,
 )
@@ -60,7 +57,7 @@ class RuntimeEventPublisher:
         context = location.context
         execution_plan = location.execution_plan
         plan_node = location.plan_node
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         event_payload: dict[str, Any] = {
             "workflow_id": context.workflow_id,
             "workflow_name": execution_plan.workflow_name,
@@ -136,7 +133,7 @@ class RuntimeEventPublisher:
 
         context = location.context
         execution_plan = location.execution_plan
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         control_metadata = self.control_metadata(location)
         event_payload: dict[str, Any] = {
             "workflow_id": context.workflow_id,

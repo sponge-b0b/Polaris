@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from integration.clients.rag.web_retrieval_models import CrawledWebDocument
-from integration.clients.rag.web_retrieval_models import WebSearchCandidate
+from integration.clients.rag.web_retrieval_models import (
+    CrawledWebDocument,
+    WebSearchCandidate,
+)
 
 
 def test_web_search_candidate_preserves_typed_fields() -> None:

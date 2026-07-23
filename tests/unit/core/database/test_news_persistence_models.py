@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import CheckConstraint
-from sqlalchemy import Table
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import CheckConstraint, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
 
 
 def test_news_models_are_imported_into_base_metadata() -> None:

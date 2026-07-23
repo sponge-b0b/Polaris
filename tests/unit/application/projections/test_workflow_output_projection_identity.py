@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from datetime import UTC
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
-from application.projections.workflow_outputs import WorkflowOutputProjectorRequest
-from application.projections.workflow_outputs import build_projected_record_id
-from application.projections.workflow_outputs import build_projected_record_identity
 from application.projections.workflow_outputs import (
+    WorkflowOutputProjectorRequest,
+    build_projected_record_id,
+    build_projected_record_identity,
     build_projected_record_identity_from_projector_request,
-)
-from application.projections.workflow_outputs import (
     build_workflow_output_projection_lineage,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunRecord,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 
 
@@ -103,7 +102,7 @@ def test_build_projected_record_identity_returns_persistence_identity() -> None:
     assert identity.record_id.startswith("technical_analysis_snapshot:")
 
 
-def test_build_projected_record_identity_from_projector_request_uses_request_lineage() -> (
+def test_build_projected_record_identity_from_projector_request_uses_request_lineage() -> (  # noqa: E501
     None
 ):
     request = WorkflowOutputProjectorRequest(

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
+
 from core.utils.utils import _clamp, _safe_float
 
 
 def build(
-    technical: Dict[str, Any],
-) -> Dict[str, Any]:
+    technical: dict[str, Any],
+) -> dict[str, Any]:
     trend = dict(technical.get("trend", {}))
     volatility = dict(technical.get("volatility", {}))
     breadth = dict(technical.get("breadth", {}))

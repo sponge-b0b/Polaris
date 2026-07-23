@@ -3,34 +3,30 @@ from __future__ import annotations
 import asyncio
 import sys
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-from domain.evaluation import EvaluationCase
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from domain.evaluation import EvaluationThreshold
-from integration.providers.llm_evaluation import DeepEvalEvaluationProvider
-from integration.providers.llm_evaluation import DeepEvalJudgeModelConfig
-from integration.providers.llm_evaluation import DeepEvalMetricName
-from integration.providers.llm_evaluation import DeepEvalMetricOutcome
-from integration.providers.llm_evaluation import EvaluationMetricSpec
-from integration.providers.llm_evaluation import EvaluationProviderRequest
-from integration.providers.llm_evaluation import build_deepeval_judge_model
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationStatus,
+    EvaluationTargetType,
+    EvaluationThreshold,
+)
+from integration.providers.llm_evaluation import (
+    DeepEvalEvaluationProvider,
+    DeepEvalJudgeModelConfig,
+    DeepEvalMetricName,
+    DeepEvalMetricOutcome,
+    EvaluationMetricSpec,
+    EvaluationProviderRequest,
+    build_deepeval_judge_model,
+)
 from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _build_metric,
-)
-from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _build_test_case,
-)
-from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _deepeval_threshold_for,
-)
-from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _litellm_model_name,
-)
-from integration.providers.llm_evaluation.deepeval_evaluation_provider import (
     _normalize_metric_score,
 )
 
@@ -438,38 +434,22 @@ class _FakeGEval(_FakeMetric):
 def _install_fake_deepeval_metric_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Any:
-    fake_metrics = ModuleType("deepeval.metrics")
-    setattr(
-        fake_metrics,
-        "AnswerRelevancyMetric",
-        type("AnswerRelevancyMetric", (_FakeMetric,), {}),
+    fake_metrics = cast(Any, ModuleType("deepeval.metrics"))
+    fake_metrics.AnswerRelevancyMetric = type(
+        "AnswerRelevancyMetric", (_FakeMetric,), {}
     )
-    setattr(
-        fake_metrics,
-        "ContextualPrecisionMetric",
-        type("ContextualPrecisionMetric", (_FakeMetric,), {}),
+    fake_metrics.ContextualPrecisionMetric = type(
+        "ContextualPrecisionMetric", (_FakeMetric,), {}
     )
-    setattr(
-        fake_metrics,
-        "ContextualRecallMetric",
-        type("ContextualRecallMetric", (_FakeMetric,), {}),
+    fake_metrics.ContextualRecallMetric = type(
+        "ContextualRecallMetric", (_FakeMetric,), {}
     )
-    setattr(
-        fake_metrics,
-        "ContextualRelevancyMetric",
-        type("ContextualRelevancyMetric", (_FakeMetric,), {}),
+    fake_metrics.ContextualRelevancyMetric = type(
+        "ContextualRelevancyMetric", (_FakeMetric,), {}
     )
-    setattr(
-        fake_metrics,
-        "FaithfulnessMetric",
-        type("FaithfulnessMetric", (_FakeMetric,), {}),
-    )
-    setattr(
-        fake_metrics,
-        "HallucinationMetric",
-        type("HallucinationMetric", (_FakeMetric,), {}),
-    )
-    setattr(fake_metrics, "GEval", _FakeGEval)
+    fake_metrics.FaithfulnessMetric = type("FaithfulnessMetric", (_FakeMetric,), {})
+    fake_metrics.HallucinationMetric = type("HallucinationMetric", (_FakeMetric,), {})
+    fake_metrics.GEval = _FakeGEval
     monkeypatch.setitem(sys.modules, "deepeval.metrics", fake_metrics)
     return fake_metrics
 
@@ -477,9 +457,9 @@ def _install_fake_deepeval_metric_module(
 def _install_fake_deepeval_model_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Any:
-    fake_models = ModuleType("deepeval.models")
-    setattr(fake_models, "GPTModel", type("GPTModel", (_FakeMetric,), {}))
-    setattr(fake_models, "LiteLLMModel", type("LiteLLMModel", (_FakeMetric,), {}))
+    fake_models = cast(Any, ModuleType("deepeval.models"))
+    fake_models.GPTModel = type("GPTModel", (_FakeMetric,), {})
+    fake_models.LiteLLMModel = type("LiteLLMModel", (_FakeMetric,), {})
     monkeypatch.setitem(sys.modules, "deepeval.models", fake_models)
     return fake_models
 
@@ -487,7 +467,7 @@ def _install_fake_deepeval_model_module(
 def _install_fake_deepeval_test_case_params(
     monkeypatch: pytest.MonkeyPatch,
 ) -> ModuleType:
-    fake_llm_test_case = ModuleType("deepeval.test_case.llm_test_case")
+    fake_llm_test_case = cast(Any, ModuleType("deepeval.test_case.llm_test_case"))
 
     class SingleTurnParams:
         INPUT = "input"
@@ -496,7 +476,7 @@ def _install_fake_deepeval_test_case_params(
         CONTEXT = "context"
         RETRIEVAL_CONTEXT = "retrieval_context"
 
-    setattr(fake_llm_test_case, "SingleTurnParams", SingleTurnParams)
+    fake_llm_test_case.SingleTurnParams = SingleTurnParams
     monkeypatch.setitem(
         sys.modules,
         "deepeval.test_case.llm_test_case",

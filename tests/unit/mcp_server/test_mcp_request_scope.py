@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import cast
 
-from dishka import AsyncContainer
 import pytest
+from dishka import AsyncContainer
 
-from application.rag.rag_service import RagService
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
+from application.rag.rag_service import RagService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
 from core.workflow.execution.workflow_facade import WorkflowFacade
 from mcp_server.lifespan import McpApplicationContext

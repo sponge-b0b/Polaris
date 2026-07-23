@@ -7,7 +7,6 @@ from core.runtime.events.runtime_events import (
     RuntimeEventType,
 )
 
-
 __all__ = [
     "EventBus",
     "RuntimeEvent",

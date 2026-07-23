@@ -1,31 +1,25 @@
 from __future__ import annotations
 
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 
 from application.observability.ai_observability_contracts import (
     AiObservabilityCapturePolicy,
+    AiRedactionMode,
 )
-from application.observability.ai_observability_contracts import AiRedactionMode
 from application.observability.ai_observability_export_service import (
     AiObservabilityExportQueueService,
-)
-from application.observability.ai_observability_export_service import (
-    AiObservabilityRetentionService,
-)
-from application.observability.ai_observability_export_service import (
     AiObservabilityExportWorker,
-)
-from application.observability.ai_observability_export_service import (
+    AiObservabilityRetentionService,
     DurableLangfuseAiObservabilitySink,
 )
 from application.observability.ai_observability_operational_status import (
     AiObservabilityOperationalStatusService,
 )
 from application.observability.ai_prompt_management import AiPromptGovernancePolicy
-from application.observability.langfuse_projection import AiObservabilityProjector
-from application.observability.langfuse_projection import LangfuseObservationMapper
+from application.observability.langfuse_projection import (
+    AiObservabilityProjector,
+    LangfuseObservationMapper,
+)
 from application.observability.langfuse_sdk_exporter import LangfuseSdkExportClient
 from config.settings import Settings
 from core.storage.persistence.ai_observability import AiObservabilityExportJobRepository

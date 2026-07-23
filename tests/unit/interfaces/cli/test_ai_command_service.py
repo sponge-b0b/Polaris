@@ -1,36 +1,44 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import replace
-from datetime import UTC
-from datetime import datetime
 import hashlib
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 
 import pytest
 
-from application.ai_optimization import AiOptimizationRequest
-from application.ai_optimization import AiOptimizationResult
-from application.ai_optimization import AiOptimizationStatus
-from application.ai_optimization import AiOptimizationTarget
+from application.ai_optimization import (
+    AiOptimizationRequest,
+    AiOptimizationResult,
+    AiOptimizationStatus,
+    AiOptimizationTarget,
+)
 from application.evaluations import EvaluationRunServiceResult
 from config.settings import Settings
-from core.storage.persistence.ai_artifacts import AiArtifactApprovalStatus
-from core.storage.persistence.ai_artifacts import AiArtifactType
-from core.storage.persistence.ai_artifacts import AiPromptProgramArtifactRecord
+from core.storage.persistence.ai_artifacts import (
+    AiArtifactApprovalStatus,
+    AiArtifactType,
+    AiPromptProgramArtifactRecord,
+)
 from core.storage.persistence.evaluation import EvaluationPersistenceResult
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationRun
-from domain.evaluation import EvaluationScore
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
-from integration.providers.ai_optimization import DspyOptimizedArtifact
-from integration.providers.ai_optimization import DspyOptimizedCaseOutput
-from integration.providers.ai_optimization import DspyOptimizationProviderResult
-from interfaces.cli.services.ai_command_service import AiCommandService
-from interfaces.cli.services.ai_command_service import render_ai_artifact_command_result
-from interfaces.cli.services.ai_command_service import render_ai_artifacts
-from interfaces.cli.services.ai_command_service import render_ai_optimize_result
+from domain.evaluation import (
+    EvaluationMetricResult,
+    EvaluationRun,
+    EvaluationScore,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
+from integration.providers.ai_optimization import (
+    DspyOptimizationProviderResult,
+    DspyOptimizedArtifact,
+    DspyOptimizedCaseOutput,
+)
+from interfaces.cli.services.ai_command_service import (
+    AiCommandService,
+    render_ai_artifact_command_result,
+    render_ai_artifacts,
+    render_ai_optimize_result,
+)
 
 
 @dataclass(slots=True)

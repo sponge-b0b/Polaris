@@ -1,30 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
-from integration.providers.backtesting.market_data.postgres_historical_data_provider import (
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    MarketIndicatorRecord,
+    MarketOhlcvRecord,
+    MarketPersistenceBundle,
+    MarketPersistenceResult,
+    TechnicalAnalysisSnapshotRecord,
+)
+from integration.providers.backtesting.market_data.postgres_historical_data_provider import (  # noqa: E501
     MissingHistoricalMarketDataError,
-)
-from integration.providers.backtesting.market_data.postgres_historical_data_provider import (
     PostgresHistoricalDataProvider,
-)
-from integration.providers.backtesting.market_data.postgres_historical_data_provider import (
     PostgresHistoricalDataProviderConfig,
 )
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import MarketIndicatorRecord
-from core.storage.persistence.market import MarketOhlcvRecord
-from core.storage.persistence.market import MarketPersistenceBundle
-from core.storage.persistence.market import MarketPersistenceResult
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
 
 
 class FakeMarketPersistenceRepository:

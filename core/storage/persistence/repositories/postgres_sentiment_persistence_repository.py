@@ -9,12 +9,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.sentiment import SentimentSnapshotModel
-from core.database.models.sentiment import SentimentSourceModel
-from core.storage.persistence.sentiment import SentimentPersistenceBundle
-from core.storage.persistence.sentiment import SentimentPersistenceResult
-from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.sentiment import SentimentSourceRecord
+from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
+from core.storage.persistence.sentiment import (
+    SentimentPersistenceBundle,
+    SentimentPersistenceResult,
+    SentimentSnapshotRecord,
+    SentimentSourceRecord,
+)
 from core.storage.persistence.sentiment.sentiment_persistence_repository import (
     SentimentPersistenceRepository,
 )

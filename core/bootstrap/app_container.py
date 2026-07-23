@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from dishka import AsyncContainer
-from dishka import Container
-from dishka import Provider
-from dishka import make_async_container
-from dishka import make_container
+from dishka import (
+    AsyncContainer,
+    Container,
+    Provider,
+    make_async_container,
+    make_container,
+)
 
 from core.bootstrap.workflow_providers import (
     WorkflowInfrastructureProvider,

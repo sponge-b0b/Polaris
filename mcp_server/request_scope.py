@@ -12,7 +12,7 @@ DependencyT = TypeVar("DependencyT")
 
 
 @asynccontextmanager
-async def mcp_dependency_scope(
+async def mcp_dependency_scope[DependencyT](
     application_context: McpApplicationContext,
     dependency_type: type[DependencyT],
 ) -> AsyncIterator[DependencyT]:

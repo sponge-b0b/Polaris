@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.state.runtime_context import RuntimeContext
@@ -9,13 +9,11 @@ from domain.workflow_outputs import (
     EXECUTION_RISK_DECISION_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
-
-from integration.contracts.risk.risk_signal_contract import (
-    RiskSignalContract,
-)
-
 from integration.adapters.risk import (
     risk_runtime_adapter,
+)
+from integration.contracts.risk.risk_signal_contract import (
+    RiskSignalContract,
 )
 
 
@@ -65,7 +63,7 @@ class ExecutionRiskGuard(RuntimeNode):
     # EXECUTE
     # ============================================================
 
-    async def _execute(
+    async def _execute(  # noqa: C901
         self,
         context: RuntimeContext,
     ) -> RuntimeNodeOutput:
@@ -234,7 +232,7 @@ class ExecutionRiskGuard(RuntimeNode):
         # FLAG ENGINE
         # ========================================================
 
-        flags: List[str] = []
+        flags: list[str] = []
 
         if abs(composite_risk) > self.MAX_COMPOSITE_RISK:
             flags.append("composite_risk_breach")

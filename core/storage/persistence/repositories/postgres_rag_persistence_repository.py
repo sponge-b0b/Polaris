@@ -1,44 +1,37 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from sqlalchemy import delete
-from sqlalchemy import func
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from core.database.models.rag import RagAnswerLogModel
-from core.database.models.rag import RagChunkModel
-from core.database.models.rag import RagDocumentModel
-from core.database.models.rag import RagEmbeddingJobModel
-from core.database.models.rag import RagGraphJobModel
-from core.database.models.rag import RagQueryLogModel
-from core.database.models.rag import RagSourceEligibilityModel
-from core.storage.persistence.rag.rag_persistence_models import JsonObject
-from core.storage.persistence.rag.rag_persistence_models import JsonScalar
-from core.storage.persistence.rag.rag_persistence_models import RagAnswerLogRecord
-from core.storage.persistence.rag.rag_persistence_models import RagCanonicalRecordCounts
-from core.storage.persistence.rag.rag_persistence_models import RagChunkRecord
-from core.storage.persistence.rag.rag_persistence_models import RagDocumentRecord
-from core.storage.persistence.rag.rag_persistence_models import RagEmbeddingJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagGraphJobRecord
-from core.storage.persistence.rag.rag_persistence_models import RagPersistenceResult
-from core.storage.persistence.rag.rag_persistence_models import RagQueryLogRecord
+from core.database.models.rag import (
+    RagAnswerLogModel,
+    RagChunkModel,
+    RagDocumentModel,
+    RagEmbeddingJobModel,
+    RagGraphJobModel,
+    RagQueryLogModel,
+    RagSourceEligibilityModel,
+)
 from core.storage.persistence.rag.rag_persistence_models import (
+    JsonObject,
+    JsonScalar,
+    RagAnswerLogRecord,
+    RagCanonicalRecordCounts,
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagEmbeddingJobRecord,
+    RagGraphJobRecord,
+    RagPersistenceResult,
+    RagQueryLogRecord,
     RagRecordPersistenceResult,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagSourceEligibilityRecord,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     RagSourceEligibilityResult,
-)
-from core.storage.persistence.rag.rag_persistence_models import (
     new_rag_source_eligibility_id,
 )
 from core.storage.persistence.rag.rag_persistence_repository import (

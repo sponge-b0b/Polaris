@@ -1,14 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import date
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
-from typing import Mapping
-
 
 OutputFormat = Literal["console", "json", "markdown"]
 BacktestExpectationType = Literal[
@@ -130,7 +127,7 @@ class BacktestScenario:
     parameters: Mapping[str, object] = field(default_factory=dict)
     expected_outcomes: tuple[BacktestExpectedOutcome, ...] = ()
 
-    def validate(
+    def validate(  # noqa: C901
         self,
     ) -> tuple[str, ...]:
         errors: list[str] = []

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.strategy import StrategyHypothesisEvaluationModel
-from core.database.models.strategy import StrategyHypothesisModel
-from core.database.models.strategy import StrategySynthesisDecisionModel
-from core.storage.persistence.lineage import JsonObject
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.strategy import StrategyHypothesisEvaluationRecord
-from core.storage.persistence.strategy import StrategyHypothesisRecord
-from core.storage.persistence.strategy import StrategySynthesisDecisionRecord
+from core.database.models.strategy import (
+    StrategyHypothesisEvaluationModel,
+    StrategyHypothesisModel,
+    StrategySynthesisDecisionModel,
+)
+from core.storage.persistence.lineage import JsonObject, PersistenceLineage
+from core.storage.persistence.strategy import (
+    StrategyHypothesisEvaluationRecord,
+    StrategyHypothesisRecord,
+    StrategySynthesisDecisionRecord,
+)
 
 
 class StrategyPersistenceSerializer:

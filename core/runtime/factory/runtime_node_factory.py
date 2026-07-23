@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any
 
 from core.runtime.contracts.runtime_node import RuntimeNode
 
@@ -15,11 +15,11 @@ class RuntimeNodeFactory:
         container: Any | None = None,
     ) -> None:
         self.container = container
-        self._registry: dict[str, Type[RuntimeNode]] = {}
+        self._registry: dict[str, type[RuntimeNode]] = {}
 
     def register(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
         name: str | None = None,
         overwrite: bool = False,
     ) -> None:
@@ -38,7 +38,7 @@ class RuntimeNodeFactory:
 
     def register_many(
         self,
-        node_types: list[Type[RuntimeNode]],
+        node_types: list[type[RuntimeNode]],
         overwrite: bool = False,
     ) -> None:
         for node_type in node_types:
@@ -62,7 +62,7 @@ class RuntimeNodeFactory:
 
     def create_from_type(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
     ) -> RuntimeNode:
         if not issubclass(node_type, RuntimeNode):
             raise TypeError(f"{node_type} must inherit RuntimeNode.")
@@ -92,7 +92,7 @@ class RuntimeNodeFactory:
     def get_node_type(
         self,
         name: str,
-    ) -> Type[RuntimeNode]:
+    ) -> type[RuntimeNode]:
         node_type = self._registry.get(name)
 
         if node_type is None:
@@ -133,7 +133,7 @@ class RuntimeNodeFactory:
 
     def _resolve_from_container(
         self,
-        node_type: Type[RuntimeNode],
+        node_type: type[RuntimeNode],
     ) -> Any | None:
 
         container = self.container

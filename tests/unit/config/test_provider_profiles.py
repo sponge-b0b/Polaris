@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from config.provider_profiles import apply_provider_profile
-from config.provider_profiles import get_provider_profile
+from config.provider_profiles import apply_provider_profile, get_provider_profile
 from config.settings import Settings
 
 

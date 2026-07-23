@@ -1,27 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
-from typing import Sequence
 
 from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkRecord,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceLineageLinkResult,
-)
-from core.storage.persistence.lineage.lineage_persistence_models import (
     PersistenceRecordIdentity,
 )
 from core.storage.persistence.lineage.lineage_traversal_models import (
     DEFAULT_LINEAGE_TRAVERSAL_DEPTH,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
     DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
     PersistenceLineageTraversalRequest,
-)
-from core.storage.persistence.lineage.lineage_traversal_models import (
     PersistenceLineageTraversalResult,
 )
 

@@ -1,6 +1,4 @@
-from dishka import Provider
-from dishka import Scope
-from dishka import provide
+from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.persistence.agent_signals import AgentSignalPersistenceService
@@ -13,26 +11,22 @@ from application.persistence.recommendations import RecommendationPersistenceSer
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
 from application.reports import MorningReportPersistenceService
-from core.storage.persistence.repositories import (
-    PostgresAgentSignalPersistenceRepository,
-)
-from core.storage.persistence.repositories import (
-    PostgresBacktestPersistenceRepository,
-)
-from core.storage.persistence.repositories import PostgresMacroPersistenceRepository
-from core.storage.persistence.repositories import PostgresMarketPersistenceRepository
-from core.storage.persistence.repositories import PostgresNewsPersistenceRepository
-from core.storage.persistence.repositories import (
-    PostgresRecommendationPersistenceRepository,
-)
-from core.storage.persistence.repositories import PostgresSentimentPersistenceRepository
-from core.storage.persistence.repositories import PostgresStrategyPersistenceRepository
-from core.storage.persistence.repositories import PostgresReportPersistenceRepository
 from core.storage.persistence.portfolio import (
     PortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.portfolio.portfolio_state_repository import (
     PortfolioStateRepository,
+)
+from core.storage.persistence.repositories import (
+    PostgresAgentSignalPersistenceRepository,
+    PostgresBacktestPersistenceRepository,
+    PostgresMacroPersistenceRepository,
+    PostgresMarketPersistenceRepository,
+    PostgresNewsPersistenceRepository,
+    PostgresRecommendationPersistenceRepository,
+    PostgresReportPersistenceRepository,
+    PostgresSentimentPersistenceRepository,
+    PostgresStrategyPersistenceRepository,
 )
 
 

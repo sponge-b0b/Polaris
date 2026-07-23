@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
-from typing import Any
-from typing import cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.news import NewsArticleModel
+from core.database.models.news import NewsAnalysisSnapshotModel, NewsArticleModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.news import NewsArticleRecord
-from core.storage.persistence.news import NewsPersistenceBundle
+from core.storage.persistence.news import (
+    NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+)
 from core.storage.persistence.repositories.postgres_news_persistence_repository import (
     PostgresNewsPersistenceRepository,
 )
@@ -281,4 +280,4 @@ def _lineage() -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)

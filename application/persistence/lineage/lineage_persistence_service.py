@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from core.storage.persistence.lineage import DEFAULT_LINEAGE_TRAVERSAL_DEPTH
-from core.storage.persistence.lineage import DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT
-from core.storage.persistence.lineage import PersistenceLineageLinkRecord
-from core.storage.persistence.lineage import PersistenceLineageLinkRepository
-from core.storage.persistence.lineage import PersistenceLineageTraversalRequest
-from core.storage.persistence.lineage import PersistenceLineageTraversalResult
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from application.persistence.query_result_helpers import (
+    build_common_query,
+    build_list_result,
+)
+from core.storage.persistence.lineage import (
+    DEFAULT_LINEAGE_TRAVERSAL_DEPTH,
+    DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
+    PersistenceLineageLinkRecord,
+    PersistenceLineageLinkRepository,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
+)
 from core.storage.persistence.query import PersistenceListResult
-
-from application.persistence.query_result_helpers import build_common_query
-from application.persistence.query_result_helpers import build_list_result
 
 
 class LineagePersistenceService:

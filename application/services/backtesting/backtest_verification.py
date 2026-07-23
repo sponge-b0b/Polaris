@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
-from decimal import Decimal
-from decimal import InvalidOperation
+from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 
-from application.services.backtesting.backtest_request import BacktestExpectedOutcome
-from application.services.backtesting.backtest_request import BacktestScenario
-from application.services.backtesting.backtest_result import BacktestMetrics
-from application.services.backtesting.backtest_result import BacktestOutcomeVerification
-from application.services.backtesting.backtest_result import BacktestStepResult
-
+from application.services.backtesting.backtest_request import (
+    BacktestExpectedOutcome,
+    BacktestScenario,
+)
+from application.services.backtesting.backtest_result import (
+    BacktestMetrics,
+    BacktestOutcomeVerification,
+    BacktestStepResult,
+)
 
 _NODE_ALIASES = {
     "technical": "technical_agent",
@@ -44,7 +45,7 @@ def verify_backtest_outcomes(
     )
 
 
-def _verification_payload(
+def _verification_payload(  # noqa: C901
     *,
     steps: tuple[BacktestStepResult, ...],
     metrics: BacktestMetrics,
@@ -209,7 +210,7 @@ def _resolve_target(
     return current
 
 
-def _matches_expectation(
+def _matches_expectation(  # noqa: C901
     *,
     actual: object,
     outcome: BacktestExpectedOutcome,

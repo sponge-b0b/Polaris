@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
-from core.storage.persistence.audit import PersistenceAuditActor
-from core.storage.persistence.audit import PersistenceAuditEventRecord
-from core.storage.persistence.audit import PersistenceAuditEventResult
-from core.storage.persistence.audit import new_persistence_audit_event_id
+from core.storage.persistence.audit import (
+    PersistenceAuditActor,
+    PersistenceAuditEventRecord,
+    PersistenceAuditEventResult,
+    new_persistence_audit_event_id,
+)
 from core.storage.persistence.lineage import PersistenceLineage
 
 
@@ -51,7 +52,7 @@ def test_audit_actor_validates_required_source(
 
 
 def test_audit_event_record_is_typed_normalized_and_boundary_serializable() -> None:
-    timestamp = datetime(2026, 5, 31, 13, 45, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 5, 31, 13, 45, tzinfo=UTC)
     event = PersistenceAuditEventRecord(
         audit_event_id=" audit-1 ",
         entity_type=" recommendation ",
@@ -119,7 +120,7 @@ def test_audit_event_record_validates_required_fields(
         "entity_type": "report",
         "entity_id": "report-1",
         "action": "create",
-        "timestamp": datetime(2026, 5, 31, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 5, 31, tzinfo=UTC),
         "actor": PersistenceAuditActor(
             system_source="report-service",
         ),

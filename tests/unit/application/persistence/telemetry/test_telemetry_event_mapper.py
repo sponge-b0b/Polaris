@@ -1,21 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import UTC, datetime, timedelta
 
 from application.persistence.telemetry.telemetry_event_mapper import (
     TelemetryPersistenceMapper,
 )
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import (
     TelemetryExceptionDetails,
 )
 
 
 def test_mapper_maps_workflow_completed_event_to_event_and_workflow_metric() -> None:
-    timestamp = datetime(2026, 1, 2, 14, 30, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 2, 14, 30, tzinfo=UTC)
     event = TelemetryEvent(
         event_type="runtime.workflow.completed",
         source="runtime.engine",
@@ -83,7 +80,7 @@ def test_mapper_maps_workflow_completed_event_to_event_and_workflow_metric() -> 
 
 
 def test_mapper_maps_provider_call_event_to_provider_metric() -> None:
-    timestamp = datetime(2026, 1, 2, 14, 31, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 2, 14, 31, tzinfo=UTC)
     event = TelemetryEvent(
         event_type="integration.provider.call",
         source="integration.provider",
@@ -121,7 +118,7 @@ def test_mapper_maps_provider_call_event_to_provider_metric() -> None:
 
 
 def test_mapper_maps_agent_signal_event_to_agent_metric() -> None:
-    timestamp = datetime(2026, 1, 2, 14, 32, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 2, 14, 32, tzinfo=UTC)
     event = TelemetryEvent(
         event_type="intelligence.agent.signal",
         source="intelligence.agent",
@@ -160,7 +157,7 @@ def test_mapper_maps_agent_signal_event_to_agent_metric() -> None:
 
 
 def test_mapper_assembles_start_and_failed_events_for_one_canonical_span() -> None:
-    started_at = datetime(2026, 1, 2, 14, 30, tzinfo=timezone.utc)
+    started_at = datetime(2026, 1, 2, 14, 30, tzinfo=UTC)
     started = TelemetryEvent(
         event_id="event-started",
         event_type="application.service.started",

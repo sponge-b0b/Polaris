@@ -2,49 +2,55 @@ from __future__ import annotations
 
 from dataclasses import replace
 from time import perf_counter
-from typing import Protocol
-from typing import cast
+from typing import Protocol, cast
 
-from langgraph.graph import END
-from langgraph.graph import START
-from langgraph.graph import StateGraph
+from langgraph.graph import END, START, StateGraph
 
-from application.rag.generation import RagAnswerGenerator
-from application.rag.graphs.rag_graph_models import EmptyRagConversationMemoryProvider
-from application.rag.graphs.rag_graph_models import PresenceRagContextEvaluator
-from application.rag.graphs.rag_graph_models import RagAnswerReflector
-from application.rag.graphs.rag_graph_models import RagContextEvaluator
-from application.rag.graphs.rag_graph_models import RagConversationMemoryProvider
-from application.rag.graphs.rag_graph_models import RagWebFallbackRetriever
-from application.rag.graphs.rag_graph_policy import RagGraphPolicy
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.graphs.rag_graph_models import RagCorrectiveQueryRewriter
-from application.rag.graphs.rag_graph_state import RagGraphState
-from application.rag.graphs.rag_graph_state import initial_rag_graph_state
-from application.rag.routing.query_routing_models import RagAdaptiveTriage
-from application.rag.routing.query_routing_models import RagHydeExpansion
-from application.rag.routing.query_routing_models import RagQueryContext
-from application.rag.routing.query_routing_models import RagQueryModelExecution
-from application.rag.routing.query_routing_models import RagRetrievalRoute
-from application.rag.routing.query_routing_models import RagRouteSelection
-from application.rag.routing.query_routing_models import RagStandaloneQueryRewrite
-from application.rag.routing.query_routing_service import RagQueryRoutingService
 from application.rag.contracts.rag_context import RagRetrievedContext
+from application.rag.contracts.rag_quality_models import RagCorrectiveAction
 from application.rag.contracts.rag_request import RagRequest
-from application.rag.security.rag_security import RagSecurityGuard
-from application.rag.security.rag_security import safe_grounding_failure_answer
 from application.rag.contracts.rag_result import RagResult
-from application.rag.observability import RagAiObservabilityProjectorPort
-from application.rag.observability import RagAiObservabilityRecorder
-from application.rag.observability import record_answer_quality_observation
-from application.rag.observability import record_crag_observation
-from application.rag.observability import record_generation_observation
-from application.rag.observability import record_hyde_observation
-from application.rag.observability import record_routing_observation
-from application.rag.observability import record_security_observation
-from application.rag.observability import record_self_rag_observation
-from application.rag.retrieval.rag_retriever import RagRetrievalResult
-from application.rag.retrieval.rag_retriever import RagRetriever
+from application.rag.generation import RagAnswerGenerator
+from application.rag.graphs.rag_graph_models import (
+    EmptyRagConversationMemoryProvider,
+    PresenceRagContextEvaluator,
+    RagAnswerReflector,
+    RagContextEvaluator,
+    RagConversationMemoryProvider,
+    RagCorrectiveQueryRewriter,
+    RagWebFallbackRetriever,
+)
+from application.rag.graphs.rag_graph_policy import RagGraphPolicy
+from application.rag.graphs.rag_graph_state import (
+    RagGraphState,
+    initial_rag_graph_state,
+)
+from application.rag.observability import (
+    RagAiObservabilityProjectorPort,
+    RagAiObservabilityRecorder,
+    record_answer_quality_observation,
+    record_crag_observation,
+    record_generation_observation,
+    record_hyde_observation,
+    record_routing_observation,
+    record_security_observation,
+    record_self_rag_observation,
+)
+from application.rag.retrieval.rag_retriever import RagRetrievalResult, RagRetriever
+from application.rag.routing.query_routing_models import (
+    RagAdaptiveTriage,
+    RagHydeExpansion,
+    RagQueryContext,
+    RagQueryModelExecution,
+    RagRetrievalRoute,
+    RagRouteSelection,
+    RagStandaloneQueryRewrite,
+)
+from application.rag.routing.query_routing_service import RagQueryRoutingService
+from application.rag.security.rag_security import (
+    RagSecurityGuard,
+    safe_grounding_failure_answer,
+)
 
 
 class RagQueryRoutingPort(Protocol):

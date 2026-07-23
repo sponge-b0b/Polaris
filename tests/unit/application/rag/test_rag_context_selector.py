@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from application.rag.contracts.rag_context import RagRetrievedContext
-from application.rag.contracts.rag_context import RagSource
-from application.rag.retrieval.rag_context_selector import RagContextSelector
+from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_request import RagRequest
-from integration.providers.rag.reranking_provider import RerankRequest
-from integration.providers.rag.reranking_provider import RerankResult
+from application.rag.retrieval.rag_context_selector import RagContextSelector
+from integration.providers.rag.reranking_provider import RerankRequest, RerankResult
 
 
 @pytest.mark.asyncio

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol
-from typing import runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from core.storage.persistence.rag import JsonObject
 

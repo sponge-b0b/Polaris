@@ -1,32 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from application.persistence.agent_intelligence import (
     AgentIntelligencePersistenceService,
-)
-from application.persistence.agent_intelligence import AgentReasoningPersistenceFilters
-from application.persistence.agent_intelligence import (
+    AgentReasoningPersistenceFilters,
     AgentRecommendationPersistenceFilters,
-)
-from application.persistence.agent_intelligence import (
     AgentRiskAssessmentPersistenceFilters,
 )
 from core.storage.persistence.agent_intelligence import (
     AgentIntelligencePersistenceBundle,
-)
-from core.storage.persistence.agent_intelligence import (
     AgentIntelligencePersistenceResult,
+    AgentReasoningRecord,
+    AgentRecommendationRecord,
+    AgentRiskAssessmentRecord,
 )
-from core.storage.persistence.agent_intelligence import AgentReasoningRecord
-from core.storage.persistence.agent_intelligence import AgentRecommendationRecord
-from core.storage.persistence.agent_intelligence import AgentRiskAssessmentRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 
 
 class FakeAgentIntelligenceRepository:
@@ -228,7 +223,7 @@ async def test_agent_intelligence_persistence_service_builds_typed_bundle() -> N
 
 
 @pytest.mark.asyncio
-async def test_agent_intelligence_persistence_service_delegates_individual_persist_methods() -> (
+async def test_agent_intelligence_persistence_service_delegates_individual_persist_methods() -> (  # noqa: E501
     None
 ):
     repository = FakeAgentIntelligenceRepository()
@@ -276,7 +271,7 @@ async def test_agent_intelligence_persistence_service_uses_typed_filters() -> No
     )
     service = AgentIntelligencePersistenceService(repository)
     start = _timestamp()
-    end = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
 
     reasoning = await service.list_reasoning(
         AgentReasoningPersistenceFilters(
@@ -392,7 +387,7 @@ def test_agent_intelligence_time_window_filters_require_ordered_bounds(
         | AgentRiskAssessmentPersistenceFilters
     ],
 ) -> None:
-    start = datetime(2026, 5, 31, 15, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 31, 15, 0, tzinfo=UTC)
     end = _timestamp()
 
     with pytest.raises(ValueError, match="start must be less than or equal to end"):
@@ -550,7 +545,7 @@ def _primary_record_id(
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 31, 14, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
 
 
 def _full_text() -> str:

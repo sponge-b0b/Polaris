@@ -1,35 +1,44 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.database.models.agent_intelligence import AgentReasoningModel
 from core.database.models.agent_signals import AgentSignalModel
 from core.database.models.macro import MacroRegimeSnapshotModel
-from core.database.models.market import MarketBreadthSnapshotModel
-from core.database.models.market import MarketContextSnapshotModel
-from core.database.models.market import MarketEventSnapshotModel
-from core.database.models.market import TechnicalAnalysisSnapshotModel
+from core.database.models.market import (
+    MarketBreadthSnapshotModel,
+    MarketContextSnapshotModel,
+    MarketEventSnapshotModel,
+    TechnicalAnalysisSnapshotModel,
+)
 from core.database.models.news import NewsAnalysisSnapshotModel
-from core.database.models.portfolio import PortfolioPositionHistoryModel
-from core.database.models.portfolio import PortfolioRiskSnapshotModel
+from core.database.models.portfolio import (
+    PortfolioPositionHistoryModel,
+    PortfolioRiskSnapshotModel,
+)
 from core.database.models.portfolio_state import PortfolioStateHistoryModel
 from core.database.models.sentiment import SentimentSnapshotModel
 from core.storage.persistence.agent_intelligence import AgentReasoningRecord
 from core.storage.persistence.agent_signals import AgentSignalRecord
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
 from core.storage.persistence.macro import MacroRegimeSnapshotRecord
-from core.storage.persistence.market import MarketBreadthSnapshotRecord
-from core.storage.persistence.market import MarketContextSnapshotRecord
-from core.storage.persistence.market import MarketEventSnapshotRecord
-from core.storage.persistence.market import TechnicalAnalysisSnapshotRecord
+from core.storage.persistence.market import (
+    MarketBreadthSnapshotRecord,
+    MarketContextSnapshotRecord,
+    MarketEventSnapshotRecord,
+    TechnicalAnalysisSnapshotRecord,
+)
 from core.storage.persistence.news import NewsAnalysisSnapshotRecord
-from core.storage.persistence.portfolio import PortfolioPositionHistoryRecord
-from core.storage.persistence.portfolio import PortfolioRiskSnapshotRecord
+from core.storage.persistence.portfolio import (
+    PortfolioPositionHistoryRecord,
+    PortfolioRiskSnapshotRecord,
+)
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (
+from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501
     AgentIntelligencePersistenceSerializer,
 )
 from core.storage.persistence.serializers.agent_signal_persistence_serializer import (
@@ -725,4 +734,4 @@ def _lineage(node_name: str) -> PersistenceLineage:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 6, 13, 13, 30, tzinfo=timezone.utc)
+    return datetime(2026, 6, 13, 13, 30, tzinfo=UTC)

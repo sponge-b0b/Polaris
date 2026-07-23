@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from datetime import timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from core.runtime.control.workflow_control_state import WorkflowControlState
@@ -25,7 +23,7 @@ class WorkflowControlSnapshot:
     )
     updated_at: datetime = field(
         default_factory=lambda: datetime.now(
-            timezone.utc,
+            UTC,
         )
     )
 

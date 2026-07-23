@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.query import PersistenceAccountQuery
-from core.storage.persistence.query import PersistenceCommonQuery
-from core.storage.persistence.query import PersistenceLineageQuery
-from core.storage.persistence.query import PersistenceListResult
-from core.storage.persistence.query import PersistenceReadResult
-from core.storage.persistence.query import PersistencePagination
-from core.storage.persistence.query import PersistenceSort
-from core.storage.persistence.query import PersistenceSortDirection
-from core.storage.persistence.query import PersistenceSourceQuery
-from core.storage.persistence.query import PersistenceSymbolQuery
-from core.storage.persistence.query import PersistenceTimeRange
+from core.storage.persistence.query import (
+    PersistenceAccountQuery,
+    PersistenceCommonQuery,
+    PersistenceLineageQuery,
+    PersistenceListResult,
+    PersistencePagination,
+    PersistenceReadResult,
+    PersistenceSort,
+    PersistenceSortDirection,
+    PersistenceSourceQuery,
+    PersistenceSymbolQuery,
+    PersistenceTimeRange,
+)
 
 
 def test_pagination_validates_limits_and_offsets() -> None:
@@ -73,8 +74,8 @@ def test_sort_normalizes_direction_and_is_immutable() -> None:
 
 
 def test_time_range_validates_order_and_omits_empty_values() -> None:
-    start = datetime(2026, 6, 1, 9, tzinfo=timezone.utc)
-    end = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 1, 9, tzinfo=UTC)
+    end = datetime(2026, 6, 1, 10, tzinfo=UTC)
 
     time_range = PersistenceTimeRange(
         start=start,
@@ -175,7 +176,7 @@ def test_common_query_composes_reusable_filters() -> None:
             account_id="paper",
         ),
         time_range=PersistenceTimeRange(
-            start=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            start=datetime(2026, 6, 1, tzinfo=UTC),
         ),
         pagination=PersistencePagination(
             limit=10,
@@ -195,7 +196,7 @@ def test_common_query_composes_reusable_filters() -> None:
         },
         "symbols": {"symbol": "SPY"},
         "account": {"account_id": "paper"},
-        "time_range": {"start": datetime(2026, 6, 1, tzinfo=timezone.utc)},
+        "time_range": {"start": datetime(2026, 6, 1, tzinfo=UTC)},
         "pagination": {
             "limit": 10,
             "offset": 0,

@@ -5,8 +5,10 @@ import os
 import pytest
 
 from config.settings import Settings
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClient
-from integration.clients.rag.crawl4ai_content_client import Crawl4AiContentClientConfig
+from integration.clients.rag.crawl4ai_content_client import (
+    Crawl4AiContentClient,
+    Crawl4AiContentClientConfig,
+)
 from integration.clients.rag.searxng_search_client import SearxngSearchClient
 from integration.clients.rag.web_retrieval_models import WebSearchCandidate
 from integration.providers.rag.open_source_web_retrieval_provider import (

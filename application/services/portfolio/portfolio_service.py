@@ -2,12 +2,29 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any
-from typing import TYPE_CHECKING
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
+from application.services.base import ServiceRequest, ServiceResult
+from application.services.base.application_service import (
+    ApplicationService,
+    ValidatingApplicationService,
+)
+from application.services.portfolio import (
+    portfolio_analysis,
+    portfolio_equity,
+    portfolio_positions,
+)
+from application.services.portfolio.portfolio_equity_history import (
+    normalize_portfolio_equity_history,
+)
+from application.services.portfolio.portfolio_request import (
+    PortfolioAnalysisRequest,
+)
+from application.services.portfolio.portfolio_result import (
+    PortfolioAnalysisResult,
+)
 from core.storage.persistence.lineage import PersistenceLineage
-
 from core.utils.utils import (
     _get_value,
     _safe_bool,
@@ -16,36 +33,8 @@ from core.utils.utils import (
     _safe_int,
     _safe_str,
 )
-
-from application.services.base import ServiceRequest
-from application.services.base import ServiceResult
-from application.services.base.application_service import (
-    ApplicationService,
-    ValidatingApplicationService,
-)
-
-from application.services.portfolio import (
-    portfolio_analysis,
-)
-from application.services.portfolio import (
-    portfolio_positions,
-)
-from application.services.portfolio import (
-    portfolio_equity,
-)
-from application.services.portfolio.portfolio_equity_history import (
-    normalize_portfolio_equity_history,
-)
-
 from domain.portfolio.models.portfolio_state import (
     PortfolioState,
-)
-
-from application.services.portfolio.portfolio_request import (
-    PortfolioAnalysisRequest,
-)
-from application.services.portfolio.portfolio_result import (
-    PortfolioAnalysisResult,
 )
 
 PORTFOLIO_HISTORY_PERIOD = "1A"
@@ -161,8 +150,10 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
         self,
         request: PortfolioAnalysisRequest,
         *,
-        lineage: PersistenceLineage = PersistenceLineage(),
+        lineage: PersistenceLineage | None = None,
     ) -> PortfolioAnalysisResult:
+        if lineage is None:
+            lineage = PersistenceLineage()
 
         symbol = request.symbol
 
@@ -274,7 +265,7 @@ class PortfolioService(ApplicationService, ValidatingApplicationService):
     ) -> PortfolioState:
         return PortfolioState(
             account_id=account_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             equity=_safe_float(equity_state.get("equity")),
             peak_equity=_safe_float(equity_state.get("peak_equity")),
             portfolio_value=_safe_float(equity_state.get("portfolio_value")),

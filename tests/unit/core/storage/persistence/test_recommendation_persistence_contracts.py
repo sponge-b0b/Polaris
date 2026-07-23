@@ -1,22 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.lineage import PersistenceRecordIdentity
-from core.storage.persistence.recommendations import RecommendationOutcomeRecord
-from core.storage.persistence.recommendations import RecommendationPersistenceBundle
-from core.storage.persistence.recommendations import RecommendationPersistenceResult
-from core.storage.persistence.recommendations import RecommendationRationaleRecord
-from core.storage.persistence.recommendations import RecommendationRecord
-from core.storage.persistence.recommendations import TradeSetupRecord
-from core.storage.persistence.recommendations import WatchlistItemRecord
-from core.storage.persistence.recommendations import new_recommendation_child_id
-from core.storage.persistence.recommendations import new_recommendation_id
+from core.storage.persistence.lineage import (
+    PersistenceLineage,
+    PersistenceRecordIdentity,
+)
+from core.storage.persistence.recommendations import (
+    RecommendationOutcomeRecord,
+    RecommendationPersistenceBundle,
+    RecommendationPersistenceResult,
+    RecommendationRationaleRecord,
+    RecommendationRecord,
+    TradeSetupRecord,
+    WatchlistItemRecord,
+    new_recommendation_child_id,
+    new_recommendation_id,
+)
 
 
 def test_recommendation_record_is_typed_normalized_and_immutable() -> None:
@@ -336,4 +339,4 @@ def _signal_identity() -> PersistenceRecordIdentity:
 
 
 def _timestamp() -> datetime:
-    return datetime(2026, 5, 30, tzinfo=timezone.utc)
+    return datetime(2026, 5, 30, tzinfo=UTC)

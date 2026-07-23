@@ -1,34 +1,33 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from collections.abc import Mapping as MappingABC
 from collections.abc import Sequence as SequenceABC
 from copy import deepcopy
-from dataclasses import asdict
-from dataclasses import is_dataclass
-from datetime import datetime
-from datetime import timezone
+from dataclasses import asdict, is_dataclass
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
-from typing import Mapping
-from typing import cast
+from typing import Any, cast
 
-from core.database.models.completed_runs import CompletedRunArtifactModel
-from core.database.models.completed_runs import CompletedWorkflowNodeOutputModel
-from core.database.models.completed_runs import CompletedWorkflowRunModel
-from core.security.sensitive_data import sanitize_sensitive_value
+from core.database.models.completed_runs import (
+    CompletedRunArtifactModel,
+    CompletedWorkflowNodeOutputModel,
+    CompletedWorkflowRunModel,
+)
 from core.runtime.state.runtime_context import RUNTIME_CONTEXT_SCHEMA_VERSION
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunExecutionMode
-from core.storage.persistence.completed_run_archive import CompletedRunArtifactRecord
-from core.storage.persistence.completed_run_archive import CompletedRunBundle
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.security.sensitive_data import sanitize_sensitive_value
 from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunArtifactRecord,
+    CompletedRunBundle,
+    CompletedRunExecutionMode,
+    CompletedRunRecord,
+    JsonArray,
+    JsonObject,
+    JsonValue,
     coerce_completed_run_execution_mode,
 )
-from core.storage.persistence.completed_run_archive import JsonArray
-from core.storage.persistence.completed_run_archive import JsonObject
-from core.storage.persistence.completed_run_archive import JsonValue
 
 
 class CompletedRunPersistenceSerializer:
@@ -504,7 +503,7 @@ def _parse_datetime(
         )
         if parsed.tzinfo is None:
             return parsed.replace(
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
 
         return parsed

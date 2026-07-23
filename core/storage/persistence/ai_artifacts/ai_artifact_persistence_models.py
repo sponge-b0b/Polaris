@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-import re
-from typing import TypeAlias
 from uuid import uuid4
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
-JsonObject: TypeAlias = Mapping[str, JsonValue]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
+type JsonObject = Mapping[str, JsonValue]
 
 _PROMPT_HASH_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 _AUTHENTICATED_URL_PATTERN = re.compile(

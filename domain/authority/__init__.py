@@ -13,6 +13,7 @@ from domain.authority.capital_outputs import (
 )
 from domain.authority.contracts import (
     AiOutputContentType,
+    AuthorityClaimPattern,
     AuthorityEffect,
     CanonicalOwner,
     GateProfile,
@@ -24,6 +25,7 @@ from domain.authority.contracts import (
     SourceOfTruthCategory,
     classify_risk_authority,
     gate_profile_for_tier,
+    model_authority_claim_keys_from_text,
     reclassify_risk_authority_contract,
     risk_authority_contract_from_metadata,
 )
@@ -45,6 +47,7 @@ __all__ = [
     "CanonicalOwner",
     "GateProfile",
     "IntendedSink",
+    "AuthorityClaimPattern",
     "RiskAuthorityClassificationInput",
     "RiskAuthorityClassifier",
     "RiskAuthorityContract",
@@ -52,6 +55,7 @@ __all__ = [
     "SourceOfTruthCategory",
     "classify_risk_authority",
     "gate_profile_for_tier",
+    "model_authority_claim_keys_from_text",
     "reclassify_risk_authority_contract",
     "risk_authority_contract_from_metadata",
 ]

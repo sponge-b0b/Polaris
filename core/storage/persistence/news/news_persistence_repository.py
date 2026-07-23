@@ -6,10 +6,10 @@ from typing import Protocol
 
 from core.storage.persistence.news.news_persistence_models import (
     NewsAnalysisSnapshotRecord,
+    NewsArticleRecord,
+    NewsPersistenceBundle,
+    NewsPersistenceResult,
 )
-from core.storage.persistence.news.news_persistence_models import NewsArticleRecord
-from core.storage.persistence.news.news_persistence_models import NewsPersistenceBundle
-from core.storage.persistence.news.news_persistence_models import NewsPersistenceResult
 
 
 class NewsPersistenceRepository(Protocol):

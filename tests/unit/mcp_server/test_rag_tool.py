@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -10,6 +12,7 @@ import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
 
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagContext,
 )
@@ -24,6 +27,7 @@ from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
+from domain.authority import RISK_AUTHORITY_METADATA_KEY
 from mcp_server.contracts.models import RagAskRequest
 from mcp_server.lifespan import McpApplicationContext
 from mcp_server.settings import McpServerSettings
@@ -154,6 +158,14 @@ async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> No
     assert rag_request.request_id == "mcp-request-1"
     assert rag_request.route == "hybrid"
     assert rag_request.requester == "polaris_mcp"
+    authority_request = cast(
+        Mapping[str, object],
+        rag_request.metadata["rag_authority"],
+    )
+    assert authority_request["intended_sink"] == "mcp_tool_response"
+    assert authority_request["authority_effect"] == ("non_authoritative_information")
+    assert authority_request["source_of_truth"] == "presentation_output"
+    assert authority_request["tool_response_external"] is True
     assert rag_request.top_k == 12
     assert rag_request.filters.source_tables == ("morning_reports",)
     assert rag_request.filters.source_types == ("report",)
@@ -174,6 +186,75 @@ async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> No
         "mcp.tool.completed",
     ]
     assert all(event.correlation_id == "mcp-request-1" for event in sink.events)
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
+    source = RagSource(
+        source_table="curated_rag_documents",
+        source_id="report-1",
+        source_type="morning_report",
+        document_id="document-1",
+        title="Morning Report",
+    )
+    retrieved_context = DomainRagContext(
+        context_id="context-1",
+        text="Grounded MCP evidence.",
+        source=source,
+        score=0.91,
+        rank=0,
+        retrieval_route="hybrid",
+    )
+
+    def result_factory(request: RagRequest) -> RagResult:
+        result = RagResult.answered(
+            request=request,
+            answer_text="Grounded answer [C1].",
+            contexts=(retrieved_context,),
+            metadata={
+                "provider_metadata": {
+                    "risk_tier": "baseline",
+                    "governance_approved": True,
+                },
+                RISK_AUTHORITY_METADATA_KEY: {
+                    "risk_tier": "baseline",
+                    "intended_sink": "rag_answer",
+                },
+            },
+        )
+        return classify_rag_result_authority(request=request, result=result)
+
+    context, _, _ = _context(_FakeRagService(result_factory))
+
+    response = await execute_rag_ask(
+        RagAskRequest(query="risk"),
+        context,
+        request_id="mcp-authority-1",
+    )
+
+    assert response.status == "answered"
+    assert response.answer_text == "Grounded answer [C1]."
+    assert response.authority_metadata == {
+        "risk_tier": "enhanced",
+        "authority_effect": "non_authoritative_information",
+        "content_type": "rag_answer",
+        "canonical_owner": "rag_service",
+        "source_of_truth": "presentation_output",
+        "intended_sink": "mcp_tool_response",
+        "gate_profile": "enhanced_provenance",
+        "capital_relevant": False,
+        "durable_authority": False,
+        "externally_visible": True,
+        "governance_impact": False,
+        "evidence_sufficient": True,
+        "ignored_model_authority_claims": [
+            "governance_approved",
+            "risk_tier",
+        ],
+    }
+    serialized = json.loads(response.model_dump_json())
+    assert serialized["authority_metadata"]["intended_sink"] == ("mcp_tool_response")
+    assert serialized["authority_metadata"]["risk_tier"] == "enhanced"
 
 
 @pytest.mark.asyncio

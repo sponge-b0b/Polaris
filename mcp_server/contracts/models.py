@@ -179,6 +179,7 @@ class RagAskResponse(McpBoundaryModel):
     answer_text: NonEmptyString
     status: NonEmptyString
     route: NonEmptyString
+    authority_metadata: dict[str, JsonValue] = Field(default_factory=dict)
     citations: tuple[RagCitation, ...] = ()
     contexts: tuple[RagRetrievedContext, ...] | None = None
     confidence_score: Score | None = None
@@ -200,6 +201,14 @@ class RagAskResponse(McpBoundaryModel):
         return _sanitize_optional_mcp_text(
             value,
             boundary_name=f"mcp.rag_response.{info.field_name}",
+        )
+
+    @field_validator("authority_metadata", mode="before")
+    @classmethod
+    def sanitize_authority_metadata(cls, value: object) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name="mcp.rag_response.authority_metadata",
         )
 
     @field_validator("corrective_actions", mode="before")

@@ -11,6 +11,7 @@ from typing import cast
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import JsonValue
 
+from application.rag.authority import RAG_AUTHORITY_REQUEST_METADATA_KEY
 from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagRetrievedContext,
@@ -18,6 +19,12 @@ from application.rag.contracts.rag_context import (
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.rag_service import RagService
+from domain.authority import (
+    RISK_AUTHORITY_METADATA_KEY,
+    AuthorityEffect,
+    IntendedSink,
+    SourceOfTruthCategory,
+)
 from mcp_server.contracts.models import (
     RagAskRequest,
     RagAskResponse,
@@ -140,6 +147,12 @@ def _to_rag_request(request: RagAskRequest, *, request_id: str) -> RagRequest:
         metadata={
             "source": "polaris_mcp",
             "tool": _TOOL_NAME,
+            RAG_AUTHORITY_REQUEST_METADATA_KEY: {
+                "authority_effect": AuthorityEffect.NON_AUTHORITATIVE_INFORMATION.value,
+                "source_of_truth": SourceOfTruthCategory.PRESENTATION_OUTPUT.value,
+                "intended_sink": IntendedSink.MCP_TOOL_RESPONSE.value,
+                "tool_response_external": True,
+            },
         },
         request_id=request_id,
     )
@@ -152,6 +165,7 @@ def _to_response(result: RagResult, *, include_contexts: bool) -> RagAskResponse
         answer_text=_SAFE_FAILURE_MESSAGE if failed else result.answer_text,
         status=result.status,
         route=result.route,
+        authority_metadata=_risk_authority_metadata(result.metadata),
         citations=tuple(_to_citation(source) for source in result.citations),
         contexts=(
             tuple(_to_context(context) for context in result.contexts)
@@ -204,6 +218,15 @@ def _to_context(context: DomainRagRetrievedContext) -> RagRetrievedContext:
         retrieval_route=context.retrieval_route,
         metadata=_boundary_metadata(context.metadata),
     )
+
+
+def _risk_authority_metadata(
+    metadata: Mapping[str, object],
+) -> dict[str, JsonValue]:
+    authority_metadata = metadata.get(RISK_AUTHORITY_METADATA_KEY)
+    if not isinstance(authority_metadata, Mapping):
+        return {}
+    return _boundary_metadata(authority_metadata)
 
 
 def _boundary_metadata(

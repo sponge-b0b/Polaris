@@ -26,7 +26,7 @@ from integration.clients.sentiment.fear_greed_sentiment_client import (
 from integration.providers.backtesting.macro.simulated_macro_provider import (
     SimulatedMacroProvider,
 )
-from integration.providers.backtesting.market_data.postgres_historical_data_provider import (  # noqa: E501
+from integration.providers.backtesting.market_data.postgres_historical_data_provider import (  # noqa: E501 - canonical module path
     PostgresHistoricalDataProvider,
     PostgresHistoricalDataProviderConfig,
     postgres_market_repository_factory,

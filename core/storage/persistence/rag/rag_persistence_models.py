@@ -859,10 +859,21 @@ def new_rag_embedding_job_id(
         "embedding_model",
     )
 
-    if chunk_id is not None and chunk_id.strip():
-        return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{chunk_id.strip()}"  # noqa: E501
+    clean_target_store = target_store.strip()
+    clean_embedding_model = embedding_model.strip()
+    clean_document_id = document_id.strip()
 
-    return f"rag_embedding_job:{target_store.strip()}:{embedding_model.strip()}:{document_id.strip()}:{uuid4().hex}"  # noqa: E501
+    if chunk_id is not None and chunk_id.strip():
+        clean_chunk_id = chunk_id.strip()
+        return (
+            f"rag_embedding_job:{clean_target_store}:{clean_embedding_model}:"
+            f"{clean_chunk_id}"
+        )
+
+    return (
+        f"rag_embedding_job:{clean_target_store}:{clean_embedding_model}:"
+        f"{clean_document_id}:{uuid4().hex}"
+    )
 
 
 def new_rag_graph_job_id(
@@ -885,10 +896,20 @@ def new_rag_graph_job_id(
         "graph_model",
     )
 
-    if chunk_id is not None and chunk_id.strip():
-        return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{chunk_id.strip()}"  # noqa: E501
+    clean_target_store = target_store.strip()
+    clean_graph_model = graph_model.strip()
+    clean_document_id = document_id.strip()
 
-    return f"rag_graph_job:{target_store.strip()}:{graph_model.strip()}:{document_id.strip()}:{uuid4().hex}"  # noqa: E501
+    if chunk_id is not None and chunk_id.strip():
+        clean_chunk_id = chunk_id.strip()
+        return (
+            f"rag_graph_job:{clean_target_store}:{clean_graph_model}:{clean_chunk_id}"
+        )
+
+    return (
+        f"rag_graph_job:{clean_target_store}:{clean_graph_model}:"
+        f"{clean_document_id}:{uuid4().hex}"
+    )
 
 
 def new_rag_query_log_id() -> str:

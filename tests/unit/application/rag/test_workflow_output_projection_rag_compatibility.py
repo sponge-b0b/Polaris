@@ -264,7 +264,7 @@ def test_raw_completed_run_outputs_remain_ineligible_for_rag() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_postgres_sources() -> (  # noqa: E501
+async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_postgres_sources() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     risk = _risk_record()
@@ -333,7 +333,7 @@ async def test_rag_ingestion_loads_projected_portfolio_records_from_curated_post
 
 
 @pytest.mark.asyncio
-async def test_projection_retry_replays_projection_without_triggering_rag_ingestion() -> (  # noqa: E501
+async def test_projection_retry_replays_projection_without_triggering_rag_ingestion() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     job = WorkflowOutputProjectionJobRecord(

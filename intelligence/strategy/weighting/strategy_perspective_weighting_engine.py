@@ -69,7 +69,9 @@ class StrategyPerspectiveWeights:
 
 
 class StrategyPerspectiveWeightingEngine(RuntimeNode):
-    """Compute deterministic strategy-perspective weights from StrategyEvidenceContext."""  # noqa: E501
+    """
+    Compute deterministic strategy-perspective weights from StrategyEvidenceContext.
+    """
 
     node_name = "strategy_perspective_weighting_engine"
     node_type = "strategy_perspective_weighting_engine"
@@ -121,7 +123,9 @@ class StrategyPerspectiveWeightingEngine(RuntimeNode):
 def calculate_strategy_perspective_weights(
     evidence_context: StrategyEvidenceContext,
 ) -> StrategyPerspectiveWeights:
-    """Calculate normalized bull/bear/sideways perspective weights from shared evidence."""  # noqa: E501
+    """
+    Calculate normalized bull/bear/sideways perspective weights from shared evidence.
+    """
 
     evidence = evidence_context.evidence_by_id()
     sentiment_directional = _numeric_value(evidence, "sentiment.directional_score")

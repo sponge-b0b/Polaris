@@ -18,7 +18,7 @@ from integration.providers.rag.web_retrieval_provider import WebRetrievalRequest
 
 
 @pytest.mark.asyncio
-async def test_open_source_provider_sanitizes_and_marks_transient_untrusted_context() -> (  # noqa: E501
+async def test_open_source_provider_sanitizes_and_marks_transient_untrusted_context() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     search_client = FakeSearchClient(

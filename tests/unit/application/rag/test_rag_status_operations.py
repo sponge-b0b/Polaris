@@ -140,7 +140,7 @@ class FailingVectorProvider(FakeVectorProvider):
 
 
 @pytest.mark.asyncio
-async def test_status_preserves_partial_diagnostics_when_projection_is_unavailable() -> (  # noqa: E501
+async def test_status_preserves_partial_diagnostics_when_projection_is_unavailable() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = RagStatusOperationsService(

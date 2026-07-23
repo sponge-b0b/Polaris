@@ -221,7 +221,10 @@ def _plan_candidate(
             candidate=candidate,
             policy=policy,
             action=PersistenceRetentionPlanAction.ARCHIVE,
-            reason="Candidate exceeds retention period and policy requires archive before deletion.",  # noqa: E501
+            reason=(
+                "Candidate exceeds retention period and policy requires archive before "
+                "deletion."
+            ),
             retention_period=policy.retention_period,
         )
 
@@ -238,7 +241,10 @@ def _plan_candidate(
         candidate=candidate,
         policy=policy,
         action=PersistenceRetentionPlanAction.RETAIN,
-        reason="Candidate exceeds retention period but policy does not allow archive or deletion.",  # noqa: E501
+        reason=(
+            "Candidate exceeds retention period but policy does not allow archive or "
+            "deletion."
+        ),
         retention_period=policy.retention_period,
     )
 

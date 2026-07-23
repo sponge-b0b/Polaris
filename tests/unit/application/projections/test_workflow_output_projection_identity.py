@@ -102,7 +102,7 @@ def test_build_projected_record_identity_returns_persistence_identity() -> None:
     assert identity.record_id.startswith("technical_analysis_snapshot:")
 
 
-def test_build_projected_record_identity_from_projector_request_uses_request_lineage() -> (  # noqa: E501
+def test_build_projected_record_identity_from_projector_request_uses_request_lineage() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     request = WorkflowOutputProjectorRequest(

@@ -343,7 +343,8 @@ def _render_run_list(
     ]
     for run in runs:
         lines.append(
-            f" - {run.backtest_run_id} | {run.workflow_name} | {run.status} | success={run.success} | {run.completed_at.isoformat()}"  # noqa: E501
+            f" - {run.backtest_run_id} | {run.workflow_name} | {run.status} | "
+            f"success={run.success} | {run.completed_at.isoformat()}"
         )
     return "\n".join(lines)
 
@@ -362,7 +363,8 @@ def _render_bundle_summary(
             f"Steps: {len(bundle.steps)}",
             f"Fills: {len(bundle.fills)}",
             f"Metrics: {len(bundle.metrics)}",
-            f"Artifacts: {', '.join(artifact.artifact_format for artifact in bundle.artifacts)}",  # noqa: E501
+            "Artifacts: "
+            f"{', '.join(artifact.artifact_format for artifact in bundle.artifacts)}",
         )
     )
 

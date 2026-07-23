@@ -432,7 +432,8 @@ def _require_payload(
     unexpected_keys = actual_keys - expected_keys - allowed_extra_keys
     if missing_keys or unexpected_keys:
         raise RagRoutingModelOutputError(
-            f"Expected model output keys {sorted(expected_keys)}, got {sorted(actual_keys)}."  # noqa: E501
+            f"Expected model output keys {sorted(expected_keys)}, got "
+            f"{sorted(actual_keys)}."
         )
     return {key: payload[key] for key in expected_keys}
 
@@ -452,21 +453,32 @@ def _require_enum(payload: Mapping[str, object], key: str, enum_type: type):
         raise RagRoutingModelOutputError(f"Unsupported {key}: {value}.") from exc
 
 
-_REWRITE_SYSTEM_PROMPT = """Rewrite the follow-up into a standalone query.
-Return JSON with exactly one key: standalone_query. Preserve the user's intent and facts."""  # noqa: E501
+_REWRITE_SYSTEM_PROMPT = (
+    "Rewrite the follow-up into a standalone query.\n"
+    "Return JSON with exactly one key: standalone_query. "
+    "Preserve the user's intent and facts."
+)
 
-_ADAPTIVE_TRIAGE_SYSTEM_PROMPT = """Classify the query's research complexity.
-Return JSON with exactly one key: complexity.
-complexity must be low, moderate, or high."""
+_ADAPTIVE_TRIAGE_SYSTEM_PROMPT = (
+    "Classify the query's research complexity.\n"
+    "Return JSON with exactly one key: complexity.\n"
+    "complexity must be low, moderate, or high."
+)
 
-_ROUTE_SELECTION_SYSTEM_PROMPT = """Select the retrieval route for the query.
-Return JSON with exactly one key: route.
-route must be direct_answer, retrieval, or deep_research.
-Use direct_answer only when external evidence is unnecessary, retrieval for evidence lookup,
-and deep_research for multi-source analysis."""  # noqa: E501
+_ROUTE_SELECTION_SYSTEM_PROMPT = (
+    "Select the retrieval route for the query.\n"
+    "Return JSON with exactly one key: route.\n"
+    "route must be direct_answer, retrieval, or deep_research.\n"
+    "Use direct_answer only when external evidence is unnecessary, "
+    "retrieval for evidence lookup,\n"
+    "and deep_research for multi-source analysis."
+)
 
-_HYDE_SYSTEM_PROMPT = """Create a concise hypothetical evidence document for retrieval only.
-Do not present it as verified fact. Return JSON with exactly one key: hypothetical_document."""  # noqa: E501
+_HYDE_SYSTEM_PROMPT = (
+    "Create a concise hypothetical evidence document for retrieval only.\n"
+    "Do not present it as verified fact. "
+    "Return JSON with exactly one key: hypothetical_document."
+)
 
 _REWRITE_PROMPT_NAME = "rag_query_rewrite_system_prompt"
 _ADAPTIVE_TRIAGE_PROMPT_NAME = "rag_adaptive_triage_system_prompt"

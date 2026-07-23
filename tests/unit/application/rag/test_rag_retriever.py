@@ -43,7 +43,8 @@ async def test_rag_retriever_fuses_bm25_and_dense_results_deterministically() ->
         documents=(
             _document(
                 "document-a",
-                "# Breadth\n\nMarket breadth risk is weak and liquidity risk is elevated.",  # noqa: E501
+                "# Breadth\n\nMarket breadth risk is weak and liquidity risk is "
+                "elevated.",
                 source_id="report-a",
             ),
             _document(

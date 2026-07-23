@@ -2914,7 +2914,8 @@ def upgrade() -> None:
             name="ck_rag_query_logs_corrective_actions_array",
         ),
         sa.CheckConstraint(
-            "jsonb_typeof(model_executions) = 'array' AND jsonb_array_length(model_executions) <= 32",  # noqa: E501
+            "jsonb_typeof(model_executions) = 'array' AND "
+            "jsonb_array_length(model_executions) <= 32",
             name="ck_rag_query_logs_model_executions_array",
         ),
         sa.CheckConstraint(
@@ -2928,7 +2929,8 @@ def upgrade() -> None:
             "context_count >= 0", name="ck_rag_query_logs_context_count_non_negative"
         ),
         sa.CheckConstraint(
-            "grounding_score IS NULL OR (grounding_score >= 0.0 AND grounding_score <= 1.0)",  # noqa: E501
+            "grounding_score IS NULL OR (grounding_score >= 0.0 AND grounding_score <= "
+            "1.0)",
             name="ck_rag_query_logs_grounding_score_range",
         ),
         sa.CheckConstraint(
@@ -6156,7 +6158,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "confidence_score IS NULL OR (confidence_score >= 0.0 AND confidence_score <= 1.0)",  # noqa: E501
+            "confidence_score IS NULL OR (confidence_score >= 0.0 AND confidence_score "
+            "<= 1.0)",
             name="ck_rag_answer_logs_confidence_score_range",
         ),
         sa.ForeignKeyConstraint(

@@ -287,7 +287,7 @@ def test_workflow_infrastructure_provider_wires_telemetry_logger_by_default() ->
     assert logger_sinks[0].logger_name == "polaris.telemetry"
 
 
-def test_workflow_infrastructure_provider_does_not_wire_telemetry_logger_when_disabled() -> (  # noqa: E501
+def test_workflow_infrastructure_provider_does_not_wire_telemetry_logger_when_disabled() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     container = make_container(

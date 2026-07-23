@@ -168,7 +168,8 @@ class RagProjectionOperationsService:
             return RagOperationResult.failed(
                 operation=operation,
                 error=(
-                    f"Unsupported RAG projection '{projection}'. Supported projections: "  # noqa: E501
+                    f"Unsupported RAG projection '{projection}'. "
+                    "Supported projections: "
                     f"{', '.join(SUPPORTED_RAG_PROJECTIONS)}."
                 ),
                 dry_run=request.dry_run,

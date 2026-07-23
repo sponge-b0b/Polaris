@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.storage.persistence.portfolio.in_memory_portfolio_expansion_persistence_repository import (  # noqa: E501
+from core.storage.persistence.portfolio.in_memory_portfolio_expansion_persistence_repository import (  # noqa: E501 - canonical module path
     InMemoryPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.portfolio.portfolio_persistence_models import (

@@ -50,7 +50,9 @@ class AiObservabilityOperationalStatus:
 
 @dataclass(frozen=True, slots=True)
 class AiObservabilityOperationalStatusService:
-    """Expose Langfuse projection health without reading Langfuse as a source of truth."""  # noqa: E501
+    """
+    Expose Langfuse projection health without reading Langfuse as a source of truth.
+    """
 
     repository: AiObservabilityExportJobRepository
     settings: Settings

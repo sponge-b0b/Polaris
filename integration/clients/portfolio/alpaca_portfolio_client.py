@@ -53,49 +53,67 @@ class AlpacaPortfolioClient:
         required by PortfolioStateBuilder.
 
         Attributes:
-            id (UUID): The account ID
-            account_number (str): The account number
-            status (AccountStatus): The current status of the account
-            crypto_status (Optional[AccountStatus]): The status of the account in regards to trading crypto. Only present if
-            crypto trading is enabled for your brokerage account.
-            currency (Optional[str]): Currently will always be the value "USD".
-            buying_power (Optional[str]): Current available cash buying power. If multiplier = 2 then
-            buying_power = max(equity-initial_margin(0) * 2). If multiplier = 1 then buying_power = cash.
-            regt_buying_power (Optional[str]): User’s buying power under Regulation T
-            (excess equity - (equity - margin value) - * margin multiplier)
-            daytrading_buying_power (Optional[str]): The buying power for day trades for the account
-            non_marginable_buying_power (Optional[str]): The non marginable buying power for the account
-            cash (Optional[str]): Cash balance in the account
-            accrued_fees (Optional[str]): Fees accrued in this account
-            pending_transfer_out (Optional[str]): Cash pending transfer out of this account
-            pending_transfer_in (Optional[str]): Cash pending transfer into this account
-            portfolio_value (str): Total value of cash + holding positions.
-            (This field is deprecated. It is equivalent to the equity field.)
-            pattern_day_trader (Optional[bool]): Whether the account is flagged as pattern day trader or not.
-            trading_blocked (Optional[bool]): If true, the account is not allowed to place orders.
-            transfers_blocked (Optional[bool]): If true, the account is not allowed to request money transfers.
-            account_blocked (Optional[bool]): If true, the account activity by user is prohibited.
-            created_at (Optional[datetime]): Timestamp this account was created at
-            trade_suspended_by_user (Optional[bool]): If true, the account is not allowed to place orders.
+            id (UUID): The account ID.
+            account_number (str): The account number.
+            status (AccountStatus): The current status of the account.
+            crypto_status (Optional[AccountStatus]): Crypto-trading account
+                status. Only present when brokerage crypto trading is enabled.
+            currency (Optional[str]): Currently always the value "USD".
+            buying_power (Optional[str]): Current available cash buying power.
+                If multiplier = 2, buying_power = max(equity -
+                initial_margin(0) * 2). If multiplier = 1, buying_power = cash.
+            regt_buying_power (Optional[str]): User's buying power under
+                Regulation T (excess equity - (equity - margin value) -
+                * margin multiplier).
+            daytrading_buying_power (Optional[str]): Buying power for day
+                trades for the account.
+            non_marginable_buying_power (Optional[str]): Non-marginable
+                buying power for the account.
+            cash (Optional[str]): Cash balance in the account.
+            accrued_fees (Optional[str]): Fees accrued in this account.
+            pending_transfer_out (Optional[str]): Cash pending transfer out.
+            pending_transfer_in (Optional[str]): Cash pending transfer in.
+            portfolio_value (str): Total cash plus holding positions. This
+                field is deprecated and equivalent to the equity field.
+            pattern_day_trader (Optional[bool]): Whether the account is
+                flagged as a pattern day trader.
+            trading_blocked (Optional[bool]): Whether orders are blocked.
+            transfers_blocked (Optional[bool]): Whether money transfers are
+                blocked.
+            account_blocked (Optional[bool]): Whether account activity by
+                user is prohibited.
+            created_at (Optional[datetime]): Timestamp this account was
+                created at.
+            trade_suspended_by_user (Optional[bool]): Whether orders are
+                blocked by the user.
             multiplier (Optional[str]): Multiplier value for this account.
-            shorting_enabled (Optional[bool]): Flag to denote whether or not the account is permitted to short
-            equity (Optional[str]): This value is cash + long_market_value + short_market_value. This value isn't calculated in the
-            SDK it is computed on the server and we return the raw value here.
-            last_equity (Optional[str]): Equity as of previous trading day at 16:00:00 ET
-            long_market_value (Optional[str]): Real-time MtM value of all long positions held in the account
-            short_market_value (Optional[str]): Real-time MtM value of all short positions held in the account
-            initial_margin (Optional[str]): Reg T initial margin requirement
-            maintenance_margin (Optional[str]): Maintenance margin requirement
-            last_maintenance_margin (Optional[str]): Maintenance margin requirement on the previous trading day
-            sma (Optional[str]): Value of Special Memorandum Account (will be used at a later date to provide additional buying_power)
-            daytrade_count (Optional[int]): The current number of daytrades that have been made in the last 5 trading days
-            (inclusive of today)
-            options_buying_power (Optional[str]): Your buying power for options trading
-            options_approved_level (Optional[int]): The options trading level that was approved for this account.
-            0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long Call/Put, 3=Spreads/Straddles.
-            options_trading_level (Optional[int]): The effective options trading level of the account. This is the minimum between account options_approved_level and account configurations max_options_trading_level.
-            0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long, 3=Spreads/Straddles.
-        """  # noqa: E501
+            shorting_enabled (Optional[bool]): Whether the account may short.
+            equity (Optional[str]): cash + long_market_value +
+                short_market_value. Computed on the server and returned raw.
+            last_equity (Optional[str]): Equity as of previous trading day at
+                16:00:00 ET.
+            long_market_value (Optional[str]): Real-time MtM value of all
+                long positions held in the account.
+            short_market_value (Optional[str]): Real-time MtM value of all
+                short positions held in the account.
+            initial_margin (Optional[str]): Reg T initial margin requirement.
+            maintenance_margin (Optional[str]): Maintenance margin requirement.
+            last_maintenance_margin (Optional[str]): Maintenance margin
+                requirement on the previous trading day.
+            sma (Optional[str]): Special Memorandum Account value, reserved
+                for later additional buying_power.
+            daytrade_count (Optional[int]): Daytrades made in the last five
+                trading days, inclusive of today.
+            options_buying_power (Optional[str]): Options trading buying power.
+            options_approved_level (Optional[int]): Approved options trading
+                level: 0=disabled, 1=Covered Call/Cash-Secured Put,
+                2=Long Call/Put, 3=Spreads/Straddles.
+            options_trading_level (Optional[int]): Effective options trading
+                level, the minimum of account options_approved_level and
+                configurations max_options_trading_level. 0=disabled,
+                1=Covered Call/Cash-Secured Put, 2=Long,
+                3=Spreads/Straddles.
+        """
         account = cast(TradeAccount, await asyncio.to_thread(self.client.get_account))
 
         return account.model_dump(mode="json")
@@ -113,24 +131,29 @@ class AlpacaPortfolioClient:
             symbol (str): Symbol of the asset.
             exchange (AssetExchange): Exchange name of the asset.
             asset_class (AssetClass): Name of the asset's asset class.
-            asset_marginable (Optional[bool]): Indicates if this asset is marginable.
+            asset_marginable (Optional[bool]): Whether this asset is marginable.
             avg_entry_price (str): The average entry price of the position.
             qty (str): The number of shares of the position.
-            side (PositionSide): "long" or "short" representing the side of the position.
+            side (PositionSide): "long" or "short" position side.
             market_value (Optional[str]): Total dollar amount of the position.
             cost_basis (str): Total cost basis in dollars.
             unrealized_pl (Optional[str]): Unrealized profit/loss in dollars.
             unrealized_plpc (Optional[str]): Unrealized profit/loss percent.
-            unrealized_intraday_pl (Optional[str]): Unrealized profit/loss in dollars for the day.
-            unrealized_intraday_plpc (Optional[str]): Unrealized profit/loss percent for the day.
+            unrealized_intraday_pl (Optional[str]): Unrealized profit/loss in
+                dollars for the day.
+            unrealized_intraday_plpc (Optional[str]): Unrealized profit/loss
+                percent for the day.
             current_price (Optional[str]): Current asset price per share.
-            lastday_price (Optional[str]): Last day’s asset price per share based on the closing value of the last trading day.
+            lastday_price (Optional[str]): Previous trading day's closing
+                asset price per share.
             change_today (Optional[str]): Percent change from last day's price.
-            swap_rate (Optional[str]): Swap rate is the exchange rate (without mark-up) used to convert the price into local currency or crypto asset.
-            avg_entry_swap_rate (Optional[str]): The average exchange rate the price was converted into the local currency at.
+            swap_rate (Optional[str]): Exchange rate without mark-up used to
+                convert the price into local currency or crypto asset.
+            avg_entry_swap_rate (Optional[str]): Average exchange rate used to
+                convert the price into the local currency.
             usd (USDPositionValues): Represents the position in USD values.
-            qty_available (Optional[str]): Total number of shares available minus open orders.
-        """  # noqa: E501
+            qty_available (Optional[str]): Shares available minus open orders.
+        """
 
         positions = cast(
             list[Position], await asyncio.to_thread(self.client.get_all_positions)

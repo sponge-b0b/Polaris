@@ -262,7 +262,10 @@ def _parse_args(argv: Sequence[str] | None = None) -> ReleaseGateOptions:
         action="append",
         dest="datasets",
         default=[],
-        help="Canonical dataset name to gate. May be supplied more than once. Defaults to all canonical datasets.",  # noqa: E501
+        help=(
+            "Canonical dataset name to gate. May be supplied more than once. Defaults "
+            "to all canonical datasets."
+        ),
     )
     parser.add_argument(
         "--skip-seed",

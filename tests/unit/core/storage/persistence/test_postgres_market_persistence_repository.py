@@ -27,7 +27,7 @@ from core.storage.persistence.market import (
     MarketPersistenceBundle,
     TechnicalAnalysisSnapshotRecord,
 )
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresMarketPersistenceRepository,
 )
 from core.storage.persistence.serializers.market_persistence_serializer import (

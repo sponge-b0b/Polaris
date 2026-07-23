@@ -40,7 +40,7 @@ def test_bm25_orders_fixed_corpus_deterministically() -> None:
 
 
 @pytest.mark.asyncio
-async def test_parent_expansion_returns_one_canonical_parent_for_multiple_child_hits() -> (  # noqa: E501
+async def test_parent_expansion_returns_one_canonical_parent_for_multiple_child_hits() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     document = _document(

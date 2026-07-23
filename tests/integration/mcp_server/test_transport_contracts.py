@@ -333,7 +333,9 @@ async def test_stdio_and_streamable_http_expose_identical_tool_schemas(
 
         from dishka import AsyncContainer
         from core.telemetry.collectors.telemetry_collector import TelemetryCollector
-        from core.telemetry.observability.observability_manager import ObservabilityManager
+        from core.telemetry.observability.observability_manager import (
+            ObservabilityManager,
+        )
         from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
         from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
         from mcp_server.lifespan import McpApplicationContext
@@ -377,7 +379,7 @@ async def test_stdio_and_streamable_http_expose_identical_tool_schemas(
 
         server._mcp_server.lifespan = fake_lifespan
         run_stdio_server(McpServerSettings())
-        """,  # noqa: E501
+        """,
     )
     stdio_parameters = StdioServerParameters(
         command=sys.executable,

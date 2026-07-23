@@ -21,7 +21,7 @@ from core.storage.persistence.backtesting import (
     BacktestScenarioRecord,
     BacktestStepRecord,
 )
-from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresBacktestPersistenceRepository,
 )
 

@@ -27,7 +27,7 @@ from core.storage.persistence.portfolio import (
     PortfolioPositionLatestRecord,
     PortfolioRiskSnapshotRecord,
 )
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.serializers.portfolio_persistence_serializer import (
@@ -114,7 +114,7 @@ async def test_persist_portfolio_bundle_inserts_history_and_upserts_latest() -> 
 
 
 @pytest.mark.asyncio
-async def test_portfolio_idempotency_review_latest_upserts_append_records_insert_only() -> (  # noqa: E501
+async def test_portfolio_idempotency_review_latest_upserts_append_records_insert_only() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     session = FakeAsyncSession()

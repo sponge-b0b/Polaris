@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceBundle,
     AgentIntelligencePersistenceResult,
     AgentReasoningRecord,

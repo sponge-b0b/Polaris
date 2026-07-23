@@ -132,7 +132,10 @@ def ask_rag(
         bool,
         typer.Option(
             "--web/--no-web",
-            help="Permit transient open-source web fallback when curated context is insufficient.",  # noqa: E501
+            help=(
+                "Permit transient open-source web fallback when curated context is "
+                "insufficient."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -192,7 +195,10 @@ def ingest_rag(
         str,
         typer.Option(
             "--source",
-            help="Curated source to ingest: reports, agent-signals, recommendations, market, macro, news, sentiment, portfolio, or backtests.",  # noqa: E501
+            help=(
+                "Curated source to ingest: reports, agent-signals, recommendations, "
+                "market, macro, news, sentiment, portfolio, or backtests."
+            ),
         ),
     ],
     limit: Annotated[
@@ -284,7 +290,10 @@ def process_rag_graph(
         bool,
         typer.Option(
             "--execute",
-            help="Execute graph projection processing. Without this flag, performs a dry run.",  # noqa: E501
+            help=(
+                "Execute graph projection processing. Without this flag, "
+                "performs a dry run."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -316,7 +325,10 @@ def rebuild_rag_projection(
         bool,
         typer.Option(
             "--confirm-delete",
-            help="Confirm destructive projection cleanup. Without this flag, performs a dry run.",  # noqa: E501
+            help=(
+                "Confirm destructive projection cleanup. Without this flag, performs a "
+                "dry run."
+            ),
         ),
     ] = False,
 ) -> None:

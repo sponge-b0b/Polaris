@@ -105,7 +105,7 @@ def test_runtime_engine_uses_injected_control_manager() -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_engine_marks_control_state_completed_after_successful_execution() -> (  # noqa: E501
+async def test_runtime_engine_marks_control_state_completed_after_successful_execution() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     control_manager = WorkflowControlManager()

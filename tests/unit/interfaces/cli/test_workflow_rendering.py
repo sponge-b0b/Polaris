@@ -1185,7 +1185,9 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.55,
                             "confidence": 0.7,
                             "regime": "constructive",
-                            "llm_response": "Macro full LLM response for the CLI report.",  # noqa: E501
+                            "llm_response": (
+                                "Macro full LLM response for the CLI report."
+                            ),
                             "features": {
                                 "macro_state": {
                                     "fed_stance": "pause",
@@ -1202,7 +1204,9 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.42,
                             "confidence": 0.8,
                             "regime": "bullish",
-                            "llm_response": "Technical full LLM response for the CLI report.",  # noqa: E501
+                            "llm_response": (
+                                "Technical full LLM response for the CLI report."
+                            ),
                             "features": {
                                 "regime": {
                                     "execution_readiness": 0.8,
@@ -1227,7 +1231,9 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                         "success": True,
                         "outputs": {
                             "regime": "high_relevance",
-                            "llm_response": "News full LLM response for the CLI report.",  # noqa: E501
+                            "llm_response": (
+                                "News full LLM response for the CLI report."
+                            ),
                             "features": {
                                 "headline_count": 3,
                                 "market_relevance": "high_relevance",
@@ -1244,7 +1250,9 @@ def _professional_morning_report_workflow_result() -> dict[str, object]:
                             "directional_score": 0.5,
                             "confidence": 0.65,
                             "regime": "neutral",
-                            "llm_response": "Sentiment full LLM response for the CLI report.",  # noqa: E501
+                            "llm_response": (
+                                "Sentiment full LLM response for the CLI report."
+                            ),
                             "features": {
                                 "composite_sentiment": 0.52,
                                 "fear_greed_state": "neutral",

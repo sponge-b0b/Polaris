@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.sentiment import SentimentSnapshotModel, SentimentSourceModel
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresSentimentPersistenceRepository,
 )
 from core.storage.persistence.sentiment import (
@@ -95,7 +95,7 @@ async def test_persist_sentiment_bundle_inserts_append_only_records() -> None:
 
 
 @pytest.mark.asyncio
-async def test_sentiment_idempotency_review_keeps_snapshots_and_sources_append_only() -> (  # noqa: E501
+async def test_sentiment_idempotency_review_keeps_snapshots_and_sources_append_only() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     session = FakeAsyncSession()

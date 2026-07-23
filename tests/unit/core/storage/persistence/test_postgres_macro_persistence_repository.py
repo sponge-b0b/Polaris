@@ -21,7 +21,7 @@ from core.storage.persistence.macro import (
     MacroPersistenceBundle,
     MacroRegimeSnapshotRecord,
 )
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresMacroPersistenceRepository,
 )
 from core.storage.persistence.serializers.macro_persistence_serializer import (

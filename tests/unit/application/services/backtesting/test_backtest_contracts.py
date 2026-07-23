@@ -225,7 +225,7 @@ class FakeWorkflowFacade:
 
 
 @pytest.mark.asyncio
-async def test_backtest_application_service_executes_each_step_through_workflow_facade() -> (  # noqa: E501
+async def test_backtest_application_service_executes_each_step_through_workflow_facade() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     workflow_facade = FakeWorkflowFacade()

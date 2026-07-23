@@ -411,7 +411,7 @@ async def test_portfolio_persistence_service_preserves_v2_state_repository() -> 
 
 
 @pytest.mark.asyncio
-async def test_portfolio_persistence_service_requires_state_repository_for_state_methods() -> (  # noqa: E501
+async def test_portfolio_persistence_service_requires_state_repository_for_state_methods() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = PortfolioPersistenceService(FakePortfolioExpansionRepository())

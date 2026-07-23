@@ -642,7 +642,8 @@ class RagAnswerLogModel(Base):
     __tablename__ = "rag_answer_logs"
     __table_args__ = (
         CheckConstraint(
-            "confidence_score IS NULL OR (confidence_score >= 0.0 AND confidence_score <= 1.0)",  # noqa: E501
+            "confidence_score IS NULL OR (confidence_score >= 0.0 AND confidence_score "
+            "<= 1.0)",
             name="ck_rag_answer_logs_confidence_score_range",
         ),
     )

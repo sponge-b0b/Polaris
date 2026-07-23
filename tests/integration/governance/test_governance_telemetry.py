@@ -217,7 +217,7 @@ async def test_governance_engine_emits_governance_blocked_for_approval_required(
 
 
 @pytest.mark.asyncio
-async def test_governance_engine_require_allowed_emits_blocked_telemetry_before_raise() -> (  # noqa: E501
+async def test_governance_engine_require_allowed_emits_blocked_telemetry_before_raise() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     sink = InMemoryTelemetrySink()

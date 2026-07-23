@@ -14,17 +14,17 @@ from core.database.models.agent_intelligence import (
     AgentRecommendationModel,
     AgentRiskAssessmentModel,
 )
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_models import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceBundle,
     AgentIntelligencePersistenceResult,
     AgentReasoningRecord,
     AgentRecommendationRecord,
     AgentRiskAssessmentRecord,
 )
-from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_repository import (  # noqa: E501
+from core.storage.persistence.agent_intelligence.agent_intelligence_persistence_repository import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceRepository,
 )
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501
+from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceSerializer,
 )
 

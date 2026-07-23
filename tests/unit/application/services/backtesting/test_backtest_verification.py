@@ -292,7 +292,9 @@ def _golden_scenario(
                 expected="bull",
             ),
             BacktestExpectedOutcome(
-                target="strategy.strategy_synthesis_decision.evaluations.0.synthesis_weight",
+                target=(
+                    "strategy.strategy_synthesis_decision.evaluations.0.synthesis_weight"
+                ),
                 expectation_type="equals",
                 expected="0.62",
             ),
@@ -317,7 +319,9 @@ def _golden_scenario(
                 expected="bull",
             ),
             BacktestExpectedOutcome(
-                target="strategy.selected_hypothesis.contradicting_evidence.0.contradicts",
+                target=(
+                    "strategy.selected_hypothesis.contradicting_evidence.0.contradicts"
+                ),
                 expectation_type="contains",
                 expected="bull",
             ),
@@ -327,12 +331,16 @@ def _golden_scenario(
                 expected="bull",
             ),
             BacktestExpectedOutcome(
-                target="strategy.selected_hypothesis.invalidation_conditions.0.invalidated",
+                target=(
+                    "strategy.selected_hypothesis.invalidation_conditions.0.invalidated"
+                ),
                 expectation_type="equals",
                 expected=False,
             ),
             BacktestExpectedOutcome(
-                target="strategy.selected_hypothesis.invalidation_conditions.0.threshold",
+                target=(
+                    "strategy.selected_hypothesis.invalidation_conditions.0.threshold"
+                ),
                 expectation_type="equals",
                 expected="0.35",
             ),
@@ -410,7 +418,9 @@ def _strategy_case_expected_outcomes(
                     expected=expected_selected,
                 ),
                 BacktestExpectedOutcome(
-                    target="strategy.selected_hypothesis.supporting_evidence.0.supports",
+                    target=(
+                        "strategy.selected_hypothesis.supporting_evidence.0.supports"
+                    ),
                     expectation_type="contains",
                     expected=expected_selected,
                 ),
@@ -420,7 +430,9 @@ def _strategy_case_expected_outcomes(
                     expected=expected_selected,
                 ),
                 BacktestExpectedOutcome(
-                    target="strategy.selected_hypothesis.invalidation_conditions.0.invalidated",
+                    target=(
+                        "strategy.selected_hypothesis.invalidation_conditions.0.invalidated"
+                    ),
                     expectation_type="equals",
                     expected=False,
                 ),
@@ -576,7 +588,9 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "synthesis_weights": {"bull": "0.20", "bear": "0.60", "sideways": "0.20"},
             "degraded_reasons": (),
             "invalidated_perspectives": (),
-            "thesis": "Bearish hypothesis selected from deterministic downside evidence.",  # noqa: E501
+            "thesis": (
+                "Bearish hypothesis selected from deterministic downside evidence."
+            ),
         },
         "sideways": {
             "selected_perspective": "sideways",
@@ -628,7 +642,9 @@ def _strategy_case_config(case_name: str) -> dict[str, Any]:
             "synthesis_weights": {"bull": "0.20", "bear": "0.58", "sideways": "0.22"},
             "degraded_reasons": (),
             "invalidated_perspectives": ("bull",),
-            "thesis": "Bearish hypothesis selected after bullish hypothesis invalidation.",  # noqa: E501
+            "thesis": (
+                "Bearish hypothesis selected after bullish hypothesis invalidation."
+            ),
         },
     }
     return configs[case_name]
@@ -701,14 +717,18 @@ def _strategy_hypothesis(perspective: str) -> dict[str, Any]:
                 "reliability": "0.70",
                 "supports": [],
                 "contradicts": [perspective],
-                "explanation": f"Partially contradicts the deterministic {perspective} hypothesis.",  # noqa: E501
+                "explanation": (
+                    f"Partially contradicts the deterministic {perspective} hypothesis."
+                ),
             }
         ],
         "key_assumptions": [
             {
                 "assumption_id": f"assumption-{perspective}-trend",
                 "perspective": perspective,
-                "description": f"The deterministic {perspective} evidence remains valid.",  # noqa: E501
+                "description": (
+                    f"The deterministic {perspective} evidence remains valid."
+                ),
                 "confidence": "0.75",
                 "evidence_ids": [f"ev-{perspective}-trend"],
             }
@@ -717,7 +737,10 @@ def _strategy_hypothesis(perspective: str) -> dict[str, Any]:
             {
                 "condition_id": f"invalidate-{perspective}-trend",
                 "perspective": perspective,
-                "description": f"Invalidate {perspective} if evidence strength falls below threshold.",  # noqa: E501
+                "description": (
+                    f"Invalidate {perspective} if evidence strength falls below "
+                    f"threshold."
+                ),
                 "observed_value": "0.72",
                 "operator": "lt",
                 "threshold": "0.35",

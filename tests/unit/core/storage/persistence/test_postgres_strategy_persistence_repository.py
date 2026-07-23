@@ -13,7 +13,7 @@ from core.database.models.strategy import (
     StrategyHypothesisModel,
     StrategySynthesisDecisionModel,
 )
-from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresStrategyPersistenceRepository,
 )
 from core.storage.persistence.serializers.strategy_persistence_serializer import (

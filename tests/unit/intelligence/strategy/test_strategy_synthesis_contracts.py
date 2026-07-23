@@ -12,7 +12,7 @@ from intelligence.strategy.synthesis import (
 )
 
 
-def test_strategy_hypothesis_evaluations_normalize_to_synthesis_weights_and_selection() -> (  # noqa: E501
+def test_strategy_hypothesis_evaluations_normalize_to_synthesis_weights_and_selection() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     evaluations = normalize_strategy_hypothesis_evaluations(

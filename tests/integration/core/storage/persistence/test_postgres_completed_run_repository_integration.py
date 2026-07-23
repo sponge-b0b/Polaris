@@ -30,7 +30,10 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for completed-run repository integration tests.",  # noqa: E501
+    reason=(
+        "POLARIS_TEST_DATABASE_URL is required for completed-run repository "
+        "integration tests."
+    ),
 )
 
 

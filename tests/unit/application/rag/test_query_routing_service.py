@@ -124,7 +124,8 @@ async def test_deep_research_generates_hyde_expansion() -> None:
         {"route": "deep_research"},
         {
             "hypothetical_document": (
-                "A multi-source assessment compares breadth, volatility, and macro risk."  # noqa: E501
+                "A multi-source assessment compares breadth, volatility, and macro "
+                "risk."
             )
         },
     )
@@ -132,7 +133,9 @@ async def test_deep_research_generates_hyde_expansion() -> None:
     decision = await RagQueryRoutingService(provider).route(
         RagQueryContext(
             request_id="route-3",
-            query="Assess whether the current market regime supports adding equity risk.",  # noqa: E501
+            query=(
+                "Assess whether the current market regime supports adding equity risk."
+            ),
         )
     )
 

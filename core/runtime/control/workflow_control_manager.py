@@ -435,8 +435,12 @@ class WorkflowControlManager:
             WorkflowControlState.CANCELLING: (
                 RuntimeEventType.WORKFLOW_PROGRESS_CANCELLING
             ),
-            WorkflowControlState.CANCELLED: RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED,  # noqa: E501
-            WorkflowControlState.COMPLETED: RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED,  # noqa: E501
+            WorkflowControlState.CANCELLED: (
+                RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED
+            ),
+            WorkflowControlState.COMPLETED: (
+                RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED
+            ),
             WorkflowControlState.FAILED: RuntimeEventType.WORKFLOW_PROGRESS_FAILED,
         }.get(
             state,

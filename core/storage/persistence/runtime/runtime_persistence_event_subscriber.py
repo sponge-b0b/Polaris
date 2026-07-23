@@ -139,7 +139,7 @@ class RuntimePersistenceEventSubscriber:
 def _default_repository_factory(
     session: AsyncSession,
 ) -> RuntimePersistenceRepository:
-    from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
+    from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501 - canonical module path
         PostgresRuntimePersistenceRepository,
     )
 

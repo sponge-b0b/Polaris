@@ -52,13 +52,13 @@ from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
 from core.storage.persistence.projections import WorkflowOutputProjectionJobStatus
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_portfolio_state_repository import (
     PostgresPortfolioStateRepository,
 )
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501 - canonical module path
     PostgresWorkflowOutputProjectionJobRepository,
 )
 from domain.authority import (

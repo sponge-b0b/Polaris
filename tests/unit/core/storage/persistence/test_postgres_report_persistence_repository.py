@@ -22,7 +22,7 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     ReportVersionRecord,
 )
-from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresReportPersistenceRepository,
 )
 

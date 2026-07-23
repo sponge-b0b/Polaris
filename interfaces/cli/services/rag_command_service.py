@@ -474,7 +474,8 @@ def render_rag_projection_readiness(
         f"- Embedding jobs: {_display_value(canonical.embedding_job_count)}",
         f"- Graph jobs: {_display_value(canonical.graph_job_count)}",
         f"- Pending embedding jobs: {_display_value(canonical.pending_embedding_jobs)}",
-        f"- Retryable embedding jobs: {_display_value(canonical.retryable_embedding_jobs)}",  # noqa: E501
+        f"- Retryable embedding jobs: "
+        f"{_display_value(canonical.retryable_embedding_jobs)}",
         f"- Failed embedding jobs: {_display_value(canonical.failed_embedding_jobs)}",
         "",
         "Qdrant Projection",

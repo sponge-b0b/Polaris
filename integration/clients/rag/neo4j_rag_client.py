@@ -318,7 +318,8 @@ WITH document,
 WITH document, related_entities,
      size([term IN $query_terms WHERE
          toLower(coalesce(document.search_text, '')) CONTAINS term OR
-         any(entity IN related_entities WHERE toLower(toString(entity)) CONTAINS term)]) AS matched_terms
+         any(entity IN related_entities WHERE
+             toLower(toString(entity)) CONTAINS term)]) AS matched_terms
 WHERE (size($query_terms) = 0 OR matched_terms > 0)
   AND (size($symbols) = 0 OR any(symbol IN $symbols WHERE
        symbol IN coalesce(document.symbols, []) OR symbol IN related_entities))
@@ -332,4 +333,4 @@ RETURN document.document_id AS document_id,
        related_entities
 ORDER BY score DESC, document.generated_at DESC, document.document_id
 LIMIT $limit
-"""  # noqa: E501
+"""

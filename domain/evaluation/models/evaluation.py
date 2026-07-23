@@ -46,7 +46,9 @@ class EvaluationDatasetReference:
         object.__setattr__(self, "tags", _clean_tuple(self.tags))
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the reference at a persistence, telemetry, or transport boundary."""  # noqa: E501
+        """
+        Serialize the reference at a persistence, telemetry, or transport boundary.
+        """
 
         return {
             "dataset_id": self.dataset_id,
@@ -74,7 +76,9 @@ class EvaluationThreshold:
         return score >= self.minimum_score
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the threshold at a persistence, telemetry, or transport boundary."""  # noqa: E501
+        """
+        Serialize the threshold at a persistence, telemetry, or transport boundary.
+        """
 
         return {
             "metric_name": self.metric_name,
@@ -271,7 +275,9 @@ class EvaluationMetricResult:
         return self.score.passed
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the metric result at a persistence, telemetry, or transport boundary."""  # noqa: E501
+        """
+        Serialize the metric result at a persistence, telemetry, or transport boundary.
+        """
 
         return {
             "run_id": self.run_id,

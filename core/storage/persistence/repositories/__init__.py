@@ -3,46 +3,46 @@ from __future__ import annotations
 from core.storage.persistence.portfolio.portfolio_state_repository import (
     PortfolioStateRepository,
 )
-from core.storage.persistence.repositories.postgres_agent_intelligence_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_agent_intelligence_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAgentIntelligencePersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAgentSignalPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_ai_artifact_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_ai_artifact_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAiArtifactPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_ai_observability_export_job_repository import (  # noqa: E501 - canonical module path
     PostgresAiObservabilityExportJobRepository,
 )
-from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAttributionPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_audit_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_audit_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceAuditEventRepository,
 )
-from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_backtest_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresBacktestPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_completed_run_repository import (
     PostgresCompletedRunRepository,
 )
-from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresEvaluationPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceLineageLinkRepository,
 )
-from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_macro_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresMacroPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresMarketPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_news_persistence_repository import (
     PostgresNewsPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_portfolio_expansion_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPortfolioExpansionPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_portfolio_state_repository import (
@@ -51,25 +51,25 @@ from core.storage.persistence.repositories.postgres_portfolio_state_repository i
 from core.storage.persistence.repositories.postgres_rag_persistence_repository import (
     PostgresRagPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresRecommendationPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresReportPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresRuntimePersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_sentiment_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresSentimentPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_strategy_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresStrategyPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresTelemetryPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501 - canonical module path
     PostgresWorkflowOutputProjectionJobRepository,
 )
 

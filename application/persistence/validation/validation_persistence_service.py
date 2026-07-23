@@ -38,7 +38,9 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
+        source_spec: PersistenceExternalSourceValidationSpec = (
+            DEFAULT_EXTERNAL_SOURCE_SPEC
+        ),
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[
@@ -80,7 +82,9 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
+        source_spec: PersistenceExternalSourceValidationSpec = (
+            DEFAULT_EXTERNAL_SOURCE_SPEC
+        ),
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[
@@ -117,7 +121,9 @@ class ValidationPersistenceService:
         expected_lineage: PersistenceExpectedLineage | None = None,
         require_lineage: bool = False,
         warn_when_missing_lineage: bool = True,
-        source_spec: PersistenceExternalSourceValidationSpec = DEFAULT_EXTERNAL_SOURCE_SPEC,  # noqa: E501
+        source_spec: PersistenceExternalSourceValidationSpec = (
+            DEFAULT_EXTERNAL_SOURCE_SPEC
+        ),
         timestamp_field_names: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
         required_timestamp_field_names: Sequence[str] = (),
         timestamp_order_rules: Sequence[

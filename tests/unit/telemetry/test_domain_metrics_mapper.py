@@ -104,7 +104,7 @@ async def test_observability_records_workflow_and_node_domain_metrics() -> None:
 
 
 @pytest.mark.asyncio
-async def test_observability_records_application_provider_and_intelligence_domain_metrics() -> (  # noqa: E501
+async def test_observability_records_application_provider_and_intelligence_domain_metrics() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     observability_manager = ObservabilityManager()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from integration.providers.llm_structured_output.instructor_structured_output_provider import (  # noqa: E501
+from integration.providers.llm_structured_output.instructor_structured_output_provider import (  # noqa: E501 - canonical module path
     InstructorChatCompletionClient,
     InstructorStructuredOutputProvider,
     InstructorStructuredOutputProviderConfig,

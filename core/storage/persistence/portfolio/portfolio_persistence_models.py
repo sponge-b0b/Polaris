@@ -574,7 +574,10 @@ def new_portfolio_position_history_id(
     )
 
     if clean_execution_id is None:
-        return f"portfolio_position_history:{clean_account_id}:{clean_symbol}:{uuid4().hex}"  # noqa: E501
+        return (
+            f"portfolio_position_history:{clean_account_id}:{clean_symbol}:"
+            f"{uuid4().hex}"
+        )
 
     parts = [
         "portfolio_position_history",

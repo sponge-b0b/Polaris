@@ -455,7 +455,9 @@ def _complete_workflow_result() -> dict[str, object]:
                         "directional_score": 0.54,
                         "confidence": 0.68,
                         "regime": "constructive",
-                        "llm_response": "Sentiment desk full response. SENTIMENT_LLM_END",  # noqa: E501
+                        "llm_response": (
+                            "Sentiment desk full response. SENTIMENT_LLM_END"
+                        ),
                         "features": {
                             "composite_sentiment": 0.57,
                             "fear_greed_state": "neutral",

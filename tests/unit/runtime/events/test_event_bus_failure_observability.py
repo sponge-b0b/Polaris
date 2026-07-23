@@ -25,7 +25,7 @@ def build_event() -> RuntimeEvent:
 
 
 @pytest.mark.asyncio
-async def test_event_bus_reports_subscriber_failure_without_blocking_successful_handler() -> (  # noqa: E501
+async def test_event_bus_reports_subscriber_failure_without_blocking_successful_handler() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     event_bus = EventBus()

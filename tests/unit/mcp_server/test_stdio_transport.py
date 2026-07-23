@@ -28,7 +28,9 @@ async def test_stdio_client_session_lists_and_invokes_fake_backed_tool() -> None
         from types import SimpleNamespace
 
         from core.telemetry.collectors.telemetry_collector import TelemetryCollector
-        from core.telemetry.observability.observability_manager import ObservabilityManager
+        from core.telemetry.observability.observability_manager import (
+            ObservabilityManager,
+        )
         from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
         from core.workflow.execution.workflow_service import WorkflowSummary
         from mcp_server.lifespan import McpApplicationContext
@@ -85,7 +87,7 @@ async def test_stdio_client_session_lists_and_invokes_fake_backed_tool() -> None
 
         server._mcp_server.lifespan = fake_lifespan
         run_stdio_server(McpServerSettings())
-        """,  # noqa: E501
+        """,
     )
     parameters = StdioServerParameters(
         command=sys.executable,

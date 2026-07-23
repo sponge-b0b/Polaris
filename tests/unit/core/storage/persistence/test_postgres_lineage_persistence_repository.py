@@ -16,7 +16,7 @@ from core.storage.persistence.lineage import (
     PersistenceRecordIdentity,
     new_persistence_lineage_link_id,
 )
-from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceLineageLinkRepository,
 )
 from core.storage.persistence.serializers.lineage_persistence_serializer import (

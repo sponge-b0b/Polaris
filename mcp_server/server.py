@@ -144,7 +144,9 @@ async def polaris_workflow_describe(
 
 @server.tool(
     name="polaris_completed_runs_list",
-    description="List completed Polaris workflow execution IDs with deterministic pagination.",  # noqa: E501
+    description=(
+        "List completed Polaris workflow execution IDs with deterministic pagination."
+    ),
     annotations=ToolAnnotations(
         readOnlyHint=True,
         destructiveHint=False,
@@ -168,7 +170,9 @@ async def polaris_completed_runs_list(
 
 @server.tool(
     name="polaris_completed_run_get",
-    description="Load one completed Polaris workflow run summary with selected sections.",  # noqa: E501
+    description=(
+        "Load one completed Polaris workflow run summary with selected sections."
+    ),
     annotations=ToolAnnotations(
         readOnlyHint=True,
         destructiveHint=False,

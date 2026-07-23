@@ -274,14 +274,19 @@ def _bull_assumptions(
         StrategyAssumption(
             assumption_id="bull.continuation_requires_positive_evidence",
             perspective=StrategyPerspective.BULL,
-            description="Bullish posture requires positive evidence to remain persistent.",  # noqa: E501
+            description=(
+                "Bullish posture requires positive evidence to remain persistent."
+            ),
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="bull.strength_requires_follow_through",
             perspective=StrategyPerspective.BULL,
-            description="Bullish strength assumes trend and sentiment follow-through do not fail.",  # noqa: E501
+            description=(
+                "Bullish strength assumes trend and sentiment follow-through do not "
+                "fail."
+            ),
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -299,7 +304,9 @@ def _bull_invalidations(
         StrategyInvalidationCondition(
             condition_id="bull.sentiment_breakdown",
             perspective=StrategyPerspective.BULL,
-            description="Bull case is invalidated if sentiment turns materially bearish.",  # noqa: E501
+            description=(
+                "Bull case is invalidated if sentiment turns materially bearish."
+            ),
             observed_value=sentiment_score,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=-0.25,
@@ -308,7 +315,9 @@ def _bull_invalidations(
         StrategyInvalidationCondition(
             condition_id="bull.technical_breakdown",
             perspective=StrategyPerspective.BULL,
-            description="Bull case is invalidated if technical structure turns bearish.",  # noqa: E501
+            description=(
+                "Bull case is invalidated if technical structure turns bearish."
+            ),
             observed_value=technical_score,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=-0.25,

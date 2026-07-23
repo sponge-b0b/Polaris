@@ -109,7 +109,7 @@ async def test_validation_service_returns_typed_issues_without_mutating_record()
 
 
 @pytest.mark.asyncio
-async def test_validation_service_warns_for_manual_records_created_outside_workflows() -> (  # noqa: E501
+async def test_validation_service_warns_for_manual_records_created_outside_workflows() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = ValidationPersistenceService()

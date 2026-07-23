@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501
+from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceSerializer,
 )
 from core.storage.persistence.serializers.agent_signal_persistence_serializer import (

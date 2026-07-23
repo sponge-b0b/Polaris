@@ -123,10 +123,16 @@ class ReplayEngine:
                         "checkpoint_id": checkpoint.checkpoint_id,
                         "checkpoint_file": str(checkpoint_file),
                         "source_wave_index": checkpoint.wave_index,
-                        "resume_from_checkpoint_position": resume_from_checkpoint_position,  # noqa: E501
+                        "resume_from_checkpoint_position": (
+                            resume_from_checkpoint_position
+                        ),
                         "retry_failed_nodes": retry_failed_nodes,
-                        "remaining_node_count": replay_workflow.execution_plan.total_nodes(),  # noqa: E501
-                        "remaining_wave_count": replay_workflow.execution_plan.total_waves(),  # noqa: E501
+                        "remaining_node_count": (
+                            replay_workflow.execution_plan.total_nodes()
+                        ),
+                        "remaining_wave_count": (
+                            replay_workflow.execution_plan.total_waves()
+                        ),
                     },
                 )
             )
@@ -164,7 +170,9 @@ class ReplayEngine:
                         "completed_nodes": list(checkpoint.completed_nodes),
                         "failed_nodes": list(checkpoint.failed_nodes),
                         "skipped_nodes": list(checkpoint.skipped_nodes),
-                        "resume_from_checkpoint_position": resume_from_checkpoint_position,  # noqa: E501
+                        "resume_from_checkpoint_position": (
+                            resume_from_checkpoint_position
+                        ),
                         "retry_failed_nodes": retry_failed_nodes,
                         "remaining_node_count": 0,
                         "remaining_wave_count": 0,
@@ -212,8 +220,12 @@ class ReplayEngine:
                     "skipped_nodes": list(checkpoint.skipped_nodes),
                     "resume_from_checkpoint_position": resume_from_checkpoint_position,
                     "retry_failed_nodes": retry_failed_nodes,
-                    "remaining_node_count": replay_workflow.execution_plan.total_nodes(),  # noqa: E501
-                    "remaining_wave_count": replay_workflow.execution_plan.total_waves(),  # noqa: E501
+                    "remaining_node_count": (
+                        replay_workflow.execution_plan.total_nodes()
+                    ),
+                    "remaining_wave_count": (
+                        replay_workflow.execution_plan.total_waves()
+                    ),
                 },
             )
 

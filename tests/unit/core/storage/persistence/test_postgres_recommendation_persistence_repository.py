@@ -25,7 +25,7 @@ from core.storage.persistence.recommendations import (
     TradeSetupRecord,
     WatchlistItemRecord,
 )
-from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_recommendation_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresRecommendationPersistenceRepository,
 )
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (

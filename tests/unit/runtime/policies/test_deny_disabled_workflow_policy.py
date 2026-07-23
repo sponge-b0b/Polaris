@@ -60,7 +60,7 @@ async def test_deny_disabled_workflow_policy_denies_disabled_subject() -> None:
 
 
 @pytest.mark.asyncio
-async def test_deny_disabled_workflow_policy_allows_subject_without_enabled_attribute() -> (  # noqa: E501
+async def test_deny_disabled_workflow_policy_allows_subject_without_enabled_attribute() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     policy = DenyDisabledWorkflowPolicy()

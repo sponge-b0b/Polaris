@@ -16,7 +16,7 @@ from core.storage.persistence.projections import (
     WorkflowOutputProjectionJobRecord,
     WorkflowOutputProjectionJobStatus,
 )
-from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501 - canonical module path
     PostgresWorkflowOutputProjectionJobRepository,
 )
 
@@ -353,7 +353,9 @@ def _job_record() -> WorkflowOutputProjectionJobRecord:
 
 def _job_model(
     *,
-    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.PENDING,  # noqa: E501
+    status: WorkflowOutputProjectionJobStatus = (
+        WorkflowOutputProjectionJobStatus.PENDING
+    ),
     attempt_count: int = 0,
 ) -> WorkflowOutputProjectionJobModel:
     record = _job_record()

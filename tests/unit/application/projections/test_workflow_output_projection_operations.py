@@ -177,7 +177,7 @@ async def test_projection_operations_status_filters_jobs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_projection_operations_retry_projects_unique_runs_and_recovers_stale_jobs() -> (  # noqa: E501
+async def test_projection_operations_retry_projects_unique_runs_and_recovers_stale_jobs() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     started_before = datetime(2026, 1, 1, tzinfo=UTC)
@@ -277,7 +277,7 @@ async def test_projection_operations_reconcile_reports_missing_runs_in_dry_run()
 
 
 @pytest.mark.asyncio
-async def test_projection_operations_reconcile_filters_window_and_projects_missing_runs() -> (  # noqa: E501
+async def test_projection_operations_reconcile_filters_window_and_projects_missing_runs() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     before_window = MissingProjectionRunRecord(
@@ -383,7 +383,9 @@ def _job_record(
     *,
     projection_job_id: str = "job-1",
     run_id: str = "run-1",
-    status: WorkflowOutputProjectionJobStatus = WorkflowOutputProjectionJobStatus.FAILED,  # noqa: E501
+    status: WorkflowOutputProjectionJobStatus = (
+        WorkflowOutputProjectionJobStatus.FAILED
+    ),
 ) -> WorkflowOutputProjectionJobRecord:
     return WorkflowOutputProjectionJobRecord(
         projection_job_id=projection_job_id,

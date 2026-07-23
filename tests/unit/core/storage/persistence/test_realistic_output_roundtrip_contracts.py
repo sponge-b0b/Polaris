@@ -38,7 +38,7 @@ from core.storage.persistence.portfolio import (
     PortfolioRiskSnapshotRecord,
 )
 from core.storage.persistence.sentiment import SentimentSnapshotRecord
-from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501
+from core.storage.persistence.serializers.agent_intelligence_persistence_serializer import (  # noqa: E501 - canonical module path
     AgentIntelligencePersistenceSerializer,
 )
 from core.storage.persistence.serializers.agent_signal_persistence_serializer import (

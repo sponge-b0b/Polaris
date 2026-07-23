@@ -82,7 +82,7 @@ class UnsupportedRecord:
 
 
 @pytest.mark.asyncio
-async def test_json_export_service_serializes_selected_typed_records_to_json_payload() -> (  # noqa: E501
+async def test_json_export_service_serializes_selected_typed_records_to_json_payload() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = JsonPersistenceExportService()

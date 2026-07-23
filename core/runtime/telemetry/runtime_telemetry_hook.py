@@ -26,47 +26,119 @@ from core.workflow.models.workflow_execution_plan import (
 RUNTIME_EVENT_TELEMETRY_TYPE_MAP: Mapping[str, RuntimeTelemetryEventType] = (
     MappingProxyType(
         {
-            RuntimeEventType.WORKFLOW_STARTED.value: RuntimeTelemetryEventType.WORKFLOW_STARTED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_COMPLETED.value: RuntimeTelemetryEventType.WORKFLOW_COMPLETED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_FAILED.value: RuntimeTelemetryEventType.WORKFLOW_FAILED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_CANCELLED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_CANCELLED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PAUSED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_RESUMED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUMED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_STATE_CHANGED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_STATE_CHANGED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_STARTED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_STARTED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_RUNNING.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_RUNNING,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_PAUSING.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSE_REQUESTED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_PAUSED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_RESUMING.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUME_REQUESTED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_RESUMED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUMED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_CANCELLING.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_CANCEL_REQUESTED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED.value: RuntimeTelemetryEventType.WORKFLOW_CONTROL_CANCELLED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_COMPLETED,  # noqa: E501
-            RuntimeEventType.WORKFLOW_PROGRESS_FAILED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_FAILED,  # noqa: E501
-            RuntimeEventType.EXECUTION_STARTED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_STARTED,  # noqa: E501
-            RuntimeEventType.EXECUTION_COMPLETED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_COMPLETED,  # noqa: E501
-            RuntimeEventType.EXECUTION_FAILED.value: RuntimeTelemetryEventType.WORKFLOW_PROGRESS_FAILED,  # noqa: E501
+            RuntimeEventType.WORKFLOW_STARTED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_STARTED
+            ),
+            RuntimeEventType.WORKFLOW_COMPLETED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_COMPLETED
+            ),
+            RuntimeEventType.WORKFLOW_FAILED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_FAILED
+            ),
+            RuntimeEventType.WORKFLOW_CANCELLED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_CANCELLED
+            ),
+            RuntimeEventType.WORKFLOW_PAUSED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSED
+            ),
+            RuntimeEventType.WORKFLOW_RESUMED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUMED
+            ),
+            RuntimeEventType.WORKFLOW_STATE_CHANGED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_STATE_CHANGED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_STARTED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_STARTED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_RUNNING.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_RUNNING
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_PAUSING.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSE_REQUESTED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_PAUSED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_PAUSED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_RESUMING.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUME_REQUESTED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_RESUMED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_RESUMED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_CANCELLING.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_CANCEL_REQUESTED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_CANCELLED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_CONTROL_CANCELLED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_COMPLETED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_COMPLETED
+            ),
+            RuntimeEventType.WORKFLOW_PROGRESS_FAILED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_FAILED
+            ),
+            RuntimeEventType.EXECUTION_STARTED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_STARTED
+            ),
+            RuntimeEventType.EXECUTION_COMPLETED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_COMPLETED
+            ),
+            RuntimeEventType.EXECUTION_FAILED.value: (
+                RuntimeTelemetryEventType.WORKFLOW_PROGRESS_FAILED
+            ),
             RuntimeEventType.WAVE_STARTED.value: RuntimeTelemetryEventType.WAVE_STARTED,
-            RuntimeEventType.WAVE_COMPLETED.value: RuntimeTelemetryEventType.WAVE_COMPLETED,  # noqa: E501
+            RuntimeEventType.WAVE_COMPLETED.value: (
+                RuntimeTelemetryEventType.WAVE_COMPLETED
+            ),
             RuntimeEventType.WAVE_FAILED.value: RuntimeTelemetryEventType.WAVE_FAILED,
-            RuntimeEventType.WAVE_PROGRESS_STARTED.value: RuntimeTelemetryEventType.WAVE_PROGRESS_STARTED,  # noqa: E501
-            RuntimeEventType.WAVE_PROGRESS_COMPLETED.value: RuntimeTelemetryEventType.WAVE_PROGRESS_COMPLETED,  # noqa: E501
-            RuntimeEventType.WAVE_PROGRESS_FAILED.value: RuntimeTelemetryEventType.WAVE_PROGRESS_FAILED,  # noqa: E501
+            RuntimeEventType.WAVE_PROGRESS_STARTED.value: (
+                RuntimeTelemetryEventType.WAVE_PROGRESS_STARTED
+            ),
+            RuntimeEventType.WAVE_PROGRESS_COMPLETED.value: (
+                RuntimeTelemetryEventType.WAVE_PROGRESS_COMPLETED
+            ),
+            RuntimeEventType.WAVE_PROGRESS_FAILED.value: (
+                RuntimeTelemetryEventType.WAVE_PROGRESS_FAILED
+            ),
             RuntimeEventType.NODE_STARTED.value: RuntimeTelemetryEventType.NODE_STARTED,
-            RuntimeEventType.NODE_COMPLETED.value: RuntimeTelemetryEventType.NODE_COMPLETED,  # noqa: E501
+            RuntimeEventType.NODE_COMPLETED.value: (
+                RuntimeTelemetryEventType.NODE_COMPLETED
+            ),
             RuntimeEventType.NODE_FAILED.value: RuntimeTelemetryEventType.NODE_FAILED,
             RuntimeEventType.NODE_SKIPPED.value: RuntimeTelemetryEventType.NODE_SKIPPED,
-            RuntimeEventType.NODE_PROGRESS_STARTED.value: RuntimeTelemetryEventType.NODE_PROGRESS_STARTED,  # noqa: E501
-            RuntimeEventType.NODE_PROGRESS_RUNNING.value: RuntimeTelemetryEventType.NODE_PROGRESS_RUNNING,  # noqa: E501
-            RuntimeEventType.NODE_PROGRESS_COMPLETED.value: RuntimeTelemetryEventType.NODE_PROGRESS_COMPLETED,  # noqa: E501
-            RuntimeEventType.NODE_PROGRESS_SKIPPED.value: RuntimeTelemetryEventType.NODE_PROGRESS_SKIPPED,  # noqa: E501
-            RuntimeEventType.NODE_PROGRESS_FAILED.value: RuntimeTelemetryEventType.NODE_PROGRESS_FAILED,  # noqa: E501
-            RuntimeEventType.CHECKPOINT_CREATED.value: RuntimeTelemetryEventType.CHECKPOINT_CREATED,  # noqa: E501
-            RuntimeEventType.CHECKPOINT_RESTORED.value: RuntimeTelemetryEventType.CHECKPOINT_RESTORED,  # noqa: E501
-            RuntimeEventType.CHECKPOINT_FAILED.value: RuntimeTelemetryEventType.CHECKPOINT_FAILED,  # noqa: E501
-            RuntimeEventType.REPLAY_STARTED.value: RuntimeTelemetryEventType.REPLAY_STARTED,  # noqa: E501
-            RuntimeEventType.REPLAY_COMPLETED.value: RuntimeTelemetryEventType.REPLAY_COMPLETED,  # noqa: E501
-            RuntimeEventType.REPLAY_FAILED.value: RuntimeTelemetryEventType.REPLAY_FAILED,  # noqa: E501
+            RuntimeEventType.NODE_PROGRESS_STARTED.value: (
+                RuntimeTelemetryEventType.NODE_PROGRESS_STARTED
+            ),
+            RuntimeEventType.NODE_PROGRESS_RUNNING.value: (
+                RuntimeTelemetryEventType.NODE_PROGRESS_RUNNING
+            ),
+            RuntimeEventType.NODE_PROGRESS_COMPLETED.value: (
+                RuntimeTelemetryEventType.NODE_PROGRESS_COMPLETED
+            ),
+            RuntimeEventType.NODE_PROGRESS_SKIPPED.value: (
+                RuntimeTelemetryEventType.NODE_PROGRESS_SKIPPED
+            ),
+            RuntimeEventType.NODE_PROGRESS_FAILED.value: (
+                RuntimeTelemetryEventType.NODE_PROGRESS_FAILED
+            ),
+            RuntimeEventType.CHECKPOINT_CREATED.value: (
+                RuntimeTelemetryEventType.CHECKPOINT_CREATED
+            ),
+            RuntimeEventType.CHECKPOINT_RESTORED.value: (
+                RuntimeTelemetryEventType.CHECKPOINT_RESTORED
+            ),
+            RuntimeEventType.CHECKPOINT_FAILED.value: (
+                RuntimeTelemetryEventType.CHECKPOINT_FAILED
+            ),
+            RuntimeEventType.REPLAY_STARTED.value: (
+                RuntimeTelemetryEventType.REPLAY_STARTED
+            ),
+            RuntimeEventType.REPLAY_COMPLETED.value: (
+                RuntimeTelemetryEventType.REPLAY_COMPLETED
+            ),
+            RuntimeEventType.REPLAY_FAILED.value: (
+                RuntimeTelemetryEventType.REPLAY_FAILED
+            ),
             "checkpoint.created": RuntimeTelemetryEventType.CHECKPOINT_CREATED,
             "checkpoint.restored": RuntimeTelemetryEventType.CHECKPOINT_RESTORED,
             "checkpoint.failed": RuntimeTelemetryEventType.CHECKPOINT_FAILED,

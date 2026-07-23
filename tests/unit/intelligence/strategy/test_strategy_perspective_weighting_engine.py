@@ -121,7 +121,7 @@ async def test_strategy_perspective_weights_are_independent_of_hypothesis_output
     )
 
 
-def test_strategy_perspective_weights_can_prefer_sideways_without_directional_bias() -> (  # noqa: E501
+def test_strategy_perspective_weights_can_prefer_sideways_without_directional_bias() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     evidence_context = _evidence_context(

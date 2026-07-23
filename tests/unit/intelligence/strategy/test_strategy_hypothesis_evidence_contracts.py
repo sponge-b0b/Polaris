@@ -32,7 +32,8 @@ def test_strategy_evidence_item_round_trips_deterministically() -> None:
     assert StrategyEvidenceItem.from_dict(evidence.to_dict()) == evidence
     assert evidence.to_canonical_json() == (
         '{"contradicts":["bear"],"evidence_id":"breadth.confirmation",'
-        '"explanation":"Breadth confirms the bullish case.","name":"advance_decline_strength",'  # noqa: E501
+        '"explanation":"Breadth confirms the bullish '
+        'case.","name":"advance_decline_strength",'
         '"observed_value":0.72,"reliability":0.77,"source":"technical_analysis",'
         '"strength":0.81,"supports":["bull"]}'
     )
@@ -155,13 +156,15 @@ def test_strategy_invalidation_condition_round_trips_and_evaluates() -> None:
     assert condition.is_invalidated() is True
     assert StrategyInvalidationCondition.from_dict(condition.to_dict()) == condition
     assert condition.to_canonical_json() == (
-        '{"condition_id":"risk.max_drawdown","description":"Bull case is invalidated if drawdown pressure is too high.",'  # noqa: E501
+        '{"condition_id":"risk.max_drawdown","description":"Bull case is '
+        "invalidated if "
+        'drawdown pressure is too high.",'
         '"evidence_id":"risk.drawdown","invalidated":true,"observed_value":0.18,'
         '"operator":"gte","perspective":"bull","threshold":0.15}'
     )
 
 
-def test_strategy_invalidation_condition_rejects_callback_like_or_nonscalar_thresholds() -> (  # noqa: E501
+def test_strategy_invalidation_condition_rejects_callback_like_or_nonscalar_thresholds() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     with pytest.raises(ValueError, match="invalidation operator"):

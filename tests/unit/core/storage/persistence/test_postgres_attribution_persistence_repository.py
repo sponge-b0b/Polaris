@@ -24,7 +24,7 @@ from core.storage.persistence.lineage import (
     PersistenceLineage,
     PersistenceRecordIdentity,
 )
-from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_attribution_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAttributionPersistenceRepository,
 )
 from core.storage.persistence.serializers.attribution_persistence_serializer import (

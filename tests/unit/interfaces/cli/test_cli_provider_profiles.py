@@ -16,7 +16,7 @@ def test_shared_builtin_workflow_catalog_contains_morning_report() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cli_runtime_accepts_backtest_provider_profile_without_runtime_changes() -> (  # noqa: E501
+async def test_cli_runtime_accepts_backtest_provider_profile_without_runtime_changes() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     async with cli_runtime_scope(
@@ -34,7 +34,7 @@ async def test_cli_runtime_accepts_backtest_provider_profile_without_runtime_cha
 
 
 @pytest.mark.asyncio
-async def test_cli_runtime_accepts_backtest_postgres_profile_without_runtime_changes() -> (  # noqa: E501
+async def test_cli_runtime_accepts_backtest_postgres_profile_without_runtime_changes() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     async with cli_runtime_scope(

@@ -24,7 +24,8 @@ class ServiceRequest[RequestPayloadT]:
     request_name: str = field(default="")
 
     def __post_init__(self) -> None:
-        # If no request name was passed, infer it at runtime from the actual object instance  # noqa: E501
+        # If no request name was passed, infer it at runtime from the actual
+        # object instance.
         if not self.request_name:
             # object.__setattr__ is required to bypass frozen=True
             object.__setattr__(self, "request_name", type(self.payload).__name__)

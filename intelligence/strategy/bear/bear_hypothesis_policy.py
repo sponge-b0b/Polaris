@@ -255,14 +255,19 @@ def _bear_assumptions(
         StrategyAssumption(
             assumption_id="bear.downside_requires_negative_evidence",
             perspective=StrategyPerspective.BEAR,
-            description="Bearish posture requires negative evidence to remain persistent.",  # noqa: E501
+            description=(
+                "Bearish posture requires negative evidence to remain persistent."
+            ),
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="bear.strength_requires_risk_or_trend_pressure",
             perspective=StrategyPerspective.BEAR,
-            description="Bearish strength assumes risk pressure or trend pressure does not unwind.",  # noqa: E501
+            description=(
+                "Bearish strength assumes risk pressure or trend pressure does not "
+                "unwind."
+            ),
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -280,7 +285,9 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.sentiment_reversal",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if sentiment turns materially bullish.",  # noqa: E501
+            description=(
+                "Bear case is invalidated if sentiment turns materially bullish."
+            ),
             observed_value=sentiment_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.25,
@@ -289,7 +296,9 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.technical_reversal",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if technical structure turns bullish.",  # noqa: E501
+            description=(
+                "Bear case is invalidated if technical structure turns bullish."
+            ),
             observed_value=technical_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.25,
@@ -298,7 +307,9 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.breadth_reacceleration",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if market breadth strongly reaccelerates.",  # noqa: E501
+            description=(
+                "Bear case is invalidated if market breadth strongly reaccelerates."
+            ),
             observed_value=breadth_confirmation_score,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.45,
@@ -307,7 +318,9 @@ def _bear_invalidations(
         StrategyInvalidationCondition(
             condition_id="bear.risk_pressure_collapse",
             perspective=StrategyPerspective.BEAR,
-            description="Bear case is invalidated if aggregate risk pressure collapses.",  # noqa: E501
+            description=(
+                "Bear case is invalidated if aggregate risk pressure collapses."
+            ),
             observed_value=risk_pressure,
             operator=StrategyInvalidationOperator.LESS_THAN,
             threshold=0.15,

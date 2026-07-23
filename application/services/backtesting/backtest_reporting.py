@@ -120,7 +120,8 @@ def render_backtest_markdown_report(
             f"- Success: `{success}`",
             f"- Started: `{started_at.isoformat()}`",
             f"- Completed: `{completed_at.isoformat()}`",
-            f"- Simulation Window: `{scenario.start_date.isoformat()}` → `{scenario.end_date.isoformat()}`",  # noqa: E501
+            f"- Simulation Window: `{scenario.start_date.isoformat()}` → "
+            f"`{scenario.end_date.isoformat()}`",
             f"- Symbols: `{', '.join(scenario.symbols)}`",
             "",
             "## Portfolio Summary",
@@ -144,7 +145,8 @@ def render_backtest_markdown_report(
             f"| Profit Factor | {_format_decimal(metrics.profit_factor)} |",
             f"| Exposure | {_format_percent(metrics.exposure)} |",
             f"| Turnover | {_format_percent(metrics.turnover)} |",
-            f"| Benchmark Relative Return | {_format_percent(metrics.benchmark_relative_return)} |",  # noqa: E501
+            f"| Benchmark Relative Return | "
+            f"{_format_percent(metrics.benchmark_relative_return)} |",
             "",
             "## Deterministic Verification",
             "",
@@ -162,7 +164,8 @@ def render_backtest_markdown_report(
             "",
             "## Simulated Fills",
             "",
-            "| Timestamp | Symbol | Side | Quantity | Price | Status | Reason | Realized PnL |",  # noqa: E501
+            "| Timestamp | Symbol | Side | Quantity | Price | Status | Reason | "
+            "Realized PnL |",
             "| --- | --- | --- | ---: | ---: | --- | --- | ---: |",
             *_fill_rows(
                 steps,
@@ -205,7 +208,10 @@ def _equity_rows(
     steps: tuple[BacktestStepResult, ...],
 ) -> tuple[str, ...]:
     return tuple(
-        f"| {step.timestamp.isoformat()} | {_format_currency(step.portfolio_snapshot.equity)} | {_format_currency(step.portfolio_snapshot.cash)} | {_format_currency(step.portfolio_snapshot.market_value)} |"  # noqa: E501
+        f"| {step.timestamp.isoformat()} | "
+        f"{_format_currency(step.portfolio_snapshot.equity)} | "
+        f"{_format_currency(step.portfolio_snapshot.cash)} | "
+        f"{_format_currency(step.portfolio_snapshot.market_value)} |"
         for step in steps
     )
 
@@ -213,11 +219,15 @@ def _equity_rows(
 def _fill_rows(
     steps: tuple[BacktestStepResult, ...],
 ) -> tuple[str, ...]:
+    row_template = (
+        "| {timestamp} | {symbol} | {side} | {quantity} | {price} | "
+        "{status} | {reason} | {realized_pnl} |"
+    )
     rows: list[str] = []
     for step in steps:
         for fill in step.simulated_fills:
             rows.append(
-                "| {timestamp} | {symbol} | {side} | {quantity} | {price} | {status} | {reason} | {realized_pnl} |".format(  # noqa: E501
+                row_template.format(
                     timestamp=fill.timestamp.isoformat(),
                     symbol=fill.symbol,
                     side=fill.side,

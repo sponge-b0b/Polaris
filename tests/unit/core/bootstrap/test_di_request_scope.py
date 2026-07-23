@@ -111,7 +111,7 @@ def test_sync_application_container_owns_in_memory_portfolio_repository() -> Non
         InMemoryPortfolioExpansionPersistenceRepository,
         PortfolioExpansionPersistenceRepository,
     )
-    from core.storage.persistence.portfolio.in_memory_portfolio_state_repository import (  # noqa: E501
+    from core.storage.persistence.portfolio.in_memory_portfolio_state_repository import (  # noqa: E501 - canonical module path
         InMemoryPortfolioStateRepository,
     )
     from core.storage.persistence.portfolio.portfolio_state_repository import (

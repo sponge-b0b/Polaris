@@ -167,11 +167,13 @@ class EvaluationRunModel(Base):
     __tablename__ = "evaluation_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', "
+            "'skipped')",
             name="ck_evaluation_runs_status",
         ),
         CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', "
+            "'skipped')",
             name="ck_evaluation_runs_langfuse_projection_status",
         ),
         CheckConstraint(
@@ -248,11 +250,13 @@ class EvaluationMetricResultModel(Base):
             name="ck_evaluation_metric_results_threshold_range",
         ),
         CheckConstraint(
-            "status IN ('pending', 'running', 'passed', 'failed', 'errored', 'skipped')",  # noqa: E501
+            "status IN ('pending', 'running', 'passed', 'failed', 'errored', "
+            "'skipped')",
             name="ck_evaluation_metric_results_status",
         ),
         CheckConstraint(
-            "langfuse_projection_status IN ('pending', 'projected', 'failed', 'skipped')",  # noqa: E501
+            "langfuse_projection_status IN ('pending', 'projected', 'failed', "
+            "'skipped')",
             name="ck_evaluation_metric_results_langfuse_projection_status",
         ),
         CheckConstraint(

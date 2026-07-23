@@ -18,7 +18,7 @@ from core.database.models.telemetry import (
     WorkflowMetricModel,
 )
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_telemetry_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresTelemetryPersistenceRepository,
 )
 from core.storage.persistence.serializers.telemetry_persistence_serializer import (

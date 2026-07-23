@@ -63,7 +63,7 @@ async def test_dishka_request_scope_creates_new_instance_per_scope() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dishka_app_container_without_scope_cannot_resolve_request_dependency() -> (  # noqa: E501
+async def test_dishka_app_container_without_scope_cannot_resolve_request_dependency() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     container = make_container(

@@ -153,7 +153,7 @@ async def test_news_persistence_service_emits_non_fatal_audit_events() -> None:
 
 
 @pytest.mark.asyncio
-async def test_news_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (  # noqa: E501
+async def test_news_persistence_service_does_not_fail_primary_write_when_audit_fails() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     repository = FakeNewsRepository()

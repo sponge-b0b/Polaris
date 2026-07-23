@@ -184,7 +184,7 @@ async def test_qdrant_client_upsert_translates_named_dense_and_sparse_vectors() 
 
 
 @pytest.mark.asyncio
-async def test_qdrant_client_search_falls_back_to_qdrant_id_without_canonical_payload() -> (  # noqa: E501
+async def test_qdrant_client_search_falls_back_to_qdrant_id_without_canonical_payload() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     fake_client = FakeQdrantClient()

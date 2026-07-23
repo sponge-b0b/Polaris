@@ -132,7 +132,7 @@ def test_application_persistence_root_does_not_export_infrastructure_types() -> 
         assert not any(fragment in export_name for fragment in forbidden_fragments)
 
 
-def test_application_persistence_services_preserve_list_apis_and_add_result_envelopes() -> (  # noqa: E501
+def test_application_persistence_services_preserve_list_apis_and_add_result_envelopes() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     for module_name in _DOMAIN_MODULES:

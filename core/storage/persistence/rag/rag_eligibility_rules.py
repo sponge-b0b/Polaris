@@ -256,7 +256,10 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Raw runtime records are operational state and are not curated RAG sources.",  # noqa: E501
+                reason=(
+                    "Raw runtime records are operational state and are not curated RAG "
+                    "sources."
+                ),
                 quality_score=0.0,
                 rule_name="raw_runtime_ineligible",
                 reviewed_timestamp=reviewed_at,
@@ -266,7 +269,10 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Raw telemetry records are observability data and are not curated RAG sources.",  # noqa: E501
+                reason=(
+                    "Raw telemetry records are observability data and are not curated "
+                    "RAG sources."
+                ),
                 quality_score=0.0,
                 rule_name="raw_telemetry_ineligible",
                 reviewed_timestamp=reviewed_at,
@@ -319,7 +325,9 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=True,
-                reason="Meaningful agent signals and reasoning are eligible RAG sources.",  # noqa: E501
+                reason=(
+                    "Meaningful agent signals and reasoning are eligible RAG sources."
+                ),
                 quality_score=_quality_score(candidate, 0.86),
                 rule_name="meaningful_agent_intelligence_eligible",
                 reviewed_timestamp=reviewed_at,
@@ -351,7 +359,10 @@ class DefaultRagEligibilityRules:
             return _build_record(
                 candidate,
                 eligible=False,
-                reason="Recommendations without rationales are not curated RAG sources by default.",  # noqa: E501
+                reason=(
+                    "Recommendations without rationales are not curated RAG sources by "
+                    "default."
+                ),
                 quality_score=0.0,
                 rule_name="recommendation_without_rationale_ineligible",
                 reviewed_timestamp=reviewed_at,

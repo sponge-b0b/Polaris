@@ -108,7 +108,7 @@ def collect_events() -> tuple[EventBus, list[RuntimeEvent]]:
 
 
 @pytest.mark.asyncio
-async def test_runtime_engine_emits_events_for_disabled_and_dependency_skipped_nodes() -> (  # noqa: E501
+async def test_runtime_engine_emits_events_for_disabled_and_dependency_skipped_nodes() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     event_bus, events = collect_events()
@@ -372,7 +372,7 @@ class CancelledRuntimeNode(RuntimeNode):
 
 
 @pytest.mark.asyncio
-async def test_runtime_timeout_retains_node_trace_and_one_terminal_lifecycle_event() -> (  # noqa: E501
+async def test_runtime_timeout_retains_node_trace_and_one_terminal_lifecycle_event() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     telemetry_sink = InMemoryRuntimeTelemetrySink()

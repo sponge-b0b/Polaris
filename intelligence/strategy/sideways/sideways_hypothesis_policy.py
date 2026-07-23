@@ -320,14 +320,19 @@ def _sideways_assumptions(
         StrategyAssumption(
             assumption_id="sideways.range_requires_contained_directionality",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways posture requires directional evidence to remain contained.",  # noqa: E501
+            description=(
+                "Sideways posture requires directional evidence to remain contained."
+            ),
             confidence=clamp_01(confidence),
             evidence_ids=evidence_ids,
         ),
         StrategyAssumption(
             assumption_id="sideways.mean_reversion_requires_stable_volatility",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways strength assumes volatility does not expand into breakout conditions.",  # noqa: E501
+            description=(
+                "Sideways strength assumes volatility does not expand into breakout "
+                "conditions."
+            ),
             confidence=clamp_01(score),
             evidence_ids=evidence_ids,
         ),
@@ -345,7 +350,9 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.trend_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by strong trend breakout pressure.",  # noqa: E501
+            description=(
+                "Sideways case is invalidated by strong trend breakout pressure."
+            ),
             observed_value=trend_strength,
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,
@@ -363,7 +370,9 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.sentiment_directional_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by extreme sentiment directionality.",  # noqa: E501
+            description=(
+                "Sideways case is invalidated by extreme sentiment directionality."
+            ),
             observed_value=abs(sentiment_score),
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,
@@ -372,7 +381,9 @@ def _sideways_invalidations(
         StrategyInvalidationCondition(
             condition_id="sideways.technical_directional_breakout",
             perspective=StrategyPerspective.SIDEWAYS,
-            description="Sideways case is invalidated by extreme technical directionality.",  # noqa: E501
+            description=(
+                "Sideways case is invalidated by extreme technical directionality."
+            ),
             observed_value=abs(technical_score),
             operator=StrategyInvalidationOperator.GREATER_THAN,
             threshold=0.75,

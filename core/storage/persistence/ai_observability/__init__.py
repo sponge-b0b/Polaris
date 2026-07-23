@@ -10,7 +10,7 @@ from core.storage.persistence.ai_observability.ai_observability_export_models im
     JsonValue,
     new_ai_observability_export_job_id,
 )
-from core.storage.persistence.ai_observability.ai_observability_export_repository import (  # noqa: E501
+from core.storage.persistence.ai_observability.ai_observability_export_repository import (  # noqa: E501 - canonical module path
     AiObservabilityExportJobRepository,
 )
 

@@ -223,7 +223,7 @@ async def test_agent_intelligence_persistence_service_builds_typed_bundle() -> N
 
 
 @pytest.mark.asyncio
-async def test_agent_intelligence_persistence_service_delegates_individual_persist_methods() -> (  # noqa: E501
+async def test_agent_intelligence_persistence_service_delegates_individual_persist_methods() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     repository = FakeAgentIntelligenceRepository()

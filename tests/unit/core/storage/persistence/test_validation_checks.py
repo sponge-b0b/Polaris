@@ -64,7 +64,7 @@ def test_timestamp_validation_accepts_aware_ordered_representative_record() -> N
     assert result.issue_count == 0
 
 
-def test_timestamp_validation_reports_required_missing_naive_future_and_order_issues() -> (  # noqa: E501
+def test_timestamp_validation_reports_required_missing_naive_future_and_order_issues() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     record = RepresentativeReportRecord(

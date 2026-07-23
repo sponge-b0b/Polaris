@@ -16,7 +16,7 @@ from core.storage.persistence.market import (
     MarketPersistenceResult,
     TechnicalAnalysisSnapshotRecord,
 )
-from integration.providers.backtesting.market_data.postgres_historical_data_provider import (  # noqa: E501
+from integration.providers.backtesting.market_data.postgres_historical_data_provider import (  # noqa: E501 - canonical module path
     MissingHistoricalMarketDataError,
     PostgresHistoricalDataProvider,
     PostgresHistoricalDataProviderConfig,

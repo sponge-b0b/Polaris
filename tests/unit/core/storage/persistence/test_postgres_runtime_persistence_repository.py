@@ -16,7 +16,7 @@ from core.database.models.runtime import (
     WorkflowStateSnapshotModel,
 )
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresRuntimePersistenceRepository,
 )
 from core.storage.persistence.runtime import (

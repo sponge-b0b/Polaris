@@ -13,7 +13,7 @@ from core.storage.persistence.market import (
     MarketOhlcvRecord,
     MarketPersistenceRepository,
 )
-from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_market_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresMarketPersistenceRepository,
 )
 from domain.market.models import SP500Data

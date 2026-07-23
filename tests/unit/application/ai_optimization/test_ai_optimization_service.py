@@ -347,7 +347,7 @@ async def test_optimization_service_scores_and_persists_draft_artifact() -> None
 
 
 @pytest.mark.asyncio
-async def test_optimization_service_does_not_persist_artifact_when_evaluation_errors() -> (  # noqa: E501
+async def test_optimization_service_does_not_persist_artifact_when_evaluation_errors() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = AiOptimizationService(

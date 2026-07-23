@@ -354,7 +354,7 @@ def test_structured_curated_sources_build_deterministic_human_readable_chunks(
     assert first.embedding_jobs
 
 
-def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypothesis_attribution() -> (  # noqa: E501
+def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypothesis_attribution() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     bundle = _strategy_bundle()
@@ -399,7 +399,7 @@ def test_strategy_decision_bundle_builds_primary_curated_rag_document_with_hypot
     assert result.embedding_jobs
 
 
-def test_strategy_hypothesis_builds_attributable_why_why_not_and_invalidation_content() -> (  # noqa: E501
+def test_strategy_hypothesis_builds_attributable_why_why_not_and_invalidation_content() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     hypothesis = _strategy_hypothesis()
@@ -445,7 +445,10 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         confidence=0.78,
         regime="risk_on",
         uncertainty=0.22,
-        thesis="Bull perspective is selected because breadth and trend evidence dominate unresolved macro risks.",  # noqa: E501
+        thesis=(
+            "Bull perspective is selected because breadth and trend evidence dominate "
+            "unresolved macro risks."
+        ),
         evidence_fingerprint="fingerprint-1",
         created_at=_timestamp(),
         lineage=_lineage(),
@@ -458,12 +461,18 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         _strategy_hypothesis(
             perspective="bull",
             hypothesis_id="hypothesis-bull",
-            thesis="Bullish continuation is supported by stronger participation and trend confirmation.",  # noqa: E501
+            thesis=(
+                "Bullish continuation is supported by stronger participation and trend "
+                "confirmation."
+            ),
         ),
         _strategy_hypothesis(
             perspective="bear",
             hypothesis_id="hypothesis-bear",
-            thesis="Bearish reversal would require macro risk to overpower breadth confirmation.",  # noqa: E501
+            thesis=(
+                "Bearish reversal would require macro risk to overpower breadth "
+                "confirmation."
+            ),
             directional_bias=-0.55,
             hypothesis_strength=0.41,
             confidence=0.46,
@@ -471,7 +480,10 @@ def _strategy_bundle() -> StrategyPersistenceBundle:
         _strategy_hypothesis(
             perspective="sideways",
             hypothesis_id="hypothesis-sideways",
-            thesis="Sideways consolidation remains possible if breadth stalls without a volatility break.",  # noqa: E501
+            thesis=(
+                "Sideways consolidation remains possible if breadth stalls without a "
+                "volatility break."
+            ),
             directional_bias=0.0,
             hypothesis_strength=0.37,
             confidence=0.44,
@@ -498,7 +510,10 @@ def _strategy_hypothesis(
     *,
     perspective: str = "bull",
     hypothesis_id: str = "hypothesis-bull",
-    thesis: str = "Bullish continuation is supported by stronger participation and trend confirmation.",  # noqa: E501
+    thesis: str = (
+        "Bullish continuation is supported by stronger participation "
+        "and trend confirmation."
+    ),
     directional_bias: float = 0.65,
     hypothesis_strength: float = 0.74,
     confidence: float = 0.81,

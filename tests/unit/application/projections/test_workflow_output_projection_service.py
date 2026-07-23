@@ -220,7 +220,7 @@ class FakeProjectionJobRepository:
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_creates_claims_invokes_projector_and_marks_success() -> (  # noqa: E501
+async def test_project_completed_run_creates_claims_invokes_projector_and_marks_success() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     projector = StubProjector()
@@ -427,7 +427,7 @@ def test_projection_telemetry_records_stale_job_recovery_metric() -> None:
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_source() -> (  # noqa: E501
+async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_source() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     projector = StubProjector()
@@ -454,7 +454,7 @@ async def test_project_completed_run_uses_run_execution_mode_as_canonical_skip_s
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_skips_report_and_backtest_boundary_outputs_without_jobs() -> (  # noqa: E501
+async def test_project_completed_run_skips_report_and_backtest_boundary_outputs_without_jobs() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     report_projector = StubProjector(projector_name="report_projector")
@@ -548,7 +548,7 @@ async def test_project_completed_run_records_projector_failure_and_continues() -
 
 
 @pytest.mark.asyncio
-async def test_project_completed_run_isolates_projector_failure_and_projects_remaining_nodes() -> (  # noqa: E501
+async def test_project_completed_run_isolates_projector_failure_and_projects_remaining_nodes() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     failing_projector = StubProjector(should_raise=True)

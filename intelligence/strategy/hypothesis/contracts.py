@@ -100,7 +100,8 @@ def validate_strategy_json_scalar(
             raise ValueError(f"{field_name} must be finite.")
         return value
     raise TypeError(
-        f"{field_name} must be a JSON-compatible scalar: str, int, float, bool, or None."  # noqa: E501
+        f"{field_name} must be a JSON-compatible scalar: str, int, float, bool, or "
+        f"None."
     )
 
 

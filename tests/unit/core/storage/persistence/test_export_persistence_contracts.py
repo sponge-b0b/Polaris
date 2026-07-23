@@ -39,7 +39,7 @@ def test_export_destination_normalizes_type_uri_and_metadata() -> None:
         destination.uri = "/tmp/other.json"  # type: ignore[misc]
 
 
-def test_export_request_supports_domain_time_range_format_and_destination_metadata() -> (  # noqa: E501
+def test_export_request_supports_domain_time_range_format_and_destination_metadata() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     start = datetime(2026, 6, 1, 9, tzinfo=UTC)

@@ -94,7 +94,9 @@ def test_active_rag_fixtures_are_structured_answer_schema_compatible(
                 ),
                 quality=RagStructuredAnswerQuality(
                     confidence_score=0.95,
-                    grounding_summary="Fixture answer is grounded in deterministic retrieval context.",  # noqa: E501
+                    grounding_summary=(
+                        "Fixture answer is grounded in deterministic retrieval context."
+                    ),
                 ),
             )
 
@@ -129,7 +131,7 @@ def test_rag_metric_policy_covers_structured_output_regression_concerns() -> Non
 
 
 @pytest.mark.asyncio
-async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persistence_and_projection(  # noqa: E501
+async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persistence_and_projection(  # noqa: E501 - descriptive pytest node id
     evaluation_fixture_dir: Path,
     load_jsonl_fixture: LoadJsonlFixture,
 ) -> None:

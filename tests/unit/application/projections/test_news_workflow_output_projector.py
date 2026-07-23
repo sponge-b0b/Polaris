@@ -106,7 +106,7 @@ async def test_news_projector_persists_snapshot_without_unqualified_articles() -
 
 
 @pytest.mark.asyncio
-async def test_news_projector_skips_snapshot_for_degraded_output_but_persists_articles() -> (  # noqa: E501
+async def test_news_projector_skips_snapshot_for_degraded_output_but_persists_articles() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     repository = _FakeNewsRepository()

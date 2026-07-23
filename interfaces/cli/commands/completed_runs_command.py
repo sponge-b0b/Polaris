@@ -377,7 +377,10 @@ def retry_projection_jobs(
         int | None,
         typer.Option(
             "--stale-running-minutes",
-            help="Mark running jobs older than this many minutes as failed before retrying.",  # noqa: E501
+            help=(
+                "Mark running jobs older than this many minutes as failed before "
+                "retrying."
+            ),
         ),
     ] = None,
     dry_run: Annotated[

@@ -19,7 +19,7 @@ from core.storage.persistence.retention import (
 
 
 @pytest.mark.asyncio
-async def test_retention_planning_reports_archive_and_delete_candidates_without_execution() -> (  # noqa: E501
+async def test_retention_planning_reports_archive_and_delete_candidates_without_execution() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     service = RetentionPersistenceService()

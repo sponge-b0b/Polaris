@@ -24,7 +24,7 @@ from core.storage.persistence.recommendations import (
     TradeSetupRecord,
     WatchlistItemRecord,
 )
-from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501
+from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501 - canonical module path
     RecommendationPersistenceRepository,
 )
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (

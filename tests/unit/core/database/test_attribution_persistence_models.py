@@ -63,7 +63,7 @@ def test_signal_attribution_model_links_to_agent_signal_and_preserves_explanatio
     assert columns.universe.nullable is True
 
 
-def test_recommendation_attribution_model_links_recommendations_and_optional_signal() -> (  # noqa: E501
+def test_recommendation_attribution_model_links_recommendations_and_optional_signal() -> (  # noqa: E501 - descriptive pytest node id
     None
 ):
     columns = RecommendationAttributionModel.__table__.c

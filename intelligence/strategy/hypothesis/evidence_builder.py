@@ -83,7 +83,9 @@ class StrategyEvidenceBuilder(RuntimeNode):
                 "symbol": evidence_context.symbol,
                 "market_events_status": market_events_status,
                 "missing_required_inputs": evidence_context.has_missing_required_inputs,
-                "degraded_required_inputs": evidence_context.has_degraded_required_inputs,  # noqa: E501
+                "degraded_required_inputs": (
+                    evidence_context.has_degraded_required_inputs
+                ),
             },
             execution_metadata={
                 "evidence_fingerprint": evidence_fingerprint,

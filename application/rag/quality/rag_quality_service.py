@@ -310,7 +310,8 @@ def _require_exact_keys(
     actual = frozenset(payload)
     if actual != expected:
         raise RagQualityModelOutputError(
-            f"Model output keys must be exactly {sorted(expected)}; received {sorted(actual)}."  # noqa: E501
+            f"Model output keys must be exactly {sorted(expected)}; received "
+            f"{sorted(actual)}."
         )
 
 

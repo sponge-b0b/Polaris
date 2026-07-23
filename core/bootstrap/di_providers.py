@@ -92,7 +92,9 @@ def _selected_integration_providers(settings: Settings) -> tuple[Provider, ...]:
             candidates={
                 settings.LIVE_DATA_PROVIDER: LiveDataDIProvider,
                 settings.BACKTEST_DATA_PROVIDER: BacktestDataDIProvider,
-                settings.BACKTEST_POSTGRES_DATA_PROVIDER: BacktestPostgresDataDIProvider,  # noqa: E501
+                settings.BACKTEST_POSTGRES_DATA_PROVIDER: (
+                    BacktestPostgresDataDIProvider
+                ),
             },
         ),
         _select_provider(

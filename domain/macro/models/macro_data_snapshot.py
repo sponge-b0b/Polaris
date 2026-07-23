@@ -90,7 +90,9 @@ class MacroDataSnapshot:
     observations: tuple[MacroIndicatorObservation, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the snapshot at a runtime, persistence, or presentation boundary."""  # noqa: E501
+        """
+        Serialize the snapshot at a runtime, persistence, or presentation boundary.
+        """
 
         result: dict[str, Any] = {
             "cpi": self.cpi,

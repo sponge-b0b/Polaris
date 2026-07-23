@@ -17,7 +17,7 @@ from core.database.models.runtime import (
     WorkflowRunModel,
 )
 from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
-from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_runtime_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresRuntimePersistenceRepository,
 )
 from core.storage.persistence.runtime import (
@@ -31,7 +31,10 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="POLARIS_TEST_DATABASE_URL is required for Postgres persistence integration tests.",  # noqa: E501
+    reason=(
+        "POLARIS_TEST_DATABASE_URL is required for Postgres persistence integration "
+        "tests."
+    ),
 )
 
 

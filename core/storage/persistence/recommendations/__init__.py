@@ -11,7 +11,7 @@ from core.storage.persistence.recommendations.recommendation_persistence_models 
     new_recommendation_child_id,
     new_recommendation_id,
 )
-from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501
+from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501 - canonical module path
     RecommendationPersistenceRepository,
 )
 

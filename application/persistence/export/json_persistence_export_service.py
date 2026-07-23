@@ -370,7 +370,9 @@ class JsonPersistenceExportService:
             return JsonPersistenceExportResult(
                 export_result=PersistenceExportResult.failed(
                     request=request.export_request,
-                    error=f"Report history export source not found: {request.report_id}.",  # noqa: E501
+                    error=(
+                        f"Report history export source not found: {request.report_id}."
+                    ),
                     metadata={
                         "report_id": request.report_id,
                     },
@@ -383,7 +385,9 @@ class JsonPersistenceExportService:
             return JsonPersistenceExportResult(
                 export_result=PersistenceExportResult.failed(
                     request=request.export_request,
-                    error="Report history export source does not expose a report bundle.",  # noqa: E501
+                    error=(
+                        "Report history export source does not expose a report bundle."
+                    ),
                     metadata={
                         "report_id": request.report_id,
                     },

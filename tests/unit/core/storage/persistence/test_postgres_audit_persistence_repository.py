@@ -15,7 +15,7 @@ from core.storage.persistence.audit import (
     PersistenceAuditEventRecord,
 )
 from core.storage.persistence.lineage import PersistenceLineage
-from core.storage.persistence.repositories.postgres_audit_persistence_repository import (  # noqa: E501
+from core.storage.persistence.repositories.postgres_audit_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceAuditEventRepository,
 )
 from core.storage.persistence.serializers.audit_persistence_serializer import (

@@ -63,12 +63,18 @@ Execute the specific test folders or category markers identified in Step 3:
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
-### Step 5: Structural Graph Drift Analysis
-Invoke your local repository graphing infrastructure to check for architectural boundary violations, dangling nodes, or unmapped dependency breaks against your project ADRs:
+### Step 5: Execute Targeted Architectural Check
+Invoke graphing infrastructure to check for architectural anomalies or unmapped cross-module dependencies introduced in this spec implementation:
 ```bash
 graphify update .
-graphify query "Identify any new architectural anomalies or unmapped cross-module dependencies introduced in this sprint."
+graphify query "<canonical concepts and changed subsystems from the spec>"
 ```
+Verifier is required to answer:
+
+- Did the changed modules connect to the expected canonical owner?
+- Did any edge-facing layer bypass the expected application/domain boundary?
+- Did the graph reveal duplicate ownership of a durable concept?
+- Did any dependency point inward/outward against the repo’s architecture rules?
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Performs global codebase verification, full static analysis, repository-wide type checking, and strategically targeted integration testing across the spec's relevant modules.
+description: Performs global codebase verification, full static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules.
 compatibility: product=codex product=claude-code system=git system=python network=none
 disable-model-invocation: true
 ---
@@ -71,6 +71,20 @@ graphify query "Identify any new architectural anomalies or unmapped cross-modul
 ```
 
 ---
+
+## Duplication Verification Check
+
+When verifying a specification, you must ensure the new requirements do not introduce structural bloat or split-brain business logic into the codebase. 
+
+### Core Constraint
+Before approving any specification that introduces a new module, helper function, utility layer, or service, you must explicitly run the `/duplication-checks` skill.
+
+### Verification Criteria
+1. **Trigger Scan:** Execute `/duplication-checks` using both `pylint` and `jscpd` over the targets outlined in the specification.
+2. **Review Findings:** Examine the duplicate code outputs or structural clone blocks flagged by the scanner.
+3. **Enforce Single Source of Truth:** 
+   - **Fail Verification** if the specification proposes building a component that mirrors logic already present in the codebase.
+   - **Require Revision** to force the specification to modify, reuse, or inherit from the existing canonical interface instead of creating a parallel implementation.
 
 ## Examples
 

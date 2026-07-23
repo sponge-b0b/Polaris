@@ -3,14 +3,20 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from application.evaluations.risk_authority_gate import RiskAuthorityGateDecision
+from application.observability.risk_authority import (
+    risk_authority_metadata_attributes,
+    risk_authority_metadata_payload,
+)
 from core.storage.persistence.evaluation import EvaluationMetricResultRecord
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import TelemetryExceptionDetails
 from core.telemetry.observability.observability_manager import ObservabilityManager
-from domain.evaluation import EvaluationMetricResult
-from domain.evaluation import EvaluationStatus
-from domain.evaluation import EvaluationTargetType
+from domain.evaluation import (
+    EvaluationMetricResult,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +42,24 @@ class EvaluationTelemetry:
         case_count: int,
         metric_count: int,
         dataset_id: str | None,
+        authority_gate_decision: RiskAuthorityGateDecision | None = None,
     ) -> None:
+        attributes = {
+            "target_type": target_type.value,
+            "evaluator_provider": evaluator_provider,
+            "evaluator_model": evaluator_model,
+            "case_count": case_count,
+            "metric_count": metric_count,
+            "dataset_id": dataset_id,
+            **_authority_gate_attributes(authority_gate_decision),
+        }
         await self._emit(
             event_type="evaluation.run.started",
             level=TelemetryEventLevel.INFO,
             success=None,
             run_id=run_id,
-            attributes={
-                "target_type": target_type.value,
-                "evaluator_provider": evaluator_provider,
-                "evaluator_model": evaluator_model,
-                "case_count": case_count,
-                "metric_count": metric_count,
-                "dataset_id": dataset_id,
-            },
+            attributes=attributes,
+            payload=_authority_gate_payload(authority_gate_decision),
         )
 
     async def emit_run_completed(
@@ -64,6 +74,7 @@ class EvaluationTelemetry:
         metric_result_count: int,
         dataset_id: str | None,
         duration_seconds: float,
+        authority_gate_decision: RiskAuthorityGateDecision | None = None,
     ) -> None:
         attributes = {
             "target_type": target_type.value,
@@ -73,6 +84,7 @@ class EvaluationTelemetry:
             "case_count": case_count,
             "metric_result_count": metric_result_count,
             "dataset_id": dataset_id,
+            **_authority_gate_attributes(authority_gate_decision),
         }
         self._increment(
             "evaluation_runs_total",
@@ -90,6 +102,7 @@ class EvaluationTelemetry:
             run_id=run_id,
             duration_seconds=duration_seconds,
             attributes=attributes,
+            payload=_authority_gate_payload(authority_gate_decision),
         )
 
     async def emit_run_failed(
@@ -103,6 +116,7 @@ class EvaluationTelemetry:
         dataset_id: str | None,
         duration_seconds: float,
         error: BaseException | str,
+        authority_gate_decision: RiskAuthorityGateDecision | None = None,
     ) -> None:
         attributes = {
             "target_type": target_type.value,
@@ -111,6 +125,7 @@ class EvaluationTelemetry:
             "case_count": case_count,
             "dataset_id": dataset_id,
             "outcome": EvaluationStatus.ERRORED.value,
+            **_authority_gate_attributes(authority_gate_decision),
         }
         self._increment("evaluation_runs_total", attributes=attributes)
         self.record_judge_model_failure(
@@ -126,7 +141,10 @@ class EvaluationTelemetry:
             run_id=run_id,
             duration_seconds=duration_seconds,
             attributes=attributes,
-            payload=_error_payload(error),
+            payload={
+                **_error_payload(error),
+                **_authority_gate_payload(authority_gate_decision),
+            },
             exception_details=_exception_details(error),
         )
 
@@ -387,4 +405,46 @@ def _error_payload(error: BaseException | str) -> dict[str, str]:
         if isinstance(error, BaseException)
         else "EvaluationError",
         "error_message": str(error),
+    }
+
+
+def _authority_gate_attributes(
+    decision: RiskAuthorityGateDecision | None,
+) -> dict[str, object]:
+    if decision is None:
+        return {}
+    attributes = risk_authority_metadata_attributes(
+        decision.authority_metadata,
+        observable_reason=decision.failure_mode.value,
+        gate_status=decision.status.value,
+        failure_mode=decision.failure_mode.value,
+    )
+    if decision.expected_risk_tier is not None:
+        attributes["authority_expected_risk_tier"] = decision.expected_risk_tier.value
+    if decision.expected_gate_profile is not None:
+        attributes["authority_expected_gate_profile"] = (
+            decision.expected_gate_profile.value
+        )
+    return attributes
+
+
+def _authority_gate_payload(
+    decision: RiskAuthorityGateDecision | None,
+) -> dict[str, Any]:
+    if decision is None:
+        return {}
+    return {
+        **risk_authority_metadata_payload(decision.authority_metadata),
+        "authority_gate": {
+            "status": decision.status.value,
+            "failure_mode": decision.failure_mode.value,
+            "message": decision.message,
+            "selected_profile": decision.selected_profile,
+            "expected_risk_tier": decision.expected_risk_tier.value
+            if decision.expected_risk_tier is not None
+            else None,
+            "expected_gate_profile": decision.expected_gate_profile.value
+            if decision.expected_gate_profile is not None
+            else None,
+        },
     }

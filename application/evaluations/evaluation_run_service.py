@@ -84,6 +84,7 @@ class EvaluationRunService:
                 runs=(EvaluationRunRecord.from_domain(running_run),),
             )
         )
+        authority_gate_decision = _select_authority_gate(request)
         if self.telemetry is not None:
             await self.telemetry.emit_run_started(
                 run_id=request.run_id,
@@ -93,8 +94,8 @@ class EvaluationRunService:
                 case_count=len(request.cases),
                 metric_count=len(request.metrics),
                 dataset_id=dataset_id,
+                authority_gate_decision=authority_gate_decision,
             )
-        authority_gate_decision = _select_authority_gate(request)
         if (
             authority_gate_decision is not None
             and authority_gate_decision.status is RiskAuthorityGateDecisionStatus.FAILED
@@ -129,6 +130,7 @@ class EvaluationRunService:
                     dataset_id=dataset_id,
                     duration_seconds=perf_counter() - started_monotonic,
                     error=RuntimeError(authority_gate_decision.message),
+                    authority_gate_decision=authority_gate_decision,
                 )
             return EvaluationRunServiceResult(
                 run=errored_run,
@@ -175,6 +177,7 @@ class EvaluationRunService:
                     dataset_id=dataset_id,
                     duration_seconds=perf_counter() - started_monotonic,
                     error=exc,
+                    authority_gate_decision=authority_gate_decision,
                 )
             return EvaluationRunServiceResult(
                 run=errored_run,
@@ -230,6 +233,7 @@ class EvaluationRunService:
                 metric_result_count=len(provider_result.metric_results),
                 dataset_id=dataset_id,
                 duration_seconds=perf_counter() - started_monotonic,
+                authority_gate_decision=authority_gate_decision,
             )
         projection_result = await self._project_scores(
             completed_run_record,

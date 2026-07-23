@@ -429,6 +429,65 @@ async def test_run_service_records_evaluation_observability() -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_service_observes_authority_gate_failure_once() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+    service = EvaluationRunService(
+        FakeProvider(),
+        repository,
+        FakeProjectionService([]),
+        telemetry=EvaluationTelemetry(observability),
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-risk-gate",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+        )
+    )
+
+    event_types = [event.event_type for event in sink.events]
+    assert result.run.status is EvaluationStatus.ERRORED
+    assert event_types == ["evaluation.run.started", "evaluation.run.failed"]
+    assert event_types.count("evaluation.run.failed") == 1
+    failed_event = sink.events[-1]
+    assert failed_event.attributes["authority_gate_status"] == (
+        RiskAuthorityGateDecisionStatus.FAILED.value
+    )
+    assert failed_event.attributes["authority_failure_mode"] == (
+        RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED.value
+    )
+    assert failed_event.attributes["authority_observable_reason"] == (
+        RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED.value
+    )
+    assert failed_event.attributes["authority_risk_tier"] == "enhanced"
+    assert failed_event.attributes["authority_owner"] == "rag_service"
+    assert failed_event.attributes["authority_sink"] == "rag_answer"
+    assert failed_event.attributes["authority_source_of_truth_category"] == (
+        "presentation_output"
+    )
+    assert failed_event.attributes["authority_gate_profile"] == "enhanced_provenance"
+    assert failed_event.payload["risk_authority"]["risk_tier"] == "enhanced"
+    run_metric = next(
+        point
+        for point in observability.metrics_store.points()
+        if point.name == "evaluation_runs_total"
+    )
+    assert run_metric.attributes["authority_failure_mode"] == (
+        "provenance_evidence_required"
+    )
+
+
+@pytest.mark.asyncio
 async def test_run_service_persists_errored_run_when_provider_fails() -> None:
     repository = _repository()
     dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")

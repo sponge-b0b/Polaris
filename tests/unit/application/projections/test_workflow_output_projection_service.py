@@ -283,6 +283,13 @@ async def test_project_completed_run_emits_projection_telemetry() -> None:
     assert "workflow_output_projection.projector_started" in event_types
     assert "workflow_output_projection.projector_completed" in event_types
     assert "workflow_output_projection.completed_run_finished" in event_types
+    assert event_types.count("workflow_output_projection.projector_started") == 1
+    assert event_types.count("workflow_output_projection.projector_completed") == 1
+    projector_started = next(
+        event
+        for event in sink.events
+        if event.event_type == "workflow_output_projection.projector_started"
+    )
     projector_completed = next(
         event
         for event in sink.events
@@ -291,6 +298,17 @@ async def test_project_completed_run_emits_projection_telemetry() -> None:
     assert projector_completed.duration_seconds is not None
     assert projector_completed.attributes["projector_name"] == "technical_projector"
     assert projector_completed.attributes["parent_span_id"] is not None
+    for event in (projector_started, projector_completed):
+        assert event.attributes["authority_risk_tier"] == "enhanced"
+        assert event.attributes["authority_effect"] == "canonical_record"
+        assert event.attributes["authority_owner"] == "workflow_output_curation"
+        assert event.attributes["authority_sink"] == "durable_domain_record"
+        assert (
+            event.attributes["authority_source_of_truth_category"]
+            == "canonical_domain_record"
+        )
+        assert event.attributes["authority_gate_profile"] == "enhanced_provenance"
+        assert event.payload["risk_authority"]["risk_tier"] == "enhanced"
     metric_names = {point.name for point in observability.metrics_store.points()}
     assert "workflow_output_projection.records.persisted" in metric_names
     assert "workflow_output_projection.jobs.retry_count" in metric_names
@@ -325,6 +343,73 @@ async def test_project_completed_run_emits_unsupported_contract_telemetry() -> N
     assert summary.skipped_jobs == 1
     assert "workflow_output_projection.projector_skipped" in event_types
     assert "workflow_output_projection.unsupported_contracts.total" in metric_names
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_observes_prohibited_authority_skip_once() -> None:
+    repository = FakeProjectionJobRepository()
+    observability = ObservabilityManager()
+    sink = InMemoryTelemetrySink()
+    observability.add_sink(sink)
+    service = WorkflowOutputProjectionService(
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(
+                        metadata={
+                            "risk_authority": _authority_metadata(
+                                content_type=AiOutputContentType.TOOL_RESPONSE,
+                                authority_effect=AuthorityEffect.OUTSIDE_AUTHORITY,
+                                canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
+                                source_of_truth=(
+                                    SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD
+                                ),
+                                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+                            )
+                        },
+                    ),
+                )
+            )
+        ),
+        projection_job_repository=repository,
+        registry=_registry(StubProjector()),
+        observability_manager=observability,
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    event_types = [event.event_type for event in sink.events]
+    assert summary.skipped_jobs == 1
+    assert repository.created == []
+    assert event_types.count("workflow_output_projection.projector_skipped") == 1
+    assert "workflow_output_projection.projector_started" not in event_types
+    projector_skipped = next(
+        event
+        for event in sink.events
+        if event.event_type == "workflow_output_projection.projector_skipped"
+    )
+    assert projector_skipped.attributes["skip_reason"] == (
+        "prohibited_outside_authority"
+    )
+    assert projector_skipped.attributes["authority_observable_reason"] == (
+        "prohibited_outside_authority"
+    )
+    assert projector_skipped.attributes["authority_risk_tier"] == (
+        "prohibited_outside_authority"
+    )
+    assert projector_skipped.attributes["authority_effect"] == "outside_authority"
+    assert projector_skipped.attributes["authority_gate_profile"] == (
+        "prohibited_boundary"
+    )
+    assert projector_skipped.attributes["authority_sink"] == "durable_domain_record"
+    assert projector_skipped.payload["risk_authority"]["gate_profile"] == (
+        "prohibited_boundary"
+    )
 
 
 def test_projection_telemetry_records_stale_job_recovery_metric() -> None:
@@ -717,17 +802,27 @@ def _node(
     )
 
 
-def _authority_metadata() -> JsonObject:
+def _authority_metadata(
+    *,
+    content_type: AiOutputContentType = AiOutputContentType.DURABLE_RECORD,
+    authority_effect: AuthorityEffect = AuthorityEffect.CANONICAL_RECORD,
+    canonical_owner: CanonicalOwner = CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+    source_of_truth: SourceOfTruthCategory = (
+        SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    ),
+    intended_sink: IntendedSink = IntendedSink.DURABLE_DOMAIN_RECORD,
+    durable_authority: bool = True,
+) -> JsonObject:
     return cast(
         JsonObject,
         classify_risk_authority(
             RiskAuthorityClassificationInput(
-                content_type=AiOutputContentType.DURABLE_RECORD,
-                authority_effect=AuthorityEffect.CANONICAL_RECORD,
-                canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
-                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
-                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
-                durable_authority=True,
+                content_type=content_type,
+                authority_effect=authority_effect,
+                canonical_owner=canonical_owner,
+                source_of_truth=source_of_truth,
+                intended_sink=intended_sink,
+                durable_authority=durable_authority,
             )
         ).to_metadata(),
     )

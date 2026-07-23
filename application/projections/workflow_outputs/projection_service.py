@@ -11,6 +11,7 @@ from enum import Enum
 from time import perf_counter
 from typing import cast
 
+from application.observability.risk_authority import risk_authority_attributes
 from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionEligibilityContext,
     WorkflowOutputProjectionEligibilityDecision,
@@ -47,6 +48,7 @@ from core.storage.persistence.projections import (
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
+from domain.authority import RiskAuthorityContract
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +218,7 @@ class WorkflowOutputProjectionService:
                     node_name=node_output.node_name,
                     projector_name=outcome.projector_name,
                 ),
+                authority_contract=decision.authority_contract,
             )
             return outcome
 
@@ -235,6 +238,7 @@ class WorkflowOutputProjectionService:
                     node_name=node_output.node_name,
                     projector_name=registration.projector_name,
                 ),
+                authority_contract=decision.authority_contract,
             )
             return outcome
 
@@ -266,6 +270,7 @@ class WorkflowOutputProjectionService:
                     node_name=node_output.node_name,
                     projector_name=registration.projector_name,
                 ),
+                authority_contract=decision.authority_contract,
             )
             return outcome
 
@@ -290,6 +295,7 @@ class WorkflowOutputProjectionService:
                     node_name=node_output.node_name,
                     projector_name=registration.projector_name,
                 ),
+                authority_contract=decision.authority_contract,
             )
             return outcome
 
@@ -305,6 +311,7 @@ class WorkflowOutputProjectionService:
             registration=registration,
             job=claimed_job,
             trace_context=projector_trace_context,
+            authority_contract=decision.authority_contract,
         )
 
         try:
@@ -366,6 +373,7 @@ class WorkflowOutputProjectionService:
                 error=exc,
                 duration_seconds=perf_counter() - projector_started_at,
                 trace_context=projector_trace_context,
+                authority_contract=decision.authority_contract,
             )
             return outcome
 
@@ -384,6 +392,7 @@ class WorkflowOutputProjectionService:
             job=claimed_job,
             duration_seconds=perf_counter() - projector_started_at,
             trace_context=projector_trace_context,
+            authority_contract=decision.authority_contract,
         )
         return persisted_outcome
 
@@ -431,6 +440,7 @@ class WorkflowOutputProjectionService:
         job: WorkflowOutputProjectionJobRecord,
         duration_seconds: float,
         trace_context: TraceContext | None,
+        authority_contract: RiskAuthorityContract | None,
     ) -> None:
         status = cast(WorkflowOutputProjectionStatus, outcome.status)
         if status is WorkflowOutputProjectionStatus.SUCCEEDED:
@@ -441,6 +451,7 @@ class WorkflowOutputProjectionService:
                 job=job,
                 duration_seconds=duration_seconds,
                 trace_context=trace_context,
+                authority_contract=authority_contract,
             )
             return
         if status is WorkflowOutputProjectionStatus.SKIPPED:
@@ -452,6 +463,7 @@ class WorkflowOutputProjectionService:
                 skip_reason=outcome.message,
                 duration_seconds=duration_seconds,
                 trace_context=trace_context,
+                authority_contract=authority_contract,
             )
             return
         await self._telemetry.emit_projector_failed(
@@ -462,6 +474,7 @@ class WorkflowOutputProjectionService:
             job=job,
             duration_seconds=duration_seconds,
             trace_context=trace_context,
+            authority_contract=authority_contract,
         )
 
 
@@ -604,6 +617,12 @@ def _skipped_outcome(
             "output_contract": node_output.output_contract,
             "output_schema_version": node_output.output_schema_version,
             "skip_reason": decision.skip_reason.value if decision.skip_reason else None,
+            **risk_authority_attributes(
+                decision.authority_contract,
+                observable_reason=(
+                    decision.skip_reason.value if decision.skip_reason else None
+                ),
+            ),
         },
     )
     return WorkflowOutputProjectionOutcome(

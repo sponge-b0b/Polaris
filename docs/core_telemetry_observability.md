@@ -20,6 +20,33 @@ message, and stack trace are bounded to 256, 4096, and 32768 characters respecti
 The same terminal exception is also promoted to first-class trace fields for querying
 the assembled operation lifecycle.
 
+## Risk and authority boundary observability
+
+Risk and authority metadata is observed at the same owner boundary that makes or
+persists the operational decision. Lower layers must attach to the existing
+lifecycle event, trace, log, or metric from that owner instead of emitting a
+second lifecycle event or reconstructing a parallel telemetry stream.
+
+Canonical owner boundaries are:
+
+- `WorkflowOutputProjectionService` / `WorkflowOutputProjectionTelemetry` for
+  workflow-output curation eligibility, projector lifecycle, validation failures,
+  and `prohibited_outside_authority` denials.
+- Recommendation, RAG, and report application services for authority metadata
+  persisted on their typed records, answers, report artifacts, and projection
+  payloads.
+- Governance services for policy/governance blocks and fail-closed decisions.
+- `EvaluationRunService` / `EvaluationTelemetry` for evaluation gate profile
+  selection, gate failures, and selected gate evidence.
+
+At these boundaries, observable attributes use the shared flattened authority
+vocabulary: risk tier, authority effect, owner, sink, source-of-truth category,
+gate profile, stable observable reason, and correlation identifiers when the
+boundary has them. Event payloads may include the nested `risk_authority` object
+for diagnostics, while metric labels stay scalar and bounded. Telemetry remains
+non-fatal; if emission or metric recording fails, the canonical telemetry owner
+logs the diagnostic failure with a traceback and returns the valid domain result.
+
 ## 1. Start local observability services
 
 From the repository root:

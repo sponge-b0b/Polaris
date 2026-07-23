@@ -1,31 +1,33 @@
 from __future__ import annotations
 
 import logging
-from typing import Mapping
+from collections.abc import Mapping
 
+from application.observability.risk_authority import (
+    risk_authority_attributes,
+    risk_authority_payload,
+)
 from application.projections.workflow_outputs.projection_eligibility import (
     WorkflowOutputProjectionSkipReason,
 )
 from application.projections.workflow_outputs.projection_models import (
     CompletedRunProjectionSummary,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
-)
-from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionRequest,
 )
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
-from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.completed_run_archive import CompletedRunRecord
+from core.storage.persistence.completed_run_archive import (
+    CompletedNodeOutputRecord,
+    CompletedRunRecord,
+)
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRecord
-from core.telemetry.events.telemetry_event import TelemetryEvent
-from core.telemetry.events.telemetry_event import TelemetryEventLevel
+from core.telemetry.events.telemetry_event import TelemetryEvent, TelemetryEventLevel
 from core.telemetry.events.telemetry_exception_details import TelemetryExceptionDetails
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
+from domain.authority import RiskAuthorityContract
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +206,7 @@ class WorkflowOutputProjectionTelemetry:
         registration: WorkflowOutputProjectorRegistration,
         job: WorkflowOutputProjectionJobRecord,
         trace_context: TraceContext | None,
+        authority_contract: RiskAuthorityContract | None = None,
     ) -> None:
         attributes = _projector_attributes(
             run=run,
@@ -212,6 +215,7 @@ class WorkflowOutputProjectionTelemetry:
             output_contract=registration.output_contract,
             output_schema_version=registration.output_schema_version,
             job=job,
+            authority_contract=authority_contract,
         )
         self._increment(
             "workflow_output_projection.projector.started",
@@ -228,7 +232,7 @@ class WorkflowOutputProjectionTelemetry:
             success=None,
             trace_context=trace_context,
             attributes=attributes,
-            payload=attributes,
+            payload={**attributes, **risk_authority_payload(authority_contract)},
         )
 
     async def emit_projector_completed(
@@ -240,12 +244,14 @@ class WorkflowOutputProjectionTelemetry:
         job: WorkflowOutputProjectionJobRecord | None,
         duration_seconds: float | None,
         trace_context: TraceContext | None,
+        authority_contract: RiskAuthorityContract | None = None,
     ) -> None:
         attributes = _outcome_attributes(
             run=run,
             node_output=node_output,
             outcome=outcome,
             job=job,
+            authority_contract=authority_contract,
         )
         self._increment(
             "workflow_output_projection.projector.completed",
@@ -268,6 +274,7 @@ class WorkflowOutputProjectionTelemetry:
             payload={
                 **attributes,
                 "records_written": outcome.records_written,
+                **risk_authority_payload(authority_contract),
             },
         )
 
@@ -281,6 +288,7 @@ class WorkflowOutputProjectionTelemetry:
         skip_reason: str | None = None,
         duration_seconds: float | None = None,
         trace_context: TraceContext | None = None,
+        authority_contract: RiskAuthorityContract | None = None,
     ) -> None:
         attributes = {
             **_outcome_attributes(
@@ -288,6 +296,8 @@ class WorkflowOutputProjectionTelemetry:
                 node_output=node_output,
                 outcome=outcome,
                 job=job,
+                authority_contract=authority_contract,
+                observable_reason=skip_reason,
             ),
             "skip_reason": skip_reason,
         }
@@ -313,6 +323,7 @@ class WorkflowOutputProjectionTelemetry:
             payload={
                 **attributes,
                 "message": outcome.message,
+                **risk_authority_payload(authority_contract),
             },
         )
 
@@ -327,6 +338,7 @@ class WorkflowOutputProjectionTelemetry:
         error: BaseException | str | None = None,
         duration_seconds: float | None = None,
         trace_context: TraceContext | None = None,
+        authority_contract: RiskAuthorityContract | None = None,
     ) -> None:
         attributes = _failed_projector_attributes(
             run=run,
@@ -334,6 +346,7 @@ class WorkflowOutputProjectionTelemetry:
             outcome=outcome,
             registration=registration,
             job=job,
+            authority_contract=authority_contract,
         )
         self._increment(
             "workflow_output_projection.projector.failed",
@@ -366,6 +379,7 @@ class WorkflowOutputProjectionTelemetry:
                 "error_type": _error_type(error=error, outcome=outcome),
                 "error_message": _error_message(error=error, outcome=outcome),
                 "message": outcome.message if outcome is not None else None,
+                **risk_authority_payload(authority_contract),
             },
         )
 
@@ -524,6 +538,8 @@ def _projector_attributes(
     output_contract: str,
     output_schema_version: int,
     job: WorkflowOutputProjectionJobRecord | None,
+    authority_contract: RiskAuthorityContract | None = None,
+    observable_reason: str | None = None,
 ) -> dict[str, object]:
     return {
         **_run_attributes(run),
@@ -533,6 +549,10 @@ def _projector_attributes(
         "output_contract": output_contract,
         "output_schema_version": output_schema_version,
         "attempt_count": job.attempt_count if job is not None else 0,
+        **risk_authority_attributes(
+            authority_contract,
+            observable_reason=observable_reason,
+        ),
     }
 
 
@@ -542,6 +562,8 @@ def _outcome_attributes(
     node_output: CompletedNodeOutputRecord,
     outcome: WorkflowOutputProjectionOutcome,
     job: WorkflowOutputProjectionJobRecord | None,
+    authority_contract: RiskAuthorityContract | None = None,
+    observable_reason: str | None = None,
 ) -> dict[str, object]:
     return _projector_attributes(
         run=run,
@@ -550,6 +572,8 @@ def _outcome_attributes(
         output_contract=outcome.output_contract,
         output_schema_version=outcome.output_schema_version,
         job=job,
+        authority_contract=authority_contract,
+        observable_reason=observable_reason,
     )
 
 
@@ -560,6 +584,7 @@ def _failed_projector_attributes(
     outcome: WorkflowOutputProjectionOutcome | None,
     registration: WorkflowOutputProjectorRegistration | None,
     job: WorkflowOutputProjectionJobRecord | None,
+    authority_contract: RiskAuthorityContract | None = None,
 ) -> dict[str, object]:
     projector_name = (
         outcome.projector_name
@@ -589,6 +614,7 @@ def _failed_projector_attributes(
         output_contract=output_contract,
         output_schema_version=output_schema_version,
         job=job,
+        authority_contract=authority_contract,
     )
 
 

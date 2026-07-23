@@ -1,6 +1,6 @@
 ---
 name: review-spec
-description: Review the changes of all the individual tickets of the provided spec. Use a fixed point (commit, branch, tag, or merge-base) based on the first ticket through to the last ticket of the spec. Review the spec along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Run both reviews in parallel sub-agents and report them side by side.
+description: Review the changes of the provided spec since a fixed point (commit, branch, tag, or merge-base). Review the spec along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Run both reviews in parallel sub-agents and report them side by side.
 compatibility: product=codex product=claude-code system=git system=python network=none
 disable-model-invocation: true
 ---
@@ -95,7 +95,7 @@ Reporting them separately stops one axis from masking the other.
 You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors. If your verification pass reveals ANY specification mismatches or standards violations, follow this exact sequence:
 
 ### 1. First-Pass Failure: Parent Issue Creation
-- Create a single, dedicated parent GitHub issue titled: `[Spec Review] <Feature Name>`.
+- Create a single, dedicated parent GitHub issue titled: `Spec Review: <Feature Name>`.
 - Populate the description field with the complete aggregated breakdown of Spec and Standards findings.
 - Natively link or cross-reference this new tracking issue to the original project Specification issue.
 
@@ -103,11 +103,11 @@ You are strictly prohibited from performing immediate, "in-flight" file edits to
 Because the `/to-tickets` skill is explicitly locked to `allow_implicit_invocation: false`, you cannot execute the slicing step yourself. You MUST halt operations and present a clear **Human Action Block** instructing the user to run the tool manually.
 - **Required Terminal Output Template:**
   > ⚠️ **Spec Review Failed with [X] Findings.**
-  > I have created the parent tracking issue: **`[Spec Review] <Feature Name> #<Issue_ID>`**.
+  > I have created the parent tracking issue: **`Spec Review: <Feature Name> #<Issue_ID>`**.
   > 
   > Please run the following command to slice these findings into tracked child tickets:
   > ```
-  > $to-tickets [Spec Review] <Feature Name> #<Issue_ID>
+  > $to-tickets Spec Review: <Feature Name> #<Issue_ID>
   > ```
 
 ### 3. Handling Recursive Passes & Secondary Findings

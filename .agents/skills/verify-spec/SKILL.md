@@ -33,6 +33,19 @@ Validate the entire project repository as a unified system to catch cross-module
 
 ---
 
+## Code Quality & Suppression Guardrails
+
+You must preserve the integrity of the project's formatting metrics. You are strictly forbidden from hiding or bypassing linting standards to make a ticket pass verification checks.
+
+### Core Constraint
+**Never generate, execute, or commit automated rule suppressions.** 
+You are explicitly prohibited from running commands like `ruff check . --select E501 --add-noqa` (or any equivalent variant) to inject `# noqa: E501` comments into the codebase. 
+
+### Compliance Rules
+1. **No Automation Cheating:** Long lines must be broken up manually using Python's native syntactic elements (e.g., implicit string concatenation inside parentheses, wrapping data structures, or breaking logical blocks).
+2. **Reject Inline Overrides:** If a ticket implementation generates lines exceeding the project's max-character limit, you must refactor the layout of the code until `ruff check .` passes naturally. 
+3. **Escalation Exception:** The only acceptable way to change line-length constraints is by modifying the project's global `pyproject.toml` or `ruff.toml` file—and this requires explicit, manual human authorization before execution.
+
 ## Execution Steps
 
 Execute these macro validation steps in order.

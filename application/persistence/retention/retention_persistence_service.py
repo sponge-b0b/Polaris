@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import cast
 
 from core.storage.persistence.lineage import (
     JsonObject,
@@ -18,6 +19,13 @@ from core.storage.persistence.retention import (
     PersistenceRetentionPlanResult,
     PersistenceRetentionPolicyRecord,
     new_persistence_archive_marker_id,
+)
+from domain.authority import (
+    RISK_AUTHORITY_METADATA_KEY,
+    RiskAuthorityContract,
+    RiskTier,
+    SourceOfTruthCategory,
+    validate_risk_authority_metadata,
 )
 
 
@@ -257,21 +265,170 @@ def _retention_plan_candidate(
     reason: str,
     retention_period: PersistenceRetentionPeriod | None = None,
 ) -> PersistenceRetentionPlanCandidate:
-    metadata = (
+    authority_assessment = _assess_candidate_authority_metadata(
+        candidate,
+    )
+    planned_action = action
+    planned_reason = reason
+    if authority_assessment.action_override is not None:
+        planned_action = authority_assessment.action_override
+        planned_reason = authority_assessment.reason_override or planned_reason
+    elif _canonical_authority_blocks_delete(
+        action=planned_action,
+        contract=authority_assessment.contract,
+    ):
+        planned_action = PersistenceRetentionPlanAction.RETAIN
+        planned_reason = (
+            "Candidate exceeds retention period, but canonical risk authority "
+            "metadata blocks deletion without archive-before-delete policy."
+        )
+
+    metadata: dict[str, JsonValue] = (
         {
             "retention_period_days": retention_period.days,
         }
         if retention_period is not None
         else {}
     )
+    metadata.update(
+        authority_assessment.metadata,
+    )
     return PersistenceRetentionPlanCandidate(
         candidate=candidate,
         policy=policy,
-        action=action,
-        reason=reason,
+        action=planned_action,
+        reason=planned_reason,
         dry_run=True,
         metadata=metadata,
     )
+
+
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class _RetentionAuthorityAssessment:
+    contract: RiskAuthorityContract | None = None
+    action_override: PersistenceRetentionPlanAction | None = None
+    reason_override: str | None = None
+    metadata: JsonObject = field(default_factory=dict)
+
+
+def _assess_candidate_authority_metadata(
+    candidate: PersistenceRetentionCandidateRecord,
+) -> _RetentionAuthorityAssessment:
+    raw_authority_metadata = candidate.metadata.get(
+        RISK_AUTHORITY_METADATA_KEY,
+    )
+    if raw_authority_metadata is None:
+        return _RetentionAuthorityAssessment()
+
+    try:
+        validation = validate_risk_authority_metadata(
+            raw_authority_metadata,
+        )
+    except ValueError as exc:
+        return _RetentionAuthorityAssessment(
+            action_override=PersistenceRetentionPlanAction.SKIP,
+            reason_override=(
+                "Retention skipped because canonical risk authority metadata "
+                "is malformed."
+            ),
+            metadata={
+                "risk_authority_metadata_status": "malformed",
+                "risk_authority_metadata_error": str(
+                    exc,
+                ),
+            },
+        )
+
+    contract = validation.contract
+    if not validation.platform_consistent:
+        return _RetentionAuthorityAssessment(
+            contract=contract,
+            action_override=PersistenceRetentionPlanAction.SKIP,
+            reason_override=(
+                "Retention skipped because canonical risk authority metadata "
+                "does not match the platform classifier."
+            ),
+            metadata={
+                **_authority_contract_metadata(
+                    contract,
+                    status="inconsistent",
+                ),
+                "expected_risk_authority_risk_tier": (
+                    validation.expected_contract.risk_tier.value
+                ),
+                "expected_risk_authority_gate_profile": (
+                    validation.expected_contract.gate_profile.value
+                ),
+            },
+        )
+
+    if validation.selected_profile.prohibits_boundary:
+        return _RetentionAuthorityAssessment(
+            contract=contract,
+            action_override=PersistenceRetentionPlanAction.SKIP,
+            reason_override=(
+                "Retention skipped because canonical risk authority metadata "
+                "marks the candidate as Prohibited / Outside Authority."
+            ),
+            metadata=_authority_contract_metadata(
+                contract,
+                status="prohibited_outside_authority",
+            ),
+        )
+
+    return _RetentionAuthorityAssessment(
+        contract=contract,
+        metadata=_authority_contract_metadata(
+            contract,
+            status="valid",
+        ),
+    )
+
+
+def _canonical_authority_blocks_delete(
+    *,
+    action: PersistenceRetentionPlanAction,
+    contract: RiskAuthorityContract | None,
+) -> bool:
+    if action is not PersistenceRetentionPlanAction.DELETE or contract is None:
+        return False
+    return (
+        contract.risk_tier is RiskTier.VIGILANT
+        or contract.durable_authority
+        or contract.source_of_truth is SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    )
+
+
+def _authority_contract_metadata(
+    contract: RiskAuthorityContract,
+    *,
+    status: str,
+) -> JsonObject:
+    profile = validate_risk_authority_metadata(
+        contract,
+    ).selected_profile
+    return {
+        "risk_authority_metadata_status": status,
+        "risk_authority": cast(
+            JsonValue,
+            contract.to_metadata(),
+        ),
+        "risk_authority_risk_tier": contract.risk_tier.value,
+        "risk_authority_canonical_owner": contract.canonical_owner.value,
+        "risk_authority_source_of_truth": contract.source_of_truth.value,
+        "risk_authority_intended_sink": contract.intended_sink.value,
+        "risk_authority_gate_profile": contract.gate_profile.value,
+        "risk_authority_requires_provenance_evidence": (
+            profile.requires_provenance_evidence
+        ),
+        "risk_authority_requires_decision_evidence": (
+            profile.requires_decision_evidence
+        ),
+        "risk_authority_prohibits_boundary": profile.prohibits_boundary,
+    }
 
 
 def _normalize_domains(

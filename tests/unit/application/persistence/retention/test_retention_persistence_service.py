@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 
@@ -9,6 +10,7 @@ from application.persistence.retention import (
     RetentionPersistenceService,
     RetentionPlanningFilters,
 )
+from core.storage.persistence.lineage import JsonObject, JsonValue
 from core.storage.persistence.retention import (
     PersistenceRetentionCandidateRecord,
     PersistenceRetentionPeriod,
@@ -16,6 +18,8 @@ from core.storage.persistence.retention import (
     PersistenceRetentionPolicyRecord,
     new_persistence_retention_policy_id,
 )
+from domain.authority import RISK_AUTHORITY_METADATA_KEY, RiskTier
+from tests.helpers.risk_authority_examples import authority_metadata_for_tier
 
 
 @pytest.mark.asyncio
@@ -105,6 +109,164 @@ async def test_retention_planning_retains_recent_and_unconfigured_candidates() -
     )
     assert result.retained_candidates[1].reason == (
         "No retention policy exists for candidate domain."
+    )
+
+
+@pytest.mark.asyncio
+async def test_retention_planning_deletes_expired_baseline_internal_evidence() -> None:
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="runtime_events",
+                days=7,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="runtime_events",
+                record_id="runtime-1",
+                age_days=30,
+                risk_tier=RiskTier.BASELINE,
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert len(result.delete_candidates) == 1
+    decision = result.delete_candidates[0]
+    assert decision.action is PersistenceRetentionPlanAction.DELETE
+    assert decision.metadata["risk_authority_metadata_status"] == "valid"
+    assert decision.metadata["risk_authority_risk_tier"] == "baseline"
+    assert decision.metadata["risk_authority_source_of_truth"] == "runtime_evidence"
+    assert decision.metadata["risk_authority_intended_sink"] == (
+        "internal_runtime_evidence"
+    )
+    assert decision.metadata["risk_authority_gate_profile"] == "baseline_internal"
+
+
+@pytest.mark.asyncio
+async def test_retention_planning_retains_vigilant_records_without_archive_policy() -> (
+    None
+):
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="recommendations",
+                days=7,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="recommendations",
+                record_id="recommendation-1",
+                age_days=30,
+                risk_tier=RiskTier.VIGILANT,
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert not result.delete_candidates
+    assert len(result.retained_candidates) == 1
+    decision = result.retained_candidates[0]
+    assert decision.action is PersistenceRetentionPlanAction.RETAIN
+    assert decision.metadata["risk_authority_metadata_status"] == "valid"
+    assert decision.metadata["risk_authority_risk_tier"] == "vigilant"
+    assert decision.metadata["risk_authority_source_of_truth"] == (
+        "canonical_domain_record"
+    )
+    assert decision.metadata["risk_authority_canonical_owner"] == (
+        "recommendation_service"
+    )
+    assert decision.metadata["risk_authority_gate_profile"] == (
+        "vigilant_decision_evidence"
+    )
+    assert decision.reason == (
+        "Candidate exceeds retention period, but canonical risk authority "
+        "metadata blocks deletion without archive-before-delete policy."
+    )
+
+
+@pytest.mark.asyncio
+async def test_retention_planning_skips_prohibited_outside_authority_metadata() -> None:
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="tool_responses",
+                days=7,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="tool_responses",
+                record_id="tool-response-1",
+                age_days=30,
+                risk_tier=RiskTier.PROHIBITED_OUTSIDE_AUTHORITY,
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert not result.delete_candidates
+    assert len(result.skipped_candidates) == 1
+    decision = result.skipped_candidates[0]
+    assert decision.action is PersistenceRetentionPlanAction.SKIP
+    assert decision.metadata["risk_authority_metadata_status"] == (
+        "prohibited_outside_authority"
+    )
+    assert decision.metadata["risk_authority_risk_tier"] == (
+        "prohibited_outside_authority"
+    )
+    assert decision.metadata["risk_authority_gate_profile"] == "prohibited_boundary"
+    assert decision.reason == (
+        "Retention skipped because canonical risk authority metadata marks "
+        "the candidate as Prohibited / Outside Authority."
+    )
+
+
+@pytest.mark.asyncio
+async def test_retention_planning_skips_malformed_authority_metadata() -> None:
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="reports",
+                days=7,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="reports",
+                record_id="report-malformed",
+                age_days=30,
+                metadata={RISK_AUTHORITY_METADATA_KEY: "enhanced"},
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert not result.delete_candidates
+    assert len(result.skipped_candidates) == 1
+    decision = result.skipped_candidates[0]
+    assert decision.action is PersistenceRetentionPlanAction.SKIP
+    assert decision.metadata["risk_authority_metadata_status"] == "malformed"
+    assert "risk_authority must be a metadata object" in str(
+        decision.metadata["risk_authority_metadata_error"]
     )
 
 
@@ -331,7 +493,17 @@ def _candidate(
     domain: str,
     record_id: str,
     age_days: int,
+    risk_tier: RiskTier | None = None,
+    metadata: JsonObject | None = None,
 ) -> PersistenceRetentionCandidateRecord:
+    candidate_metadata: dict[str, JsonValue] = dict(metadata or {})
+    if risk_tier is not None:
+        candidate_metadata[RISK_AUTHORITY_METADATA_KEY] = cast(
+            JsonValue,
+            authority_metadata_for_tier(
+                risk_tier,
+            ),
+        )
     return PersistenceRetentionCandidateRecord(
         domain=domain,
         record_id=record_id,
@@ -340,6 +512,7 @@ def _candidate(
             days=age_days,
         ),
         record_type=domain.rstrip("s"),
+        metadata=candidate_metadata,
     )
 
 

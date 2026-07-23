@@ -35,7 +35,7 @@ Validate the entire project repository as a unified system to catch cross-module
 
 ## Execution Steps
 
-Execute these macro validation steps in order. Stop immediately if any step reports a failure.
+Execute these macro validation steps in order.
 
 ### Step 1: Global Repository Linting & Layout Audit
 Verify that the entire repository—including untouched modules and newly integrated configurations—perfectly satisfies project layout standards. Do not pass file subsets:
@@ -85,6 +85,38 @@ Before approving any specification that introduces a new module, helper function
 3. **Enforce Single Source of Truth:** 
    - **Fail Verification** if the specification proposes building a component that mirrors logic already present in the codebase.
    - **Require Revision** to force the specification to modify, reuse, or inherit from the existing canonical interface instead of creating a parallel implementation.
+
+## Verification Reporting & Remediation Check
+
+If any step in the macro validation pipeline fails, you must compile an aggregated, highly actionable failure and remediation report. 
+
+### Core Constraint
+You are strictly forbidden from simply outputting raw stack traces or ending the execution loop on the first tool crash. You must gather the failures across all verification steps, synthesize the underlying core issues, and provide direct, actionable steps to fix them.
+
+### Reporting Criteria
+For any errors detected by `ruff`, `mypy`, `pytest`, `graphify`, or `/duplication-checks`, your final response must contain a structured **Verification Failure Summary** using the following breakdown:
+
+1. **Aggregated Failure Inventory:** Group errors logically by the tool that caught them (e.g., Syntax/Formatting, Type Drift, Regression Failures, Architectural Drift, or Duplication Clones).
+2. **Root Cause Analysis:** A brief, clear synthesis explaining *why* these failures occurred (e.g., a shared helper signature changed, breaking down-stream typing contract blocks).
+3. **Remediation Roadmap:** A step-by-step, actionable checklist providing the exact file paths, lines of code, or command blocks the developer needs to modify to achieve a passing verification state.
+
+### Example Interaction Fragment
+
+**Agent Response (Post-Tool Failure):**
+*"❌ **Specification Verification Failed.** The macro validation pipeline caught multiple cross-module integration issues. Below is the failure summary and a remediation roadmap to resolve them:
+
+### 1. Failure Inventory
+- **Type Drift (mypy):** `titan/agents/routing.py:42` — `Invalid return type (expected Dict, got Option)`
+- **Regression Failures (pytest):** `tests/core/strategy/test_pipeline.py:118` — `AssertionError: Expected metric value 0.95, got 0.88`
+- **Duplication Clone (/duplication-checks):** `jscpd` flagged an 85% token match between your new `utils/math_helpers.py` and the existing `titan/math/calculators.py`.
+
+### 2. Root Cause Analysis
+The model changes introduced in your specification altered the payload contract inside `routing.py`. This caused typing drift down the pipeline, which directly caused the strategy integration test to fail due to miscalculated metrics. Furthermore, the new math utility functions replicate existing codebase infrastructure.
+
+### 3. Remediation Roadmap
+- [ ] **Fix Typing:** Modify line 42 of `titan/agents/routing.py` to cleanly unpack the `Option` block before passing it down the stream.
+- [ ] **Consolidate Code:** Delete `utils/math_helpers.py` entirely and refactor your new component to import the canonical wrappers from `titan/math/calculators.py`.
+- [ ] **Re-verify:** Once these adjustments are complete, re-run `/verify-spec` to confirm the regression suite passes."*
 
 ## Examples
 

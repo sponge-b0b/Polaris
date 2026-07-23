@@ -41,3 +41,8 @@ npx jscpd .
 ### Example 1: Pre-Refactor Analysis Trigger
 **User:** "I want to extract some utility functions for formatting these metrics before writing the plan."
 **Agent Response:** *"I am triggering the duplication-checks skill via Pylint and jscpd to verify if equivalent metrics layout logic already exists in the codebase before we design a new helper module."*
+**Agent Execution:**
+```bash
+pylint --disable=all --enable=duplicate-code --recursive=y .
+npx jscpd .
+```

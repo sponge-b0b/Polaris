@@ -124,3 +124,98 @@ def test_missing_gate_evidence_fails_closed_for_enhanced_and_vigilant_outputs(
     assert decision.failure_mode is failure_mode
     assert decision.evidence == RiskAuthorityGateEvidence()
     assert decision.message
+
+
+@pytest.mark.parametrize(
+    ("expected_metadata", "expected_tier", "expected_gate_profile"),
+    [
+        (
+            _metadata(rag_answer_authority_input()),
+            RiskTier.ENHANCED,
+            GateProfile.ENHANCED_PROVENANCE,
+        ),
+        (
+            _metadata(strategy_synthesis_authority_input()),
+            RiskTier.VIGILANT,
+            GateProfile.VIGILANT_DECISION_EVIDENCE,
+        ),
+        (
+            _metadata(outside_authority_tool_response_input()),
+            RiskTier.PROHIBITED_OUTSIDE_AUTHORITY,
+            GateProfile.PROHIBITED_BOUNDARY,
+        ),
+    ],
+)
+def test_missing_authority_metadata_fails_with_expected_non_baseline_gate(
+    expected_metadata: dict[str, object],
+    expected_tier: RiskTier,
+    expected_gate_profile: GateProfile,
+) -> None:
+    decision = select_risk_authority_gate(
+        None,
+        expected_authority_metadata=expected_metadata,
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert decision.failure_mode is RiskAuthorityGateFailureMode.METADATA_MISSING
+    assert decision.risk_tier is expected_tier
+    assert decision.gate_profile is expected_gate_profile
+    assert decision.expected_risk_tier is expected_tier
+    assert decision.expected_gate_profile is expected_gate_profile
+    assert decision.authority_metadata is None
+
+
+@pytest.mark.parametrize(
+    ("expected_metadata", "expected_tier", "expected_gate_profile"),
+    [
+        (
+            _metadata(rag_answer_authority_input()),
+            RiskTier.ENHANCED,
+            GateProfile.ENHANCED_PROVENANCE,
+        ),
+        (
+            _metadata(strategy_synthesis_authority_input()),
+            RiskTier.VIGILANT,
+            GateProfile.VIGILANT_DECISION_EVIDENCE,
+        ),
+        (
+            _metadata(outside_authority_tool_response_input()),
+            RiskTier.PROHIBITED_OUTSIDE_AUTHORITY,
+            GateProfile.PROHIBITED_BOUNDARY,
+        ),
+    ],
+)
+def test_malformed_authority_metadata_fails_with_expected_non_baseline_gate(
+    expected_metadata: dict[str, object],
+    expected_tier: RiskTier,
+    expected_gate_profile: GateProfile,
+) -> None:
+    decision = select_risk_authority_gate(
+        {"risk_tier": expected_tier.value},
+        expected_authority_metadata=expected_metadata,
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert decision.failure_mode is RiskAuthorityGateFailureMode.METADATA_MALFORMED
+    assert decision.risk_tier is expected_tier
+    assert decision.gate_profile is expected_gate_profile
+    assert decision.expected_risk_tier is expected_tier
+    assert decision.expected_gate_profile is expected_gate_profile
+    assert decision.authority_metadata == {"risk_tier": expected_tier.value}
+
+
+def test_missing_authority_metadata_passes_only_for_baseline_internal() -> None:
+    expected_metadata = _metadata(runtime_evidence_authority_input())
+
+    decision = select_risk_authority_gate(
+        None,
+        expected_authority_metadata=expected_metadata,
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.PASSED
+    assert decision.failure_mode is RiskAuthorityGateFailureMode.NONE
+    assert decision.risk_tier is RiskTier.BASELINE
+    assert decision.gate_profile is GateProfile.BASELINE_INTERNAL
+    assert decision.expected_risk_tier is RiskTier.BASELINE
+    assert decision.expected_gate_profile is GateProfile.BASELINE_INTERNAL
+    assert decision.authority_metadata is None

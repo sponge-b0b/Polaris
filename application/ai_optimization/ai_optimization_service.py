@@ -15,6 +15,8 @@ from application.ai_optimization.contracts import (
 from application.evaluations import (
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
+    authority_gate_evidence_for_evaluation_cases,
+    expected_authority_metadata_for_evaluation_target,
 )
 from core.storage.persistence.ai_artifacts import (
     AiArtifactApprovalStatus,
@@ -95,16 +97,26 @@ class AiOptimizationService:
             )
         )
         evaluation_cases = _candidate_evaluation_cases(cases, provider_result)
+        evaluation_run_id = f"{request.optimization_id}-evaluation"
+        evaluation_target_type = evaluation_target_type_for_optimization(target)
         evaluation_result = await self.evaluation_runner.run_evaluation(
             EvaluationRunServiceRequest(
-                run_id=f"{request.optimization_id}-evaluation",
-                target_type=evaluation_target_type_for_optimization(target),
+                run_id=evaluation_run_id,
+                target_type=evaluation_target_type,
                 cases=evaluation_cases,
                 metrics=request.metrics,
                 evaluator_provider=request.evaluator_provider,
                 evaluator_model=request.evaluator_model,
                 dataset=dataset_reference,
                 timeout_seconds=request.timeout_seconds,
+                authority_metadata=expected_authority_metadata_for_evaluation_target(
+                    evaluation_target_type,
+                ),
+                authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                    evaluation_target_type,
+                    evaluation_cases,
+                    run_id=evaluation_run_id,
+                ),
             )
         )
         if evaluation_result.run.status is EvaluationStatus.ERRORED:

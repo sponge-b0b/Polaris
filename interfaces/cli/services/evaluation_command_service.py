@@ -14,8 +14,10 @@ from application.evaluations import (
     EvaluationResultBundle,
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
+    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_definitions,
+    expected_authority_metadata_for_evaluation_target,
     intelligence_evaluation_metric_specs,
     rag_evaluation_metric_specs,
 )
@@ -348,15 +350,27 @@ class EvaluationCommandService:
                 message="No evaluation metrics are defined for this target type.",
                 error=f"No metrics found for target type {target_type.value}.",
             )
+        run_id = _new_evaluation_run_id()
+        evaluation_cases = tuple(
+            _case_record_to_domain(case, dataset) for case in cases
+        )
         request = EvaluationRunServiceRequest(
-            run_id=_new_evaluation_run_id(),
+            run_id=run_id,
             target_type=target_type,
-            cases=tuple(_case_record_to_domain(case, dataset) for case in cases),
+            cases=evaluation_cases,
             metrics=metrics,
             evaluator_provider=settings.DEEPEVAL_JUDGE_PROVIDER or "",
             evaluator_model=settings.DEEPEVAL_JUDGE_MODEL or "",
             dataset=dataset,
             timeout_seconds=settings.DEEPEVAL_TIMEOUT_SECONDS,
+            authority_metadata=expected_authority_metadata_for_evaluation_target(
+                target_type,
+            ),
+            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                target_type,
+                evaluation_cases,
+                run_id=run_id,
+            ),
         )
         try:
             async with self._run_service_context() as run_service:

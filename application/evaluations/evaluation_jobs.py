@@ -14,6 +14,8 @@ from application.evaluations.evaluation_result_service import EvaluationResultSe
 from application.evaluations.evaluation_run_service import (
     EvaluationRunScoreProjectionService,
     EvaluationRunService,
+    authority_gate_evidence_for_evaluation_cases,
+    expected_authority_metadata_for_evaluation_target,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.rag_evaluation_metrics import (
@@ -205,11 +207,12 @@ class EvaluationJobProcessor:
         _validate_case_target(job_type, case.target_type)
         metrics = _metric_specs_for_job(job_type, request.include_custom_rag_metrics)
         run_id = request.run_id or f"evaluation_run_{request.job_id}"
+        cases = (case,)
         result = await self.run_service.run_evaluation(
             EvaluationRunServiceRequest(
                 run_id=run_id,
                 target_type=case.target_type,
-                cases=(case,),
+                cases=cases,
                 metrics=metrics,
                 evaluator_provider=_required(
                     request.evaluator_provider,
@@ -218,6 +221,14 @@ class EvaluationJobProcessor:
                 evaluator_model=_required(request.evaluator_model, "evaluator_model"),
                 dataset=case.dataset,
                 timeout_seconds=request.timeout_seconds,
+                authority_metadata=expected_authority_metadata_for_evaluation_target(
+                    case.target_type,
+                ),
+                authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                    case.target_type,
+                    cases,
+                    run_id=run_id,
+                ),
             )
         )
         projection_result = result.langfuse_projection_result

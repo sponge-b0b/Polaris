@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from domain.authority import (
     GateProfile,
+    IntendedSink,
     RiskAuthorityContract,
     RiskTier,
     validate_risk_authority_metadata,
@@ -110,21 +111,18 @@ def select_risk_authority_gate(
     authority_metadata: Mapping[str, object] | RiskAuthorityContract | None,
     *,
     evidence: RiskAuthorityGateEvidence | None = None,
+    expected_authority_metadata: Mapping[str, object] | RiskAuthorityContract | None = (
+        None
+    ),
 ) -> RiskAuthorityGateDecision:
     """Select and enforce the readiness gate profile from canonical metadata."""
 
     gate_evidence = evidence or RiskAuthorityGateEvidence()
+    expected_contract = _expected_contract(expected_authority_metadata)
     if authority_metadata is None:
-        return RiskAuthorityGateDecision(
-            status=RiskAuthorityGateDecisionStatus.FAILED,
-            failure_mode=RiskAuthorityGateFailureMode.METADATA_MISSING,
-            message=(
-                "Risk authority metadata is required before selecting a gate profile."
-            ),
-            risk_tier=None,
-            gate_profile=None,
-            authority_metadata=None,
-            evidence=gate_evidence,
+        return _missing_metadata_decision(
+            gate_evidence,
+            expected_contract=expected_contract,
         )
 
     try:
@@ -134,10 +132,20 @@ def select_risk_authority_gate(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.METADATA_MALFORMED,
             message=f"Risk authority metadata is malformed: {exc}",
-            risk_tier=None,
-            gate_profile=None,
+            risk_tier=(
+                None if expected_contract is None else expected_contract.risk_tier
+            ),
+            gate_profile=None
+            if expected_contract is None
+            else expected_contract.gate_profile,
             authority_metadata=_metadata_copy(authority_metadata),
             evidence=gate_evidence,
+            expected_risk_tier=None
+            if expected_contract is None
+            else expected_contract.risk_tier,
+            expected_gate_profile=None
+            if expected_contract is None
+            else expected_contract.gate_profile,
         )
 
     contract = validation.contract
@@ -213,6 +221,60 @@ def select_risk_authority_gate(
         evidence=gate_evidence,
         expected_risk_tier=expected_contract.risk_tier,
         expected_gate_profile=expected_contract.gate_profile,
+    )
+
+
+def _expected_contract(
+    expected_authority_metadata: Mapping[str, object] | RiskAuthorityContract | None,
+) -> RiskAuthorityContract | None:
+    if expected_authority_metadata is None:
+        return None
+    return validate_risk_authority_metadata(
+        expected_authority_metadata,
+    ).expected_contract
+
+
+def _missing_metadata_decision(
+    gate_evidence: RiskAuthorityGateEvidence,
+    *,
+    expected_contract: RiskAuthorityContract | None,
+) -> RiskAuthorityGateDecision:
+    if (
+        expected_contract is not None
+        and expected_contract.risk_tier is RiskTier.BASELINE
+        and expected_contract.intended_sink is IntendedSink.INTERNAL_RUNTIME_EVIDENCE
+    ):
+        return RiskAuthorityGateDecision(
+            status=RiskAuthorityGateDecisionStatus.PASSED,
+            failure_mode=RiskAuthorityGateFailureMode.NONE,
+            message=(
+                "Missing risk authority metadata is accepted only for explicit "
+                "Baseline internal runtime evidence."
+            ),
+            risk_tier=expected_contract.risk_tier,
+            gate_profile=expected_contract.gate_profile,
+            authority_metadata=None,
+            evidence=gate_evidence,
+            expected_risk_tier=expected_contract.risk_tier,
+            expected_gate_profile=expected_contract.gate_profile,
+        )
+
+    return RiskAuthorityGateDecision(
+        status=RiskAuthorityGateDecisionStatus.FAILED,
+        failure_mode=RiskAuthorityGateFailureMode.METADATA_MISSING,
+        message="Risk authority metadata is required before selecting a gate profile.",
+        risk_tier=None if expected_contract is None else expected_contract.risk_tier,
+        gate_profile=(
+            None if expected_contract is None else expected_contract.gate_profile
+        ),
+        authority_metadata=None,
+        evidence=gate_evidence,
+        expected_risk_tier=(
+            None if expected_contract is None else expected_contract.risk_tier
+        ),
+        expected_gate_profile=None
+        if expected_contract is None
+        else expected_contract.gate_profile,
     )
 
 

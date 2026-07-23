@@ -41,7 +41,11 @@ from application.evaluations.evaluation_langfuse_projection_service import (
     EvaluationLangfuseProjectionService,
 )
 from application.evaluations.evaluation_result_service import EvaluationResultService
-from application.evaluations.evaluation_run_service import EvaluationRunService
+from application.evaluations.evaluation_run_service import (
+    EvaluationRunService,
+    authority_gate_evidence_for_evaluation_cases,
+    expected_authority_metadata_for_evaluation_target,
+)
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.model_replacement_gate import (
     MODEL_REPLACEMENT_DATASET_SLICE_NAME,
@@ -110,6 +114,8 @@ __all__ = [
     "EvaluationResultService",
     "EvaluationTelemetry",
     "EvaluationRunService",
+    "authority_gate_evidence_for_evaluation_cases",
+    "expected_authority_metadata_for_evaluation_target",
     "EvaluationRunServiceRequest",
     "EvaluationRunServiceResult",
     "RiskAuthorityGateDecision",

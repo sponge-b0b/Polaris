@@ -36,9 +36,11 @@ from domain.authority import (
     AiOutputContentType,
     AuthorityEffect,
     CanonicalOwner,
+    GateProfile,
     IntendedSink,
     RiskAuthorityClassificationInput,
     RiskAuthorityClassifier,
+    RiskTier,
     SourceOfTruthCategory,
 )
 from domain.evaluation import (
@@ -262,6 +264,10 @@ def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
     )
 
 
+def _risk_gate_evidence_for_rag_answer() -> RiskAuthorityGateEvidence:
+    return RiskAuthorityGateEvidence(provenance_record_ids=("case-1",))
+
+
 def _metric() -> EvaluationMetricSpec:
     return EvaluationMetricSpec(
         metric_name="faithfulness",
@@ -309,6 +315,8 @@ async def test_run_service_persists_cases_running_run_and_results() -> None:
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(),
         )
     )
 
@@ -320,6 +328,99 @@ async def test_run_service_persists_cases_running_run_and_results() -> None:
     assert repository.cases["case-1"].dataset_id == "dataset-1"
     assert repository.runs["run-1"].status is EvaluationStatus.PASSED
     assert repository.metric_results[0].metric_name == "faithfulness"
+
+
+@pytest.mark.asyncio
+async def test_run_service_fails_closed_on_missing_non_baseline_metadata() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+    projection_service = FakeProjectionService([])
+    service = EvaluationRunService(
+        FakeProvider(),
+        repository,
+        projection_service=projection_service,
+        telemetry=EvaluationTelemetry(observability),
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-missing-authority",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+        )
+    )
+
+    assert result.run.status is EvaluationStatus.ERRORED
+    assert result.authority_gate_decision is not None
+    assert (
+        result.authority_gate_decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    )
+    assert (
+        result.authority_gate_decision.failure_mode
+        is RiskAuthorityGateFailureMode.METADATA_MISSING
+    )
+    assert result.authority_gate_decision.risk_tier is RiskTier.ENHANCED
+    assert (
+        result.authority_gate_decision.gate_profile is GateProfile.ENHANCED_PROVENANCE
+    )
+    assert result.authority_gate_decision.authority_metadata is None
+    assert repository.metric_results == []
+    assert projection_service.requests == []
+    failed_event = sink.events[-1]
+    assert failed_event.attributes["authority_metadata_present"] is False
+    assert failed_event.attributes["authority_failure_mode"] == "metadata_missing"
+    assert failed_event.attributes["authority_gate_profile"] == "enhanced_provenance"
+    assert failed_event.payload["authority_gate"]["selected_profile"] == (
+        "enhanced_provenance"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_service_accepts_missing_metadata_for_baseline_target() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "retrieval", "v1")
+    service = EvaluationRunService(
+        FakeProvider(), repository, FakeProjectionService([])
+    )
+    case = EvaluationCase(
+        case_id="case-1",
+        target_type=EvaluationTargetType.RAG_RETRIEVAL,
+        input_text="Question?",
+        actual_output="Retrieved passage.",
+        dataset=dataset,
+        rubric="Retrieval evidence must be relevant.",
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-baseline-internal",
+            target_type=EvaluationTargetType.RAG_RETRIEVAL,
+            cases=(case,),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+        )
+    )
+
+    assert result.run.status is EvaluationStatus.PASSED
+    assert result.authority_gate_decision is not None
+    assert (
+        result.authority_gate_decision.status is RiskAuthorityGateDecisionStatus.PASSED
+    )
+    assert (
+        result.authority_gate_decision.failure_mode is RiskAuthorityGateFailureMode.NONE
+    )
+    assert result.authority_gate_decision.risk_tier is RiskTier.BASELINE
+    assert result.authority_gate_decision.gate_profile is GateProfile.BASELINE_INTERNAL
+    assert result.authority_gate_decision.authority_metadata is None
 
 
 @pytest.mark.asyncio
@@ -415,6 +516,8 @@ async def test_run_service_records_evaluation_observability() -> None:
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(),
         )
     )
 
@@ -504,6 +607,8 @@ async def test_run_service_persists_errored_run_when_provider_fails() -> None:
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(),
         )
     )
 
@@ -554,6 +659,8 @@ async def test_run_service_projects_persisted_results_to_langfuse() -> None:
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(),
         )
     )
 
@@ -591,6 +698,8 @@ async def test_run_service_preserves_persistence_when_langfuse_projection_fails(
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(),
         )
     )
 

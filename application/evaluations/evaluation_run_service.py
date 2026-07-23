@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import perf_counter
@@ -19,6 +20,7 @@ from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.risk_authority_gate import (
     RiskAuthorityGateDecision,
     RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
     select_risk_authority_gate,
 )
 from core.storage.persistence.evaluation import (
@@ -30,7 +32,21 @@ from core.storage.persistence.evaluation import (
     EvaluationPersistenceResult,
     EvaluationRunRecord,
 )
-from domain.evaluation import EvaluationRun, EvaluationStatus
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
+from domain.evaluation import (
+    EvaluationCase,
+    EvaluationRun,
+    EvaluationStatus,
+    EvaluationTargetType,
+)
 from integration.providers.llm_evaluation import (
     EvaluationProvider,
     EvaluationProviderRequest,
@@ -294,12 +310,129 @@ class EvaluationRunService:
 
 def _select_authority_gate(
     request: EvaluationRunServiceRequest,
-) -> RiskAuthorityGateDecision | None:
-    if request.authority_metadata is None:
-        return None
+) -> RiskAuthorityGateDecision:
     return select_risk_authority_gate(
         request.authority_metadata,
         evidence=request.authority_gate_evidence,
+        expected_authority_metadata=expected_authority_metadata_for_evaluation_target(
+            request.target_type,
+        ),
+    )
+
+
+def expected_authority_metadata_for_evaluation_target(
+    target_type: EvaluationTargetType,
+) -> dict[str, object]:
+    return classify_risk_authority(
+        _authority_classification_input_for_target(target_type),
+    ).to_metadata()
+
+
+def authority_gate_evidence_for_evaluation_cases(
+    target_type: EvaluationTargetType,
+    cases: Sequence[EvaluationCase],
+    *,
+    run_id: str,
+) -> RiskAuthorityGateEvidence:
+    provenance_ids = _provenance_ids_for_evaluation_cases(cases)
+    decision_ids = (
+        (f"evaluation_run:{run_id}",)
+        if target_type
+        in {
+            EvaluationTargetType.STRATEGY_SYNTHESIS,
+            EvaluationTargetType.RECOMMENDATION_EXPLANATION,
+            EvaluationTargetType.MCP_TOOL_RESPONSE,
+        }
+        else ()
+    )
+    return RiskAuthorityGateEvidence(
+        provenance_record_ids=provenance_ids,
+        decision_evidence_ids=decision_ids,
+        evaluation_run_ids=(run_id,),
+    )
+
+
+def _provenance_ids_for_evaluation_cases(
+    cases: Sequence[EvaluationCase],
+) -> tuple[str, ...]:
+    provenance_ids: list[str] = []
+    for case in cases:
+        provenance_ids.extend(case.source_record_ids)
+        provenance_ids.extend(case.citation_context_ids)
+        if case.workflow_execution_id is not None:
+            provenance_ids.append(case.workflow_execution_id)
+        provenance_ids.append(case.case_id)
+    return tuple(dict.fromkeys(provenance_ids))
+
+
+def _authority_classification_input_for_target(
+    target_type: EvaluationTargetType,
+) -> RiskAuthorityClassificationInput:
+    if target_type is EvaluationTargetType.RAG_RETRIEVAL:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RUNTIME_EVIDENCE,
+            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+            canonical_owner=CanonicalOwner.RUNTIME,
+            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
+        )
+    if target_type in {
+        EvaluationTargetType.RAG_ANSWER,
+        EvaluationTargetType.RAG_GENERATION,
+    }:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RAG_ANSWER,
+            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+            canonical_owner=CanonicalOwner.RAG_SERVICE,
+            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+            intended_sink=IntendedSink.RAG_ANSWER,
+            externally_visible=True,
+        )
+    if target_type is EvaluationTargetType.MORNING_REPORT:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.REPORT,
+            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+            canonical_owner=CanonicalOwner.REPORT_SERVICE,
+            source_of_truth=SourceOfTruthCategory.PRESENTATION_OUTPUT,
+            intended_sink=IntendedSink.REPORT,
+            externally_visible=True,
+        )
+    if target_type is EvaluationTargetType.STRATEGY_SYNTHESIS:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.STRATEGY_SYNTHESIS,
+            authority_effect=AuthorityEffect.DETERMINISTIC_PLATFORM_DECISION,
+            canonical_owner=CanonicalOwner.STRATEGY_SERVICE,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+            capital_relevant=True,
+            durable_authority=True,
+        )
+    if target_type is EvaluationTargetType.RECOMMENDATION_EXPLANATION:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RECOMMENDATION_EXPLANATION,
+            authority_effect=AuthorityEffect.ADVISORY_CONTEXT,
+            canonical_owner=CanonicalOwner.RECOMMENDATION_SERVICE,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            intended_sink=IntendedSink.RECOMMENDATION,
+            capital_relevant=True,
+            externally_visible=True,
+        )
+    if target_type is EvaluationTargetType.MCP_TOOL_RESPONSE:
+        return RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.TOOL_RESPONSE,
+            authority_effect=AuthorityEffect.OUTSIDE_AUTHORITY,
+            canonical_owner=CanonicalOwner.APPLICATION_SERVICE,
+            source_of_truth=SourceOfTruthCategory.EXTERNAL_TRANSPORT_PAYLOAD,
+            intended_sink=IntendedSink.MCP_TOOL_RESPONSE,
+            capital_relevant=True,
+            externally_visible=True,
+        )
+    return RiskAuthorityClassificationInput(
+        content_type=AiOutputContentType.RUNTIME_EVIDENCE,
+        authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+        canonical_owner=CanonicalOwner.EVALUATION_SERVICE,
+        source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+        intended_sink=IntendedSink.EVALUATION_GATE,
     )
 
 

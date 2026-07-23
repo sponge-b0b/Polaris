@@ -422,6 +422,10 @@ def _authority_gate_attributes(
         gate_status=decision.status.value,
         failure_mode=decision.failure_mode.value,
     )
+    if decision.risk_tier is not None:
+        attributes.setdefault("authority_risk_tier", decision.risk_tier.value)
+    if decision.gate_profile is not None:
+        attributes.setdefault("authority_gate_profile", decision.gate_profile.value)
     if decision.expected_risk_tier is not None:
         attributes["authority_expected_risk_tier"] = decision.expected_risk_tier.value
     if decision.expected_gate_profile is not None:

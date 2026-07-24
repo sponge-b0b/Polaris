@@ -49,11 +49,13 @@ async def test_retention_planning_reports_archive_and_delete_candidates_without_
                 domain="reports",
                 record_id="report-1",
                 age_days=45,
+                risk_tier=RiskTier.ENHANCED,
             ),
             _candidate(
                 domain="telemetry_events",
                 record_id="event-1",
                 age_days=10,
+                risk_tier=RiskTier.BASELINE,
             ),
         ),
         as_of=as_of,
@@ -271,6 +273,65 @@ async def test_retention_planning_skips_malformed_authority_metadata() -> None:
 
 
 @pytest.mark.asyncio
+async def test_retention_planning_skips_missing_authority_metadata_boundaries() -> None:
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="reports",
+                days=7,
+                archive_before_delete=True,
+                deletion_eligible=True,
+            ),
+            _policy(
+                domain="recommendations",
+                days=7,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="reports",
+                record_id="report-missing-authority",
+                age_days=30,
+            ),
+            _candidate(
+                domain="recommendations",
+                record_id="recommendation-missing-authority",
+                age_days=30,
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert not result.archive_candidates
+    assert not result.delete_candidates
+    assert len(result.skipped_candidates) == 2
+    assert {decision.candidate.record_id for decision in result.skipped_candidates} == {
+        "report-missing-authority",
+        "recommendation-missing-authority",
+    }
+    assert all(
+        decision.action is PersistenceRetentionPlanAction.SKIP
+        for decision in result.skipped_candidates
+    )
+    assert all(
+        decision.metadata["risk_authority_metadata_status"] == "missing"
+        for decision in result.skipped_candidates
+    )
+    assert all(
+        decision.reason
+        == (
+            "Retention skipped because canonical risk authority metadata is "
+            "missing for an archive/delete boundary."
+        )
+        for decision in result.skipped_candidates
+    )
+
+
+@pytest.mark.asyncio
 async def test_retention_planning_skips_disabled_policies_and_future_records() -> None:
     service = RetentionPersistenceService()
 
@@ -409,11 +470,13 @@ async def test_build_archive_markers_from_archive_candidates_only() -> None:
                 domain="reports",
                 record_id="report-1",
                 age_days=45,
+                risk_tier=RiskTier.ENHANCED,
             ),
             _candidate(
                 domain="telemetry_events",
                 record_id="event-1",
                 age_days=10,
+                risk_tier=RiskTier.BASELINE,
             ),
         ),
         as_of=_as_of(),
@@ -432,11 +495,11 @@ async def test_build_archive_markers_from_archive_candidates_only() -> None:
     assert marker.record_type == "report"
     assert marker.policy_id == "persistence_retention_policy:reports"
     assert marker.dry_run is True
-    assert marker.metadata == {
-        "source_action": "archive",
-        "source_plan_dry_run": True,
-        "retention_period_days": 30,
-    }
+    assert marker.metadata["source_action"] == "archive"
+    assert marker.metadata["source_plan_dry_run"] is True
+    assert marker.metadata["retention_period_days"] == 30
+    assert marker.metadata["risk_authority_metadata_status"] == "valid"
+    assert marker.metadata["risk_authority_risk_tier"] == "enhanced"
     assert marker.audit_metadata["marker_type"] == "persistence_archive_marker"
     assert marker.audit_metadata["dry_run"] is True
     assert "event-1" not in json.dumps(

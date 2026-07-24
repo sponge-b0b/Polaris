@@ -273,6 +273,15 @@ def _retention_plan_candidate(
     if authority_assessment.action_override is not None:
         planned_action = authority_assessment.action_override
         planned_reason = authority_assessment.reason_override or planned_reason
+    elif _canonical_authority_metadata_missing_for_boundary(
+        action=planned_action,
+        contract=authority_assessment.contract,
+    ):
+        planned_action = PersistenceRetentionPlanAction.SKIP
+        planned_reason = (
+            "Retention skipped because canonical risk authority metadata is "
+            "missing for an archive/delete boundary."
+        )
     elif _canonical_authority_blocks_delete(
         action=planned_action,
         contract=authority_assessment.contract,
@@ -321,7 +330,11 @@ def _assess_candidate_authority_metadata(
         RISK_AUTHORITY_METADATA_KEY,
     )
     if raw_authority_metadata is None:
-        return _RetentionAuthorityAssessment()
+        return _RetentionAuthorityAssessment(
+            metadata={
+                "risk_authority_metadata_status": "missing",
+            },
+        )
 
     try:
         validation = validate_risk_authority_metadata(
@@ -385,6 +398,17 @@ def _assess_candidate_authority_metadata(
             contract,
             status="valid",
         ),
+    )
+
+
+def _canonical_authority_metadata_missing_for_boundary(
+    *,
+    action: PersistenceRetentionPlanAction,
+    contract: RiskAuthorityContract | None,
+) -> bool:
+    return contract is None and action in (
+        PersistenceRetentionPlanAction.ARCHIVE,
+        PersistenceRetentionPlanAction.DELETE,
     )
 
 

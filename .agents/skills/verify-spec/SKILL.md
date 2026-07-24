@@ -39,7 +39,7 @@ You must preserve the integrity of the project's formatting metrics. You are str
 
 ### Core Constraint
 **Never generate, execute, or commit automated rule suppressions.** 
-You are explicitly prohibited from running commands like `ruff check . --select E501 --add-noqa` (or any equivalent variant) to inject `# noqa: E501` comments into the codebase. 
+You are explicitly prohibited from running commands like `ruff check . --select E501 --add-noqa` (or any equivalent variant like `C901`) to inject `# noqa: E501` or `C901` comments into the codebase. You must never use `--add-noqa` in any form to bypass or suppress project rules. All formatting must be achieved through proper code restructuring and layout adjustments.
 
 ### Compliance Rules
 1. **No Automation Cheating:** Long lines must be broken up manually using Python's native syntactic elements (e.g., implicit string concatenation inside parentheses, wrapping data structures, or breaking logical blocks).

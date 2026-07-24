@@ -6,6 +6,9 @@ Compliance is enforced automatically during CI/CD pipelines via **Ruff** and **M
 
 ---
 
+## 🎯 Scope
+> ⚠️ **Scope Exclusion**: Markdown documents (`*.md`), configuration files, and documentation assets are exempt from these guidelines. These rules apply strictly to Python (`*.py`) source files.
+
 ## 🚀 Automated Quality Controls
 
 Before submitting a Pull Request, you must run the local verification suite. Code that fails these checks will be blocked from merging.
@@ -14,17 +17,17 @@ Before submitting a Pull Request, you must run the local verification suite. Cod
 We use `ruff` to manage code style (replacing Flake8, Black, isort, and bandit).
 ```bash
 # Check for lint errors and auto-fixable issues
-ruff check --fix
+ruff check --glob "*.py" --fix
 
 # Format the codebase
-ruff format
+ruff format --glob "*.py"
 ```
 
 ### 2. Static Type Checking (Mypy)
 We enforce strict, static type hints to eliminate runtime type errors.
 ```bash
 # Verify type consistency
-mypy .
+mypy . --glob "*.py"
 ```
 
 ---

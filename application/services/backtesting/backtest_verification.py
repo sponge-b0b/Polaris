@@ -45,64 +45,117 @@ def verify_backtest_outcomes(
     )
 
 
-def _verification_payload(  # noqa: C901
+def _verification_payload(
     *,
     steps: tuple[BacktestStepResult, ...],
     metrics: BacktestMetrics,
 ) -> dict[str, object]:
     final_step = steps[-1] if steps else None
-    final_node_outputs = dict(final_step.node_outputs) if final_step is not None else {}
+    final_node_outputs = _final_node_outputs(final_step)
     payload: dict[str, object] = {
         "metrics": _metrics_payload(metrics),
         "steps": tuple(_step_payload(step) for step in steps),
         "node_outputs": final_node_outputs,
     }
 
-    if final_step is not None:
-        snapshot = final_step.portfolio_snapshot
-        payload["portfolio"] = {
-            "timestamp": snapshot.timestamp,
-            "cash": snapshot.cash,
-            "equity": snapshot.equity,
-            "market_value": snapshot.market_value,
-            "positions": snapshot.positions,
-        }
+    _append_final_portfolio(payload, final_step)
+    _append_node_alias_payloads(payload, final_node_outputs)
+    _append_technical_breadth(payload)
+    _append_trade_payload(payload, final_node_outputs)
+    _append_execution_risk_payload(payload, final_node_outputs)
+    _append_named_node_payloads(payload, final_node_outputs)
+    return payload
 
+
+def _final_node_outputs(
+    final_step: BacktestStepResult | None,
+) -> dict[str, object]:
+    if final_step is None:
+        return {}
+    return dict(final_step.node_outputs)
+
+
+def _append_final_portfolio(
+    payload: dict[str, object],
+    final_step: BacktestStepResult | None,
+) -> None:
+    if final_step is None:
+        return
+
+    snapshot = final_step.portfolio_snapshot
+    payload["portfolio"] = {
+        "timestamp": snapshot.timestamp,
+        "cash": snapshot.cash,
+        "equity": snapshot.equity,
+        "market_value": snapshot.market_value,
+        "positions": snapshot.positions,
+    }
+
+
+def _append_node_alias_payloads(
+    payload: dict[str, object],
+    final_node_outputs: Mapping[str, object],
+) -> None:
     for alias, node_name in _NODE_ALIASES.items():
         node_payload = _node_payload(final_node_outputs.get(node_name))
         if node_payload is not None:
             payload[alias] = node_payload
 
+
+def _append_technical_breadth(payload: dict[str, object]) -> None:
     technical = payload.get("technical")
-    if isinstance(technical, Mapping):
-        breadth = technical.get("breadth_state", technical.get("breadth"))
-        if breadth is not None:
-            payload["breadth"] = breadth
+    if not isinstance(technical, Mapping):
+        return
 
+    breadth = technical.get("breadth_state", technical.get("breadth"))
+    if breadth is not None:
+        payload["breadth"] = breadth
+
+
+def _append_trade_payload(
+    payload: dict[str, object],
+    final_node_outputs: Mapping[str, object],
+) -> None:
     trade = _node_payload(final_node_outputs.get("trade_packager"))
-    if trade is not None:
-        features = trade.get("features")
-        if isinstance(features, Mapping) and "trade_intent" in features:
-            payload["trade"] = features["trade_intent"]
-            payload["trade_recommendation"] = features["trade_intent"]
-        else:
-            payload["trade"] = trade
-            payload["trade_recommendation"] = trade
+    if trade is None:
+        return
 
+    trade_recommendation = _trade_recommendation_payload(trade)
+    payload["trade"] = trade_recommendation
+    payload["trade_recommendation"] = trade_recommendation
+
+
+def _trade_recommendation_payload(trade: Mapping[str, object]) -> object:
+    features = trade.get("features")
+    if isinstance(features, Mapping) and "trade_intent" in features:
+        return features["trade_intent"]
+    return trade
+
+
+def _append_execution_risk_payload(
+    payload: dict[str, object],
+    final_node_outputs: Mapping[str, object],
+) -> None:
     execution = _node_payload(final_node_outputs.get("execution_risk_guard"))
     if execution is not None:
-        features = execution.get("features")
-        if isinstance(features, Mapping) and "execution_guard" in features:
-            payload["execution_risk"] = features["execution_guard"]
-        else:
-            payload["execution_risk"] = execution
+        payload["execution_risk"] = _execution_risk_payload(execution)
 
+
+def _execution_risk_payload(execution: Mapping[str, object]) -> object:
+    features = execution.get("features")
+    if isinstance(features, Mapping) and "execution_guard" in features:
+        return features["execution_guard"]
+    return execution
+
+
+def _append_named_node_payloads(
+    payload: dict[str, object],
+    final_node_outputs: Mapping[str, object],
+) -> None:
     for node_name, node_output in final_node_outputs.items():
         node_payload = _node_payload(node_output)
         if node_payload is not None:
             payload.setdefault(str(node_name), node_payload)
-
-    return payload
 
 
 def _metrics_payload(metrics: BacktestMetrics) -> dict[str, Decimal]:
@@ -210,50 +263,65 @@ def _resolve_target(
     return current
 
 
-def _matches_expectation(  # noqa: C901
+def _matches_expectation(
     *,
     actual: object,
     outcome: BacktestExpectedOutcome,
 ) -> bool:
     expectation_type = outcome.expectation_type
-    expected = outcome.expected
-
     if expectation_type == "equals":
-        numeric = _numeric_pair(actual, expected)
-        return numeric[0] == numeric[1] if numeric is not None else actual == expected
-
+        return _matches_equals(actual, outcome.expected)
     if expectation_type == "contains":
-        if isinstance(actual, Mapping):
-            return expected in actual
-        if isinstance(actual, Sequence):
-            return expected in actual
-        raise TypeError("contains expectation requires a mapping or sequence")
-
+        return _matches_contains(actual, outcome.expected)
     if expectation_type == "between":
-        if not isinstance(expected, Sequence) or isinstance(
-            expected,
-            (str, bytes, bytearray),
-        ):
-            raise TypeError("between expectation requires a two-value sequence")
-        if len(expected) != 2:
-            raise ValueError("between expectation requires exactly two values")
-        actual_value = _decimal(actual)
-        lower = _decimal(expected[0])
-        upper = _decimal(expected[1])
-        return lower <= actual_value <= upper
+        return _matches_between(actual, outcome.expected)
+    return _matches_numeric_bound(actual=actual, outcome=outcome)
+
+
+def _matches_equals(actual: object, expected: object) -> bool:
+    numeric = _numeric_pair(actual, expected)
+    return numeric[0] == numeric[1] if numeric is not None else actual == expected
+
+
+def _matches_contains(actual: object, expected: object) -> bool:
+    if isinstance(actual, Mapping):
+        return expected in actual
+    if isinstance(actual, Sequence):
+        return expected in actual
+    raise TypeError("contains expectation requires a mapping or sequence")
+
+
+def _matches_between(actual: object, expected: object) -> bool:
+    if not isinstance(expected, Sequence) or isinstance(
+        expected,
+        (str, bytes, bytearray),
+    ):
+        raise TypeError("between expectation requires a two-value sequence")
+    if len(expected) != 2:
+        raise ValueError("between expectation requires exactly two values")
 
     actual_value = _decimal(actual)
-    expected_value = _decimal(expected)
-    if expectation_type == "approx":
+    lower = _decimal(expected[0])
+    upper = _decimal(expected[1])
+    return lower <= actual_value <= upper
+
+
+def _matches_numeric_bound(
+    *,
+    actual: object,
+    outcome: BacktestExpectedOutcome,
+) -> bool:
+    actual_value = _decimal(actual)
+    expected_value = _decimal(outcome.expected)
+    if outcome.expectation_type == "approx":
         if outcome.tolerance is None:
             raise ValueError("approx expectation requires tolerance")
         return abs(actual_value - expected_value) <= outcome.tolerance
-    if expectation_type == "min":
+    if outcome.expectation_type == "min":
         return actual_value >= expected_value
-    if expectation_type == "max":
+    if outcome.expectation_type == "max":
         return actual_value <= expected_value
-
-    raise ValueError(f"unsupported expectation type: {expectation_type}")
+    raise ValueError(f"unsupported expectation type: {outcome.expectation_type}")
 
 
 def _numeric_pair(

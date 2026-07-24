@@ -759,32 +759,30 @@ def _metadata_object_scalar(metadata: JsonObject, key: str) -> JsonValue:
     return None
 
 
-def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:  # noqa: C901
+_PRIMARY_NODE_TYPES_BY_SOURCE_TABLE = {
+    "agent_signals": GraphNodeType.AGENT_SIGNAL,
+    "reports": GraphNodeType.REPORT,
+    "recommendations": GraphNodeType.RECOMMENDATION,
+    "recommendation_rationales": GraphNodeType.RECOMMENDATION,
+    "portfolio_risk_snapshots": GraphNodeType.RISK,
+    "portfolio_allocation_snapshots": GraphNodeType.PORTFOLIO_SNAPSHOT,
+    "backtest_portfolio_snapshots": GraphNodeType.PORTFOLIO_SNAPSHOT,
+    "macro_regime_snapshots": GraphNodeType.MACRO_REGIME,
+    "market_context_snapshots": GraphNodeType.TECHNICAL_REGIME,
+    "technical_analysis_snapshots": GraphNodeType.TECHNICAL_REGIME,
+    "market_breadth_snapshots": GraphNodeType.TECHNICAL_REGIME,
+    "news_analysis_snapshots": GraphNodeType.NEWS_THEME,
+    "sentiment_snapshots": GraphNodeType.SENTIMENT_SNAPSHOT,
+    "strategy_synthesis_decisions": GraphNodeType.STRATEGY,
+    "strategy_hypotheses": GraphNodeType.STRATEGY,
+}
+
+
+def _primary_node_type(document: RagDocumentRecord) -> GraphNodeType:
     table = document.source_table
-    if table == "agent_signals":
-        return GraphNodeType.AGENT_SIGNAL
-    if table == "reports":
-        return GraphNodeType.REPORT
-    if table in {"recommendations", "recommendation_rationales"}:
-        return GraphNodeType.RECOMMENDATION
-    if table == "portfolio_risk_snapshots":
-        return GraphNodeType.RISK
-    if table in {"portfolio_allocation_snapshots", "backtest_portfolio_snapshots"}:
-        return GraphNodeType.PORTFOLIO_SNAPSHOT
-    if table == "macro_regime_snapshots":
-        return GraphNodeType.MACRO_REGIME
-    if table in {
-        "market_context_snapshots",
-        "technical_analysis_snapshots",
-        "market_breadth_snapshots",
-    }:
-        return GraphNodeType.TECHNICAL_REGIME
-    if table == "news_analysis_snapshots":
-        return GraphNodeType.NEWS_THEME
-    if table == "sentiment_snapshots":
-        return GraphNodeType.SENTIMENT_SNAPSHOT
-    if table in {"strategy_synthesis_decisions", "strategy_hypotheses"}:
-        return GraphNodeType.STRATEGY
+    node_type = _PRIMARY_NODE_TYPES_BY_SOURCE_TABLE.get(table)
+    if node_type is not None:
+        return node_type
     if table.startswith("backtest_"):
         return GraphNodeType.STRATEGY
     return GraphNodeType.REPORT

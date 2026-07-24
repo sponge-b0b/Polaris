@@ -475,7 +475,19 @@ def _unit_float(value: object, *, default: float) -> float:
     return min(1.0, max(0.0, numeric))
 
 
-def _perspectives_for_value(  # noqa: C901
+_RISK_ALIGNED_EVIDENCE_IDS = frozenset(
+    {
+        "risk.pressure",
+        "risk.composite",
+        "portfolio.heat",
+        "technical.breadth.risk_pressure",
+        "market_events.pressure",
+        "market_events.volatility",
+    }
+)
+
+
+def _perspectives_for_value(
     *,
     evidence_id: str,
     observed_value: StrategyJsonScalar,
@@ -487,28 +499,47 @@ def _perspectives_for_value(  # noqa: C901
     if not isinstance(observed_value, (int, float)):
         return (), ()
 
-    numeric = float(observed_value)
-    if evidence_id in {
-        "risk.pressure",
-        "risk.composite",
-        "portfolio.heat",
-        "technical.breadth.risk_pressure",
-        "market_events.pressure",
-        "market_events.volatility",
-    }:
-        if numeric >= 0.65:
-            return (StrategyPerspective.BEAR,), (StrategyPerspective.BULL,)
-        if numeric <= 0.35:
-            return (StrategyPerspective.BULL,), (StrategyPerspective.BEAR,)
-        return (StrategyPerspective.SIDEWAYS,), ()
+    return _perspectives_for_numeric(
+        evidence_id=evidence_id,
+        numeric=float(observed_value),
+    )
 
+
+def _perspectives_for_numeric(
+    *,
+    evidence_id: str,
+    numeric: float,
+) -> tuple[tuple[StrategyPerspective, ...], tuple[StrategyPerspective, ...]]:
+    if evidence_id in _RISK_ALIGNED_EVIDENCE_IDS:
+        return _risk_aligned_numeric_perspectives(numeric)
     if evidence_id == "portfolio.scale_factor":
-        if numeric >= 0.75:
-            return (StrategyPerspective.BULL,), ()
-        if numeric <= 0.35:
-            return (StrategyPerspective.BEAR,), (StrategyPerspective.BULL,)
-        return (StrategyPerspective.SIDEWAYS,), ()
+        return _scale_factor_perspectives(numeric)
+    return _directional_numeric_perspectives(numeric)
 
+
+def _risk_aligned_numeric_perspectives(
+    numeric: float,
+) -> tuple[tuple[StrategyPerspective, ...], tuple[StrategyPerspective, ...]]:
+    if numeric >= 0.65:
+        return (StrategyPerspective.BEAR,), (StrategyPerspective.BULL,)
+    if numeric <= 0.35:
+        return (StrategyPerspective.BULL,), (StrategyPerspective.BEAR,)
+    return (StrategyPerspective.SIDEWAYS,), ()
+
+
+def _scale_factor_perspectives(
+    numeric: float,
+) -> tuple[tuple[StrategyPerspective, ...], tuple[StrategyPerspective, ...]]:
+    if numeric >= 0.75:
+        return (StrategyPerspective.BULL,), ()
+    if numeric <= 0.35:
+        return (StrategyPerspective.BEAR,), (StrategyPerspective.BULL,)
+    return (StrategyPerspective.SIDEWAYS,), ()
+
+
+def _directional_numeric_perspectives(
+    numeric: float,
+) -> tuple[tuple[StrategyPerspective, ...], tuple[StrategyPerspective, ...]]:
     if numeric > 0.05:
         return (StrategyPerspective.BULL,), (StrategyPerspective.BEAR,)
     if numeric < -0.05:

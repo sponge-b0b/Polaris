@@ -255,7 +255,7 @@ def render_html_document(
     )
 
 
-def _render_basic_markdown_html(  # noqa: C901
+def _render_basic_markdown_html(
     markdown: str,
 ) -> str:
     lines: list[str] = []
@@ -264,113 +264,106 @@ def _render_basic_markdown_html(  # noqa: C901
     code_lines: list[str] = []
 
     for raw_line in markdown.splitlines():
-        line = raw_line.rstrip()
-        stripped = line.strip()
-
-        if stripped.startswith("```"):
-            if in_code_block:
-                lines.append(
-                    "<pre><code>"
-                    + escape(
-                        "\n".join(
-                            code_lines,
-                        )
-                    )
-                    + "</code></pre>"
-                )
-                code_lines = []
-                in_code_block = False
-            else:
-                _close_list_if_needed(
-                    lines,
-                    in_unordered_list,
-                )
-                in_unordered_list = False
-                in_code_block = True
-            continue
-
-        if in_code_block:
-            code_lines.append(
-                line,
-            )
-            continue
-
-        if not stripped:
-            _close_list_if_needed(
-                lines,
-                in_unordered_list,
-            )
-            in_unordered_list = False
-            continue
-
-        if stripped.startswith("# "):
-            _close_list_if_needed(
-                lines,
-                in_unordered_list,
-            )
-            in_unordered_list = False
-            lines.append(f"<h1>{escape(stripped[2:])}</h1>")
-            continue
-
-        if stripped.startswith("## "):
-            _close_list_if_needed(
-                lines,
-                in_unordered_list,
-            )
-            in_unordered_list = False
-            lines.append(f"<h2>{escape(stripped[3:])}</h2>")
-            continue
-
-        if stripped.startswith("### "):
-            _close_list_if_needed(
-                lines,
-                in_unordered_list,
-            )
-            in_unordered_list = False
-            lines.append(f"<h3>{escape(stripped[4:])}</h3>")
-            continue
-
-        if stripped.startswith("- "):
-            if not in_unordered_list:
-                lines.append("<ul>")
-                in_unordered_list = True
-            lines.append(f"  <li>{escape(stripped[2:])}</li>")
-            continue
-
-        if stripped.startswith("|"):
-            _close_list_if_needed(
-                lines,
-                in_unordered_list,
-            )
-            in_unordered_list = False
-            lines.append(f"<pre>{escape(stripped)}</pre>")
-            continue
-
-        _close_list_if_needed(
-            lines,
-            in_unordered_list,
+        in_unordered_list, in_code_block = _append_basic_markdown_html_line(
+            lines=lines,
+            line=raw_line.rstrip(),
+            in_unordered_list=in_unordered_list,
+            in_code_block=in_code_block,
+            code_lines=code_lines,
         )
-        in_unordered_list = False
-        lines.append(f"<p>{escape(stripped)}</p>")
 
     if in_code_block:
-        lines.append(
-            "<pre><code>"
-            + escape(
-                "\n".join(
-                    code_lines,
-                )
-            )
-            + "</code></pre>"
-        )
+        _append_code_block(lines, code_lines)
 
-    _close_list_if_needed(
-        lines,
-        in_unordered_list,
-    )
-    return "\n".join(
-        lines,
-    )
+    _close_list_if_needed(lines, in_unordered_list)
+    return "\n".join(lines)
+
+
+def _append_basic_markdown_html_line(
+    *,
+    lines: list[str],
+    line: str,
+    in_unordered_list: bool,
+    in_code_block: bool,
+    code_lines: list[str],
+) -> tuple[bool, bool]:
+    stripped = line.strip()
+
+    if stripped.startswith("```"):
+        return _toggle_basic_markdown_code_block(
+            lines=lines,
+            in_unordered_list=in_unordered_list,
+            in_code_block=in_code_block,
+            code_lines=code_lines,
+        )
+    if in_code_block:
+        code_lines.append(line)
+        return in_unordered_list, True
+    if not stripped:
+        _close_list_if_needed(lines, in_unordered_list)
+        return False, False
+    if _append_basic_markdown_heading(lines, stripped, in_unordered_list):
+        return False, False
+    if stripped.startswith("- "):
+        if not in_unordered_list:
+            lines.append("<ul>")
+        lines.append(f"  <li>{escape(stripped[2:])}</li>")
+        return True, False
+
+    _close_list_if_needed(lines, in_unordered_list)
+    lines.append(_basic_markdown_block(stripped))
+    return False, False
+
+
+def _toggle_basic_markdown_code_block(
+    *,
+    lines: list[str],
+    in_unordered_list: bool,
+    in_code_block: bool,
+    code_lines: list[str],
+) -> tuple[bool, bool]:
+    if in_code_block:
+        _append_code_block(lines, code_lines)
+        code_lines.clear()
+        return in_unordered_list, False
+
+    _close_list_if_needed(lines, in_unordered_list)
+    return False, True
+
+
+def _append_basic_markdown_heading(
+    lines: list[str],
+    stripped: str,
+    in_unordered_list: bool,
+) -> bool:
+    heading = _basic_markdown_heading(stripped)
+    if heading is None:
+        return False
+
+    _close_list_if_needed(lines, in_unordered_list)
+    level, text = heading
+    lines.append(f"<h{level}>{escape(text)}</h{level}>")
+    return True
+
+
+def _basic_markdown_heading(stripped: str) -> tuple[int, str] | None:
+    if stripped.startswith("# "):
+        return 1, stripped[2:]
+    if stripped.startswith("## "):
+        return 2, stripped[3:]
+    if stripped.startswith("### "):
+        return 3, stripped[4:]
+    return None
+
+
+def _basic_markdown_block(stripped: str) -> str:
+    if stripped.startswith("|"):
+        return f"<pre>{escape(stripped)}</pre>"
+    return f"<p>{escape(stripped)}</p>"
+
+
+def _append_code_block(lines: list[str], code_lines: list[str]) -> None:
+    lines.append("<pre><code>" + escape("\n".join(code_lines)) + "</code></pre>")
 
 
 def _close_list_if_needed(

@@ -127,58 +127,17 @@ class BacktestScenario:
     parameters: Mapping[str, object] = field(default_factory=dict)
     expected_outcomes: tuple[BacktestExpectedOutcome, ...] = ()
 
-    def validate(  # noqa: C901
+    def validate(
         self,
     ) -> tuple[str, ...]:
         errors: list[str] = []
-
-        if not self.scenario_id.strip():
-            errors.append("scenario_id is required.")
-
-        if not self.name.strip():
-            errors.append("name is required.")
-
-        if not self.workflow_name.strip():
-            errors.append("workflow_name is required.")
-
-        if self.start_date > self.end_date:
-            errors.append("start_date must be on or before end_date.")
-
-        if not self.symbols:
-            errors.append("at least one symbol is required.")
-
-        if any(not symbol.strip() for symbol in self.symbols):
-            errors.append("symbols cannot contain blank values.")
-
-        if not self.benchmark_symbol.strip():
-            errors.append("benchmark_symbol is required.")
-
-        if self.initial_cash < Decimal("0"):
-            errors.append("initial_cash cannot be negative.")
-
-        if not self.provider_profile.strip():
-            errors.append("provider_profile is required.")
-
-        missing_data_policy = self.parameters.get(
-            "missing_data_policy",
-        )
-        if (
-            missing_data_policy is not None
-            and missing_data_policy not in _ALLOWED_MISSING_DATA_POLICIES
-        ):
-            supported_policies = ", ".join(
-                sorted(_ALLOWED_MISSING_DATA_POLICIES),
-            )
-            errors.append(
-                f"parameters.missing_data_policy must be one of: {supported_policies}."
-            )
-
-        for position in self.initial_positions:
-            errors.extend(position.validate())
-
-        for expected_outcome in self.expected_outcomes:
-            errors.extend(expected_outcome.validate())
-
+        errors.extend(_validate_scenario_identity(self))
+        errors.extend(_validate_scenario_dates(self))
+        errors.extend(_validate_scenario_universe(self))
+        errors.extend(_validate_scenario_capital(self))
+        errors.extend(_validate_missing_data_policy(self.parameters))
+        errors.extend(_validate_initial_positions(self.initial_positions))
+        errors.extend(_validate_expected_outcomes(self.expected_outcomes))
         return tuple(errors)
 
     def to_dict(
@@ -203,6 +162,74 @@ class BacktestScenario:
                 for expected_outcome in self.expected_outcomes
             ],
         }
+
+
+def _validate_scenario_identity(scenario: BacktestScenario) -> tuple[str, ...]:
+    errors: list[str] = []
+    if not scenario.scenario_id.strip():
+        errors.append("scenario_id is required.")
+    if not scenario.name.strip():
+        errors.append("name is required.")
+    if not scenario.workflow_name.strip():
+        errors.append("workflow_name is required.")
+    if not scenario.provider_profile.strip():
+        errors.append("provider_profile is required.")
+    return tuple(errors)
+
+
+def _validate_scenario_dates(scenario: BacktestScenario) -> tuple[str, ...]:
+    if scenario.start_date > scenario.end_date:
+        return ("start_date must be on or before end_date.",)
+    return ()
+
+
+def _validate_scenario_universe(scenario: BacktestScenario) -> tuple[str, ...]:
+    errors: list[str] = []
+    if not scenario.symbols:
+        errors.append("at least one symbol is required.")
+    if any(not symbol.strip() for symbol in scenario.symbols):
+        errors.append("symbols cannot contain blank values.")
+    if not scenario.benchmark_symbol.strip():
+        errors.append("benchmark_symbol is required.")
+    return tuple(errors)
+
+
+def _validate_scenario_capital(scenario: BacktestScenario) -> tuple[str, ...]:
+    if scenario.initial_cash < Decimal("0"):
+        return ("initial_cash cannot be negative.",)
+    return ()
+
+
+def _validate_missing_data_policy(
+    parameters: Mapping[str, object],
+) -> tuple[str, ...]:
+    missing_data_policy = parameters.get("missing_data_policy")
+    if (
+        missing_data_policy is None
+        or missing_data_policy in _ALLOWED_MISSING_DATA_POLICIES
+    ):
+        return ()
+
+    supported_policies = ", ".join(sorted(_ALLOWED_MISSING_DATA_POLICIES))
+    return (f"parameters.missing_data_policy must be one of: {supported_policies}.",)
+
+
+def _validate_initial_positions(
+    positions: tuple[BacktestInitialPosition, ...],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    for position in positions:
+        errors.extend(position.validate())
+    return tuple(errors)
+
+
+def _validate_expected_outcomes(
+    expected_outcomes: tuple[BacktestExpectedOutcome, ...],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    for expected_outcome in expected_outcomes:
+        errors.extend(expected_outcome.validate())
+    return tuple(errors)
 
 
 @dataclass(

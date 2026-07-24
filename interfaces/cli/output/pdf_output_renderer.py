@@ -113,160 +113,181 @@ class MarkdownPdfRenderer:
     Minimal generic markdown-to-PDF renderer for workflow fallbacks.
     """
 
-    def render(  # noqa: C901
+    def render(
         self,
         markdown: str,
         *,
         title: str = "Workflow Report",
     ) -> bytes:
-        story: list[Flowable] = []
         styles = _pdf_styles()
-        in_code_block = False
-        code_lines: list[str] = []
-        bullet_items: list[str] = []
-
-        def flush_bullets() -> None:
-            if bullet_items:
-                story.append(
-                    _bullet_list(
-                        bullet_items,
-                        styles,
-                    )
-                )
-                bullet_items.clear()
-
-        def flush_code() -> None:
-            if code_lines:
-                story.append(
-                    Paragraph(
-                        escape(
-                            "\n".join(
-                                code_lines,
-                            )
-                        ).replace(
-                            "\n",
-                            "<br/>",
-                        ),
-                        styles["Code"],
-                    )
-                )
-                story.append(
-                    Spacer(
-                        1,
-                        0.08 * inch,
-                    )
-                )
-                code_lines.clear()
-
-        if not markdown.strip():
-            story.append(
-                Paragraph(
-                    escape(
-                        title,
-                    ),
-                    styles["Title"],
-                )
-            )
-
-        for raw_line in markdown.splitlines():
-            line = raw_line.rstrip()
-            stripped = line.strip()
-
-            if stripped.startswith("```"):
-                if in_code_block:
-                    flush_code()
-                    in_code_block = False
-                else:
-                    flush_bullets()
-                    in_code_block = True
-                continue
-
-            if in_code_block:
-                code_lines.append(
-                    line,
-                )
-                continue
-
-            if not stripped:
-                flush_bullets()
-                continue
-
-            if stripped.startswith("# "):
-                flush_bullets()
-                story.append(
-                    Paragraph(
-                        escape(
-                            stripped[2:],
-                        ),
-                        styles["Title"],
-                    )
-                )
-                continue
-
-            if stripped.startswith("## "):
-                flush_bullets()
-                story.append(
-                    Spacer(
-                        1,
-                        0.12 * inch,
-                    )
-                )
-                story.append(
-                    Paragraph(
-                        escape(
-                            stripped[3:],
-                        ),
-                        styles["Heading2"],
-                    )
-                )
-                continue
-
-            if stripped.startswith("### "):
-                flush_bullets()
-                story.append(
-                    Paragraph(
-                        escape(
-                            stripped[4:],
-                        ),
-                        styles["Heading3"],
-                    )
-                )
-                continue
-
-            if stripped.startswith("- "):
-                bullet_items.append(
-                    stripped[2:],
-                )
-                continue
-
-            if stripped.startswith("|"):
-                flush_bullets()
-                story.append(
-                    Paragraph(
-                        escape(
-                            stripped,
-                        ),
-                        styles["Code"],
-                    )
-                )
-                continue
-
-            flush_bullets()
-            story.append(
-                Paragraph(
-                    escape(
-                        stripped,
-                    ),
-                    styles["BodyText"],
-                )
-            )
-
-        flush_bullets()
-        flush_code()
-
-        return _build_pdf(
-            story,
+        story = _markdown_pdf_story(
+            markdown=markdown,
+            title=title,
+            styles=styles,
         )
+        return _build_pdf(story)
+
+
+def _markdown_pdf_story(
+    *,
+    markdown: str,
+    title: str,
+    styles: dict[str, ParagraphStyle],
+) -> list[Flowable]:
+    story: list[Flowable] = []
+    in_code_block = False
+    code_lines: list[str] = []
+    bullet_items: list[str] = []
+
+    if not markdown.strip():
+        story.append(Paragraph(escape(title), styles["Title"]))
+
+    for raw_line in markdown.splitlines():
+        in_code_block = _append_markdown_pdf_line(
+            story=story,
+            styles=styles,
+            line=raw_line.rstrip(),
+            in_code_block=in_code_block,
+            code_lines=code_lines,
+            bullet_items=bullet_items,
+        )
+
+    _flush_markdown_pdf_bullets(
+        story=story,
+        styles=styles,
+        bullet_items=bullet_items,
+    )
+    _flush_markdown_pdf_code(
+        story=story,
+        styles=styles,
+        code_lines=code_lines,
+    )
+    return story
+
+
+def _append_markdown_pdf_line(
+    *,
+    story: list[Flowable],
+    styles: dict[str, ParagraphStyle],
+    line: str,
+    in_code_block: bool,
+    code_lines: list[str],
+    bullet_items: list[str],
+) -> bool:
+    stripped = line.strip()
+
+    if stripped.startswith("```"):
+        return _toggle_markdown_pdf_code_block(
+            story=story,
+            styles=styles,
+            in_code_block=in_code_block,
+            code_lines=code_lines,
+            bullet_items=bullet_items,
+        )
+    if in_code_block:
+        code_lines.append(line)
+        return True
+    if not stripped:
+        _flush_markdown_pdf_bullets(
+            story=story,
+            styles=styles,
+            bullet_items=bullet_items,
+        )
+        return False
+    if _append_markdown_pdf_heading(story, styles, stripped, bullet_items):
+        return False
+    if stripped.startswith("- "):
+        bullet_items.append(stripped[2:])
+        return False
+
+    _flush_markdown_pdf_bullets(story=story, styles=styles, bullet_items=bullet_items)
+    style_name = "Code" if stripped.startswith("|") else "BodyText"
+    story.append(Paragraph(escape(stripped), styles[style_name]))
+    return False
+
+
+def _toggle_markdown_pdf_code_block(
+    *,
+    story: list[Flowable],
+    styles: dict[str, ParagraphStyle],
+    in_code_block: bool,
+    code_lines: list[str],
+    bullet_items: list[str],
+) -> bool:
+    if in_code_block:
+        _flush_markdown_pdf_code(
+            story=story,
+            styles=styles,
+            code_lines=code_lines,
+        )
+        return False
+
+    _flush_markdown_pdf_bullets(
+        story=story,
+        styles=styles,
+        bullet_items=bullet_items,
+    )
+    return True
+
+
+def _append_markdown_pdf_heading(
+    story: list[Flowable],
+    styles: dict[str, ParagraphStyle],
+    stripped: str,
+    bullet_items: list[str],
+) -> bool:
+    heading = _markdown_pdf_heading(stripped)
+    if heading is None:
+        return False
+
+    text, style_name, spacer_height = heading
+    _flush_markdown_pdf_bullets(story=story, styles=styles, bullet_items=bullet_items)
+    if spacer_height is not None:
+        story.append(Spacer(1, spacer_height))
+    story.append(Paragraph(escape(text), styles[style_name]))
+    return True
+
+
+def _markdown_pdf_heading(stripped: str) -> tuple[str, str, float | None] | None:
+    if stripped.startswith("# "):
+        return stripped[2:], "Title", None
+    if stripped.startswith("## "):
+        return stripped[3:], "Heading2", 0.12 * inch
+    if stripped.startswith("### "):
+        return stripped[4:], "Heading3", None
+    return None
+
+
+def _flush_markdown_pdf_bullets(
+    *,
+    story: list[Flowable],
+    styles: dict[str, ParagraphStyle],
+    bullet_items: list[str],
+) -> None:
+    if not bullet_items:
+        return
+
+    story.append(_bullet_list(bullet_items, styles))
+    bullet_items.clear()
+
+
+def _flush_markdown_pdf_code(
+    *,
+    story: list[Flowable],
+    styles: dict[str, ParagraphStyle],
+    code_lines: list[str],
+) -> None:
+    if not code_lines:
+        return
+
+    story.append(
+        Paragraph(
+            escape("\n".join(code_lines)).replace("\n", "<br/>"),
+            styles["Code"],
+        )
+    )
+    story.append(Spacer(1, 0.08 * inch))
+    code_lines.clear()
 
 
 def _document_sections(

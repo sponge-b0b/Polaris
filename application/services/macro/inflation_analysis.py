@@ -3,117 +3,92 @@ from typing import Any
 from domain.macro.models import MacroDataSnapshot
 
 
-def analyze_inflation_environment(  # noqa: C901
+def analyze_inflation_environment(
     macro_data: MacroDataSnapshot,
 ) -> dict[str, Any]:
-    """
-    Deterministic inflation regime classifier.
-
-    Purpose:
-    - interpret CPI + core CPI + PCE signals
-    - classify inflation environment for SPY macro context
-
-    This is NOT forecasting.
-    This is regime labeling only.
-    """
+    """Classify CPI, core CPI, and PCE into an inflation regime."""
 
     cpi = macro_data.cpi
     core_cpi = macro_data.core_cpi
     pce = macro_data.pce
 
-    analysis: dict[str, Any] = {
-        "inflation_regime": "unknown",
-        "inflation_pressure": "neutral",
-        "trend": "flat",
-        "summary": "",
+    if cpi is None and core_cpi is None:
+        return {
+            "inflation_regime": "unknown",
+            "inflation_pressure": "neutral",
+            "trend": "flat",
+            "summary": "Insufficient inflation data",
+        }
+
+    inflation_score = _cpi_score(cpi) + _core_cpi_score(core_cpi) + _pce_score(pce)
+    regime, pressure = _inflation_regime(inflation_score)
+    trend = _inflation_trend(cpi=cpi, core_cpi=core_cpi)
+
+    return {
+        "inflation_regime": regime,
+        "inflation_pressure": pressure,
+        "trend": trend,
+        "summary": (
+            f"Inflation regime is {regime} with {pressure} and {trend} trend behavior."
+        ),
     }
 
-    # ============================================================
-    # VALIDATION
-    # ============================================================
 
-    if cpi is None and core_cpi is None:
-        analysis["summary"] = "Insufficient inflation data"
-        return analysis
+def _cpi_score(cpi: float | None) -> int:
+    if cpi is None:
+        return 0
+    if cpi > 5.0:
+        return 2
+    if cpi > 3.0:
+        return 1
+    if cpi < 2.0:
+        return -1
+    return 0
 
-    # ============================================================
-    # INFLATION LEVEL CLASSIFICATION
-    # ============================================================
 
-    inflation_score = 0
+def _core_cpi_score(core_cpi: float | None) -> int:
+    if core_cpi is None:
+        return 0
+    if core_cpi > 4.0:
+        return 2
+    if core_cpi > 3.0:
+        return 1
+    if core_cpi < 2.0:
+        return -1
+    return 0
 
-    # CPI SIGNAL
-    if cpi is not None:
-        if cpi > 5.0:
-            inflation_score += 2
-        elif cpi > 3.0:
-            inflation_score += 1
-        elif cpi < 2.0:
-            inflation_score -= 1
 
-    # CORE CPI SIGNAL
-    if core_cpi is not None:
-        if core_cpi > 4.0:
-            inflation_score += 2
-        elif core_cpi > 3.0:
-            inflation_score += 1
-        elif core_cpi < 2.0:
-            inflation_score -= 1
+def _pce_score(pce: float | None) -> int:
+    if pce is None:
+        return 0
+    if pce > 3.5:
+        return 2
+    if pce > 2.5:
+        return 1
+    if pce < 2.0:
+        return -1
+    return 0
 
-    # PCE SIGNAL (Fed preferred metric)
-    if pce is not None:
-        if pce > 3.5:
-            inflation_score += 2
-        elif pce > 2.5:
-            inflation_score += 1
-        elif pce < 2.0:
-            inflation_score -= 1
 
-    # ============================================================
-    # REGIME CLASSIFICATION
-    # ============================================================
+def _inflation_regime(score: int) -> tuple[str, str]:
+    if score >= 4:
+        return "high_inflation", "inflationary_pressure"
+    if score >= 2:
+        return "elevated_inflation", "moderate_pressure"
+    if score >= 0:
+        return "moderate_inflation", "balanced"
+    return "disinflationary", "deflationary_tendency"
 
-    if inflation_score >= 4:
-        regime = "high_inflation"
-        pressure = "inflationary_pressure"
 
-    elif inflation_score >= 2:
-        regime = "elevated_inflation"
-        pressure = "moderate_pressure"
-
-    elif inflation_score >= 0:
-        regime = "moderate_inflation"
-        pressure = "balanced"
-
-    else:
-        regime = "disinflationary"
-        pressure = "deflationary_tendency"
-
-    analysis["inflation_regime"] = regime
-    analysis["inflation_pressure"] = pressure
-
-    # ============================================================
-    # TREND ESTIMATION (SIMPLE HEURISTIC)
-    # ============================================================
-
-    if cpi and core_cpi:
-        if cpi > core_cpi:
-            trend = "sticky_inflation"
-        elif cpi < core_cpi:
-            trend = "cooling_inflation"
-        else:
-            trend = "stable"
-    else:
-        trend = "unknown"
-
-    analysis["trend"] = trend
-
-    # ============================================================
-    # SUMMARY
-    # ============================================================
-
-    analysis["summary"] = (
-        f"Inflation regime is {regime} with {pressure} and {trend} trend behavior."
-    )
-
-    return analysis
+def _inflation_trend(
+    *,
+    cpi: float | None,
+    core_cpi: float | None,
+) -> str:
+    if not cpi or not core_cpi:
+        return "unknown"
+    if cpi > core_cpi:
+        return "sticky_inflation"
+    if cpi < core_cpi:
+        return "cooling_inflation"
+    return "stable"

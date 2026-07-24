@@ -85,6 +85,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
+extend-exclude = ["*.md"]
 target-version = "py312" # Adjust to your current Python version
 
 [tool.ruff.lint]
@@ -136,13 +137,14 @@ exclude = [
     '^\.venv/',
     '^\.repowise/',
     '^\.git/',
-    '^__pycache__',
-    '^\.jscpd_report/',
-    '^\.mypy_cache/',
-    '^\.pytest_cache/',
-    '^\.ruff_cache/',
+    '__pycache__/',
+    '\.jscpd_report/',
+    '\.mypy_cache/',
+    '\.pytest_cache/',
+    '\.ruff_cache/',
     '^graphify-out/',
     '^build/',
+    '\.md$',
 ]
 
 [tool.coverage.run]

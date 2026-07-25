@@ -53,12 +53,17 @@ from core.storage.persistence.serializers.telemetry_persistence_serializer impor
     TelemetryPersistenceSerializer,
 )
 
+from .decision_evidence_persistence_serializer import (
+    DecisionEvidencePacketPersistenceSerializer,
+)
+
 __all__ = [
     "AgentIntelligencePersistenceSerializer",
     "AgentSignalPersistenceSerializer",
     "AttributionPersistenceSerializer",
     "CompletedRunModelSerializer",
     "CompletedRunPersistenceSerializer",
+    "DecisionEvidencePacketPersistenceSerializer",
     "MacroPersistenceSerializer",
     "MarketPersistenceSerializer",
     "NewsPersistenceSerializer",

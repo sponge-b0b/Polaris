@@ -28,6 +28,7 @@ from core.database.models.completed_runs import (
     CompletedWorkflowNodeOutputModel,
     CompletedWorkflowRunModel,
 )
+from core.database.models.decision_evidence import DecisionEvidencePacketModel
 from core.database.models.evaluation import (
     EvaluationArtifactModel,
     EvaluationCaseModel,
@@ -124,6 +125,7 @@ __all__ = [
     "BacktestScenarioModel",
     "BacktestStepModel",
     "PersistenceAuditEventModel",
+    "DecisionEvidencePacketModel",
     "CompletedWorkflowRunModel",
     "CompletedWorkflowNodeOutputModel",
     "CompletedRunArtifactModel",

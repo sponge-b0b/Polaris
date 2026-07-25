@@ -10,8 +10,24 @@ from application.decision_evidence.completed_workflow_assembly import (
     assemble_decision_evidence_packet_from_completed_run,
     calculate_completed_workflow_node_evidence_digest,
 )
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketNotFoundError,
+    DecisionEvidencePacketPersistenceService,
+    DecisionEvidencePacketReconstructionError,
+    MalformedDecisionEvidenceReconstructionIdentifierError,
+    MissingDecisionEvidenceSourceError,
+    StaleDecisionEvidenceSourceError,
+    SubstitutedDecisionEvidenceSourceError,
+)
 
 __all__ = [
+    "SubstitutedDecisionEvidenceSourceError",
+    "StaleDecisionEvidenceSourceError",
+    "MissingDecisionEvidenceSourceError",
+    "MalformedDecisionEvidenceReconstructionIdentifierError",
+    "DecisionEvidencePacketReconstructionError",
+    "DecisionEvidencePacketPersistenceService",
+    "DecisionEvidencePacketNotFoundError",
     "CompletedWorkflowEvidencePacketAssembler",
     "CompletedWorkflowEvidencePacketAssemblyError",
     "CompletedWorkflowEvidencePacketAssemblyRequest",

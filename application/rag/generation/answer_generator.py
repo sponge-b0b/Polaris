@@ -14,6 +14,7 @@ from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.evidence_packets import attach_rag_answer_evidence_packet
 from application.rag.generation.secure_prompt_builder import (
     RAG_ANSWER_GENERATION_PROMPT_HASH,
     RAG_ANSWER_GENERATION_PROMPT_NAME,
@@ -188,19 +189,22 @@ class RagAnswerGenerator:
             )
             return result
 
-        result = classify_rag_result_authority(
+        result = attach_rag_answer_evidence_packet(
             request=request,
-            result=RagResult.answered(
+            result=classify_rag_result_authority(
                 request=request,
-                answer_text=provider_result.answer_text,
-                contexts=package.contexts,
-                confidence_score=provider_result.confidence_score,
-                metadata=_result_metadata(
-                    package=package,
-                    provider_name=provider_result.provider_name,
-                    model=provider_result.model,
-                    provider_metadata=provider_result.metadata,
-                    prompt_artifact=prompt_artifact,
+                result=RagResult.answered(
+                    request=request,
+                    answer_text=provider_result.answer_text,
+                    contexts=package.contexts,
+                    confidence_score=provider_result.confidence_score,
+                    metadata=_result_metadata(
+                        package=package,
+                        provider_name=provider_result.provider_name,
+                        model=provider_result.model,
+                        provider_metadata=provider_result.metadata,
+                        prompt_artifact=prompt_artifact,
+                    ),
                 ),
             ),
         )
@@ -357,6 +361,7 @@ def _result_metadata(
         "provider_metadata": _safe_provider_metadata(
             provider_metadata,
         ),
+        "context_audit": dict(package.metadata),
     }
 
 

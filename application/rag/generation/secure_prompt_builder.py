@@ -176,11 +176,24 @@ class SecureRagPromptBuilder:
     ) -> SecureRagContextPackage:
         if not contexts:
             raise ValueError("contexts cannot be empty.")
-        sanitized_contexts = tuple(
-            sanitized
-            for context in contexts
-            if (sanitized := sanitize_retrieved_context(context)) is not None
-        )
+        sanitized_items: list[RagRetrievedContext] = []
+        rejected_contexts: list[JsonObject] = []
+        for context in contexts:
+            sanitized = sanitize_retrieved_context(context)
+            if sanitized is None:
+                rejected_contexts.append(
+                    {
+                        "context_id": context.context_id,
+                        "source_table": context.source.source_table,
+                        "source_id": context.source.source_id,
+                        "document_id": context.source.document_id,
+                        "chunk_id": context.source.chunk_id,
+                        "reason": "empty_after_security_sanitation",
+                    }
+                )
+                continue
+            sanitized_items.append(sanitized)
+        sanitized_contexts = tuple(sanitized_items)
         if not sanitized_contexts:
             raise ValueError("contexts cannot be empty after security sanitation.")
         ranked_contexts = tuple(
@@ -207,8 +220,11 @@ class SecureRagPromptBuilder:
             request=request,
             blocks=blocks,
             metadata={
+                "input_context_count": len(contexts),
                 "context_count": len(blocks),
                 "retrieval_route": request.route,
+                "rejected_context_count": len(rejected_contexts),
+                "rejected_contexts": rejected_contexts,
             },
         )
 

@@ -231,6 +231,14 @@ class RagEligibilitySourceCandidate:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _EligibilityDecision:
+    eligible: bool
+    reason: str
+    quality_score: float
+    rule_name: str
+
+
 class DefaultRagEligibilityRules:
     """
     Default metadata-only rules for curated RAG source eligibility.
@@ -240,7 +248,7 @@ class DefaultRagEligibilityRules:
     writes, or ingestion workflows.
     """
 
-    def evaluate(  # noqa: C901
+    def evaluate(
         self,
         candidate: RagEligibilitySourceCandidate,
         *,
@@ -249,153 +257,171 @@ class DefaultRagEligibilityRules:
         reviewed_at = reviewed_timestamp or datetime.now(
             UTC,
         )
-        table = candidate.source_table
-        source_type = candidate.source_type
-
-        if table in _RAW_RUNTIME_TABLES or source_type in _RAW_RUNTIME_SOURCE_TYPES:
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason=(
-                    "Raw runtime records are operational state and are not curated RAG "
-                    "sources."
-                ),
-                quality_score=0.0,
-                rule_name="raw_runtime_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _RAW_TELEMETRY_TABLES or source_type in _RAW_TELEMETRY_SOURCE_TYPES:
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason=(
-                    "Raw telemetry records are observability data and are not curated "
-                    "RAG sources."
-                ),
-                quality_score=0.0,
-                rule_name="raw_telemetry_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _RAW_PROVIDER_TABLES or source_type in _RAW_PROVIDER_SOURCE_TYPES:
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason="Raw provider payloads and facts are not curated RAG sources.",
-                quality_score=0.0,
-                rule_name="raw_provider_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if (
-            table in _OPERATIONAL_ERROR_TABLES
-            or source_type in _OPERATIONAL_ERROR_SOURCE_TYPES
-        ):
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason="Operational error logs are not curated RAG sources.",
-                quality_score=0.0,
-                rule_name="operational_error_log_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if not candidate.has_meaningful_content:
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason="Source lacks meaningful curated text for RAG retrieval.",
-                quality_score=0.0,
-                rule_name="missing_meaningful_content_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _CURATED_REPORT_TABLES:
-            return _build_record(
-                candidate,
-                eligible=True,
-                reason="Curated human-readable reports are eligible RAG sources.",
-                quality_score=_quality_score(candidate, 0.92),
-                rule_name="curated_report_eligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _MEANINGFUL_AGENT_TABLES:
-            return _build_record(
-                candidate,
-                eligible=True,
-                reason=(
-                    "Meaningful agent signals and reasoning are eligible RAG sources."
-                ),
-                quality_score=_quality_score(candidate, 0.86),
-                rule_name="meaningful_agent_intelligence_eligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _RECOMMENDATION_RATIONALE_TABLES:
-            return _build_record(
-                candidate,
-                eligible=True,
-                reason="Recommendation rationales are eligible RAG sources.",
-                quality_score=_quality_score(candidate, 0.9),
-                rule_name="recommendation_rationale_eligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if (
-            table in _RECOMMENDATION_WITH_RATIONALE_TABLES
-            or source_type in _RECOMMENDATION_SOURCE_TYPES
-        ):
-            if candidate.has_rationale:
-                return _build_record(
-                    candidate,
-                    eligible=True,
-                    reason="Recommendations with rationales are eligible RAG sources.",
-                    quality_score=_quality_score(candidate, 0.88),
-                    rule_name="recommendation_with_rationale_eligible",
-                    reviewed_timestamp=reviewed_at,
-                )
-            return _build_record(
-                candidate,
-                eligible=False,
-                reason=(
-                    "Recommendations without rationales are not curated RAG sources by "
-                    "default."
-                ),
-                quality_score=0.0,
-                rule_name="recommendation_without_rationale_ineligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if table in _SUMMARY_TABLES:
-            return _build_record(
-                candidate,
-                eligible=True,
-                reason="Curated analytical summaries are eligible RAG sources.",
-                quality_score=_quality_score(candidate, 0.84),
-                rule_name="curated_summary_eligible",
-                reviewed_timestamp=reviewed_at,
-            )
-
-        if source_type in _ELIGIBLE_SOURCE_TYPES:
-            return _build_record(
-                candidate,
-                eligible=True,
-                reason="Curated source type is eligible for RAG retrieval by default.",
-                quality_score=_quality_score(candidate, 0.8),
-                rule_name="curated_source_type_eligible",
-                reviewed_timestamp=reviewed_at,
-            )
+        decision = _eligibility_decision(
+            candidate,
+        )
 
         return _build_record(
             candidate,
-            eligible=False,
-            reason="No default curated RAG eligibility rule matched this source.",
-            quality_score=0.0,
-            rule_name="unknown_source_ineligible",
+            eligible=decision.eligible,
+            reason=decision.reason,
+            quality_score=decision.quality_score,
+            rule_name=decision.rule_name,
             reviewed_timestamp=reviewed_at,
         )
+
+
+def _eligibility_decision(
+    candidate: RagEligibilitySourceCandidate,
+) -> _EligibilityDecision:
+    return (
+        _ineligible_decision(candidate)
+        or _eligible_decision(candidate)
+        or _unknown_source_decision()
+    )
+
+
+def _ineligible_decision(
+    candidate: RagEligibilitySourceCandidate,
+) -> _EligibilityDecision | None:
+    table = candidate.source_table
+    source_type = candidate.source_type
+
+    if table in _RAW_RUNTIME_TABLES or source_type in _RAW_RUNTIME_SOURCE_TYPES:
+        return _EligibilityDecision(
+            eligible=False,
+            reason=(
+                "Raw runtime records are operational state and are not curated RAG "
+                "sources."
+            ),
+            quality_score=0.0,
+            rule_name="raw_runtime_ineligible",
+        )
+
+    if table in _RAW_TELEMETRY_TABLES or source_type in _RAW_TELEMETRY_SOURCE_TYPES:
+        return _EligibilityDecision(
+            eligible=False,
+            reason=(
+                "Raw telemetry records are observability data and are not curated "
+                "RAG sources."
+            ),
+            quality_score=0.0,
+            rule_name="raw_telemetry_ineligible",
+        )
+
+    if table in _RAW_PROVIDER_TABLES or source_type in _RAW_PROVIDER_SOURCE_TYPES:
+        return _EligibilityDecision(
+            eligible=False,
+            reason="Raw provider payloads and facts are not curated RAG sources.",
+            quality_score=0.0,
+            rule_name="raw_provider_ineligible",
+        )
+
+    if (
+        table in _OPERATIONAL_ERROR_TABLES
+        or source_type in _OPERATIONAL_ERROR_SOURCE_TYPES
+    ):
+        return _EligibilityDecision(
+            eligible=False,
+            reason="Operational error logs are not curated RAG sources.",
+            quality_score=0.0,
+            rule_name="operational_error_log_ineligible",
+        )
+
+    if not candidate.has_meaningful_content:
+        return _EligibilityDecision(
+            eligible=False,
+            reason="Source lacks meaningful curated text for RAG retrieval.",
+            quality_score=0.0,
+            rule_name="missing_meaningful_content_ineligible",
+        )
+
+    return None
+
+
+def _eligible_decision(
+    candidate: RagEligibilitySourceCandidate,
+) -> _EligibilityDecision | None:
+    table = candidate.source_table
+    source_type = candidate.source_type
+
+    if table in _CURATED_REPORT_TABLES:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Curated human-readable reports are eligible RAG sources.",
+            quality_score=_quality_score(candidate, 0.92),
+            rule_name="curated_report_eligible",
+        )
+
+    if table in _MEANINGFUL_AGENT_TABLES:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Meaningful agent signals and reasoning are eligible RAG sources.",
+            quality_score=_quality_score(candidate, 0.86),
+            rule_name="meaningful_agent_intelligence_eligible",
+        )
+
+    if table in _RECOMMENDATION_RATIONALE_TABLES:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Recommendation rationales are eligible RAG sources.",
+            quality_score=_quality_score(candidate, 0.9),
+            rule_name="recommendation_rationale_eligible",
+        )
+
+    if (
+        table in _RECOMMENDATION_WITH_RATIONALE_TABLES
+        or source_type in _RECOMMENDATION_SOURCE_TYPES
+    ):
+        return _recommendation_decision(candidate)
+
+    if table in _SUMMARY_TABLES:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Curated analytical summaries are eligible RAG sources.",
+            quality_score=_quality_score(candidate, 0.84),
+            rule_name="curated_summary_eligible",
+        )
+
+    if source_type in _ELIGIBLE_SOURCE_TYPES:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Curated source type is eligible for RAG retrieval by default.",
+            quality_score=_quality_score(candidate, 0.8),
+            rule_name="curated_source_type_eligible",
+        )
+
+    return None
+
+
+def _recommendation_decision(
+    candidate: RagEligibilitySourceCandidate,
+) -> _EligibilityDecision:
+    if candidate.has_rationale:
+        return _EligibilityDecision(
+            eligible=True,
+            reason="Recommendations with rationales are eligible RAG sources.",
+            quality_score=_quality_score(candidate, 0.88),
+            rule_name="recommendation_with_rationale_eligible",
+        )
+
+    return _EligibilityDecision(
+        eligible=False,
+        reason=(
+            "Recommendations without rationales are not curated RAG sources by default."
+        ),
+        quality_score=0.0,
+        rule_name="recommendation_without_rationale_ineligible",
+    )
+
+
+def _unknown_source_decision() -> _EligibilityDecision:
+    return _EligibilityDecision(
+        eligible=False,
+        reason="No default curated RAG eligibility rule matched this source.",
+        quality_score=0.0,
+        rule_name="unknown_source_ineligible",
+    )
 
 
 def evaluate_default_rag_source_eligibility(

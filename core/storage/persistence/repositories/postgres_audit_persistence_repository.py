@@ -117,7 +117,7 @@ def _insert_audit_event_statement(
     return insert(PersistenceAuditEventModel).values(**values)
 
 
-def _audit_event_query_statement(  # noqa: C901
+def _audit_event_query_statement(
     *,
     entity_type: str | None = None,
     entity_id: str | None = None,
@@ -133,46 +133,54 @@ def _audit_event_query_statement(  # noqa: C901
     end: datetime | None = None,
 ) -> Any:
     stmt = select(PersistenceAuditEventModel)
-    if entity_type is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.entity_type == entity_type,
+    for column, value in (
+        (PersistenceAuditEventModel.entity_type, entity_type),
+        (PersistenceAuditEventModel.entity_id, entity_id),
+        (PersistenceAuditEventModel.action, action),
+        (PersistenceAuditEventModel.system_source, system_source),
+        (PersistenceAuditEventModel.actor_id, actor_id),
+        (PersistenceAuditEventModel.actor_type, actor_type),
+        (PersistenceAuditEventModel.workflow_name, workflow_name),
+        (PersistenceAuditEventModel.execution_id, execution_id),
+        (PersistenceAuditEventModel.runtime_id, runtime_id),
+        (PersistenceAuditEventModel.node_name, node_name),
+    ):
+        stmt = _where_if_not_none(
+            stmt,
+            column,
+            value,
         )
-    if entity_id is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.entity_id == entity_id,
-        )
-    if action is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.action == action,
-        )
-    if system_source is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.system_source == system_source,
-        )
-    if actor_id is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.actor_id == actor_id,
-        )
-    if actor_type is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.actor_type == actor_type,
-        )
-    if workflow_name is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.workflow_name == workflow_name,
-        )
-    if execution_id is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.execution_id == execution_id,
-        )
-    if runtime_id is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.runtime_id == runtime_id,
-        )
-    if node_name is not None:
-        stmt = stmt.where(
-            PersistenceAuditEventModel.node_name == node_name,
-        )
+
+    stmt = _where_timestamp_window(
+        stmt,
+        start=start,
+        end=end,
+    )
+
+    return stmt.order_by(
+        PersistenceAuditEventModel.timestamp.desc(),
+        PersistenceAuditEventModel.audit_event_id.asc(),
+    )
+
+
+def _where_if_not_none(
+    stmt: Any,
+    column: Any,
+    value: Any | None,
+) -> Any:
+    if value is None:
+        return stmt
+    return stmt.where(
+        column == value,
+    )
+
+
+def _where_timestamp_window(
+    stmt: Any,
+    *,
+    start: datetime | None,
+    end: datetime | None,
+) -> Any:
     if start is not None:
         stmt = stmt.where(
             PersistenceAuditEventModel.timestamp >= start,
@@ -181,8 +189,4 @@ def _audit_event_query_statement(  # noqa: C901
         stmt = stmt.where(
             PersistenceAuditEventModel.timestamp <= end,
         )
-
-    return stmt.order_by(
-        PersistenceAuditEventModel.timestamp.desc(),
-        PersistenceAuditEventModel.audit_event_id.asc(),
-    )
+    return stmt

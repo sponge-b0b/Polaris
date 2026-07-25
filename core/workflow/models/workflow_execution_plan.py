@@ -124,7 +124,19 @@ class WorkflowExecutionPlan:
         default_factory=dict,
     )
 
-    def validate(  # noqa: C901
+    def validate(
+        self,
+    ) -> None:
+        self._validate_identity()
+        known_nodes = self._validate_nodes()
+        node_to_wave = self._validate_waves(
+            known_nodes,
+        )
+        self._validate_dependency_waves(
+            node_to_wave,
+        )
+
+    def _validate_identity(
         self,
     ) -> None:
         if not self.workflow_name.strip():
@@ -143,66 +155,93 @@ class WorkflowExecutionPlan:
                 f"WorkflowExecutionPlan '{self.workflow_name}' has no waves."
             )
 
+    def _validate_nodes(
+        self,
+    ) -> set[str]:
         known_nodes = set(self.nodes.keys())
-
         for node_name, node in self.nodes.items():
-            if node_name != node.name:
+            self._validate_node_entry(
+                node_name,
+                node,
+                known_nodes,
+            )
+        return known_nodes
+
+    @staticmethod
+    def _validate_node_entry(
+        node_name: str,
+        node: ExecutionPlanNode,
+        known_nodes: set[str],
+    ) -> None:
+        if node_name != node.name:
+            raise ValueError(
+                f"Node key '{node_name}' does not match node name '{node.name}'."
+            )
+
+        node.validate()
+
+        for dependency in node.dependencies:
+            if dependency not in known_nodes:
                 raise ValueError(
-                    f"Node key '{node_name}' does not match node name '{node.name}'."
+                    f"Node '{node.name}' depends on unknown node '{dependency}'."
                 )
 
-            node.validate()
-
-            for dependency in node.dependencies:
-                if dependency not in known_nodes:
-                    raise ValueError(
-                        f"Node '{node.name}' depends on unknown node '{dependency}'."
-                    )
-
+    def _validate_waves(
+        self,
+        known_nodes: set[str],
+    ) -> dict[str, int]:
         wave_nodes: set[str] = set()
-
-        expected_wave_index = 0
-
         node_to_wave: dict[str, int] = {}
 
-        for wave in self.waves:
-            wave.validate()
-
-            if wave.index != expected_wave_index:
-                raise ValueError(
-                    f"Expected wave index {expected_wave_index}, got {wave.index}."
-                )
-
-            expected_wave_index += 1
-
-            for node_name in wave.nodes:
-                if node_name not in known_nodes:
-                    raise ValueError(
-                        f"Wave {wave.index} references unknown node '{node_name}'."
-                    )
-
-                if node_name in wave_nodes:
-                    raise ValueError(f"Node '{node_name}' appears in multiple waves.")
-
-                wave_nodes.add(node_name)
-                node_to_wave[node_name] = wave.index
+        for expected_wave_index, wave in enumerate(self.waves):
+            self._validate_wave_entry(
+                wave,
+                expected_wave_index,
+                known_nodes,
+                wave_nodes,
+                node_to_wave,
+            )
 
         missing = known_nodes - wave_nodes
-
         if missing:
             raise ValueError(f"Nodes missing from execution waves: {sorted(missing)}")
 
+        return node_to_wave
+
+    @staticmethod
+    def _validate_wave_entry(
+        wave: ExecutionWave,
+        expected_wave_index: int,
+        known_nodes: set[str],
+        wave_nodes: set[str],
+        node_to_wave: dict[str, int],
+    ) -> None:
+        wave.validate()
+
+        if wave.index != expected_wave_index:
+            raise ValueError(
+                f"Expected wave index {expected_wave_index}, got {wave.index}."
+            )
+
+        for node_name in wave.nodes:
+            _validate_wave_node_reference(
+                wave,
+                node_name,
+                known_nodes,
+                wave_nodes,
+            )
+            wave_nodes.add(node_name)
+            node_to_wave[node_name] = wave.index
+
+    def _validate_dependency_waves(
+        self,
+        node_to_wave: dict[str, int],
+    ) -> None:
         for node in self.nodes.values():
-            node_wave = node_to_wave[node.name]
-
-            for dependency in node.dependencies:
-                dependency_wave = node_to_wave[dependency]
-
-                if dependency_wave >= node_wave:
-                    raise ValueError(
-                        f"Node '{node.name}' depends on '{dependency}', "
-                        "but dependency is not in an earlier wave."
-                    )
+            _validate_node_dependency_waves(
+                node,
+                node_to_wave,
+            )
 
     def get_node(
         self,
@@ -236,3 +275,32 @@ class WorkflowExecutionPlan:
             "waves": [wave.to_dict() for wave in self.waves],
             "metadata": deepcopy(dict(self.metadata)),
         }
+
+
+def _validate_wave_node_reference(
+    wave: ExecutionWave,
+    node_name: str,
+    known_nodes: set[str],
+    wave_nodes: set[str],
+) -> None:
+    if node_name not in known_nodes:
+        raise ValueError(f"Wave {wave.index} references unknown node '{node_name}'.")
+
+    if node_name in wave_nodes:
+        raise ValueError(f"Node '{node_name}' appears in multiple waves.")
+
+
+def _validate_node_dependency_waves(
+    node: ExecutionPlanNode,
+    node_to_wave: dict[str, int],
+) -> None:
+    node_wave = node_to_wave[node.name]
+
+    for dependency in node.dependencies:
+        dependency_wave = node_to_wave[dependency]
+
+        if dependency_wave >= node_wave:
+            raise ValueError(
+                f"Node '{node.name}' depends on '{dependency}', "
+                "but dependency is not in an earlier wave."
+            )

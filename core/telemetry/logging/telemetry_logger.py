@@ -10,6 +10,15 @@ from core.telemetry.events.telemetry_event import (
 from core.telemetry.sanitization import sanitize_telemetry_mapping
 from core.telemetry.sinks.telemetry_sink import TelemetrySink
 
+_MESSAGE_FIELD_PARTS = (
+    ("trace_id", "trace_id"),
+    ("span_id", "span_id"),
+    ("correlation_id", "correlation_id"),
+    ("workflow", "workflow_id"),
+    ("execution", "execution_id"),
+    ("node", "node_name"),
+)
+
 
 class TelemetryLogger(TelemetrySink):
     """
@@ -71,65 +80,14 @@ class TelemetryLogger(TelemetrySink):
             "include_attributes": self.include_attributes,
         }
 
-    def _message(  # noqa: C901
+    def _message(
         self,
         event: TelemetryEvent,
         *,
         stack_trace: str | None,
     ) -> str:
-        parts = [
-            f"[{event.source}]",
-            event.event_type,
-            f"event_id={event.event_id}",
-        ]
-
-        if event.trace_id:
-            parts.append(
-                f"trace_id={event.trace_id}",
-            )
-
-        if event.span_id:
-            parts.append(
-                f"span_id={event.span_id}",
-            )
-
-        if event.correlation_id:
-            parts.append(
-                f"correlation_id={event.correlation_id}",
-            )
-
-        if event.workflow_id:
-            parts.append(
-                f"workflow={event.workflow_id}",
-            )
-
-        if event.execution_id:
-            parts.append(
-                f"execution={event.execution_id}",
-            )
-
-        if event.node_name:
-            parts.append(
-                f"node={event.node_name}",
-            )
-
-        if event.success is not None:
-            parts.append(
-                f"success={event.success}",
-            )
-
-        if event.error_count:
-            parts.append(
-                f"errors={event.error_count}",
-            )
-
-        if event.duration_seconds is not None:
-            parts.append(
-                f"duration={event.duration_seconds:.6f}s",
-            )
-
         message = " ".join(
-            parts,
+            _message_parts(event),
         )
         if stack_trace:
             return f"{message}\n{stack_trace}"
@@ -201,3 +159,42 @@ class TelemetryLogger(TelemetrySink):
             level,
             logging.INFO,
         )
+
+
+def _message_parts(
+    event: TelemetryEvent,
+) -> list[str]:
+    parts = [
+        f"[{event.source}]",
+        event.event_type,
+        f"event_id={event.event_id}",
+    ]
+
+    parts.extend(_optional_identity_parts(event))
+
+    if event.success is not None:
+        parts.append(
+            f"success={event.success}",
+        )
+
+    if event.error_count:
+        parts.append(
+            f"errors={event.error_count}",
+        )
+
+    if event.duration_seconds is not None:
+        parts.append(
+            f"duration={event.duration_seconds:.6f}s",
+        )
+
+    return parts
+
+
+def _optional_identity_parts(
+    event: TelemetryEvent,
+) -> list[str]:
+    return [
+        f"{label}={value}"
+        for label, attribute_name in _MESSAGE_FIELD_PARTS
+        if (value := getattr(event, attribute_name))
+    ]

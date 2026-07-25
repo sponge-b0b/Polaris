@@ -311,48 +311,102 @@ class WorkflowRuntimeAssembler:
             runtime_persistence_subscriber=overrides.runtime_persistence_subscriber,
         )
 
-    def _assemble_observability(  # noqa: C901
+    def _assemble_observability(
         self,
         config: WorkflowBootstrapConfig,
         overrides: WorkflowRuntimeOverrides,
     ) -> tuple[ObservabilityManager | None, PrometheusMetricsExporter | None]:
-        observability_manager = overrides.observability_manager
-        prometheus_metrics_exporter = overrides.prometheus_metrics_exporter
-
-        if observability_manager is None:
-            try:
-                observability_manager = ObservabilityManager(
-                    enable_domain_metrics=config.enable_domain_metrics,
-                )
-            except Exception as error:
-                emergency_log_configuration_failure(
-                    component="observability",
-                    invalid_setting_names=("enable_domain_metrics",),
-                    error=error,
-                    details={"configuration_source": "workflow_bootstrap"},
-                )
-                raise
-
+        observability_manager = self._resolve_observability_manager(
+            config,
+            overrides.observability_manager,
+        )
         configuration_telemetry = self._configuration_telemetry(
             observability_manager,
         )
 
-        if config.enable_observability and config.enable_telemetry_logging:
-            try:
-                if not config.telemetry_logger_name.strip():
-                    raise ValueError("telemetry_logger_name cannot be empty.")
-                observability_manager.add_sink(
-                    TelemetryLogger(logger_name=config.telemetry_logger_name)
-                )
-            except Exception as error:
-                configuration_telemetry.emit_configuration_failure(
-                    component="telemetry_logging",
-                    invalid_setting_names=("telemetry_logger_name",),
-                    required=False,
-                    error=error,
-                    details={"integration_enabled": True},
-                )
+        self._configure_telemetry_logging(
+            config,
+            observability_manager,
+            configuration_telemetry,
+        )
+        self._validate_workflow_runtime_configuration(
+            config,
+            configuration_telemetry,
+        )
 
+        prometheus_metrics_exporter = overrides.prometheus_metrics_exporter
+        if not config.enable_observability:
+            self._report_disabled_observability_integrations(
+                config,
+                configuration_telemetry,
+            )
+            return observability_manager, prometheus_metrics_exporter
+
+        self._configure_opentelemetry(
+            config,
+            overrides,
+            observability_manager,
+            configuration_telemetry,
+        )
+        prometheus_metrics_exporter = self._configure_prometheus_metrics(
+            config,
+            observability_manager,
+            prometheus_metrics_exporter,
+            configuration_telemetry,
+        )
+
+        return observability_manager, prometheus_metrics_exporter
+
+    @staticmethod
+    def _resolve_observability_manager(
+        config: WorkflowBootstrapConfig,
+        supplied: ObservabilityManager | None,
+    ) -> ObservabilityManager:
+        if supplied is not None:
+            return supplied
+
+        try:
+            return ObservabilityManager(
+                enable_domain_metrics=config.enable_domain_metrics,
+            )
+        except Exception as error:
+            emergency_log_configuration_failure(
+                component="observability",
+                invalid_setting_names=("enable_domain_metrics",),
+                error=error,
+                details={"configuration_source": "workflow_bootstrap"},
+            )
+            raise
+
+    @staticmethod
+    def _configure_telemetry_logging(
+        config: WorkflowBootstrapConfig,
+        observability_manager: ObservabilityManager,
+        configuration_telemetry: BootstrapConfigurationTelemetry,
+    ) -> None:
+        if not (config.enable_observability and config.enable_telemetry_logging):
+            return
+
+        try:
+            if not config.telemetry_logger_name.strip():
+                raise ValueError("telemetry_logger_name cannot be empty.")
+            observability_manager.add_sink(
+                TelemetryLogger(logger_name=config.telemetry_logger_name)
+            )
+        except Exception as error:
+            configuration_telemetry.emit_configuration_failure(
+                component="telemetry_logging",
+                invalid_setting_names=("telemetry_logger_name",),
+                required=False,
+                error=error,
+                details={"integration_enabled": True},
+            )
+
+    @staticmethod
+    def _validate_workflow_runtime_configuration(
+        config: WorkflowBootstrapConfig,
+        configuration_telemetry: BootstrapConfigurationTelemetry,
+    ) -> None:
         try:
             validate_required_workflow_configuration(config)
         except WorkflowBootstrapConfigurationError as error:
@@ -365,77 +419,100 @@ class WorkflowRuntimeAssembler:
             )
             raise
 
-        if not config.enable_observability:
-            if config.enable_opentelemetry:
+    @staticmethod
+    def _report_disabled_observability_integrations(
+        config: WorkflowBootstrapConfig,
+        configuration_telemetry: BootstrapConfigurationTelemetry,
+    ) -> None:
+        disabled_integrations = (
+            (
+                config.enable_opentelemetry,
+                "opentelemetry",
+                ValueError("OpenTelemetry requires observability."),
+            ),
+            (
+                config.enable_prometheus_metrics,
+                "prometheus",
+                ValueError("Prometheus requires observability."),
+            ),
+        )
+        for enabled, component, error in disabled_integrations:
+            if enabled:
                 configuration_telemetry.emit_configuration_failure(
-                    component="opentelemetry",
+                    component=component,
                     invalid_setting_names=("enable_observability",),
-                    required=False,
-                    error=ValueError("OpenTelemetry requires observability."),
-                    details={"integration_enabled": True},
-                )
-            if config.enable_prometheus_metrics:
-                configuration_telemetry.emit_configuration_failure(
-                    component="prometheus",
-                    invalid_setting_names=("enable_observability",),
-                    required=False,
-                    error=ValueError("Prometheus requires observability."),
-                    details={"integration_enabled": True},
-                )
-            return observability_manager, prometheus_metrics_exporter
-
-        if config.enable_opentelemetry:
-            try:
-                opentelemetry_config = (
-                    overrides.opentelemetry_config or OpenTelemetryConfig.from_env()
-                )
-                self._validate_opentelemetry_config(opentelemetry_config)
-                observability_manager.add_sink(
-                    OpenTelemetrySink(
-                        config=opentelemetry_config,
-                    )
-                )
-            except Exception as error:
-                configuration_telemetry.emit_configuration_failure(
-                    component="opentelemetry",
-                    invalid_setting_names=configuration_setting_names(
-                        error,
-                        fallback=("OpenTelemetry configuration",),
-                    ),
                     required=False,
                     error=error,
                     details={"integration_enabled": True},
                 )
 
-        if config.enable_prometheus_metrics:
-            try:
-                prometheus_metrics_exporter = (
-                    prometheus_metrics_exporter
-                    or PrometheusMetricsExporter(
-                        metrics_store=observability_manager.metrics_store,
-                        config=PrometheusMetricsConfig(
-                            host=config.prometheus_metrics_host,
-                            port=config.prometheus_metrics_port,
-                            path=config.prometheus_metrics_path,
-                        ),
-                    )
-                )
-                prometheus_metrics_exporter.start()
-            except Exception as error:
-                prometheus_metrics_exporter = None
-                configuration_telemetry.emit_configuration_failure(
-                    component="prometheus",
-                    invalid_setting_names=(
-                        "prometheus_metrics_host",
-                        "prometheus_metrics_port",
-                        "prometheus_metrics_path",
-                    ),
-                    required=False,
-                    error=error,
-                    details={"integration_enabled": True},
-                )
+    def _configure_opentelemetry(
+        self,
+        config: WorkflowBootstrapConfig,
+        overrides: WorkflowRuntimeOverrides,
+        observability_manager: ObservabilityManager,
+        configuration_telemetry: BootstrapConfigurationTelemetry,
+    ) -> None:
+        if not config.enable_opentelemetry:
+            return
 
-        return observability_manager, prometheus_metrics_exporter
+        try:
+            opentelemetry_config = (
+                overrides.opentelemetry_config or OpenTelemetryConfig.from_env()
+            )
+            self._validate_opentelemetry_config(opentelemetry_config)
+            observability_manager.add_sink(
+                OpenTelemetrySink(
+                    config=opentelemetry_config,
+                )
+            )
+        except Exception as error:
+            configuration_telemetry.emit_configuration_failure(
+                component="opentelemetry",
+                invalid_setting_names=configuration_setting_names(
+                    error,
+                    fallback=("OpenTelemetry configuration",),
+                ),
+                required=False,
+                error=error,
+                details={"integration_enabled": True},
+            )
+
+    @staticmethod
+    def _configure_prometheus_metrics(
+        config: WorkflowBootstrapConfig,
+        observability_manager: ObservabilityManager,
+        prometheus_metrics_exporter: PrometheusMetricsExporter | None,
+        configuration_telemetry: BootstrapConfigurationTelemetry,
+    ) -> PrometheusMetricsExporter | None:
+        if not config.enable_prometheus_metrics:
+            return prometheus_metrics_exporter
+
+        try:
+            exporter = prometheus_metrics_exporter or PrometheusMetricsExporter(
+                metrics_store=observability_manager.metrics_store,
+                config=PrometheusMetricsConfig(
+                    host=config.prometheus_metrics_host,
+                    port=config.prometheus_metrics_port,
+                    path=config.prometheus_metrics_path,
+                ),
+            )
+            exporter.start()
+        except Exception as error:
+            configuration_telemetry.emit_configuration_failure(
+                component="prometheus",
+                invalid_setting_names=(
+                    "prometheus_metrics_host",
+                    "prometheus_metrics_port",
+                    "prometheus_metrics_path",
+                ),
+                required=False,
+                error=error,
+                details={"integration_enabled": True},
+            )
+            return None
+
+        return exporter
 
     def _assemble_runtime_lifecycle_manager(
         self,

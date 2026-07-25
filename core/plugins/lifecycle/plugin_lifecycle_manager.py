@@ -128,7 +128,7 @@ class PluginLifecycleManager:
             "fail_fast": self.fail_fast,
         }
 
-    async def _dispatch(  # noqa: C901
+    async def _dispatch(
         self,
         lifecycle_event: str,
         callback: PluginHookCallback,
@@ -137,37 +137,83 @@ class PluginLifecycleManager:
             return
 
         if self.fail_fast:
-            for hook in self._hooks:
-                try:
-                    await callback(hook)
-                except asyncio.CancelledError:
-                    raise
-                except BaseException as error:
-                    if self._failure_handler is not None:
-                        await self._failure_handler(
-                            lifecycle_event,
-                            hook,
-                            error,
-                        )
-                    raise
+            await self._dispatch_fail_fast(
+                lifecycle_event,
+                callback,
+            )
             return
 
+        await self._dispatch_concurrently(
+            lifecycle_event,
+            callback,
+        )
+
+    async def _dispatch_fail_fast(
+        self,
+        lifecycle_event: str,
+        callback: PluginHookCallback,
+    ) -> None:
+        for hook in self._hooks:
+            try:
+                await callback(hook)
+            except asyncio.CancelledError:
+                raise
+            except BaseException as error:
+                await self._handle_hook_failure(
+                    lifecycle_event,
+                    hook,
+                    error,
+                )
+                raise
+
+    async def _dispatch_concurrently(
+        self,
+        lifecycle_event: str,
+        callback: PluginHookCallback,
+    ) -> None:
         results = await asyncio.gather(
             *[callback(hook) for hook in self._hooks],
             return_exceptions=True,
         )
 
+        self._raise_if_cancelled(results)
+        await self._handle_hook_failures(
+            lifecycle_event,
+            results,
+        )
+
+    @staticmethod
+    def _raise_if_cancelled(
+        results: list[BaseException | None],
+    ) -> None:
         for result in results:
             if isinstance(result, asyncio.CancelledError):
                 raise result
 
-        if self._failure_handler is None:
-            return
-
+    async def _handle_hook_failures(
+        self,
+        lifecycle_event: str,
+        results: list[BaseException | None],
+    ) -> None:
         for hook, result in zip(self._hooks, results, strict=False):
             if isinstance(result, BaseException):
-                await self._failure_handler(
+                await self._handle_hook_failure(
                     lifecycle_event,
                     hook,
                     result,
                 )
+
+    async def _handle_hook_failure(
+        self,
+        lifecycle_event: str,
+        hook: PluginLifecycleHook,
+        error: BaseException,
+    ) -> None:
+        if self._failure_handler is None:
+            return
+
+        await self._failure_handler(
+            lifecycle_event,
+            hook,
+            error,
+        )

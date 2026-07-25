@@ -31,6 +31,9 @@ from core.storage.persistence.recommendations import (
     RecommendationPersistenceResult,
 )
 from domain.authority import GateProfile, RiskTier
+from domain.decision_evidence import (
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+)
 from domain.workflow_outputs import (
     TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
@@ -122,6 +125,62 @@ async def test_trade_recommendation_projector_ignores_model_authority_claims() -
         "residual_risk_accepted",
         "risk_tier",
     ]
+
+
+@pytest.mark.asyncio
+async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_claim_references())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    claim_metadata = cast(
+        dict[str, JsonValue],
+        repository.bundles[0]
+        .rationales[0]
+        .metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
+    )
+    assert claim_metadata["packet_ids"] == ["packet-1"]
+    assert claim_metadata["reconstruction_reference_ids"] == ["workflow-node"]
+    claim_references = cast(
+        list[dict[str, JsonValue]],
+        claim_metadata["claim_references"],
+    )
+    assert claim_references[0]["claim_id"] == "claim-1"
+    assert claim_references[0]["supporting_evidence_ids"] == ["evidence-1"]
+    assert claim_references[0]["uncertainty_ids"] == ["uncertainty-1"]
+    assert claim_references[0]["limitation_ids"] == ["limitation-1"]
+    serialized = str(claim_metadata)
+    assert "canonical evidence summary" not in serialized
+    assert "raw_payload" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_fails_closed_for_unsupported_claims() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_unsupported_claim_reference())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "UnsupportedMaterialClaimError"
+    assert outcome.error_message == (
+        "material claim 'claim-unsupported' lacks supporting evidence."
+    )
+    assert repository.bundles == []
 
 
 class _FakeRecommendationRepository:
@@ -243,6 +302,61 @@ def _node_with_model_claims() -> CompletedNodeOutputRecord:
             "production_ready": True,
             "residual_risk_accepted": True,
         },
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))
+
+
+def _claim_reference_metadata(
+    *,
+    supporting_evidence_ids: list[str] | None = None,
+) -> dict[str, JsonValue]:
+    supporting_ids = (
+        ["evidence-1"] if supporting_evidence_ids is None else supporting_evidence_ids
+    )
+    return cast(
+        dict[str, JsonValue],
+        {
+            "schema_version": 1,
+            "packet_ids": ["packet-1"],
+            "reconstruction_reference_ids": ["workflow-node"],
+            "claim_references": [
+                {
+                    "schema_version": 1,
+                    "packet_id": "packet-1",
+                    "output_id": "node-output-trade",
+                    "claim_id": ("claim-1" if supporting_ids else "claim-unsupported"),
+                    "risk_tier": RiskTier.ENHANCED.value,
+                    "material": True,
+                    "supporting_evidence_ids": supporting_ids,
+                    "reconstruction_reference_ids": ["workflow-node"],
+                    "uncertainty_ids": ["uncertainty-1"],
+                    "limitation_ids": ["limitation-1"],
+                }
+            ],
+        },
+    )
+
+
+def _node_with_claim_references() -> CompletedNodeOutputRecord:
+    node = _node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = cast(
+        JsonValue,
+        _claim_reference_metadata(),
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))
+
+
+def _node_with_unsupported_claim_reference() -> CompletedNodeOutputRecord:
+    node = _node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = cast(
+        JsonValue,
+        _claim_reference_metadata(supporting_evidence_ids=[]),
     )
     outputs["features"] = cast(JsonValue, features)
     return replace(node, outputs=cast(JsonObject, outputs))

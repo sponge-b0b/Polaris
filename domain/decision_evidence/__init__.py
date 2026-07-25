@@ -1,3 +1,12 @@
+from domain.decision_evidence.claim_references import (
+    DECISION_EVIDENCE_CLAIM_REFERENCE_SCHEMA_VERSION,
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    EvidenceClaimReference,
+    EvidenceClaimReferenceSet,
+    evidence_claim_references_from_metadata,
+    evidence_claim_references_from_packet,
+    evidence_claim_references_metadata,
+)
 from domain.decision_evidence.packets import (
     DECISION_EVIDENCE_PACKET_SCHEMA_VERSION,
     ClaimEvidenceBinding,
@@ -16,10 +25,14 @@ from domain.decision_evidence.packets import (
 )
 
 __all__ = [
+    "DECISION_EVIDENCE_CLAIM_REFERENCE_SCHEMA_VERSION",
+    "DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY",
     "DECISION_EVIDENCE_PACKET_SCHEMA_VERSION",
     "ClaimEvidenceBinding",
     "DecisionEvidencePacket",
     "DecisionEvidencePacketValidationError",
+    "EvidenceClaimReference",
+    "EvidenceClaimReferenceSet",
     "EvidenceConstraint",
     "EvidenceLimitation",
     "EvidenceReference",
@@ -30,4 +43,7 @@ __all__ = [
     "ReconstructionReference",
     "ReconstructionReferenceKind",
     "UnsupportedMaterialClaimError",
+    "evidence_claim_references_from_metadata",
+    "evidence_claim_references_from_packet",
+    "evidence_claim_references_metadata",
 ]

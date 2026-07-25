@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Final
+from typing import Final, cast
 
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.projections.workflow_outputs.projection_models import (
@@ -27,6 +27,11 @@ from domain.authority import (
     model_authority_claims_from_payloads,
     recommendation_rationale_authority,
     recommendation_record_authority,
+)
+from domain.decision_evidence import (
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    DecisionEvidencePacketValidationError,
+    evidence_claim_references_from_metadata,
 )
 from domain.workflow_outputs import (
     PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
@@ -72,6 +77,21 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
             outputs,
             features,
         )
+        try:
+            rationale = _rationale(
+                recommendation_id=recommendation_id,
+                request=request,
+                rationale_type="portfolio_allocation_intent",
+                rationale_text=_rationale_text(outputs, "Portfolio allocation intent."),
+                confidence=confidence,
+            )
+        except DecisionEvidencePacketValidationError as exc:
+            return _failed(
+                request,
+                self.projector_name,
+                str(exc),
+                error_type=exc.__class__.__name__,
+            )
         bundle = RecommendationPersistenceBundle(
             recommendation=RecommendationRecord(
                 recommendation_id=recommendation_id,
@@ -105,17 +125,7 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
                     ),
                 },
             ),
-            rationales=(
-                _rationale(
-                    recommendation_id=recommendation_id,
-                    request=request,
-                    rationale_type="portfolio_allocation_intent",
-                    rationale_text=_rationale_text(
-                        outputs, "Portfolio allocation intent."
-                    ),
-                    confidence=confidence,
-                ),
-            ),
+            rationales=(rationale,),
         )
         result = await self._recommendation_persistence_service.persist_bundle(bundle)
         if not result.success:
@@ -244,17 +254,24 @@ class TradeRecommendationWorkflowOutputProjector:
                 ),
             },
         )
+        try:
+            rationale = _rationale(
+                recommendation_id=recommendation_id,
+                request=request,
+                rationale_type="trade_recommendation",
+                rationale_text=_rationale_text(outputs, "Trade recommendation."),
+                confidence=confidence,
+            )
+        except DecisionEvidencePacketValidationError as exc:
+            return _failed(
+                request,
+                self.projector_name,
+                str(exc),
+                error_type=exc.__class__.__name__,
+            )
         bundle = RecommendationPersistenceBundle(
             recommendation=recommendation,
-            rationales=(
-                _rationale(
-                    recommendation_id=recommendation_id,
-                    request=request,
-                    rationale_type="trade_recommendation",
-                    rationale_text=_rationale_text(outputs, "Trade recommendation."),
-                    confidence=confidence,
-                ),
-            ),
+            rationales=(rationale,),
             trade_setups=(trade_setup,),
         )
         result = await self._recommendation_persistence_service.persist_bundle(bundle)
@@ -309,6 +326,8 @@ def _rationale(
     rationale_text: str,
     confidence: float,
 ) -> RecommendationRationaleRecord:
+    outputs = _mapping(request.node_output.outputs)
+    features = _mapping(outputs.get("features"))
     return RecommendationRationaleRecord(
         rationale_id=new_recommendation_child_id(
             recommendation_id=recommendation_id,
@@ -323,16 +342,34 @@ def _rationale(
         confidence=confidence,
         metadata={
             "source_fingerprint": request.source_fingerprint,
+            **_claim_reference_metadata(outputs, features),
             **authority_contract_metadata(
                 recommendation_rationale_authority(
                     model_authority_claims_from_payloads(
-                        _mapping(request.node_output.outputs),
-                        _mapping(_mapping(request.node_output.outputs).get("features")),
+                        outputs,
+                        features,
                     )
                 )
             ),
         },
     )
+
+
+def _claim_reference_metadata(
+    *payloads: Mapping[str, object],
+) -> JsonObject:
+    for payload in payloads:
+        value = payload.get(DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY)
+        if value is None:
+            continue
+        claim_references = evidence_claim_references_from_metadata(
+            value,
+        ).as_metadata()
+        return cast(
+            JsonObject,
+            {DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: claim_references},
+        )
+    return {}
 
 
 def _rationale_text(outputs: Mapping[str, object], fallback: str) -> str:
@@ -478,6 +515,8 @@ def _failed(
     request: WorkflowOutputProjectorRequest,
     projector_name: str,
     error: str,
+    *,
+    error_type: str = "PersistenceError",
 ) -> WorkflowOutputProjectionOutcome:
     return WorkflowOutputProjectionOutcome(
         status=WorkflowOutputProjectionStatus.FAILED,
@@ -486,7 +525,7 @@ def _failed(
         output_contract=request.node_output.output_contract or "unknown",
         output_schema_version=request.node_output.output_schema_version or 1,
         source_fingerprint=request.source_fingerprint,
-        error_type="PersistenceError",
+        error_type=error_type,
         error_message=error,
         message="Recommendation projection failed.",
     )

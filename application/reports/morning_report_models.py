@@ -8,6 +8,7 @@ from application.reports.authority import (
     morning_report_authority,
 )
 from domain.authority import RiskAuthorityContract
+from domain.decision_evidence import EvidenceClaimReference
 
 type ReportScalar = str | int | float | bool | None
 
@@ -53,6 +54,7 @@ class ReportBullet:
 
     text: str
     label: str | None = None
+    claim_references: tuple[EvidenceClaimReference, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +70,7 @@ class ReportSection:
     risks: tuple[ReportBullet, ...] = ()
     recommendations: tuple[ReportBullet, ...] = ()
     tables: tuple[ReportTable, ...] = ()
+    claim_references: tuple[EvidenceClaimReference, ...] = ()
 
     @classmethod
     def unavailable(

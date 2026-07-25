@@ -28,6 +28,11 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     ReportVersionRecord,
 )
+from domain.authority import RiskTier
+from domain.decision_evidence import (
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    EvidenceClaimReference,
+)
 from domain.llm import ReasoningTraceViolationError
 
 
@@ -281,6 +286,66 @@ def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
     assert payload_boundary["risk_authority"] == risk_authority
     assert bundle.sections[0].metadata["risk_authority"] == risk_authority
     assert bundle.artifacts[0].metadata["risk_authority"] == risk_authority
+
+
+def test_mapper_attaches_report_claim_packet_refs_without_payloads() -> None:
+    reference = EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="report-output-1",
+        claim_id="claim-1",
+        risk_tier=RiskTier.VIGILANT,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
+    section = ReportSection(
+        title="Executive Summary",
+        summary="Market risk remains elevated based on canonical evidence.",
+        bullets=(
+            ReportBullet(
+                text="Maintain discipline while monitoring catalysts.",
+                label="Posture",
+                claim_references=(reference,),
+            ),
+        ),
+    )
+    document = MorningReportDocument(
+        title="Polaris Morning Financial Report",
+        subtitle="Decision-support report for SPY",
+        symbol="SPY",
+        execution_id="exec-evidence",
+        generated_at="2026-05-30T13:30:00Z",
+        status="Succeeded",
+        executive_summary=section,
+        portfolio_snapshot=ReportSection.unavailable("Portfolio Snapshot"),
+        macro_backdrop=ReportSection.unavailable("Macro / Fundamental Backdrop"),
+        technical_setup=ReportSection.unavailable("Technical Setup"),
+        news_sentiment=ReportSection.unavailable("News & Sentiment"),
+        risk_assessment=ReportSection.unavailable("Risk Assessment"),
+        recommended_action_plan=ReportSection.unavailable("Recommended Action Plan"),
+    )
+
+    bundle = MorningReportPersistenceMapper().build_bundle(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    claim_metadata = cast(
+        dict[str, Any],
+        bundle.sections[0].metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
+    )
+    assert claim_metadata["packet_ids"] == ["packet-1"]
+    assert claim_metadata["reconstruction_reference_ids"] == ["workflow-node"]
+    claim_references = cast(list[dict[str, Any]], claim_metadata["claim_references"])
+    assert claim_references[0]["packet_id"] == "packet-1"
+    assert claim_references[0]["claim_id"] == "claim-1"
+    assert claim_references[0]["supporting_evidence_ids"] == ["evidence-1"]
+    assert claim_references[0]["uncertainty_ids"] == ["uncertainty-1"]
+    assert claim_references[0]["limitation_ids"] == ["limitation-1"]
+    serialized = str(claim_metadata)
+    assert "canonical evidence summary" not in serialized
+    assert "raw_payload" not in serialized
 
 
 def test_morning_report_mapper_fails_closed_on_unsupported_capital_advice() -> None:

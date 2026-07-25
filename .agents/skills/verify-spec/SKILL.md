@@ -119,24 +119,6 @@ For any errors detected by `ruff`, `mypy`, `pytest`, `graphify`, or `/duplicatio
 2. **Root Cause Analysis:** A brief, clear synthesis explaining *why* these failures occurred (e.g., a shared helper signature changed, breaking down-stream typing contract blocks).
 3. **Remediation Roadmap:** A step-by-step, actionable checklist providing the exact file paths, lines of code, or command blocks the developer needs to modify to achieve a passing verification state.
 
-### Example Interaction Fragment
-
-**Agent Response (Post-Tool Failure):**
-*"❌ **Specification Verification Failed.** The macro validation pipeline caught multiple cross-module integration issues. Below is the failure summary and a remediation roadmap to resolve them:
-
-### 1. Failure Inventory
-- **Type Drift (mypy):** `titan/agents/routing.py:42` — `Invalid return type (expected Dict, got Option)`
-- **Regression Failures (pytest):** `tests/core/strategy/test_pipeline.py:118` — `AssertionError: Expected metric value 0.95, got 0.88`
-- **Duplication Clone (/duplication-checks):** `jscpd` flagged an 85% token match between your new `utils/math_helpers.py` and the existing `titan/math/calculators.py`.
-
-### 2. Root Cause Analysis
-The model changes introduced in your specification altered the payload contract inside `routing.py`. This caused typing drift down the pipeline, which directly caused the strategy integration test to fail due to miscalculated metrics. Furthermore, the new math utility functions replicate existing codebase infrastructure.
-
-### 3. Remediation Roadmap
-- [ ] **Fix Typing:** Modify line 42 of `titan/agents/routing.py` to cleanly unpack the `Option` block before passing it down the stream.
-- [ ] **Consolidate Code:** Delete `utils/math_helpers.py` entirely and refactor your new component to import the canonical wrappers from `titan/math/calculators.py`.
-- [ ] **Re-verify:** Once these adjustments are complete, re-run `/verify-spec` to confirm the regression suite passes."*
-
 ## Examples
 
 ### Example 1: Pre-Review Integration Verification (Model Migration Spec)

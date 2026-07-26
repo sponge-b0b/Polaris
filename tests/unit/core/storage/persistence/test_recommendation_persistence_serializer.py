@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -14,6 +15,7 @@ from core.storage.persistence.lineage import (
     PersistenceRecordIdentity,
 )
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationRationaleRecord,
     RecommendationRecord,
@@ -23,6 +25,7 @@ from core.storage.persistence.recommendations import (
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (
     RecommendationPersistenceSerializer,
 )
+from domain.authority import RiskTier
 
 
 def test_recommendation_serializer_flattens_typed_parent_record() -> None:
@@ -219,3 +222,28 @@ def _lineage() -> PersistenceLineage:
 
 def _timestamp() -> datetime:
     return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)
+
+
+def test_recommendation_serializer_round_trips_claim_evidence_link() -> None:
+    record = RecommendationClaimEvidenceLinkRecord(
+        link_id="rec-1:claim_evidence:rationale-1:claim-1:packet-1:claim-a",
+        recommendation_id="rec-1",
+        rationale_id="rationale-1",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.VIGILANT,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
+
+    values = RecommendationPersistenceSerializer.claim_evidence_link_values(record)
+    model = RecommendationClaimEvidenceLinkModel(**values)
+    restored = RecommendationPersistenceSerializer.claim_evidence_link_from_model(model)
+
+    assert values["risk_tier"] == "vigilant"
+    assert values["reconstruction_reference_ids"] == ["reconstruction-1"]
+    assert restored == record

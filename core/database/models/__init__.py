@@ -74,6 +74,7 @@ from core.database.models.rag import (
     RagSourceEligibilityModel,
 )
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -82,6 +83,7 @@ from core.database.models.recommendations import (
 )
 from core.database.models.reports import (
     ReportArtifactModel,
+    ReportClaimEvidenceLinkModel,
     ReportModel,
     ReportPublicationModel,
     ReportSectionModel,
@@ -146,6 +148,7 @@ __all__ = [
     "TradeSetupModel",
     "RecommendationRationaleModel",
     "RecommendationOutcomeModel",
+    "RecommendationClaimEvidenceLinkModel",
     "RecommendationModel",
     "PersistenceLineageLinkModel",
     "EconomicCalendarEventModel",
@@ -178,6 +181,7 @@ __all__ = [
     "ReportPublicationModel",
     "ReportModel",
     "ReportArtifactModel",
+    "ReportClaimEvidenceLinkModel",
     "ReportVersionModel",
     "PersistenceRetentionPolicyModel",
     "AgentMetricModel",

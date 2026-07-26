@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -16,6 +17,7 @@ from core.database.models.recommendations import (
     WatchlistItemModel,
 )
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceResult,
@@ -84,6 +86,12 @@ class PostgresRecommendationPersistenceRepository(
                         item,
                     )
                 )
+            for link in bundle.claim_evidence_links:
+                await self._session.execute(
+                    _upsert_claim_evidence_link_statement(
+                        link,
+                    )
+                )
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
@@ -98,7 +106,8 @@ class PostgresRecommendationPersistenceRepository(
             + len(bundle.rationales)
             + len(bundle.outcomes)
             + len(bundle.trade_setups)
-            + len(bundle.watchlist_items),
+            + len(bundle.watchlist_items)
+            + len(bundle.claim_evidence_links),
         )
 
     async def get_recommendation(
@@ -259,6 +268,48 @@ class PostgresRecommendationPersistenceRepository(
             for model in result.scalars().all()
         )
 
+    async def list_claim_evidence_links(
+        self,
+        *,
+        recommendation_id: str | None = None,
+        rationale_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[RecommendationClaimEvidenceLinkRecord]:
+        stmt = select(RecommendationClaimEvidenceLinkModel)
+        if recommendation_id is not None:
+            stmt = stmt.where(
+                RecommendationClaimEvidenceLinkModel.recommendation_id
+                == recommendation_id,
+            )
+        if rationale_id is not None:
+            stmt = stmt.where(
+                RecommendationClaimEvidenceLinkModel.rationale_id == rationale_id,
+            )
+        if packet_id is not None:
+            stmt = stmt.where(
+                RecommendationClaimEvidenceLinkModel.packet_id == packet_id,
+            )
+        if claim_target_id is not None:
+            stmt = stmt.where(
+                RecommendationClaimEvidenceLinkModel.claim_target_id == claim_target_id,
+            )
+        stmt = stmt.order_by(
+            RecommendationClaimEvidenceLinkModel.recommendation_id,
+            RecommendationClaimEvidenceLinkModel.claim_target_id,
+            RecommendationClaimEvidenceLinkModel.packet_id,
+            RecommendationClaimEvidenceLinkModel.packet_claim_id,
+            RecommendationClaimEvidenceLinkModel.link_id,
+        )
+        result = await self._session.execute(stmt)
+
+        return tuple(
+            RecommendationPersistenceSerializer.claim_evidence_link_from_model(
+                model,
+            )
+            for model in result.scalars().all()
+        )
+
 
 def _upsert_recommendation_statement(
     record: RecommendationRecord,
@@ -403,5 +454,31 @@ def _upsert_watchlist_item_statement(
             "created_at": excluded.created_at,
             "metadata": excluded.metadata,
             "row_updated_at": func.now(),
+        },
+    )
+
+
+def _upsert_claim_evidence_link_statement(
+    link: RecommendationClaimEvidenceLinkRecord,
+) -> Any:
+    values = RecommendationPersistenceSerializer.claim_evidence_link_values(link)
+    stmt = insert(RecommendationClaimEvidenceLinkModel).values(**values)
+    excluded = stmt.excluded
+
+    return stmt.on_conflict_do_update(
+        index_elements=["link_id"],
+        set_={
+            "recommendation_id": excluded.recommendation_id,
+            "rationale_id": excluded.rationale_id,
+            "claim_target_id": excluded.claim_target_id,
+            "packet_id": excluded.packet_id,
+            "packet_claim_id": excluded.packet_claim_id,
+            "risk_tier": excluded.risk_tier,
+            "material": excluded.material,
+            "supporting_evidence_ids": excluded.supporting_evidence_ids,
+            "reconstruction_reference_ids": excluded.reconstruction_reference_ids,
+            "uncertainty_ids": excluded.uncertainty_ids,
+            "limitation_ids": excluded.limitation_ids,
+            "updated_at": func.now(),
         },
     )

@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from core.database.models.reports import (
     ReportArtifactModel,
+    ReportClaimEvidenceLinkModel,
     ReportModel,
     ReportPublicationModel,
     ReportSectionModel,
@@ -12,6 +13,7 @@ from core.database.models.reports import (
 from core.storage.persistence.reports.report_persistence_models import (
     JsonObject,
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPublicationRecord,
     ReportRecord,
     ReportSectionRecord,
@@ -111,6 +113,25 @@ class ReportPersistenceSerializer:
             "artifact_uri": record.artifact_uri,
             "error": record.error,
             "metadata_payload": dict(record.metadata),
+        }
+
+    @staticmethod
+    def claim_evidence_link_values(
+        record: ReportClaimEvidenceLinkRecord,
+    ) -> dict[str, Any]:
+        return {
+            "link_id": record.link_id,
+            "report_id": record.report_id,
+            "section_id": record.section_id,
+            "claim_target_id": record.claim_target_id,
+            "packet_id": record.packet_id,
+            "packet_claim_id": record.packet_claim_id,
+            "risk_tier": record.risk_tier.value,
+            "material": record.material,
+            "supporting_evidence_ids": list(record.supporting_evidence_ids),
+            "reconstruction_reference_ids": list(record.reconstruction_reference_ids),
+            "uncertainty_ids": list(record.uncertainty_ids),
+            "limitation_ids": list(record.limitation_ids),
         }
 
     @staticmethod
@@ -221,3 +242,30 @@ class ReportPersistenceSerializer:
                 model.metadata_payload,
             ),
         )
+
+    @staticmethod
+    def claim_evidence_link_from_model(
+        model: ReportClaimEvidenceLinkModel,
+    ) -> ReportClaimEvidenceLinkRecord:
+        return ReportClaimEvidenceLinkRecord(
+            link_id=model.link_id,
+            report_id=model.report_id,
+            section_id=model.section_id,
+            claim_target_id=model.claim_target_id,
+            packet_id=model.packet_id,
+            packet_claim_id=model.packet_claim_id,
+            risk_tier=model.risk_tier,
+            material=model.material,
+            supporting_evidence_ids=_string_tuple(model.supporting_evidence_ids),
+            reconstruction_reference_ids=_string_tuple(
+                model.reconstruction_reference_ids,
+            ),
+            uncertainty_ids=_string_tuple(model.uncertainty_ids),
+            limitation_ids=_string_tuple(model.limitation_ids),
+        )
+
+
+def _string_tuple(values: object) -> tuple[str, ...]:
+    if not isinstance(values, list):
+        return ()
+    return tuple(value for value in values if isinstance(value, str))

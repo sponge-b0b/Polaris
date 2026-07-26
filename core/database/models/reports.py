@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -432,4 +433,130 @@ Index(
     "idx_report_publications_version_requested_at",
     ReportPublicationModel.version_id,
     ReportPublicationModel.requested_at,
+)
+
+
+class ReportClaimEvidenceLinkModel(Base):
+    """Durable report claim-to-decision-evidence-packet audit link."""
+
+    __tablename__ = "report_claim_evidence_links"
+    __table_args__ = (
+        CheckConstraint(
+            "risk_tier IN ('enhanced', 'vigilant')",
+            name="ck_report_claim_evidence_links_risk_tier",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(supporting_evidence_ids) = 'array'",
+            name="ck_report_claim_evidence_links_supporting_ids_array",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(reconstruction_reference_ids) = 'array'",
+            name="ck_report_claim_evidence_links_reconstruction_ids_array",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(uncertainty_ids) = 'array'",
+            name="ck_report_claim_evidence_links_uncertainty_ids_array",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(limitation_ids) = 'array'",
+            name="ck_report_claim_evidence_links_limitation_ids_array",
+        ),
+        CheckConstraint(
+            "NOT (material AND (jsonb_array_length(supporting_evidence_ids) = 0 "
+            "OR jsonb_array_length(reconstruction_reference_ids) = 0))",
+            name="ck_report_claim_evidence_links_material_has_support",
+        ),
+    )
+
+    link_id: Mapped[str] = mapped_column(
+        String,
+        primary_key=True,
+    )
+    report_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "reports.report_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    section_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "report_sections.section_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+    claim_target_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        index=True,
+    )
+    packet_id: Mapped[str] = mapped_column(
+        ForeignKey(
+            "decision_evidence_packets.packet_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    packet_claim_id: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        index=True,
+    )
+    risk_tier: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        index=True,
+    )
+    material: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    supporting_evidence_ids: Mapped[list[Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+    reconstruction_reference_ids: Mapped[list[Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+    uncertainty_ids: Mapped[list[Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+    limitation_ids: Mapped[list[Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+Index(
+    "idx_report_claim_evidence_links_report_claim",
+    ReportClaimEvidenceLinkModel.report_id,
+    ReportClaimEvidenceLinkModel.claim_target_id,
+)
+
+Index(
+    "idx_report_claim_evidence_links_packet_claim",
+    ReportClaimEvidenceLinkModel.packet_id,
+    ReportClaimEvidenceLinkModel.packet_claim_id,
 )

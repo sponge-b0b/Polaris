@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -18,6 +19,7 @@ from core.database.models.recommendations import (
 )
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationRationaleRecord,
@@ -31,6 +33,7 @@ from core.storage.persistence.repositories.postgres_recommendation_persistence_r
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (
     RecommendationPersistenceSerializer,
 )
+from domain.authority import RiskTier
 
 
 class FakeScalarResult:
@@ -248,6 +251,70 @@ async def test_list_child_records_returns_typed_records() -> None:
     assert watchlist_items[0].watchlist_item_id == "rec-1:watchlist:primary"
 
 
+@pytest.mark.asyncio
+async def test_persist_recommendation_bundle_includes_claim_evidence_links() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session)
+    )
+
+    result = await repository.persist_recommendation_bundle(
+        RecommendationPersistenceBundle(
+            recommendation=_recommendation(),
+            claim_evidence_links=(_claim_evidence_link(),),
+        )
+    )
+
+    compiled = [
+        str(
+            statement.compile(
+                dialect=postgresql.dialect(),
+            )
+        )
+        for statement in session.executed
+    ]
+
+    assert result.success is True
+    assert result.records_persisted == 2
+    assert len(session.executed) == 2
+    assert "ON CONFLICT (link_id)" in compiled[1]
+    assert "recommendation_claim_evidence_links" in compiled[1]
+
+
+@pytest.mark.asyncio
+async def test_list_recommendation_claim_evidence_links_returns_typed_records() -> None:
+    model = RecommendationClaimEvidenceLinkModel(
+        link_id="rec-1:claim_evidence:claim-1:packet-1:claim-a",
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier="vigilant",
+        material=True,
+        supporting_evidence_ids=["evidence-1"],
+        reconstruction_reference_ids=["reconstruction-1"],
+        uncertainty_ids=["uncertainty-1"],
+        limitation_ids=["limitation-1"],
+    )
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session)
+    )
+
+    records = await repository.list_claim_evidence_links(
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        packet_id="packet-1",
+        claim_target_id="claim-1",
+    )
+
+    assert len(records) == 1
+    assert records[0].risk_tier is RiskTier.VIGILANT
+    assert records[0].supporting_evidence_ids == ("evidence-1",)
+    assert records[0].reconstruction_reference_ids == ("reconstruction-1",)
+
+
 def _bundle() -> RecommendationPersistenceBundle:
     return RecommendationPersistenceBundle(
         recommendation=_recommendation(),
@@ -354,3 +421,18 @@ def _lineage() -> PersistenceLineage:
 
 def _timestamp() -> datetime:
     return datetime(2026, 5, 31, 13, 0, tzinfo=UTC)
+
+
+def _claim_evidence_link() -> RecommendationClaimEvidenceLinkRecord:
+    return RecommendationClaimEvidenceLinkRecord(
+        link_id="rec-1:claim_evidence:claim-1:packet-1:claim-a",
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.VIGILANT,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
+    )

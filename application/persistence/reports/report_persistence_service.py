@@ -11,6 +11,7 @@ from core.storage.persistence.lineage import clean_optional_identifier
 from core.storage.persistence.query import PersistenceListResult
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceRepository,
     ReportPersistenceResult,
@@ -105,6 +106,57 @@ class ReportPublicationPersistenceFilters:
         )
 
 
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class ReportClaimEvidenceLinkPersistenceFilters:
+    """
+    Typed application-layer filters for report claim evidence links.
+    """
+
+    report_id: str | None = None
+    section_id: str | None = None
+    packet_id: str | None = None
+    claim_target_id: str | None = None
+
+    def __post_init__(
+        self,
+    ) -> None:
+        object.__setattr__(
+            self,
+            "report_id",
+            clean_optional_identifier(
+                self.report_id,
+                "report_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "section_id",
+            clean_optional_identifier(
+                self.section_id,
+                "section_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "packet_id",
+            clean_optional_identifier(
+                self.packet_id,
+                "packet_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "claim_target_id",
+            clean_optional_identifier(
+                self.claim_target_id,
+                "claim_target_id",
+            ),
+        )
+
+
 class ReportPersistenceService:
     """
     Application service for curated report persistence.
@@ -136,6 +188,7 @@ class ReportPersistenceService:
         artifacts: Sequence[ReportArtifactRecord] = (),
         versions: Sequence[ReportVersionRecord] = (),
         publications: Sequence[ReportPublicationRecord] = (),
+        claim_evidence_links: Sequence[ReportClaimEvidenceLinkRecord] = (),
     ) -> ReportPersistenceResult:
         return await self.persist_bundle(
             ReportPersistenceBundle(
@@ -151,6 +204,9 @@ class ReportPersistenceService:
                 ),
                 publications=tuple(
                     publications,
+                ),
+                claim_evidence_links=tuple(
+                    claim_evidence_links,
                 ),
             )
         )
@@ -264,6 +320,40 @@ class ReportPersistenceService:
             record_type="report_version",
             metadata={
                 "report_id": clean_report_id,
+            },
+        )
+        return build_list_result(
+            records,
+            query=query,
+        )
+
+    async def list_claim_evidence_links(
+        self,
+        filters: ReportClaimEvidenceLinkPersistenceFilters | None = None,
+    ) -> Sequence[ReportClaimEvidenceLinkRecord]:
+        result = await self.list_claim_evidence_links_result(
+            filters,
+        )
+        return result.records
+
+    async def list_claim_evidence_links_result(
+        self,
+        filters: ReportClaimEvidenceLinkPersistenceFilters | None = None,
+    ) -> PersistenceListResult[ReportClaimEvidenceLinkRecord]:
+        active_filters = filters or ReportClaimEvidenceLinkPersistenceFilters()
+        records = await self._repository.list_claim_evidence_links(
+            report_id=active_filters.report_id,
+            section_id=active_filters.section_id,
+            packet_id=active_filters.packet_id,
+            claim_target_id=active_filters.claim_target_id,
+        )
+        query = build_common_query(
+            record_type="report_claim_evidence_link",
+            metadata={
+                "report_id": active_filters.report_id,
+                "section_id": active_filters.section_id,
+                "packet_id": active_filters.packet_id,
+                "claim_target_id": active_filters.claim_target_id,
             },
         )
         return build_list_result(

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
+from domain.authority import RiskTier
+
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | Mapping[str, "JsonValue"] | Sequence["JsonValue"]
 type JsonObject = Mapping[str, JsonValue]
@@ -240,6 +242,54 @@ class ReportPublicationRecord:
     frozen=True,
     slots=True,
 )
+class ReportClaimEvidenceLinkRecord:
+    """Authoritative report claim-to-decision-evidence-packet link."""
+
+    link_id: str
+    report_id: str
+    claim_target_id: str
+    packet_id: str
+    packet_claim_id: str
+    risk_tier: RiskTier
+    material: bool
+    supporting_evidence_ids: tuple[str, ...]
+    reconstruction_reference_ids: tuple[str, ...]
+    section_id: str | None = None
+    uncertainty_ids: tuple[str, ...] = ()
+    limitation_ids: tuple[str, ...] = ()
+
+    def __post_init__(
+        self,
+    ) -> None:
+        _set_clean_identifier(self, "link_id")
+        _set_clean_identifier(self, "report_id")
+        _set_optional_clean_identifier(self, "section_id")
+        _set_clean_identifier(self, "claim_target_id")
+        _set_clean_identifier(self, "packet_id")
+        _set_clean_identifier(self, "packet_claim_id")
+        object.__setattr__(
+            self,
+            "risk_tier",
+            _coerce_claim_evidence_link_risk_tier(self.risk_tier),
+        )
+        if not isinstance(self.material, bool):
+            raise ValueError("material must be a boolean.")
+        _set_clean_identifier_tuple(self, "supporting_evidence_ids")
+        _set_clean_identifier_tuple(self, "reconstruction_reference_ids")
+        _set_clean_identifier_tuple(self, "uncertainty_ids")
+        _set_clean_identifier_tuple(self, "limitation_ids")
+        _validate_material_claim_evidence_link(
+            material=self.material,
+            risk_tier=self.risk_tier,
+            supporting_evidence_ids=self.supporting_evidence_ids,
+            reconstruction_reference_ids=self.reconstruction_reference_ids,
+        )
+
+
+@dataclass(
+    frozen=True,
+    slots=True,
+)
 class ReportPersistenceBundle:
     """
     Atomic report persistence payload.
@@ -250,6 +300,7 @@ class ReportPersistenceBundle:
     artifacts: tuple[ReportArtifactRecord, ...] = ()
     versions: tuple[ReportVersionRecord, ...] = ()
     publications: tuple[ReportPublicationRecord, ...] = ()
+    claim_evidence_links: tuple[ReportClaimEvidenceLinkRecord, ...] = ()
 
 
 @dataclass(
@@ -381,6 +432,108 @@ def new_report_publication_id(
     return ":".join(
         id_parts,
     )
+
+
+def new_report_claim_evidence_link_id(
+    *,
+    report_id: str,
+    claim_target_id: str,
+    packet_id: str,
+    packet_claim_id: str,
+    section_id: str | None = None,
+) -> str:
+    """Build a stable report claim evidence link id."""
+
+    id_parts = [
+        _clean_identifier(report_id, "report_id"),
+        "claim_evidence",
+    ]
+    clean_section_id = _clean_optional_identifier(section_id, "section_id")
+    if clean_section_id is not None:
+        id_parts.append(clean_section_id)
+    id_parts.extend(
+        (
+            _clean_identifier(claim_target_id, "claim_target_id"),
+            _clean_identifier(packet_id, "packet_id"),
+            _clean_identifier(packet_claim_id, "packet_claim_id"),
+        )
+    )
+    return ":".join(id_parts)
+
+
+def _set_clean_identifier(instance: object, attribute: str) -> None:
+    object.__setattr__(
+        instance,
+        attribute,
+        _clean_identifier(getattr(instance, attribute), attribute),
+    )
+
+
+def _set_optional_clean_identifier(instance: object, attribute: str) -> None:
+    object.__setattr__(
+        instance,
+        attribute,
+        _clean_optional_identifier(getattr(instance, attribute), attribute),
+    )
+
+
+def _set_clean_identifier_tuple(instance: object, attribute: str) -> None:
+    values = getattr(instance, attribute)
+    object.__setattr__(
+        instance,
+        attribute,
+        tuple(_clean_identifier(value, attribute) for value in values),
+    )
+
+
+def _coerce_claim_evidence_link_risk_tier(value: object) -> RiskTier:
+    if isinstance(value, RiskTier):
+        risk_tier = value
+    elif isinstance(value, str):
+        risk_tier = RiskTier(value.strip().lower())
+    else:
+        raise ValueError("risk_tier must be a RiskTier.")
+    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        raise ValueError(
+            "claim evidence links require enhanced or vigilant risk tiers."
+        )
+    return risk_tier
+
+
+def _validate_material_claim_evidence_link(
+    *,
+    material: bool,
+    risk_tier: RiskTier,
+    supporting_evidence_ids: tuple[str, ...],
+    reconstruction_reference_ids: tuple[str, ...],
+) -> None:
+    if not material or risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        return
+    if not supporting_evidence_ids:
+        raise ValueError(
+            "material enhanced and vigilant claim evidence links require "
+            "supporting evidence identifiers."
+        )
+    if not reconstruction_reference_ids:
+        raise ValueError(
+            "material enhanced and vigilant claim evidence links require "
+            "reconstruction reference identifiers."
+        )
+
+
+def _clean_optional_identifier(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _clean_identifier(value, field_name)
+
+
+def _clean_identifier(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string.")
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{field_name} cannot be empty.")
+    return cleaned
 
 
 def _require_non_empty(

@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from core.storage.persistence.recommendations.recommendation_persistence_models import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceResult,
@@ -65,3 +66,12 @@ class RecommendationPersistenceRepository(Protocol):
         symbol: str | None = None,
         status: str | None = None,
     ) -> Sequence[WatchlistItemRecord]: ...
+
+    async def list_claim_evidence_links(
+        self,
+        *,
+        recommendation_id: str | None = None,
+        rationale_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[RecommendationClaimEvidenceLinkRecord]: ...

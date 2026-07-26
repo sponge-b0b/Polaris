@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -15,6 +16,7 @@ from core.storage.persistence.lineage import (
     PersistenceRecordIdentity,
 )
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationRationaleRecord,
     RecommendationRecord,
@@ -146,6 +148,25 @@ class RecommendationPersistenceSerializer:
         }
 
     @staticmethod
+    def claim_evidence_link_values(
+        record: RecommendationClaimEvidenceLinkRecord,
+    ) -> dict[str, Any]:
+        return {
+            "link_id": record.link_id,
+            "recommendation_id": record.recommendation_id,
+            "rationale_id": record.rationale_id,
+            "claim_target_id": record.claim_target_id,
+            "packet_id": record.packet_id,
+            "packet_claim_id": record.packet_claim_id,
+            "risk_tier": record.risk_tier.value,
+            "material": record.material,
+            "supporting_evidence_ids": list(record.supporting_evidence_ids),
+            "reconstruction_reference_ids": list(record.reconstruction_reference_ids),
+            "uncertainty_ids": list(record.uncertainty_ids),
+            "limitation_ids": list(record.limitation_ids),
+        }
+
+    @staticmethod
     def recommendation_from_model(
         model: RecommendationModel,
     ) -> RecommendationRecord:
@@ -242,6 +263,27 @@ class RecommendationPersistenceSerializer:
             metadata=cast(JsonObject, model.metadata_payload),
         )
 
+    @staticmethod
+    def claim_evidence_link_from_model(
+        model: RecommendationClaimEvidenceLinkModel,
+    ) -> RecommendationClaimEvidenceLinkRecord:
+        return RecommendationClaimEvidenceLinkRecord(
+            link_id=model.link_id,
+            recommendation_id=model.recommendation_id,
+            rationale_id=model.rationale_id,
+            claim_target_id=model.claim_target_id,
+            packet_id=model.packet_id,
+            packet_claim_id=model.packet_claim_id,
+            risk_tier=model.risk_tier,
+            material=model.material,
+            supporting_evidence_ids=_string_tuple(model.supporting_evidence_ids),
+            reconstruction_reference_ids=_string_tuple(
+                model.reconstruction_reference_ids,
+            ),
+            uncertainty_ids=_string_tuple(model.uncertainty_ids),
+            limitation_ids=_string_tuple(model.limitation_ids),
+        )
+
 
 def _lineage_from_model(
     model: Any,
@@ -282,3 +324,9 @@ def _identities_from_values(
         )
 
     return tuple(identities)
+
+
+def _string_tuple(values: object) -> tuple[str, ...]:
+    if not isinstance(values, list):
+        return ()
+    return tuple(value for value in values if isinstance(value, str))

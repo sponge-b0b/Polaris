@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from application.persistence.recommendations.recommendation_persistence_service import (
+    RecommendationClaimEvidenceLinkPersistenceFilters,
     RecommendationPersistenceFilters,
     RecommendationPersistenceService,
     TradeSetupPersistenceFilters,
@@ -8,6 +9,7 @@ from application.persistence.recommendations.recommendation_persistence_service 
 )
 
 __all__ = [
+    "RecommendationClaimEvidenceLinkPersistenceFilters",
     "RecommendationPersistenceFilters",
     "RecommendationPersistenceService",
     "TradeSetupPersistenceFilters",

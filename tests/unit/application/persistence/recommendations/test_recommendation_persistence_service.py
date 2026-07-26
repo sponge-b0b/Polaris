@@ -7,6 +7,7 @@ import pytest
 
 from application.persistence.audit.audit_emission import PersistenceAuditEmission
 from application.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkPersistenceFilters,
     RecommendationPersistenceFilters,
     RecommendationPersistenceService,
     TradeSetupPersistenceFilters,
@@ -14,6 +15,7 @@ from application.persistence.recommendations import (
 )
 from core.storage.persistence.audit import PersistenceAuditEventResult
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceResult,
@@ -22,6 +24,7 @@ from core.storage.persistence.recommendations import (
     TradeSetupRecord,
     WatchlistItemRecord,
 )
+from domain.authority import RiskTier
 
 
 class FakeRecommendationRepository:
@@ -33,6 +36,7 @@ class FakeRecommendationRepository:
         outcomes: Sequence[RecommendationOutcomeRecord] = (),
         trade_setups: Sequence[TradeSetupRecord] = (),
         watchlist_items: Sequence[WatchlistItemRecord] = (),
+        claim_evidence_links: Sequence[RecommendationClaimEvidenceLinkRecord] = (),
     ) -> None:
         self.bundle: RecommendationPersistenceBundle | None = None
         self.recommendation = recommendation
@@ -40,9 +44,11 @@ class FakeRecommendationRepository:
         self.outcomes = tuple(outcomes)
         self.trade_setups = tuple(trade_setups)
         self.watchlist_items = tuple(watchlist_items)
+        self.claim_evidence_links = tuple(claim_evidence_links)
         self.recommendation_filters: dict[str, str | None] | None = None
         self.trade_setup_filters: dict[str, str | None] | None = None
         self.watchlist_filters: dict[str, str | None] | None = None
+        self.claim_evidence_link_filters: dict[str, str | None] | None = None
 
     async def persist_recommendation_bundle(
         self,
@@ -55,7 +61,8 @@ class FakeRecommendationRepository:
             + len(bundle.rationales)
             + len(bundle.outcomes)
             + len(bundle.trade_setups)
-            + len(bundle.watchlist_items),
+            + len(bundle.watchlist_items)
+            + len(bundle.claim_evidence_links),
         )
 
     async def get_recommendation(
@@ -103,6 +110,22 @@ class FakeRecommendationRepository:
             for outcome in self.outcomes
             if outcome.recommendation_id == recommendation_id
         )
+
+    async def list_claim_evidence_links(
+        self,
+        *,
+        recommendation_id: str | None = None,
+        rationale_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[RecommendationClaimEvidenceLinkRecord]:
+        self.claim_evidence_link_filters = {
+            "recommendation_id": recommendation_id,
+            "rationale_id": rationale_id,
+            "packet_id": packet_id,
+            "claim_target_id": claim_target_id,
+        }
+        return self.claim_evidence_links
 
     async def list_trade_setups(
         self,
@@ -355,6 +378,39 @@ async def test_recommendation_persistence_service_uses_typed_filters() -> None:
     }
 
 
+@pytest.mark.asyncio
+async def test_service_persists_and_lists_recommendation_claim_links() -> None:
+    repository = FakeRecommendationRepository(
+        recommendation=_recommendation(),
+        claim_evidence_links=(_claim_evidence_link(),),
+    )
+    service = RecommendationPersistenceService(repository)
+
+    result = await service.persist(
+        _recommendation(),
+        claim_evidence_links=(_claim_evidence_link(),),
+    )
+    links = await service.list_claim_evidence_links(
+        RecommendationClaimEvidenceLinkPersistenceFilters(
+            recommendation_id=" rec-1 ",
+            rationale_id=" rec-1:rationale:primary ",
+            packet_id=" packet-1 ",
+            claim_target_id=" claim-1 ",
+        )
+    )
+
+    assert result.records_persisted == 2
+    assert repository.bundle is not None
+    assert repository.bundle.claim_evidence_links[0].packet_id == "packet-1"
+    assert links == (_claim_evidence_link(),)
+    assert repository.claim_evidence_link_filters == {
+        "recommendation_id": "rec-1",
+        "rationale_id": "rec-1:rationale:primary",
+        "packet_id": "packet-1",
+        "claim_target_id": "claim-1",
+    }
+
+
 def _recommendation() -> RecommendationRecord:
     return RecommendationRecord(
         recommendation_id="rec-1",
@@ -426,3 +482,18 @@ def _watchlist_item() -> WatchlistItemRecord:
 
 def _timestamp() -> datetime:
     return datetime(2026, 5, 31, 14, 0, tzinfo=UTC)
+
+
+def _claim_evidence_link() -> RecommendationClaimEvidenceLinkRecord:
+    return RecommendationClaimEvidenceLinkRecord(
+        link_id="rec-1:claim_evidence:claim-1:packet-1:claim-a",
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.VIGILANT,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
+    )

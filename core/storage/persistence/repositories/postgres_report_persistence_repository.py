@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.reports import (
     ReportArtifactModel,
+    ReportClaimEvidenceLinkModel,
     ReportModel,
     ReportPublicationModel,
     ReportSectionModel,
@@ -17,6 +18,7 @@ from core.database.models.reports import (
 )
 from core.storage.persistence.reports.report_persistence_models import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceResult,
     ReportPublicationRecord,
@@ -56,6 +58,7 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
         artifacts: Sequence[ReportArtifactRecord] = (),
         versions: Sequence[ReportVersionRecord] = (),
         publications: Sequence[ReportPublicationRecord] = (),
+        claim_evidence_links: Sequence[ReportClaimEvidenceLinkRecord] = (),
     ) -> ReportPersistenceResult:
         return await self.persist_report_bundle(
             ReportPersistenceBundle(
@@ -71,6 +74,9 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
                 ),
                 publications=tuple(
                     publications,
+                ),
+                claim_evidence_links=tuple(
+                    claim_evidence_links,
                 ),
             )
         )
@@ -109,6 +115,12 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
                         publication,
                     )
                 )
+            for link in bundle.claim_evidence_links:
+                await self._session.execute(
+                    _upsert_claim_evidence_link_statement(
+                        link,
+                    )
+                )
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
@@ -131,6 +143,9 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
             )
             + len(
                 bundle.publications,
+            )
+            + len(
+                bundle.claim_evidence_links,
             ),
         )
 
@@ -172,6 +187,9 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
         publications = await self.list_publications(
             report_id=report_id,
         )
+        claim_evidence_links = await self.list_claim_evidence_links(
+            report_id=report_id,
+        )
 
         return ReportPersistenceBundle(
             report=report,
@@ -186,6 +204,9 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
             ),
             publications=tuple(
                 publications,
+            ),
+            claim_evidence_links=tuple(
+                claim_evidence_links,
             ),
         )
 
@@ -321,6 +342,47 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
             for model in result.scalars().all()
         )
 
+    async def list_claim_evidence_links(
+        self,
+        *,
+        report_id: str | None = None,
+        section_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[ReportClaimEvidenceLinkRecord]:
+        stmt = select(ReportClaimEvidenceLinkModel)
+        if report_id is not None:
+            stmt = stmt.where(
+                ReportClaimEvidenceLinkModel.report_id == report_id,
+            )
+        if section_id is not None:
+            stmt = stmt.where(
+                ReportClaimEvidenceLinkModel.section_id == section_id,
+            )
+        if packet_id is not None:
+            stmt = stmt.where(
+                ReportClaimEvidenceLinkModel.packet_id == packet_id,
+            )
+        if claim_target_id is not None:
+            stmt = stmt.where(
+                ReportClaimEvidenceLinkModel.claim_target_id == claim_target_id,
+            )
+        stmt = stmt.order_by(
+            ReportClaimEvidenceLinkModel.report_id,
+            ReportClaimEvidenceLinkModel.claim_target_id,
+            ReportClaimEvidenceLinkModel.packet_id,
+            ReportClaimEvidenceLinkModel.packet_claim_id,
+            ReportClaimEvidenceLinkModel.link_id,
+        )
+        result = await self._session.execute(stmt)
+
+        return tuple(
+            ReportPersistenceSerializer.claim_evidence_link_from_model(
+                model,
+            )
+            for model in result.scalars().all()
+        )
+
 
 def _upsert_report_statement(
     report: ReportRecord,
@@ -446,5 +508,33 @@ def _upsert_publication_statement(
             "error": excluded.error,
             "metadata": excluded.metadata,
             "row_updated_at": func.now(),
+        },
+    )
+
+
+def _upsert_claim_evidence_link_statement(
+    link: ReportClaimEvidenceLinkRecord,
+) -> Any:
+    values = ReportPersistenceSerializer.claim_evidence_link_values(link)
+    stmt = insert(ReportClaimEvidenceLinkModel).values(**values)
+    excluded = stmt.excluded
+
+    return stmt.on_conflict_do_update(
+        index_elements=[
+            "link_id",
+        ],
+        set_={
+            "report_id": excluded.report_id,
+            "section_id": excluded.section_id,
+            "claim_target_id": excluded.claim_target_id,
+            "packet_id": excluded.packet_id,
+            "packet_claim_id": excluded.packet_claim_id,
+            "risk_tier": excluded.risk_tier,
+            "material": excluded.material,
+            "supporting_evidence_ids": excluded.supporting_evidence_ids,
+            "reconstruction_reference_ids": excluded.reconstruction_reference_ids,
+            "uncertainty_ids": excluded.uncertainty_ids,
+            "limitation_ids": excluded.limitation_ids,
+            "updated_at": func.now(),
         },
     )

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from core.database.base import Base
 from core.database.models.reports import (
     ReportArtifactModel,
+    ReportClaimEvidenceLinkModel,
     ReportModel,
     ReportPublicationModel,
     ReportSectionModel,
@@ -21,6 +22,7 @@ def test_report_models_are_imported_into_base_metadata() -> None:
     assert "report_artifacts" in Base.metadata.tables
     assert "report_versions" in Base.metadata.tables
     assert "report_publications" in Base.metadata.tables
+    assert "report_claim_evidence_links" in Base.metadata.tables
 
 
 def test_report_model_persists_human_readable_report_lineage() -> None:
@@ -172,5 +174,59 @@ def test_report_models_use_jsonb_at_persistence_boundaries() -> None:
     )
     assert isinstance(
         ReportPublicationModel.__table__.c.metadata.type,
+        JSONB,
+    )
+
+
+def test_report_claim_evidence_link_model_persists_authoritative_links() -> None:
+    table = cast(Table, ReportClaimEvidenceLinkModel.__table__)
+    columns = table.c
+    primary_keys = {column.name for column in table.primary_key}
+    report_foreign_keys = {
+        foreign_key.target_fullname for foreign_key in columns.report_id.foreign_keys
+    }
+    section_foreign_keys = {
+        foreign_key.target_fullname for foreign_key in columns.section_id.foreign_keys
+    }
+    packet_foreign_keys = {
+        foreign_key.target_fullname for foreign_key in columns.packet_id.foreign_keys
+    }
+    check_constraints = {constraint.name for constraint in table.constraints}
+    index_names = {index.name for index in table.indexes}
+
+    assert primary_keys == {"link_id"}
+    assert columns.report_id.nullable is False
+    assert columns.section_id.nullable is True
+    assert columns.claim_target_id.nullable is False
+    assert columns.packet_id.nullable is False
+    assert columns.packet_claim_id.nullable is False
+    assert columns.risk_tier.nullable is False
+    assert columns.material.nullable is False
+    assert columns.supporting_evidence_ids.nullable is False
+    assert columns.reconstruction_reference_ids.nullable is False
+    assert report_foreign_keys == {"reports.report_id"}
+    assert section_foreign_keys == {"report_sections.section_id"}
+    assert packet_foreign_keys == {"decision_evidence_packets.packet_id"}
+    assert "ck_report_claim_evidence_links_risk_tier" in check_constraints
+    assert "ck_report_claim_evidence_links_material_has_support" in check_constraints
+    assert "idx_report_claim_evidence_links_report_claim" in index_names
+    assert "idx_report_claim_evidence_links_packet_claim" in index_names
+
+
+def test_report_claim_evidence_link_model_uses_jsonb_reference_arrays() -> None:
+    assert isinstance(
+        ReportClaimEvidenceLinkModel.__table__.c.supporting_evidence_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        ReportClaimEvidenceLinkModel.__table__.c.reconstruction_reference_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        ReportClaimEvidenceLinkModel.__table__.c.uncertainty_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        ReportClaimEvidenceLinkModel.__table__.c.limitation_ids.type,
         JSONB,
     )

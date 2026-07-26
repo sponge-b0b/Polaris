@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database.base import Base
 from core.database.models.recommendations import (
+    RecommendationClaimEvidenceLinkModel,
     RecommendationModel,
     RecommendationOutcomeModel,
     RecommendationRationaleModel,
@@ -21,6 +22,7 @@ def test_recommendation_models_are_imported_into_base_metadata() -> None:
     assert "recommendation_outcomes" in Base.metadata.tables
     assert "trade_setups" in Base.metadata.tables
     assert "watchlist_items" in Base.metadata.tables
+    assert "recommendation_claim_evidence_links" in Base.metadata.tables
 
 
 def test_recommendation_model_persists_core_recommendation_fields() -> None:
@@ -172,3 +174,61 @@ def test_recommendation_model_indexes_query_paths() -> None:
 def _index_names(table: object) -> set[str]:
     sqlalchemy_table = cast(Table, table)
     return {index.name for index in sqlalchemy_table.indexes if index.name is not None}
+
+
+def test_recommendation_claim_evidence_link_model_fields() -> None:
+    table = cast(Table, RecommendationClaimEvidenceLinkModel.__table__)
+    columns = table.c
+    primary_keys = {column.name for column in table.primary_key}
+    recommendation_foreign_keys = {
+        foreign_key.target_fullname
+        for foreign_key in columns.recommendation_id.foreign_keys
+    }
+    rationale_foreign_keys = {
+        foreign_key.target_fullname for foreign_key in columns.rationale_id.foreign_keys
+    }
+    packet_foreign_keys = {
+        foreign_key.target_fullname for foreign_key in columns.packet_id.foreign_keys
+    }
+    check_constraints = {constraint.name for constraint in table.constraints}
+    index_names = {index.name for index in table.indexes}
+
+    assert primary_keys == {"link_id"}
+    assert columns.recommendation_id.nullable is False
+    assert columns.rationale_id.nullable is True
+    assert columns.claim_target_id.nullable is False
+    assert columns.packet_id.nullable is False
+    assert columns.packet_claim_id.nullable is False
+    assert columns.risk_tier.nullable is False
+    assert columns.material.nullable is False
+    assert columns.supporting_evidence_ids.nullable is False
+    assert columns.reconstruction_reference_ids.nullable is False
+    assert recommendation_foreign_keys == {"recommendations.recommendation_id"}
+    assert rationale_foreign_keys == {"recommendation_rationales.rationale_id"}
+    assert packet_foreign_keys == {"decision_evidence_packets.packet_id"}
+    assert "ck_recommendation_claim_evidence_links_risk_tier" in check_constraints
+    assert (
+        "ck_recommendation_claim_evidence_links_material_has_support"
+        in check_constraints
+    )
+    assert "idx_recommendation_claim_evidence_links_recommendation_claim" in index_names
+    assert "idx_recommendation_claim_evidence_links_packet_claim" in index_names
+
+
+def test_recommendation_claim_evidence_link_model_uses_jsonb_reference_arrays() -> None:
+    assert isinstance(
+        RecommendationClaimEvidenceLinkModel.__table__.c.supporting_evidence_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        RecommendationClaimEvidenceLinkModel.__table__.c.reconstruction_reference_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        RecommendationClaimEvidenceLinkModel.__table__.c.uncertainty_ids.type,
+        JSONB,
+    )
+    assert isinstance(
+        RecommendationClaimEvidenceLinkModel.__table__.c.limitation_ids.type,
+        JSONB,
+    )

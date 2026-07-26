@@ -10,12 +10,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.reports import (
+    ReportClaimEvidenceLinkModel,
     ReportModel,
     ReportPublicationModel,
     ReportVersionModel,
 )
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPublicationRecord,
     ReportRecord,
@@ -25,6 +27,7 @@ from core.storage.persistence.reports import (
 from core.storage.persistence.repositories.postgres_report_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresReportPersistenceRepository,
 )
+from domain.authority import RiskTier
 
 
 class FakeExecuteResult:
@@ -294,6 +297,80 @@ async def test_list_publications_round_trips_models_to_records() -> None:
     assert records[0].artifact_uri == "/reports/morning_report.md"
 
 
+@pytest.mark.asyncio
+async def test_persist_report_bundle_includes_claim_evidence_links() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresReportPersistenceRepository(
+        cast(
+            AsyncSession,
+            session,
+        )
+    )
+
+    result = await repository.persist_report_bundle(
+        ReportPersistenceBundle(
+            report=_report(),
+            claim_evidence_links=(_claim_evidence_link(),),
+        )
+    )
+
+    compiled = [
+        str(
+            statement.compile(
+                dialect=postgresql.dialect(),
+            )
+        )
+        for statement in session.executed
+    ]
+
+    assert result.success is True
+    assert result.records_persisted == 2
+    assert len(session.executed) == 2
+    assert "ON CONFLICT (link_id)" in compiled[1]
+    assert "report_claim_evidence_links" in compiled[1]
+
+
+@pytest.mark.asyncio
+async def test_list_report_claim_evidence_links_returns_typed_records() -> None:
+    model = ReportClaimEvidenceLinkModel(
+        link_id="morning_report:exec-1:claim_evidence:claim-1:packet-1:claim-a",
+        report_id="morning_report:exec-1",
+        section_id="morning_report:exec-1:section:macro",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier="enhanced",
+        material=True,
+        supporting_evidence_ids=["evidence-1"],
+        reconstruction_reference_ids=["reconstruction-1"],
+        uncertainty_ids=["uncertainty-1"],
+        limitation_ids=["limitation-1"],
+    )
+    session = FakeAsyncSession(
+        result=FakeExecuteResult(
+            [model],
+        )
+    )
+    repository = PostgresReportPersistenceRepository(
+        cast(
+            AsyncSession,
+            session,
+        )
+    )
+
+    records = await repository.list_claim_evidence_links(
+        report_id="morning_report:exec-1",
+        section_id="morning_report:exec-1:section:macro",
+        packet_id="packet-1",
+        claim_target_id="claim-1",
+    )
+
+    assert len(records) == 1
+    assert records[0].risk_tier is RiskTier.ENHANCED
+    assert records[0].supporting_evidence_ids == ("evidence-1",)
+    assert records[0].reconstruction_reference_ids == ("reconstruction-1",)
+
+
 def _report() -> ReportRecord:
     return ReportRecord(
         report_id="morning_report:exec-1",
@@ -346,4 +423,19 @@ def _publication() -> ReportPublicationRecord:
         requested_at=datetime(2026, 5, 30, 14, tzinfo=UTC),
         published_at=datetime(2026, 5, 30, 14, 5, tzinfo=UTC),
         artifact_uri="/reports/morning_report.md",
+    )
+
+
+def _claim_evidence_link() -> ReportClaimEvidenceLinkRecord:
+    return ReportClaimEvidenceLinkRecord(
+        link_id="morning_report:exec-1:claim_evidence:claim-1:packet-1:claim-a",
+        report_id="morning_report:exec-1",
+        section_id="morning_report:exec-1:section:macro",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.ENHANCED,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
     )

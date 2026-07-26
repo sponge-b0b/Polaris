@@ -5,6 +5,7 @@ from typing import Protocol
 
 from core.storage.persistence.reports.report_persistence_models import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceResult,
     ReportPublicationRecord,
@@ -32,6 +33,7 @@ class ReportPersistenceRepository(Protocol):
         artifacts: Sequence[ReportArtifactRecord] = (),
         versions: Sequence[ReportVersionRecord] = (),
         publications: Sequence[ReportPublicationRecord] = (),
+        claim_evidence_links: Sequence[ReportClaimEvidenceLinkRecord] = (),
     ) -> ReportPersistenceResult: ...
 
     async def get_report(
@@ -74,3 +76,12 @@ class ReportPersistenceRepository(Protocol):
         publication_target: str | None = None,
         publication_status: str | None = None,
     ) -> Sequence[ReportPublicationRecord]: ...
+
+    async def list_claim_evidence_links(
+        self,
+        *,
+        report_id: str | None = None,
+        section_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[ReportClaimEvidenceLinkRecord]: ...

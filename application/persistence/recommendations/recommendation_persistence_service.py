@@ -12,8 +12,10 @@ from application.persistence.query_result_helpers import (
     build_common_query,
     build_list_result,
 )
+from core.storage.persistence.lineage import clean_optional_identifier
 from core.storage.persistence.query import PersistenceListResult
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceRepository,
@@ -66,6 +68,57 @@ class WatchlistPersistenceFilters:
     status: str | None = None
 
 
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class RecommendationClaimEvidenceLinkPersistenceFilters:
+    """
+    Typed application-layer filters for recommendation claim evidence links.
+    """
+
+    recommendation_id: str | None = None
+    rationale_id: str | None = None
+    packet_id: str | None = None
+    claim_target_id: str | None = None
+
+    def __post_init__(
+        self,
+    ) -> None:
+        object.__setattr__(
+            self,
+            "recommendation_id",
+            clean_optional_identifier(
+                self.recommendation_id,
+                "recommendation_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "rationale_id",
+            clean_optional_identifier(
+                self.rationale_id,
+                "rationale_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "packet_id",
+            clean_optional_identifier(
+                self.packet_id,
+                "packet_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "claim_target_id",
+            clean_optional_identifier(
+                self.claim_target_id,
+                "claim_target_id",
+            ),
+        )
+
+
 class RecommendationPersistenceService:
     """
     Application service for curated recommendation persistence.
@@ -108,6 +161,7 @@ class RecommendationPersistenceService:
         outcomes: Sequence[RecommendationOutcomeRecord] = (),
         trade_setups: Sequence[TradeSetupRecord] = (),
         watchlist_items: Sequence[WatchlistItemRecord] = (),
+        claim_evidence_links: Sequence[RecommendationClaimEvidenceLinkRecord] = (),
     ) -> RecommendationPersistenceResult:
         return await self.persist_bundle(
             RecommendationPersistenceBundle(
@@ -123,6 +177,9 @@ class RecommendationPersistenceService:
                 ),
                 watchlist_items=tuple(
                     watchlist_items,
+                ),
+                claim_evidence_links=tuple(
+                    claim_evidence_links,
                 ),
             )
         )
@@ -157,6 +214,9 @@ class RecommendationPersistenceService:
         watchlist_items = await self._repository.list_watchlist_items(
             recommendation_id=recommendation_id,
         )
+        claim_evidence_links = await self._repository.list_claim_evidence_links(
+            recommendation_id=recommendation_id,
+        )
 
         return RecommendationPersistenceBundle(
             recommendation=recommendation,
@@ -172,6 +232,43 @@ class RecommendationPersistenceService:
             watchlist_items=tuple(
                 watchlist_items,
             ),
+            claim_evidence_links=tuple(
+                claim_evidence_links,
+            ),
+        )
+
+    async def list_claim_evidence_links(
+        self,
+        filters: RecommendationClaimEvidenceLinkPersistenceFilters | None = None,
+    ) -> Sequence[RecommendationClaimEvidenceLinkRecord]:
+        result = await self.list_claim_evidence_links_result(
+            filters,
+        )
+        return result.records
+
+    async def list_claim_evidence_links_result(
+        self,
+        filters: RecommendationClaimEvidenceLinkPersistenceFilters | None = None,
+    ) -> PersistenceListResult[RecommendationClaimEvidenceLinkRecord]:
+        active_filters = filters or RecommendationClaimEvidenceLinkPersistenceFilters()
+        records = await self._repository.list_claim_evidence_links(
+            recommendation_id=active_filters.recommendation_id,
+            rationale_id=active_filters.rationale_id,
+            packet_id=active_filters.packet_id,
+            claim_target_id=active_filters.claim_target_id,
+        )
+        query = build_common_query(
+            record_type="recommendation_claim_evidence_link",
+            metadata={
+                "recommendation_id": active_filters.recommendation_id,
+                "rationale_id": active_filters.rationale_id,
+                "packet_id": active_filters.packet_id,
+                "claim_target_id": active_filters.claim_target_id,
+            },
+        )
+        return build_list_result(
+            records,
+            query=query,
         )
 
     async def list_recommendations(

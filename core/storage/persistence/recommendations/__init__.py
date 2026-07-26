@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from core.storage.persistence.recommendations.recommendation_persistence_models import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceResult,
@@ -9,6 +10,7 @@ from core.storage.persistence.recommendations.recommendation_persistence_models 
     TradeSetupRecord,
     WatchlistItemRecord,
     new_recommendation_child_id,
+    new_recommendation_claim_evidence_link_id,
     new_recommendation_id,
 )
 from core.storage.persistence.recommendations.recommendation_persistence_repository import (  # noqa: E501 - canonical module path
@@ -16,6 +18,7 @@ from core.storage.persistence.recommendations.recommendation_persistence_reposit
 )
 
 __all__ = [
+    "RecommendationClaimEvidenceLinkRecord",
     "RecommendationPersistenceRepository",
     "RecommendationOutcomeRecord",
     "RecommendationPersistenceBundle",
@@ -25,5 +28,6 @@ __all__ = [
     "TradeSetupRecord",
     "WatchlistItemRecord",
     "new_recommendation_child_id",
+    "new_recommendation_claim_evidence_link_id",
     "new_recommendation_id",
 ]

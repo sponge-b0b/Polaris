@@ -7,11 +7,13 @@ import pytest
 
 from application.persistence.reports import (
     ReportArtifactPersistenceFilters,
+    ReportClaimEvidenceLinkPersistenceFilters,
     ReportPersistenceService,
     ReportPublicationPersistenceFilters,
 )
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceResult,
     ReportPublicationRecord,
@@ -19,6 +21,7 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     ReportVersionRecord,
 )
+from domain.authority import RiskTier
 
 
 class FakeReportRepository:
@@ -31,6 +34,7 @@ class FakeReportRepository:
         self.persisted_bundle: ReportPersistenceBundle | None = None
         self.artifact_filters: dict[str, str | None] | None = None
         self.publication_filters: dict[str, str | None] | None = None
+        self.claim_evidence_link_filters: dict[str, str | None] | None = None
 
     async def persist_report_bundle(
         self,
@@ -45,6 +49,7 @@ class FakeReportRepository:
                 + len(bundle.artifacts)
                 + len(bundle.versions)
                 + len(bundle.publications)
+                + len(bundle.claim_evidence_links)
             ),
         )
 
@@ -56,6 +61,7 @@ class FakeReportRepository:
         artifacts: Sequence[ReportArtifactRecord] = (),
         versions: Sequence[ReportVersionRecord] = (),
         publications: Sequence[ReportPublicationRecord] = (),
+        claim_evidence_links: Sequence[ReportClaimEvidenceLinkRecord] = (),
     ) -> ReportPersistenceResult:
         return await self.persist_report_bundle(
             ReportPersistenceBundle(
@@ -64,6 +70,7 @@ class FakeReportRepository:
                 artifacts=tuple(artifacts),
                 versions=tuple(versions),
                 publications=tuple(publications),
+                claim_evidence_links=tuple(claim_evidence_links),
             )
         )
 
@@ -123,6 +130,24 @@ class FakeReportRepository:
         if self.bundle is None or self.bundle.report.report_id != report_id:
             return ()
         return self.bundle.versions
+
+    async def list_claim_evidence_links(
+        self,
+        *,
+        report_id: str | None = None,
+        section_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[ReportClaimEvidenceLinkRecord]:
+        self.claim_evidence_link_filters = {
+            "report_id": report_id,
+            "section_id": section_id,
+            "packet_id": packet_id,
+            "claim_target_id": claim_target_id,
+        }
+        if self.bundle is None:
+            return ()
+        return self.bundle.claim_evidence_links
 
     async def list_publications(
         self,
@@ -240,6 +265,41 @@ async def test_report_persistence_service_returns_none_for_missing_records() -> 
     assert await service.get_version("missing") is None
 
 
+@pytest.mark.asyncio
+async def test_service_persists_and_lists_report_claim_links() -> None:
+    repository = FakeReportRepository(
+        bundle=ReportPersistenceBundle(
+            report=_report(),
+            claim_evidence_links=(_claim_evidence_link(),),
+        )
+    )
+    service = ReportPersistenceService(repository)
+
+    result = await service.persist_report(
+        _report(),
+        claim_evidence_links=(_claim_evidence_link(),),
+    )
+    links = await service.list_claim_evidence_links(
+        ReportClaimEvidenceLinkPersistenceFilters(
+            report_id=" morning_report:exec-1 ",
+            section_id=" morning_report:exec-1:section:macro ",
+            packet_id=" packet-1 ",
+            claim_target_id=" claim-1 ",
+        )
+    )
+
+    assert result.records_persisted == 2
+    assert repository.persisted_bundle is not None
+    assert repository.persisted_bundle.claim_evidence_links[0].packet_id == "packet-1"
+    assert links == (_claim_evidence_link(),)
+    assert repository.claim_evidence_link_filters == {
+        "report_id": "morning_report:exec-1",
+        "section_id": "morning_report:exec-1:section:macro",
+        "packet_id": "packet-1",
+        "claim_target_id": "claim-1",
+    }
+
+
 def _timestamp() -> datetime:
     return datetime(2026, 5, 30, 14, tzinfo=UTC)
 
@@ -296,4 +356,19 @@ def _publication() -> ReportPublicationRecord:
         requested_at=_timestamp(),
         published_at=datetime(2026, 5, 30, 14, 5, tzinfo=UTC),
         artifact_uri="/reports/morning_report.md",
+    )
+
+
+def _claim_evidence_link() -> ReportClaimEvidenceLinkRecord:
+    return ReportClaimEvidenceLinkRecord(
+        link_id="morning_report:exec-1:claim_evidence:claim-1:packet-1:claim-a",
+        report_id="morning_report:exec-1",
+        section_id="morning_report:exec-1:section:macro",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.ENHANCED,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
     )

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from core.database.models.reports import ReportClaimEvidenceLinkModel
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPublicationRecord,
     ReportRecord,
     ReportSectionRecord,
@@ -12,6 +14,7 @@ from core.storage.persistence.reports import (
 from core.storage.persistence.serializers.report_persistence_serializer import (
     ReportPersistenceSerializer,
 )
+from domain.authority import RiskTier
 
 
 def test_report_serializer_preserves_full_markdown_and_structured_payload() -> None:
@@ -104,3 +107,28 @@ def test_report_serializer_converts_version_and_publication_records() -> None:
     assert publication_values["version_id"] == version.version_id
     assert publication_values["publication_target"] == "markdown_archive"
     assert publication_values["published_at"] == published_at
+
+
+def test_report_serializer_round_trips_claim_evidence_link() -> None:
+    record = ReportClaimEvidenceLinkRecord(
+        link_id="report-1:claim_evidence:claim-1:packet-1:claim-a",
+        report_id="report-1",
+        section_id="section-1",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier=RiskTier.ENHANCED,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("reconstruction-1",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
+
+    values = ReportPersistenceSerializer.claim_evidence_link_values(record)
+    model = ReportClaimEvidenceLinkModel(**values)
+    restored = ReportPersistenceSerializer.claim_evidence_link_from_model(model)
+
+    assert values["risk_tier"] == "enhanced"
+    assert values["supporting_evidence_ids"] == ["evidence-1"]
+    assert restored == record

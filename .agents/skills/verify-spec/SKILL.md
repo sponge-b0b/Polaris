@@ -1,11 +1,30 @@
 ---
 name: verify-spec
-description: Performs global codebase verification, full static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules.
+description: Perform global codebase verification, full static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules since a fixed point (commit, branch, tag, or merge-base).
 compatibility: product=codex product=claude-code system=git system=python network=none
 disable-model-invocation: true
 ---
 
 # Global Specification Integration & Verification Skill
+
+Verification of the diff between `HEAD` and a fixed point the user supplies:
+
+## Pin the fixed point
+
+Whatever the user said is the fixed point — a commit SHA, branch name, tag, `main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
+
+Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+
+Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here.
+
+## Identify the spec source
+
+Look for the originating spec, in this order:
+
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
+2. A path the user passed as an argument.
+3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
+4. If nothing is found, ask the user where the spec is.
 
 ## Objective
 Validate the entire project repository as a unified system to catch cross-module regressions, integration failures, and type-drift resulting from the completed specification sprint, using our project testing guide to target relevant integration test categories.

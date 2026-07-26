@@ -6,6 +6,12 @@ from weakref import WeakSet
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.decision_evidence.claim_binding import (
+    DecisionEvidenceClaimBindingService,
+)
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketPersistenceService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
@@ -45,6 +51,9 @@ from application.projections.workflow_outputs.projectors import (
 from core.runtime.events.event_bus import EventBus
 from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
+)
+from core.storage.persistence.repositories import (
+    PostgresDecisionEvidencePacketRepository,
 )
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAgentSignalPersistenceRepository,
@@ -148,6 +157,14 @@ class PostgresWorkflowOutputProjectionCoordinator:
         recommendation_persistence_service = RecommendationPersistenceService(
             PostgresRecommendationPersistenceRepository(session),
         )
+        claim_binding_service = DecisionEvidenceClaimBindingService(
+            DecisionEvidencePacketPersistenceService(
+                repository=PostgresDecisionEvidencePacketRepository(session),
+                completed_run_archive=PostgresCompletedRunArchive(
+                    session_factory=self._session_factory,
+                ),
+            )
+        )
         sentiment_persistence_service = SentimentPersistenceService(
             PostgresSentimentPersistenceRepository(session),
         )
@@ -183,6 +200,7 @@ class PostgresWorkflowOutputProjectionCoordinator:
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,
+                    claim_binding_service=claim_binding_service,
                 ),
             )
         )

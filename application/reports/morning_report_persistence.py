@@ -1,17 +1,26 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from application.decision_evidence.claim_binding import (
+    ClaimEvidenceBindingError,
+    DecisionEvidenceClaimBindingService,
+    ReportClaimEvidenceBindingTarget,
+)
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketReconstructionError,
+)
 from application.reports.authority import (
     ensure_report_publication_authority,
     report_authority_metadata,
 )
 from application.reports.morning_report_models import (
     MorningReportDocument,
+    ReportBullet,
     ReportMetric,
     ReportSection,
     ReportTable,
@@ -19,6 +28,7 @@ from application.reports.morning_report_models import (
 from core.storage.persistence.reports import (
     JsonObject,
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceRepository,
     ReportPersistenceResult,
@@ -186,9 +196,11 @@ class MorningReportPersistenceService:
         repository: ReportPersistenceRepository,
         *,
         mapper: MorningReportPersistenceMapper | None = None,
+        claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
     ) -> None:
         self._repository = repository
         self._mapper = mapper or MorningReportPersistenceMapper()
+        self._claim_binding_service = claim_binding_service
 
     async def persist(
         self,
@@ -207,11 +219,111 @@ class MorningReportPersistenceService:
             artifact_references=artifact_references,
         )
 
+        try:
+            claim_evidence_links = await _bind_report_claim_evidence(
+                self._claim_binding_service,
+                report_id=bundle.report.report_id,
+                document=document,
+            )
+        except (
+            ClaimEvidenceBindingError,
+            DecisionEvidencePacketReconstructionError,
+        ) as exc:
+            return ReportPersistenceResult.failed(str(exc))
+
         return await self._repository.persist_report(
             bundle.report,
             sections=bundle.sections,
             artifacts=bundle.artifacts,
+            claim_evidence_links=claim_evidence_links,
         )
+
+
+async def _bind_report_claim_evidence(
+    claim_binding_service: DecisionEvidenceClaimBindingService | None,
+    *,
+    report_id: str,
+    document: MorningReportDocument,
+) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
+    targets = _report_claim_evidence_binding_targets(
+        report_id,
+        document,
+    )
+    if not targets:
+        return ()
+    if claim_binding_service is None:
+        raise ClaimEvidenceBindingError(
+            "canonical claim evidence binding service is required for report "
+            "claim references."
+        )
+    return await claim_binding_service.bind_report_claims(
+        report_id=report_id,
+        targets=targets,
+    )
+
+
+def _report_claim_evidence_binding_targets(
+    report_id: str,
+    document: MorningReportDocument,
+) -> tuple[ReportClaimEvidenceBindingTarget, ...]:
+    targets: list[ReportClaimEvidenceBindingTarget] = []
+    for section_key, section in _document_sections(document):
+        section_id = _section_id(report_id, section_key)
+        if section.claim_references:
+            targets.append(
+                ReportClaimEvidenceBindingTarget(
+                    section_id=section_id,
+                    claim_target_id=f"{section_id}:section",
+                    claim_references=section.claim_references,
+                )
+            )
+        targets.extend(
+            _bullet_claim_evidence_binding_targets(
+                section_id=section_id,
+                bullets=section.bullets,
+                target_kind="bullet",
+            )
+        )
+        targets.extend(
+            _bullet_claim_evidence_binding_targets(
+                section_id=section_id,
+                bullets=section.risks,
+                target_kind="risk",
+            )
+        )
+        targets.extend(
+            _bullet_claim_evidence_binding_targets(
+                section_id=section_id,
+                bullets=section.recommendations,
+                target_kind="recommendation",
+            )
+        )
+    return tuple(targets)
+
+
+def _bullet_claim_evidence_binding_targets(
+    *,
+    section_id: str,
+    bullets: Sequence[ReportBullet],
+    target_kind: str,
+) -> tuple[ReportClaimEvidenceBindingTarget, ...]:
+    targets: list[ReportClaimEvidenceBindingTarget] = []
+    for index, bullet in enumerate(bullets):
+        claim_references = bullet.claim_references
+        if not claim_references:
+            continue
+        targets.append(
+            ReportClaimEvidenceBindingTarget(
+                section_id=section_id,
+                claim_target_id=f"{section_id}:{target_kind}:{index}",
+                claim_references=tuple(claim_references),
+            )
+        )
+    return tuple(targets)
+
+
+def _section_id(report_id: str, section_key: str) -> str:
+    return f"{report_id}:section:{section_key}"
 
 
 def _document_sections(
@@ -270,7 +382,7 @@ def _section_record(
 ) -> ReportSectionRecord:
     claim_references = _section_claim_references(section)
     return ReportSectionRecord(
-        section_id=f"{report_id}:section:{section_key}",
+        section_id=_section_id(report_id, section_key),
         report_id=report_id,
         section_key=section_key,
         title=section.title,

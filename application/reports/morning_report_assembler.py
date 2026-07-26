@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+from dataclasses import replace
 from typing import Any
 
 from application.reports.authority import morning_report_authority
 from application.reports.morning_report_models import (
     MorningReportDocument,
+    PreparedReportClaimEvidenceBinding,
     ReportBullet,
     ReportMetric,
     ReportSection,
@@ -31,6 +34,89 @@ from application.reports.morning_report_sections import (
 )
 
 
+def _apply_prepared_evidence_bindings(
+    sections: dict[str, ReportSection],
+    evidence_bindings: Iterable[PreparedReportClaimEvidenceBinding],
+) -> dict[str, ReportSection]:
+    bound_sections = dict(sections)
+    for binding in evidence_bindings:
+        section = bound_sections.get(binding.section_key)
+        if section is None:
+            raise ValueError(
+                f"prepared report evidence binding section {binding.section_key!r} "
+                "was not found."
+            )
+        if binding.bullet_label is None:
+            bound_sections[binding.section_key] = replace(
+                section,
+                claim_references=(
+                    *section.claim_references,
+                    *binding.claim_references,
+                ),
+            )
+            continue
+        bound_sections[binding.section_key] = _apply_bullet_evidence_binding(
+            section,
+            binding,
+        )
+    return bound_sections
+
+
+def _apply_bullet_evidence_binding(
+    section: ReportSection,
+    binding: PreparedReportClaimEvidenceBinding,
+) -> ReportSection:
+    for attribute in ("bullets", "risks", "recommendations"):
+        bullets = getattr(section, attribute)
+        updated_bullets, matched = _bind_matching_bullets(
+            bullets,
+            binding,
+        )
+        if not matched:
+            continue
+        if attribute == "bullets":
+            return replace(
+                section,
+                bullets=updated_bullets,
+            )
+        if attribute == "risks":
+            return replace(
+                section,
+                risks=updated_bullets,
+            )
+        return replace(
+            section,
+            recommendations=updated_bullets,
+        )
+    raise ValueError(
+        f"prepared report evidence binding bullet {binding.bullet_label!r} "
+        f"was not found in section {binding.section_key!r}."
+    )
+
+
+def _bind_matching_bullets(
+    bullets: tuple[ReportBullet, ...],
+    binding: PreparedReportClaimEvidenceBinding,
+) -> tuple[tuple[ReportBullet, ...], bool]:
+    updated: list[ReportBullet] = []
+    matched = False
+    for bullet in bullets:
+        if bullet.label == binding.bullet_label:
+            matched = True
+            updated.append(
+                replace(
+                    bullet,
+                    claim_references=(
+                        *bullet.claim_references,
+                        *binding.claim_references,
+                    ),
+                )
+            )
+        else:
+            updated.append(bullet)
+    return tuple(updated), matched
+
+
 class MorningReportAssembler:
     """
     Assemble a typed, human-facing morning report from workflow boundary data.
@@ -43,6 +129,8 @@ class MorningReportAssembler:
     def assemble(
         self,
         workflow_result: BoundaryMapping,
+        *,
+        evidence_bindings: Iterable[PreparedReportClaimEvidenceBinding] = (),
     ) -> MorningReportDocument:
         symbol = get_symbol(
             workflow_result,
@@ -68,6 +156,28 @@ class MorningReportAssembler:
             workflow_result,
         )
         evidence_sufficient = not run_errors and status.casefold() == "succeeded"
+        sections = _apply_prepared_evidence_bindings(
+            {
+                "executive_summary": executive_summary,
+                "portfolio_snapshot": portfolio_snapshot,
+                "macro_backdrop": self._build_macro_backdrop(
+                    workflow_result,
+                ),
+                "technical_setup": self._build_technical_setup(
+                    workflow_result,
+                ),
+                "news_sentiment": self._build_news_sentiment(
+                    workflow_result,
+                ),
+                "risk_assessment": self._build_risk_assessment(
+                    workflow_result,
+                ),
+                "recommended_action_plan": self._build_recommended_action_plan(
+                    workflow_result,
+                ),
+            },
+            evidence_bindings,
+        )
 
         return MorningReportDocument(
             title="Polaris Morning Financial Report",
@@ -78,23 +188,13 @@ class MorningReportAssembler:
                 workflow_result,
             ),
             status=status,
-            executive_summary=executive_summary,
-            portfolio_snapshot=portfolio_snapshot,
-            macro_backdrop=self._build_macro_backdrop(
-                workflow_result,
-            ),
-            technical_setup=self._build_technical_setup(
-                workflow_result,
-            ),
-            news_sentiment=self._build_news_sentiment(
-                workflow_result,
-            ),
-            risk_assessment=self._build_risk_assessment(
-                workflow_result,
-            ),
-            recommended_action_plan=self._build_recommended_action_plan(
-                workflow_result,
-            ),
+            executive_summary=sections["executive_summary"],
+            portfolio_snapshot=sections["portfolio_snapshot"],
+            macro_backdrop=sections["macro_backdrop"],
+            technical_setup=sections["technical_setup"],
+            news_sentiment=sections["news_sentiment"],
+            risk_assessment=sections["risk_assessment"],
+            recommended_action_plan=sections["recommended_action_plan"],
             run_errors=run_errors,
             authority=morning_report_authority(
                 evidence_sufficient=evidence_sufficient,

@@ -1,3 +1,10 @@
+from application.decision_evidence.claim_binding import (
+    ClaimEvidenceBindingError,
+    DecisionEvidenceClaimBindingService,
+    DecisionEvidencePacketReader,
+    RecommendationClaimEvidenceBindingTarget,
+    ReportClaimEvidenceBindingTarget,
+)
 from application.decision_evidence.completed_workflow_assembly import (
     CompletedWorkflowEvidencePacketAssembler,
     CompletedWorkflowEvidencePacketAssemblyError,
@@ -25,6 +32,11 @@ from application.decision_evidence.persistence import (
 )
 
 __all__ = [
+    "ReportClaimEvidenceBindingTarget",
+    "RecommendationClaimEvidenceBindingTarget",
+    "DecisionEvidencePacketReader",
+    "DecisionEvidenceClaimBindingService",
+    "ClaimEvidenceBindingError",
     "SubstitutedDecisionEvidenceSourceError",
     "StaleDecisionEvidenceSourceError",
     "MissingDecisionEvidenceSourceError",

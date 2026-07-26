@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from application.reports import MorningReportAssembler, ReportSection
+from application.reports import (
+    MorningReportAssembler,
+    PreparedReportClaimEvidenceBinding,
+    ReportSection,
+)
+from domain.authority import RiskTier
+from domain.decision_evidence import EvidenceClaimReference
 
 FULL_MACRO_LLM_RESPONSE = (
     "Macro desk full response line one.\n\n"
@@ -198,6 +204,33 @@ def test_assembler_extracts_portfolio_intelligence_risk_and_action_sections() ->
     )
 
 
+def test_assembler_applies_prepared_claim_evidence_bindings() -> None:
+    reference = _claim_reference()
+
+    document = MorningReportAssembler().assemble(
+        _complete_workflow_result(),
+        evidence_bindings=(
+            PreparedReportClaimEvidenceBinding(
+                section_key="executive_summary",
+                claim_references=(reference,),
+            ),
+            PreparedReportClaimEvidenceBinding(
+                section_key="recommended_action_plan",
+                bullet_label="Selected thesis",
+                claim_references=(reference,),
+            ),
+        ),
+    )
+
+    assert document.executive_summary.claim_references == (reference,)
+    selected_thesis = next(
+        bullet
+        for bullet in document.recommended_action_plan.bullets
+        if bullet.label == "Selected thesis"
+    )
+    assert selected_thesis.claim_references == (reference,)
+
+
 def test_assembler_degrades_missing_nodes_into_unavailable_sections() -> None:
     document = MorningReportAssembler().assemble(
         {
@@ -266,6 +299,19 @@ def _table_value(
                 return row.value
 
     raise AssertionError(f"missing table value: {title} / {label}")
+
+
+def _claim_reference() -> EvidenceClaimReference:
+    return EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="node-output-report",
+        claim_id="claim-1",
+        risk_tier=RiskTier.VIGILANT,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
 
 
 def _complete_workflow_result() -> dict[str, object]:

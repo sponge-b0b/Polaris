@@ -9,6 +9,7 @@ from application.reports.authority import (
 from application.reports.morning_report_assembler import MorningReportAssembler
 from application.reports.morning_report_models import (
     MorningReportDocument,
+    PreparedReportClaimEvidenceBinding,
     ReportBullet,
     ReportMetric,
     ReportSection,
@@ -44,6 +45,7 @@ __all__ = [
     "MorningReportAssembler",
     "MorningReportDocument",
     "MorningReportMarkdownRenderer",
+    "PreparedReportClaimEvidenceBinding",
     "MorningReportPersistenceMapper",
     "MorningReportPersistenceService",
     "ReportArtifactReference",

@@ -7,6 +7,11 @@ from typing import cast
 
 import pytest
 
+from application.decision_evidence import (
+    DecisionEvidenceClaimBindingService,
+    RecommendationClaimEvidenceBindingTarget,
+    StaleDecisionEvidenceSourceError,
+)
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
     build_workflow_output_projection_lineage,
@@ -26,6 +31,7 @@ from core.storage.persistence.completed_run_archive import (
     JsonValue,
 )
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationPersistenceBundle,
     RecommendationPersistenceRepository,
     RecommendationPersistenceResult,
@@ -130,9 +136,34 @@ async def test_trade_recommendation_projector_ignores_model_authority_claims() -
 @pytest.mark.asyncio
 async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> None:
     repository = _FakeRecommendationRepository()
+    claim_binding_service = _FakeRecommendationClaimBindingService(
+        (
+            RecommendationClaimEvidenceLinkRecord(
+                link_id=(
+                    "recommendation:exec-1:SPY:trade_recommendation:claim_evidence:recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation:"
+                    "recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation:claim:claim-1:packet-1:claim-1"
+                ),
+                recommendation_id="recommendation:exec-1:SPY:trade_recommendation",
+                rationale_id="recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation",
+                claim_target_id="recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation:claim:claim-1",
+                packet_id="packet-1",
+                packet_claim_id="claim-1",
+                risk_tier=RiskTier.ENHANCED,
+                material=True,
+                supporting_evidence_ids=("evidence-1",),
+                reconstruction_reference_ids=("workflow-node",),
+                uncertainty_ids=("uncertainty-1",),
+                limitation_ids=("limitation-1",),
+            ),
+        )
+    )
     projector = TradeRecommendationWorkflowOutputProjector(
         RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, repository),
+        ),
+        claim_binding_service=cast(
+            DecisionEvidenceClaimBindingService,
+            claim_binding_service,
         ),
     )
 
@@ -141,6 +172,20 @@ async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> No
     )
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    assert outcome.records_written == 4
+    assert len(repository.bundles[0].claim_evidence_links) == 1
+    link = repository.bundles[0].claim_evidence_links[0]
+    assert link.packet_id == "packet-1"
+    assert link.packet_claim_id == "claim-1"
+    assert link.uncertainty_ids == ("uncertainty-1",)
+    assert link.limitation_ids == ("limitation-1",)
+    assert claim_binding_service.targets == (
+        RecommendationClaimEvidenceBindingTarget(
+            rationale_id="recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation",
+            claim_target_id="recommendation:exec-1:SPY:trade_recommendation:rationale:trade_recommendation:claim:claim-1",
+            claim_references=claim_binding_service.targets[0].claim_references,
+        ),
+    )
     claim_metadata = cast(
         dict[str, JsonValue],
         repository.bundles[0]
@@ -160,6 +205,31 @@ async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> No
     serialized = str(claim_metadata)
     assert "canonical evidence summary" not in serialized
     assert "raw_payload" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_fails_closed_for_stale_claim_evidence() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+        claim_binding_service=cast(
+            DecisionEvidenceClaimBindingService,
+            _FailingRecommendationClaimBindingService(
+                StaleDecisionEvidenceSourceError("stale evidence")
+            ),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_claim_references())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "StaleDecisionEvidenceSourceError"
+    assert outcome.error_message == "stale evidence"
+    assert repository.bundles == []
 
 
 @pytest.mark.asyncio
@@ -200,8 +270,40 @@ class _FakeRecommendationRepository:
                 + len(bundle.outcomes)
                 + len(bundle.trade_setups)
                 + len(bundle.watchlist_items)
+                + len(bundle.claim_evidence_links)
             ),
         )
+
+
+class _FakeRecommendationClaimBindingService:
+    def __init__(
+        self,
+        links: tuple[RecommendationClaimEvidenceLinkRecord, ...],
+    ) -> None:
+        self.links = links
+        self.targets: tuple[RecommendationClaimEvidenceBindingTarget, ...] = ()
+
+    async def bind_recommendation_claims(
+        self,
+        *,
+        recommendation_id: str,
+        targets: tuple[RecommendationClaimEvidenceBindingTarget, ...],
+    ) -> tuple[RecommendationClaimEvidenceLinkRecord, ...]:
+        self.targets = tuple(targets)
+        return self.links
+
+
+class _FailingRecommendationClaimBindingService:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    async def bind_recommendation_claims(
+        self,
+        *,
+        recommendation_id: str,
+        targets: tuple[RecommendationClaimEvidenceBindingTarget, ...],
+    ) -> tuple[RecommendationClaimEvidenceLinkRecord, ...]:
+        raise self.exc
 
 
 def _projector_request(

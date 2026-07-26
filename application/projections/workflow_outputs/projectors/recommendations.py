@@ -4,6 +4,14 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Final, cast
 
+from application.decision_evidence.claim_binding import (
+    ClaimEvidenceBindingError,
+    DecisionEvidenceClaimBindingService,
+    RecommendationClaimEvidenceBindingTarget,
+)
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketReconstructionError,
+)
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectionOutcome,
@@ -15,6 +23,7 @@ from application.projections.workflow_outputs.projection_registry import (
 )
 from core.storage.persistence.lineage import JsonObject
 from core.storage.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkRecord,
     RecommendationPersistenceBundle,
     RecommendationRationaleRecord,
     RecommendationRecord,
@@ -31,6 +40,7 @@ from domain.authority import (
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
     DecisionEvidencePacketValidationError,
+    EvidenceClaimReference,
     evidence_claim_references_from_metadata,
 )
 from domain.workflow_outputs import (
@@ -51,8 +61,11 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
     def __init__(
         self,
         recommendation_persistence_service: RecommendationPersistenceService,
+        *,
+        claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
     ) -> None:
         self._recommendation_persistence_service = recommendation_persistence_service
+        self._claim_binding_service = claim_binding_service
 
     @property
     def projector_name(self) -> str:
@@ -85,7 +98,16 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
                 rationale_text=_rationale_text(outputs, "Portfolio allocation intent."),
                 confidence=confidence,
             )
-        except DecisionEvidencePacketValidationError as exc:
+            claim_evidence_links = await _bind_recommendation_claim_evidence(
+                self._claim_binding_service,
+                recommendation_id=recommendation_id,
+                rationale=rationale,
+            )
+        except (
+            ClaimEvidenceBindingError,
+            DecisionEvidencePacketReconstructionError,
+            DecisionEvidencePacketValidationError,
+        ) as exc:
             return _failed(
                 request,
                 self.projector_name,
@@ -126,6 +148,7 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
                 },
             ),
             rationales=(rationale,),
+            claim_evidence_links=claim_evidence_links,
         )
         result = await self._recommendation_persistence_service.persist_bundle(bundle)
         if not result.success:
@@ -151,8 +174,11 @@ class TradeRecommendationWorkflowOutputProjector:
     def __init__(
         self,
         recommendation_persistence_service: RecommendationPersistenceService,
+        *,
+        claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
     ) -> None:
         self._recommendation_persistence_service = recommendation_persistence_service
+        self._claim_binding_service = claim_binding_service
 
     @property
     def projector_name(self) -> str:
@@ -262,7 +288,16 @@ class TradeRecommendationWorkflowOutputProjector:
                 rationale_text=_rationale_text(outputs, "Trade recommendation."),
                 confidence=confidence,
             )
-        except DecisionEvidencePacketValidationError as exc:
+            claim_evidence_links = await _bind_recommendation_claim_evidence(
+                self._claim_binding_service,
+                recommendation_id=recommendation_id,
+                rationale=rationale,
+            )
+        except (
+            ClaimEvidenceBindingError,
+            DecisionEvidencePacketReconstructionError,
+            DecisionEvidencePacketValidationError,
+        ) as exc:
             return _failed(
                 request,
                 self.projector_name,
@@ -273,6 +308,7 @@ class TradeRecommendationWorkflowOutputProjector:
             recommendation=recommendation,
             rationales=(rationale,),
             trade_setups=(trade_setup,),
+            claim_evidence_links=claim_evidence_links,
         )
         result = await self._recommendation_persistence_service.persist_bundle(bundle)
         if not result.success:
@@ -292,13 +328,17 @@ class TradeRecommendationWorkflowOutputProjector:
 
 def build_recommendation_projector_registrations(
     recommendation_persistence_service: RecommendationPersistenceService,
+    *,
+    claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical recommendation projector registrations."""
     allocation_projector = PortfolioAllocationIntentWorkflowOutputProjector(
-        recommendation_persistence_service
+        recommendation_persistence_service,
+        claim_binding_service=claim_binding_service,
     )
     trade_projector = TradeRecommendationWorkflowOutputProjector(
-        recommendation_persistence_service
+        recommendation_persistence_service,
+        claim_binding_service=claim_binding_service,
     )
     return (
         WorkflowOutputProjectorRegistration(
@@ -316,6 +356,42 @@ def build_recommendation_projector_registrations(
             supported_node_names=("trade_packager",),
         ),
     )
+
+
+async def _bind_recommendation_claim_evidence(
+    claim_binding_service: DecisionEvidenceClaimBindingService | None,
+    *,
+    recommendation_id: str,
+    rationale: RecommendationRationaleRecord,
+) -> tuple[RecommendationClaimEvidenceLinkRecord, ...]:
+    references = _rationale_claim_references(rationale)
+    if not references:
+        return ()
+    if claim_binding_service is None:
+        raise ClaimEvidenceBindingError(
+            "canonical claim evidence binding service is required for "
+            "recommendation claim references."
+        )
+    return await claim_binding_service.bind_recommendation_claims(
+        recommendation_id=recommendation_id,
+        targets=tuple(
+            RecommendationClaimEvidenceBindingTarget(
+                rationale_id=rationale.rationale_id,
+                claim_target_id=f"{rationale.rationale_id}:claim:{reference.claim_id}",
+                claim_references=(reference,),
+            )
+            for reference in references
+        ),
+    )
+
+
+def _rationale_claim_references(
+    rationale: RecommendationRationaleRecord,
+) -> tuple[EvidenceClaimReference, ...]:
+    value = rationale.metadata.get(DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY)
+    if value is None:
+        return ()
+    return evidence_claim_references_from_metadata(value).claim_references
 
 
 def _rationale(

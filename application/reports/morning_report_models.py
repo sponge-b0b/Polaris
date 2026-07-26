@@ -14,6 +14,44 @@ type ReportScalar = str | int | float | bool | None
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedReportClaimEvidenceBinding:
+    """Prepared claim references to attach to a generated report target."""
+
+    section_key: str
+    claim_references: tuple[EvidenceClaimReference, ...]
+    bullet_label: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "section_key",
+            _clean_binding_text(self.section_key, "section_key"),
+        )
+        if self.bullet_label is not None:
+            object.__setattr__(
+                self,
+                "bullet_label",
+                _clean_binding_text(self.bullet_label, "bullet_label"),
+            )
+        object.__setattr__(
+            self,
+            "claim_references",
+            tuple(self.claim_references),
+        )
+        if not self.claim_references:
+            raise ValueError(
+                "prepared report claim evidence bindings require at least one "
+                "claim reference."
+            )
+        for reference in self.claim_references:
+            if not isinstance(reference, EvidenceClaimReference):
+                raise TypeError(
+                    "prepared report claim evidence bindings require "
+                    "EvidenceClaimReference entries."
+                )
+
+
+@dataclass(frozen=True, slots=True)
 class ReportMetric:
     """
     Human-facing metric for a financial report section.
@@ -199,6 +237,15 @@ def format_regime(
         )
         if part
     )
+
+
+def _clean_binding_text(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{label} must be a string.")
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{label} cannot be empty.")
+    return cleaned
 
 
 def _as_decimal(

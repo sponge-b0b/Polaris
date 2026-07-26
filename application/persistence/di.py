@@ -1,6 +1,12 @@
 from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.decision_evidence.claim_binding import (
+    DecisionEvidenceClaimBindingService,
+)
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketPersistenceService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -11,6 +17,7 @@ from application.persistence.recommendations import RecommendationPersistenceSer
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
 from application.reports import MorningReportPersistenceService
+from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.portfolio import (
     PortfolioExpansionPersistenceRepository,
 )
@@ -20,6 +27,7 @@ from core.storage.persistence.portfolio.portfolio_state_repository import (
 from core.storage.persistence.repositories import (
     PostgresAgentSignalPersistenceRepository,
     PostgresBacktestPersistenceRepository,
+    PostgresDecisionEvidencePacketRepository,
     PostgresMacroPersistenceRepository,
     PostgresMarketPersistenceRepository,
     PostgresNewsPersistenceRepository,
@@ -131,6 +139,31 @@ class ApplicationPersistenceDIProvider(Provider):
         return StrategyPersistenceService(repository)
 
     @provide
+    def provide_decision_evidence_packet_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresDecisionEvidencePacketRepository:
+        return PostgresDecisionEvidencePacketRepository(session)
+
+    @provide
+    def provide_decision_evidence_packet_persistence_service(
+        self,
+        repository: PostgresDecisionEvidencePacketRepository,
+        completed_run_archive: CompletedRunArchive,
+    ) -> DecisionEvidencePacketPersistenceService:
+        return DecisionEvidencePacketPersistenceService(
+            repository=repository,
+            completed_run_archive=completed_run_archive,
+        )
+
+    @provide
+    def provide_decision_evidence_claim_binding_service(
+        self,
+        packet_persistence_service: DecisionEvidencePacketPersistenceService,
+    ) -> DecisionEvidenceClaimBindingService:
+        return DecisionEvidenceClaimBindingService(packet_persistence_service)
+
+    @provide
     def provide_recommendation_persistence_repository(
         self,
         session: AsyncSession,
@@ -155,5 +188,9 @@ class ApplicationPersistenceDIProvider(Provider):
     def provide_morning_report_persistence_service(
         self,
         repository: PostgresReportPersistenceRepository,
+        claim_binding_service: DecisionEvidenceClaimBindingService,
     ) -> MorningReportPersistenceService:
-        return MorningReportPersistenceService(repository)
+        return MorningReportPersistenceService(
+            repository,
+            claim_binding_service=claim_binding_service,
+        )

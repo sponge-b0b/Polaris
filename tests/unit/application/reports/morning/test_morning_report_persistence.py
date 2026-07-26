@@ -6,6 +6,10 @@ from typing import Any, cast
 
 import pytest
 
+from application.decision_evidence import (
+    DecisionEvidenceClaimBindingService,
+    ReportClaimEvidenceBindingTarget,
+)
 from application.reports import MorningReportMarkdownRenderer
 from application.reports.authority import ReportAuthorityViolationError
 from application.reports.morning_report_models import (
@@ -21,6 +25,7 @@ from application.reports.morning_report_persistence import (
 )
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
+    ReportClaimEvidenceLinkRecord,
     ReportPersistenceBundle,
     ReportPersistenceResult,
     ReportPublicationRecord,
@@ -45,6 +50,7 @@ class FakeReportRepository:
         self.artifacts: tuple[ReportArtifactRecord, ...] = ()
         self.versions: tuple[ReportVersionRecord, ...] = ()
         self.publications: tuple[ReportPublicationRecord, ...] = ()
+        self.claim_evidence_links: tuple[ReportClaimEvidenceLinkRecord, ...] = ()
 
     async def persist_report_bundle(
         self,
@@ -56,6 +62,7 @@ class FakeReportRepository:
             artifacts=bundle.artifacts,
             versions=bundle.versions,
             publications=bundle.publications,
+            claim_evidence_links=bundle.claim_evidence_links,
         )
 
     async def persist_report(
@@ -66,6 +73,7 @@ class FakeReportRepository:
         artifacts: Sequence[ReportArtifactRecord] = (),
         versions: Sequence[ReportVersionRecord] = (),
         publications: Sequence[ReportPublicationRecord] = (),
+        claim_evidence_links: Sequence[ReportClaimEvidenceLinkRecord] = (),
     ) -> ReportPersistenceResult:
         self.report = report
         self.sections = tuple(
@@ -80,6 +88,9 @@ class FakeReportRepository:
         self.publications = tuple(
             publications,
         )
+        self.claim_evidence_links = tuple(
+            claim_evidence_links,
+        )
         return ReportPersistenceResult.succeeded(
             report_id=report.report_id,
             records_persisted=1
@@ -88,6 +99,9 @@ class FakeReportRepository:
             )
             + len(
                 self.artifacts,
+            )
+            + len(
+                self.claim_evidence_links,
             ),
         )
 
@@ -113,6 +127,7 @@ class FakeReportRepository:
             artifacts=self.artifacts,
             versions=self.versions,
             publications=self.publications,
+            claim_evidence_links=self.claim_evidence_links,
         )
 
     async def get_version(
@@ -176,6 +191,23 @@ class FakeReportRepository:
                 publication_status is None
                 or publication.publication_status == publication_status
             )
+        )
+
+    async def list_claim_evidence_links(
+        self,
+        *,
+        report_id: str | None = None,
+        section_id: str | None = None,
+        packet_id: str | None = None,
+        claim_target_id: str | None = None,
+    ) -> Sequence[ReportClaimEvidenceLinkRecord]:
+        return tuple(
+            link
+            for link in self.claim_evidence_links
+            if (report_id is None or link.report_id == report_id)
+            and (section_id is None or link.section_id == section_id)
+            and (packet_id is None or link.packet_id == packet_id)
+            and (claim_target_id is None or link.claim_target_id == claim_target_id)
         )
 
 
@@ -242,6 +274,73 @@ async def test_morning_report_persistence_service_persists_full_bundle() -> None
     assert repository.report.markdown_body == markdown
     assert repository.sections[0].summary == _long_response()
     assert repository.artifacts[0].artifact_type == "json"
+
+
+@pytest.mark.asyncio
+async def test_morning_report_persistence_service_persists_claim_evidence_links() -> (
+    None
+):
+    reference = EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="report-output-1",
+        claim_id="claim-1",
+        risk_tier=RiskTier.VIGILANT,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    binding_service = _FakeReportClaimBindingService(
+        (
+            ReportClaimEvidenceLinkRecord(
+                link_id=(
+                    "morning_report:exec-evidence:claim_evidence:"
+                    "morning_report:exec-evidence:section:executive_summary:"
+                    "morning_report:exec-evidence:section:executive_summary:"
+                    "bullet:0:packet-1:claim-1"
+                ),
+                report_id="morning_report:exec-evidence",
+                section_id="morning_report:exec-evidence:section:executive_summary",
+                claim_target_id=(
+                    "morning_report:exec-evidence:section:executive_summary:bullet:0"
+                ),
+                packet_id="packet-1",
+                packet_claim_id="claim-1",
+                risk_tier=RiskTier.VIGILANT,
+                material=True,
+                supporting_evidence_ids=("evidence-1",),
+                reconstruction_reference_ids=("workflow-node",),
+                uncertainty_ids=("uncertainty-1",),
+                limitation_ids=("limitation-1",),
+            ),
+        )
+    )
+    service = MorningReportPersistenceService(
+        repository,
+        claim_binding_service=binding_service,
+    )
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is True
+    assert len(repository.claim_evidence_links) == 1
+    assert repository.claim_evidence_links[0].packet_id == "packet-1"
+    assert repository.claim_evidence_links[0].uncertainty_ids == ("uncertainty-1",)
+    assert repository.claim_evidence_links[0].limitation_ids == ("limitation-1",)
+    assert binding_service.targets == (
+        ReportClaimEvidenceBindingTarget(
+            section_id="morning_report:exec-evidence:section:executive_summary",
+            claim_target_id=(
+                "morning_report:exec-evidence:section:executive_summary:bullet:0"
+            ),
+            claim_references=(reference,),
+        ),
+    )
 
 
 def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
@@ -377,6 +476,54 @@ def test_morning_report_mapper_fails_closed_on_unsupported_capital_advice() -> N
             document,
             markdown_body="# Published report\n\nBuy 100 shares of SPY.",
         )
+
+
+class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
+    def __init__(
+        self,
+        links: tuple[ReportClaimEvidenceLinkRecord, ...],
+    ) -> None:
+        self.links = links
+        self.targets: tuple[ReportClaimEvidenceBindingTarget, ...] = ()
+
+    async def bind_report_claims(
+        self,
+        report_id: str,
+        targets: Sequence[ReportClaimEvidenceBindingTarget],
+    ) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
+        self.targets = tuple(targets)
+        return self.links
+
+
+def _document_with_claim_reference(
+    reference: EvidenceClaimReference,
+) -> MorningReportDocument:
+    section = ReportSection(
+        title="Executive Summary",
+        summary="Market risk remains elevated based on canonical evidence.",
+        bullets=(
+            ReportBullet(
+                text="Maintain discipline while monitoring catalysts.",
+                label="Posture",
+                claim_references=(reference,),
+            ),
+        ),
+    )
+    return MorningReportDocument(
+        title="Polaris Morning Financial Report",
+        subtitle="Decision-support report for SPY",
+        symbol="SPY",
+        execution_id="exec-evidence",
+        generated_at="2026-05-30T13:30:00Z",
+        status="Succeeded",
+        executive_summary=section,
+        portfolio_snapshot=ReportSection.unavailable("Portfolio Snapshot"),
+        macro_backdrop=ReportSection.unavailable("Macro / Fundamental Backdrop"),
+        technical_setup=ReportSection.unavailable("Technical Setup"),
+        news_sentiment=ReportSection.unavailable("News & Sentiment"),
+        risk_assessment=ReportSection.unavailable("Risk Assessment"),
+        recommended_action_plan=ReportSection.unavailable("Recommended Action Plan"),
+    )
 
 
 def _document() -> MorningReportDocument:

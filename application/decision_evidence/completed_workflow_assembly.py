@@ -4,7 +4,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from application.projections.workflow_outputs import (
+from application.projections.workflow_output_fingerprints import (
     calculate_workflow_output_source_fingerprint,
 )
 from core.storage.persistence.completed_run_archive import (

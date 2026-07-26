@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
+from application.decision_evidence.claim_binding import (
+    DecisionEvidenceClaimBindingService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
@@ -113,6 +116,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         news_persistence_service,
         portfolio_persistence_service,
         recommendation_persistence_service,
+        cast(DecisionEvidenceClaimBindingService, object()),
         sentiment_persistence_service,
         strategy_persistence_service,
     )

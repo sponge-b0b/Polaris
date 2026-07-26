@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dishka import Provider, Scope, provide
 
+from application.decision_evidence.claim_binding import (
+    DecisionEvidenceClaimBindingService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
@@ -51,6 +54,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         news_persistence_service: NewsPersistenceService,
         portfolio_persistence_service: PortfolioPersistenceService,
         recommendation_persistence_service: RecommendationPersistenceService,
+        claim_binding_service: DecisionEvidenceClaimBindingService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
     ) -> WorkflowOutputProjectionRegistry:
@@ -83,6 +87,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,
+                    claim_binding_service=claim_binding_service,
                 ),
             )
         )

@@ -92,6 +92,7 @@ class StructuredStrategySynthesisOutput(StructuredWorkflowOutputModel):
     signals: tuple[NonEmptyString, ...] = ()
     risks: tuple[NonEmptyString, ...] = ()
     recommendations: tuple[NonEmptyString, ...] = ()
+    evidence_packet_ids: tuple[NonEmptyString, ...] = ()
 
     @field_validator("selected_perspective")
     @classmethod
@@ -142,6 +143,7 @@ class StructuredStrategySynthesisOutput(StructuredWorkflowOutputModel):
             signals=self.signals,
             risks=self.risks,
             recommendations=self.recommendations,
+            evidence_packet_ids=self.evidence_packet_ids,
         )
 
 

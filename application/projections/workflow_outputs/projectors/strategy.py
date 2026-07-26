@@ -396,6 +396,7 @@ def _decision_record(
             "node_output_id": request.node_output.node_output_id,
             "output_contract": request.node_output.output_contract,
             "output_schema_version": request.node_output.output_schema_version,
+            "evidence_packet_ids": list(decision.evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_synthesis_decision_authority(
                     model_authority_claims_from_payloads(
@@ -505,6 +506,7 @@ def _strategy_recommendation_bundle(
             "selected_perspective": decision_record.selected_perspective,
             "selection_status": decision_record.selection_status,
             "evidence_fingerprint": decision_record.evidence_fingerprint,
+            "evidence_packet_ids": list(decision.evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_record_authority(
                     model_authority_claims_from_payloads(
@@ -529,6 +531,7 @@ def _strategy_recommendation_bundle(
         confidence=decision.confidence,
         metadata={
             "recommendations": list(decision.recommendations),
+            "evidence_packet_ids": list(decision.evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_rationale_authority(
                     model_authority_claims_from_payloads(

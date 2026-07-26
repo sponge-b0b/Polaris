@@ -106,6 +106,9 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     strategy_bundle = strategy_repository.bundles[0]
     assert strategy_bundle.decision.symbol == "SPY"
     assert strategy_bundle.decision.selected_perspective == "bull"
+    assert strategy_bundle.decision.metadata["evidence_packet_ids"] == [
+        "strategy-packet-1"
+    ]
     assert len(strategy_bundle.hypotheses) == 1
     assert strategy_bundle.hypotheses[0].perspective == "bull"
     assert len(strategy_bundle.evaluations) == 1
@@ -114,6 +117,12 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     recommendation_bundle = recommendation_repository.bundles[0]
     assert recommendation_bundle.recommendation.status == "strategy_recommendation"
     assert recommendation_bundle.recommendation.metadata["strategy_decision_id"]
+    assert recommendation_bundle.recommendation.metadata["evidence_packet_ids"] == [
+        "strategy-packet-1"
+    ]
+    assert recommendation_bundle.rationales[0].metadata["evidence_packet_ids"] == [
+        "strategy-packet-1"
+    ]
     assert recommendation_bundle.rationales[0].rationale_type == "strategy_synthesis"
 
     decision_authority = _authority_metadata(strategy_bundle.decision.metadata)
@@ -368,6 +377,7 @@ def _decision_payload() -> dict[str, object]:
         "signals": ["technical confirmation"],
         "risks": ["headline risk"],
         "recommendations": ["Maintain constructive allocation."],
+        "evidence_packet_ids": ["strategy-packet-1"],
     }
 
 

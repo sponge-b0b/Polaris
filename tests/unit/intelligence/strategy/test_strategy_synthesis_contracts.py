@@ -113,12 +113,17 @@ def test_strategy_synthesis_decision_serializes_and_replays_deterministically() 
         signals=("bull_selected",),
         risks=("watch_contradictions",),
         recommendations=("favor_quality_long_exposure",),
+        evidence_packet_ids=("strategy-packet-1",),
     )
 
     replayed = StrategySynthesisDecision.from_dict(decision.to_dict())
 
     assert replayed == decision
     assert replayed.selected_perspective is StrategyPerspective.BULL
+    assert replayed.evidence_packet_ids == ("strategy-packet-1",)
+    legacy_payload = decision.to_dict()
+    del legacy_payload["evidence_packet_ids"]
+    assert StrategySynthesisDecision.from_dict(legacy_payload).evidence_packet_ids == ()
     assert replayed.to_canonical_json() == decision.to_canonical_json()
 
 

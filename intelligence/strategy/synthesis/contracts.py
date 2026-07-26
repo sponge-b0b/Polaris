@@ -182,6 +182,7 @@ class StrategySynthesisDecision:
     signals: tuple[str, ...]
     risks: tuple[str, ...]
     recommendations: tuple[str, ...]
+    evidence_packet_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.selected_perspective is not None:
@@ -227,6 +228,11 @@ class StrategySynthesisDecision:
             "recommendations",
             _validate_string_tuple(self.recommendations, "recommendations"),
         )
+        object.__setattr__(
+            self,
+            "evidence_packet_ids",
+            _validate_string_tuple(self.evidence_packet_ids, "evidence_packet_ids"),
+        )
 
     @classmethod
     def from_evaluations(
@@ -241,6 +247,7 @@ class StrategySynthesisDecision:
         signals: tuple[str, ...] = (),
         risks: tuple[str, ...] = (),
         recommendations: tuple[str, ...] = (),
+        evidence_packet_ids: tuple[str, ...] = (),
         degraded_reasons: tuple[StrategySynthesisDegradedReason, ...] = (),
     ) -> StrategySynthesisDecision:
         normalized = normalize_strategy_hypothesis_evaluations(evaluations)
@@ -281,6 +288,7 @@ class StrategySynthesisDecision:
             signals=signals,
             risks=risks,
             recommendations=recommendations,
+            evidence_packet_ids=evidence_packet_ids,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -301,6 +309,7 @@ class StrategySynthesisDecision:
             "signals": list(self.signals),
             "risks": list(self.risks),
             "recommendations": list(self.recommendations),
+            "evidence_packet_ids": list(self.evidence_packet_ids),
         }
 
     @classmethod
@@ -328,6 +337,7 @@ class StrategySynthesisDecision:
             signals=_required_string_tuple(payload, "signals"),
             risks=_required_string_tuple(payload, "risks"),
             recommendations=_required_string_tuple(payload, "recommendations"),
+            evidence_packet_ids=_optional_string_tuple(payload, "evidence_packet_ids"),
         )
 
     def to_canonical_json(self) -> str:
@@ -575,6 +585,15 @@ def _required_string_tuple(
             raise TypeError(f"{field_name} entries must be strings.")
         strings.append(_validate_non_empty(item, field_name))
     return tuple(strings)
+
+
+def _optional_string_tuple(
+    payload: dict[str, object],
+    field_name: str,
+) -> tuple[str, ...]:
+    if field_name not in payload:
+        return ()
+    return _required_string_tuple(payload, field_name)
 
 
 def _required_degraded_reason_tuple(

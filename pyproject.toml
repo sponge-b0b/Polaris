@@ -100,7 +100,7 @@ select = [
 
 [tool.mypy]
 python_version = "3.12"
-#explicit_package_bases = true
+explicit_package_bases = true
 
 # =============================================================================
 # MyPy type checking configuration settings

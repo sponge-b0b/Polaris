@@ -4,8 +4,6 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -19,6 +17,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database.base import Base
+from core.database.models.claim_evidence_links import (
+    ClaimEvidenceLinkColumnsMixin,
+    claim_evidence_link_table_args,
+)
 
 
 class RecommendationModel(Base):
@@ -569,42 +571,12 @@ Index(
 )
 
 
-class RecommendationClaimEvidenceLinkModel(Base):
+class RecommendationClaimEvidenceLinkModel(ClaimEvidenceLinkColumnsMixin, Base):
     """Durable recommendation claim-to-decision-evidence-packet audit link."""
 
     __tablename__ = "recommendation_claim_evidence_links"
-    __table_args__ = (
-        CheckConstraint(
-            "risk_tier IN ('enhanced', 'vigilant')",
-            name="ck_recommendation_claim_evidence_links_risk_tier",
-        ),
-        CheckConstraint(
-            "jsonb_typeof(supporting_evidence_ids) = 'array'",
-            name="ck_recommendation_claim_evidence_links_supporting_ids_array",
-        ),
-        CheckConstraint(
-            "jsonb_typeof(reconstruction_reference_ids) = 'array'",
-            name="ck_recommendation_claim_evidence_links_reconstruction_ids_array",
-        ),
-        CheckConstraint(
-            "jsonb_typeof(uncertainty_ids) = 'array'",
-            name="ck_recommendation_claim_evidence_links_uncertainty_ids_array",
-        ),
-        CheckConstraint(
-            "jsonb_typeof(limitation_ids) = 'array'",
-            name="ck_recommendation_claim_evidence_links_limitation_ids_array",
-        ),
-        CheckConstraint(
-            "NOT (material AND (jsonb_array_length(supporting_evidence_ids) = 0 "
-            "OR jsonb_array_length(reconstruction_reference_ids) = 0))",
-            name="ck_recommendation_claim_evidence_links_material_has_support",
-        ),
-    )
+    __table_args__ = claim_evidence_link_table_args(__tablename__)
 
-    link_id: Mapped[str] = mapped_column(
-        String,
-        primary_key=True,
-    )
     recommendation_id: Mapped[str] = mapped_column(
         ForeignKey(
             "recommendations.recommendation_id",
@@ -620,65 +592,6 @@ class RecommendationClaimEvidenceLinkModel(Base):
         ),
         nullable=True,
         index=True,
-    )
-    claim_target_id: Mapped[str] = mapped_column(
-        String,
-        nullable=False,
-        index=True,
-    )
-    packet_id: Mapped[str] = mapped_column(
-        ForeignKey(
-            "decision_evidence_packets.packet_id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
-    )
-    packet_claim_id: Mapped[str] = mapped_column(
-        String,
-        nullable=False,
-        index=True,
-    )
-    risk_tier: Mapped[str] = mapped_column(
-        String,
-        nullable=False,
-        index=True,
-    )
-    material: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-    )
-    supporting_evidence_ids: Mapped[list[Any]] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=list,
-    )
-    reconstruction_reference_ids: Mapped[list[Any]] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=list,
-    )
-    uncertainty_ids: Mapped[list[Any]] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=list,
-    )
-    limitation_ids: Mapped[list[Any]] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=list,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
     )
 
 

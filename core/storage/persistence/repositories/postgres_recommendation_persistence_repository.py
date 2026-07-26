@@ -16,6 +16,10 @@ from core.database.models.recommendations import (
     TradeSetupModel,
     WatchlistItemModel,
 )
+from core.storage.persistence.claim_evidence_links import (
+    claim_evidence_link_upsert_set_values,
+    execute_claim_evidence_link_upserts,
+)
 from core.storage.persistence.recommendations import (
     RecommendationClaimEvidenceLinkRecord,
     RecommendationOutcomeRecord,
@@ -86,12 +90,11 @@ class PostgresRecommendationPersistenceRepository(
                         item,
                     )
                 )
-            for link in bundle.claim_evidence_links:
-                await self._session.execute(
-                    _upsert_claim_evidence_link_statement(
-                        link,
-                    )
-                )
+            await execute_claim_evidence_link_upserts(
+                self._session,
+                bundle.claim_evidence_links,
+                _upsert_claim_evidence_link_statement,
+            )
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
@@ -467,18 +470,8 @@ def _upsert_claim_evidence_link_statement(
 
     return stmt.on_conflict_do_update(
         index_elements=["link_id"],
-        set_={
-            "recommendation_id": excluded.recommendation_id,
-            "rationale_id": excluded.rationale_id,
-            "claim_target_id": excluded.claim_target_id,
-            "packet_id": excluded.packet_id,
-            "packet_claim_id": excluded.packet_claim_id,
-            "risk_tier": excluded.risk_tier,
-            "material": excluded.material,
-            "supporting_evidence_ids": excluded.supporting_evidence_ids,
-            "reconstruction_reference_ids": excluded.reconstruction_reference_ids,
-            "uncertainty_ids": excluded.uncertainty_ids,
-            "limitation_ids": excluded.limitation_ids,
-            "updated_at": func.now(),
-        },
+        set_=claim_evidence_link_upsert_set_values(
+            excluded,
+            owner_columns=("recommendation_id", "rationale_id"),
+        ),
     )

@@ -61,6 +61,7 @@ from application.evaluations.model_replacement_gate import (
 from application.evaluations.rag_evaluation_metrics import (
     INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS,
     INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION,
+    MCP_TOOL_RESPONSE_EVALUATION_METRIC_DEFINITIONS,
     RAG_BUILTIN_METRIC_DEFINITIONS,
     RAG_CUSTOM_METRIC_DEFINITIONS,
     RAG_EVALUATION_METRIC_DEFINITIONS,
@@ -69,6 +70,7 @@ from application.evaluations.rag_evaluation_metrics import (
     EvaluationMetricEngine,
     intelligence_evaluation_metric_specs,
     intelligence_threshold_profile,
+    mcp_tool_response_evaluation_metric_specs,
     rag_evaluation_metric_specs,
     rag_threshold_profile,
 )
@@ -136,8 +138,10 @@ __all__ = [
     "EvaluationMetricEngine",
     "INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS",
     "INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION",
+    "MCP_TOOL_RESPONSE_EVALUATION_METRIC_DEFINITIONS",
     "intelligence_evaluation_metric_specs",
     "intelligence_threshold_profile",
+    "mcp_tool_response_evaluation_metric_specs",
     "RAG_BUILTIN_METRIC_DEFINITIONS",
     "RAG_CUSTOM_METRIC_DEFINITIONS",
     "RAG_EVALUATION_METRIC_DEFINITIONS",

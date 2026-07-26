@@ -18,6 +18,7 @@ from application.evaluations.evaluation_datasets import (
 )
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
+    mcp_tool_response_evaluation_metric_specs,
     rag_evaluation_metric_specs,
 )
 from application.evaluations.risk_authority_gate import (
@@ -1054,6 +1055,8 @@ def _metric_specs_for_target(
 ) -> tuple[EvaluationMetricSpec, ...]:
     if target_type in _RAG_TARGET_TYPES:
         return rag_evaluation_metric_specs()
+    if target_type is EvaluationTargetType.MCP_TOOL_RESPONSE:
+        return mcp_tool_response_evaluation_metric_specs()
     return intelligence_evaluation_metric_specs(target_type)
 
 

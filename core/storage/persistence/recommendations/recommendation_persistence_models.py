@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
+from core.storage.persistence.claim_evidence_links import (
+    normalize_claim_evidence_link_record,
+)
 from core.storage.persistence.lineage import (
     JsonObject,
     PersistenceLineage,
@@ -480,45 +483,7 @@ class RecommendationClaimEvidenceLinkRecord:
             "packet_claim_id",
             require_non_empty_identifier(self.packet_claim_id, "packet_claim_id"),
         )
-        object.__setattr__(
-            self,
-            "risk_tier",
-            _coerce_claim_evidence_link_risk_tier(self.risk_tier),
-        )
-        if not isinstance(self.material, bool):
-            raise ValueError("material must be a boolean.")
-        object.__setattr__(
-            self,
-            "supporting_evidence_ids",
-            _clean_identifier_tuple(
-                self.supporting_evidence_ids,
-                "supporting_evidence_id",
-            ),
-        )
-        object.__setattr__(
-            self,
-            "reconstruction_reference_ids",
-            _clean_identifier_tuple(
-                self.reconstruction_reference_ids,
-                "reconstruction_reference_id",
-            ),
-        )
-        object.__setattr__(
-            self,
-            "uncertainty_ids",
-            _clean_identifier_tuple(self.uncertainty_ids, "uncertainty_id"),
-        )
-        object.__setattr__(
-            self,
-            "limitation_ids",
-            _clean_identifier_tuple(self.limitation_ids, "limitation_id"),
-        )
-        _validate_material_claim_evidence_link(
-            material=self.material,
-            risk_tier=self.risk_tier,
-            supporting_evidence_ids=self.supporting_evidence_ids,
-            reconstruction_reference_ids=self.reconstruction_reference_ids,
-        )
+        normalize_claim_evidence_link_record(self)
 
 
 @dataclass(
@@ -679,45 +644,6 @@ def new_recommendation_claim_evidence_link_id(
         )
     )
     return ":".join(id_parts)
-
-
-def _coerce_claim_evidence_link_risk_tier(value: object) -> RiskTier:
-    if isinstance(value, RiskTier):
-        risk_tier = value
-    elif isinstance(value, str):
-        risk_tier = RiskTier(value.strip().lower())
-    else:
-        raise ValueError("risk_tier must be a RiskTier.")
-    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        raise ValueError(
-            "claim evidence links require enhanced or vigilant risk tiers."
-        )
-    return risk_tier
-
-
-def _clean_identifier_tuple(values: tuple[str, ...], label: str) -> tuple[str, ...]:
-    return tuple(require_non_empty_identifier(value, label) for value in values)
-
-
-def _validate_material_claim_evidence_link(
-    *,
-    material: bool,
-    risk_tier: RiskTier,
-    supporting_evidence_ids: tuple[str, ...],
-    reconstruction_reference_ids: tuple[str, ...],
-) -> None:
-    if not material or risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        return
-    if not supporting_evidence_ids:
-        raise ValueError(
-            "material enhanced and vigilant claim evidence links require "
-            "supporting evidence identifiers."
-        )
-    if not reconstruction_reference_ids:
-        raise ValueError(
-            "material enhanced and vigilant claim evidence links require "
-            "reconstruction reference identifiers."
-        )
 
 
 def _require_non_empty_text(

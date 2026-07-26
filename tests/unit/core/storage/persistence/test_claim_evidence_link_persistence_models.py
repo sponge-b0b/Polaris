@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from core.storage.persistence.recommendations import (
@@ -50,7 +52,7 @@ def test_recommendation_claim_link_preserves_rationale_target() -> None:
         claim_target_id="rationale-claim:momentum",
         packet_id="packet-1",
         packet_claim_id="claim-1",
-        risk_tier="vigilant",
+        risk_tier=RiskTier.VIGILANT,
         material=True,
         supporting_evidence_ids=("evidence-synthesis",),
         reconstruction_reference_ids=("evidence-synthesis:node-output",),
@@ -94,7 +96,7 @@ def test_recommendation_claim_link_preserves_rationale_target() -> None:
     ],
 )
 def test_material_enhanced_and_vigilant_links_require_support_and_reconstruction(
-    record_factory: object,
+    record_factory: Callable[[], object],
 ) -> None:
     with pytest.raises(ValueError):
         record_factory()

@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
+from core.storage.persistence.claim_evidence_links import (
+    normalize_claim_evidence_link_record,
+)
 from domain.authority import RiskTier
 
 type JsonScalar = str | int | float | bool | None
@@ -267,23 +270,7 @@ class ReportClaimEvidenceLinkRecord:
         _set_clean_identifier(self, "claim_target_id")
         _set_clean_identifier(self, "packet_id")
         _set_clean_identifier(self, "packet_claim_id")
-        object.__setattr__(
-            self,
-            "risk_tier",
-            _coerce_claim_evidence_link_risk_tier(self.risk_tier),
-        )
-        if not isinstance(self.material, bool):
-            raise ValueError("material must be a boolean.")
-        _set_clean_identifier_tuple(self, "supporting_evidence_ids")
-        _set_clean_identifier_tuple(self, "reconstruction_reference_ids")
-        _set_clean_identifier_tuple(self, "uncertainty_ids")
-        _set_clean_identifier_tuple(self, "limitation_ids")
-        _validate_material_claim_evidence_link(
-            material=self.material,
-            risk_tier=self.risk_tier,
-            supporting_evidence_ids=self.supporting_evidence_ids,
-            reconstruction_reference_ids=self.reconstruction_reference_ids,
-        )
+        normalize_claim_evidence_link_record(self)
 
 
 @dataclass(
@@ -475,50 +462,6 @@ def _set_optional_clean_identifier(instance: object, attribute: str) -> None:
         attribute,
         _clean_optional_identifier(getattr(instance, attribute), attribute),
     )
-
-
-def _set_clean_identifier_tuple(instance: object, attribute: str) -> None:
-    values = getattr(instance, attribute)
-    object.__setattr__(
-        instance,
-        attribute,
-        tuple(_clean_identifier(value, attribute) for value in values),
-    )
-
-
-def _coerce_claim_evidence_link_risk_tier(value: object) -> RiskTier:
-    if isinstance(value, RiskTier):
-        risk_tier = value
-    elif isinstance(value, str):
-        risk_tier = RiskTier(value.strip().lower())
-    else:
-        raise ValueError("risk_tier must be a RiskTier.")
-    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        raise ValueError(
-            "claim evidence links require enhanced or vigilant risk tiers."
-        )
-    return risk_tier
-
-
-def _validate_material_claim_evidence_link(
-    *,
-    material: bool,
-    risk_tier: RiskTier,
-    supporting_evidence_ids: tuple[str, ...],
-    reconstruction_reference_ids: tuple[str, ...],
-) -> None:
-    if not material or risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        return
-    if not supporting_evidence_ids:
-        raise ValueError(
-            "material enhanced and vigilant claim evidence links require "
-            "supporting evidence identifiers."
-        )
-    if not reconstruction_reference_ids:
-        raise ValueError(
-            "material enhanced and vigilant claim evidence links require "
-            "reconstruction reference identifiers."
-        )
 
 
 def _clean_optional_identifier(value: str | None, field_name: str) -> str | None:

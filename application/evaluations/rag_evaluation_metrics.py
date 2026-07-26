@@ -94,6 +94,41 @@ def _require_non_empty(value: str, field_name: str) -> None:
         raise ValueError(f"{field_name} cannot be empty.")
 
 
+MCP_TOOL_RESPONSE_EVALUATION_METRIC_DEFINITIONS: tuple[
+    EvaluationMetricDefinition, ...
+] = (
+    EvaluationMetricDefinition(
+        metric_name="tool_response_contract_adherence",
+        display_name="Tool Response Contract Adherence",
+        engine=EvaluationMetricEngine.DEEPEVAL_GEVAL,
+        threshold=EvaluationThreshold(
+            "tool_response_contract_adherence",
+            0.80,
+            version=INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION,
+        ),
+        target_types=(EvaluationTargetType.MCP_TOOL_RESPONSE,),
+        description=(
+            "Measures whether MCP tool responses preserve the expected structured "
+            "contract while remaining locally executable."
+        ),
+        criteria=(
+            "Score whether the tool response is well-formed, includes the required "
+            "structured fields, avoids unexpected free-form substitutions, and "
+            "faithfully answers the tool request."
+        ),
+        evaluation_steps=(
+            "Inspect the tool request and response shape for required fields.",
+            "Check that the response content directly satisfies the tool request.",
+            "Reward deterministic, machine-readable responses suitable for "
+            "local agent operations.",
+            "Penalize missing fields, malformed JSON-like content, or "
+            "unsupported behavioral drift.",
+        ),
+        tags=("mcp", "structured_output", "geval"),
+    ),
+)
+
+
 RAG_BUILTIN_METRIC_DEFINITIONS: tuple[EvaluationMetricDefinition, ...] = (
     EvaluationMetricDefinition(
         metric_name="faithfulness",
@@ -446,35 +481,6 @@ INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS: tuple[EvaluationMetricDefinition, ..
         tags=("intelligence", "recommendation", "geval"),
     ),
     EvaluationMetricDefinition(
-        metric_name="tool_response_contract_adherence",
-        display_name="Tool Response Contract Adherence",
-        engine=EvaluationMetricEngine.DEEPEVAL_GEVAL,
-        threshold=EvaluationThreshold(
-            "tool_response_contract_adherence",
-            0.80,
-            version=INTELLIGENCE_EVALUATION_THRESHOLD_PROFILE_VERSION,
-        ),
-        target_types=(EvaluationTargetType.MCP_TOOL_RESPONSE,),
-        description=(
-            "Measures whether MCP tool responses preserve the expected structured "
-            "contract while remaining locally executable."
-        ),
-        criteria=(
-            "Score whether the tool response is well-formed, includes the required "
-            "structured fields, avoids unexpected free-form substitutions, and "
-            "faithfully answers the tool request."
-        ),
-        evaluation_steps=(
-            "Inspect the tool request and response shape for required fields.",
-            "Check that the response content directly satisfies the tool request.",
-            "Reward deterministic, machine-readable responses suitable for "
-            "local agent operations.",
-            "Penalize missing fields, malformed JSON-like content, or "
-            "unsupported behavioral drift.",
-        ),
-        tags=("intelligence", "mcp", "structured_output", "geval"),
-    ),
-    EvaluationMetricDefinition(
         metric_name="report_completeness",
         display_name="Report Completeness",
         engine=EvaluationMetricEngine.DEEPEVAL_GEVAL,
@@ -657,6 +663,13 @@ def intelligence_evaluation_metric_specs(
         target_type,
     )
     return tuple(definition.to_metric_spec() for definition in definitions)
+
+
+def mcp_tool_response_evaluation_metric_specs() -> tuple[EvaluationMetricSpec, ...]:
+    return tuple(
+        definition.to_metric_spec()
+        for definition in MCP_TOOL_RESPONSE_EVALUATION_METRIC_DEFINITIONS
+    )
 
 
 def rag_threshold_profile() -> JsonObject:

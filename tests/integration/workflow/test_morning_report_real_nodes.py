@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -24,6 +25,14 @@ _PROVIDER_ENV = {
     "PORTFOLIO_PROVIDER": "backtest_portfolio_provider",
     "SENTIMENT_PROVIDER": "backtest_sentiment_provider",
 }
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("POLARIS_RUN_REAL_INTELLIGENCE_WORKFLOW_TESTS") != "1",
+    reason=(
+        "Set POLARIS_RUN_REAL_INTELLIGENCE_WORKFLOW_TESTS=1 to run "
+        "real intelligence workflow integration tests."
+    ),
+)
 
 
 @pytest.mark.asyncio

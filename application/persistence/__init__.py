@@ -72,6 +72,7 @@ from application.persistence.rag import (
     RagEligibilityPersistenceService,
 )
 from application.persistence.recommendations import (
+    RecommendationClaimEvidenceLinkPersistenceFilters,
     RecommendationPersistenceFilters,
     RecommendationPersistenceService,
     TradeSetupPersistenceFilters,
@@ -79,6 +80,7 @@ from application.persistence.recommendations import (
 )
 from application.persistence.reports import (
     ReportArtifactPersistenceFilters,
+    ReportClaimEvidenceLinkPersistenceFilters,
     ReportPersistenceService,
     ReportPublicationPersistenceFilters,
 )
@@ -156,9 +158,11 @@ __all__ = [
     "RagEligibilityPersistenceFilters",
     "RagEligibilityPersistenceService",
     "RecommendationAttributionPersistenceFilters",
+    "RecommendationClaimEvidenceLinkPersistenceFilters",
     "RecommendationPersistenceFilters",
     "RecommendationPersistenceService",
     "ReportArtifactPersistenceFilters",
+    "ReportClaimEvidenceLinkPersistenceFilters",
     "ReportPersistenceService",
     "ReportPublicationPersistenceFilters",
     "RetentionPersistenceService",

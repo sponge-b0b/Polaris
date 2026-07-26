@@ -23,7 +23,7 @@ Execute these duplication scanning tools over the workspace target paths before 
 ### Step 1: Python Native Structural Scan
 Run `pylint` with all rule blocks disabled except for the duplicate-code signature checker to scan recursively for cloned Python blocks:
 ```bash
-pylint --disable=all --enable=duplicate-code --recursive=y .
+pylint --disable=all --enable=duplicate-code --recursive=y -j 0 .
 ```
 
 ### Step 2: Multi-Language Token Sequence Scan
@@ -43,6 +43,6 @@ npx jscpd .
 **Agent Response:** *"I am triggering the duplication-checks skill via Pylint and jscpd to verify if equivalent metrics layout logic already exists in the codebase before we design a new helper module."*
 **Agent Execution:**
 ```bash
-pylint --disable=all --enable=duplicate-code --recursive=y .
+pylint --disable=all --enable=duplicate-code --recursive=y -j 0 .
 npx jscpd .
 ```

@@ -26,11 +26,22 @@ def test_packet_serializer_stores_audit_data_and_durable_reconstruction_ids() ->
     assert record.output_id == "strategy-decision-1"
     assert record.risk_tier is RiskTier.ENHANCED
     assert record.authority_metadata["risk_tier"] == "enhanced"
-    assert record.retention_metadata == {
-        "retain_until": "2031-07-25T00:00:00Z",
-        "policy_id": "enhanced-provenance-5y",
-        "legal_hold": False,
+    assert record.retention_metadata["packet_id"] == "packet-1"
+    assert record.retention_metadata["output_id"] == "strategy-decision-1"
+    assert record.retention_metadata["retain_until"] == "2031-07-25T00:00:00Z"
+    assert record.retention_metadata["policy_id"] == "enhanced-provenance-5y"
+    assert record.retention_metadata["legal_hold"] is False
+    assert record.retention_metadata["risk_tier"] == "enhanced"
+    assert record.retention_metadata["authority_boundary"] == {
+        "canonical_owner": "rag_service",
+        "source_of_truth": "presentation_output",
+        "intended_sink": "rag_answer",
+        "gate_profile": "enhanced_provenance",
     }
+    assert record.retention_metadata["retention_basis"] == (
+        "decision_evidence_packet_reconstruction"
+    )
+    assert record.retention_metadata["requires_reconstruction"] is True
     assert record.reconstruction_reference_ids == (
         "evidence-synthesis:completed-run",
         "evidence-synthesis:node-output",

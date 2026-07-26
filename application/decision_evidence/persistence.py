@@ -20,6 +20,7 @@ from core.storage.persistence.completed_run_archive import (
 from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketPersistenceRepository,
     DecisionEvidencePacketPersistenceResult,
+    DecisionEvidencePacketRecord,
 )
 from core.storage.persistence.evaluation import (
     EvaluationMetricResultRecord,
@@ -27,6 +28,9 @@ from core.storage.persistence.evaluation import (
 )
 from core.storage.persistence.serializers import (
     DecisionEvidencePacketPersistenceSerializer,
+)
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
 )
 from domain.authority import SourceOfTruthCategory
 from domain.decision_evidence import (
@@ -88,6 +92,7 @@ class DecisionEvidencePacketPersistenceService:
         default=None,
         repr=False,
     )
+    telemetry: ApplicationServiceTelemetry | None = field(default=None, repr=False)
 
     async def persist_packet(
         self,
@@ -119,6 +124,11 @@ class DecisionEvidencePacketPersistenceService:
                 "Decision evidence packet reconstruction failed.",
                 extra={"packet_id": packet_id, "error_type": type(error).__name__},
             )
+            await self._emit_reconstruction_failed(
+                packet_id=packet_id,
+                error=error,
+                record=None,
+            )
             raise error
 
         try:
@@ -132,8 +142,17 @@ class DecisionEvidencePacketPersistenceService:
                 extra={"packet_id": packet_id, "error_type": type(exc).__name__},
                 exc_info=True,
             )
+            await self._emit_reconstruction_failed(
+                packet_id=packet_id,
+                error=exc,
+                record=record,
+            )
             raise
         except (DecisionEvidencePacketValidationError, ValueError) as exc:
+            malformed_error = MalformedDecisionEvidenceReconstructionIdentifierError(
+                f"decision evidence packet {packet_id!r} contains malformed "
+                f"reconstruction identifiers: {exc}"
+            )
             logger.warning(
                 "Decision evidence packet reconstruction identifier was malformed.",
                 extra={
@@ -142,12 +161,45 @@ class DecisionEvidencePacketPersistenceService:
                 },
                 exc_info=True,
             )
-            raise MalformedDecisionEvidenceReconstructionIdentifierError(
-                f"decision evidence packet {packet_id!r} contains malformed "
-                "reconstruction identifiers."
-            ) from exc
+            await self._emit_reconstruction_failed(
+                packet_id=packet_id,
+                error=malformed_error,
+                record=record,
+            )
+            raise malformed_error from exc
 
         return packet
+
+    async def _emit_reconstruction_failed(
+        self,
+        *,
+        packet_id: str,
+        error: BaseException,
+        record: DecisionEvidencePacketRecord | None,
+    ) -> None:
+        telemetry = self.telemetry
+        if telemetry is None:
+            return
+        try:
+            await telemetry.emit_service_failed(
+                "DecisionEvidencePacketPersistenceService",
+                "DecisionEvidencePacketReconstruction",
+                error=error,
+                attributes=_reconstruction_telemetry_attributes(
+                    packet_id=packet_id,
+                    record=record,
+                ),
+            )
+        except Exception:
+            logger.error(
+                "Decision evidence packet telemetry emission failed.",
+                extra={
+                    "packet_id": packet_id,
+                    "operation": "decision_evidence_packet_reconstruction",
+                    "error_type": type(error).__name__,
+                },
+                exc_info=True,
+            )
 
     async def _validate_reconstruction_sources(
         self,
@@ -486,6 +538,33 @@ def _resolve_node_output(
     raise MissingDecisionEvidenceSourceError(
         f"workflow node output source record '{reference.record_id}' was not found."
     )
+
+
+def _reconstruction_telemetry_attributes(
+    *,
+    packet_id: str,
+    record: DecisionEvidencePacketRecord | None,
+) -> dict[str, object]:
+    attributes: dict[str, object] = {
+        "operation": "decision_evidence_packet_reconstruction",
+        "packet_id": packet_id,
+    }
+    if record is None:
+        return attributes
+
+    attributes["output_id"] = record.output_id
+    attributes["risk_tier"] = record.risk_tier.value
+    retention_metadata = record.retention_metadata
+    retention_policy_id = retention_metadata.get("policy_id")
+    if isinstance(retention_policy_id, str):
+        attributes["retention_policy_id"] = retention_policy_id
+    retain_until = retention_metadata.get("retain_until")
+    if isinstance(retain_until, str):
+        attributes["retain_until"] = retain_until
+    legal_hold = retention_metadata.get("legal_hold")
+    if isinstance(legal_hold, bool):
+        attributes["legal_hold"] = legal_hold
+    return attributes
 
 
 __all__ = [

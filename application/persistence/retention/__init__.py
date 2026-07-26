@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from application.persistence.retention.retention_persistence_service import (
+    DECISION_EVIDENCE_PACKET_RETENTION_METADATA_KEY,
     RetentionPersistenceService,
     RetentionPlanningFilters,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "DEFAULT_TELEMETRY_RETENTION_BATCH_SIZE",
     "DEFAULT_TELEMETRY_RETENTION_DAYS",
     "DEFAULT_TELEMETRY_RETENTION_MAX_BATCHES",
+    "DECISION_EVIDENCE_PACKET_RETENTION_METADATA_KEY",
     "RetentionPersistenceService",
     "RetentionPlanningFilters",
     "TelemetryRetentionConfig",

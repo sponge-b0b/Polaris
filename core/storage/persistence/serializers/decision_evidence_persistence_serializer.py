@@ -12,6 +12,7 @@ from core.storage.persistence.serializers.completed_run_serializer import (
     sanitize_json_value,
 )
 from domain.authority import (
+    RiskAuthorityContract,
     RiskTier,
     SourceOfTruthCategory,
     risk_authority_contract_from_metadata,
@@ -30,6 +31,8 @@ from domain.decision_evidence import (
     ReconstructionReferenceKind,
 )
 
+_DECISION_EVIDENCE_PACKET_RETENTION_BASIS = "decision_evidence_packet_reconstruction"
+
 
 class DecisionEvidencePacketPersistenceSerializer:
     """Serialize decision evidence packets at the PostgreSQL JSONB boundary."""
@@ -46,7 +49,7 @@ class DecisionEvidencePacketPersistenceSerializer:
             schema_version=packet.schema_version,
             risk_tier=packet.risk_tier,
             authority_metadata=_json_object(packet.authority.to_metadata()),
-            retention_metadata=_retention_values(packet.retention),
+            retention_metadata=_retention_values(packet),
             reconstruction_reference_ids=packet.reconstruction_reference_ids,
             claim_audit=tuple(_claim_values(claim) for claim in packet.claims),
             evidence_references=tuple(
@@ -74,12 +77,14 @@ class DecisionEvidencePacketPersistenceSerializer:
         """Rehydrate a typed packet from persisted audit fields."""
 
         _validate_record_reconstruction_reference_ids(record)
+        authority = risk_authority_contract_from_metadata(
+            cast(Mapping[str, object], record.authority_metadata),
+        )
+        _validate_record_authority_alignment(record=record, authority=authority)
         return DecisionEvidencePacket(
             packet_id=record.packet_id,
             output_id=record.output_id,
-            authority=risk_authority_contract_from_metadata(
-                cast(Mapping[str, object], record.authority_metadata),
-            ),
+            authority=authority,
             claims=tuple(_claim_from_values(values) for values in record.claim_audit),
             evidence=tuple(
                 _evidence_reference_from_values(values)
@@ -89,7 +94,11 @@ class DecisionEvidencePacketPersistenceSerializer:
                 _reconstruction_reference_from_values(values)
                 for values in record.reconstruction_references
             ),
-            retention=_retention_from_values(record.retention_metadata),
+            retention=_retention_from_values(
+                record.retention_metadata,
+                record=record,
+                authority=authority,
+            ),
             constraints=tuple(
                 _constraint_from_values(values) for values in record.constraints
             ),
@@ -242,14 +251,25 @@ def _limitation_values(limitation: EvidenceLimitation) -> DecisionEvidenceJsonOb
     )
 
 
-def _retention_values(
-    retention: EvidenceRetentionRequirement,
-) -> DecisionEvidenceJsonObject:
+def _retention_values(packet: DecisionEvidencePacket) -> DecisionEvidenceJsonObject:
+    retention = packet.retention
+    authority = packet.authority
     return _json_object(
         {
+            "packet_id": packet.packet_id,
+            "output_id": packet.output_id,
             "retain_until": retention.retain_until,
             "policy_id": retention.policy_id,
             "legal_hold": retention.legal_hold,
+            "risk_tier": authority.risk_tier.value,
+            "authority_boundary": {
+                "canonical_owner": authority.canonical_owner.value,
+                "source_of_truth": authority.source_of_truth.value,
+                "intended_sink": authority.intended_sink.value,
+                "gate_profile": authority.gate_profile.value,
+            },
+            "retention_basis": _DECISION_EVIDENCE_PACKET_RETENTION_BASIS,
+            "requires_reconstruction": True,
         }
     )
 
@@ -330,12 +350,95 @@ def _limitation_from_values(values: DecisionEvidenceJsonObject) -> EvidenceLimit
 
 def _retention_from_values(
     values: DecisionEvidenceJsonObject,
+    *,
+    record: DecisionEvidencePacketRecord,
+    authority: RiskAuthorityContract,
 ) -> EvidenceRetentionRequirement:
+    try:
+        retain_until = _required_string(values, "retain_until")
+        policy_id = _required_string(values, "policy_id")
+        legal_hold = _optional_bool(values, "legal_hold", default=False)
+        _validate_retention_metadata_alignment(
+            values,
+            record=record,
+            authority=authority,
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"decision evidence packet retention metadata is malformed: {exc}"
+        ) from exc
     return EvidenceRetentionRequirement(
-        retain_until=_required_string(values, "retain_until"),
-        policy_id=_required_string(values, "policy_id"),
-        legal_hold=_optional_bool(values, "legal_hold", default=False),
+        retain_until=retain_until,
+        policy_id=policy_id,
+        legal_hold=legal_hold,
     )
+
+
+def _validate_record_authority_alignment(
+    *,
+    record: DecisionEvidencePacketRecord,
+    authority: RiskAuthorityContract,
+) -> None:
+    if record.risk_tier is not authority.risk_tier:
+        raise ValueError(
+            "decision evidence packet authority risk tier does not match the "
+            "record risk tier."
+        )
+
+
+def _validate_retention_metadata_alignment(
+    values: DecisionEvidenceJsonObject,
+    *,
+    record: DecisionEvidencePacketRecord,
+    authority: RiskAuthorityContract,
+) -> None:
+    packet_id = _required_string(values, "packet_id")
+    if packet_id != record.packet_id:
+        raise ValueError(
+            "decision evidence packet retention metadata packet_id does not match "
+            "the packet record."
+        )
+    output_id = _required_string(values, "output_id")
+    if output_id != record.output_id:
+        raise ValueError(
+            "decision evidence packet retention metadata output_id does not match "
+            "the packet record."
+        )
+
+    risk_tier = _required_string(values, "risk_tier")
+    if risk_tier != record.risk_tier.value or risk_tier != authority.risk_tier.value:
+        raise ValueError(
+            "decision evidence packet retention metadata risk tier does not match "
+            "the packet authority boundary."
+        )
+
+    boundary = _required_mapping(values, "authority_boundary")
+    expected_boundary = {
+        "canonical_owner": authority.canonical_owner.value,
+        "source_of_truth": authority.source_of_truth.value,
+        "intended_sink": authority.intended_sink.value,
+        "gate_profile": authority.gate_profile.value,
+    }
+    for key, expected_value in expected_boundary.items():
+        actual_value = _required_string(boundary, key)
+        if actual_value != expected_value:
+            raise ValueError(
+                "decision evidence packet retention metadata authority boundary "
+                f"field {key!r} does not match packet authority."
+            )
+
+    retention_basis = _required_string(values, "retention_basis")
+    if retention_basis != _DECISION_EVIDENCE_PACKET_RETENTION_BASIS:
+        raise ValueError(
+            "decision evidence packet retention metadata retention_basis is not "
+            "recognized."
+        )
+
+    if values.get("requires_reconstruction") is not True:
+        raise ValueError(
+            "decision evidence packet retention metadata requires_reconstruction "
+            "must be true."
+        )
 
 
 def _validate_record_reconstruction_reference_ids(

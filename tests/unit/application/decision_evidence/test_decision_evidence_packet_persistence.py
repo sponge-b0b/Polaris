@@ -12,6 +12,7 @@ from application.decision_evidence import (
     DecisionEvidencePacketPersistenceService,
     EvaluationProvenanceRequirement,
     MalformedDecisionEvidenceReconstructionIdentifierError,
+    MissingCompletedWorkflowEvidenceError,
     MissingDecisionEvidenceSourceError,
     StaleDecisionEvidenceSourceError,
     SubstitutedDecisionEvidenceSourceError,
@@ -35,6 +36,13 @@ from core.storage.persistence.evaluation import (
     EvaluationMetricResultRecord,
     EvaluationRunRecord,
 )
+from core.telemetry.collectors.telemetry_collector import TelemetryCollector
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
+from core.telemetry.metrics.metrics_store import MetricsStore
+from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -320,6 +328,126 @@ async def test_reconstruction_rejects_malformed_completed_run_identifier() -> No
         await service.reconstruct_packet("packet-1")
 
 
+@pytest.mark.asyncio
+async def test_reconstruction_rejects_missing_retention_metadata() -> None:
+    packet = await _packet(bundle=_bundle())
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+    )
+    await service.persist_packet(packet)
+    repository.records["packet-1"] = replace(
+        repository.records["packet-1"],
+        retention_metadata={},
+    )
+
+    with pytest.raises(
+        MalformedDecisionEvidenceReconstructionIdentifierError,
+        match="retention metadata",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_failure_emits_canonical_telemetry() -> None:
+    packet = await _packet(bundle=_bundle())
+    repository = InMemoryDecisionEvidencePacketRepository()
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(None),
+        telemetry=ApplicationServiceTelemetry(observability),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(MissingDecisionEvidenceSourceError):
+        await service.reconstruct_packet("packet-1")
+
+    failure_events = [
+        event
+        for event in sink.events
+        if event.event_type == "application.service.failed"
+    ]
+    assert len(failure_events) == 1
+    event = failure_events[0]
+    assert (
+        event.attributes["service_name"] == "DecisionEvidencePacketPersistenceService"
+    )
+    assert event.attributes["request_name"] == "DecisionEvidencePacketReconstruction"
+    assert event.attributes["operation"] == "decision_evidence_packet_reconstruction"
+    assert event.attributes["packet_id"] == "packet-1"
+    assert event.attributes["risk_tier"] == "enhanced"
+    assert event.attributes["retention_policy_id"] == "enhanced-provenance-5y"
+    assert event.payload["error_type"] == "MissingDecisionEvidenceSourceError"
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_telemetry_failures_do_not_replace_domain_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    packet = await _packet(bundle=_bundle())
+    repository = InMemoryDecisionEvidencePacketRepository()
+    observability = ObservabilityManager(
+        collector=TelemetryCollector(
+            sinks=(FailingTelemetrySink(),),
+            fail_fast=True,
+            metrics_store=MetricsStore(),
+        ),
+    )
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(None),
+        telemetry=ApplicationServiceTelemetry(observability),
+    )
+    await service.persist_packet(packet)
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(MissingDecisionEvidenceSourceError):
+            await service.reconstruct_packet("packet-1")
+
+    assert "Decision evidence packet telemetry emission failed." in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_packet_assembly_failure_emits_canonical_telemetry() -> None:
+    bundle = _bundle()
+    request = _assembly_request(bundle=bundle)
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+    assembler = CompletedWorkflowEvidencePacketAssembler(
+        completed_run_archive=FakeCompletedRunArchive(None),
+        telemetry=ApplicationServiceTelemetry(observability),
+    )
+
+    with pytest.raises(MissingCompletedWorkflowEvidenceError):
+        await assembler.assemble(request)
+
+    failure_events = [
+        event
+        for event in sink.events
+        if event.event_type == "application.service.failed"
+    ]
+    assert len(failure_events) == 1
+    event = failure_events[0]
+    assert event.attributes["service_name"] == (
+        "CompletedWorkflowEvidencePacketAssembler"
+    )
+    assert event.attributes["request_name"] == (
+        "CompletedWorkflowEvidencePacketAssembly"
+    )
+    assert event.attributes["operation"] == "decision_evidence_packet_assembly"
+    assert event.attributes["packet_id"] == "packet-1"
+    assert event.attributes["workflow_name"] == "morning_report"
+    assert event.attributes["execution_id"] == "exec-1"
+    assert event.attributes["risk_tier"] == "enhanced"
+    assert event.attributes["retention_policy_id"] == "enhanced-provenance-5y"
+    assert event.payload["error_type"] == "MissingCompletedWorkflowEvidenceError"
+
+
 class InMemoryDecisionEvidencePacketRepository(
     DecisionEvidencePacketPersistenceRepository
 ):
@@ -410,6 +538,11 @@ class FakeEvaluationProvenanceRepository:
         return self.metric_results_by_run.get(run_id, ())
 
 
+class FailingTelemetrySink:
+    async def emit(self, event: object) -> None:
+        raise RuntimeError("telemetry sink unavailable")
+
+
 async def _packet(
     *,
     bundle: CompletedRunBundle,
@@ -417,6 +550,26 @@ async def _packet(
     metric_result: EvaluationMetricResultRecord | None = None,
     sensitive_metadata: dict[str, object] | None = None,
 ) -> DecisionEvidencePacket:
+    assembler = CompletedWorkflowEvidencePacketAssembler(
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+    )
+    return await assembler.assemble(
+        _assembly_request(
+            bundle=bundle,
+            evaluation_run=evaluation_run,
+            metric_result=metric_result,
+            sensitive_metadata=sensitive_metadata,
+        )
+    )
+
+
+def _assembly_request(
+    *,
+    bundle: CompletedRunBundle,
+    evaluation_run: EvaluationRunRecord | None = None,
+    metric_result: EvaluationMetricResultRecord | None = None,
+    sensitive_metadata: dict[str, object] | None = None,
+) -> CompletedWorkflowEvidencePacketAssemblyRequest:
     node_digest = calculate_completed_workflow_node_evidence_digest(
         run=bundle.run,
         node_output=bundle.node_outputs[0],
@@ -456,44 +609,39 @@ async def _packet(
                 sensitive_metadata=sensitive_metadata or {},
             ),
         )
-    assembler = CompletedWorkflowEvidencePacketAssembler(
-        completed_run_archive=FakeCompletedRunArchive(bundle),
-    )
-    return await assembler.assemble(
-        CompletedWorkflowEvidencePacketAssemblyRequest(
-            packet_id="packet-1",
-            output_id="strategy-decision-1",
-            authority=classify_risk_authority(
-                authority_input_for_tier(RiskTier.ENHANCED),
-            ),
-            workflow_name="morning_report",
-            execution_id="exec-1",
-            claims=(
-                MaterialClaim(
-                    claim_id="claim-1",
-                    text="The synthesis selected a bullish strategy posture.",
-                    evidence=ClaimEvidenceBinding(
-                        supporting_evidence_ids=tuple(supporting_evidence_ids),
-                    ),
+    return CompletedWorkflowEvidencePacketAssemblyRequest(
+        packet_id="packet-1",
+        output_id="strategy-decision-1",
+        authority=classify_risk_authority(
+            authority_input_for_tier(RiskTier.ENHANCED),
+        ),
+        workflow_name="morning_report",
+        execution_id="exec-1",
+        claims=(
+            MaterialClaim(
+                claim_id="claim-1",
+                text="The synthesis selected a bullish strategy posture.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=tuple(supporting_evidence_ids),
                 ),
             ),
-            required_node_evidence=(
-                CompletedWorkflowNodeEvidenceRequirement(
-                    evidence_id="evidence-synthesis",
-                    node_name="strategy_synthesis_agent",
-                    node_output_id="node-output-synthesis",
-                    output_contract="polaris.strategy.synthesis",
-                    output_schema_version=1,
-                    expected_content_digest=node_digest,
-                    summary="Persisted strategy synthesis node output.",
-                ),
+        ),
+        required_node_evidence=(
+            CompletedWorkflowNodeEvidenceRequirement(
+                evidence_id="evidence-synthesis",
+                node_name="strategy_synthesis_agent",
+                node_output_id="node-output-synthesis",
+                output_contract="polaris.strategy.synthesis",
+                output_schema_version=1,
+                expected_content_digest=node_digest,
+                summary="Persisted strategy synthesis node output.",
             ),
-            retention=EvidenceRetentionRequirement(
-                retain_until="2031-07-25T00:00:00Z",
-                policy_id="enhanced-provenance-5y",
-            ),
-            evaluation_provenance=evaluation_provenance,
-        )
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
+        evaluation_provenance=evaluation_provenance,
     )
 
 

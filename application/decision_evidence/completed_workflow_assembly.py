@@ -13,6 +13,9 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunBundle,
     CompletedRunRecord,
 )
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
 from domain.authority import RiskAuthorityContract, SourceOfTruthCategory
 from domain.decision_evidence import (
     DecisionEvidencePacket,
@@ -242,6 +245,7 @@ class CompletedWorkflowEvidencePacketAssembler:
     """Assemble decision evidence packets through the completed-run archive."""
 
     completed_run_archive: CompletedRunArchive = field(repr=False)
+    telemetry: ApplicationServiceTelemetry | None = field(default=None, repr=False)
 
     async def assemble(
         self,
@@ -254,6 +258,10 @@ class CompletedWorkflowEvidencePacketAssembler:
             request.execution_id,
         )
         if bundle is None:
+            error = MissingCompletedWorkflowEvidenceError(
+                "completed workflow run "
+                f"'{request.workflow_name}:{request.execution_id}' was not found."
+            )
             logger.warning(
                 "Decision evidence packet assembly missing completed workflow run.",
                 extra={
@@ -262,10 +270,11 @@ class CompletedWorkflowEvidencePacketAssembler:
                     "execution_id": request.execution_id,
                 },
             )
-            raise MissingCompletedWorkflowEvidenceError(
-                "completed workflow run "
-                f"'{request.workflow_name}:{request.execution_id}' was not found."
+            await self._emit_assembly_failed(
+                request=request,
+                error=error,
             )
+            raise error
 
         try:
             return assemble_decision_evidence_packet_from_completed_run(
@@ -286,7 +295,40 @@ class CompletedWorkflowEvidencePacketAssembler:
                 },
                 exc_info=True,
             )
+            await self._emit_assembly_failed(
+                request=request,
+                error=exc,
+            )
             raise
+
+    async def _emit_assembly_failed(
+        self,
+        *,
+        request: CompletedWorkflowEvidencePacketAssemblyRequest,
+        error: BaseException,
+    ) -> None:
+        telemetry = self.telemetry
+        if telemetry is None:
+            return
+        try:
+            await telemetry.emit_service_failed(
+                "CompletedWorkflowEvidencePacketAssembler",
+                "CompletedWorkflowEvidencePacketAssembly",
+                error=error,
+                attributes=_assembly_telemetry_attributes(request),
+            )
+        except Exception:
+            logger.error(
+                "Decision evidence packet telemetry emission failed.",
+                extra={
+                    "packet_id": request.packet_id,
+                    "workflow_name": request.workflow_name,
+                    "execution_id": request.execution_id,
+                    "operation": "decision_evidence_packet_assembly",
+                    "error_type": type(error).__name__,
+                },
+                exc_info=True,
+            )
 
 
 def assemble_decision_evidence_packet_from_completed_run(
@@ -601,6 +643,22 @@ def _clean_string(value: object, label: str, *, allow_empty: bool) -> str:
     if not cleaned and not allow_empty:
         raise CompletedWorkflowEvidencePacketAssemblyError(f"{label} cannot be empty.")
     return cleaned
+
+
+def _assembly_telemetry_attributes(
+    request: CompletedWorkflowEvidencePacketAssemblyRequest,
+) -> dict[str, object]:
+    return {
+        "operation": "decision_evidence_packet_assembly",
+        "packet_id": request.packet_id,
+        "output_id": request.output_id,
+        "workflow_name": request.workflow_name,
+        "execution_id": request.execution_id,
+        "risk_tier": request.authority.risk_tier.value,
+        "retention_policy_id": request.retention.policy_id,
+        "retain_until": request.retention.retain_until,
+        "legal_hold": request.retention.legal_hold,
+    }
 
 
 __all__ = [

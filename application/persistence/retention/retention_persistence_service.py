@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 
 from core.storage.persistence.lineage import (
@@ -27,6 +27,8 @@ from domain.authority import (
     SourceOfTruthCategory,
     validate_risk_authority_metadata,
 )
+
+DECISION_EVIDENCE_PACKET_RETENTION_METADATA_KEY = "decision_evidence_packet_retention"
 
 
 @dataclass(
@@ -194,6 +196,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=None,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.RETAIN,
             reason="No retention policy exists for candidate domain.",
         )
@@ -202,6 +205,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=policy,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.SKIP,
             reason="Retention policy is disabled.",
         )
@@ -211,6 +215,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=policy,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.RETAIN,
             reason="Candidate timestamp is after the planning timestamp.",
         )
@@ -219,6 +224,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=policy,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.RETAIN,
             reason="Candidate remains within the configured retention period.",
             retention_period=policy.retention_period,
@@ -228,6 +234,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=policy,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.ARCHIVE,
             reason=(
                 "Candidate exceeds retention period and policy requires archive before "
@@ -240,6 +247,7 @@ def _plan_candidate(
         return _retention_plan_candidate(
             candidate=candidate,
             policy=policy,
+            as_of=as_of,
             action=PersistenceRetentionPlanAction.DELETE,
             reason="Candidate exceeds retention period and policy allows deletion.",
             retention_period=policy.retention_period,
@@ -248,6 +256,7 @@ def _plan_candidate(
     return _retention_plan_candidate(
         candidate=candidate,
         policy=policy,
+        as_of=as_of,
         action=PersistenceRetentionPlanAction.RETAIN,
         reason=(
             "Candidate exceeds retention period but policy does not allow archive or "
@@ -261,6 +270,7 @@ def _retention_plan_candidate(
     *,
     candidate: PersistenceRetentionCandidateRecord,
     policy: PersistenceRetentionPolicyRecord | None,
+    as_of: datetime,
     action: PersistenceRetentionPlanAction,
     reason: str,
     retention_period: PersistenceRetentionPeriod | None = None,
@@ -292,6 +302,15 @@ def _retention_plan_candidate(
             "metadata blocks deletion without archive-before-delete policy."
         )
 
+    reconstruction_assessment = _assess_decision_evidence_packet_retention(
+        candidate=candidate,
+        action=planned_action,
+        as_of=as_of,
+    )
+    if reconstruction_assessment.action_override is not None:
+        planned_action = reconstruction_assessment.action_override
+        planned_reason = reconstruction_assessment.reason_override or planned_reason
+
     metadata: dict[str, JsonValue] = (
         {
             "retention_period_days": retention_period.days,
@@ -301,6 +320,9 @@ def _retention_plan_candidate(
     )
     metadata.update(
         authority_assessment.metadata,
+    )
+    metadata.update(
+        reconstruction_assessment.metadata,
     )
     return PersistenceRetentionPlanCandidate(
         candidate=candidate,
@@ -318,6 +340,16 @@ def _retention_plan_candidate(
 )
 class _RetentionAuthorityAssessment:
     contract: RiskAuthorityContract | None = None
+    action_override: PersistenceRetentionPlanAction | None = None
+    reason_override: str | None = None
+    metadata: JsonObject = field(default_factory=dict)
+
+
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class _DecisionEvidencePacketRetentionAssessment:
     action_override: PersistenceRetentionPlanAction | None = None
     reason_override: str | None = None
     metadata: JsonObject = field(default_factory=dict)
@@ -399,6 +431,220 @@ def _assess_candidate_authority_metadata(
             status="valid",
         ),
     )
+
+
+def _assess_decision_evidence_packet_retention(
+    *,
+    candidate: PersistenceRetentionCandidateRecord,
+    action: PersistenceRetentionPlanAction,
+    as_of: datetime,
+) -> _DecisionEvidencePacketRetentionAssessment:
+    raw_retention_metadata = candidate.metadata.get(
+        DECISION_EVIDENCE_PACKET_RETENTION_METADATA_KEY,
+    )
+    if raw_retention_metadata is None:
+        return _DecisionEvidencePacketRetentionAssessment()
+
+    if not isinstance(raw_retention_metadata, Mapping):
+        return _DecisionEvidencePacketRetentionAssessment(
+            action_override=_retention_boundary_skip_action(action),
+            reason_override=_retention_boundary_skip_reason(action),
+            metadata={
+                "decision_evidence_packet_retention_status": "malformed",
+                "decision_evidence_packet_retention_error": (
+                    "decision evidence packet retention metadata must be an object."
+                ),
+            },
+        )
+
+    try:
+        packet_metadata = _decision_evidence_packet_retention_metadata(
+            raw_retention_metadata,
+            as_of=as_of,
+        )
+    except ValueError as exc:
+        return _DecisionEvidencePacketRetentionAssessment(
+            action_override=_retention_boundary_skip_action(action),
+            reason_override=_retention_boundary_skip_reason(action),
+            metadata={
+                "decision_evidence_packet_retention_status": "malformed",
+                "decision_evidence_packet_retention_error": str(exc),
+            },
+        )
+
+    if action not in (
+        PersistenceRetentionPlanAction.ARCHIVE,
+        PersistenceRetentionPlanAction.DELETE,
+    ):
+        return _DecisionEvidencePacketRetentionAssessment(
+            metadata=packet_metadata,
+        )
+
+    if packet_metadata["decision_evidence_packet_legal_hold"] is True:
+        return _DecisionEvidencePacketRetentionAssessment(
+            action_override=PersistenceRetentionPlanAction.RETAIN,
+            reason_override=(
+                "Candidate is under legal hold for decision evidence packet "
+                "reconstruction."
+            ),
+            metadata=packet_metadata,
+        )
+
+    if packet_metadata["decision_evidence_packet_retention_status"] == "active":
+        return _DecisionEvidencePacketRetentionAssessment(
+            action_override=PersistenceRetentionPlanAction.RETAIN,
+            reason_override=(
+                "Candidate is required for decision evidence packet reconstruction "
+                f"until {packet_metadata['decision_evidence_packet_retain_until']}."
+            ),
+            metadata=packet_metadata,
+        )
+
+    return _DecisionEvidencePacketRetentionAssessment(
+        metadata=packet_metadata,
+    )
+
+
+def _retention_boundary_skip_action(
+    action: PersistenceRetentionPlanAction,
+) -> PersistenceRetentionPlanAction | None:
+    if action in (
+        PersistenceRetentionPlanAction.ARCHIVE,
+        PersistenceRetentionPlanAction.DELETE,
+    ):
+        return PersistenceRetentionPlanAction.SKIP
+    return None
+
+
+def _retention_boundary_skip_reason(
+    action: PersistenceRetentionPlanAction,
+) -> str | None:
+    if _retention_boundary_skip_action(action) is None:
+        return None
+    return (
+        "Retention skipped because decision evidence packet retention metadata "
+        "is malformed for an archive/delete boundary."
+    )
+
+
+def _decision_evidence_packet_retention_metadata(
+    values: Mapping[str, JsonValue],
+    *,
+    as_of: datetime,
+) -> JsonObject:
+    packet_id = _required_packet_retention_string(values, "packet_id")
+    retain_until = _required_packet_retention_string(values, "retain_until")
+    policy_id = _required_packet_retention_string(values, "policy_id")
+    risk_tier = _required_packet_retention_string(values, "risk_tier")
+    legal_hold = _optional_packet_retention_bool(
+        values,
+        "legal_hold",
+        default=False,
+    )
+    authority_boundary = _required_packet_retention_mapping(
+        values,
+        "authority_boundary",
+    )
+    boundary_metadata = {
+        "canonical_owner": _required_packet_retention_string(
+            authority_boundary,
+            "canonical_owner",
+        ),
+        "source_of_truth": _required_packet_retention_string(
+            authority_boundary,
+            "source_of_truth",
+        ),
+        "intended_sink": _required_packet_retention_string(
+            authority_boundary,
+            "intended_sink",
+        ),
+        "gate_profile": _required_packet_retention_string(
+            authority_boundary,
+            "gate_profile",
+        ),
+    }
+    retain_until_timestamp = _parse_packet_retention_timestamp(retain_until)
+    planning_timestamp = _aware_utc(as_of)
+    status = "expired"
+    if legal_hold:
+        status = "legal_hold"
+    elif retain_until_timestamp >= planning_timestamp:
+        status = "active"
+
+    return {
+        "decision_evidence_packet_retention_status": status,
+        "decision_evidence_packet_id": packet_id,
+        "decision_evidence_packet_retain_until": retain_until,
+        "decision_evidence_packet_policy_id": policy_id,
+        "decision_evidence_packet_legal_hold": legal_hold,
+        "decision_evidence_packet_risk_tier": risk_tier,
+        "decision_evidence_packet_authority_boundary": cast(
+            JsonValue,
+            boundary_metadata,
+        ),
+    }
+
+
+def _required_packet_retention_string(
+    values: Mapping[str, JsonValue],
+    key: str,
+) -> str:
+    value = values.get(key)
+    if not isinstance(value, str):
+        raise ValueError(
+            f"decision evidence packet retention metadata field {key!r} must be "
+            "a string."
+        )
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(
+            f"decision evidence packet retention metadata field {key!r} cannot "
+            "be empty."
+        )
+    return cleaned
+
+
+def _optional_packet_retention_bool(
+    values: Mapping[str, JsonValue],
+    key: str,
+    *,
+    default: bool,
+) -> bool:
+    value = values.get(key, default)
+    if isinstance(value, bool):
+        return value
+    raise ValueError(
+        f"decision evidence packet retention metadata field {key!r} must be a boolean."
+    )
+
+
+def _required_packet_retention_mapping(
+    values: Mapping[str, JsonValue],
+    key: str,
+) -> Mapping[str, JsonValue]:
+    value = values.get(key)
+    if isinstance(value, Mapping):
+        return value
+    raise ValueError(
+        f"decision evidence packet retention metadata field {key!r} must be an object."
+    )
+
+
+def _parse_packet_retention_timestamp(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            "decision evidence packet retention metadata field 'retain_until' "
+            "must be an ISO-8601 timestamp."
+        ) from exc
+    return _aware_utc(parsed)
+
+
+def _aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _canonical_authority_metadata_missing_for_boundary(

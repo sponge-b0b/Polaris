@@ -529,6 +529,58 @@ def test_retention_planning_filters_normalize_domains() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_retention_planning_preserves_packet_reconstruction_sources() -> None:
+    service = RetentionPersistenceService()
+
+    result = await service.plan_retention(
+        policies=(
+            _policy(
+                domain="completed_workflow_runs",
+                days=30,
+                archive_before_delete=False,
+                deletion_eligible=True,
+            ),
+        ),
+        candidates=(
+            _candidate(
+                domain="completed_workflow_runs",
+                record_id="morning_report:exec-1",
+                age_days=365,
+                risk_tier=RiskTier.ENHANCED,
+                metadata={
+                    "decision_evidence_packet_retention": {
+                        "packet_id": "packet-1",
+                        "retain_until": "2031-07-25T00:00:00+00:00",
+                        "policy_id": "enhanced-provenance-5y",
+                        "legal_hold": False,
+                        "risk_tier": "enhanced",
+                        "authority_boundary": {
+                            "canonical_owner": "rag_service",
+                            "source_of_truth": "presentation_output",
+                            "intended_sink": "rag_answer",
+                            "gate_profile": "enhanced_provenance",
+                        },
+                    },
+                },
+            ),
+        ),
+        as_of=_as_of(),
+    )
+
+    assert not result.delete_candidates
+    assert len(result.retained_candidates) == 1
+    decision = result.retained_candidates[0]
+    assert decision.action is PersistenceRetentionPlanAction.RETAIN
+    assert decision.reason == (
+        "Candidate is required for decision evidence packet reconstruction until "
+        "2031-07-25T00:00:00+00:00."
+    )
+    assert decision.metadata["decision_evidence_packet_retention_status"] == "active"
+    assert decision.metadata["decision_evidence_packet_id"] == "packet-1"
+    assert decision.metadata["decision_evidence_packet_risk_tier"] == "enhanced"
+
+
 def _policy(
     *,
     domain: str,

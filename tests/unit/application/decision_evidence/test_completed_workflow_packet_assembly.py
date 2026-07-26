@@ -8,6 +8,7 @@ from application.decision_evidence import (
     CompletedWorkflowEvidencePacketAssembler,
     CompletedWorkflowEvidencePacketAssemblyRequest,
     CompletedWorkflowNodeEvidenceRequirement,
+    EvaluationProvenanceRequirement,
     MissingCompletedWorkflowEvidenceError,
     MissingWorkflowNodeOutputEvidenceError,
     StaleWorkflowEvidenceError,
@@ -99,6 +100,94 @@ async def test_assembles_packet_from_completed_workflow_node_evidence() -> None:
         "morning_report:exec-1:strategy_synthesis_agent"
     )
     assert packet.reconstruction_references[1].content_digest == node_digest
+
+
+@pytest.mark.asyncio
+async def test_assembly_includes_redacted_evaluation_provenance_references() -> None:
+    bundle = _bundle()
+    assembler = CompletedWorkflowEvidencePacketAssembler(
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+    )
+
+    packet = await assembler.assemble(
+        _request(
+            supporting_evidence_ids=("evidence-synthesis", "evidence-evaluation"),
+            evaluation_provenance=(
+                EvaluationProvenanceRequirement(
+                    evidence_id="evidence-evaluation",
+                    evaluation_run_id="evaluation-run-1",
+                    evaluation_run_digest="evaluation-run-digest-1",
+                    metric_result_ids=("metric-result-1",),
+                    metric_result_digests={"metric-result-1": "metric-result-digest-1"},
+                    model_version="gpt-4.1-2026-07-25",
+                    profile_version="strategy-evaluation-profile-v1",
+                    prompt_version="strategy-evaluation-prompt-v2",
+                    rubric_version="strategy-evaluation-rubric-v1",
+                    dataset_id="dataset-strategy-synthesis",
+                    dataset_version="2026-07-25",
+                    metric_versions={"faithfulness": "faithfulness-v1"},
+                    evaluation_result_version="evaluation-result-schema-v1",
+                    summary="Canonical evaluator provenance for the output.",
+                    sensitive_metadata={
+                        "prompt_body": "SECRET PROMPT BODY",
+                        "hidden_chain_of_thought": "SECRET REASONING TRACE",
+                        "retrieval_context": "SECRET CONTEXT BODY",
+                    },
+                ),
+            ),
+        )
+    )
+
+    evidence_by_id = {evidence.evidence_id: evidence for evidence in packet.evidence}
+    evaluation_evidence = evidence_by_id["evidence-evaluation"]
+    assert evaluation_evidence.kind is EvidenceReferenceKind.EVALUATION_RUN
+    assert evaluation_evidence.reconstruction_reference_ids == (
+        "evidence-evaluation:evaluation-run",
+        "evidence-evaluation:metric-result:metric-result-1",
+        "evidence-evaluation:model-version",
+        "evidence-evaluation:profile-version",
+        "evidence-evaluation:prompt-version",
+        "evidence-evaluation:rubric-version",
+        "evidence-evaluation:dataset-version",
+        "evidence-evaluation:metric-version:0",
+        "evidence-evaluation:evaluation-result-version",
+    )
+
+    references_by_id = {
+        reference.reference_id: reference
+        for reference in packet.reconstruction_references
+    }
+    assert references_by_id["evidence-evaluation:evaluation-run"].kind is (
+        ReconstructionReferenceKind.EVALUATION_RUN
+    )
+    assert references_by_id["evidence-evaluation:evaluation-run"].record_id == (
+        "evaluation-run-1"
+    )
+    assert (
+        references_by_id["evidence-evaluation:metric-result:metric-result-1"].kind
+        is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT
+    )
+    assert (
+        references_by_id[
+            "evidence-evaluation:metric-result:metric-result-1"
+        ].snapshot_id
+        == "evaluation-run-1"
+    )
+    assert {
+        reference.record_id
+        for reference in packet.reconstruction_references
+        if reference.kind is ReconstructionReferenceKind.LINKED_ARTIFACT
+    } == {
+        "model:gpt-4.1-2026-07-25",
+        "profile:strategy-evaluation-profile-v1",
+        "prompt:strategy-evaluation-prompt-v2",
+        "rubric:strategy-evaluation-rubric-v1",
+        "dataset:dataset-strategy-synthesis:2026-07-25",
+        "metric:faithfulness:faithfulness-v1",
+        "evaluation-result:evaluation-result-schema-v1",
+    }
+    assert "SECRET" not in str(packet)
+    assert "hidden_chain_of_thought" not in str(packet)
 
 
 @pytest.mark.asyncio
@@ -208,6 +297,8 @@ def _request(
     *,
     tier: RiskTier = RiskTier.ENHANCED,
     expected_content_digest: str | None = None,
+    supporting_evidence_ids: tuple[str, ...] = ("evidence-synthesis",),
+    evaluation_provenance: tuple[EvaluationProvenanceRequirement, ...] = (),
 ) -> CompletedWorkflowEvidencePacketAssemblyRequest:
     return CompletedWorkflowEvidencePacketAssemblyRequest(
         packet_id="packet-1",
@@ -220,7 +311,7 @@ def _request(
                 claim_id="claim-1",
                 text="The synthesis selected a bullish strategy posture.",
                 evidence=ClaimEvidenceBinding(
-                    supporting_evidence_ids=("evidence-synthesis",),
+                    supporting_evidence_ids=supporting_evidence_ids,
                 ),
             ),
         ),
@@ -238,6 +329,7 @@ def _request(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        evaluation_provenance=evaluation_provenance,
     )
 
 

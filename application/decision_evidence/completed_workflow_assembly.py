@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from application.projections.workflow_outputs import (
@@ -106,6 +107,83 @@ class CompletedWorkflowNodeEvidenceRequirement:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluationProvenanceRequirement:
+    """Durable, redacted provenance for an evaluated packet output."""
+
+    evidence_id: str
+    evaluation_run_id: str
+    evaluation_run_digest: str | None = None
+    metric_result_ids: tuple[str, ...] = ()
+    metric_result_digests: Mapping[str, str] = field(default_factory=dict)
+    model_version: str | None = None
+    profile_version: str | None = None
+    prompt_version: str | None = None
+    rubric_version: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = None
+    metric_versions: Mapping[str, str] = field(default_factory=dict)
+    evaluation_result_version: str | None = None
+    summary: str = ""
+    sensitive_metadata: Mapping[str, object] = field(
+        default_factory=dict,
+        compare=False,
+        repr=False,
+    )
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "evidence_id",
+            _clean_required_string(self.evidence_id, "evidence_id"),
+        )
+        object.__setattr__(
+            self,
+            "evaluation_run_id",
+            _clean_required_string(self.evaluation_run_id, "evaluation_run_id"),
+        )
+        object.__setattr__(
+            self,
+            "evaluation_run_digest",
+            _clean_optional_string(self.evaluation_run_digest, "evaluation_run_digest"),
+        )
+        object.__setattr__(
+            self,
+            "metric_result_ids",
+            _clean_string_tuple(self.metric_result_ids, "metric_result_ids"),
+        )
+        object.__setattr__(
+            self,
+            "metric_result_digests",
+            _clean_string_mapping(self.metric_result_digests, "metric_result_digests"),
+        )
+        for field_name in (
+            "model_version",
+            "profile_version",
+            "prompt_version",
+            "rubric_version",
+            "dataset_id",
+            "dataset_version",
+            "evaluation_result_version",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _clean_optional_string(getattr(self, field_name), field_name),
+            )
+        object.__setattr__(
+            self,
+            "metric_versions",
+            _clean_string_mapping(self.metric_versions, "metric_versions"),
+        )
+        object.__setattr__(
+            self,
+            "summary",
+            _clean_string(self.summary, "summary", allow_empty=True),
+        )
+        object.__setattr__(self, "sensitive_metadata", dict(self.sensitive_metadata))
+
+
+@dataclass(frozen=True, slots=True)
 class CompletedWorkflowEvidencePacketAssemblyRequest:
     """Request to assemble one packet from archived workflow evidence."""
 
@@ -117,6 +195,7 @@ class CompletedWorkflowEvidencePacketAssemblyRequest:
     claims: tuple[MaterialClaim, ...]
     required_node_evidence: tuple[CompletedWorkflowNodeEvidenceRequirement, ...]
     retention: EvidenceRetentionRequirement
+    evaluation_provenance: tuple[EvaluationProvenanceRequirement, ...] = ()
     constraints: tuple[EvidenceConstraint, ...] = ()
     uncertainties: tuple[EvidenceUncertainty, ...] = ()
     limitations: tuple[EvidenceLimitation, ...] = ()
@@ -147,6 +226,11 @@ class CompletedWorkflowEvidencePacketAssemblyRequest:
             self,
             "required_node_evidence",
             tuple(self.required_node_evidence),
+        )
+        object.__setattr__(
+            self,
+            "evaluation_provenance",
+            tuple(self.evaluation_provenance),
         )
         object.__setattr__(self, "constraints", tuple(self.constraints))
         object.__setattr__(self, "uncertainties", tuple(self.uncertainties))
@@ -264,6 +348,23 @@ def assemble_decision_evidence_packet_from_completed_run(
             )
         )
 
+    for provenance in request.evaluation_provenance:
+        provenance_references = tuple(
+            _evaluation_provenance_reconstruction_references(provenance)
+        )
+        evidence_references.append(
+            EvidenceReference(
+                evidence_id=provenance.evidence_id,
+                kind=EvidenceReferenceKind.EVALUATION_RUN,
+                reconstruction_reference_ids=tuple(
+                    reference.reference_id for reference in provenance_references
+                ),
+                summary=provenance.summary,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            )
+        )
+        reconstruction_references.extend(provenance_references)
+
     return DecisionEvidencePacket(
         packet_id=request.packet_id,
         output_id=request.output_id,
@@ -276,6 +377,93 @@ def assemble_decision_evidence_packet_from_completed_run(
         uncertainties=request.uncertainties,
         limitations=request.limitations,
     )
+
+
+def _evaluation_provenance_reconstruction_references(
+    provenance: EvaluationProvenanceRequirement,
+) -> tuple[ReconstructionReference, ...]:
+    references = [
+        ReconstructionReference(
+            reference_id=f"{provenance.evidence_id}:evaluation-run",
+            kind=ReconstructionReferenceKind.EVALUATION_RUN,
+            record_id=provenance.evaluation_run_id,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            content_digest=provenance.evaluation_run_digest,
+        )
+    ]
+
+    for metric_result_id in provenance.metric_result_ids:
+        references.append(
+            ReconstructionReference(
+                reference_id=(
+                    f"{provenance.evidence_id}:metric-result:{metric_result_id}"
+                ),
+                kind=ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
+                record_id=metric_result_id,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                snapshot_id=provenance.evaluation_run_id,
+                content_digest=provenance.metric_result_digests.get(metric_result_id),
+            )
+        )
+
+    references.extend(_versioned_provenance_references(provenance))
+    return tuple(references)
+
+
+def _versioned_provenance_references(
+    provenance: EvaluationProvenanceRequirement,
+) -> tuple[ReconstructionReference, ...]:
+    version_items: list[tuple[str, str]] = []
+    if provenance.model_version is not None:
+        version_items.append(("model-version", f"model:{provenance.model_version}"))
+    if provenance.profile_version is not None:
+        version_items.append(
+            ("profile-version", f"profile:{provenance.profile_version}")
+        )
+    if provenance.prompt_version is not None:
+        version_items.append(("prompt-version", f"prompt:{provenance.prompt_version}"))
+    if provenance.rubric_version is not None:
+        version_items.append(("rubric-version", f"rubric:{provenance.rubric_version}"))
+    if provenance.dataset_id is not None or provenance.dataset_version is not None:
+        version_items.append(
+            (
+                "dataset-version",
+                _versioned_record_id(
+                    "dataset",
+                    provenance.dataset_id,
+                    provenance.dataset_version,
+                ),
+            )
+        )
+    for index, item in enumerate(sorted(provenance.metric_versions.items())):
+        metric_name, metric_version = item
+        version_items.append(
+            (
+                f"metric-version:{index}",
+                _versioned_record_id("metric", metric_name, metric_version),
+            )
+        )
+    if provenance.evaluation_result_version is not None:
+        version_items.append(
+            (
+                "evaluation-result-version",
+                f"evaluation-result:{provenance.evaluation_result_version}",
+            )
+        )
+
+    return tuple(
+        ReconstructionReference(
+            reference_id=f"{provenance.evidence_id}:{reference_suffix}",
+            kind=ReconstructionReferenceKind.LINKED_ARTIFACT,
+            record_id=record_id,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        )
+        for reference_suffix, record_id in version_items
+    )
+
+
+def _versioned_record_id(prefix: str, *parts: str | None) -> str:
+    return ":".join((prefix, *(part for part in parts if part is not None)))
 
 
 def calculate_completed_workflow_node_evidence_digest(
@@ -389,6 +577,23 @@ def _clean_optional_string(value: object, label: str) -> str | None:
     return _clean_string(value, label, allow_empty=False)
 
 
+def _clean_string_tuple(values: tuple[str, ...], label: str) -> tuple[str, ...]:
+    return tuple(
+        _clean_required_string(value, f"{label}[{index}]")
+        for index, value in enumerate(values)
+    )
+
+
+def _clean_string_mapping(values: Mapping[str, str], label: str) -> dict[str, str]:
+    return {
+        _clean_required_string(key, f"{label} key"): _clean_required_string(
+            value,
+            f"{label}[{key}]",
+        )
+        for key, value in values.items()
+    }
+
+
 def _clean_string(value: object, label: str, *, allow_empty: bool) -> str:
     if not isinstance(value, str):
         raise CompletedWorkflowEvidencePacketAssemblyError(f"{label} must be a string.")
@@ -403,6 +608,7 @@ __all__ = [
     "CompletedWorkflowEvidencePacketAssemblyError",
     "CompletedWorkflowEvidencePacketAssemblyRequest",
     "CompletedWorkflowNodeEvidenceRequirement",
+    "EvaluationProvenanceRequirement",
     "MissingCompletedWorkflowEvidenceError",
     "MissingWorkflowNodeOutputEvidenceError",
     "StaleWorkflowEvidenceError",

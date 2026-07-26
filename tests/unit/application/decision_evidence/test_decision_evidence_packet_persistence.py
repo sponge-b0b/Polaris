@@ -10,11 +10,14 @@ from application.decision_evidence import (
     CompletedWorkflowEvidencePacketAssemblyRequest,
     CompletedWorkflowNodeEvidenceRequirement,
     DecisionEvidencePacketPersistenceService,
+    EvaluationProvenanceRequirement,
     MalformedDecisionEvidenceReconstructionIdentifierError,
     MissingDecisionEvidenceSourceError,
     StaleDecisionEvidenceSourceError,
     SubstitutedDecisionEvidenceSourceError,
     calculate_completed_workflow_node_evidence_digest,
+    calculate_evaluation_metric_result_evidence_digest,
+    calculate_evaluation_run_evidence_digest,
 )
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
@@ -28,6 +31,10 @@ from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketPersistenceResult,
     DecisionEvidencePacketRecord,
 )
+from core.storage.persistence.evaluation import (
+    EvaluationMetricResultRecord,
+    EvaluationRunRecord,
+)
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -36,6 +43,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReferenceKind,
 )
+from domain.evaluation import EvaluationStatus, EvaluationTargetType
 from tests.helpers.risk_authority_examples import authority_input_for_tier
 
 
@@ -59,6 +67,179 @@ async def test_persists_references_and_reconstructs_from_runtime_ids() -> None:
         "evidence-synthesis:node-output",
     )
     assert "selected_perspective" not in str(repository.records["packet-1"])
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_validates_evaluation_provenance_references() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+    )
+
+    result = await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-1")
+
+    assert result.success is True
+    assert reconstructed == packet
+    assert {
+        reference.kind for reference in reconstructed.reconstruction_references
+    } >= {
+        ReconstructionReferenceKind.EVALUATION_RUN,
+        ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
+        ReconstructionReferenceKind.LINKED_ARTIFACT,
+    }
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_missing_evaluation_record() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        MissingDecisionEvidenceSourceError,
+        match="evaluation run source record 'evaluation-run-1' was not found",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_missing_evaluation_metric_record() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        MissingDecisionEvidenceSourceError,
+        match="evaluation metric result source record 'metric-result-1' was not found",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_evaluation_reference() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run(status=EvaluationStatus.PASSED)
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(_evaluation_run(status=EvaluationStatus.FAILED),),
+            metric_results=(metric_result,),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="evaluation run evidence content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_evaluation_metric_reference() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id, score=0.92)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(_metric_result(run_id=evaluation_run.run_id, score=0.81),),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="evaluation metric result evidence content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_persistence_redacts_sensitive_evaluation_provenance_metadata() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = await _packet(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        sensitive_metadata={
+            "prompt_body": "SECRET PROMPT BODY",
+            "hidden_chain_of_thought": "SECRET REASONING TRACE",
+            "retrieval_context": "SECRET CONTEXT BODY",
+        },
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+    )
+
+    await service.persist_packet(packet)
+
+    assert "SECRET" not in str(repository.records["packet-1"])
+    assert "hidden_chain_of_thought" not in str(repository.records["packet-1"])
 
 
 @pytest.mark.asyncio
@@ -200,11 +381,81 @@ class FakeCompletedRunArchive(CompletedRunArchive):
         return 0
 
 
-async def _packet(*, bundle: CompletedRunBundle) -> DecisionEvidencePacket:
+class FakeEvaluationProvenanceRepository:
+    def __init__(
+        self,
+        *,
+        runs: tuple[EvaluationRunRecord, ...] = (),
+        metric_results: tuple[EvaluationMetricResultRecord, ...] = (),
+    ) -> None:
+        self.runs = {run.run_id: run for run in runs}
+        self.metric_results_by_run: dict[
+            str,
+            tuple[EvaluationMetricResultRecord, ...],
+        ] = {}
+        for metric_result in metric_results:
+            existing = self.metric_results_by_run.get(metric_result.run_id, ())
+            self.metric_results_by_run[metric_result.run_id] = (
+                *existing,
+                metric_result,
+            )
+
+    async def get_run(self, run_id: str) -> EvaluationRunRecord | None:
+        return self.runs.get(run_id)
+
+    async def list_metric_results(
+        self,
+        run_id: str,
+    ) -> tuple[EvaluationMetricResultRecord, ...]:
+        return self.metric_results_by_run.get(run_id, ())
+
+
+async def _packet(
+    *,
+    bundle: CompletedRunBundle,
+    evaluation_run: EvaluationRunRecord | None = None,
+    metric_result: EvaluationMetricResultRecord | None = None,
+    sensitive_metadata: dict[str, object] | None = None,
+) -> DecisionEvidencePacket:
     node_digest = calculate_completed_workflow_node_evidence_digest(
         run=bundle.run,
         node_output=bundle.node_outputs[0],
     )
+    supporting_evidence_ids = ["evidence-synthesis"]
+    evaluation_provenance: tuple[EvaluationProvenanceRequirement, ...] = ()
+    if evaluation_run is not None and metric_result is not None:
+        supporting_evidence_ids.append("evidence-evaluation")
+        evaluation_provenance = (
+            EvaluationProvenanceRequirement(
+                evidence_id="evidence-evaluation",
+                evaluation_run_id=evaluation_run.run_id,
+                evaluation_run_digest=calculate_evaluation_run_evidence_digest(
+                    run=evaluation_run,
+                ),
+                metric_result_ids=(metric_result.metric_result_id,),
+                metric_result_digests={
+                    metric_result.metric_result_id: (
+                        calculate_evaluation_metric_result_evidence_digest(
+                            metric_result=metric_result,
+                        )
+                    )
+                },
+                model_version=evaluation_run.evaluator_model,
+                profile_version="strategy-evaluation-profile-v1",
+                prompt_version="strategy-evaluation-prompt-v2",
+                rubric_version="strategy-evaluation-rubric-v1",
+                dataset_id=evaluation_run.dataset_id,
+                dataset_version="2026-07-25",
+                metric_versions={
+                    metric_result.metric_name: (
+                        metric_result.threshold_version or "faithfulness-threshold-v1"
+                    )
+                },
+                evaluation_result_version="evaluation-result-schema-v1",
+                summary="Canonical evaluator provenance for the output.",
+                sensitive_metadata=sensitive_metadata or {},
+            ),
+        )
     assembler = CompletedWorkflowEvidencePacketAssembler(
         completed_run_archive=FakeCompletedRunArchive(bundle),
     )
@@ -222,7 +473,7 @@ async def _packet(*, bundle: CompletedRunBundle) -> DecisionEvidencePacket:
                     claim_id="claim-1",
                     text="The synthesis selected a bullish strategy posture.",
                     evidence=ClaimEvidenceBinding(
-                        supporting_evidence_ids=("evidence-synthesis",),
+                        supporting_evidence_ids=tuple(supporting_evidence_ids),
                     ),
                 ),
             ),
@@ -241,7 +492,50 @@ async def _packet(*, bundle: CompletedRunBundle) -> DecisionEvidencePacket:
                 retain_until="2031-07-25T00:00:00Z",
                 policy_id="enhanced-provenance-5y",
             ),
+            evaluation_provenance=evaluation_provenance,
         )
+    )
+
+
+def _evaluation_run(
+    *,
+    status: EvaluationStatus = EvaluationStatus.PASSED,
+    evaluator_model: str = "gpt-4.1-2026-07-25",
+    dataset_id: str = "dataset-strategy-synthesis",
+) -> EvaluationRunRecord:
+    return EvaluationRunRecord(
+        run_id="evaluation-run-1",
+        target_type=EvaluationTargetType.STRATEGY_SYNTHESIS,
+        status=status,
+        evaluator_provider="openai",
+        evaluator_model=evaluator_model,
+        dataset_id=dataset_id,
+        case_ids=("case-1",),
+        started_at=datetime(2026, 7, 25, 13, 6, tzinfo=UTC),
+        completed_at=datetime(2026, 7, 25, 13, 7, tzinfo=UTC),
+    )
+
+
+def _metric_result(
+    *,
+    run_id: str,
+    metric_result_id: str = "metric-result-1",
+    score: float = 0.92,
+) -> EvaluationMetricResultRecord:
+    return EvaluationMetricResultRecord(
+        metric_result_id=metric_result_id,
+        run_id=run_id,
+        case_id="case-1",
+        metric_name="faithfulness",
+        score=score,
+        status=EvaluationStatus.PASSED,
+        evaluator_provider="openai",
+        evaluator_model="gpt-4.1-2026-07-25",
+        threshold=0.8,
+        threshold_version="faithfulness-threshold-v1",
+        passed=True,
+        reason="The final answer remains grounded in persisted evidence.",
+        duration_ms=125.0,
     )
 
 

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Protocol
 
 from application.decision_evidence.completed_workflow_assembly import (
     calculate_completed_workflow_node_evidence_digest,
@@ -14,6 +20,10 @@ from core.storage.persistence.completed_run_archive import (
 from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketPersistenceRepository,
     DecisionEvidencePacketPersistenceResult,
+)
+from core.storage.persistence.evaluation import (
+    EvaluationMetricResultRecord,
+    EvaluationRunRecord,
 )
 from core.storage.persistence.serializers import (
     DecisionEvidencePacketPersistenceSerializer,
@@ -55,12 +65,29 @@ class MalformedDecisionEvidenceReconstructionIdentifierError(
     """Raised when persisted reconstruction identifiers are malformed."""
 
 
+class EvaluationProvenanceRepository(Protocol):
+    """Read model needed to verify canonical evaluation provenance sources."""
+
+    async def get_run(self, run_id: str) -> EvaluationRunRecord | None:
+        """Load a canonical evaluation run record by id."""
+
+    async def list_metric_results(
+        self,
+        run_id: str,
+    ) -> Sequence[EvaluationMetricResultRecord]:
+        """Load canonical metric results attached to an evaluation run."""
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionEvidencePacketPersistenceService:
     """Persist packet references and reconstruct packets from canonical sources."""
 
     repository: DecisionEvidencePacketPersistenceRepository = field(repr=False)
     completed_run_archive: CompletedRunArchive = field(repr=False)
+    evaluation_repository: EvaluationProvenanceRepository | None = field(
+        default=None,
+        repr=False,
+    )
 
     async def persist_packet(
         self,
@@ -133,6 +160,10 @@ class DecisionEvidencePacketPersistenceService:
                 await self._validate_completed_workflow_run(reference, bundle_cache)
             elif reference.kind is ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT:
                 await self._validate_workflow_node_output(reference, bundle_cache)
+            elif reference.kind is ReconstructionReferenceKind.EVALUATION_RUN:
+                await self._validate_evaluation_run(reference)
+            elif reference.kind is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT:
+                await self._validate_evaluation_metric_result(reference)
 
     async def _validate_completed_workflow_run(
         self,
@@ -195,6 +226,80 @@ class DecisionEvidencePacketPersistenceService:
                 f"'{reference.record_id}'."
             )
 
+    async def _validate_evaluation_run(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        repository = self.evaluation_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "evaluation provenance repository is required to reconstruct "
+                f"evaluation run source record '{reference.record_id}'."
+            )
+
+        run = await repository.get_run(reference.record_id)
+        if run is None:
+            raise MissingDecisionEvidenceSourceError(
+                f"evaluation run source record '{reference.record_id}' was not found."
+            )
+        if run.run_id != reference.record_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "evaluation run evidence does not match reconstruction identifier "
+                f"'{reference.record_id}'."
+            )
+        if reference.content_digest is None:
+            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+                "evaluation run reconstruction reference must include a content digest."
+            )
+
+        content_digest = calculate_evaluation_run_evidence_digest(run=run)
+        if content_digest != reference.content_digest:
+            raise StaleDecisionEvidenceSourceError(
+                "evaluation run evidence content digest is stale for "
+                f"'{reference.record_id}'."
+            )
+
+    async def _validate_evaluation_metric_result(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        repository = self.evaluation_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "evaluation provenance repository is required to reconstruct "
+                f"evaluation metric result source record '{reference.record_id}'."
+            )
+        if reference.snapshot_id is None:
+            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+                "evaluation metric result reconstruction reference must include "
+                "an evaluation run snapshot_id."
+            )
+
+        metric_result = await _load_metric_result(
+            repository=repository,
+            run_id=reference.snapshot_id,
+            metric_result_id=reference.record_id,
+        )
+        if metric_result.run_id != reference.snapshot_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "evaluation metric result evidence does not belong to evaluation "
+                f"run '{reference.snapshot_id}'."
+            )
+        if reference.content_digest is None:
+            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+                "evaluation metric result reconstruction reference must include "
+                "a content digest."
+            )
+
+        content_digest = calculate_evaluation_metric_result_evidence_digest(
+            metric_result=metric_result,
+        )
+        if content_digest != reference.content_digest:
+            raise StaleDecisionEvidenceSourceError(
+                "evaluation metric result evidence content digest is stale for "
+                f"'{reference.record_id}'."
+            )
+
     async def _load_completed_run_bundle(
         self,
         workflow_name: str,
@@ -227,6 +332,85 @@ class DecisionEvidencePacketPersistenceService:
         return bundle
 
 
+def calculate_evaluation_run_evidence_digest(
+    *,
+    run: EvaluationRunRecord,
+) -> str:
+    """Calculate a stable digest from safe evaluation run provenance fields."""
+
+    return _stable_content_digest(
+        {
+            "run_id": run.run_id,
+            "target_type": _enum_value(run.target_type),
+            "status": _enum_value(run.status),
+            "evaluator_provider": run.evaluator_provider,
+            "evaluator_model": run.evaluator_model,
+            "dataset_id": run.dataset_id,
+            "case_ids": tuple(run.case_ids),
+            "started_at": _datetime_value(run.started_at),
+            "completed_at": _datetime_value(run.completed_at),
+            "error_message": run.error_message,
+        }
+    )
+
+
+def calculate_evaluation_metric_result_evidence_digest(
+    *,
+    metric_result: EvaluationMetricResultRecord,
+) -> str:
+    """Calculate a stable digest from safe evaluation metric result fields."""
+
+    return _stable_content_digest(
+        {
+            "metric_result_id": metric_result.metric_result_id,
+            "run_id": metric_result.run_id,
+            "case_id": metric_result.case_id,
+            "metric_name": metric_result.metric_name,
+            "score": metric_result.score,
+            "status": _enum_value(metric_result.status),
+            "evaluator_provider": metric_result.evaluator_provider,
+            "evaluator_model": metric_result.evaluator_model,
+            "threshold": metric_result.threshold,
+            "threshold_version": metric_result.threshold_version,
+            "passed": metric_result.passed,
+            "duration_ms": metric_result.duration_ms,
+            "error_message": metric_result.error_message,
+        }
+    )
+
+
+async def _load_metric_result(
+    *,
+    repository: EvaluationProvenanceRepository,
+    run_id: str,
+    metric_result_id: str,
+) -> EvaluationMetricResultRecord:
+    metric_results = await repository.list_metric_results(run_id)
+    for metric_result in metric_results:
+        if metric_result.metric_result_id == metric_result_id:
+            return metric_result
+    raise MissingDecisionEvidenceSourceError(
+        f"evaluation metric result source record '{metric_result_id}' was not found."
+    )
+
+
+def _stable_content_digest(payload: Mapping[str, object]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _enum_value(value: object) -> object:
+    if isinstance(value, Enum):
+        return value.value
+    return value
+
+
+def _datetime_value(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
 def _validate_source_of_truth(reference: ReconstructionReference) -> None:
     if reference.kind in {
         ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN,
@@ -236,6 +420,20 @@ def _validate_source_of_truth(reference: ReconstructionReference) -> None:
             raise MalformedDecisionEvidenceReconstructionIdentifierError(
                 "workflow reconstruction references must identify runtime "
                 "evidence as their source of truth."
+            )
+        return
+
+    if reference.kind in {
+        ReconstructionReferenceKind.EVALUATION_RUN,
+        ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
+    }:
+        if (
+            reference.source_of_truth
+            is not SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+        ):
+            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+                "evaluation reconstruction references must identify canonical "
+                "domain records as their source of truth."
             )
         return
 
@@ -291,6 +489,9 @@ def _resolve_node_output(
 
 
 __all__ = [
+    "EvaluationProvenanceRepository",
+    "calculate_evaluation_metric_result_evidence_digest",
+    "calculate_evaluation_run_evidence_digest",
     "DecisionEvidencePacketNotFoundError",
     "DecisionEvidencePacketPersistenceService",
     "DecisionEvidencePacketReconstructionError",

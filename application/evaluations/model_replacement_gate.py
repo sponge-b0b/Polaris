@@ -40,9 +40,11 @@ from domain.authority import (
     IntendedSink,
     RiskAuthorityClassificationInput,
     RiskAuthorityContract,
+    RiskTier,
     SourceOfTruthCategory,
     classify_risk_authority,
 )
+from domain.decision_evidence import EvidenceClaimReference
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -724,10 +726,39 @@ def _authority_gate_evidence(
         }
         else ()
     )
+    risk_tier = _authority_contract_for_section(section).risk_tier
     return RiskAuthorityGateEvidence(
         provenance_record_ids=_case_ids(loaded_cases),
         decision_evidence_ids=decision_evidence_ids,
         model_replacement_gate_ids=(gate_id,),
+        decision_evidence_claim_references=_claim_references_for_loaded_cases(
+            gate_id=gate_id,
+            section=section,
+            loaded_cases=loaded_cases,
+            risk_tier=risk_tier,
+        ),
+    )
+
+
+def _claim_references_for_loaded_cases(
+    *,
+    gate_id: str,
+    section: ModelReplacementGateSection,
+    loaded_cases: tuple[_LoadedCase, ...],
+    risk_tier: RiskTier,
+) -> tuple[EvidenceClaimReference, ...]:
+    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        return ()
+    return tuple(
+        EvidenceClaimReference(
+            packet_id=f"model_replacement_gate:{gate_id}:{section.value}",
+            output_id=f"model_replacement_case:{loaded_case.case_id}",
+            claim_id=f"model_replacement_case:{loaded_case.case_id}",
+            risk_tier=risk_tier,
+            supporting_evidence_ids=(loaded_case.case_id,),
+            reconstruction_reference_ids=(loaded_case.case_id,),
+        )
+        for loaded_case in loaded_cases
     )
 
 

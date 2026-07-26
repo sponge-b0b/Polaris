@@ -13,8 +13,21 @@ from domain.authority import (
     RiskAuthorityClassificationInput,
     RiskAuthorityClassifier,
     RiskTier,
+    classify_risk_authority,
+)
+from domain.decision_evidence import (
+    ClaimEvidenceBinding,
+    DecisionEvidencePacket,
+    EvidenceClaimReference,
+    EvidenceReference,
+    EvidenceReferenceKind,
+    EvidenceRetentionRequirement,
+    MaterialClaim,
+    ReconstructionReference,
+    ReconstructionReferenceKind,
 )
 from tests.helpers.risk_authority_examples import (
+    authority_input_for_tier,
     outside_authority_tool_response_input,
     rag_answer_authority_input,
     recommendation_explanation_authority_input,
@@ -29,6 +42,65 @@ def _metadata(
     return RiskAuthorityClassifier().classify(classification_input).to_metadata()
 
 
+def _packet(
+    tier: RiskTier,
+    *,
+    packet_id: str = "packet-1",
+    output_id: str = "output-1",
+    supporting_evidence_id: str = "evidence-1",
+) -> DecisionEvidencePacket:
+    return DecisionEvidencePacket(
+        packet_id=packet_id,
+        output_id=output_id,
+        authority=classify_risk_authority(authority_input_for_tier(tier)),
+        claims=(
+            MaterialClaim(
+                claim_id="claim-1",
+                text="Supported material claim.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=(supporting_evidence_id,),
+                ),
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id=supporting_evidence_id,
+                kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
+                reconstruction_reference_ids=("workflow-node",),
+                summary="Runtime node output supporting the material claim.",
+            ),
+        ),
+        reconstruction_references=(
+            ReconstructionReference(
+                reference_id="workflow-node",
+                kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+                record_id="run-1:node:analysis",
+            ),
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
+    )
+
+
+def _claim_reference(
+    tier: RiskTier,
+    *,
+    packet_id: str = "packet-1",
+    output_id: str = "output-1",
+    supporting_evidence_id: str = "evidence-1",
+) -> EvidenceClaimReference:
+    return EvidenceClaimReference(
+        packet_id=packet_id,
+        output_id=output_id,
+        claim_id="claim-1",
+        risk_tier=tier,
+        supporting_evidence_ids=(supporting_evidence_id,),
+        reconstruction_reference_ids=("workflow-node",),
+    )
+
+
 @pytest.mark.parametrize(
     ("metadata", "evidence", "expected_tier", "expected_gate_profile"),
     [
@@ -40,7 +112,10 @@ def _metadata(
         ),
         (
             _metadata(rag_answer_authority_input()),
-            RiskAuthorityGateEvidence(provenance_record_ids=("rag-doc-1",)),
+            RiskAuthorityGateEvidence(
+                provenance_record_ids=("rag-doc-1",),
+                decision_evidence_packets=(_packet(RiskTier.ENHANCED),),
+            ),
             RiskTier.ENHANCED,
             GateProfile.ENHANCED_PROVENANCE,
         ),
@@ -48,7 +123,9 @@ def _metadata(
             _metadata(recommendation_explanation_authority_input()),
             RiskAuthorityGateEvidence(
                 provenance_record_ids=("recommendation-record-1",),
-                decision_evidence_ids=("model-gate-1",),
+                decision_evidence_claim_references=(
+                    _claim_reference(RiskTier.VIGILANT),
+                ),
             ),
             RiskTier.VIGILANT,
             GateProfile.VIGILANT_DECISION_EVIDENCE,
@@ -106,7 +183,7 @@ def test_capital_visible_output_cannot_select_lower_gate_than_metadata_allows() 
     [
         (
             _metadata(rag_answer_authority_input()),
-            RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED,
+            RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED,
         ),
         (
             _metadata(strategy_synthesis_authority_input()),
@@ -124,6 +201,57 @@ def test_missing_gate_evidence_fails_closed_for_enhanced_and_vigilant_outputs(
     assert decision.failure_mode is failure_mode
     assert decision.evidence == RiskAuthorityGateEvidence()
     assert decision.message
+
+
+def test_enhanced_readiness_requires_complete_packet_not_only_provenance() -> None:
+    decision = select_risk_authority_gate(
+        _metadata(rag_answer_authority_input()),
+        evidence=RiskAuthorityGateEvidence(provenance_record_ids=("rag-doc-1",)),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "packet" in decision.message.lower()
+
+
+def test_vigilant_strategy_output_fails_closed_when_only_evidence_ids_exist() -> None:
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("strategy-case-1",),
+            evaluation_run_ids=("run-1",),
+            decision_evidence_ids=("evaluation_run:run-1",),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "packet" in decision.message.lower()
+
+
+def test_readiness_rejects_rejected_evidence_cited_as_support() -> None:
+    decision = select_risk_authority_gate(
+        _metadata(rag_answer_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("rag-doc-1",),
+            decision_evidence_packets=(
+                _packet(
+                    RiskTier.ENHANCED,
+                    supporting_evidence_id="rag-context-rejected:chunk-1",
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "rejected" in decision.message.lower()
 
 
 @pytest.mark.parametrize(

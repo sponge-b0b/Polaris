@@ -11,7 +11,9 @@ from pydantic import ValidationError
 from application.evaluations import (
     EvaluationRunService,
     EvaluationRunServiceRequest,
+    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
+    expected_authority_metadata_for_evaluation_target,
     rag_evaluation_metric_specs,
 )
 from application.rag.contracts.rag_structured_answer import (
@@ -162,6 +164,14 @@ async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persiste
             evaluator_model="structured_fixture_judge",
             dataset=dataset_definition.reference,
             timeout_seconds=5.0,
+            authority_metadata=expected_authority_metadata_for_evaluation_target(
+                EvaluationTargetType.RAG_ANSWER,
+            ),
+            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                EvaluationTargetType.RAG_ANSWER,
+                cases,
+                run_id="structured-rag-regression-golden-001",
+            ),
         )
     )
 
@@ -217,6 +227,14 @@ async def test_structured_rag_regression_run_excludes_detached_cases_by_default(
             evaluator_model="structured_fixture_judge",
             dataset=dataset_definition.reference,
             timeout_seconds=5.0,
+            authority_metadata=expected_authority_metadata_for_evaluation_target(
+                EvaluationTargetType.RAG_ANSWER,
+            ),
+            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                EvaluationTargetType.RAG_ANSWER,
+                active_cases,
+                run_id="structured-rag-regression-active-only-001",
+            ),
         )
     )
 

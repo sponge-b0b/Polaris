@@ -43,6 +43,7 @@ from domain.authority import (
     RiskTier,
     SourceOfTruthCategory,
 )
+from domain.decision_evidence import EvidenceClaimReference
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -265,7 +266,19 @@ def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
 
 
 def _risk_gate_evidence_for_rag_answer() -> RiskAuthorityGateEvidence:
-    return RiskAuthorityGateEvidence(provenance_record_ids=("case-1",))
+    return RiskAuthorityGateEvidence(
+        provenance_record_ids=("case-1",),
+        decision_evidence_claim_references=(
+            EvidenceClaimReference(
+                packet_id="evaluation_run:run-1",
+                output_id="evaluation_case:case-1",
+                claim_id="evaluation_case:case-1",
+                risk_tier=RiskTier.ENHANCED,
+                supporting_evidence_ids=("case-1",),
+                reconstruction_reference_ids=("case-1",),
+            ),
+        ),
+    )
 
 
 def _metric() -> EvaluationMetricSpec:
@@ -452,7 +465,7 @@ async def test_run_service_fails_closed_when_gate_evidence_is_missing() -> None:
     )
     assert (
         result.authority_gate_decision.failure_mode
-        is RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED
+        is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
     )
     assert result.authority_gate_decision.selected_profile == "enhanced_provenance"
     assert "risk authority gate" in (result.run.error_message or "")
@@ -480,6 +493,16 @@ async def test_run_service_records_selected_authority_gate_profile() -> None:
             authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
             authority_gate_evidence=RiskAuthorityGateEvidence(
                 provenance_record_ids=("rag-document-1",),
+                decision_evidence_claim_references=(
+                    EvidenceClaimReference(
+                        packet_id="evaluation_run:run-risk-gate",
+                        output_id="evaluation_case:case-1",
+                        claim_id="evaluation_case:case-1",
+                        risk_tier=RiskTier.ENHANCED,
+                        supporting_evidence_ids=("rag-document-1",),
+                        reconstruction_reference_ids=("rag-document-1",),
+                    ),
+                ),
             ),
         )
     )
@@ -567,10 +590,10 @@ async def test_run_service_observes_authority_gate_failure_once() -> None:
         RiskAuthorityGateDecisionStatus.FAILED.value
     )
     assert failed_event.attributes["authority_failure_mode"] == (
-        RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED.value
+        RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED.value
     )
     assert failed_event.attributes["authority_observable_reason"] == (
-        RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED.value
+        RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED.value
     )
     assert failed_event.attributes["authority_risk_tier"] == "enhanced"
     assert failed_event.attributes["authority_owner"] == "rag_service"
@@ -586,7 +609,7 @@ async def test_run_service_observes_authority_gate_failure_once() -> None:
         if point.name == "evaluation_runs_total"
     )
     assert run_metric.attributes["authority_failure_mode"] == (
-        "provenance_evidence_required"
+        "decision_evidence_required"
     )
 
 

@@ -9,7 +9,9 @@ import pytest
 from application.evaluations import (
     EvaluationRunService,
     EvaluationRunServiceRequest,
+    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
+    expected_authority_metadata_for_evaluation_target,
 )
 from domain.evaluation import (
     EvaluationStatus,
@@ -65,6 +67,14 @@ async def test_quick_smoke_eval_runs_without_live_judge_model(
             evaluator_model="fixture_judge",
             dataset=dataset_definition.reference,
             timeout_seconds=5.0,
+            authority_metadata=expected_authority_metadata_for_evaluation_target(
+                EvaluationTargetType.RAG_ANSWER,
+            ),
+            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
+                EvaluationTargetType.RAG_ANSWER,
+                (evaluation_case,),
+                run_id="ci-smoke-rag-run-001",
+            ),
         )
     )
 

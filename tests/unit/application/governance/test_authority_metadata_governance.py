@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -25,7 +25,21 @@ from domain.authority import (
     authority_contract_metadata,
     classify_risk_authority,
 )
+from domain.decision_evidence import (
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    ClaimEvidenceBinding,
+    DecisionEvidencePacket,
+    EvidenceClaimReference,
+    EvidenceReference,
+    EvidenceReferenceKind,
+    EvidenceRetentionRequirement,
+    MaterialClaim,
+    ReconstructionReference,
+    ReconstructionReferenceKind,
+    evidence_claim_references_metadata,
+)
 from tests.helpers.risk_authority_examples import (
+    authority_input_for_tier,
     authority_metadata_for_tier,
     insufficient_runtime_evidence_authority_input,
     recommendation_explanation_authority_input,
@@ -70,7 +84,7 @@ async def test_governance_engine_maps_canonical_authority_tiers_to_outcomes(
     expected_reason: str,
 ) -> None:
     result = await _engine().evaluate(
-        subject={"risk_authority": _authority_metadata(tier)},
+        subject=_authority_subject(tier),
         context={"authority_subject_family": subject},
         emit_telemetry=False,
     )
@@ -86,7 +100,6 @@ async def test_governance_engine_maps_canonical_authority_tiers_to_outcomes(
 @pytest.mark.asyncio
 async def test_governance_accepts_real_output_family_metadata() -> None:
     subjects = (
-        _workflow_curation_decision(),
         _recommendation_record(),
         _rag_result(),
         _report_record(),
@@ -137,10 +150,62 @@ async def test_enhanced_and_vigilant_outputs_require_evidence_when_absent() -> N
         emit_telemetry=False,
     )
 
-    assert enhanced.results[0].decision is GovernanceDecision.REQUIRE_APPROVAL
+    assert enhanced.results[0].decision is GovernanceDecision.DENY
     assert enhanced.results[0].reason == "enhanced_authority_evidence_required"
     assert vigilant.results[0].decision is GovernanceDecision.DENY
     assert vigilant.results[0].reason == "vigilant_authority_evidence_required"
+
+
+@pytest.mark.asyncio
+async def test_enhanced_insufficient_evidence_with_packet_requires_approval() -> None:
+    result = await _engine().evaluate(
+        subject={
+            "risk_authority": _enhanced_metadata_with_insufficient_evidence(),
+            DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: (
+                evidence_claim_references_metadata(
+                    (_claim_reference(RiskTier.ENHANCED),)
+                )
+            ),
+        },
+        emit_telemetry=False,
+    )
+
+    rule_result = result.results[0]
+    assert rule_result.decision is GovernanceDecision.REQUIRE_APPROVAL
+    assert rule_result.reason == "enhanced_authority_evidence_required"
+
+
+@pytest.mark.asyncio
+async def test_governance_fails_closed_when_rejected_evidence_is_cited() -> None:
+    result = await _engine().evaluate(
+        subject=_authority_subject(
+            RiskTier.ENHANCED,
+            supporting_evidence_id="rag-context-rejected:chunk-1",
+        ),
+        emit_telemetry=False,
+    )
+
+    rule_result = result.results[0]
+    assert rule_result.decision is GovernanceDecision.DENY
+    assert rule_result.reason == "enhanced_authority_evidence_required"
+    assert rule_result.metadata["decision_evidence_packet_readiness_failure_mode"] == (
+        "rejected_evidence_cited"
+    )
+
+
+@pytest.mark.asyncio
+async def test_evaluated_output_without_packet_support_fails_closed() -> None:
+    result = await _engine().evaluate(
+        subject=_workflow_curation_decision(),
+        emit_telemetry=False,
+    )
+
+    rule_result = result.results[0]
+    assert rule_result.decision is GovernanceDecision.DENY
+    assert rule_result.reason in {
+        "enhanced_authority_evidence_required",
+        "vigilant_authority_evidence_required",
+    }
 
 
 @pytest.mark.asyncio
@@ -240,6 +305,87 @@ def _enhanced_metadata_with_insufficient_evidence() -> dict[str, object]:
     return contract.to_metadata()
 
 
+def _authority_subject(
+    tier: RiskTier,
+    *,
+    evidence_sufficient: bool = True,
+    supporting_evidence_id: str = "evidence-1",
+) -> dict[str, object]:
+    subject: dict[str, object] = {
+        "risk_authority": _authority_metadata(
+            tier,
+            evidence_sufficient=evidence_sufficient,
+        )
+    }
+    if tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        subject[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = (
+            evidence_claim_references_metadata(
+                (
+                    _claim_reference(
+                        tier,
+                        supporting_evidence_id=supporting_evidence_id,
+                    ),
+                )
+            )
+        )
+    return subject
+
+
+def _packet(
+    tier: RiskTier,
+    *,
+    supporting_evidence_id: str = "evidence-1",
+) -> DecisionEvidencePacket:
+    return DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="rag-1",
+        authority=classify_risk_authority(authority_input_for_tier(tier)),
+        claims=(
+            MaterialClaim(
+                claim_id="claim-1",
+                text="Supported material claim.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=(supporting_evidence_id,),
+                ),
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id=supporting_evidence_id,
+                kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
+                reconstruction_reference_ids=("workflow-node",),
+                summary="Runtime node output supporting the material claim.",
+            ),
+        ),
+        reconstruction_references=(
+            ReconstructionReference(
+                reference_id="workflow-node",
+                kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+                record_id="run-1:node:analysis",
+            ),
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
+    )
+
+
+def _claim_reference(
+    tier: RiskTier,
+    *,
+    supporting_evidence_id: str = "evidence-1",
+) -> EvidenceClaimReference:
+    return EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="output-1",
+        claim_id="claim-1",
+        risk_tier=tier,
+        supporting_evidence_ids=(supporting_evidence_id,),
+        reconstruction_reference_ids=("workflow-node",),
+    )
+
+
 def _workflow_curation_decision() -> WorkflowOutputProjectionEligibilityDecision:
     contract = classify_risk_authority(workflow_curation_authority_input())
     return WorkflowOutputProjectionEligibilityDecision(
@@ -259,14 +405,15 @@ def _recommendation_record() -> RecommendationRecord:
         confidence=0.7,
         created_at=datetime(2026, 7, 22, tzinfo=UTC),
         metadata=cast(
-            dict[str, Any], {"risk_authority": _authority_metadata(RiskTier.VIGILANT)}
+            dict[str, Any],
+            _authority_subject(RiskTier.VIGILANT),
         ),
     )
 
 
 def _rag_result() -> RagResult:
     request = RagRequest(query="Summarize breadth", request_id="rag-1")
-    return RagResult.answered(
+    result = RagResult.answered(
         request=request,
         answer_text="Breadth improved.",
         contexts=(),
@@ -274,6 +421,7 @@ def _rag_result() -> RagResult:
             dict[str, Any], {"risk_authority": _authority_metadata(RiskTier.ENHANCED)}
         ),
     )
+    return replace(result, evidence_packet=_packet(RiskTier.ENHANCED))
 
 
 def _report_record() -> ReportRecord:
@@ -284,6 +432,7 @@ def _report_record() -> ReportRecord:
         generated_at=datetime(2026, 7, 22, tzinfo=UTC),
         markdown_body="# Morning Report\n",
         metadata=cast(
-            dict[str, Any], {"risk_authority": _authority_metadata(RiskTier.VIGILANT)}
+            dict[str, Any],
+            _authority_subject(RiskTier.VIGILANT),
         ),
     )

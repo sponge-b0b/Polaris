@@ -16,6 +16,14 @@ from domain.authority import (
     RiskTier,
     validate_risk_authority_metadata,
 )
+from domain.decision_evidence import (
+    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    DecisionEvidencePacket,
+    DecisionEvidencePacketValidationError,
+    EvidenceClaimReference,
+    assess_decision_evidence_packet_readiness,
+    evidence_claim_references_from_metadata,
+)
 
 AUTHORITY_GOVERNANCE_RULE_NAME: Final = "authority_metadata_governance"
 AUTHORITY_METADATA_REQUIRED_CONTEXT_KEY: Final = "authority_metadata_required"
@@ -39,6 +47,14 @@ class AuthorityGovernanceFailureMode(StrEnum):
 class _AuthorityExtraction:
     raw_authority_metadata: object | None
     metadata_source: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PacketSupportExtraction:
+    packets: tuple[DecisionEvidencePacket, ...] = ()
+    claim_references: tuple[EvidenceClaimReference, ...] = ()
+    rejected_evidence_ids: tuple[str, ...] = ()
+    error: str | None = None
 
 
 class AuthorityMetadataGovernanceRule(BaseGovernanceRule):
@@ -79,6 +95,7 @@ class AuthorityMetadataGovernanceRule(BaseGovernanceRule):
 
         contract = validation.contract
         expected_contract = validation.expected_contract
+        packet_support = _extract_packet_support(subject)
         if not validation.platform_consistent:
             return _inconsistent_authority_result(
                 rule_name=self.rule_name,
@@ -93,6 +110,7 @@ class AuthorityMetadataGovernanceRule(BaseGovernanceRule):
             subject_family=subject_family,
             metadata_source=extraction.metadata_source,
             contract=contract,
+            packet_support=packet_support,
         )
 
 
@@ -187,6 +205,7 @@ def _authority_governance_result(
     subject_family: str,
     metadata_source: str | None,
     contract: RiskAuthorityContract,
+    packet_support: _PacketSupportExtraction,
 ) -> GovernanceResult:
     if contract.ignored_model_authority_claims:
         return _ignored_model_claims_result(
@@ -196,12 +215,88 @@ def _authority_governance_result(
             contract=contract,
         )
 
+    if contract.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        if packet_support.error is not None:
+            return _packet_readiness_denial(
+                rule_name=rule_name,
+                subject_family=subject_family,
+                metadata_source=metadata_source,
+                contract=contract,
+                message=(
+                    "Governance denied authority output because decision evidence "
+                    f"packet metadata is malformed: {packet_support.error}"
+                ),
+            )
+        readiness = assess_decision_evidence_packet_readiness(
+            packets=packet_support.packets,
+            claim_references=packet_support.claim_references,
+            rejected_evidence_ids=packet_support.rejected_evidence_ids,
+            required_risk_tier=contract.risk_tier,
+        )
+        if not readiness.passed:
+            return _packet_readiness_denial(
+                rule_name=rule_name,
+                subject_family=subject_family,
+                metadata_source=metadata_source,
+                contract=contract,
+                message=(
+                    "Governance denied authority output because complete decision "
+                    f"evidence packet support is absent: {readiness.message}"
+                ),
+                readiness_metadata={
+                    "decision_evidence_packet_readiness_failure_mode": (
+                        readiness.failure_mode.value
+                    ),
+                    "decision_evidence_packet_readiness_message": readiness.message,
+                    "decision_evidence_packet_ids": list(readiness.packet_ids),
+                    "decision_evidence_supporting_evidence_ids": list(
+                        readiness.supporting_evidence_ids
+                    ),
+                    "decision_evidence_reconstruction_reference_ids": list(
+                        readiness.reconstruction_reference_ids
+                    ),
+                    "rejected_supporting_evidence_ids": list(
+                        readiness.rejected_supporting_evidence_ids
+                    ),
+                },
+            )
+
     result_builder = _AUTHORITY_GOVERNANCE_RESULT_BY_TIER[contract.risk_tier]
     return result_builder(
         rule_name=rule_name,
         subject_family=subject_family,
         metadata_source=metadata_source,
         contract=contract,
+    )
+
+
+def _packet_readiness_denial(
+    *,
+    rule_name: str,
+    subject_family: str,
+    metadata_source: str | None,
+    contract: RiskAuthorityContract,
+    message: str,
+    readiness_metadata: Mapping[str, object] | None = None,
+) -> GovernanceResult:
+    failure_mode = (
+        AuthorityGovernanceFailureMode.ENHANCED_AUTHORITY_EVIDENCE_REQUIRED
+        if contract.risk_tier is RiskTier.ENHANCED
+        else AuthorityGovernanceFailureMode.VIGILANT_AUTHORITY_EVIDENCE_REQUIRED
+    )
+    return GovernanceResult.deny(
+        rule_name=rule_name,
+        message=message,
+        reason=failure_mode,
+        metadata={
+            **_result_metadata(
+                subject_family=subject_family,
+                metadata_source=metadata_source,
+                contract=contract,
+                failure_mode=failure_mode,
+            ),
+            **dict(readiness_metadata or {}),
+        },
     )
 
 
@@ -373,6 +468,68 @@ def _subject_family(
     if isinstance(family, str) and family.strip():
         return family.strip()
     return subject.__class__.__name__
+
+
+def _extract_packet_support(subject: Any) -> _PacketSupportExtraction:
+    packets: list[DecisionEvidencePacket] = []
+    claim_references: list[EvidenceClaimReference] = []
+    rejected_evidence_ids: list[str] = []
+
+    if isinstance(subject, DecisionEvidencePacket):
+        packets.append(subject)
+
+    evidence_packet = getattr(subject, "evidence_packet", None)
+    if isinstance(evidence_packet, DecisionEvidencePacket):
+        packets.append(evidence_packet)
+
+    for mapping in _packet_support_mappings(subject):
+        mapping_packet = mapping.get("decision_evidence_packet") or mapping.get(
+            "evidence_packet"
+        )
+        if isinstance(mapping_packet, DecisionEvidencePacket):
+            packets.append(mapping_packet)
+
+        raw_rejected_ids = mapping.get("rejected_evidence_ids")
+        if isinstance(raw_rejected_ids, str):
+            rejected_evidence_ids.append(raw_rejected_ids)
+        elif isinstance(raw_rejected_ids, tuple | list | frozenset | set):
+            rejected_evidence_ids.extend(
+                value for value in raw_rejected_ids if isinstance(value, str)
+            )
+
+        raw_references = mapping.get(DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY)
+        if raw_references is None:
+            continue
+        try:
+            parsed = evidence_claim_references_from_metadata(raw_references)
+        except DecisionEvidencePacketValidationError as exc:
+            return _PacketSupportExtraction(error=str(exc))
+        claim_references.extend(parsed.claim_references)
+
+    return _PacketSupportExtraction(
+        packets=tuple(dict.fromkeys(packets)),
+        claim_references=tuple(dict.fromkeys(claim_references)),
+        rejected_evidence_ids=tuple(dict.fromkeys(rejected_evidence_ids)),
+    )
+
+
+def _packet_support_mappings(subject: Any) -> tuple[Mapping[object, object], ...]:
+    mappings: list[Mapping[object, object]] = []
+    subject_mapping = _mapping_from_object(subject)
+    if subject_mapping is not None:
+        mappings.append(subject_mapping)
+
+    metadata = getattr(subject, "metadata", None)
+    metadata_mapping = _mapping_from_object(metadata)
+    if metadata_mapping is not None:
+        mappings.append(metadata_mapping)
+
+    if subject_mapping is not None:
+        nested_metadata = _mapping_from_object(subject_mapping.get("metadata"))
+        if nested_metadata is not None:
+            mappings.append(nested_metadata)
+
+    return tuple(mappings)
 
 
 def _extract_authority_metadata(subject: Any) -> _AuthorityExtraction:

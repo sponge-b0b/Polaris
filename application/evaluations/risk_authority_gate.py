@@ -11,6 +11,12 @@ from domain.authority import (
     RiskTier,
     validate_risk_authority_metadata,
 )
+from domain.decision_evidence import (
+    DecisionEvidencePacket,
+    DecisionEvidencePacketReadiness,
+    EvidenceClaimReference,
+    assess_decision_evidence_packet_readiness,
+)
 
 
 class RiskAuthorityGateDecisionStatus(StrEnum):
@@ -40,6 +46,9 @@ class RiskAuthorityGateEvidence:
     evaluation_run_ids: tuple[str, ...] = ()
     decision_evidence_ids: tuple[str, ...] = ()
     model_replacement_gate_ids: tuple[str, ...] = ()
+    decision_evidence_packets: tuple[DecisionEvidencePacket, ...] = ()
+    decision_evidence_claim_references: tuple[EvidenceClaimReference, ...] = ()
+    rejected_evidence_ids: tuple[str, ...] = ()
     metric_result_count: int = 0
 
     def __post_init__(self) -> None:
@@ -68,6 +77,29 @@ class RiskAuthorityGateEvidence:
                 "model_replacement_gate_ids",
             ),
         )
+        object.__setattr__(
+            self,
+            "rejected_evidence_ids",
+            _clean_string_tuple(self.rejected_evidence_ids, "rejected_evidence_ids"),
+        )
+        object.__setattr__(
+            self,
+            "decision_evidence_packets",
+            _typed_tuple(
+                self.decision_evidence_packets,
+                DecisionEvidencePacket,
+                "decision_evidence_packets",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "decision_evidence_claim_references",
+            _typed_tuple(
+                self.decision_evidence_claim_references,
+                EvidenceClaimReference,
+                "decision_evidence_claim_references",
+            ),
+        )
 
     @property
     def has_provenance_evidence(self) -> bool:
@@ -79,7 +111,19 @@ class RiskAuthorityGateEvidence:
 
     @property
     def has_decision_evidence(self) -> bool:
-        return bool(self.decision_evidence_ids or self.model_replacement_gate_ids)
+        return self.packet_readiness().passed
+
+    def packet_readiness(
+        self,
+        *,
+        required_risk_tier: RiskTier | None = None,
+    ) -> DecisionEvidencePacketReadiness:
+        return assess_decision_evidence_packet_readiness(
+            packets=self.decision_evidence_packets,
+            claim_references=self.decision_evidence_claim_references,
+            rejected_evidence_ids=self.rejected_evidence_ids,
+            required_risk_tier=required_risk_tier,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +224,26 @@ def select_risk_authority_gate(
             expected_risk_tier=expected_contract.risk_tier,
             expected_gate_profile=expected_contract.gate_profile,
         )
+
+    if contract.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        packet_readiness = gate_evidence.packet_readiness(
+            required_risk_tier=contract.risk_tier,
+        )
+        if not packet_readiness.passed:
+            return RiskAuthorityGateDecision(
+                status=RiskAuthorityGateDecisionStatus.FAILED,
+                failure_mode=RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED,
+                message=(
+                    "Selected authority gate profile requires complete decision "
+                    f"evidence packet support: {packet_readiness.message}"
+                ),
+                risk_tier=contract.risk_tier,
+                gate_profile=contract.gate_profile,
+                authority_metadata=selected_metadata,
+                evidence=gate_evidence,
+                expected_risk_tier=expected_contract.risk_tier,
+                expected_gate_profile=expected_contract.gate_profile,
+            )
 
     if decision_profile.requires_decision_evidence and not (
         gate_evidence.has_decision_evidence
@@ -294,3 +358,18 @@ def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, 
             raise ValueError(f"{field_name} cannot contain empty strings.")
         cleaned_values.append(cleaned_value)
     return tuple(cleaned_values)
+
+
+def _typed_tuple[T](
+    values: tuple[object, ...],
+    expected_type: type[T],
+    field_name: str,
+) -> tuple[T, ...]:
+    typed_values: list[T] = []
+    for value in values:
+        if not isinstance(value, expected_type):
+            raise ValueError(
+                f"{field_name} entries must be {expected_type.__name__} instances."
+            )
+        typed_values.append(value)
+    return tuple(typed_values)

@@ -18,6 +18,39 @@ Enforce consistent formatting, catch hidden type exceptions, and maintain test c
 - **Isolation Principle:** Only perform verification actions on files touched in the workspace OR by the current ticket. Do not introduce refactors, delete unrelated feature modules, or modify logical variable assignments. Never run global repository-wide verification commands inside an isolated workspace OR ticket lifecycle.
 - **Scope Extraction Invariant:** Before running any verification checks, you must explicitly isolate the modified file paths using local version control records or active workspace diffs.
 - **Safety Invariant:** If targeted verification checks produce errors that cannot be solved automatically, do not attempt to guess manual overrides; log the file paths and error details clearly for the developer or next workflow block and report when completed.
+- **Authorization Invariant:** Approved shell command prefixes are execution permissions only. They are never authorization to broaden verification scope. A persisted approval rule, allowlisted command prefix, or sandbox permission does not count as task-specific authorization for broad verification.
+
+## Verification Scope Authorization
+
+For an individual ticket or targeted code change, default verification is limited to:
+
+1. format and lint checks on changed files only;
+2. static typing checks on changed files and directly affected tests only;
+3. targeted tests for the changed behavior and nearby affected modules only.
+
+Do not run broad repository-wide commands unless the user explicitly asks for full-suite, repo-wide, integration, coverage, exhaustive, or whole-project verification in the current task. This includes, but is not limited to:
+
+- `uv run pytest`
+- `uv run pytest -q`
+- `uv run mypy .`
+- `uv run ruff check .`
+- full coverage runs
+- integration suites that require external services
+
+If broad verification seems useful, stop after targeted verification and ask first, naming the exact proposed command. Do not run the proposed broad command until the user says yes.
+
+When reporting verification, distinguish clearly between:
+
+- targeted verification that was actually run;
+- broad verification that was not run;
+- broad verification that is recommended but requires user approval.
+
+Never imply full repository health unless full repository verification was explicitly authorized and completed. Use wording such as:
+
+- "Targeted verification passed."
+- "Full suite was not run."
+- "Whole-repo mypy was not run."
+- "Broader verification is available if you want it."
 
 ---
 

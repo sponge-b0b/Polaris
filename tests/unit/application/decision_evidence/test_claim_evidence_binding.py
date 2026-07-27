@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -21,6 +23,7 @@ from domain.authority import RiskTier, SourceOfTruthCategory, classify_risk_auth
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     DecisionEvidencePacket,
+    EvidenceClaimReference,
     EvidenceLimitation,
     EvidenceReference,
     EvidenceReferenceKind,
@@ -96,6 +99,45 @@ async def test_binds_supported_recommendation_claims_to_durable_links() -> None:
     assert link.reconstruction_reference_ids == ("workflow-node",)
     assert link.uncertainty_ids == ("uncertainty-1",)
     assert link.limitation_ids == ("limitation-1",)
+
+
+@pytest.mark.asyncio
+async def test_report_and_recommendation_claims_use_shared_binding_path() -> None:
+    packet = _packet()
+    references = evidence_claim_references_from_packet(packet).claim_references
+    packet_service = _FakePacketService(packet)
+    service = _SharedBindingPathSpy(packet_service)
+    report_targets = (
+        ReportClaimEvidenceBindingTarget(
+            section_id="section-1",
+            claim_target_id="section-1:bullet:0",
+            claim_references=references,
+        ),
+    )
+    recommendation_targets = (
+        RecommendationClaimEvidenceBindingTarget(
+            rationale_id="rationale-1",
+            claim_target_id="rationale-1:claim:claim-1",
+            claim_references=references,
+        ),
+    )
+
+    report_links = await service.bind_report_claims(
+        report_id="report-1",
+        targets=report_targets,
+    )
+    recommendation_links = await service.bind_recommendation_claims(
+        recommendation_id="recommendation-1",
+        targets=recommendation_targets,
+    )
+
+    assert isinstance(report_links[0], ReportClaimEvidenceLinkRecord)
+    assert isinstance(recommendation_links[0], RecommendationClaimEvidenceLinkRecord)
+    assert service.shared_binding_target_ids == [
+        ("section-1:bullet:0",),
+        ("rationale-1:claim:claim-1",),
+    ]
+    assert packet_service.calls == ["packet-1", "packet-1"]
 
 
 @pytest.mark.asyncio
@@ -225,6 +267,26 @@ class _FakePacketService:
     async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
         self.calls.append(packet_id)
         return self.packet
+
+
+class _SharedBindingPathSpy(DecisionEvidenceClaimBindingService):
+    def __init__(self, packet_service: _FakePacketService) -> None:
+        super().__init__(packet_service)
+        self.shared_binding_target_ids: list[tuple[str, ...]] = []
+
+    async def _bind_claim_links(
+        self,
+        *,
+        targets: Sequence[Any],
+        make_link: Callable[[Any, EvidenceClaimReference], Any],
+    ) -> tuple[Any, ...]:
+        self.shared_binding_target_ids.append(
+            tuple(target.claim_target_id for target in targets)
+        )
+        return await super()._bind_claim_links(
+            targets=targets,
+            make_link=make_link,
+        )
 
 
 class _FailingPacketService:

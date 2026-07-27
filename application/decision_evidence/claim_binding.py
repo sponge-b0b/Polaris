@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 from core.storage.persistence.recommendations import (
     RecommendationClaimEvidenceLinkRecord,
@@ -29,6 +29,27 @@ class DecisionEvidencePacketReader(Protocol):
 
     async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
         """Reconstruct and validate one canonical packet by id."""
+
+
+class _ClaimEvidenceBindingTarget(Protocol):
+    """Common claim-binding fields shared by report and recommendation targets."""
+
+    @property
+    def claim_target_id(self) -> str: ...
+
+    @property
+    def claim_references(self) -> tuple[EvidenceClaimReference, ...]: ...
+
+
+_ClaimEvidenceBindingTargetT = TypeVar(
+    "_ClaimEvidenceBindingTargetT",
+    bound=_ClaimEvidenceBindingTarget,
+)
+_ClaimEvidenceLinkT = TypeVar("_ClaimEvidenceLinkT")
+_ClaimEvidenceLinkFactory = Callable[
+    [_ClaimEvidenceBindingTargetT, EvidenceClaimReference],
+    _ClaimEvidenceLinkT,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,35 +122,14 @@ class DecisionEvidenceClaimBindingService:
         targets: Sequence[ReportClaimEvidenceBindingTarget],
     ) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
         clean_report_id = _clean_identifier(report_id, "report_id")
-        links: list[ReportClaimEvidenceLinkRecord] = []
-        for target in targets:
-            for reference in target.claim_references:
-                canonical = await self._validated_reference(reference)
-                links.append(
-                    ReportClaimEvidenceLinkRecord(
-                        link_id=new_report_claim_evidence_link_id(
-                            report_id=clean_report_id,
-                            section_id=target.section_id,
-                            claim_target_id=target.claim_target_id,
-                            packet_id=canonical.packet_id,
-                            packet_claim_id=canonical.claim_id,
-                        ),
-                        report_id=clean_report_id,
-                        section_id=target.section_id,
-                        claim_target_id=target.claim_target_id,
-                        packet_id=canonical.packet_id,
-                        packet_claim_id=canonical.claim_id,
-                        risk_tier=canonical.risk_tier,
-                        material=canonical.material,
-                        supporting_evidence_ids=canonical.supporting_evidence_ids,
-                        reconstruction_reference_ids=(
-                            canonical.reconstruction_reference_ids
-                        ),
-                        uncertainty_ids=canonical.uncertainty_ids,
-                        limitation_ids=canonical.limitation_ids,
-                    )
-                )
-        return tuple(links)
+        return await self._bind_claim_links(
+            targets=targets,
+            make_link=lambda target, canonical: _report_claim_evidence_link(
+                report_id=clean_report_id,
+                target=target,
+                canonical=canonical,
+            ),
+        )
 
     async def bind_recommendation_claims(
         self,
@@ -141,34 +141,29 @@ class DecisionEvidenceClaimBindingService:
             recommendation_id,
             "recommendation_id",
         )
-        links: list[RecommendationClaimEvidenceLinkRecord] = []
+        return await self._bind_claim_links(
+            targets=targets,
+            make_link=lambda target, canonical: _recommendation_claim_evidence_link(
+                recommendation_id=clean_recommendation_id,
+                target=target,
+                canonical=canonical,
+            ),
+        )
+
+    async def _bind_claim_links(
+        self,
+        *,
+        targets: Sequence[_ClaimEvidenceBindingTargetT],
+        make_link: _ClaimEvidenceLinkFactory[
+            _ClaimEvidenceBindingTargetT,
+            _ClaimEvidenceLinkT,
+        ],
+    ) -> tuple[_ClaimEvidenceLinkT, ...]:
+        links: list[_ClaimEvidenceLinkT] = []
         for target in targets:
             for reference in target.claim_references:
                 canonical = await self._validated_reference(reference)
-                links.append(
-                    RecommendationClaimEvidenceLinkRecord(
-                        link_id=new_recommendation_claim_evidence_link_id(
-                            recommendation_id=clean_recommendation_id,
-                            rationale_id=target.rationale_id,
-                            claim_target_id=target.claim_target_id,
-                            packet_id=canonical.packet_id,
-                            packet_claim_id=canonical.claim_id,
-                        ),
-                        recommendation_id=clean_recommendation_id,
-                        rationale_id=target.rationale_id,
-                        claim_target_id=target.claim_target_id,
-                        packet_id=canonical.packet_id,
-                        packet_claim_id=canonical.claim_id,
-                        risk_tier=canonical.risk_tier,
-                        material=canonical.material,
-                        supporting_evidence_ids=canonical.supporting_evidence_ids,
-                        reconstruction_reference_ids=(
-                            canonical.reconstruction_reference_ids
-                        ),
-                        uncertainty_ids=canonical.uncertainty_ids,
-                        limitation_ids=canonical.limitation_ids,
-                    )
-                )
+                links.append(make_link(target, canonical))
         return tuple(links)
 
     async def _validated_reference(
@@ -190,6 +185,62 @@ class DecisionEvidenceClaimBindingService:
             canonical=canonical,
         )
         return canonical
+
+
+def _report_claim_evidence_link(
+    *,
+    report_id: str,
+    target: ReportClaimEvidenceBindingTarget,
+    canonical: EvidenceClaimReference,
+) -> ReportClaimEvidenceLinkRecord:
+    return ReportClaimEvidenceLinkRecord(
+        link_id=new_report_claim_evidence_link_id(
+            report_id=report_id,
+            section_id=target.section_id,
+            claim_target_id=target.claim_target_id,
+            packet_id=canonical.packet_id,
+            packet_claim_id=canonical.claim_id,
+        ),
+        report_id=report_id,
+        section_id=target.section_id,
+        claim_target_id=target.claim_target_id,
+        packet_id=canonical.packet_id,
+        packet_claim_id=canonical.claim_id,
+        risk_tier=canonical.risk_tier,
+        material=canonical.material,
+        supporting_evidence_ids=canonical.supporting_evidence_ids,
+        reconstruction_reference_ids=canonical.reconstruction_reference_ids,
+        uncertainty_ids=canonical.uncertainty_ids,
+        limitation_ids=canonical.limitation_ids,
+    )
+
+
+def _recommendation_claim_evidence_link(
+    *,
+    recommendation_id: str,
+    target: RecommendationClaimEvidenceBindingTarget,
+    canonical: EvidenceClaimReference,
+) -> RecommendationClaimEvidenceLinkRecord:
+    return RecommendationClaimEvidenceLinkRecord(
+        link_id=new_recommendation_claim_evidence_link_id(
+            recommendation_id=recommendation_id,
+            rationale_id=target.rationale_id,
+            claim_target_id=target.claim_target_id,
+            packet_id=canonical.packet_id,
+            packet_claim_id=canonical.claim_id,
+        ),
+        recommendation_id=recommendation_id,
+        rationale_id=target.rationale_id,
+        claim_target_id=target.claim_target_id,
+        packet_id=canonical.packet_id,
+        packet_claim_id=canonical.claim_id,
+        risk_tier=canonical.risk_tier,
+        material=canonical.material,
+        supporting_evidence_ids=canonical.supporting_evidence_ids,
+        reconstruction_reference_ids=canonical.reconstruction_reference_ids,
+        uncertainty_ids=canonical.uncertainty_ids,
+        limitation_ids=canonical.limitation_ids,
+    )
 
 
 def _canonical_reference_for_claim(

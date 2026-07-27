@@ -43,12 +43,15 @@ from core.telemetry.emitters.application_service_telemetry import (
 from core.telemetry.metrics.metrics_store import MetricsStore
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
-from domain.authority import RiskTier, classify_risk_authority
+from domain.authority import RiskTier, SourceOfTruthCategory, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     DecisionEvidencePacket,
+    EvidenceReference,
+    EvidenceReferenceKind,
     EvidenceRetentionRequirement,
     MaterialClaim,
+    ReconstructionReference,
     ReconstructionReferenceKind,
 )
 from domain.evaluation import EvaluationStatus, EvaluationTargetType
@@ -109,6 +112,83 @@ async def test_reconstruction_validates_evaluation_provenance_references() -> No
         ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
         ReconstructionReferenceKind.LINKED_ARTIFACT,
     }
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_accepts_all_canonical_reference_kinds() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+    )
+
+    await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-all-reference-kinds")
+
+    assert reconstructed == packet
+    reconstructed_kinds = tuple(
+        reference.kind for reference in reconstructed.reconstruction_references
+    )
+    assert reconstructed_kinds == (
+        ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN,
+        ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+        ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+        ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT,
+        ReconstructionReferenceKind.RAG_CITATION_CONTEXT,
+        ReconstructionReferenceKind.EVALUATION_RUN,
+        ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
+        ReconstructionReferenceKind.TRACE_CONTEXT,
+        ReconstructionReferenceKind.LINKED_ARTIFACT,
+    )
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_malformed_rag_context_reference() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    malformed_packet = replace(
+        packet,
+        reconstruction_references=tuple(
+            replace(reference, content_digest=None)
+            if reference.kind is ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT
+            else reference
+            for reference in packet.reconstruction_references
+        ),
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+    )
+    await service.persist_packet(malformed_packet)
+
+    with pytest.raises(
+        MalformedDecisionEvidenceReconstructionIdentifierError,
+        match="RAG retrieval context reconstruction reference",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
 
 
 @pytest.mark.asyncio
@@ -650,6 +730,122 @@ def _assembly_request(
             policy_id="enhanced-provenance-5y",
         ),
         evaluation_provenance=evaluation_provenance,
+    )
+
+
+def _packet_with_every_reconstruction_kind(
+    *,
+    bundle: CompletedRunBundle,
+    evaluation_run: EvaluationRunRecord,
+    metric_result: EvaluationMetricResultRecord,
+) -> DecisionEvidencePacket:
+    node_output = bundle.node_outputs[0]
+    node_digest = calculate_completed_workflow_node_evidence_digest(
+        run=bundle.run,
+        node_output=node_output,
+    )
+    evaluation_run_digest = calculate_evaluation_run_evidence_digest(run=evaluation_run)
+    metric_digest = calculate_evaluation_metric_result_evidence_digest(
+        metric_result=metric_result,
+    )
+    reconstruction_references = (
+        ReconstructionReference(
+            reference_id="completed-run",
+            kind=ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN,
+            record_id="morning_report:exec-1",
+            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            snapshot_id=bundle.run.run_id,
+        ),
+        ReconstructionReference(
+            reference_id="workflow-node",
+            kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+            record_id=node_output.node_output_id,
+            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            snapshot_id="morning_report:exec-1:strategy_synthesis_agent",
+            content_digest=node_digest,
+        ),
+        ReconstructionReference(
+            reference_id="canonical-record",
+            kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+            record_id="strategy-decision-1",
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            content_digest="digest-canonical-record",
+        ),
+        ReconstructionReference(
+            reference_id="rag-retrieval",
+            kind=ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT,
+            record_id="rag-context-1",
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            snapshot_id="rag-query-1",
+            content_digest="digest-rag-context",
+        ),
+        ReconstructionReference(
+            reference_id="rag-citation",
+            kind=ReconstructionReferenceKind.RAG_CITATION_CONTEXT,
+            record_id="rag-document-1:chunk-1",
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            snapshot_id="citation-1",
+            content_digest="digest-rag-citation",
+        ),
+        ReconstructionReference(
+            reference_id="evaluation-run",
+            kind=ReconstructionReferenceKind.EVALUATION_RUN,
+            record_id=evaluation_run.run_id,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            content_digest=evaluation_run_digest,
+        ),
+        ReconstructionReference(
+            reference_id="evaluation-metric",
+            kind=ReconstructionReferenceKind.EVALUATION_METRIC_RESULT,
+            record_id=metric_result.metric_result_id,
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            snapshot_id=evaluation_run.run_id,
+            content_digest=metric_digest,
+        ),
+        ReconstructionReference(
+            reference_id="trace-context",
+            kind=ReconstructionReferenceKind.TRACE_CONTEXT,
+            record_id="trace-1:span-1",
+            source_of_truth=SourceOfTruthCategory.TELEMETRY,
+            snapshot_id="trace-1",
+            content_digest="digest-trace-context",
+        ),
+        ReconstructionReference(
+            reference_id="linked-artifact",
+            kind=ReconstructionReferenceKind.LINKED_ARTIFACT,
+            record_id="model:gpt-4.1-2026-07-25",
+            source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        ),
+    )
+    return DecisionEvidencePacket(
+        packet_id="packet-all-reference-kinds",
+        output_id="strategy-decision-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(
+            MaterialClaim(
+                claim_id="claim-1",
+                text="The synthesis selected a supported strategy posture.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-all",),
+                ),
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id="evidence-all",
+                kind=EvidenceReferenceKind.CANONICAL_RECORD,
+                reconstruction_reference_ids=tuple(
+                    reference.reference_id for reference in reconstruction_references
+                ),
+                summary="Evidence exercising every canonical reconstruction kind.",
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            ),
+        ),
+        reconstruction_references=reconstruction_references,
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
     )
 
 

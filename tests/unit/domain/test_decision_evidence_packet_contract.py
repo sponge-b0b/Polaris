@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from domain.authority import RiskTier, classify_risk_authority
+from domain.authority import RiskTier, SourceOfTruthCategory, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     ClaimMaterialityTier,
@@ -260,6 +260,78 @@ def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() ->
     assert assess_decision_evidence_packet_readiness(packets=(packet,)).passed is True
 
 
+def test_readiness_separates_reconstructable_provenance_from_rejected_support() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(
+        packets=(packet,),
+        rejected_evidence_ids=("evidence-1",),
+    )
+
+    assert readiness.passed is False
+    assert readiness.provenance_reconstruction_complete is True
+    assert readiness.claim_support_complete is False
+    assert readiness.correctness_support_complete is False
+    assert readiness.provenance_reconstruction_failure_mode is (
+        DecisionEvidencePacketReadinessFailureMode.NONE
+    )
+    assert (
+        readiness.claim_support_failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.REJECTED_EVIDENCE_CITED
+    )
+
+
+def test_readiness_validates_every_canonical_reconstruction_reference_kind() -> None:
+    reconstruction_references = tuple(
+        ReconstructionReference(
+            reference_id=f"reference-{kind.value}",
+            kind=kind,
+            record_id=f"record-{kind.value}",
+            source_of_truth=_source_of_truth_for_reference_kind(kind),
+            snapshot_id=f"snapshot-{kind.value}",
+            content_digest=f"digest-{kind.value}",
+        )
+        for kind in ReconstructionReferenceKind
+    )
+    packet = DecisionEvidencePacket(
+        packet_id="packet-all-reference-kinds",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(
+            EvidenceReference(
+                evidence_id="evidence-1",
+                kind=EvidenceReferenceKind.CANONICAL_RECORD,
+                reconstruction_reference_ids=tuple(
+                    reference.reference_id for reference in reconstruction_references
+                ),
+                summary="Evidence backed by every canonical reconstruction kind.",
+            ),
+        ),
+        reconstruction_references=reconstruction_references,
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
+    assert readiness.passed is True
+    assert readiness.provenance_reconstruction_complete is True
+    assert readiness.reconstruction_reference_ids == tuple(
+        reference.reference_id for reference in reconstruction_references
+    )
+    assert readiness.reconstruction_reference_kinds == tuple(
+        kind.value for kind in ReconstructionReferenceKind
+    )
+
+
 def test_packet_references_canonical_evidence_ids_not_source_payloads() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.VIGILANT))
 
@@ -360,3 +432,16 @@ def retention_requirement() -> EvidenceRetentionRequirement:
         retain_until="2031-07-25T00:00:00Z",
         policy_id="enhanced-provenance-5y",
     )
+
+
+def _source_of_truth_for_reference_kind(
+    kind: ReconstructionReferenceKind,
+) -> SourceOfTruthCategory:
+    if kind in {
+        ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN,
+        ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+    }:
+        return SourceOfTruthCategory.RUNTIME_EVIDENCE
+    if kind is ReconstructionReferenceKind.TRACE_CONTEXT:
+        return SourceOfTruthCategory.TELEMETRY
+    return SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD

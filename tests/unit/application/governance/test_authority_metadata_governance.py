@@ -191,6 +191,22 @@ async def test_governance_fails_closed_when_rejected_evidence_is_cited() -> None
     assert rule_result.metadata["decision_evidence_packet_readiness_failure_mode"] == (
         "rejected_evidence_cited"
     )
+    assert (
+        rule_result.metadata["decision_evidence_provenance_reconstruction_complete"]
+        is True
+    )
+    assert rule_result.metadata["decision_evidence_claim_support_complete"] is False
+    assert (
+        rule_result.metadata["decision_evidence_correctness_support_complete"] is False
+    )
+    assert (
+        rule_result.metadata["decision_evidence_provenance_reconstruction_failure_mode"]
+        == "none"
+    )
+    assert (
+        rule_result.metadata["decision_evidence_claim_support_failure_mode"]
+        == "rejected_evidence_cited"
+    )
 
 
 @pytest.mark.asyncio

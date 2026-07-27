@@ -7,7 +7,10 @@ from typing import Final
 
 from domain.authority import RiskTier
 from domain.decision_evidence.claim_references import EvidenceClaimReference
-from domain.decision_evidence.packets import DecisionEvidencePacket
+from domain.decision_evidence.packets import (
+    DecisionEvidencePacket,
+    ReconstructionReferenceKind,
+)
 
 _REJECTED_SUPPORT_ID_PREFIXES: Final[tuple[str, ...]] = (
     "rag-context-rejected:",
@@ -27,6 +30,9 @@ class DecisionEvidencePacketReadinessFailureMode(StrEnum):
     MATERIAL_CONFLICT_UNRESOLVED = "material_conflict_unresolved"
 
 
+_Mode = DecisionEvidencePacketReadinessFailureMode
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionEvidencePacketReadiness:
     """Completeness assessment for canonical decision evidence packet support."""
@@ -34,15 +40,22 @@ class DecisionEvidencePacketReadiness:
     complete: bool
     failure_mode: DecisionEvidencePacketReadinessFailureMode
     message: str
+    provenance_reconstruction_complete: bool = False
+    claim_support_complete: bool = False
+    correctness_support_complete: bool = False
+    provenance_reconstruction_failure_mode: _Mode = _Mode.NONE
+    claim_support_failure_mode: _Mode = _Mode.NONE
+    correctness_support_failure_mode: _Mode = _Mode.NONE
     packet_ids: tuple[str, ...] = ()
     supporting_evidence_ids: tuple[str, ...] = ()
     conflicting_evidence_ids: tuple[str, ...] = ()
     reconstruction_reference_ids: tuple[str, ...] = ()
+    reconstruction_reference_kinds: tuple[str, ...] = ()
     rejected_supporting_evidence_ids: tuple[str, ...] = ()
 
     @property
     def passed(self) -> bool:
-        """Whether canonical packet support is complete for readiness."""
+        """Whether all packet readiness dimensions are complete."""
 
         return self.complete
 
@@ -51,6 +64,9 @@ _COMPLETE_READINESS = DecisionEvidencePacketReadiness(
     complete=True,
     failure_mode=DecisionEvidencePacketReadinessFailureMode.NONE,
     message="Canonical decision evidence packet support is complete.",
+    provenance_reconstruction_complete=True,
+    claim_support_complete=True,
+    correctness_support_complete=True,
 )
 
 
@@ -90,20 +106,29 @@ def assess_decision_evidence_packet_readiness(
     unique_supporting_ids = _unique(collected.supporting_evidence_ids)
     unique_conflicting_ids = _unique(collected.conflicting_evidence_ids)
     unique_reconstruction_ids = _unique(collected.reconstruction_reference_ids)
+    unique_reconstruction_kinds = _unique(collected.reconstruction_reference_kinds)
     if unique_conflicting_ids:
         return _readiness_failure(
             DecisionEvidencePacketReadinessFailureMode.MATERIAL_CONFLICT_UNRESOLVED,
             "Material claims cannot have unresolved conflicting evidence.",
+            provenance_reconstruction_complete=bool(unique_reconstruction_ids),
+            claim_support_complete=bool(unique_supporting_ids),
+            correctness_support_complete=False,
+            correctness_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.MATERIAL_CONFLICT_UNRESOLVED
+            ),
             packet_ids=unique_packet_ids,
             supporting_evidence_ids=unique_supporting_ids,
             conflicting_evidence_ids=unique_conflicting_ids,
             reconstruction_reference_ids=unique_reconstruction_ids,
+            reconstruction_reference_kinds=unique_reconstruction_kinds,
         )
     incomplete = _incomplete_support_failure(
         readiness_gating_claim_ids=collected.readiness_gating_claim_ids,
         packet_ids=unique_packet_ids,
         supporting_evidence_ids=unique_supporting_ids,
         reconstruction_reference_ids=unique_reconstruction_ids,
+        reconstruction_reference_kinds=unique_reconstruction_kinds,
     )
     if incomplete is not None:
         return incomplete
@@ -118,7 +143,17 @@ def assess_decision_evidence_packet_readiness(
             "Rejected evidence cannot be cited as supporting packet evidence.",
             packet_ids=unique_packet_ids,
             supporting_evidence_ids=unique_supporting_ids,
+            provenance_reconstruction_complete=bool(unique_reconstruction_ids),
+            claim_support_complete=False,
+            correctness_support_complete=False,
+            claim_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.REJECTED_EVIDENCE_CITED
+            ),
+            correctness_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.REJECTED_EVIDENCE_CITED
+            ),
             reconstruction_reference_ids=unique_reconstruction_ids,
+            reconstruction_reference_kinds=unique_reconstruction_kinds,
             rejected_supporting_evidence_ids=rejected_supporting_ids,
         )
 
@@ -126,10 +161,14 @@ def assess_decision_evidence_packet_readiness(
         complete=_COMPLETE_READINESS.complete,
         failure_mode=_COMPLETE_READINESS.failure_mode,
         message=_COMPLETE_READINESS.message,
+        provenance_reconstruction_complete=True,
+        claim_support_complete=True,
+        correctness_support_complete=True,
         packet_ids=unique_packet_ids,
         supporting_evidence_ids=unique_supporting_ids,
         conflicting_evidence_ids=unique_conflicting_ids,
         reconstruction_reference_ids=unique_reconstruction_ids,
+        reconstruction_reference_kinds=unique_reconstruction_kinds,
     )
 
 
@@ -140,6 +179,7 @@ class _CollectedPacketSupport:
     supporting_evidence_ids: tuple[str, ...]
     conflicting_evidence_ids: tuple[str, ...]
     reconstruction_reference_ids: tuple[str, ...]
+    reconstruction_reference_kinds: tuple[str, ...]
 
 
 def _collect_packet_support_details(
@@ -153,6 +193,7 @@ def _collect_packet_support_details(
     supporting_evidence_ids: list[str] = []
     conflicting_evidence_ids: list[str] = []
     reconstruction_reference_ids: list[str] = []
+    reconstruction_reference_kinds: list[str] = []
 
     for packet in packets:
         if _risk_tier_mismatch(packet.risk_tier, required_risk_tier):
@@ -162,6 +203,9 @@ def _collect_packet_support_details(
             )
         packet_ids.append(packet.packet_id)
         reconstruction_reference_ids.extend(packet.reconstruction_reference_ids)
+        reconstruction_reference_kinds.extend(
+            _canonical_reconstruction_reference_kind_values(packet)
+        )
         for claim in packet.material_claims:
             readiness_gating_claim_ids.append(claim.claim_id)
             supporting_evidence_ids.extend(claim.evidence.supporting_evidence_ids)
@@ -189,6 +233,7 @@ def _collect_packet_support_details(
         supporting_evidence_ids=tuple(supporting_evidence_ids),
         conflicting_evidence_ids=tuple(conflicting_evidence_ids),
         reconstruction_reference_ids=tuple(reconstruction_reference_ids),
+        reconstruction_reference_kinds=tuple(reconstruction_reference_kinds),
     )
 
 
@@ -198,6 +243,7 @@ def _incomplete_support_failure(
     packet_ids: tuple[str, ...],
     supporting_evidence_ids: tuple[str, ...],
     reconstruction_reference_ids: tuple[str, ...],
+    reconstruction_reference_kinds: tuple[str, ...],
 ) -> DecisionEvidencePacketReadiness | None:
     if readiness_gating_claim_ids and not supporting_evidence_ids:
         return _readiness_failure(
@@ -206,17 +252,45 @@ def _incomplete_support_failure(
                 "Material claims require supporting evidence from a decision "
                 "evidence packet."
             ),
+            provenance_reconstruction_complete=bool(reconstruction_reference_ids),
+            claim_support_complete=False,
+            correctness_support_complete=False,
+            claim_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING
+            ),
             packet_ids=packet_ids,
             reconstruction_reference_ids=reconstruction_reference_ids,
+            reconstruction_reference_kinds=reconstruction_reference_kinds,
         )
     if not reconstruction_reference_ids:
         return _readiness_failure(
             DecisionEvidencePacketReadinessFailureMode.RECONSTRUCTION_REFERENCES_MISSING,
             "Decision evidence packet support requires reconstruction references.",
+            provenance_reconstruction_complete=False,
+            claim_support_complete=bool(supporting_evidence_ids),
+            correctness_support_complete=True,
+            provenance_reconstruction_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.RECONSTRUCTION_REFERENCES_MISSING
+            ),
             packet_ids=packet_ids,
             supporting_evidence_ids=supporting_evidence_ids,
         )
     return None
+
+
+def _canonical_reconstruction_reference_kind_values(
+    packet: DecisionEvidencePacket,
+) -> tuple[str, ...]:
+    return tuple(
+        _canonical_reconstruction_reference_kind_value(reference.kind)
+        for reference in packet.reconstruction_references
+    )
+
+
+def _canonical_reconstruction_reference_kind_value(
+    kind: ReconstructionReferenceKind,
+) -> str:
+    return kind.value
 
 
 def _rejected_supporting_ids(
@@ -248,18 +322,58 @@ def _readiness_failure(
     supporting_evidence_ids: tuple[str, ...] = (),
     conflicting_evidence_ids: tuple[str, ...] = (),
     reconstruction_reference_ids: tuple[str, ...] = (),
+    reconstruction_reference_kinds: tuple[str, ...] = (),
     rejected_supporting_evidence_ids: tuple[str, ...] = (),
+    provenance_reconstruction_complete: bool = False,
+    claim_support_complete: bool = False,
+    correctness_support_complete: bool = False,
+    provenance_reconstruction_failure_mode: (DecisionEvidencePacketReadinessFailureMode)
+    | None = None,
+    claim_support_failure_mode: (DecisionEvidencePacketReadinessFailureMode)
+    | None = None,
+    correctness_support_failure_mode: (DecisionEvidencePacketReadinessFailureMode)
+    | None = None,
 ) -> DecisionEvidencePacketReadiness:
     return DecisionEvidencePacketReadiness(
         complete=False,
         failure_mode=failure_mode,
         message=message,
+        provenance_reconstruction_complete=provenance_reconstruction_complete,
+        claim_support_complete=claim_support_complete,
+        correctness_support_complete=correctness_support_complete,
+        provenance_reconstruction_failure_mode=_dimension_failure_mode(
+            complete=provenance_reconstruction_complete,
+            explicit_failure_mode=provenance_reconstruction_failure_mode,
+            fallback_failure_mode=failure_mode,
+        ),
+        claim_support_failure_mode=_dimension_failure_mode(
+            complete=claim_support_complete,
+            explicit_failure_mode=claim_support_failure_mode,
+            fallback_failure_mode=failure_mode,
+        ),
+        correctness_support_failure_mode=_dimension_failure_mode(
+            complete=correctness_support_complete,
+            explicit_failure_mode=correctness_support_failure_mode,
+            fallback_failure_mode=failure_mode,
+        ),
         packet_ids=packet_ids,
         supporting_evidence_ids=supporting_evidence_ids,
         conflicting_evidence_ids=conflicting_evidence_ids,
         reconstruction_reference_ids=reconstruction_reference_ids,
+        reconstruction_reference_kinds=reconstruction_reference_kinds,
         rejected_supporting_evidence_ids=rejected_supporting_evidence_ids,
     )
+
+
+def _dimension_failure_mode(
+    *,
+    complete: bool,
+    explicit_failure_mode: DecisionEvidencePacketReadinessFailureMode | None,
+    fallback_failure_mode: DecisionEvidencePacketReadinessFailureMode,
+) -> DecisionEvidencePacketReadinessFailureMode:
+    if complete:
+        return DecisionEvidencePacketReadinessFailureMode.NONE
+    return explicit_failure_mode or fallback_failure_mode
 
 
 def _clean_identifier_tuple(values: Iterable[str]) -> tuple[str, ...]:

@@ -248,12 +248,33 @@ def _authority_governance_result(
                         readiness.failure_mode.value
                     ),
                     "decision_evidence_packet_readiness_message": readiness.message,
+                    "decision_evidence_provenance_reconstruction_complete": (
+                        readiness.provenance_reconstruction_complete
+                    ),
+                    "decision_evidence_claim_support_complete": (
+                        readiness.claim_support_complete
+                    ),
+                    "decision_evidence_correctness_support_complete": (
+                        readiness.correctness_support_complete
+                    ),
+                    "decision_evidence_provenance_reconstruction_failure_mode": (
+                        readiness.provenance_reconstruction_failure_mode.value
+                    ),
+                    "decision_evidence_claim_support_failure_mode": (
+                        readiness.claim_support_failure_mode.value
+                    ),
+                    "decision_evidence_correctness_support_failure_mode": (
+                        readiness.correctness_support_failure_mode.value
+                    ),
                     "decision_evidence_packet_ids": list(readiness.packet_ids),
                     "decision_evidence_supporting_evidence_ids": list(
                         readiness.supporting_evidence_ids
                     ),
                     "decision_evidence_reconstruction_reference_ids": list(
                         readiness.reconstruction_reference_ids
+                    ),
+                    "decision_evidence_reconstruction_reference_kinds": list(
+                        readiness.reconstruction_reference_kinds
                     ),
                     "rejected_supporting_evidence_ids": list(
                         readiness.rejected_supporting_evidence_ids

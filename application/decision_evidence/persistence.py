@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -209,14 +209,31 @@ class DecisionEvidencePacketPersistenceService:
         bundle_cache: dict[tuple[str, str], CompletedRunBundle] = {}
         for reference in packet.reconstruction_references:
             _validate_source_of_truth(reference)
-            if reference.kind is ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN:
-                await self._validate_completed_workflow_run(reference, bundle_cache)
-            elif reference.kind is ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT:
-                await self._validate_workflow_node_output(reference, bundle_cache)
-            elif reference.kind is ReconstructionReferenceKind.EVALUATION_RUN:
-                await self._validate_evaluation_run(reference)
-            elif reference.kind is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT:
-                await self._validate_evaluation_metric_result(reference)
+            synchronous_validator = _RECONSTRUCTION_REFERENCE_VALIDATORS.get(
+                reference.kind
+            )
+            if synchronous_validator is not None:
+                synchronous_validator(reference)
+                continue
+            await self._validate_canonical_source_record(reference, bundle_cache)
+
+    async def _validate_canonical_source_record(
+        self,
+        reference: ReconstructionReference,
+        bundle_cache: dict[tuple[str, str], CompletedRunBundle],
+    ) -> None:
+        if reference.kind is ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN:
+            await self._validate_completed_workflow_run(reference, bundle_cache)
+        elif reference.kind is ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT:
+            await self._validate_workflow_node_output(reference, bundle_cache)
+        elif reference.kind is ReconstructionReferenceKind.EVALUATION_RUN:
+            await self._validate_evaluation_run(reference)
+        elif reference.kind is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT:
+            await self._validate_evaluation_metric_result(reference)
+        else:
+            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+                f"unsupported reconstruction reference kind '{reference.kind.value}'."
+            )
 
     async def _validate_completed_workflow_run(
         self,
@@ -462,6 +479,105 @@ def _datetime_value(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
+
+
+def _validate_canonical_domain_record_reference(
+    reference: ReconstructionReference,
+) -> None:
+    _require_source_of_truth(
+        reference,
+        expected=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        label="canonical domain record reconstruction reference",
+    )
+
+
+def _validate_rag_retrieval_context_reference(
+    reference: ReconstructionReference,
+) -> None:
+    label = "RAG retrieval context reconstruction reference"
+    _require_source_of_truth(
+        reference,
+        expected=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        label=label,
+    )
+    _require_snapshot_id(reference, label=label)
+    _require_content_digest(reference, label=label)
+
+
+def _validate_rag_citation_context_reference(
+    reference: ReconstructionReference,
+) -> None:
+    label = "RAG citation context reconstruction reference"
+    _require_source_of_truth(
+        reference,
+        expected=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        label=label,
+    )
+    _require_snapshot_id(reference, label=label)
+    _require_content_digest(reference, label=label)
+
+
+def _validate_trace_context_reference(reference: ReconstructionReference) -> None:
+    label = "trace context reconstruction reference"
+    _require_source_of_truth(
+        reference,
+        expected=SourceOfTruthCategory.TELEMETRY,
+        label=label,
+    )
+    _require_snapshot_id(reference, label=label)
+    _require_content_digest(reference, label=label)
+
+
+def _validate_linked_artifact_reference(reference: ReconstructionReference) -> None:
+    if reference.source_of_truth is None:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            "linked artifact reconstruction reference must identify its source of "
+            "truth."
+        )
+
+
+def _require_source_of_truth(
+    reference: ReconstructionReference,
+    *,
+    expected: SourceOfTruthCategory,
+    label: str,
+) -> None:
+    if reference.source_of_truth is not expected:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            f"{label} must identify {expected.value} as its source of truth."
+        )
+
+
+def _require_snapshot_id(reference: ReconstructionReference, *, label: str) -> None:
+    if reference.snapshot_id is None:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            f"{label} must include a snapshot_id."
+        )
+
+
+def _require_content_digest(reference: ReconstructionReference, *, label: str) -> None:
+    if reference.content_digest is None:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            f"{label} must include a content digest."
+        )
+
+
+_RECONSTRUCTION_REFERENCE_VALIDATORS: Mapping[
+    ReconstructionReferenceKind,
+    Callable[[ReconstructionReference], None],
+] = {
+    ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD: (
+        _validate_canonical_domain_record_reference
+    ),
+    ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT: (
+        _validate_rag_retrieval_context_reference
+    ),
+    ReconstructionReferenceKind.RAG_CITATION_CONTEXT: (
+        _validate_rag_citation_context_reference
+    ),
+    ReconstructionReferenceKind.TRACE_CONTEXT: _validate_trace_context_reference,
+    ReconstructionReferenceKind.LINKED_ARTIFACT: _validate_linked_artifact_reference,
+}
 
 
 def _validate_source_of_truth(reference: ReconstructionReference) -> None:

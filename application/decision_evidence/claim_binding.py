@@ -4,6 +4,9 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
 
+from core.storage.persistence.claim_evidence_links import (
+    ClaimEvidenceLinkRecordProtocol,
+)
 from core.storage.persistence.recommendations import (
     RecommendationClaimEvidenceLinkRecord,
     new_recommendation_claim_evidence_link_id,
@@ -50,6 +53,13 @@ _ClaimEvidenceLinkFactory = Callable[
     [_ClaimEvidenceBindingTargetT, EvidenceClaimReference],
     _ClaimEvidenceLinkT,
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class _MaterialClaimEvidenceBindingKey:
+    claim_target_id: str
+    packet_id: str
+    packet_claim_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +197,62 @@ class DecisionEvidenceClaimBindingService:
         return canonical
 
 
+def has_material_claim_references(
+    targets: Sequence[_ClaimEvidenceBindingTarget],
+) -> bool:
+    """Return whether any binding target carries readiness-gating material refs."""
+
+    return bool(_required_material_claim_binding_keys(targets))
+
+
+def ensure_material_claim_evidence_links_bound(
+    *,
+    targets: Sequence[_ClaimEvidenceBindingTarget],
+    links: Iterable[ClaimEvidenceLinkRecordProtocol],
+    boundary_name: str,
+) -> None:
+    """Fail closed when material target refs lack matching durable link records."""
+
+    required_keys = _required_material_claim_binding_keys(targets)
+    link_records = tuple(links)
+    material_link_keys = _material_claim_link_keys(link_records)
+    unexpected_keys = material_link_keys - required_keys
+    if unexpected_keys:
+        unexpected = _first_sorted_key(unexpected_keys)
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} received unexpected material decision-evidence "
+            f"packet binding for target {unexpected.claim_target_id!r}, "
+            f"packet {unexpected.packet_id!r}, claim "
+            f"{unexpected.packet_claim_id!r}."
+        )
+
+    if not required_keys:
+        return
+
+    missing_keys = required_keys - material_link_keys
+    if missing_keys:
+        missing = _first_sorted_key(missing_keys)
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {missing.packet_claim_id!r} on "
+            f"target {missing.claim_target_id!r} lacks required "
+            "decision-evidence packet binding."
+        )
+
+    for link in link_records:
+        if not link.material:
+            continue
+        if not link.supporting_evidence_ids:
+            raise ClaimEvidenceBindingError(
+                f"{boundary_name} material claim {link.packet_claim_id!r} "
+                "lacks supporting evidence identifiers."
+            )
+        if not link.reconstruction_reference_ids:
+            raise ClaimEvidenceBindingError(
+                f"{boundary_name} material claim {link.packet_claim_id!r} "
+                "lacks reconstruction reference identifiers."
+            )
+
+
 def _report_claim_evidence_link(
     *,
     report_id: str,
@@ -241,6 +307,44 @@ def _recommendation_claim_evidence_link(
         uncertainty_ids=canonical.uncertainty_ids,
         limitation_ids=canonical.limitation_ids,
     )
+
+
+def _required_material_claim_binding_keys(
+    targets: Sequence[_ClaimEvidenceBindingTarget],
+) -> frozenset[_MaterialClaimEvidenceBindingKey]:
+    return frozenset(
+        _MaterialClaimEvidenceBindingKey(
+            claim_target_id=target.claim_target_id,
+            packet_id=reference.packet_id,
+            packet_claim_id=reference.claim_id,
+        )
+        for target in targets
+        for reference in target.claim_references
+        if reference.material
+    )
+
+
+def _material_claim_link_keys(
+    links: Sequence[ClaimEvidenceLinkRecordProtocol],
+) -> frozenset[_MaterialClaimEvidenceBindingKey]:
+    return frozenset(
+        _MaterialClaimEvidenceBindingKey(
+            claim_target_id=link.claim_target_id,
+            packet_id=link.packet_id,
+            packet_claim_id=link.packet_claim_id,
+        )
+        for link in links
+        if link.material
+    )
+
+
+def _first_sorted_key(
+    keys: frozenset[_MaterialClaimEvidenceBindingKey],
+) -> _MaterialClaimEvidenceBindingKey:
+    return sorted(
+        keys,
+        key=lambda key: (key.claim_target_id, key.packet_id, key.packet_claim_id),
+    )[0]
 
 
 def _canonical_reference_for_claim(
@@ -346,6 +450,8 @@ __all__ = [
     "ClaimEvidenceBindingError",
     "DecisionEvidenceClaimBindingService",
     "DecisionEvidencePacketReader",
+    "ensure_material_claim_evidence_links_bound",
+    "has_material_claim_references",
     "RecommendationClaimEvidenceBindingTarget",
     "ReportClaimEvidenceBindingTarget",
 ]

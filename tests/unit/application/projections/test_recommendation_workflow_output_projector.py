@@ -39,6 +39,7 @@ from core.storage.persistence.recommendations import (
 from domain.authority import GateProfile, RiskTier
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    ClaimMaterialityTier,
 )
 from domain.workflow_outputs import (
     TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
@@ -205,6 +206,87 @@ async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> No
     serialized = str(claim_metadata)
     assert "canonical evidence summary" not in serialized
     assert "raw_payload" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_fails_closed_for_missing_material_binding() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+        claim_binding_service=cast(
+            DecisionEvidenceClaimBindingService,
+            _FakeRecommendationClaimBindingService(()),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_claim_references())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "ClaimEvidenceBindingError"
+    assert "material claim 'claim-1'" in str(outcome.error_message)
+    assert "lacks required decision-evidence packet binding" in str(
+        outcome.error_message
+    )
+    assert repository.bundles == []
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_fails_closed_for_invalid_material_binding() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+        claim_binding_service=cast(
+            DecisionEvidenceClaimBindingService,
+            _FakeRecommendationClaimBindingService(
+                (_recommendation_claim_link(packet_id="packet-substituted"),)
+            ),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_claim_references())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "ClaimEvidenceBindingError"
+    assert "unexpected material decision-evidence packet binding" in str(
+        outcome.error_message
+    )
+    assert repository.bundles == []
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_allows_contextual_claim_without_binding() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_contextual_claim_reference())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    assert repository.bundles[0].claim_evidence_links == ()
+    claim_metadata = cast(
+        dict[str, JsonValue],
+        repository.bundles[0]
+        .rationales[0]
+        .metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
+    )
+    claim_references = cast(
+        list[dict[str, JsonValue]],
+        claim_metadata["claim_references"],
+    )
+    assert claim_references[0]["materiality"] == ClaimMaterialityTier.CONTEXTUAL.value
 
 
 @pytest.mark.asyncio
@@ -412,6 +494,7 @@ def _node_with_model_claims() -> CompletedNodeOutputRecord:
 def _claim_reference_metadata(
     *,
     supporting_evidence_ids: list[str] | None = None,
+    materiality: ClaimMaterialityTier = ClaimMaterialityTier.READINESS_GATING,
 ) -> dict[str, JsonValue]:
     supporting_ids = (
         ["evidence-1"] if supporting_evidence_ids is None else supporting_evidence_ids
@@ -429,7 +512,8 @@ def _claim_reference_metadata(
                     "output_id": "node-output-trade",
                     "claim_id": ("claim-1" if supporting_ids else "claim-unsupported"),
                     "risk_tier": RiskTier.ENHANCED.value,
-                    "material": True,
+                    "material": materiality.gates_readiness,
+                    "materiality": materiality.value,
                     "supporting_evidence_ids": supporting_ids,
                     "reconstruction_reference_ids": ["workflow-node"],
                     "uncertainty_ids": ["uncertainty-1"],
@@ -452,6 +536,21 @@ def _node_with_claim_references() -> CompletedNodeOutputRecord:
     return replace(node, outputs=cast(JsonObject, outputs))
 
 
+def _node_with_contextual_claim_reference() -> CompletedNodeOutputRecord:
+    node = _node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = cast(
+        JsonValue,
+        _claim_reference_metadata(
+            supporting_evidence_ids=[],
+            materiality=ClaimMaterialityTier.CONTEXTUAL,
+        ),
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))
+
+
 def _node_with_unsupported_claim_reference() -> CompletedNodeOutputRecord:
     node = _node()
     outputs = dict(node.outputs)
@@ -462,3 +561,36 @@ def _node_with_unsupported_claim_reference() -> CompletedNodeOutputRecord:
     )
     outputs["features"] = cast(JsonValue, features)
     return replace(node, outputs=cast(JsonObject, outputs))
+
+
+def _recommendation_claim_link(
+    *,
+    packet_id: str = "packet-1",
+    packet_claim_id: str = "claim-1",
+) -> RecommendationClaimEvidenceLinkRecord:
+    return RecommendationClaimEvidenceLinkRecord(
+        link_id=(
+            "recommendation:exec-1:SPY:trade_recommendation:claim_evidence:"
+            "recommendation:exec-1:SPY:trade_recommendation:rationale:"
+            "trade_recommendation:recommendation:exec-1:SPY:trade_recommendation:"
+            f"rationale:trade_recommendation:claim:claim-1:{packet_id}:"
+            f"{packet_claim_id}"
+        ),
+        recommendation_id="recommendation:exec-1:SPY:trade_recommendation",
+        rationale_id=(
+            "recommendation:exec-1:SPY:trade_recommendation:rationale:"
+            "trade_recommendation"
+        ),
+        claim_target_id=(
+            "recommendation:exec-1:SPY:trade_recommendation:rationale:"
+            "trade_recommendation:claim:claim-1"
+        ),
+        packet_id=packet_id,
+        packet_claim_id=packet_claim_id,
+        risk_tier=RiskTier.ENHANCED,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )

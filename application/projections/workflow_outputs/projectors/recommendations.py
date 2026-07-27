@@ -8,6 +8,8 @@ from application.decision_evidence.claim_binding import (
     ClaimEvidenceBindingError,
     DecisionEvidenceClaimBindingService,
     RecommendationClaimEvidenceBindingTarget,
+    ensure_material_claim_evidence_links_bound,
+    has_material_claim_references,
 )
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketReconstructionError,
@@ -367,22 +369,31 @@ async def _bind_recommendation_claim_evidence(
     references = _rationale_claim_references(rationale)
     if not references:
         return ()
-    if claim_binding_service is None:
-        raise ClaimEvidenceBindingError(
-            "canonical claim evidence binding service is required for "
-            "recommendation claim references."
+    targets = tuple(
+        RecommendationClaimEvidenceBindingTarget(
+            rationale_id=rationale.rationale_id,
+            claim_target_id=f"{rationale.rationale_id}:claim:{reference.claim_id}",
+            claim_references=(reference,),
         )
-    return await claim_binding_service.bind_recommendation_claims(
-        recommendation_id=recommendation_id,
-        targets=tuple(
-            RecommendationClaimEvidenceBindingTarget(
-                rationale_id=rationale.rationale_id,
-                claim_target_id=f"{rationale.rationale_id}:claim:{reference.claim_id}",
-                claim_references=(reference,),
-            )
-            for reference in references
-        ),
+        for reference in references
     )
+    if claim_binding_service is None:
+        if has_material_claim_references(targets):
+            raise ClaimEvidenceBindingError(
+                "canonical claim evidence binding service is required for "
+                "material recommendation claim references."
+            )
+        return ()
+    links = await claim_binding_service.bind_recommendation_claims(
+        recommendation_id=recommendation_id,
+        targets=targets,
+    )
+    ensure_material_claim_evidence_links_bound(
+        targets=targets,
+        links=links,
+        boundary_name="recommendation projection",
+    )
+    return links
 
 
 def _rationale_claim_references(

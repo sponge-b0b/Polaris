@@ -36,6 +36,7 @@ from core.storage.persistence.reports import (
 from domain.authority import RiskTier
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    ClaimMaterialityTier,
     EvidenceClaimReference,
 )
 from domain.llm import ReasoningTraceViolationError
@@ -343,6 +344,87 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
     )
 
 
+@pytest.mark.asyncio
+async def test_morning_report_fails_closed_for_missing_material_binding() -> None:
+    reference = _material_claim_reference()
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(
+        repository,
+        claim_binding_service=_FakeReportClaimBindingService(()),
+    )
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is False
+    assert "material claim 'claim-1'" in str(result.error)
+    assert "lacks required decision-evidence packet binding" in str(result.error)
+    assert repository.report is None
+
+
+@pytest.mark.asyncio
+async def test_morning_report_fails_closed_for_invalid_material_binding() -> None:
+    reference = _material_claim_reference()
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(
+        repository,
+        claim_binding_service=_FakeReportClaimBindingService(
+            (
+                _report_claim_link(
+                    packet_id="packet-substituted",
+                    packet_claim_id="claim-substituted",
+                ),
+            )
+        ),
+    )
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is False
+    assert "unexpected material decision-evidence packet binding" in str(result.error)
+    assert repository.report is None
+
+
+@pytest.mark.asyncio
+async def test_morning_report_allows_contextual_claim_without_binding() -> None:
+    reference = EvidenceClaimReference(
+        packet_id="packet-context",
+        output_id="report-output-context",
+        claim_id="claim-context",
+        risk_tier=RiskTier.VIGILANT,
+        materiality=ClaimMaterialityTier.CONTEXTUAL,
+        supporting_evidence_ids=(),
+        reconstruction_reference_ids=(),
+    )
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(repository)
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is True
+    assert repository.report is not None
+    assert repository.claim_evidence_links == ()
+    claim_metadata = cast(
+        dict[str, Any],
+        repository.sections[0].metadata[
+            DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY
+        ],
+    )
+    claim_references = cast(list[dict[str, Any]], claim_metadata["claim_references"])
+    assert claim_references[0]["materiality"] == ClaimMaterialityTier.CONTEXTUAL.value
+
+
 def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
     document = _document()
     markdown = MorningReportMarkdownRenderer().render(
@@ -493,6 +575,47 @@ class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
     ) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
         self.targets = tuple(targets)
         return self.links
+
+
+def _material_claim_reference() -> EvidenceClaimReference:
+    return EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="report-output-1",
+        claim_id="claim-1",
+        risk_tier=RiskTier.VIGILANT,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
+
+
+def _report_claim_link(
+    *,
+    packet_id: str = "packet-1",
+    packet_claim_id: str = "claim-1",
+) -> ReportClaimEvidenceLinkRecord:
+    return ReportClaimEvidenceLinkRecord(
+        link_id=(
+            "morning_report:exec-evidence:claim_evidence:"
+            "morning_report:exec-evidence:section:executive_summary:"
+            "morning_report:exec-evidence:section:executive_summary:"
+            f"bullet:0:{packet_id}:{packet_claim_id}"
+        ),
+        report_id="morning_report:exec-evidence",
+        section_id="morning_report:exec-evidence:section:executive_summary",
+        claim_target_id=(
+            "morning_report:exec-evidence:section:executive_summary:bullet:0"
+        ),
+        packet_id=packet_id,
+        packet_claim_id=packet_claim_id,
+        risk_tier=RiskTier.VIGILANT,
+        material=True,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+        uncertainty_ids=("uncertainty-1",),
+        limitation_ids=("limitation-1",),
+    )
 
 
 def _document_with_claim_reference(

@@ -10,6 +10,8 @@ from application.decision_evidence.claim_binding import (
     ClaimEvidenceBindingError,
     DecisionEvidenceClaimBindingService,
     ReportClaimEvidenceBindingTarget,
+    ensure_material_claim_evidence_links_bound,
+    has_material_claim_references,
 )
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketReconstructionError,
@@ -252,14 +254,22 @@ async def _bind_report_claim_evidence(
     if not targets:
         return ()
     if claim_binding_service is None:
-        raise ClaimEvidenceBindingError(
-            "canonical claim evidence binding service is required for report "
-            "claim references."
-        )
-    return await claim_binding_service.bind_report_claims(
+        if has_material_claim_references(targets):
+            raise ClaimEvidenceBindingError(
+                "canonical claim evidence binding service is required for "
+                "material report claim references."
+            )
+        return ()
+    links = await claim_binding_service.bind_report_claims(
         report_id=report_id,
         targets=targets,
     )
+    ensure_material_claim_evidence_links_bound(
+        targets=targets,
+        links=links,
+        boundary_name="report persistence",
+    )
+    return links
 
 
 def _report_claim_evidence_binding_targets(

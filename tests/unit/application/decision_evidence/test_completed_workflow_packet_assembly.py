@@ -21,6 +21,12 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunBundle,
     CompletedRunRecord,
 )
+from core.telemetry.collectors.telemetry_collector import TelemetryCollector
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
+from core.telemetry.metrics.metrics_store import MetricsStore
+from core.telemetry.observability.observability_manager import ObservabilityManager
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -207,6 +213,39 @@ async def test_enhanced_and_vigilant_assembly_fails_without_completed_run(
 
 
 @pytest.mark.asyncio
+async def test_assembly_telemetry_failures_do_not_replace_domain_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    observability = ObservabilityManager(
+        collector=TelemetryCollector(
+            sinks=(FailingTelemetrySink(),),
+            fail_fast=True,
+            metrics_store=MetricsStore(),
+        ),
+    )
+    assembler = CompletedWorkflowEvidencePacketAssembler(
+        completed_run_archive=FakeCompletedRunArchive(None),
+        telemetry=ApplicationServiceTelemetry(observability),
+    )
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(MissingCompletedWorkflowEvidenceError):
+            await assembler.assemble(_request())
+
+    telemetry_failure_logs = [
+        record
+        for record in caplog.records
+        if record.message == "Decision evidence packet telemetry emission failed."
+    ]
+    assert len(telemetry_failure_logs) == 1
+    assert telemetry_failure_logs[0].exc_info is not None
+    assert telemetry_failure_logs[0].error_type == (
+        "MissingCompletedWorkflowEvidenceError"
+    )
+    assert telemetry_failure_logs[0].telemetry_error_type == "RuntimeError"
+
+
+@pytest.mark.asyncio
 async def test_assembly_fails_when_required_node_output_is_missing() -> None:
     assembler = CompletedWorkflowEvidencePacketAssembler(
         completed_run_archive=FakeCompletedRunArchive(
@@ -250,6 +289,11 @@ async def test_assembly_rejects_substituted_workflow_node_evidence() -> None:
         match="does not belong to completed workflow run 'run-1'",
     ):
         await assembler.assemble(_request())
+
+
+class FailingTelemetrySink:
+    async def emit(self, event: object) -> None:
+        raise RuntimeError("telemetry sink unavailable")
 
 
 class FakeCompletedRunArchive(CompletedRunArchive):

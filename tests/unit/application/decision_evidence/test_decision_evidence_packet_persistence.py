@@ -408,7 +408,15 @@ async def test_reconstruction_telemetry_failures_do_not_replace_domain_failure(
         with pytest.raises(MissingDecisionEvidenceSourceError):
             await service.reconstruct_packet("packet-1")
 
-    assert "Decision evidence packet telemetry emission failed." in caplog.text
+    telemetry_failure_logs = [
+        record
+        for record in caplog.records
+        if record.message == "Decision evidence packet telemetry emission failed."
+    ]
+    assert len(telemetry_failure_logs) == 1
+    assert telemetry_failure_logs[0].exc_info is not None
+    assert telemetry_failure_logs[0].error_type == "MissingDecisionEvidenceSourceError"
+    assert telemetry_failure_logs[0].telemetry_error_type == "RuntimeError"
 
 
 @pytest.mark.asyncio

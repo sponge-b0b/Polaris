@@ -190,13 +190,14 @@ class DecisionEvidencePacketPersistenceService:
                     record=record,
                 ),
             )
-        except Exception:
+        except (RuntimeError, OSError) as telemetry_error:
             logger.error(
                 "Decision evidence packet telemetry emission failed.",
                 extra={
                     "packet_id": packet_id,
                     "operation": "decision_evidence_packet_reconstruction",
                     "error_type": type(error).__name__,
+                    "telemetry_error_type": type(telemetry_error).__name__,
                 },
                 exc_info=True,
             )

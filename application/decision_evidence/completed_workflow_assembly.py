@@ -317,7 +317,7 @@ class CompletedWorkflowEvidencePacketAssembler:
                 error=error,
                 attributes=_assembly_telemetry_attributes(request),
             )
-        except Exception:
+        except (RuntimeError, OSError) as telemetry_error:
             logger.error(
                 "Decision evidence packet telemetry emission failed.",
                 extra={
@@ -326,6 +326,7 @@ class CompletedWorkflowEvidencePacketAssembler:
                     "execution_id": request.execution_id,
                     "operation": "decision_evidence_packet_assembly",
                     "error_type": type(error).__name__,
+                    "telemetry_error_type": type(telemetry_error).__name__,
                 },
                 exc_info=True,
             )

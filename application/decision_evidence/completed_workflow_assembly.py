@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -7,6 +8,7 @@ from dataclasses import dataclass, field
 from application.projections.workflow_output_fingerprints import (
     calculate_workflow_output_source_fingerprint,
 )
+from core.security.sensitive_data import sanitize_sensitive_value
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
     CompletedRunArchive,
@@ -29,6 +31,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 
 logger = logging.getLogger(__name__)
@@ -366,6 +369,12 @@ def assemble_decision_evidence_packet_from_completed_run(
                 reconstruction_reference_ids=(run_reference_id, node_reference_id),
                 summary=requirement.summary,
                 source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+                support_snapshot=_workflow_node_support_snapshot(
+                    requirement=requirement,
+                    run=bundle.run,
+                    node_output=node_output,
+                    content_digest=content_digest,
+                ),
             )
         )
         reconstruction_references.extend(
@@ -404,6 +413,7 @@ def assemble_decision_evidence_packet_from_completed_run(
                 ),
                 summary=provenance.summary,
                 source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                support_snapshot=_evaluation_provenance_support_snapshot(provenance),
             )
         )
         reconstruction_references.extend(provenance_references)
@@ -420,6 +430,66 @@ def assemble_decision_evidence_packet_from_completed_run(
         uncertainties=request.uncertainties,
         limitations=request.limitations,
     )
+
+
+def _workflow_node_support_snapshot(
+    *,
+    requirement: CompletedWorkflowNodeEvidenceRequirement,
+    run: CompletedRunRecord,
+    node_output: CompletedNodeOutputRecord,
+    content_digest: str,
+) -> SupportingEvidenceSnapshot:
+    content = {
+        "workflow_name": run.workflow_name,
+        "execution_id": run.execution_id,
+        "run_id": run.run_id,
+        "node_name": node_output.node_name,
+        "node_output_id": node_output.node_output_id,
+        "output_contract": node_output.output_contract,
+        "output_schema_version": node_output.output_schema_version,
+        "status": node_output.status,
+        "success": node_output.success,
+        "content_digest": content_digest,
+        "outputs": sanitize_sensitive_value(node_output.outputs),
+        "metadata": sanitize_sensitive_value(node_output.metadata),
+    }
+    summary = requirement.summary or f"Workflow node evidence {node_output.node_name}."
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"{requirement.evidence_id}:support-snapshot",
+        summary=summary,
+        redacted_content=_stable_snapshot_content(content),
+        source_label=f"workflow_node_output:{node_output.node_output_id}",
+    )
+
+
+def _evaluation_provenance_support_snapshot(
+    provenance: EvaluationProvenanceRequirement,
+) -> SupportingEvidenceSnapshot:
+    content = {
+        "evaluation_run_id": provenance.evaluation_run_id,
+        "metric_result_ids": provenance.metric_result_ids,
+        "model_version": provenance.model_version,
+        "profile_version": provenance.profile_version,
+        "prompt_version": provenance.prompt_version,
+        "rubric_version": provenance.rubric_version,
+        "dataset_id": provenance.dataset_id,
+        "dataset_version": provenance.dataset_version,
+        "metric_versions": dict(sorted(provenance.metric_versions.items())),
+        "evaluation_result_version": provenance.evaluation_result_version,
+        "evaluation_run_digest": provenance.evaluation_run_digest,
+        "metric_result_digests": dict(sorted(provenance.metric_result_digests.items())),
+    }
+    summary = provenance.summary or "Evaluation provenance supporting the claim."
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"{provenance.evidence_id}:support-snapshot",
+        summary=summary,
+        redacted_content=_stable_snapshot_content(content),
+        source_label=f"evaluation_run:{provenance.evaluation_run_id}",
+    )
+
+
+def _stable_snapshot_content(value: Mapping[str, object]) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
 def _evaluation_provenance_reconstruction_references(

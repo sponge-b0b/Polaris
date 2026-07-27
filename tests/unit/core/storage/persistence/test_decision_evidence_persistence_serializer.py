@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from core.storage.persistence.serializers import (
     DecisionEvidencePacketPersistenceSerializer,
 )
@@ -13,6 +15,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from tests.helpers.risk_authority_examples import authority_input_for_tier
 
@@ -47,6 +50,13 @@ def test_packet_serializer_stores_audit_data_and_durable_reconstruction_ids() ->
         "evidence-synthesis:node-output",
     )
     assert not hasattr(record, "metadata")
+    packet_snapshot = packet.evidence[0].support_snapshot
+    assert packet_snapshot is not None
+    support_snapshot = record.evidence_references[0]["support_snapshot"]
+    assert isinstance(support_snapshot, Mapping)
+    assert support_snapshot["snapshot_id"] == "evidence-synthesis:support-snapshot"
+    assert support_snapshot["redacted_content"] == "Selected bullish posture."
+    assert support_snapshot["content_digest"] == packet_snapshot.content_digest
     assert "outputs" not in record.evidence_references[0]
     assert "outputs" not in record.reconstruction_references[1]
 
@@ -99,6 +109,12 @@ def _packet() -> DecisionEvidencePacket:
                     "evidence-synthesis:node-output",
                 ),
                 summary="Persisted strategy synthesis node output.",
+                support_snapshot=SupportingEvidenceSnapshot(
+                    snapshot_id="evidence-synthesis:support-snapshot",
+                    summary="Persisted strategy synthesis node output.",
+                    redacted_content="Selected bullish posture.",
+                    source_label="workflow_node_output:node-output-synthesis",
+                ),
             ),
         ),
         reconstruction_references=(

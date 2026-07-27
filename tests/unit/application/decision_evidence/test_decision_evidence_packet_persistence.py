@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -13,9 +14,10 @@ from application.decision_evidence import (
     EvaluationProvenanceRequirement,
     MalformedDecisionEvidenceReconstructionIdentifierError,
     MissingCompletedWorkflowEvidenceError,
-    MissingDecisionEvidenceSourceError,
+    MissingDecisionEvidenceSnapshotError,
     StaleDecisionEvidenceSourceError,
     SubstitutedDecisionEvidenceSourceError,
+    TamperedDecisionEvidenceSnapshotError,
     calculate_completed_workflow_node_evidence_digest,
     calculate_evaluation_metric_result_evidence_digest,
     calculate_evaluation_run_evidence_digest,
@@ -53,6 +55,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from domain.evaluation import EvaluationStatus, EvaluationTargetType
 from tests.helpers.risk_authority_examples import authority_input_for_tier
@@ -77,7 +80,13 @@ async def test_persists_references_and_reconstructs_from_runtime_ids() -> None:
         "evidence-synthesis:completed-run",
         "evidence-synthesis:node-output",
     )
-    assert "selected_perspective" not in str(repository.records["packet-1"])
+    raw_snapshot = repository.records["packet-1"].evidence_references[0][
+        "support_snapshot"
+    ]
+    assert isinstance(raw_snapshot, Mapping)
+    redacted_content = raw_snapshot["redacted_content"]
+    assert isinstance(redacted_content, str)
+    assert '"selected_perspective":"bull"' in redacted_content
 
 
 @pytest.mark.asyncio
@@ -192,7 +201,7 @@ async def test_reconstruction_reports_malformed_rag_context_reference() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reconstruction_reports_missing_evaluation_record() -> None:
+async def test_reconstruction_falls_back_when_evaluation_record_is_missing() -> None:
     bundle = _bundle()
     evaluation_run = _evaluation_run()
     metric_result = _metric_result(run_id=evaluation_run.run_id)
@@ -209,15 +218,13 @@ async def test_reconstruction_reports_missing_evaluation_record() -> None:
     )
     await service.persist_packet(packet)
 
-    with pytest.raises(
-        MissingDecisionEvidenceSourceError,
-        match="evaluation run source record 'evaluation-run-1' was not found",
-    ):
-        await service.reconstruct_packet("packet-1")
+    reconstructed = await service.reconstruct_packet("packet-1")
+
+    assert reconstructed == packet
 
 
 @pytest.mark.asyncio
-async def test_reconstruction_reports_missing_evaluation_metric_record() -> None:
+async def test_reconstruction_falls_back_when_evaluation_metric_is_missing() -> None:
     bundle = _bundle()
     evaluation_run = _evaluation_run()
     metric_result = _metric_result(run_id=evaluation_run.run_id)
@@ -236,11 +243,9 @@ async def test_reconstruction_reports_missing_evaluation_metric_record() -> None
     )
     await service.persist_packet(packet)
 
-    with pytest.raises(
-        MissingDecisionEvidenceSourceError,
-        match="evaluation metric result source record 'metric-result-1' was not found",
-    ):
-        await service.reconstruct_packet("packet-1")
+    reconstructed = await service.reconstruct_packet("packet-1")
+
+    assert reconstructed == packet
 
 
 @pytest.mark.asyncio
@@ -331,7 +336,7 @@ async def test_persistence_redacts_sensitive_evaluation_provenance_metadata() ->
 
 
 @pytest.mark.asyncio
-async def test_reconstruction_reports_missing_canonical_source_record() -> None:
+async def test_reconstruction_falls_back_to_retained_material_snapshots() -> None:
     packet = await _packet(bundle=_bundle())
     repository = InMemoryDecisionEvidencePacketRepository()
     service = DecisionEvidencePacketPersistenceService(
@@ -340,8 +345,47 @@ async def test_reconstruction_reports_missing_canonical_source_record() -> None:
     )
     await service.persist_packet(packet)
 
+    reconstructed = await service.reconstruct_packet("packet-1")
+
+    assert reconstructed == packet
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_missing_material_snapshot() -> None:
+    packet = await _packet(bundle=_bundle())
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(None),
+    )
+    await service.persist_packet(packet)
+    repository.records["packet-1"] = _record_without_support_snapshots(
+        repository.records["packet-1"],
+    )
+
     with pytest.raises(
-        MissingDecisionEvidenceSourceError, match="morning_report:exec-1"
+        MissingDecisionEvidenceSnapshotError,
+        match="lacks a retained support snapshot",
+    ):
+        await service.reconstruct_packet("packet-1")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_tampered_material_snapshot() -> None:
+    packet = await _packet(bundle=_bundle())
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(None),
+    )
+    await service.persist_packet(packet)
+    repository.records["packet-1"] = _record_with_tampered_support_snapshot(
+        repository.records["packet-1"],
+    )
+
+    with pytest.raises(
+        TamperedDecisionEvidenceSnapshotError,
+        match="tampered retained support snapshot",
     ):
         await service.reconstruct_packet("packet-1")
 
@@ -438,12 +482,18 @@ async def test_reconstruction_failure_emits_canonical_telemetry() -> None:
     observability.add_sink(sink)
     service = DecisionEvidencePacketPersistenceService(
         repository=repository,
-        completed_run_archive=FakeCompletedRunArchive(None),
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(outputs={"decision": {"selected_perspective": "bear"}}),
+                ),
+            ),
+        ),
         telemetry=ApplicationServiceTelemetry(observability),
     )
     await service.persist_packet(packet)
 
-    with pytest.raises(MissingDecisionEvidenceSourceError):
+    with pytest.raises(StaleDecisionEvidenceSourceError):
         await service.reconstruct_packet("packet-1")
 
     failure_events = [
@@ -461,7 +511,7 @@ async def test_reconstruction_failure_emits_canonical_telemetry() -> None:
     assert event.attributes["packet_id"] == "packet-1"
     assert event.attributes["risk_tier"] == "enhanced"
     assert event.attributes["retention_policy_id"] == "enhanced-provenance-5y"
-    assert event.payload["error_type"] == "MissingDecisionEvidenceSourceError"
+    assert event.payload["error_type"] == "StaleDecisionEvidenceSourceError"
 
 
 @pytest.mark.asyncio
@@ -479,13 +529,19 @@ async def test_reconstruction_telemetry_failures_do_not_replace_domain_failure(
     )
     service = DecisionEvidencePacketPersistenceService(
         repository=repository,
-        completed_run_archive=FakeCompletedRunArchive(None),
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(outputs={"decision": {"selected_perspective": "bear"}}),
+                ),
+            ),
+        ),
         telemetry=ApplicationServiceTelemetry(observability),
     )
     await service.persist_packet(packet)
 
     with caplog.at_level("ERROR"):
-        with pytest.raises(MissingDecisionEvidenceSourceError):
+        with pytest.raises(StaleDecisionEvidenceSourceError):
             await service.reconstruct_packet("packet-1")
 
     telemetry_failure_logs = [
@@ -495,7 +551,7 @@ async def test_reconstruction_telemetry_failures_do_not_replace_domain_failure(
     ]
     assert len(telemetry_failure_logs) == 1
     assert telemetry_failure_logs[0].exc_info is not None
-    assert telemetry_failure_logs[0].error_type == "MissingDecisionEvidenceSourceError"
+    assert telemetry_failure_logs[0].error_type == "StaleDecisionEvidenceSourceError"
     assert telemetry_failure_logs[0].telemetry_error_type == "RuntimeError"
 
 
@@ -534,6 +590,33 @@ async def test_packet_assembly_failure_emits_canonical_telemetry() -> None:
     assert event.attributes["risk_tier"] == "enhanced"
     assert event.attributes["retention_policy_id"] == "enhanced-provenance-5y"
     assert event.payload["error_type"] == "MissingCompletedWorkflowEvidenceError"
+
+
+def _record_without_support_snapshots(
+    record: DecisionEvidencePacketRecord,
+) -> DecisionEvidencePacketRecord:
+    return replace(
+        record,
+        evidence_references=tuple(
+            {key: value for key, value in evidence.items() if key != "support_snapshot"}
+            for evidence in record.evidence_references
+        ),
+    )
+
+
+def _record_with_tampered_support_snapshot(
+    record: DecisionEvidencePacketRecord,
+) -> DecisionEvidencePacketRecord:
+    evidence_references = []
+    for evidence in record.evidence_references:
+        updated = dict(evidence)
+        raw_snapshot = updated["support_snapshot"]
+        assert isinstance(raw_snapshot, Mapping)
+        snapshot = dict(raw_snapshot)
+        snapshot["redacted_content"] = "tampered material support content"
+        updated["support_snapshot"] = snapshot
+        evidence_references.append(updated)
+    return replace(record, evidence_references=tuple(evidence_references))
 
 
 class InMemoryDecisionEvidencePacketRepository(
@@ -839,6 +922,14 @@ def _packet_with_every_reconstruction_kind(
                 ),
                 summary="Evidence exercising every canonical reconstruction kind.",
                 source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                support_snapshot=SupportingEvidenceSnapshot(
+                    snapshot_id="evidence-all:support-snapshot",
+                    summary="Evidence exercising every canonical reconstruction kind.",
+                    redacted_content=(
+                        "Retained redacted snapshot covering all reconstruction kinds."
+                    ),
+                    source_label="canonical_record:strategy-decision-1",
+                ),
             ),
         ),
         reconstruction_references=reconstruction_references,

@@ -20,6 +20,7 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunArchive,
     CompletedRunBundle,
     CompletedRunRecord,
+    JsonObject,
 )
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.emitters.application_service_telemetry import (
@@ -30,6 +31,7 @@ from core.telemetry.observability.observability_manager import ObservabilityMana
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
+    DecisionEvidencePacketValidationError,
     EvidenceReferenceKind,
     EvidenceRetentionRequirement,
     MaterialClaim,
@@ -93,6 +95,13 @@ async def test_assembles_packet_from_completed_workflow_node_evidence() -> None:
         "evidence-synthesis:node-output",
     )
     assert packet.evidence[0].summary == "Persisted strategy synthesis node output."
+    support_snapshot = packet.evidence[0].support_snapshot
+    assert support_snapshot is not None
+    assert support_snapshot.snapshot_id == "evidence-synthesis:support-snapshot"
+    assert support_snapshot.source_label == "workflow_node_output:node-output-synthesis"
+    assert '"selected_perspective":"bull"' in support_snapshot.redacted_content
+    assert "run-1" in support_snapshot.redacted_content
+    assert support_snapshot.content_digest is not None
     assert packet.reconstruction_references[0].kind is (
         ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN
     )
@@ -147,6 +156,15 @@ async def test_assembly_includes_redacted_evaluation_provenance_references() -> 
     evidence_by_id = {evidence.evidence_id: evidence for evidence in packet.evidence}
     evaluation_evidence = evidence_by_id["evidence-evaluation"]
     assert evaluation_evidence.kind is EvidenceReferenceKind.EVALUATION_RUN
+    assert evaluation_evidence.support_snapshot is not None
+    assert evaluation_evidence.support_snapshot.snapshot_id == (
+        "evidence-evaluation:support-snapshot"
+    )
+    assert "evaluation-run-1" in evaluation_evidence.support_snapshot.redacted_content
+    assert "SECRET" not in evaluation_evidence.support_snapshot.redacted_content
+    assert "hidden_chain_of_thought" not in (
+        evaluation_evidence.support_snapshot.redacted_content
+    )
     assert evaluation_evidence.reconstruction_reference_ids == (
         "evidence-evaluation:evaluation-run",
         "evidence-evaluation:metric-result:metric-result-1",
@@ -194,6 +212,25 @@ async def test_assembly_includes_redacted_evaluation_provenance_references() -> 
     }
     assert "SECRET" not in str(packet)
     assert "hidden_chain_of_thought" not in str(packet)
+
+
+@pytest.mark.asyncio
+async def test_assembly_rejects_reasoning_trace_snapshot_content() -> None:
+    assembler = CompletedWorkflowEvidencePacketAssembler(
+        completed_run_archive=FakeCompletedRunArchive(
+            _bundle(
+                node_outputs=(
+                    _node(outputs={"hidden_chain_of_thought": "private reasoning"}),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        DecisionEvidencePacketValidationError,
+        match="unsafe snapshot content marker 'hidden_chain_of_thought'",
+    ):
+        await assembler.assemble(_request())
 
 
 @pytest.mark.asyncio
@@ -410,7 +447,12 @@ def _run() -> CompletedRunRecord:
     )
 
 
-def _node(*, run_id: str = "run-1") -> CompletedNodeOutputRecord:
+def _node(
+    *,
+    run_id: str = "run-1",
+    outputs: JsonObject | None = None,
+    metadata: JsonObject | None = None,
+) -> CompletedNodeOutputRecord:
     return CompletedNodeOutputRecord(
         node_output_id="node-output-synthesis",
         run_id=run_id,
@@ -422,8 +464,12 @@ def _node(*, run_id: str = "run-1") -> CompletedNodeOutputRecord:
         output_schema_version=1,
         status="succeeded",
         success=True,
-        outputs={"decision": {"selected_perspective": "bull"}},
-        metadata={"quality_status": "normal"},
+        outputs=(
+            outputs
+            if outputs is not None
+            else {"decision": {"selected_perspective": "bull"}}
+        ),
+        metadata=metadata if metadata is not None else {"quality_status": "normal"},
         errors_json=(),
         started_at=datetime(2026, 7, 25, 13, 1, tzinfo=UTC),
         completed_at=datetime(2026, 7, 25, 13, 2, tzinfo=UTC),

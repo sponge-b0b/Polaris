@@ -38,6 +38,9 @@ from domain.decision_evidence import (
     DecisionEvidencePacketValidationError,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
+    UnsupportedMaterialClaimError,
+    material_support_snapshots_by_reconstruction_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,6 +56,14 @@ class DecisionEvidencePacketNotFoundError(DecisionEvidencePacketReconstructionEr
 
 class MissingDecisionEvidenceSourceError(DecisionEvidencePacketReconstructionError):
     """Raised when a canonical source record referenced by a packet is absent."""
+
+
+class MissingDecisionEvidenceSnapshotError(DecisionEvidencePacketReconstructionError):
+    """Raised when retained material support snapshots are unavailable."""
+
+
+class TamperedDecisionEvidenceSnapshotError(DecisionEvidencePacketReconstructionError):
+    """Raised when retained material support snapshot content is tampered with."""
 
 
 class StaleDecisionEvidenceSourceError(DecisionEvidencePacketReconstructionError):
@@ -149,10 +160,20 @@ class DecisionEvidencePacketPersistenceService:
             )
             raise
         except (DecisionEvidencePacketValidationError, ValueError) as exc:
-            malformed_error = MalformedDecisionEvidenceReconstructionIdentifierError(
-                f"decision evidence packet {packet_id!r} contains malformed "
-                f"reconstruction identifiers: {exc}"
-            )
+            if _is_tampered_snapshot_error(exc):
+                reconstruction_error: DecisionEvidencePacketReconstructionError = (
+                    TamperedDecisionEvidenceSnapshotError(
+                        f"decision evidence packet {packet_id!r} contains a "
+                        f"tampered retained support snapshot: {exc}"
+                    )
+                )
+            else:
+                reconstruction_error = (
+                    MalformedDecisionEvidenceReconstructionIdentifierError(
+                        f"decision evidence packet {packet_id!r} contains malformed "
+                        f"reconstruction identifiers: {exc}"
+                    )
+                )
             logger.warning(
                 "Decision evidence packet reconstruction identifier was malformed.",
                 extra={
@@ -163,10 +184,10 @@ class DecisionEvidencePacketPersistenceService:
             )
             await self._emit_reconstruction_failed(
                 packet_id=packet_id,
-                error=malformed_error,
+                error=reconstruction_error,
                 record=record,
             )
-            raise malformed_error from exc
+            raise reconstruction_error from exc
 
         return packet
 
@@ -207,6 +228,7 @@ class DecisionEvidencePacketPersistenceService:
         packet: DecisionEvidencePacket,
     ) -> None:
         bundle_cache: dict[tuple[str, str], CompletedRunBundle] = {}
+        material_snapshots = _material_support_snapshots(packet)
         for reference in packet.reconstruction_references:
             _validate_source_of_truth(reference)
             synchronous_validator = _RECONSTRUCTION_REFERENCE_VALIDATORS.get(
@@ -215,7 +237,16 @@ class DecisionEvidencePacketPersistenceService:
             if synchronous_validator is not None:
                 synchronous_validator(reference)
                 continue
-            await self._validate_canonical_source_record(reference, bundle_cache)
+            try:
+                await self._validate_canonical_source_record(reference, bundle_cache)
+            except MissingDecisionEvidenceSourceError:
+                snapshot = material_snapshots.get(reference.reference_id)
+                if snapshot is None:
+                    raise
+                _validate_retained_material_support_snapshot(
+                    snapshot=snapshot,
+                    reference=reference,
+                )
 
     async def _validate_canonical_source_record(
         self,
@@ -400,6 +431,33 @@ class DecisionEvidencePacketPersistenceService:
             )
         bundle_cache[cache_key] = bundle
         return bundle
+
+
+def _material_support_snapshots(
+    packet: DecisionEvidencePacket,
+) -> dict[str, SupportingEvidenceSnapshot]:
+    try:
+        return material_support_snapshots_by_reconstruction_id(packet)
+    except UnsupportedMaterialClaimError as exc:
+        raise MissingDecisionEvidenceSnapshotError(str(exc)) from exc
+
+
+def _validate_retained_material_support_snapshot(
+    *,
+    snapshot: SupportingEvidenceSnapshot,
+    reference: ReconstructionReference,
+) -> None:
+    if snapshot.content_digest is None:
+        raise MissingDecisionEvidenceSnapshotError(
+            "material support snapshot "
+            f"'{snapshot.snapshot_id}' for reference '{reference.reference_id}' "
+            "does not include a content digest."
+        )
+
+
+def _is_tampered_snapshot_error(exc: BaseException) -> bool:
+    message = str(exc)
+    return "supporting evidence snapshot" in message and "content digest" in message
 
 
 def calculate_evaluation_run_evidence_digest(
@@ -692,7 +750,9 @@ __all__ = [
     "DecisionEvidencePacketPersistenceService",
     "DecisionEvidencePacketReconstructionError",
     "MalformedDecisionEvidenceReconstructionIdentifierError",
+    "MissingDecisionEvidenceSnapshotError",
     "MissingDecisionEvidenceSourceError",
     "StaleDecisionEvidenceSourceError",
     "SubstitutedDecisionEvidenceSourceError",
+    "TamperedDecisionEvidenceSnapshotError",
 ]

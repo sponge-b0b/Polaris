@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable
 from dataclasses import InitVar, dataclass, field
 from enum import StrEnum
@@ -12,6 +14,23 @@ _ALLOWED_PACKET_RISK_TIERS: Final[frozenset[RiskTier]] = frozenset(
     {RiskTier.ENHANCED, RiskTier.VIGILANT}
 )
 _RAW_PAYLOAD_UNSET: Final = object()
+EVIDENCE_SNAPSHOT_REDACTION_POLICY_ID: Final[str] = (
+    "decision-evidence-support-snapshot-v1"
+)
+_FORBIDDEN_SNAPSHOT_MARKERS: Final[tuple[str, ...]] = (
+    "hidden_chain_of_thought",
+    "chain-of-thought",
+    "chain of thought",
+    "reasoning_trace",
+    "reasoning trace",
+    "scratchpad",
+    "api_key",
+    "authorization: bearer",
+    "bearer ",
+    "password=",
+    "secret=",
+    "-----begin",
+)
 
 
 class DecisionEvidencePacketValidationError(ValueError):
@@ -148,6 +167,41 @@ class ReconstructionReference:
 
 
 @dataclass(frozen=True, slots=True)
+class SupportingEvidenceSnapshot:
+    """Durable, redacted material-support content retained for reconstruction."""
+
+    snapshot_id: str
+    summary: str
+    redacted_content: str
+    source_label: str = ""
+    redaction_policy_id: str = EVIDENCE_SNAPSHOT_REDACTION_POLICY_ID
+    content_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        _set_clean_string(self, "snapshot_id")
+        _set_clean_string(self, "summary")
+        _set_clean_string(self, "redacted_content")
+        _set_clean_string(self, "source_label", allow_empty=True)
+        _set_clean_string(self, "redaction_policy_id")
+        _validate_snapshot_text_safety(self.summary, "snapshot summary")
+        _validate_snapshot_text_safety(
+            self.redacted_content,
+            "snapshot redacted_content",
+        )
+        _validate_snapshot_text_safety(self.source_label, "snapshot source_label")
+        expected_digest = calculate_supporting_evidence_snapshot_digest(self)
+        if self.content_digest is None:
+            object.__setattr__(self, "content_digest", expected_digest)
+            return
+        _set_clean_string(self, "content_digest")
+        if self.content_digest != expected_digest:
+            raise DecisionEvidencePacketValidationError(
+                f"supporting evidence snapshot {self.snapshot_id!r} content digest "
+                "does not match retained snapshot content."
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class EvidenceReference:
     """Canonical evidence pointer; source payloads stay in authoritative stores."""
 
@@ -156,6 +210,7 @@ class EvidenceReference:
     reconstruction_reference_ids: tuple[str, ...]
     summary: str = ""
     source_of_truth: SourceOfTruthCategory | None = None
+    support_snapshot: SupportingEvidenceSnapshot | None = None
     raw_payload: InitVar[object] = _RAW_PAYLOAD_UNSET
 
     def __post_init__(self, raw_payload: object) -> None:
@@ -182,6 +237,13 @@ class EvidenceReference:
         ):
             raise DecisionEvidencePacketValidationError(
                 "evidence source_of_truth must be a SourceOfTruthCategory."
+            )
+        if self.support_snapshot is not None and not isinstance(
+            self.support_snapshot,
+            SupportingEvidenceSnapshot,
+        ):
+            raise DecisionEvidencePacketValidationError(
+                "evidence support_snapshot must be a SupportingEvidenceSnapshot."
             )
 
 
@@ -413,6 +475,57 @@ class DecisionEvidencePacket:
             referenced_ids=claim.evidence.limitation_ids,
             known_ids=limitation_ids,
         )
+
+
+def validate_material_support_snapshots(packet: DecisionEvidencePacket) -> None:
+    """Ensure readiness-gating claim support has retained redacted snapshots."""
+
+    material_support_snapshots_by_reconstruction_id(packet)
+
+
+def material_support_snapshots_by_reconstruction_id(
+    packet: DecisionEvidencePacket,
+) -> dict[str, SupportingEvidenceSnapshot]:
+    """Return retained snapshots keyed by material support reconstruction id."""
+
+    evidence_by_id = {evidence.evidence_id: evidence for evidence in packet.evidence}
+    snapshots_by_reference_id: dict[str, SupportingEvidenceSnapshot] = {}
+    for claim in packet.material_claims:
+        for evidence_id in claim.evidence.supporting_evidence_ids:
+            evidence = evidence_by_id[evidence_id]
+            if evidence.support_snapshot is None:
+                raise UnsupportedMaterialClaimError(
+                    f"material claim {claim.claim_id!r} supporting evidence "
+                    f"{evidence_id!r} lacks a retained support snapshot."
+                )
+            for reference_id in evidence.reconstruction_reference_ids:
+                snapshots_by_reference_id[reference_id] = evidence.support_snapshot
+    return snapshots_by_reference_id
+
+
+def calculate_supporting_evidence_snapshot_digest(
+    snapshot: SupportingEvidenceSnapshot,
+) -> str:
+    """Calculate a tamper-evident digest for retained support snapshot content."""
+
+    payload = {
+        "snapshot_id": snapshot.snapshot_id,
+        "summary": snapshot.summary,
+        "redacted_content": snapshot.redacted_content,
+        "source_label": snapshot.source_label,
+        "redaction_policy_id": snapshot.redaction_policy_id,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _validate_snapshot_text_safety(value: str, label: str) -> None:
+    normalized = value.casefold()
+    for marker in _FORBIDDEN_SNAPSHOT_MARKERS:
+        if marker in normalized:
+            raise DecisionEvidencePacketValidationError(
+                f"{label} contains unsafe snapshot content marker {marker!r}."
+            )
 
 
 def _validate_authority(authority: object) -> None:

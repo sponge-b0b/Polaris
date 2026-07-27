@@ -22,7 +22,11 @@ from domain.decision_evidence.packets import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
     UnsupportedMaterialClaimError,
+    calculate_supporting_evidence_snapshot_digest,
+    material_support_snapshots_by_reconstruction_id,
+    validate_material_support_snapshots,
 )
 from domain.decision_evidence.readiness import (
     DecisionEvidencePacketReadiness,
@@ -49,6 +53,10 @@ __all__ = [
     "EvidenceReferenceKind",
     "EvidenceRetentionRequirement",
     "EvidenceUncertainty",
+    "SupportingEvidenceSnapshot",
+    "calculate_supporting_evidence_snapshot_digest",
+    "material_support_snapshots_by_reconstruction_id",
+    "validate_material_support_snapshots",
     "MaterialClaim",
     "ReconstructionReference",
     "ReconstructionReferenceKind",

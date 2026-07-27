@@ -29,6 +29,8 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
+    validate_material_support_snapshots,
 )
 
 _DECISION_EVIDENCE_PACKET_RETENTION_BASIS = "decision_evidence_packet_reconstruction"
@@ -41,8 +43,9 @@ class DecisionEvidencePacketPersistenceSerializer:
     def record_from_packet(
         packet: DecisionEvidencePacket,
     ) -> DecisionEvidencePacketRecord:
-        """Create a durable audit record without copying source evidence content."""
+        """Create a durable audit record without copying raw source evidence."""
 
+        validate_material_support_snapshots(packet)
         return DecisionEvidencePacketRecord(
             packet_id=packet.packet_id,
             output_id=packet.output_id,
@@ -202,6 +205,24 @@ def _evidence_reference_values(
             "reconstruction_reference_ids": evidence.reconstruction_reference_ids,
             "summary": evidence.summary,
             "source_of_truth": _optional_enum_value(evidence.source_of_truth),
+            "support_snapshot": _support_snapshot_values(evidence.support_snapshot),
+        }
+    )
+
+
+def _support_snapshot_values(
+    snapshot: SupportingEvidenceSnapshot | None,
+) -> DecisionEvidenceJsonObject | None:
+    if snapshot is None:
+        return None
+    return _json_object(
+        {
+            "snapshot_id": snapshot.snapshot_id,
+            "summary": snapshot.summary,
+            "redacted_content": snapshot.redacted_content,
+            "source_label": snapshot.source_label,
+            "redaction_policy_id": snapshot.redaction_policy_id,
+            "content_digest": snapshot.content_digest,
         }
     )
 
@@ -308,6 +329,28 @@ def _evidence_reference_from_values(
         ),
         summary=_optional_string(values, "summary") or "",
         source_of_truth=_optional_source_of_truth(values, "source_of_truth"),
+        support_snapshot=_support_snapshot_from_values(values.get("support_snapshot")),
+    )
+
+
+def _support_snapshot_from_values(value: object) -> SupportingEvidenceSnapshot | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError(
+            "decision evidence packet field 'support_snapshot' must be an object."
+        )
+    values = _json_object(value)
+    return SupportingEvidenceSnapshot(
+        snapshot_id=_required_string(values, "snapshot_id"),
+        summary=_required_string(values, "summary"),
+        redacted_content=_required_string(values, "redacted_content"),
+        source_label=_optional_string(values, "source_label") or "",
+        redaction_policy_id=(
+            _optional_string(values, "redaction_policy_id")
+            or "decision-evidence-support-snapshot-v1"
+        ),
+        content_digest=_required_string(values, "content_digest"),
     )
 
 

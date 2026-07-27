@@ -8,6 +8,7 @@ from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
     ClaimEvidenceBinding,
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
     EvidenceClaimReference,
     EvidenceLimitation,
@@ -42,7 +43,9 @@ def test_claim_references_preserve_reconstruction_uncertainty_limits() -> None:
         "claim_id": "claim-1",
         "risk_tier": RiskTier.ENHANCED.value,
         "material": True,
+        "materiality": ClaimMaterialityTier.READINESS_GATING.value,
         "supporting_evidence_ids": ["evidence-1"],
+        "conflicting_evidence_ids": [],
         "reconstruction_reference_ids": ["workflow-node"],
         "uncertainty_ids": ["uncertainty-1"],
         "limitation_ids": ["limitation-1"],

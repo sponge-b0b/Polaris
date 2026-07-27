@@ -10,6 +10,7 @@ from domain.decision_evidence.claim_references import (
 from domain.decision_evidence.packets import (
     DECISION_EVIDENCE_PACKET_SCHEMA_VERSION,
     ClaimEvidenceBinding,
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
     DecisionEvidencePacketValidationError,
     EvidenceConstraint,
@@ -37,6 +38,7 @@ __all__ = [
     "DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY",
     "DECISION_EVIDENCE_PACKET_SCHEMA_VERSION",
     "ClaimEvidenceBinding",
+    "ClaimMaterialityTier",
     "DecisionEvidencePacket",
     "DecisionEvidencePacketValidationError",
     "EvidenceClaimReference",

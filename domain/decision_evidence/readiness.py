@@ -24,6 +24,7 @@ class DecisionEvidencePacketReadinessFailureMode(StrEnum):
     RECONSTRUCTION_REFERENCES_MISSING = "reconstruction_references_missing"
     AUTHORITY_METADATA_INCONSISTENT = "authority_metadata_inconsistent"
     REJECTED_EVIDENCE_CITED = "rejected_evidence_cited"
+    MATERIAL_CONFLICT_UNRESOLVED = "material_conflict_unresolved"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,7 @@ class DecisionEvidencePacketReadiness:
     message: str
     packet_ids: tuple[str, ...] = ()
     supporting_evidence_ids: tuple[str, ...] = ()
+    conflicting_evidence_ids: tuple[str, ...] = ()
     reconstruction_reference_ids: tuple[str, ...] = ()
     rejected_supporting_evidence_ids: tuple[str, ...] = ()
 
@@ -86,8 +88,19 @@ def assess_decision_evidence_packet_readiness(
 
     unique_packet_ids = _unique(collected.packet_ids)
     unique_supporting_ids = _unique(collected.supporting_evidence_ids)
+    unique_conflicting_ids = _unique(collected.conflicting_evidence_ids)
     unique_reconstruction_ids = _unique(collected.reconstruction_reference_ids)
+    if unique_conflicting_ids:
+        return _readiness_failure(
+            DecisionEvidencePacketReadinessFailureMode.MATERIAL_CONFLICT_UNRESOLVED,
+            "Material claims cannot have unresolved conflicting evidence.",
+            packet_ids=unique_packet_ids,
+            supporting_evidence_ids=unique_supporting_ids,
+            conflicting_evidence_ids=unique_conflicting_ids,
+            reconstruction_reference_ids=unique_reconstruction_ids,
+        )
     incomplete = _incomplete_support_failure(
+        readiness_gating_claim_ids=collected.readiness_gating_claim_ids,
         packet_ids=unique_packet_ids,
         supporting_evidence_ids=unique_supporting_ids,
         reconstruction_reference_ids=unique_reconstruction_ids,
@@ -115,6 +128,7 @@ def assess_decision_evidence_packet_readiness(
         message=_COMPLETE_READINESS.message,
         packet_ids=unique_packet_ids,
         supporting_evidence_ids=unique_supporting_ids,
+        conflicting_evidence_ids=unique_conflicting_ids,
         reconstruction_reference_ids=unique_reconstruction_ids,
     )
 
@@ -122,7 +136,9 @@ def assess_decision_evidence_packet_readiness(
 @dataclass(frozen=True, slots=True)
 class _CollectedPacketSupport:
     packet_ids: tuple[str, ...]
+    readiness_gating_claim_ids: tuple[str, ...]
     supporting_evidence_ids: tuple[str, ...]
+    conflicting_evidence_ids: tuple[str, ...]
     reconstruction_reference_ids: tuple[str, ...]
 
 
@@ -133,7 +149,9 @@ def _collect_packet_support_details(
     required_risk_tier: RiskTier | None,
 ) -> _CollectedPacketSupport | DecisionEvidencePacketReadiness:
     packet_ids: list[str] = []
+    readiness_gating_claim_ids: list[str] = []
     supporting_evidence_ids: list[str] = []
+    conflicting_evidence_ids: list[str] = []
     reconstruction_reference_ids: list[str] = []
 
     for packet in packets:
@@ -145,7 +163,9 @@ def _collect_packet_support_details(
         packet_ids.append(packet.packet_id)
         reconstruction_reference_ids.extend(packet.reconstruction_reference_ids)
         for claim in packet.material_claims:
+            readiness_gating_claim_ids.append(claim.claim_id)
             supporting_evidence_ids.extend(claim.evidence.supporting_evidence_ids)
+            conflicting_evidence_ids.extend(claim.evidence.conflicting_evidence_ids)
 
     for reference in claim_references:
         if _risk_tier_mismatch(reference.risk_tier, required_risk_tier):
@@ -159,22 +179,27 @@ def _collect_packet_support_details(
         packet_ids.append(reference.packet_id)
         reconstruction_reference_ids.extend(reference.reconstruction_reference_ids)
         if reference.material:
+            readiness_gating_claim_ids.append(reference.claim_id)
             supporting_evidence_ids.extend(reference.supporting_evidence_ids)
+            conflicting_evidence_ids.extend(reference.conflicting_evidence_ids)
 
     return _CollectedPacketSupport(
         packet_ids=tuple(packet_ids),
+        readiness_gating_claim_ids=tuple(readiness_gating_claim_ids),
         supporting_evidence_ids=tuple(supporting_evidence_ids),
+        conflicting_evidence_ids=tuple(conflicting_evidence_ids),
         reconstruction_reference_ids=tuple(reconstruction_reference_ids),
     )
 
 
 def _incomplete_support_failure(
     *,
+    readiness_gating_claim_ids: tuple[str, ...],
     packet_ids: tuple[str, ...],
     supporting_evidence_ids: tuple[str, ...],
     reconstruction_reference_ids: tuple[str, ...],
 ) -> DecisionEvidencePacketReadiness | None:
-    if not supporting_evidence_ids:
+    if readiness_gating_claim_ids and not supporting_evidence_ids:
         return _readiness_failure(
             DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING,
             (
@@ -221,6 +246,7 @@ def _readiness_failure(
     *,
     packet_ids: tuple[str, ...] = (),
     supporting_evidence_ids: tuple[str, ...] = (),
+    conflicting_evidence_ids: tuple[str, ...] = (),
     reconstruction_reference_ids: tuple[str, ...] = (),
     rejected_supporting_evidence_ids: tuple[str, ...] = (),
 ) -> DecisionEvidencePacketReadiness:
@@ -230,6 +256,7 @@ def _readiness_failure(
         message=message,
         packet_ids=packet_ids,
         supporting_evidence_ids=supporting_evidence_ids,
+        conflicting_evidence_ids=conflicting_evidence_ids,
         reconstruction_reference_ids=reconstruction_reference_ids,
         rejected_supporting_evidence_ids=rejected_supporting_evidence_ids,
     )

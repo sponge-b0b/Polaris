@@ -279,9 +279,18 @@ def _assert_reference_matches_canonical(
             f"claim {reference.claim_id!r} material flag does not match "
             "canonical packet."
         )
+    if reference.materiality is not canonical.materiality:
+        raise ClaimEvidenceBindingError(
+            f"claim {reference.claim_id!r} materiality does not match canonical packet."
+        )
     if reference.supporting_evidence_ids != canonical.supporting_evidence_ids:
         raise ClaimEvidenceBindingError(
             f"claim {reference.claim_id!r} supporting evidence does not match "
+            "canonical packet."
+        )
+    if reference.conflicting_evidence_ids != canonical.conflicting_evidence_ids:
+        raise ClaimEvidenceBindingError(
+            f"claim {reference.claim_id!r} conflicting evidence does not match "
             "canonical packet."
         )
     if reference.reconstruction_reference_ids != canonical.reconstruction_reference_ids:

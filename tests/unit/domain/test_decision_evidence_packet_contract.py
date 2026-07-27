@@ -7,7 +7,9 @@ import pytest
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
+    DecisionEvidencePacketReadinessFailureMode,
     DecisionEvidencePacketValidationError,
     EvidenceConstraint,
     EvidenceLimitation,
@@ -19,6 +21,7 @@ from domain.decision_evidence import (
     ReconstructionReference,
     ReconstructionReferenceKind,
     UnsupportedMaterialClaimError,
+    assess_decision_evidence_packet_readiness,
 )
 from tests.helpers.risk_authority_examples import (
     authority_input_for_tier,
@@ -37,7 +40,6 @@ def test_enhanced_packet_models_claim_relationships_and_reconstruction_refs() ->
                 text="SPY momentum improved across the supported lookback window.",
                 evidence=ClaimEvidenceBinding(
                     supporting_evidence_ids=("evidence-support",),
-                    conflicting_evidence_ids=("evidence-conflict",),
                     constraint_ids=("constraint-1",),
                     uncertainty_ids=("uncertainty-1",),
                     limitation_ids=("limitation-1",),
@@ -96,8 +98,8 @@ def test_enhanced_packet_models_claim_relationships_and_reconstruction_refs() ->
 
     assert packet.risk_tier is RiskTier.ENHANCED
     assert packet.material_claims == packet.claims
+    assert packet.claims[0].materiality is ClaimMaterialityTier.READINESS_GATING
     assert packet.claims[0].evidence.supporting_evidence_ids == ("evidence-support",)
-    assert packet.claims[0].evidence.conflicting_evidence_ids == ("evidence-conflict",)
     assert packet.claims[0].evidence.constraint_ids == ("constraint-1",)
     assert packet.claims[0].evidence.uncertainty_ids == ("uncertainty-1",)
     assert packet.claims[0].evidence.limitation_ids == ("limitation-1",)
@@ -180,6 +182,84 @@ def test_material_claim_without_support_fails_closed() -> None:
         )
 
 
+def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+
+    assert packet.material_claims == packet.claims
+    assert packet.claims[0].materiality is ClaimMaterialityTier.READINESS_GATING
+    assert packet.claims[0].material is True
+
+
+def test_supported_material_claim_with_conflict_fails_readiness_closed() -> None:
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
+
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=authority,
+        claims=(
+            MaterialClaim(
+                claim_id="claim-conflicted",
+                text="This material claim has both support and contradiction.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-1",),
+                    conflicting_evidence_ids=("evidence-conflict",),
+                ),
+            ),
+        ),
+        evidence=(supporting_evidence(), conflicting_evidence()),
+        reconstruction_references=(workflow_reference(), conflict_reference()),
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.MATERIAL_CONFLICT_UNRESOLVED
+    )
+    assert readiness.conflicting_evidence_ids == ("evidence-conflict",)
+
+
+def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() -> None:
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
+
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=authority,
+        claims=(
+            MaterialClaim(
+                claim_id="claim-context",
+                text="This contextual claim is retained for audit only.",
+                materiality=ClaimMaterialityTier.CONTEXTUAL,
+                evidence=ClaimEvidenceBinding(
+                    conflicting_evidence_ids=("evidence-conflict",),
+                ),
+            ),
+        ),
+        evidence=(conflicting_evidence(),),
+        reconstruction_references=(conflict_reference(),),
+        retention=retention_requirement(),
+    )
+
+    assert packet.material_claims == ()
+    assert packet.claims[0].materiality is ClaimMaterialityTier.CONTEXTUAL
+    assert packet.claims[0].material is False
+    assert packet.claims[0].evidence.supporting_evidence_ids == ()
+    assert packet.claims[0].evidence.conflicting_evidence_ids == ("evidence-conflict",)
+    assert assess_decision_evidence_packet_readiness(packets=(packet,)).passed is True
+
+
 def test_packet_references_canonical_evidence_ids_not_source_payloads() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.VIGILANT))
 
@@ -250,11 +330,28 @@ def supporting_evidence() -> EvidenceReference:
     )
 
 
+def conflicting_evidence() -> EvidenceReference:
+    return EvidenceReference(
+        evidence_id="evidence-conflict",
+        kind=EvidenceReferenceKind.CANONICAL_RECORD,
+        reconstruction_reference_ids=("conflict-record",),
+        summary="Canonical record contradicting a readiness-gating claim.",
+    )
+
+
 def workflow_reference() -> ReconstructionReference:
     return ReconstructionReference(
         reference_id="workflow-node",
         kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
         record_id="run-1:node:market-analysis",
+    )
+
+
+def conflict_reference() -> ReconstructionReference:
+    return ReconstructionReference(
+        reference_id="conflict-record",
+        kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+        record_id="market-snapshot:SPY:2026-07-25",
     )
 
 

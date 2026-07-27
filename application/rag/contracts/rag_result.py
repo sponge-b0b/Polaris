@@ -19,6 +19,7 @@ from domain.authority import (
 )
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
     EvidenceConstraint,
     EvidenceLimitation,
@@ -367,6 +368,7 @@ def _claim_to_payload(claim: MaterialClaim) -> dict[str, Any]:
         "claim_id": claim.claim_id,
         "text": claim.text,
         "material": claim.material,
+        "materiality": claim.materiality.value,
         "evidence": {
             "supporting_evidence_ids": list(claim.evidence.supporting_evidence_ids),
             "conflicting_evidence_ids": list(claim.evidence.conflicting_evidence_ids),
@@ -384,6 +386,7 @@ def _claim_from_payload(value: object) -> MaterialClaim:
         claim_id=_required_str(payload, "claim_id"),
         text=_required_str(payload, "text"),
         material=_optional_bool(payload.get("material", True), "material"),
+        materiality=_optional_claim_materiality(payload.get("materiality")),
         evidence=ClaimEvidenceBinding(
             supporting_evidence_ids=_string_tuple(
                 evidence_payload.get("supporting_evidence_ids", ()),
@@ -532,6 +535,16 @@ def _optional_bool(value: object, field_name: str) -> bool:
     if not isinstance(value, bool):
         raise TypeError(f"{field_name} must be a boolean.")
     return value
+
+
+def _optional_claim_materiality(value: object) -> ClaimMaterialityTier | None:
+    if value is None:
+        return None
+    if isinstance(value, ClaimMaterialityTier):
+        return value
+    if isinstance(value, str):
+        return ClaimMaterialityTier(value.strip().lower())
+    raise TypeError("materiality must be a ClaimMaterialityTier.")
 
 
 def _optional_int(value: object, field_name: str) -> int:

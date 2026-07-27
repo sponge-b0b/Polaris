@@ -6,6 +6,7 @@ from typing import Final
 
 from domain.authority import RiskTier
 from domain.decision_evidence.packets import (
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
     DecisionEvidencePacketValidationError,
     EvidenceReference,
@@ -38,9 +39,11 @@ class EvidenceClaimReference:
     risk_tier: RiskTier
     supporting_evidence_ids: tuple[str, ...]
     reconstruction_reference_ids: tuple[str, ...]
+    conflicting_evidence_ids: tuple[str, ...] = ()
     uncertainty_ids: tuple[str, ...] = ()
     limitation_ids: tuple[str, ...] = ()
     material: bool = True
+    materiality: ClaimMaterialityTier | None = None
     schema_version: int = DECISION_EVIDENCE_CLAIM_REFERENCE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -67,6 +70,14 @@ class EvidenceClaimReference:
         )
         object.__setattr__(
             self,
+            "conflicting_evidence_ids",
+            _clean_string_tuple(
+                self.conflicting_evidence_ids,
+                "conflicting_evidence_id",
+            ),
+        )
+        object.__setattr__(
+            self,
             "uncertainty_ids",
             _clean_string_tuple(self.uncertainty_ids, "uncertainty_id"),
         )
@@ -79,7 +90,16 @@ class EvidenceClaimReference:
             raise DecisionEvidencePacketValidationError(
                 "decision evidence claim reference schema_version is unsupported."
             )
-        if self.material and self.risk_tier in _DECISION_EVIDENCE_REQUIRED_RISK_TIERS:
+        materiality = _coerce_claim_materiality_tier(
+            self.materiality,
+            material=self.material,
+        )
+        object.__setattr__(self, "materiality", materiality)
+        object.__setattr__(self, "material", materiality.gates_readiness)
+        if (
+            materiality.gates_readiness
+            and self.risk_tier in _DECISION_EVIDENCE_REQUIRED_RISK_TIERS
+        ):
             if not self.supporting_evidence_ids:
                 raise UnsupportedMaterialClaimError(
                     f"material claim {self.claim_id!r} lacks supporting evidence."
@@ -99,7 +119,9 @@ class EvidenceClaimReference:
             "claim_id": self.claim_id,
             "risk_tier": self.risk_tier.value,
             "material": self.material,
+            "materiality": self.materiality.value,
             "supporting_evidence_ids": list(self.supporting_evidence_ids),
+            "conflicting_evidence_ids": list(self.conflicting_evidence_ids),
             "reconstruction_reference_ids": list(self.reconstruction_reference_ids),
             "uncertainty_ids": list(self.uncertainty_ids),
             "limitation_ids": list(self.limitation_ids),
@@ -244,7 +266,9 @@ def _claim_reference_from_packet_claim(
         claim_id=claim.claim_id,
         risk_tier=packet.risk_tier,
         material=claim.material,
+        materiality=claim.materiality,
         supporting_evidence_ids=claim.evidence.supporting_evidence_ids,
+        conflicting_evidence_ids=claim.evidence.conflicting_evidence_ids,
         reconstruction_reference_ids=tuple(dict.fromkeys(reconstruction_ids)),
         uncertainty_ids=claim.evidence.uncertainty_ids,
         limitation_ids=claim.evidence.limitation_ids,
@@ -262,9 +286,14 @@ def _claim_reference_from_mapping(value: object) -> EvidenceClaimReference:
         claim_id=_required_string(value, "claim_id"),
         risk_tier=_coerce_risk_tier(_required_string(value, "risk_tier")),
         material=_bool_value(value.get("material", True), "material"),
+        materiality=_optional_claim_materiality_tier(value.get("materiality")),
         supporting_evidence_ids=_string_tuple(
             value.get("supporting_evidence_ids", ()),
             "supporting_evidence_ids",
+        ),
+        conflicting_evidence_ids=_string_tuple(
+            value.get("conflicting_evidence_ids", ()),
+            "conflicting_evidence_ids",
         ),
         reconstruction_reference_ids=_string_tuple(
             value.get("reconstruction_reference_ids", ()),
@@ -318,6 +347,37 @@ def _coerce_risk_tier(value: object) -> RiskTier:
                 "risk_tier must be a supported RiskTier."
             ) from exc
     raise DecisionEvidencePacketValidationError("risk_tier must be a RiskTier.")
+
+
+def _optional_claim_materiality_tier(value: object) -> ClaimMaterialityTier | None:
+    if value is None:
+        return None
+    return _coerce_claim_materiality_tier(value, material=True)
+
+
+def _coerce_claim_materiality_tier(
+    value: object,
+    *,
+    material: bool,
+) -> ClaimMaterialityTier:
+    if not isinstance(material, bool):
+        raise DecisionEvidencePacketValidationError("material must be a boolean.")
+    if value is None:
+        if material:
+            return ClaimMaterialityTier.READINESS_GATING
+        return ClaimMaterialityTier.CONTEXTUAL
+    if isinstance(value, ClaimMaterialityTier):
+        return value
+    if isinstance(value, str):
+        try:
+            return ClaimMaterialityTier(value.strip().lower())
+        except ValueError as exc:
+            raise DecisionEvidencePacketValidationError(
+                "materiality must be a supported ClaimMaterialityTier."
+            ) from exc
+    raise DecisionEvidencePacketValidationError(
+        "materiality must be a ClaimMaterialityTier."
+    )
 
 
 def _bool_value(value: object, label: str) -> bool:

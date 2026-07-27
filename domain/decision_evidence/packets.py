@@ -22,6 +22,19 @@ class UnsupportedMaterialClaimError(DecisionEvidencePacketValidationError):
     """Raised when a material claim lacks required supporting evidence."""
 
 
+class ClaimMaterialityTier(StrEnum):
+    """Lightweight claim materiality tier for readiness-gating decisions."""
+
+    CONTEXTUAL = "contextual"
+    READINESS_GATING = "readiness_gating"
+
+    @property
+    def gates_readiness(self) -> bool:
+        """Whether this claim tier must satisfy readiness evidence checks."""
+
+        return self is ClaimMaterialityTier.READINESS_GATING
+
+
 class EvidenceReferenceKind(StrEnum):
     """Canonical evidence families that may support a packet claim."""
 
@@ -82,6 +95,7 @@ class MaterialClaim:
     text: str
     evidence: ClaimEvidenceBinding = field(default_factory=ClaimEvidenceBinding)
     material: bool = True
+    materiality: ClaimMaterialityTier | None = None
 
     def __post_init__(self) -> None:
         _set_clean_string(self, "claim_id")
@@ -90,6 +104,18 @@ class MaterialClaim:
             raise DecisionEvidencePacketValidationError(
                 "claim evidence must be a ClaimEvidenceBinding."
             )
+        materiality = _coerce_claim_materiality_tier(
+            self.materiality,
+            material=self.material,
+        )
+        object.__setattr__(self, "materiality", materiality)
+        object.__setattr__(self, "material", materiality.gates_readiness)
+
+    @property
+    def gates_readiness(self) -> bool:
+        """Whether this claim must satisfy readiness evidence requirements."""
+
+        return self.materiality is ClaimMaterialityTier.READINESS_GATING
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +279,7 @@ class DecisionEvidencePacket:
     def material_claims(self) -> tuple[MaterialClaim, ...]:
         """Claims that must satisfy material evidence requirements."""
 
-        return tuple(claim for claim in self.claims if claim.material)
+        return tuple(claim for claim in self.claims if claim.gates_readiness)
 
     @property
     def reconstruction_reference_ids(self) -> tuple[str, ...]:
@@ -353,7 +379,7 @@ class DecisionEvidencePacket:
         uncertainty_ids: frozenset[str],
         limitation_ids: frozenset[str],
     ) -> None:
-        if claim.material and not claim.evidence.has_support:
+        if claim.gates_readiness and not claim.evidence.has_support:
             raise UnsupportedMaterialClaimError(
                 f"material claim {claim.claim_id!r} lacks supporting evidence."
             )
@@ -407,6 +433,31 @@ def _validate_retention(retention: object) -> None:
         raise DecisionEvidencePacketValidationError(
             "retention must be an EvidenceRetentionRequirement."
         )
+
+
+def _coerce_claim_materiality_tier(
+    value: object,
+    *,
+    material: bool,
+) -> ClaimMaterialityTier:
+    if not isinstance(material, bool):
+        raise DecisionEvidencePacketValidationError("material must be a boolean.")
+    if value is None:
+        if material:
+            return ClaimMaterialityTier.READINESS_GATING
+        return ClaimMaterialityTier.CONTEXTUAL
+    if isinstance(value, ClaimMaterialityTier):
+        return value
+    if isinstance(value, str):
+        try:
+            return ClaimMaterialityTier(value.strip().lower())
+        except ValueError as exc:
+            raise DecisionEvidencePacketValidationError(
+                "materiality must be a supported ClaimMaterialityTier."
+            ) from exc
+    raise DecisionEvidencePacketValidationError(
+        "materiality must be a ClaimMaterialityTier."
+    )
 
 
 def _set_tuple(instance: object, attribute: str) -> None:

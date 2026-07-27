@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
@@ -13,6 +12,7 @@ from application.rag.authority import (
     classify_rag_result_authority,
 )
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.storage.persistence.rag import JsonObject
@@ -41,8 +41,6 @@ DECISION_EVIDENCE_PACKET_FAILURE_METADATA_KEY: Final = (
     "decision_evidence_packet_failure"
 )
 _RAG_ANSWER_PACKET_POLICY_ID: Final = "rag-answer-enhanced-provenance-5y"
-_CITATION_TOKEN = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_-]*)\]")
-_CLAIM_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 class RagEvidencePacketAssemblyError(DecisionEvidencePacketValidationError):
@@ -131,7 +129,7 @@ def assemble_rag_answer_evidence_packet(
     evidence: list[EvidenceReference] = []
     limitations: list[EvidenceLimitation] = []
     evidence_by_citation_id: dict[str, str] = {}
-    limitation_ids_by_evidence_id: dict[str, list[str]] = {}
+    limitation_ids_by_context_id: dict[str, list[str]] = {}
 
     for citation_id, context in citation_contexts.items():
         retrieval_reference_id = _retrieval_reference_id(context)
@@ -177,31 +175,31 @@ def assemble_rag_answer_evidence_packet(
                 evidence_ids=(evidence_id,),
             )
             limitations.append(limitation)
-            limitation_ids_by_evidence_id.setdefault(evidence_id, []).append(
+            limitation_ids_by_context_id.setdefault(context.context_id, []).append(
                 limitation.limitation_id,
             )
 
-    rejected_limitations = _rejected_context_limitations(
-        result.metadata,
-        known_evidence_ids=tuple(evidence_by_citation_id.values()),
+    rejected_limitations, rejected_limitation_ids_by_context_id = (
+        _rejected_context_limitations(
+            result.metadata,
+            known_evidence_ids=tuple(evidence_by_citation_id.values()),
+        )
     )
     limitations.extend(rejected_limitations)
+    for context_id, limitation_id in rejected_limitation_ids_by_context_id.items():
+        limitation_ids_by_context_id.setdefault(context_id, []).append(limitation_id)
 
     claims = tuple(
-        _material_claim_from_segment(
-            index=index,
-            segment=segment,
+        _material_claim_from_generated_claim(
+            generated_claim=generated_claim,
             evidence_by_citation_id=evidence_by_citation_id,
-            limitation_ids_by_evidence_id=limitation_ids_by_evidence_id,
+            limitation_ids_by_context_id=limitation_ids_by_context_id,
         )
-        for index, segment in enumerate(
-            _material_claim_segments(result.answer_text),
-            start=1,
-        )
+        for generated_claim in result.generated_claims
     )
     if not claims:
         raise UnsupportedRagAnswerClaimError(
-            "RAG answer did not contain material claim text."
+            "RAG answer did not include typed generated claims."
         )
 
     return DecisionEvidencePacket(
@@ -234,59 +232,58 @@ def _citation_context_map(
     return dict(zip(ids, result.contexts, strict=True))
 
 
-def _material_claim_segments(
-    answer_text: str,
-) -> tuple[str, ...]:
-    return tuple(
-        segment.strip(" \t\r\n-*")
-        for segment in _CLAIM_SPLIT.split(answer_text)
-        if segment.strip(" \t\r\n-*")
-    )
-
-
-def _material_claim_from_segment(
+def _material_claim_from_generated_claim(
     *,
-    index: int,
-    segment: str,
+    generated_claim: RagGeneratedClaim,
     evidence_by_citation_id: Mapping[str, str],
-    limitation_ids_by_evidence_id: Mapping[str, Sequence[str]],
+    limitation_ids_by_context_id: Mapping[str, Sequence[str]],
 ) -> MaterialClaim:
-    cited_ids = tuple(dict.fromkeys(_CITATION_TOKEN.findall(segment)))
-    if not cited_ids:
-        raise UnsupportedRagAnswerClaimError(
-            f"material RAG answer claim {index} lacks a supporting citation."
-        )
-
-    supporting_evidence_ids: list[str] = []
-    for citation_id in cited_ids:
-        evidence_id = evidence_by_citation_id.get(citation_id)
-        if evidence_id is None:
-            raise MissingRagCitationContextError(
-                "material RAG answer claim "
-                f"{index} cites missing context {citation_id!r}."
+    citation_ids = tuple(
+        dict.fromkeys(
+            (
+                *generated_claim.citation_ids,
+                *generated_claim.supporting_citation_ids,
             )
-        supporting_evidence_ids.append(evidence_id)
+        )
+    )
+    for citation_id in citation_ids:
+        if citation_id not in evidence_by_citation_id:
+            raise MissingRagCitationContextError(
+                f"generated RAG claim {generated_claim.claim_id!r} "
+                f"cites missing context {citation_id!r}."
+            )
+
+    supporting_evidence_ids = tuple(
+        dict.fromkeys(
+            evidence_by_citation_id[citation_id]
+            for citation_id in generated_claim.supporting_citation_ids
+        )
+    )
+    if generated_claim.gates_readiness and not supporting_evidence_ids:
+        raise UnsupportedRagAnswerClaimError(
+            f"material RAG answer claim {generated_claim.claim_id!r} "
+            "lacks supporting citations."
+        )
 
     limitation_ids = tuple(
         dict.fromkeys(
             limitation_id
-            for evidence_id in supporting_evidence_ids
-            for limitation_id in limitation_ids_by_evidence_id.get(evidence_id, ())
+            for context_id in (
+                *generated_claim.sanitized_context_ids,
+                *generated_claim.rejected_context_ids,
+            )
+            for limitation_id in limitation_ids_by_context_id.get(context_id, ())
         )
     )
     return MaterialClaim(
-        claim_id=f"rag-answer-claim:{index}",
-        text=_clean_claim_text(segment),
+        claim_id=generated_claim.claim_id,
+        text=generated_claim.text,
+        materiality=generated_claim.materiality,
         evidence=ClaimEvidenceBinding(
-            supporting_evidence_ids=tuple(supporting_evidence_ids),
+            supporting_evidence_ids=supporting_evidence_ids,
             limitation_ids=limitation_ids,
         ),
     )
-
-
-def _clean_claim_text(segment: str) -> str:
-    cleaned = _CITATION_TOKEN.sub("", segment)
-    return " ".join(cleaned.split()).strip(" .") or segment.strip()
 
 
 def _retrieval_reference_id(context: RagRetrievedContext) -> str:
@@ -357,18 +354,19 @@ def _rejected_context_limitations(
     metadata: Mapping[str, object],
     *,
     known_evidence_ids: tuple[str, ...],
-) -> tuple[EvidenceLimitation, ...]:
+) -> tuple[tuple[EvidenceLimitation, ...], dict[str, str]]:
     context_audit = metadata.get("context_audit")
     if not isinstance(context_audit, Mapping):
-        return ()
+        return (), {}
     rejected_contexts = context_audit.get("rejected_contexts")
     if not isinstance(rejected_contexts, Sequence) or isinstance(
         rejected_contexts,
         str | bytes | bytearray,
     ):
-        return ()
+        return (), {}
     linked_evidence_ids = known_evidence_ids[:1]
     limitations: list[EvidenceLimitation] = []
+    limitation_ids_by_context_id: dict[str, str] = {}
     for rejected in rejected_contexts:
         if not isinstance(rejected, Mapping):
             continue
@@ -379,9 +377,10 @@ def _rejected_context_limitations(
         reason_text = (
             reason if isinstance(reason, str) and reason.strip() else "rejected"
         )
+        limitation_id = f"rag-context-rejected:{context_id}"
         limitations.append(
             EvidenceLimitation(
-                limitation_id=f"rag-context-rejected:{context_id}",
+                limitation_id=limitation_id,
                 summary=(
                     f"Retrieved context {context_id!r} was rejected before answer "
                     f"generation ({reason_text}); original unsafe text is excluded "
@@ -390,7 +389,8 @@ def _rejected_context_limitations(
                 evidence_ids=linked_evidence_ids,
             )
         )
-    return tuple(limitations)
+        limitation_ids_by_context_id[context_id] = limitation_id
+    return tuple(limitations), limitation_ids_by_context_id
 
 
 def _context_digest(context: RagRetrievedContext) -> str:

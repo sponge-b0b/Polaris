@@ -5,6 +5,9 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
+from domain.decision_evidence import ClaimMaterialityTier
+
 
 class RagStructuredCitation(BaseModel):
     """One model-declared citation reference in a structured RAG answer."""
@@ -21,6 +24,50 @@ class RagStructuredCitation(BaseModel):
         if not stripped:
             raise ValueError("structured RAG citation fields cannot be empty.")
         return stripped
+
+
+class RagStructuredGeneratedClaim(BaseModel):
+    """One typed claim generated before RAG answer presentation rendering."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    claim_id: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    citation_ids: tuple[str, ...] = ()
+    supporting_citation_ids: tuple[str, ...] = ()
+    materiality: ClaimMaterialityTier = ClaimMaterialityTier.READINESS_GATING
+    sanitized_context_ids: tuple[str, ...] = ()
+    rejected_context_ids: tuple[str, ...] = ()
+
+    @field_validator("claim_id", "text")
+    @classmethod
+    def _strip_non_empty(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("structured RAG generated claim fields cannot be empty.")
+        return stripped
+
+    @field_validator(
+        "citation_ids",
+        "supporting_citation_ids",
+        "sanitized_context_ids",
+        "rejected_context_ids",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_string_tuple(cls, value: object) -> tuple[str, ...]:
+        return _coerce_string_tuple(value)
+
+    def to_generated_claim(self) -> RagGeneratedClaim:
+        return RagGeneratedClaim(
+            claim_id=self.claim_id,
+            text=self.text,
+            citation_ids=self.citation_ids,
+            supporting_citation_ids=self.supporting_citation_ids,
+            materiality=self.materiality,
+            sanitized_context_ids=self.sanitized_context_ids,
+            rejected_context_ids=self.rejected_context_ids,
+        )
 
 
 class RagStructuredAnswerQuality(BaseModel):
@@ -69,6 +116,24 @@ class RagStructuredAnswerQuality(BaseModel):
         return stripped or None
 
 
+def _coerce_string_tuple(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        stripped = value.strip()
+        return (stripped,) if stripped else ()
+    if not isinstance(value, (list, tuple)):
+        raise TypeError("value must be a sequence of strings.")
+    items: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise TypeError("value must contain only strings.")
+        stripped = item.strip()
+        if stripped:
+            items.append(stripped)
+    return tuple(dict.fromkeys(items))
+
+
 def _parse_nested_structured_value(value: object, field_name: str) -> object:
     if not isinstance(value, str):
         return value
@@ -114,12 +179,18 @@ class RagStructuredAnswer(BaseModel):
 
     answer_text: str = Field(min_length=1)
     citations: tuple[RagStructuredCitation, ...] = ()
+    generated_claims: tuple[RagStructuredGeneratedClaim, ...] = ()
     quality: RagStructuredAnswerQuality
 
     @field_validator("citations", mode="before")
     @classmethod
     def _coerce_citations(cls, value: object) -> object:
         return _coerce_citation_sequence(value)
+
+    @field_validator("generated_claims", mode="before")
+    @classmethod
+    def _coerce_generated_claims(cls, value: object) -> object:
+        return _parse_nested_structured_value(value, "generated_claims")
 
     @field_validator("quality", mode="before")
     @classmethod

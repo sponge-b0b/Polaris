@@ -7,6 +7,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
+from application.rag.contracts.rag_generated_claims import (
+    RagGeneratedClaim,
+    generated_claims_from_payload,
+)
 from application.rag.contracts.rag_quality_models import (
     RagCorrectiveAction,
     RagReflectionScores,
@@ -57,6 +61,7 @@ class RagResult:
     corrective_actions: tuple[RagCorrectiveAction, ...] = ()
     error: str | None = None
     evidence_packet: DecisionEvidencePacket | None = None
+    generated_claims: tuple[RagGeneratedClaim, ...] = ()
     generated_at: datetime = field(
         default_factory=lambda: datetime.now(UTC),
     )
@@ -87,6 +92,10 @@ class RagResult:
             value = getattr(self, field_name)
             if value is not None and not 0.0 <= value <= 1.0:
                 raise ValueError(f"{field_name} must be between 0.0 and 1.0.")
+        generated_claims = tuple(self.generated_claims)
+        if not all(isinstance(claim, RagGeneratedClaim) for claim in generated_claims):
+            raise TypeError("generated_claims must contain RagGeneratedClaim values.")
+        object.__setattr__(self, "generated_claims", generated_claims)
         if self.status == "failed":
             _require_non_empty(
                 self.error,
@@ -101,6 +110,7 @@ class RagResult:
         answer_text: str,
         contexts: tuple[RagRetrievedContext, ...],
         confidence_score: float | None = None,
+        generated_claims: tuple[RagGeneratedClaim, ...] = (),
         metadata: JsonObject | None = None,
     ) -> RagResult:
         return cls(
@@ -114,6 +124,7 @@ class RagResult:
                 contexts,
             ),
             confidence_score=confidence_score,
+            generated_claims=generated_claims,
             metadata=metadata or {},
         )
 
@@ -171,6 +182,7 @@ class RagResult:
             "corrective_actions": [action.value for action in self.corrective_actions],
             "error": self.error,
             "evidence_packet": _evidence_packet_to_payload(self.evidence_packet),
+            "generated_claims": [claim.to_dict() for claim in self.generated_claims],
             "generated_at": self.generated_at.isoformat(),
             "metadata": deepcopy(
                 dict(self.metadata),
@@ -249,6 +261,9 @@ class RagResult:
                 payload.get(
                     "evidence_packet",
                 )
+            ),
+            generated_claims=generated_claims_from_payload(
+                payload.get("generated_claims", ())
             ),
             generated_at=_datetime_from_payload(
                 payload.get(

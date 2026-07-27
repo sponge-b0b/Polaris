@@ -9,8 +9,10 @@ from application.rag.contracts.rag_context import (
     RagRetrievedContext,
     RagSource,
 )
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from domain.decision_evidence import ClaimMaterialityTier
 
 
 def test_rag_request_normalizes_query_and_serializes_filters() -> None:
@@ -120,11 +122,19 @@ def test_rag_result_builds_unique_citations_and_round_trips() -> None:
         ),
     )
 
+    generated_claim = RagGeneratedClaim(
+        claim_id="spy-breadth-improved",
+        text="SPY breadth improved",
+        citation_ids=("C1",),
+        supporting_citation_ids=("C1",),
+        materiality=ClaimMaterialityTier.READINESS_GATING,
+    )
     result = RagResult.answered(
         request=request,
         answer_text="SPY breadth improved.",
         contexts=contexts,
         confidence_score=0.84,
+        generated_claims=(generated_claim,),
     )
     restored = RagResult.from_dict(
         result.to_dict(),
@@ -133,6 +143,7 @@ def test_rag_result_builds_unique_citations_and_round_trips() -> None:
     assert result.query_id == request.request_id
     assert result.status == "answered"
     assert len(result.citations) == 1
+    assert result.generated_claims == (generated_claim,)
     assert restored == result
 
 

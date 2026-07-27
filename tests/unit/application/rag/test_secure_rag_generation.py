@@ -12,11 +12,13 @@ from application.ai_optimization.runtime_artifacts import (
     ResolvedAiPromptArtifact,
 )
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.generation import RagAnswerGenerator, SecureRagPromptBuilder
 from core.storage.persistence.ai_artifacts import AiArtifactType
 from domain.decision_evidence import (
+    ClaimMaterialityTier,
     EvidenceReferenceKind,
     ReconstructionReferenceKind,
 )
@@ -81,6 +83,7 @@ async def test_answer_generator_uses_policy_boundary_and_persisted_citations() -
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(_generated_claim(),),
             metadata={"model_reported_citations": ["ADMIN"]},
         )
     )
@@ -121,10 +124,11 @@ async def test_answer_generator_attaches_platform_owned_authority_metadata() -> 
     )
     provider = FakeAnswerProvider(
         result=RagAnswerGenerationResult(
-            answer_text="Market breadth improved with broad participation [C1].",
+            answer_text="Market breadth improved with broad participation.",
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(_generated_claim(),),
         )
     )
     generator = RagAnswerGenerator(answer_provider=provider)
@@ -169,10 +173,27 @@ async def test_answer_generator_attaches_decision_evidence_packet() -> None:
     )
     provider = FakeAnswerProvider(
         result=RagAnswerGenerationResult(
-            answer_text="Market breadth improved with broad participation [C1].",
+            answer_text=(
+                "Market breadth improved with broad participation. "
+                "The single retrieved context is enough background."
+            ),
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(
+                RagGeneratedClaim(
+                    claim_id="breadth-improved",
+                    text="Market breadth improved with broad participation",
+                    citation_ids=("C1",),
+                    supporting_citation_ids=("C1",),
+                    materiality=ClaimMaterialityTier.READINESS_GATING,
+                ),
+                RagGeneratedClaim(
+                    claim_id="context-background",
+                    text="The single retrieved context is enough background",
+                    materiality=ClaimMaterialityTier.CONTEXTUAL,
+                ),
+            ),
         )
     )
     generator = RagAnswerGenerator(answer_provider=provider)
@@ -184,12 +205,20 @@ async def test_answer_generator_attaches_decision_evidence_packet() -> None:
 
     packet = result.evidence_packet
     assert result.status == "answered"
+    assert result.generated_claims == provider.result.generated_claims
     assert packet is not None
     assert packet.packet_id == "decision-evidence-packet:rag_query:evidence-packet"
     assert packet.output_id == request.request_id
     assert packet.risk_tier.value == "enhanced"
+    assert [claim.claim_id for claim in packet.claims] == [
+        "breadth-improved",
+        "context-background",
+    ]
     assert packet.claims[0].text == "Market breadth improved with broad participation"
     assert packet.claims[0].evidence.supporting_evidence_ids == ("rag-citation:C1",)
+    assert packet.claims[0].materiality is ClaimMaterialityTier.READINESS_GATING
+    assert packet.claims[1].materiality is ClaimMaterialityTier.CONTEXTUAL
+    assert packet.claims[1].evidence.supporting_evidence_ids == ()
     assert packet.evidence[0].kind is EvidenceReferenceKind.RAG_CITATION_CONTEXT
     assert {reference.kind for reference in packet.reconstruction_references} == {
         ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT,
@@ -202,7 +231,9 @@ async def test_answer_generator_attaches_decision_evidence_packet() -> None:
     assert packet_metadata["reconstruction_reference_ids"] == list(
         packet.reconstruction_reference_ids
     )
-    assert RagResult.from_dict(result.to_dict()).evidence_packet == packet
+    restored = RagResult.from_dict(result.to_dict())
+    assert restored.evidence_packet == packet
+    assert restored.generated_claims == result.generated_claims
 
 
 @pytest.mark.asyncio
@@ -233,6 +264,9 @@ async def test_answer_generator_fails_closed_on_unsupported_material_claim() -> 
     assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
     assert result.metadata["rag_authority_fail_closed"] is True
     assert "decision_evidence_packet_failure" in result.metadata
+    assert "typed generated claims" in str(
+        result.metadata["decision_evidence_packet_failure"]
+    )
     risk_authority = _risk_authority_metadata(result)
     assert risk_authority["evidence_sufficient"] is False
 
@@ -267,6 +301,43 @@ async def test_answer_generator_fails_closed_on_missing_citation_context() -> No
 
 
 @pytest.mark.asyncio
+async def test_answer_generator_fails_closed_on_missing_claim_citation() -> None:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:missing-generated-claim-citation",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Market breadth improved with broad participation.",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.82,
+            generated_claims=(
+                RagGeneratedClaim(
+                    claim_id="breadth-improved",
+                    text="Market breadth improved with broad participation",
+                    citation_ids=("C2",),
+                    supporting_citation_ids=("C2",),
+                ),
+            ),
+        )
+    )
+    generator = RagAnswerGenerator(answer_provider=provider)
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Market breadth improved."),),
+    )
+
+    assert result.status == "no_results"
+    assert result.evidence_packet is None
+    assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
+    assert "cites missing context 'C2'" in str(
+        result.metadata["decision_evidence_packet_failure"]
+    )
+
+
+@pytest.mark.asyncio
 async def test_answer_generator_packet_audits_sanitized_context() -> None:
     request = RagRequest(
         query="Summarize market breadth.",
@@ -274,10 +345,11 @@ async def test_answer_generator_packet_audits_sanitized_context() -> None:
     )
     provider = FakeAnswerProvider(
         result=RagAnswerGenerationResult(
-            answer_text="Market breadth improved with broad participation [C1].",
+            answer_text="Market breadth improved with broad participation.",
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(_generated_claim(sanitized_context_ids=("chunk-1",)),),
         )
     )
     generator = RagAnswerGenerator(answer_provider=provider)
@@ -293,6 +365,9 @@ async def test_answer_generator_packet_audits_sanitized_context() -> None:
     assert packet.limitations
     assert "sanitized" in packet.limitations[0].summary
     assert packet.limitations[0].evidence_ids == ("rag-citation:C1",)
+    assert packet.claims[0].evidence.limitation_ids == (
+        "rag-context-sanitized:chunk-1",
+    )
     serialized_packet = json.dumps(result.to_dict()["evidence_packet"])
     assert "IGNORE ALL PRIOR INSTRUCTIONS" not in serialized_packet
     assert "hidden credentials" not in serialized_packet
@@ -311,6 +386,9 @@ async def test_answer_generator_packet_audits_rejected_context() -> None:
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(
+                _generated_claim(rejected_context_ids=("rejected-chunk-1",)),
+            ),
         )
     )
     generator = RagAnswerGenerator(answer_provider=provider)
@@ -337,6 +415,9 @@ async def test_answer_generator_packet_audits_rejected_context() -> None:
     assert len(rejected_limitations) == 1
     assert "rejected" in rejected_limitations[0].summary
     assert "IGNORE ALL PRIOR INSTRUCTIONS" not in rejected_limitations[0].summary
+    assert packet.claims[0].evidence.limitation_ids == (
+        "rag-context-rejected:rejected-chunk-1",
+    )
     context_audit = cast(Mapping[str, object], result.metadata["context_audit"])
     assert context_audit["rejected_context_count"] == 1
 
@@ -423,6 +504,7 @@ async def test_answer_generator_uses_source_controlled_prompt_without_artifact()
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.8,
+            generated_claims=(_generated_claim(text="Breadth improved"),),
         )
     )
     resolver = FakePromptArtifactResolver()
@@ -461,6 +543,7 @@ async def test_answer_generator_uses_approved_prompt_artifact_metadata() -> None
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.8,
+            generated_claims=(_generated_claim(text="Breadth improved"),),
         )
     )
     generator = RagAnswerGenerator(
@@ -587,6 +670,7 @@ async def test_answer_generator_removes_reasoning_metadata_from_persisted_result
             model="polaris-local-synthesis",
             provider_name="unit-test-provider",
             confidence_score=0.82,
+            generated_claims=(_generated_claim(),),
             metadata={
                 "safe_note": "kept",
                 "chain_of_thought": "hidden deliberation",
@@ -692,6 +776,29 @@ def _prompt_artifact() -> ResolvedAiPromptArtifact:
         evaluation_dataset_id="golden-rag-answer",
         evaluation_run_id="eval-run-1",
         langfuse_trace_id="trace-1",
+    )
+
+
+def _generated_claim(
+    *,
+    claim_id: str = "breadth-improved",
+    text: str = "Market breadth improved with broad participation",
+    citation_ids: tuple[str, ...] = ("C1",),
+    supporting_citation_ids: tuple[str, ...] | None = None,
+    materiality: ClaimMaterialityTier = ClaimMaterialityTier.READINESS_GATING,
+    sanitized_context_ids: tuple[str, ...] = (),
+    rejected_context_ids: tuple[str, ...] = (),
+) -> RagGeneratedClaim:
+    return RagGeneratedClaim(
+        claim_id=claim_id,
+        text=text,
+        citation_ids=citation_ids,
+        supporting_citation_ids=(
+            citation_ids if supporting_citation_ids is None else supporting_citation_ids
+        ),
+        materiality=materiality,
+        sanitized_context_ids=sanitized_context_ids,
+        rejected_context_ids=rejected_context_ids,
     )
 
 

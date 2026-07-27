@@ -86,6 +86,10 @@ class StructuredRagAnswerGenerationProvider(RagAnswerGenerationProvider):
             model=structured_result.model,
             provider_name=structured_result.provider_name,
             confidence_score=structured_answer.quality.confidence_score,
+            generated_claims=tuple(
+                claim.to_generated_claim()
+                for claim in structured_answer.generated_claims
+            ),
             metadata=_provider_metadata(
                 request=request,
                 structured_answer=structured_answer,
@@ -105,6 +109,7 @@ def _structured_system_prompt(policy_instructions: str) -> str:
         "Explain retrieved evidence; do not calculate authoritative scores, "
         "portfolio values, or risk decisions. "
         "Use citation ids only from the provided context payload. "
+        "Emit generated_claims as the typed support contract before rendering. "
         "If the context is insufficient, explain the limitation and set "
         "quality.refusal_reason. Do not repeat raw context payloads. "
         "Keep answer_text concise unless the user explicitly asks for a long answer."
@@ -120,6 +125,10 @@ def _structured_prompt(request: RagAnswerGenerationRequest) -> str:
         "- answer_text: concise complete answer with supported inline citations "
         "such as [C1]; do not quote or dump the raw context payload\n"
         "- citations: objects with citation_id and claim_summary\n"
+        "- generated_claims: objects with claim_id, text, citation_ids, "
+        "supporting_citation_ids, materiality (readiness_gating or contextual), "
+        "sanitized_context_ids, and rejected_context_ids; readiness_gating "
+        "claims must include supporting citation ids from the payload\n"
         "- quality.confidence_score: number from 0.0 to 1.0\n"
         "- quality.grounding_summary: concise grounding explanation\n"
         "- quality.limitations: relevant limitations, if any\n"
@@ -133,10 +142,12 @@ def _validate_structured_citations(
     allowed_citation_ids: tuple[str, ...],
 ) -> None:
     allowed = set(allowed_citation_ids)
+    cited_ids = [citation.citation_id for citation in structured_answer.citations]
+    for generated_claim in structured_answer.generated_claims:
+        cited_ids.extend(generated_claim.citation_ids)
+        cited_ids.extend(generated_claim.supporting_citation_ids)
     invalid = tuple(
-        citation.citation_id
-        for citation in structured_answer.citations
-        if citation.citation_id not in allowed
+        citation_id for citation_id in cited_ids if citation_id not in allowed
     )
     if invalid:
         invalid_text = ", ".join(sorted(set(invalid)))
@@ -175,6 +186,10 @@ def _structured_answer_metadata(
                 "claim_summary": citation.claim_summary,
             }
             for citation in structured_answer.citations
+        ],
+        "generated_claims": [
+            claim.to_generated_claim().to_dict()
+            for claim in structured_answer.generated_claims
         ],
         "grounding_summary": structured_answer.quality.grounding_summary,
         "limitations": list(structured_answer.quality.limitations),

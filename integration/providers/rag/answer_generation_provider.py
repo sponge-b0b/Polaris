@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from core.storage.persistence.rag import JsonObject
 
 
@@ -60,6 +61,7 @@ class RagAnswerGenerationResult:
     model: str | None = None
     provider_name: str | None = None
     confidence_score: float | None = None
+    generated_claims: tuple[RagGeneratedClaim, ...] = ()
     metadata: JsonObject = field(default_factory=dict)
 
     def __post_init__(
@@ -74,6 +76,10 @@ class RagAnswerGenerationResult:
             and not 0.0 <= self.confidence_score <= 1.0
         ):
             raise ValueError("confidence_score must be between 0.0 and 1.0.")
+        generated_claims = tuple(self.generated_claims)
+        if not all(isinstance(claim, RagGeneratedClaim) for claim in generated_claims):
+            raise TypeError("generated_claims must contain RagGeneratedClaim values.")
+        object.__setattr__(self, "generated_claims", generated_claims)
 
 
 @runtime_checkable

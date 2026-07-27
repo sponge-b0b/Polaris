@@ -198,6 +198,7 @@ class RagAnswerGenerator:
                     answer_text=provider_result.answer_text,
                     contexts=package.contexts,
                     confidence_score=provider_result.confidence_score,
+                    generated_claims=provider_result.generated_claims,
                     metadata=_result_metadata(
                         package=package,
                         provider_name=provider_result.provider_name,

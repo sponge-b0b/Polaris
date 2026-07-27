@@ -8,6 +8,7 @@ from application.rag.contracts.rag_structured_answer import (
     RagStructuredAnswer,
     RagStructuredAnswerQuality,
     RagStructuredCitation,
+    RagStructuredGeneratedClaim,
 )
 from integration.providers.llm_structured_output import (
     StructuredLlmProvider,
@@ -55,6 +56,12 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
     assert result.model == SYNTHESIS_MODEL_ALIAS
     assert result.provider_name == "instructor"
     assert result.metadata["citation_ids"] == ["C1"]
+    assert len(result.generated_claims) == 1
+    assert result.generated_claims[0].claim_id == "breadth-improved"
+    assert result.generated_claims[0].text == "Market breadth improved."
+    assert result.generated_claims[0].citation_ids == ("C1",)
+    assert result.generated_claims[0].supporting_citation_ids == ("C1",)
+    assert result.generated_claims[0].materiality.value == "readiness_gating"
     assert (
         result.metadata["structured_output_schema"] == STRUCTURED_RAG_ANSWER_SCHEMA_NAME
     )
@@ -65,6 +72,18 @@ async def test_structured_rag_provider_maps_full_structured_answer() -> None:
             {
                 "citation_id": "C1",
                 "claim_summary": "Breadth improved.",
+            }
+        ],
+        "generated_claims": [
+            {
+                "claim_id": "breadth-improved",
+                "text": "Market breadth improved.",
+                "citation_ids": ["C1"],
+                "supporting_citation_ids": ["C1"],
+                "materiality": "readiness_gating",
+                "sanitized_context_ids": [],
+                "rejected_context_ids": [],
+                "metadata": {},
             }
         ],
         "grounding_summary": "Supported by the retrieved market breadth context.",
@@ -108,6 +127,25 @@ async def test_structured_rag_provider_rejects_unknown_citation_ids() -> None:
             schema_ref=StructuredOutputSchemaRef(STRUCTURED_RAG_ANSWER_SCHEMA_NAME),
             attempts=1,
             output=_structured_answer(citation_id="ADMIN"),
+        )
+    )
+    provider = _provider(structured_provider)
+
+    with pytest.raises(ValueError, match="unknown context ids: ADMIN"):
+        await provider.generate_answer(_request())
+
+
+@pytest.mark.asyncio
+async def test_structured_rag_provider_rejects_unknown_claim_citations() -> None:
+    structured_provider = FakeStructuredLlmProvider(
+        result=StructuredLlmResult(
+            request_id="rag-request-1",
+            status=StructuredOutputStatus.SUCCEEDED,
+            provider_name="instructor",
+            model=SYNTHESIS_MODEL_ALIAS,
+            schema_ref=StructuredOutputSchemaRef(STRUCTURED_RAG_ANSWER_SCHEMA_NAME),
+            attempts=1,
+            output=_structured_answer(generated_claim_citation_id="ADMIN"),
         )
     )
     provider = _provider(structured_provider)
@@ -236,13 +274,27 @@ def _structured_answer(
     *,
     answer_text: str = "Market breadth improved across persisted signals [C1].",
     citation_id: str = "C1",
+    generated_claim_citation_id: str | None = None,
 ) -> RagStructuredAnswer:
+    claim_citation_id = (
+        citation_id
+        if generated_claim_citation_id is None
+        else generated_claim_citation_id
+    )
     return RagStructuredAnswer(
         answer_text=answer_text,
         citations=(
             RagStructuredCitation(
                 citation_id=citation_id,
                 claim_summary="Breadth improved.",
+            ),
+        ),
+        generated_claims=(
+            RagStructuredGeneratedClaim(
+                claim_id="breadth-improved",
+                text="Market breadth improved.",
+                citation_ids=(claim_citation_id,),
+                supporting_citation_ids=(claim_citation_id,),
             ),
         ),
         quality=RagStructuredAnswerQuality(

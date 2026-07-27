@@ -13,6 +13,7 @@ from application.rag.contracts.rag_context import (
     RagRetrievedContext,
     RagSource,
 )
+from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_quality_models import RagReflectionScores
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
@@ -72,6 +73,7 @@ async def test_rag_service_run_persists_success_query_and_answer_logs() -> None:
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.88,
+            generated_claims=(_generated_claim(),),
         )
     )
     service = RagService(
@@ -183,6 +185,7 @@ async def test_rag_service_persists_query_model_execution_metadata() -> None:
                         answer_text="SPY breadth improved [C1].",
                         model="unit-test-model",
                         provider_name="unit-test-provider",
+                        generated_claims=(_generated_claim(),),
                     )
                 )
             ),
@@ -224,6 +227,7 @@ async def test_rag_service_emits_observability_for_generation_and_log_persistenc
             model="unit-test-model",
             provider_name="unit-test-provider",
             confidence_score=0.88,
+            generated_claims=(_generated_claim(),),
         )
     )
     service = RagService(
@@ -289,6 +293,7 @@ async def test_rag_service_projects_sanitized_ai_query_observation() -> None:
                         ),
                         model="unit-test-model",
                         provider_name="unit-test-provider",
+                        generated_claims=(_generated_claim(),),
                     )
                 )
             ),
@@ -637,6 +642,20 @@ class FakeRagRepository:
         eligible: bool | None = None,
     ) -> Sequence[RagSourceEligibilityRecord]:
         return ()
+
+
+def _generated_claim(
+    *,
+    claim_id: str = "spy-breadth-improved",
+    text: str = "SPY breadth improved with broad participation",
+    citation_ids: tuple[str, ...] = ("C1",),
+) -> RagGeneratedClaim:
+    return RagGeneratedClaim(
+        claim_id=claim_id,
+        text=text,
+        citation_ids=citation_ids,
+        supporting_citation_ids=citation_ids,
+    )
 
 
 def _context(

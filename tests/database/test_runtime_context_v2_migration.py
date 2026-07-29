@@ -2,162 +2,37 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import Any
 
-import pytest
 from pytest_alembic.runner import MigrationContext
 from sqlalchemy import Engine, text
 
-_PREVIOUS_REVISION = "f6a7b8c9d0e1"
-_RUNTIME_CONTEXT_V2_REVISION = "a7b8c9d0e1f2"
-_SIMULATION_TIME = "2026-06-27T14:30:00+00:00"
+from core.runtime.state.runtime_context import (
+    RUNTIME_CONTEXT_SCHEMA_VERSION,
+    RuntimeContext,
+)
+
+_SIMULATION_TIME = datetime(2026, 6, 27, 14, 30, tzinfo=UTC)
 
 
-def _default_namespaces() -> dict[str, dict[str, Any]]:
-    return {
-        "market": {
-            "session": "regular",
-            "market_open": True,
-            "timestamp": None,
-            "index_levels": {},
-            "index_returns": {},
-            "trend_regime": "neutral",
-            "volatility_regime": "normal",
-            "risk_regime": "neutral",
-            "realized_volatility": 0.0,
-            "implied_volatility": 0.0,
-            "volatility_compression": 0.0,
-            "volatility_expansion": 0.0,
-            "macro_regime": "neutral",
-            "yield_curve_signal": "flat",
-            "liquidity_signal": "stable",
-            "earnings_pressure": 0.0,
-            "macro_event_risk": 0.0,
-            "fed_event_risk": 0.0,
-            "market_breadth_score": 0.0,
-            "sector_strength": {},
-            "symbols_universe": [],
-            "metadata": {},
-        },
-        "portfolio": {
-            "equity": 0.0,
-            "portfolio_value": 0.0,
-            "cash": 0.0,
-            "buying_power": 0.0,
-            "realized_pnl": 0.0,
-            "unrealized_pnl": 0.0,
-            "total_pnl": 0.0,
-            "peak_equity": 0.0,
-            "drawdown_absolute": 0.0,
-            "drawdown_percent": 0.0,
-            "capital_base": 0.0,
-            "capital_utilization": 0.0,
-            "cash_ratio": 0.0,
-            "positions": {},
-            "gross_exposure": 0.0,
-            "net_exposure": 0.0,
-            "long_exposure": 0.0,
-            "short_exposure": 0.0,
-            "leverage_ratio": 0.0,
-            "open_orders": [],
-            "risk_flags": [],
-            "account_health": "healthy",
-            "metadata": {},
-        },
-        "risk": {
-            "total_exposure": 0.0,
-            "gross_exposure": 0.0,
-            "net_exposure": 0.0,
-            "leverage_ratio": 0.0,
-            "concentration_risk": 0.0,
-            "sector_exposure": {},
-            "current_drawdown": 0.0,
-            "max_drawdown": 0.0,
-            "drawdown_velocity": 0.0,
-            "recovery_pressure": 0.0,
-            "realized_volatility_risk": 0.0,
-            "implied_volatility_risk": 0.0,
-            "volatility_regime": "normal",
-            "volatility_expansion_signal": 0.0,
-            "volatility_compression_signal": 0.0,
-            "cash_buffer_ratio": 0.0,
-            "liquidity_stress": 0.0,
-            "execution_fragility": 0.0,
-            "spread_widening_risk": 0.0,
-            "earnings_event_risk": 0.0,
-            "macro_event_risk": 0.0,
-            "fed_event_risk": 0.0,
-            "event_cluster_density": 0.0,
-            "regime_stability_score": 0.0,
-            "risk_regime": "neutral",
-            "regime_conflict_score": 0.0,
-            "slippage_risk": 0.0,
-            "latency_sensitivity": 0.0,
-            "fill_quality_risk": 0.0,
-            "execution_risk_flags": [],
-            "overall_risk_score": 0.0,
-            "risk_band": "normal",
-            "metadata": {},
-        },
-        "strategy": {
-            "strategy_votes": {},
-            "strategy_weights": {},
-            "adaptive_weight_multiplier": 1.0,
-            "regime_weight_adjustment": {},
-            "consensus_directional_score": 0.0,
-            "consensus_confidence": 0.0,
-            "agreement_score": 0.0,
-            "disagreement_score": 0.0,
-            "vote_distribution": {},
-            "regime_alignment_scores": {},
-            "regime_compatibility_score": 0.0,
-            "dominant_regime_alignment": "neutral",
-            "conflicting_strategies": [],
-            "suppressed_strategies": [],
-            "override_signals": [],
-            "conflict_score": 0.0,
-            "final_directional_bias": 0.0,
-            "final_confidence": 0.0,
-            "portfolio_tilt": "neutral",
-            "execution_signal": "hold",
-            "position_bias_adjustment": 0.0,
-            "metadata": {},
-        },
-    }
-
-
-def _legacy_context(*, run_id: str) -> dict[str, Any]:
-    workflow_inputs = {
-        "symbol": "SPY",
-        "backtest": {
-            "backtest_run_id": f"backtest-{run_id}",
-            "scenario_id": "scenario-1",
-            "provider_profile": "backtest_synthetic",
-        },
-    }
-    return {
-        "runtime_id": f"runtime-{run_id}",
-        "workflow_id": "workflow-1",
-        "execution_id": f"execution-{run_id}",
-        "mode": "backtest",
-        "created_at": "2026-06-27T14:00:00+00:00",
-        "simulation_time": _SIMULATION_TIME,
-        "state_version": 7,
-        "state": {
-            **_default_namespaces(),
-            "timestamp": _SIMULATION_TIME,
-            "runtime_mode": "backtest",
-            "execution_id": f"execution-{run_id}",
-            "step_index": 4,
-            "shared_state": workflow_inputs,
-            "metadata": {
+def _canonical_runtime_context(*, run_id: str) -> RuntimeContext:
+    return RuntimeContext(
+        runtime_id=f"runtime-{run_id}",
+        workflow_id="workflow-1",
+        execution_id=f"execution-{run_id}",
+        mode="backtest",
+        created_at=datetime(2026, 6, 27, 14, tzinfo=UTC),
+        simulation_time=_SIMULATION_TIME,
+        context_version=7,
+        workflow_inputs={
+            "symbol": "SPY",
+            "backtest": {
                 "backtest_run_id": f"backtest-{run_id}",
                 "scenario_id": "scenario-1",
-                "simulation_time": _SIMULATION_TIME,
+                "provider_profile": "backtest_synthetic",
             },
         },
-        "artifact_refs": {"report": {"artifact_id": "artifact-1", "path": "report.md"}},
-        "node_outputs": {
+        artifact_refs={"report": {"artifact_id": "artifact-1", "path": "report.md"}},
+        node_outputs={
             "technical": {
                 "node_name": "technical",
                 "status": "succeeded",
@@ -165,226 +40,108 @@ def _legacy_context(*, run_id: str) -> dict[str, Any]:
                 "outputs": {"technical_score": 0.75},
                 "metadata": {},
                 "errors": [],
-                "namespace_updates": {},
             }
         },
-        "errors": [],
-        "trace_context": {"trace_id": "trace-1"},
-    }
+        errors=[],
+        trace_context=None,
+    )
 
 
 def _insert_completed_run(
     engine: Engine,
     *,
     run_id: str,
-    context: dict[str, Any],
-    child_namespace_updates: dict[str, Any] | None = None,
+    context: RuntimeContext,
 ) -> None:
     now = datetime(2026, 6, 27, 14, tzinfo=UTC)
-    workflow_inputs = context["state"]["shared_state"]
+    context_payload = context.to_dict()
     with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                DELETE FROM completed_workflow_runs
+                WHERE run_id = :run_id OR execution_id = :execution_id
+                """
+            ),
+            {
+                "run_id": run_id,
+                "execution_id": context.execution_id,
+            },
+        )
         connection.execute(
             text(
                 """
                 INSERT INTO completed_workflow_runs (
                     run_id, workflow_name, workflow_id, execution_id, runtime_id,
-                    status, success, started_at, completed_at, duration_seconds,
-                    schema_version, context_json, inputs_json, outputs_json,
-                    metadata, errors_json, node_count, completed_node_count,
-                    failed_node_count
+                    status, success, execution_mode, started_at, completed_at,
+                    duration_seconds, schema_version, context_json, inputs_json,
+                    outputs_json, metadata, errors_json, node_count,
+                    completed_node_count, failed_node_count
                 ) VALUES (
-                    :run_id, 'morning_report', 'workflow-1', :execution_id,
-                    :runtime_id, 'succeeded', true, :now, :now, 1.0, 1,
-                    CAST(:context_json AS jsonb), CAST(:inputs_json AS jsonb),
-                    '{"report": "complete"}'::jsonb, CAST(:metadata AS jsonb),
-                    '[]'::jsonb, 1, 1, 0
+                    :run_id, 'morning_report', :workflow_id, :execution_id,
+                    :runtime_id, 'succeeded', true, :execution_mode, :now, :now,
+                    1.0, :schema_version, CAST(:context_json AS jsonb),
+                    CAST(:inputs_json AS jsonb), '{"report": "complete"}'::jsonb,
+                    CAST(:metadata AS jsonb), '[]'::jsonb, 1, 1, 0
                 )
                 """
             ),
             {
                 "run_id": run_id,
-                "execution_id": context["execution_id"],
-                "runtime_id": context["runtime_id"],
+                "workflow_id": context.workflow_id,
+                "execution_id": context.execution_id,
+                "runtime_id": context.runtime_id,
+                "execution_mode": context.mode,
                 "now": now,
-                "context_json": json.dumps(context),
-                "inputs_json": json.dumps(workflow_inputs),
-                "metadata": json.dumps({"state_version": 7, "preserve": "value"}),
-            },
-        )
-        connection.execute(
-            text(
-                """
-                INSERT INTO completed_workflow_node_outputs (
-                    node_output_id, run_id, workflow_name, execution_id,
-                    node_name, node_type, status, success, started_at,
-                    completed_at, duration_seconds, outputs, metadata, errors_json
-                ) VALUES (
-                    :node_output_id, :run_id, 'morning_report', :execution_id,
-                    'technical', 'technical', 'succeeded', true, :now, :now,
-                    0.5, '{"technical_score": 0.75}'::jsonb,
-                    CAST(:metadata AS jsonb), '[]'::jsonb
-                )
-                """
-            ),
-            {
-                "node_output_id": f"node-output-{run_id}",
-                "run_id": run_id,
-                "execution_id": context["execution_id"],
-                "now": now,
+                "schema_version": RUNTIME_CONTEXT_SCHEMA_VERSION,
+                "context_json": json.dumps(context_payload),
+                "inputs_json": json.dumps(context.workflow_inputs),
                 "metadata": json.dumps(
-                    {"namespace_updates": child_namespace_updates or {}}
+                    {
+                        "schema_version": RUNTIME_CONTEXT_SCHEMA_VERSION,
+                        "context_version": context.context_version,
+                    }
                 ),
             },
         )
 
 
-def test_runtime_context_v2_migration_preserves_canonical_data_and_round_trips(
+def test_current_runtime_context_schema_persists_canonical_v2_payload(
     alembic_runner: MigrationContext,
-    alembic_engine: object,
+    alembic_engine: Engine,
 ) -> None:
-    engine = alembic_engine
-    assert isinstance(engine, Engine)
-    alembic_runner.migrate_up_before(_RUNTIME_CONTEXT_V2_REVISION)
-    legacy_context = _legacy_context(run_id="round-trip")
-    _insert_completed_run(engine, run_id="round-trip", context=legacy_context)
+    """Validate the current migrated schema without pinning squashed revision IDs."""
 
-    alembic_runner.migrate_up_to(_RUNTIME_CONTEXT_V2_REVISION)
+    alembic_runner.migrate_up_to("heads")
+    run_id = "runtime-context-schema-v2"
+    context = _canonical_runtime_context(run_id=run_id)
 
-    with engine.connect() as connection:
-        run = connection.execute(
+    _insert_completed_run(alembic_engine, run_id=run_id, context=context)
+
+    with alembic_engine.connect() as connection:
+        row = connection.execute(
             text(
                 """
                 SELECT schema_version, context_json, inputs_json, metadata
                 FROM completed_workflow_runs
-                WHERE run_id = 'round-trip'
+                WHERE run_id = :run_id
                 """
-            )
+            ),
+            {"run_id": run_id},
         ).one()
-        child_metadata = connection.execute(
-            text(
-                """
-                SELECT metadata
-                FROM completed_workflow_node_outputs
-                WHERE run_id = 'round-trip'
-                """
-            )
-        ).scalar_one()
 
-    context = run.context_json
-    assert run.schema_version == 2
-    assert context["schema_version"] == 2
-    assert context["context_version"] == 7
-    assert "state" not in context
-    assert "state_version" not in context
-    assert context["workflow_inputs"]["symbol"] == "SPY"
-    assert context["workflow_inputs"]["backtest"]["step_index"] == 4
-    assert context["workflow_inputs"]["backtest"]["simulation_time"] == _SIMULATION_TIME
-    assert run.inputs_json == context["workflow_inputs"]
-    assert context["artifact_refs"] == {
-        "report": {"artifact_id": "artifact-1", "path": "report.md"}
+    context_payload = row.context_json
+    restored_context = RuntimeContext.from_dict(context_payload)
+
+    assert row.schema_version == RUNTIME_CONTEXT_SCHEMA_VERSION
+    assert context_payload["schema_version"] == RUNTIME_CONTEXT_SCHEMA_VERSION
+    assert "state" not in context_payload
+    assert "state_version" not in context_payload
+    assert context_payload["workflow_inputs"] == row.inputs_json
+    assert restored_context.workflow_inputs == context.workflow_inputs
+    assert restored_context.context_version == context.context_version
+    assert restored_context.node_outputs["technical"]["outputs"] == {
+        "technical_score": 0.75,
     }
-    assert context["trace_context"] == {"trace_id": "trace-1"}
-    assert "namespace_updates" not in context["node_outputs"]["technical"]
-    assert child_metadata == {}
-    assert run.metadata == {
-        "schema_version": 2,
-        "context_version": 7,
-        "preserve": "value",
-    }
-
-    alembic_runner.migrate_down_to(_PREVIOUS_REVISION)
-
-    with engine.connect() as connection:
-        downgraded = connection.execute(
-            text(
-                """
-                SELECT schema_version, context_json, inputs_json, metadata
-                FROM completed_workflow_runs
-                WHERE run_id = 'round-trip'
-                """
-            )
-        ).one()
-        downgraded_child_metadata = connection.execute(
-            text(
-                """
-                SELECT metadata
-                FROM completed_workflow_node_outputs
-                WHERE run_id = 'round-trip'
-                """
-            )
-        ).scalar_one()
-
-    restored = downgraded.context_json
-    assert downgraded.schema_version == 1
-    assert restored["state_version"] == 7
-    assert restored["state"]["shared_state"] == downgraded.inputs_json
-    assert restored["state"]["step_index"] == 4
-    assert restored["state"]["timestamp"] == _SIMULATION_TIME
-    assert restored["state"]["market"] == _default_namespaces()["market"]
-    assert restored["node_outputs"]["technical"]["namespace_updates"] == {}
-    assert downgraded_child_metadata == {"namespace_updates": {}}
-    assert downgraded.metadata == {"state_version": 7, "preserve": "value"}
-
-
-def test_runtime_context_v2_migration_rejects_business_namespace_before_mutation(
-    alembic_runner: MigrationContext,
-    alembic_engine: object,
-) -> None:
-    engine = alembic_engine
-    assert isinstance(engine, Engine)
-    alembic_runner.migrate_up_before(_RUNTIME_CONTEXT_V2_REVISION)
-    valid_context = _legacy_context(run_id="a-valid")
-    unsafe_context = _legacy_context(run_id="z-unsafe")
-    unsafe_context["state"]["market"]["trend_regime"] = "bullish"
-    _insert_completed_run(engine, run_id="a-valid", context=valid_context)
-    _insert_completed_run(engine, run_id="z-unsafe", context=unsafe_context)
-
-    with pytest.raises(RuntimeError, match="non-default market namespace"):
-        alembic_runner.migrate_up_to(_RUNTIME_CONTEXT_V2_REVISION)
-
-    with engine.connect() as connection:
-        rows = connection.execute(
-            text(
-                """
-                SELECT run_id, schema_version, context_json
-                FROM completed_workflow_runs
-                ORDER BY run_id
-                """
-            )
-        ).all()
-
-    assert [row.schema_version for row in rows] == [1, 1]
-    assert all("state" in row.context_json for row in rows)
-
-
-def test_runtime_context_v2_migration_rejects_persisted_namespace_updates(
-    alembic_runner: MigrationContext,
-    alembic_engine: object,
-) -> None:
-    engine = alembic_engine
-    assert isinstance(engine, Engine)
-    alembic_runner.migrate_up_before(_RUNTIME_CONTEXT_V2_REVISION)
-    context = _legacy_context(run_id="persisted-namespace")
-    _insert_completed_run(
-        engine,
-        run_id="persisted-namespace",
-        context=context,
-        child_namespace_updates={"market": {"trend_regime": "bullish"}},
-    )
-
-    with pytest.raises(RuntimeError, match="persisted node technical"):
-        alembic_runner.migrate_up_to(_RUNTIME_CONTEXT_V2_REVISION)
-
-    with engine.connect() as connection:
-        run = connection.execute(
-            text(
-                """
-                SELECT schema_version, context_json
-                FROM completed_workflow_runs
-                WHERE run_id = 'persisted-namespace'
-                """
-            )
-        ).one()
-
-    assert run.schema_version == 1
-    assert "state" in run.context_json
+    assert row.metadata["schema_version"] == RUNTIME_CONTEXT_SCHEMA_VERSION
+    assert row.metadata["context_version"] == context.context_version

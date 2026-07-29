@@ -3,7 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    String,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +50,7 @@ class ClaimEvidenceLinkColumnsMixin:
         Boolean,
         nullable=False,
         default=True,
+        server_default=text("true"),
     )
     supporting_evidence_ids: Mapped[list[Any]] = mapped_column(
         JSONB,

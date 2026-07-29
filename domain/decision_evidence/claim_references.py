@@ -12,6 +12,8 @@ from domain.decision_evidence.packets import (
     EvidenceReference,
     MaterialClaim,
     UnsupportedMaterialClaimError,
+    _coerce_claim_materiality_tier,
+    _set_claim_materiality,
 )
 
 DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: Final = (
@@ -100,12 +102,11 @@ class EvidenceClaimReference:
             raise DecisionEvidencePacketValidationError(
                 "decision evidence claim reference schema_version is unsupported."
             )
-        materiality = _coerce_claim_materiality_tier(
-            self.materiality,
+        materiality = _set_claim_materiality(
+            instance=self,
+            materiality=self.materiality,
             material=self.material,
         )
-        object.__setattr__(self, "materiality", materiality)
-        object.__setattr__(self, "material", materiality.gates_readiness)
         if (
             materiality.gates_readiness
             and self.risk_tier in _DECISION_EVIDENCE_REQUIRED_RISK_TIERS
@@ -386,31 +387,6 @@ def _optional_claim_materiality_tier(value: object) -> ClaimMaterialityTier | No
     if value is None:
         return None
     return _coerce_claim_materiality_tier(value, material=True)
-
-
-def _coerce_claim_materiality_tier(
-    value: object,
-    *,
-    material: bool,
-) -> ClaimMaterialityTier:
-    if not isinstance(material, bool):
-        raise DecisionEvidencePacketValidationError("material must be a boolean.")
-    if value is None:
-        if material:
-            return ClaimMaterialityTier.READINESS_GATING
-        return ClaimMaterialityTier.CONTEXTUAL
-    if isinstance(value, ClaimMaterialityTier):
-        return value
-    if isinstance(value, str):
-        try:
-            return ClaimMaterialityTier(value.strip().lower())
-        except ValueError as exc:
-            raise DecisionEvidencePacketValidationError(
-                "materiality must be a supported ClaimMaterialityTier."
-            ) from exc
-    raise DecisionEvidencePacketValidationError(
-        "materiality must be a ClaimMaterialityTier."
-    )
 
 
 def _bool_value(value: object, label: str) -> bool:

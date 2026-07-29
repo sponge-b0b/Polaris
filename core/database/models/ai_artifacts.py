@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -106,6 +107,7 @@ class AiPromptProgramArtifactModel(Base):
         Boolean,
         nullable=False,
         default=False,
+        server_default=text("false"),
         index=True,
     )
     created_at: Mapped[datetime] = mapped_column(

@@ -126,12 +126,11 @@ class MaterialClaim:
             raise DecisionEvidencePacketValidationError(
                 "claim evidence must be a ClaimEvidenceBinding."
             )
-        materiality = _coerce_claim_materiality_tier(
-            self.materiality,
+        _set_claim_materiality(
+            instance=self,
+            materiality=self.materiality,
             material=self.material,
         )
-        object.__setattr__(self, "materiality", materiality)
-        object.__setattr__(self, "material", materiality.gates_readiness)
 
     @property
     def gates_readiness(self) -> bool:
@@ -590,6 +589,21 @@ def _coerce_claim_materiality_tier(
     raise DecisionEvidencePacketValidationError(
         "materiality must be a ClaimMaterialityTier."
     )
+
+
+def _set_claim_materiality(
+    *,
+    instance: object,
+    materiality: object,
+    material: bool,
+) -> ClaimMaterialityTier:
+    normalized = _coerce_claim_materiality_tier(
+        materiality,
+        material=material,
+    )
+    object.__setattr__(instance, "materiality", normalized)
+    object.__setattr__(instance, "material", normalized.gates_readiness)
+    return normalized
 
 
 def _set_tuple(instance: object, attribute: str) -> None:

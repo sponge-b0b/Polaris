@@ -98,8 +98,11 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # Links directly to container alias over internal Docker networking
-      - DATABASE_URL=postgresql://${LANGFUSE_POSTGRES_USER:-langfuse}:${LANGFUSE_POSTGRES_PASSWORD}@postgres:5432/langfuse
+      # Use Langfuse component database variables to avoid credential-bearing URLs.
+      - DATABASE_HOST=postgres
+      - DATABASE_NAME=${LANGFUSE_POSTGRES_DB:-langfuse}
+      - DATABASE_USERNAME=${LANGFUSE_POSTGRES_USER:-langfuse}
+      - DATABASE_PASSWORD=${LANGFUSE_POSTGRES_PASSWORD}
       # Alphanumeric keys for encrypting web browser dashboard sessions
       - NEXTAUTH_SECRET=polaris_local_secret_session_string_123
       - SALT=polaris_local_salt_string_456

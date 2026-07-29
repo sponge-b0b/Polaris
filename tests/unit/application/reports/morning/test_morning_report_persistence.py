@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -38,6 +39,7 @@ from domain.authority import RiskTier
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
     ClaimMaterialityTier,
+    DecisionEvidencePacketValidationError,
     EvidenceClaimReference,
 )
 from domain.llm import ReasoningTraceViolationError
@@ -254,7 +256,7 @@ async def test_morning_report_persistence_service_persists_full_bundle() -> None
     service = MorningReportPersistenceService(
         repository,
     )
-    document = _document()
+    document = _document_with_contextual_claim_reference()
     markdown = MorningReportMarkdownRenderer().render(
         document,
     )
@@ -343,6 +345,55 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
             claim_references=(reference,),
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_morning_report_fails_closed_without_claim_audit_treatment(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    document = _document()
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(repository)
+
+    with caplog.at_level(
+        logging.WARNING,
+        logger="application.reports.morning_report_persistence",
+    ):
+        result = await service.persist(
+            document,
+            markdown_body=MorningReportMarkdownRenderer().render(document),
+        )
+
+    assert result.success is False
+    assert "no explicit decision-evidence claim audit treatment" in str(result.error)
+    assert "canonical decision-evidence packet provenance" in str(result.error)
+    assert repository.report is None
+    assert any(
+        "Morning report claim-evidence binding failed closed." in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_morning_report_fails_closed_for_packet_validation_error() -> None:
+    reference = _material_claim_reference()
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(
+        repository,
+        claim_binding_service=_FailingReportClaimBindingService(
+            DecisionEvidencePacketValidationError("stale packet provenance"),
+        ),
+    )
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is False
+    assert "stale packet provenance" in str(result.error)
+    assert repository.report is None
 
 
 @pytest.mark.asyncio
@@ -591,6 +642,18 @@ def test_morning_report_mapper_fails_closed_on_unsupported_capital_advice() -> N
         )
 
 
+class _FailingReportClaimBindingService(DecisionEvidenceClaimBindingService):
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def bind_report_claims(
+        self,
+        report_id: str,
+        targets: Sequence[ReportClaimEvidenceBindingTarget],
+    ) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
+        raise self.error
+
+
 class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
     def __init__(
         self,
@@ -606,6 +669,35 @@ class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
     ) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
         self.targets = tuple(targets)
         return self.links
+
+
+def _contextual_claim_reference() -> EvidenceClaimReference:
+    return EvidenceClaimReference(
+        packet_id="packet-context",
+        output_id="report-output-context",
+        claim_id="claim-context",
+        risk_tier=RiskTier.VIGILANT,
+        materiality=ClaimMaterialityTier.CONTEXTUAL,
+        supporting_evidence_ids=(),
+        reconstruction_reference_ids=(),
+    )
+
+
+def _document_with_contextual_claim_reference() -> MorningReportDocument:
+    document = _document()
+    return replace(
+        document,
+        executive_summary=replace(
+            document.executive_summary,
+            bullets=(
+                ReportBullet(
+                    text="Maintain discipline while monitoring catalysts.",
+                    label="Posture",
+                    claim_references=(_contextual_claim_reference(),),
+                ),
+            ),
+        ),
+    )
 
 
 def _material_claim_reference() -> EvidenceClaimReference:

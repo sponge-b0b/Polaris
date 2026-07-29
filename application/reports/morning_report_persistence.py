@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -38,14 +39,21 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     new_report_id,
 )
+from domain.authority import RiskTier
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    DecisionEvidencePacketValidationError,
     EvidenceClaimReference,
     evidence_claim_references_metadata,
 )
 from domain.llm import (
     is_model_internal_reasoning_key,
     sanitize_reasoning_trace_text_for_boundary,
+)
+
+logger = logging.getLogger(__name__)
+_HIGH_RISK_REPORT_CLAIM_PROVENANCE_TIERS = frozenset(
+    (RiskTier.ENHANCED, RiskTier.VIGILANT),
 )
 
 
@@ -230,7 +238,18 @@ class MorningReportPersistenceService:
         except (
             ClaimEvidenceBindingError,
             DecisionEvidencePacketReconstructionError,
+            DecisionEvidencePacketValidationError,
         ) as exc:
+            logger.warning(
+                "Morning report claim-evidence binding failed closed.",
+                extra={
+                    "report_id": bundle.report.report_id,
+                    "execution_id": document.execution_id,
+                    "risk_tier": document.authority.risk_tier.value,
+                    "error_type": type(exc).__name__,
+                },
+                exc_info=True,
+            )
             return ReportPersistenceResult.failed(str(exc))
 
         return await self._repository.persist_report(
@@ -252,6 +271,7 @@ async def _bind_report_claim_evidence(
         document,
     )
     if not targets:
+        _ensure_claim_audit_treatment_present(document)
         return ()
     if claim_binding_service is None:
         if has_material_claim_references(targets):
@@ -270,6 +290,20 @@ async def _bind_report_claim_evidence(
         boundary_name="report persistence",
     )
     return links
+
+
+def _ensure_claim_audit_treatment_present(
+    document: MorningReportDocument,
+) -> None:
+    if document.authority.risk_tier not in _HIGH_RISK_REPORT_CLAIM_PROVENANCE_TIERS:
+        return
+
+    raise ClaimEvidenceBindingError(
+        "morning_report.persistence "
+        f"{document.authority.risk_tier.value} report output has no explicit "
+        "decision-evidence claim audit treatment; material report claims require "
+        "canonical decision-evidence packet provenance before persistence."
+    )
 
 
 def _report_claim_evidence_binding_targets(

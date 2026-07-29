@@ -29,14 +29,17 @@ from core.storage.persistence.repositories import (
     PostgresAgentSignalPersistenceRepository,
     PostgresBacktestPersistenceRepository,
     PostgresDecisionEvidencePacketRepository,
+    PostgresEvaluationPersistenceRepository,
     PostgresMacroPersistenceRepository,
     PostgresMarketPersistenceRepository,
     PostgresNewsPersistenceRepository,
     PostgresPersistenceLineageLinkRepository,
+    PostgresRagPersistenceRepository,
     PostgresRecommendationPersistenceRepository,
     PostgresReportPersistenceRepository,
     PostgresSentimentPersistenceRepository,
     PostgresStrategyPersistenceRepository,
+    PostgresTelemetryPersistenceRepository,
 )
 
 
@@ -148,14 +151,41 @@ class ApplicationPersistenceDIProvider(Provider):
         return PostgresDecisionEvidencePacketRepository(session)
 
     @provide
+    def provide_decision_evidence_rag_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresRagPersistenceRepository:
+        return PostgresRagPersistenceRepository(session)
+
+    @provide
+    def provide_decision_evidence_evaluation_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresEvaluationPersistenceRepository:
+        return PostgresEvaluationPersistenceRepository(session)
+
+    @provide
+    def provide_decision_evidence_trace_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresTelemetryPersistenceRepository:
+        return PostgresTelemetryPersistenceRepository(session)
+
+    @provide
     def provide_decision_evidence_packet_persistence_service(
         self,
         repository: PostgresDecisionEvidencePacketRepository,
         completed_run_archive: CompletedRunArchive,
+        rag_repository: PostgresRagPersistenceRepository,
+        evaluation_repository: PostgresEvaluationPersistenceRepository,
+        trace_repository: PostgresTelemetryPersistenceRepository,
     ) -> DecisionEvidencePacketPersistenceService:
         return DecisionEvidencePacketPersistenceService(
             repository=repository,
             completed_run_archive=completed_run_archive,
+            evaluation_repository=evaluation_repository,
+            rag_repository=rag_repository,
+            trace_repository=trace_repository,
         )
 
     @provide

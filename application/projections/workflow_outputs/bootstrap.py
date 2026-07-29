@@ -55,7 +55,10 @@ from core.storage.persistence.postgres_completed_run_archive import (
 )
 from core.storage.persistence.repositories import (
     PostgresDecisionEvidencePacketRepository,
+    PostgresEvaluationPersistenceRepository,
     PostgresPersistenceLineageLinkRepository,
+    PostgresRagPersistenceRepository,
+    PostgresTelemetryPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAgentSignalPersistenceRepository,
@@ -168,6 +171,9 @@ class PostgresWorkflowOutputProjectionCoordinator:
                 completed_run_archive=PostgresCompletedRunArchive(
                     session_factory=self._session_factory,
                 ),
+                evaluation_repository=PostgresEvaluationPersistenceRepository(session),
+                rag_repository=PostgresRagPersistenceRepository(session),
+                trace_repository=PostgresTelemetryPersistenceRepository(session),
             )
         )
         claim_binding_service = DecisionEvidenceClaimBindingService(

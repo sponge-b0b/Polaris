@@ -5,6 +5,9 @@ from typing import cast
 from application.decision_evidence.claim_binding import (
     DecisionEvidenceClaimBindingService,
 )
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketPersistenceService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -126,6 +129,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         portfolio_persistence_service,
         recommendation_persistence_service,
         cast(DecisionEvidenceClaimBindingService, object()),
+        cast(DecisionEvidencePacketPersistenceService, object()),
         lineage_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,

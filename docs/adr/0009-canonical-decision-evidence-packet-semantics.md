@@ -137,6 +137,20 @@ runtime evidence. RAG contexts, evaluation records, trace context, and linked
 artifacts are used only through their typed reconstruction references and never
 become a second source of truth for the business concept they describe.
 
+Per-kind reconstruction behavior is:
+
+| Reference kind | Canonical source | Reconstruction behavior | Failure behavior |
+| --- | --- | --- | --- |
+| `completed_workflow_run` | Completed-run archive runtime evidence. | Reconstructable from archived completed-run identity. A retained material snapshot may satisfy reconstruction only when the archive record is missing. | Missing archive without a valid retained snapshot, malformed identifiers, or stale run identity fail closed. |
+| `workflow_node_output` | Completed-run archive node output. | Reconstructable from archived node output plus content digest. A retained material snapshot may satisfy reconstruction only when the archive node is missing. | Missing archive/node without a valid retained snapshot, substituted node/run identity, or stale digest fail closed. |
+| `evaluation_run` | Canonical evaluation run record in PostgreSQL. | Reconstructable from the evaluation run record and provenance digest; retained material snapshots are fallback for missing canonical records. | Missing record without a valid retained snapshot, substituted run identity, or stale digest fail closed. |
+| `evaluation_metric_result` | Canonical evaluation metric result attached to an evaluation run. | Reconstructable from the evaluation run snapshot ID, metric result ID, and metric digest; retained material snapshots are fallback for missing canonical metric records. | Missing metric without a valid retained snapshot, substituted run linkage, malformed run snapshot IDs, or stale digest fail closed. |
+| `rag_retrieval_context` | Canonical RAG query log metadata retaining retrieved context payloads, or a retained material snapshot. | Reconstructable from the durable query log and retrieved context payload. Validation recomputes the retrieval-context digest from context ID, retrieval route, canonical source lineage, and text rather than trusting only IDs, digests, or source labels. | Missing query/context without a valid retained snapshot, substituted query identity, malformed payloads, or stale context digest fail closed. |
+| `rag_citation_context` | Canonical RAG document/chunk records, or a retained material snapshot. | Reconstructable from durable RAG document/chunk lineage. Validation checks source table, source ID, document ID, chunk ownership, and citation digest rather than accepting structural citation IDs alone. | Missing document/chunk without a valid retained snapshot, substituted source lineage/chunk ownership, malformed source IDs, or stale citation digest fail closed. |
+| `linked_artifact` | Typed artifact record when the identifier names a canonical artifact; otherwise source-of-truth-labeled audit metadata. | Evaluation artifacts using `evaluation-artifact:<run_id>:<artifact_id>` are reconstructable from canonical evaluation artifact records. Other linked artifacts are audit-only until an owning repository-backed artifact contract is added. | Canonical evaluation artifact refs fail closed on missing artifact, substituted run linkage, or stale digest. Generic audit-only artifact refs must still identify a permitted source of truth and cannot claim reconstructability. |
+| `trace_context` | Durable telemetry trace record, or a retained material snapshot. | Reconstructable when a telemetry trace repository is available; otherwise only retained material snapshots can satisfy reconstruction. Validation checks trace record ID, trace ID, and trace digest. | Missing trace without a valid retained snapshot, missing validator, substituted trace identity, malformed trace IDs, or stale trace digest fail closed. |
+| `canonical_domain_record` | Source-of-truth-labeled canonical domain record. | Audit-only structural validation until a concrete repository-backed record kind is introduced. New canonical business concepts require first-class typed fields and repository-backed validators before they can claim source-record verification. | Audit-only refs may pass structural validation but cannot claim source-record reconstructability; invalid source-of-truth categories fail closed. |
+
 Failure behavior is fail-closed and observable:
 
 - a missing packet or missing referenced source raises a reconstruction failure;
@@ -238,3 +252,4 @@ second retrieval/ranking/graph store to satisfy decision-evidence readiness.
 - #105 — fail closed at report and recommendation output boundaries when material provenance is missing
 - #106 — replace RAG presentation-text claim extraction with typed generated claims
 - #107 — document canonical decision evidence packet and reconstruction semantics
+- #114 — validate non-workflow evidence references during reconstruction

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
@@ -15,12 +16,17 @@ from application.decision_evidence import (
     MalformedDecisionEvidenceReconstructionIdentifierError,
     MissingCompletedWorkflowEvidenceError,
     MissingDecisionEvidenceSnapshotError,
+    MissingDecisionEvidenceSourceError,
     StaleDecisionEvidenceSourceError,
     SubstitutedDecisionEvidenceSourceError,
     TamperedDecisionEvidenceSnapshotError,
     calculate_completed_workflow_node_evidence_digest,
+    calculate_evaluation_artifact_evidence_digest,
     calculate_evaluation_metric_result_evidence_digest,
     calculate_evaluation_run_evidence_digest,
+    calculate_rag_citation_source_evidence_digest,
+    calculate_rag_retrieval_context_evidence_digest,
+    calculate_trace_context_evidence_digest,
 )
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
@@ -35,9 +41,16 @@ from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketRecord,
 )
 from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
     EvaluationMetricResultRecord,
     EvaluationRunRecord,
 )
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagQueryLogRecord,
+)
+from core.storage.persistence.telemetry import TelemetryTraceRecord
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
@@ -48,6 +61,7 @@ from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from domain.authority import RiskTier, SourceOfTruthCategory, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
+    ClaimMaterialityTier,
     DecisionEvidencePacket,
     EvidenceReference,
     EvidenceReferenceKind,
@@ -255,6 +269,340 @@ async def test_reconstruction_reports_malformed_rag_context_reference() -> None:
     with pytest.raises(
         MalformedDecisionEvidenceReconstructionIdentifierError,
         match="RAG retrieval context reconstruction reference",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_validates_non_workflow_canonical_sources() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    rag_document = _rag_document()
+    rag_chunk = _rag_chunk(document_id=rag_document.document_id)
+    rag_context_payload = _rag_context_payload(
+        rag_document=rag_document, rag_chunk=rag_chunk
+    )
+    trace = _trace_record()
+    artifact = _evaluation_artifact(run_id=evaluation_run.run_id)
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        rag_document=rag_document,
+        rag_chunk=rag_chunk,
+        rag_context_payload=rag_context_payload,
+        trace=trace,
+        artifact=artifact,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+            artifacts=(artifact,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(
+            documents=(rag_document,),
+            chunks=(rag_chunk,),
+            query_logs=(_rag_query_log(context_payload=rag_context_payload),),
+        ),
+        trace_repository=FakeTelemetryTraceSourceRepository(traces=(trace,)),
+    )
+
+    await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-all-reference-kinds")
+
+    assert reconstructed == packet
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_validates_rag_citation_with_canonical_colon_ids() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    document_id = (
+        "rag_document:strategy_decisions:strategy_decision:strategy-decision-1"
+    )
+    rag_document = _rag_document(document_id=document_id)
+    rag_chunk = _rag_chunk(
+        document_id=rag_document.document_id,
+        chunk_id=f"{rag_document.document_id}:chunk:0",
+    )
+    rag_context_payload = _rag_context_payload(
+        rag_document=rag_document, rag_chunk=rag_chunk
+    )
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        rag_document=rag_document,
+        rag_chunk=rag_chunk,
+        rag_context_payload=rag_context_payload,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(
+            documents=(rag_document,),
+            chunks=(rag_chunk,),
+            query_logs=(_rag_query_log(context_payload=rag_context_payload),),
+        ),
+    )
+
+    await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-all-reference-kinds")
+
+    assert reconstructed == packet
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_falls_back_for_transient_web_rag_citation() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+    )
+    transient_web_record_id = (
+        "external_web:https://example.com/breadth:web_document:web-context:document"
+    )
+    packet = replace(
+        packet,
+        reconstruction_references=tuple(
+            replace(reference, record_id=transient_web_record_id)
+            if reference.kind is ReconstructionReferenceKind.RAG_CITATION_CONTEXT
+            else reference
+            for reference in packet.reconstruction_references
+        ),
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(),
+    )
+
+    await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-all-reference-kinds")
+
+    assert reconstructed == packet
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_rag_retrieval_context() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    rag_document = _rag_document()
+    rag_chunk = _rag_chunk(document_id=rag_document.document_id)
+    rag_context_payload = _rag_context_payload(
+        rag_document=rag_document, rag_chunk=rag_chunk
+    )
+    stale_context_payload = {**rag_context_payload, "text": "stale retrieved text"}
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        rag_document=rag_document,
+        rag_chunk=rag_chunk,
+        rag_context_payload=rag_context_payload,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(
+            documents=(rag_document,),
+            chunks=(rag_chunk,),
+            query_logs=(_rag_query_log(context_payload=stale_context_payload),),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="RAG retrieval context evidence content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_substituted_rag_citation_chunk() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    rag_document = _rag_document()
+    rag_chunk = _rag_chunk(document_id=rag_document.document_id)
+    rag_context_payload = _rag_context_payload(
+        rag_document=rag_document, rag_chunk=rag_chunk
+    )
+    substituted_chunk = _rag_chunk(
+        document_id="other-rag-document",
+        chunk_id=rag_chunk.chunk_id,
+    )
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        rag_document=rag_document,
+        rag_chunk=rag_chunk,
+        rag_context_payload=rag_context_payload,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(
+            documents=(rag_document,),
+            chunks=(substituted_chunk,),
+            query_logs=(_rag_query_log(context_payload=rag_context_payload),),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        SubstitutedDecisionEvidenceSourceError,
+        match="RAG citation chunk evidence does not belong",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_trace_context() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    trace = _trace_record(status="ok")
+    stale_trace = _trace_record(status="error")
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        trace=trace,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        trace_repository=FakeTelemetryTraceSourceRepository(traces=(stale_trace,)),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="trace context evidence content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_linked_evaluation_artifact() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    artifact = _evaluation_artifact(run_id=evaluation_run.run_id)
+    stale_artifact = _evaluation_artifact(
+        run_id=evaluation_run.run_id,
+        payload={"summary": "Substituted evaluation artifact content."},
+    )
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        artifact=artifact,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+            artifacts=(stale_artifact,),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="linked evaluation artifact evidence content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-all-reference-kinds")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_missing_rag_source_without_snapshot() -> None:
+    bundle = _bundle()
+    evaluation_run = _evaluation_run()
+    metric_result = _metric_result(run_id=evaluation_run.run_id)
+    rag_document = _rag_document()
+    rag_chunk = _rag_chunk(document_id=rag_document.document_id)
+    rag_context_payload = _rag_context_payload(
+        rag_document=rag_document, rag_chunk=rag_chunk
+    )
+    packet = _packet_with_every_reconstruction_kind(
+        bundle=bundle,
+        evaluation_run=evaluation_run,
+        metric_result=metric_result,
+        rag_document=rag_document,
+        rag_chunk=rag_chunk,
+        rag_context_payload=rag_context_payload,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(bundle),
+        evaluation_repository=FakeEvaluationProvenanceRepository(
+            runs=(evaluation_run,),
+            metric_results=(metric_result,),
+        ),
+        rag_repository=FakeRagEvidenceSourceRepository(),
+    )
+    contextual_packet = replace(
+        packet,
+        claims=(
+            replace(
+                packet.claims[0],
+                materiality=ClaimMaterialityTier.CONTEXTUAL,
+            ),
+        ),
+    )
+    await service.persist_packet(contextual_packet)
+    repository.records["packet-all-reference-kinds"] = (
+        _record_without_support_snapshots(
+            repository.records["packet-all-reference-kinds"],
+        )
+    )
+
+    with pytest.raises(
+        MissingDecisionEvidenceSourceError,
+        match="RAG query source record 'rag-query-1' was not found",
     ):
         await service.reconstruct_packet("packet-all-reference-kinds")
 
@@ -745,17 +1093,25 @@ class FakeEvaluationProvenanceRepository:
         *,
         runs: tuple[EvaluationRunRecord, ...] = (),
         metric_results: tuple[EvaluationMetricResultRecord, ...] = (),
+        artifacts: tuple[EvaluationArtifactRecord, ...] = (),
     ) -> None:
         self.runs = {run.run_id: run for run in runs}
         self.metric_results_by_run: dict[
             str,
             tuple[EvaluationMetricResultRecord, ...],
         ] = {}
+        self.artifacts_by_run: dict[str, tuple[EvaluationArtifactRecord, ...]] = {}
         for metric_result in metric_results:
             existing = self.metric_results_by_run.get(metric_result.run_id, ())
             self.metric_results_by_run[metric_result.run_id] = (
                 *existing,
                 metric_result,
+            )
+        for artifact in artifacts:
+            existing_artifacts = self.artifacts_by_run.get(artifact.run_id, ())
+            self.artifacts_by_run[artifact.run_id] = (
+                *existing_artifacts,
+                artifact,
             )
 
     async def get_run(self, run_id: str) -> EvaluationRunRecord | None:
@@ -766,6 +1122,46 @@ class FakeEvaluationProvenanceRepository:
         run_id: str,
     ) -> tuple[EvaluationMetricResultRecord, ...]:
         return self.metric_results_by_run.get(run_id, ())
+
+    async def list_artifacts(
+        self,
+        run_id: str,
+    ) -> tuple[EvaluationArtifactRecord, ...]:
+        return self.artifacts_by_run.get(run_id, ())
+
+
+class FakeRagEvidenceSourceRepository:
+    def __init__(
+        self,
+        *,
+        documents: tuple[RagDocumentRecord, ...] = (),
+        chunks: tuple[RagChunkRecord, ...] = (),
+        query_logs: tuple[RagQueryLogRecord, ...] = (),
+    ) -> None:
+        self.documents = {document.document_id: document for document in documents}
+        self.chunks = {chunk.chunk_id: chunk for chunk in chunks}
+        self.query_logs = {query_log.query_id: query_log for query_log in query_logs}
+
+    async def get_document(self, document_id: str) -> RagDocumentRecord | None:
+        return self.documents.get(document_id)
+
+    async def get_chunk(self, chunk_id: str) -> RagChunkRecord | None:
+        return self.chunks.get(chunk_id)
+
+    async def get_query_log(self, query_id: str) -> RagQueryLogRecord | None:
+        return self.query_logs.get(query_id)
+
+
+class FakeTelemetryTraceSourceRepository:
+    def __init__(
+        self,
+        *,
+        traces: tuple[TelemetryTraceRecord, ...] = (),
+    ) -> None:
+        self.traces = {trace.trace_record_id: trace for trace in traces}
+
+    async def get_trace(self, trace_record_id: str) -> TelemetryTraceRecord | None:
+        return self.traces.get(trace_record_id)
 
 
 class FailingTelemetrySink:
@@ -880,6 +1276,11 @@ def _packet_with_every_reconstruction_kind(
     bundle: CompletedRunBundle,
     evaluation_run: EvaluationRunRecord,
     metric_result: EvaluationMetricResultRecord,
+    rag_document: RagDocumentRecord | None = None,
+    rag_chunk: RagChunkRecord | None = None,
+    rag_context_payload: Mapping[str, object] | None = None,
+    trace: TelemetryTraceRecord | None = None,
+    artifact: EvaluationArtifactRecord | None = None,
 ) -> DecisionEvidencePacket:
     node_output = bundle.node_outputs[0]
     node_digest = calculate_completed_workflow_node_evidence_digest(
@@ -890,6 +1291,42 @@ def _packet_with_every_reconstruction_kind(
     metric_digest = calculate_evaluation_metric_result_evidence_digest(
         metric_result=metric_result,
     )
+    rag_retrieval_digest = (
+        "digest-rag-context"
+        if rag_context_payload is None
+        else calculate_rag_retrieval_context_evidence_digest(
+            context_payload=rag_context_payload,
+        )
+    )
+    rag_citation_record_id = "rag-document-1:chunk-1"
+    rag_citation_digest = "digest-rag-citation"
+    if rag_document is not None:
+        rag_citation_record_id = ":".join(
+            (
+                rag_document.source_table,
+                rag_document.source_id,
+                rag_document.document_id,
+                "document" if rag_chunk is None else rag_chunk.chunk_id,
+            )
+        )
+        rag_citation_digest = calculate_rag_citation_source_evidence_digest(
+            document=rag_document,
+            chunk=rag_chunk,
+        )
+    trace_digest = (
+        "digest-trace-context"
+        if trace is None
+        else calculate_trace_context_evidence_digest(trace=trace)
+    )
+    linked_artifact_record_id = "model:gpt-4.1-2026-07-25"
+    linked_artifact_digest: str | None = None
+    if artifact is not None:
+        linked_artifact_record_id = (
+            f"evaluation-artifact:{artifact.run_id}:{artifact.artifact_id}"
+        )
+        linked_artifact_digest = calculate_evaluation_artifact_evidence_digest(
+            artifact=artifact,
+        )
     reconstruction_references = (
         ReconstructionReference(
             reference_id="completed-run",
@@ -919,15 +1356,15 @@ def _packet_with_every_reconstruction_kind(
             record_id="rag-context-1",
             source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
             snapshot_id="rag-query-1",
-            content_digest="digest-rag-context",
+            content_digest=rag_retrieval_digest,
         ),
         ReconstructionReference(
             reference_id="rag-citation",
             kind=ReconstructionReferenceKind.RAG_CITATION_CONTEXT,
-            record_id="rag-document-1:chunk-1",
+            record_id=rag_citation_record_id,
             source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
             snapshot_id="citation-1",
-            content_digest="digest-rag-citation",
+            content_digest=rag_citation_digest,
         ),
         ReconstructionReference(
             reference_id="evaluation-run",
@@ -950,13 +1387,14 @@ def _packet_with_every_reconstruction_kind(
             record_id="trace-1:span-1",
             source_of_truth=SourceOfTruthCategory.TELEMETRY,
             snapshot_id="trace-1",
-            content_digest="digest-trace-context",
+            content_digest=trace_digest,
         ),
         ReconstructionReference(
             reference_id="linked-artifact",
             kind=ReconstructionReferenceKind.LINKED_ARTIFACT,
-            record_id="model:gpt-4.1-2026-07-25",
+            record_id=linked_artifact_record_id,
             source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            content_digest=linked_artifact_digest,
         ),
     )
     return DecisionEvidencePacket(
@@ -996,6 +1434,111 @@ def _packet_with_every_reconstruction_kind(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+    )
+
+
+def _rag_document(
+    *,
+    document_id: str = "rag-document-1",
+    source_id: str = "strategy-decision-1",
+    generated_at: datetime = datetime(2026, 7, 25, 13, 8, tzinfo=UTC),
+) -> RagDocumentRecord:
+    return RagDocumentRecord(
+        document_id=document_id,
+        source_table="strategy_decisions",
+        source_id=source_id,
+        source_type="strategy_decision",
+        title="Strategy decision evidence",
+        content_text="Canonical strategy decision source text.",
+        generated_at=generated_at,
+    )
+
+
+def _rag_chunk(
+    *,
+    document_id: str,
+    chunk_id: str = "chunk-1",
+) -> RagChunkRecord:
+    return RagChunkRecord(
+        chunk_id=chunk_id,
+        document_id=document_id,
+        chunk_index=0,
+        chunk_text="Retained redacted snapshot covering all reconstruction kinds.",
+        metadata={"section_name": "summary"},
+    )
+
+
+def _rag_context_payload(
+    *,
+    rag_document: RagDocumentRecord,
+    rag_chunk: RagChunkRecord,
+) -> dict[str, object]:
+    return {
+        "context_id": "rag-context-1",
+        "retrieval_route": "hybrid",
+        "text": rag_chunk.chunk_text,
+        "source": {
+            "source_table": rag_document.source_table,
+            "source_id": rag_document.source_id,
+            "source_type": rag_document.source_type,
+            "document_id": rag_document.document_id,
+            "chunk_id": rag_chunk.chunk_id,
+            "section_name": "summary",
+            "generated_at": rag_document.generated_at.isoformat(),
+        },
+    }
+
+
+def _rag_query_log(
+    *,
+    context_payload: Mapping[str, object],
+) -> RagQueryLogRecord:
+    return RagQueryLogRecord(
+        query_id="rag-query-1",
+        query_text="What evidence supports the strategy decision?",
+        retrieval_route="hybrid",
+        top_k=5,
+        status="succeeded",
+        started_at=datetime(2026, 7, 25, 13, 9, tzinfo=UTC),
+        context_count=1,
+        citation_count=1,
+        metadata=cast(JsonObject, {"retrieved_contexts": (context_payload,)}),
+    )
+
+
+def _trace_record(
+    *,
+    trace_record_id: str = "trace-1:span-1",
+    trace_id: str = "trace-1",
+    span_id: str = "span-1",
+    status: str = "ok",
+) -> TelemetryTraceRecord:
+    return TelemetryTraceRecord(
+        trace_record_id=trace_record_id,
+        trace_id=trace_id,
+        span_id=span_id,
+        operation_name="decision_evidence.reconstruct",
+        source="application.decision_evidence",
+        started_at=datetime(2026, 7, 25, 13, 10, tzinfo=UTC),
+        ended_at=datetime(2026, 7, 25, 13, 10, 1, tzinfo=UTC),
+        duration_seconds=1.0,
+        status=status,
+        correlation_id="correlation-1",
+    )
+
+
+def _evaluation_artifact(
+    *,
+    run_id: str,
+    artifact_id: str = "artifact-1",
+    payload: JsonObject | None = None,
+) -> EvaluationArtifactRecord:
+    return EvaluationArtifactRecord(
+        artifact_id=artifact_id,
+        run_id=run_id,
+        artifact_type="rubric-summary",
+        payload=payload or {"summary": "Evaluation artifact summary."},
+        created_at=datetime(2026, 7, 25, 13, 11, tzinfo=UTC),
     )
 
 

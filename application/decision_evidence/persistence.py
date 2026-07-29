@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Protocol
+from typing import NoReturn, Protocol
 
 from application.decision_evidence.completed_workflow_assembly import (
     calculate_completed_workflow_node_evidence_digest,
@@ -23,12 +23,19 @@ from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketRecord,
 )
 from core.storage.persistence.evaluation import (
+    EvaluationArtifactRecord,
     EvaluationMetricResultRecord,
     EvaluationRunRecord,
+)
+from core.storage.persistence.rag import (
+    RagChunkRecord,
+    RagDocumentRecord,
+    RagQueryLogRecord,
 )
 from core.storage.persistence.serializers import (
     DecisionEvidencePacketPersistenceSerializer,
 )
+from core.storage.persistence.telemetry import TelemetryTraceRecord
 from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
@@ -80,6 +87,12 @@ class MalformedDecisionEvidenceReconstructionIdentifierError(
     """Raised when persisted reconstruction identifiers are malformed."""
 
 
+class UnsupportedDecisionEvidenceReferenceError(
+    DecisionEvidencePacketReconstructionError
+):
+    """Raised when no canonical validator exists for a reconstruction reference."""
+
+
 class EvaluationProvenanceRepository(Protocol):
     """Read model needed to verify canonical evaluation provenance sources."""
 
@@ -92,6 +105,32 @@ class EvaluationProvenanceRepository(Protocol):
     ) -> Sequence[EvaluationMetricResultRecord]:
         """Load canonical metric results attached to an evaluation run."""
 
+    async def list_artifacts(
+        self,
+        run_id: str,
+    ) -> Sequence[EvaluationArtifactRecord]:
+        """Load canonical artifacts attached to an evaluation run."""
+
+
+class RagEvidenceSourceRepository(Protocol):
+    """Read model needed to verify canonical RAG retrieval and citation sources."""
+
+    async def get_document(self, document_id: str) -> RagDocumentRecord | None:
+        """Load a canonical RAG source document by id."""
+
+    async def get_chunk(self, chunk_id: str) -> RagChunkRecord | None:
+        """Load a canonical RAG source chunk by id."""
+
+    async def get_query_log(self, query_id: str) -> RagQueryLogRecord | None:
+        """Load a canonical RAG query log by id."""
+
+
+class TelemetryTraceSourceRepository(Protocol):
+    """Read model needed to verify durable trace/correlation references."""
+
+    async def get_trace(self, trace_record_id: str) -> TelemetryTraceRecord | None:
+        """Load a durable trace/span record by id."""
+
 
 @dataclass(frozen=True, slots=True)
 class DecisionEvidencePacketPersistenceService:
@@ -100,6 +139,14 @@ class DecisionEvidencePacketPersistenceService:
     repository: DecisionEvidencePacketPersistenceRepository = field(repr=False)
     completed_run_archive: CompletedRunArchive = field(repr=False)
     evaluation_repository: EvaluationProvenanceRepository | None = field(
+        default=None,
+        repr=False,
+    )
+    rag_repository: RagEvidenceSourceRepository | None = field(
+        default=None,
+        repr=False,
+    )
+    trace_repository: TelemetryTraceSourceRepository | None = field(
         default=None,
         repr=False,
     )
@@ -231,22 +278,49 @@ class DecisionEvidencePacketPersistenceService:
         material_snapshots = _material_support_snapshots(packet)
         for reference in packet.reconstruction_references:
             _validate_source_of_truth(reference)
-            synchronous_validator = _RECONSTRUCTION_REFERENCE_VALIDATORS.get(
-                reference.kind
-            )
-            if synchronous_validator is not None:
-                synchronous_validator(reference)
-                continue
             try:
                 await self._validate_canonical_source_record(reference, bundle_cache)
-            except MissingDecisionEvidenceSourceError:
+            except (
+                MissingDecisionEvidenceSourceError,
+                UnsupportedDecisionEvidenceReferenceError,
+            ) as exc:
                 snapshot = material_snapshots.get(reference.reference_id)
                 if snapshot is None:
+                    logger.warning(
+                        "Decision evidence reconstruction reference validation failed.",
+                        extra={
+                            "packet_id": packet.packet_id,
+                            "reference_id": reference.reference_id,
+                            "reference_kind": reference.kind.value,
+                            "record_id": reference.record_id,
+                            "source_of_truth": None
+                            if reference.source_of_truth is None
+                            else reference.source_of_truth.value,
+                            "failure_mode": type(exc).__name__,
+                        },
+                        exc_info=True,
+                    )
                     raise
                 _validate_retained_material_support_snapshot(
                     snapshot=snapshot,
                     reference=reference,
                 )
+            except DecisionEvidencePacketReconstructionError as exc:
+                logger.warning(
+                    "Decision evidence reconstruction reference validation failed.",
+                    extra={
+                        "packet_id": packet.packet_id,
+                        "reference_id": reference.reference_id,
+                        "reference_kind": reference.kind.value,
+                        "record_id": reference.record_id,
+                        "source_of_truth": None
+                        if reference.source_of_truth is None
+                        else reference.source_of_truth.value,
+                        "failure_mode": type(exc).__name__,
+                    },
+                    exc_info=True,
+                )
+                raise
 
     async def _validate_canonical_source_record(
         self,
@@ -261,8 +335,18 @@ class DecisionEvidencePacketPersistenceService:
             await self._validate_evaluation_run(reference)
         elif reference.kind is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT:
             await self._validate_evaluation_metric_result(reference)
+        elif reference.kind is ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD:
+            _validate_canonical_domain_record_reference(reference)
+        elif reference.kind is ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT:
+            await self._validate_rag_retrieval_context(reference)
+        elif reference.kind is ReconstructionReferenceKind.RAG_CITATION_CONTEXT:
+            await self._validate_rag_citation_context(reference)
+        elif reference.kind is ReconstructionReferenceKind.TRACE_CONTEXT:
+            await self._validate_trace_context(reference)
+        elif reference.kind is ReconstructionReferenceKind.LINKED_ARTIFACT:
+            await self._validate_linked_artifact(reference)
         else:
-            raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            raise UnsupportedDecisionEvidenceReferenceError(
                 f"unsupported reconstruction reference kind '{reference.kind.value}'."
             )
 
@@ -401,6 +485,168 @@ class DecisionEvidencePacketPersistenceService:
                 f"'{reference.record_id}'."
             )
 
+    async def _validate_rag_retrieval_context(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        _validate_rag_retrieval_context_reference(reference)
+        repository = self.rag_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "RAG repository is required to reconstruct retrieval context "
+                f"source record '{reference.record_id}'."
+            )
+
+        query_log = await repository.get_query_log(reference.snapshot_id or "")
+        if query_log is None:
+            raise MissingDecisionEvidenceSourceError(
+                f"RAG query source record '{reference.snapshot_id}' was not found."
+            )
+        if query_log.query_id != reference.snapshot_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "RAG retrieval context evidence does not belong to query "
+                f"'{reference.snapshot_id}'."
+            )
+
+        context_payload = _find_rag_context_payload(
+            query_log.metadata,
+            context_id=reference.record_id,
+        )
+        if context_payload is None:
+            raise MissingDecisionEvidenceSourceError(
+                "RAG retrieval context source record "
+                f"'{reference.record_id}' was not retained with query "
+                f"'{query_log.query_id}'."
+            )
+
+        content_digest = calculate_rag_retrieval_context_evidence_digest(
+            context_payload=context_payload,
+        )
+        if content_digest != reference.content_digest:
+            raise StaleDecisionEvidenceSourceError(
+                "RAG retrieval context evidence content digest is stale for "
+                f"'{reference.record_id}'."
+            )
+
+    async def _validate_rag_citation_context(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        _validate_rag_citation_context_reference(reference)
+        repository = self.rag_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "RAG repository is required to reconstruct citation context "
+                f"source record '{reference.record_id}'."
+            )
+
+        source_identity = _parse_rag_source_record_id(reference.record_id)
+        document = await repository.get_document(source_identity.document_id)
+        if document is None:
+            raise MissingDecisionEvidenceSourceError(
+                f"RAG document source record '{source_identity.document_id}' was not "
+                "found."
+            )
+        _validate_rag_document_identity(
+            document=document,
+            source_identity=source_identity,
+            reference=reference,
+        )
+
+        chunk: RagChunkRecord | None = None
+        if source_identity.chunk_id is not None:
+            chunk = await repository.get_chunk(source_identity.chunk_id)
+            if chunk is None:
+                raise MissingDecisionEvidenceSourceError(
+                    f"RAG chunk source record '{source_identity.chunk_id}' was not "
+                    "found."
+                )
+            if chunk.document_id != document.document_id:
+                raise SubstitutedDecisionEvidenceSourceError(
+                    "RAG citation chunk evidence does not belong to document "
+                    f"'{document.document_id}'."
+                )
+
+        content_digest = calculate_rag_citation_source_evidence_digest(
+            document=document,
+            chunk=chunk,
+        )
+        if content_digest != reference.content_digest:
+            raise StaleDecisionEvidenceSourceError(
+                "RAG citation context evidence content digest is stale for "
+                f"'{reference.record_id}'."
+            )
+
+    async def _validate_trace_context(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        _validate_trace_context_reference(reference)
+        repository = self.trace_repository
+        if repository is None:
+            raise UnsupportedDecisionEvidenceReferenceError(
+                "trace context reconstruction requires a telemetry trace repository "
+                f"or a retained snapshot for '{reference.record_id}'."
+            )
+
+        trace = await repository.get_trace(reference.record_id)
+        if trace is None:
+            raise MissingDecisionEvidenceSourceError(
+                f"trace context source record '{reference.record_id}' was not found."
+            )
+        if trace.trace_record_id != reference.record_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "trace context evidence does not match reconstruction identifier "
+                f"'{reference.record_id}'."
+            )
+        if trace.trace_id != reference.snapshot_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "trace context evidence does not belong to trace "
+                f"'{reference.snapshot_id}'."
+            )
+
+        content_digest = calculate_trace_context_evidence_digest(trace=trace)
+        if content_digest != reference.content_digest:
+            raise StaleDecisionEvidenceSourceError(
+                "trace context evidence content digest is stale for "
+                f"'{reference.record_id}'."
+            )
+
+    async def _validate_linked_artifact(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        _validate_linked_artifact_reference(reference)
+        evaluation_artifact = _parse_evaluation_artifact_record_id(reference.record_id)
+        if evaluation_artifact is None:
+            return
+
+        repository = self.evaluation_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "evaluation provenance repository is required to reconstruct "
+                f"linked artifact source record '{reference.record_id}'."
+            )
+        artifact = await _load_evaluation_artifact(
+            repository=repository,
+            run_id=evaluation_artifact.run_id,
+            artifact_id=evaluation_artifact.artifact_id,
+        )
+        if artifact.run_id != evaluation_artifact.run_id:
+            raise SubstitutedDecisionEvidenceSourceError(
+                "linked evaluation artifact evidence does not belong to evaluation "
+                f"run '{evaluation_artifact.run_id}'."
+            )
+        if reference.content_digest is not None:
+            content_digest = calculate_evaluation_artifact_evidence_digest(
+                artifact=artifact,
+            )
+            if content_digest != reference.content_digest:
+                raise StaleDecisionEvidenceSourceError(
+                    "linked evaluation artifact evidence content digest is stale "
+                    f"for '{reference.record_id}'."
+                )
+
     async def _load_completed_run_bundle(
         self,
         workflow_name: str,
@@ -507,6 +753,98 @@ def calculate_evaluation_metric_result_evidence_digest(
     )
 
 
+def calculate_rag_retrieval_context_evidence_digest(
+    *,
+    context_payload: Mapping[str, object],
+) -> str:
+    """Calculate a stable digest for a retained canonical RAG context payload."""
+
+    source = _required_mapping(context_payload, "source")
+    digest_payload = "|".join(
+        (
+            _required_string(context_payload, "context_id"),
+            _required_string(context_payload, "retrieval_route"),
+            _required_string(source, "source_table"),
+            _required_string(source, "source_id"),
+            _required_string(source, "document_id"),
+            _optional_string(source.get("chunk_id")) or "",
+            _required_string(context_payload, "text"),
+        )
+    )
+    return hashlib.sha256(digest_payload.encode("utf-8")).hexdigest()
+
+
+def calculate_rag_citation_source_evidence_digest(
+    *,
+    document: RagDocumentRecord,
+    chunk: RagChunkRecord | None = None,
+) -> str:
+    """Calculate the RAG citation digest from canonical source document lineage."""
+
+    section_name = _optional_string(document.metadata.get("section_name"))
+    if chunk is not None:
+        section_name = (
+            _optional_string(chunk.metadata.get("section_name")) or section_name
+        )
+    digest_payload = "|".join(
+        (
+            document.source_table,
+            document.source_id,
+            document.source_type,
+            document.document_id,
+            "" if chunk is None else chunk.chunk_id,
+            section_name or "",
+            document.generated_at.isoformat(),
+        )
+    )
+    return hashlib.sha256(digest_payload.encode("utf-8")).hexdigest()
+
+
+def calculate_trace_context_evidence_digest(
+    *,
+    trace: TelemetryTraceRecord,
+) -> str:
+    """Calculate a stable digest for durable trace/correlation evidence fields."""
+
+    return _stable_content_digest(
+        {
+            "trace_record_id": trace.trace_record_id,
+            "trace_id": trace.trace_id,
+            "span_id": trace.span_id,
+            "operation_name": trace.operation_name,
+            "source": trace.source,
+            "parent_span_id": trace.parent_span_id,
+            "started_at": _datetime_value(trace.started_at),
+            "ended_at": _datetime_value(trace.ended_at),
+            "duration_seconds": trace.duration_seconds,
+            "status": trace.status,
+            "correlation_id": trace.correlation_id,
+            "terminal_event_id": trace.terminal_event_id,
+            "exception_type": trace.exception_type,
+            "exception_message": trace.exception_message,
+        }
+    )
+
+
+def calculate_evaluation_artifact_evidence_digest(
+    *,
+    artifact: EvaluationArtifactRecord,
+) -> str:
+    """Calculate a stable digest from safe evaluation artifact identity fields."""
+
+    return _stable_content_digest(
+        {
+            "artifact_id": artifact.artifact_id,
+            "run_id": artifact.run_id,
+            "artifact_type": artifact.artifact_type,
+            "case_id": artifact.case_id,
+            "uri": artifact.uri,
+            "payload": artifact.payload,
+            "created_at": _datetime_value(artifact.created_at),
+        }
+    )
+
+
 async def _load_metric_result(
     *,
     repository: EvaluationProvenanceRepository,
@@ -520,6 +858,35 @@ async def _load_metric_result(
     raise MissingDecisionEvidenceSourceError(
         f"evaluation metric result source record '{metric_result_id}' was not found."
     )
+
+
+async def _load_evaluation_artifact(
+    *,
+    repository: EvaluationProvenanceRepository,
+    run_id: str,
+    artifact_id: str,
+) -> EvaluationArtifactRecord:
+    artifacts = await repository.list_artifacts(run_id)
+    for artifact in artifacts:
+        if artifact.artifact_id == artifact_id:
+            return artifact
+    raise MissingDecisionEvidenceSourceError(
+        f"evaluation artifact source record '{artifact_id}' was not found."
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _RagSourceRecordIdentity:
+    source_table: str | None
+    source_id: str | None
+    document_id: str
+    chunk_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _EvaluationArtifactIdentity:
+    run_id: str
+    artifact_id: str
 
 
 def _stable_content_digest(payload: Mapping[str, object]) -> str:
@@ -537,6 +904,216 @@ def _datetime_value(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
+
+
+def _find_rag_context_payload(
+    metadata: Mapping[str, object],
+    *,
+    context_id: str,
+) -> Mapping[str, object] | None:
+    for key in (
+        "retrieved_contexts",
+        "retrieval_contexts",
+        "contexts",
+        "citation_contexts",
+    ):
+        raw_contexts = metadata.get(key)
+        if not isinstance(raw_contexts, Sequence) or isinstance(raw_contexts, str):
+            continue
+        for raw_context in raw_contexts:
+            if not isinstance(raw_context, Mapping):
+                continue
+            raw_context_id = raw_context.get("context_id") or raw_context.get("id")
+            if raw_context_id == context_id:
+                return raw_context
+    return None
+
+
+def _parse_rag_source_record_id(record_id: str) -> _RagSourceRecordIdentity:
+    parts = record_id.split(":")
+    if len(parts) == 2 and all(parts):
+        return _RagSourceRecordIdentity(
+            source_table=None,
+            source_id=None,
+            document_id=parts[0],
+            chunk_id=None if parts[1] == "document" else parts[1],
+        )
+    if len(parts) < 4 or not all(parts):
+        _raise_malformed_rag_source_record_id()
+
+    chunk_or_document = parts[-1]
+    if chunk_or_document == "document":
+        parsed_document_identity = _parse_rag_document_source_identity(parts)
+        if parsed_document_identity is not None:
+            return parsed_document_identity
+
+    parsed_chunk_identity = _parse_rag_chunk_source_identity(parts)
+    if parsed_chunk_identity is not None:
+        return parsed_chunk_identity
+
+    _raise_malformed_rag_source_record_id()
+
+
+def _parse_rag_document_source_identity(
+    parts: Sequence[str],
+) -> _RagSourceRecordIdentity | None:
+    for document_start_index in _rag_document_start_candidates(
+        parts,
+        max_index=len(parts) - 2,
+    ):
+        source_id_parts = parts[1:document_start_index]
+        document_id_parts = parts[document_start_index:-1]
+        if not source_id_parts or not document_id_parts:
+            continue
+        return _RagSourceRecordIdentity(
+            source_table=parts[0],
+            source_id=":".join(source_id_parts),
+            document_id=":".join(document_id_parts),
+            chunk_id=None,
+        )
+    return None
+
+
+def _parse_rag_chunk_source_identity(
+    parts: Sequence[str],
+) -> _RagSourceRecordIdentity | None:
+    if len(parts) == 4:
+        return _RagSourceRecordIdentity(
+            source_table=parts[0],
+            source_id=parts[1],
+            document_id=parts[2],
+            chunk_id=parts[3],
+        )
+
+    if len(parts) >= 6 and parts[-2] == "chunk":
+        for document_start_index in _rag_document_start_candidates(
+            parts,
+            max_index=len(parts) - 4,
+        ):
+            source_id_parts = parts[1:document_start_index]
+            duplicated_document_parts = parts[document_start_index:-2]
+            if not source_id_parts or len(duplicated_document_parts) % 2 != 0:
+                continue
+            document_part_count = len(duplicated_document_parts) // 2
+            document_id_parts = duplicated_document_parts[:document_part_count]
+            chunk_document_id_parts = duplicated_document_parts[document_part_count:]
+            if not document_id_parts or document_id_parts != chunk_document_id_parts:
+                continue
+            chunk_id_parts = (*chunk_document_id_parts, parts[-2], parts[-1])
+            return _RagSourceRecordIdentity(
+                source_table=parts[0],
+                source_id=":".join(source_id_parts),
+                document_id=":".join(document_id_parts),
+                chunk_id=":".join(chunk_id_parts),
+            )
+
+    for document_start_index in _rag_document_start_candidates(
+        parts,
+        max_index=len(parts) - 2,
+    ):
+        source_id_parts = parts[1:document_start_index]
+        document_id_parts = parts[document_start_index:-1]
+        if not source_id_parts or not document_id_parts:
+            continue
+        return _RagSourceRecordIdentity(
+            source_table=parts[0],
+            source_id=":".join(source_id_parts),
+            document_id=":".join(document_id_parts),
+            chunk_id=parts[-1],
+        )
+    return None
+
+
+def _rag_document_start_candidates(
+    parts: Sequence[str],
+    *,
+    max_index: int,
+) -> tuple[int, ...]:
+    if max_index < 2:
+        return ()
+
+    candidates: list[int] = []
+    known_document_id_prefixes = {"rag_document", "structured", "web_document"}
+    for index in range(2, max_index + 1):
+        if parts[index] in known_document_id_prefixes:
+            candidates.append(index)
+
+    if not candidates:
+        candidates.append(2 if len(parts) == 4 else max_index)
+    fallback_indexes = (2, max_index)
+    for index in fallback_indexes:
+        if 2 <= index <= max_index and index not in candidates:
+            candidates.append(index)
+    return tuple(candidates)
+
+
+def _raise_malformed_rag_source_record_id() -> NoReturn:
+    raise MalformedDecisionEvidenceReconstructionIdentifierError(
+        "RAG citation context reconstruction identifier must be "
+        "'<source_table>:<source_id>:<document_id>:<chunk_id|document>'."
+    )
+
+
+def _validate_rag_document_identity(
+    *,
+    document: RagDocumentRecord,
+    source_identity: _RagSourceRecordIdentity,
+    reference: ReconstructionReference,
+) -> None:
+    if document.document_id != source_identity.document_id:
+        raise SubstitutedDecisionEvidenceSourceError(
+            "RAG citation document evidence does not match reconstruction "
+            f"identifier '{reference.record_id}'."
+        )
+    if source_identity.source_table is not None and (
+        document.source_table != source_identity.source_table
+        or document.source_id != source_identity.source_id
+    ):
+        raise SubstitutedDecisionEvidenceSourceError(
+            "RAG citation document evidence source lineage does not match "
+            f"reconstruction identifier '{reference.record_id}'."
+        )
+
+
+def _parse_evaluation_artifact_record_id(
+    record_id: str,
+) -> _EvaluationArtifactIdentity | None:
+    parts = record_id.split(":")
+    if len(parts) != 3 or parts[0] != "evaluation-artifact":
+        return None
+    if not parts[1] or not parts[2]:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            "evaluation linked artifact reconstruction identifier must be "
+            "'evaluation-artifact:<run_id>:<artifact_id>'."
+        )
+    return _EvaluationArtifactIdentity(run_id=parts[1], artifact_id=parts[2])
+
+
+def _required_mapping(
+    payload: Mapping[str, object],
+    key: str,
+) -> Mapping[str, object]:
+    value = payload.get(key)
+    if not isinstance(value, Mapping):
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            f"RAG context payload must include mapping field '{key}'."
+        )
+    return value
+
+
+def _required_string(payload: Mapping[str, object], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            f"RAG context payload must include string field '{key}'."
+        )
+    return value
+
+
+def _optional_string(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _validate_canonical_domain_record_reference(
@@ -618,24 +1195,6 @@ def _require_content_digest(reference: ReconstructionReference, *, label: str) -
         raise MalformedDecisionEvidenceReconstructionIdentifierError(
             f"{label} must include a content digest."
         )
-
-
-_RECONSTRUCTION_REFERENCE_VALIDATORS: Mapping[
-    ReconstructionReferenceKind,
-    Callable[[ReconstructionReference], None],
-] = {
-    ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD: (
-        _validate_canonical_domain_record_reference
-    ),
-    ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT: (
-        _validate_rag_retrieval_context_reference
-    ),
-    ReconstructionReferenceKind.RAG_CITATION_CONTEXT: (
-        _validate_rag_citation_context_reference
-    ),
-    ReconstructionReferenceKind.TRACE_CONTEXT: _validate_trace_context_reference,
-    ReconstructionReferenceKind.LINKED_ARTIFACT: _validate_linked_artifact_reference,
-}
 
 
 def _validate_source_of_truth(reference: ReconstructionReference) -> None:
@@ -744,8 +1303,14 @@ def _reconstruction_telemetry_attributes(
 
 __all__ = [
     "EvaluationProvenanceRepository",
+    "RagEvidenceSourceRepository",
+    "TelemetryTraceSourceRepository",
     "calculate_evaluation_metric_result_evidence_digest",
     "calculate_evaluation_run_evidence_digest",
+    "calculate_evaluation_artifact_evidence_digest",
+    "calculate_rag_citation_source_evidence_digest",
+    "calculate_rag_retrieval_context_evidence_digest",
+    "calculate_trace_context_evidence_digest",
     "DecisionEvidencePacketNotFoundError",
     "DecisionEvidencePacketPersistenceService",
     "DecisionEvidencePacketReconstructionError",
@@ -755,4 +1320,5 @@ __all__ = [
     "StaleDecisionEvidenceSourceError",
     "SubstitutedDecisionEvidenceSourceError",
     "TamperedDecisionEvidenceSnapshotError",
+    "UnsupportedDecisionEvidenceReferenceError",
 ]

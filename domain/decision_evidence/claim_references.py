@@ -183,7 +183,7 @@ class EvidenceClaimReferenceSet:
         )
 
     def as_metadata(self) -> dict[str, object]:
-        """Serialize the set without duplicating canonical evidence payloads."""
+        """Serialize presentation/boundary references, not canonical lineage storage."""
 
         return {
             "schema_version": self.schema_version,
@@ -256,7 +256,13 @@ def evidence_claim_references_from_metadata(value: object) -> EvidenceClaimRefer
 def evidence_claim_references_metadata(
     references: Iterable[EvidenceClaimReference],
 ) -> dict[str, object]:
-    """Build metadata for attached claim references."""
+    """Build presentation/boundary metadata for attached claim references.
+
+    The returned blob is a serialization aid for workflow-output boundaries and
+    rendered presentation contexts. Durable report and recommendation records must
+    query canonical claim-evidence links instead of treating this metadata as a
+    source of truth.
+    """
 
     return EvidenceClaimReferenceSet(claim_references=tuple(references)).as_metadata()
 

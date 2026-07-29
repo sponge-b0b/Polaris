@@ -154,9 +154,8 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     strategy_bundle = strategy_repository.bundles[0]
     assert strategy_bundle.decision.symbol == "SPY"
     assert strategy_bundle.decision.selected_perspective == "bull"
-    assert strategy_bundle.decision.metadata["evidence_packet_ids"] == [
-        "strategy-packet-1"
-    ]
+    assert "evidence_packet_ids" not in strategy_bundle.decision.metadata
+    assert "strategy-packet-1" not in str(strategy_bundle.decision.metadata)
     assert len(strategy_bundle.hypotheses) == 1
     assert strategy_bundle.hypotheses[0].perspective == "bull"
     assert len(strategy_bundle.evaluations) == 1
@@ -165,12 +164,10 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     recommendation_bundle = recommendation_repository.bundles[0]
     assert recommendation_bundle.recommendation.status == "strategy_recommendation"
     assert recommendation_bundle.recommendation.metadata["strategy_decision_id"]
-    assert recommendation_bundle.recommendation.metadata["evidence_packet_ids"] == [
-        "strategy-packet-1"
-    ]
-    assert recommendation_bundle.rationales[0].metadata["evidence_packet_ids"] == [
-        "strategy-packet-1"
-    ]
+    assert "evidence_packet_ids" not in recommendation_bundle.recommendation.metadata
+    assert "strategy-packet-1" not in str(recommendation_bundle.recommendation.metadata)
+    assert "evidence_packet_ids" not in recommendation_bundle.rationales[0].metadata
+    assert "strategy-packet-1" not in str(recommendation_bundle.rationales[0].metadata)
     assert recommendation_bundle.rationales[0].rationale_type == "strategy_synthesis"
 
     decision_authority = _authority_metadata(strategy_bundle.decision.metadata)
@@ -199,6 +196,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         record_id="strategy-packet-1",
     )
     lineage_links = await lineage_service.list_links_for_target(packet_identity)
+    assert lineage_links
     lineage_sources = {
         (link.source_record.record_type, link.source_record.record_id): link
         for link in lineage_links

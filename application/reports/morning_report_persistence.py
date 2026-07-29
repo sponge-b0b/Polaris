@@ -41,10 +41,7 @@ from core.storage.persistence.reports import (
 )
 from domain.authority import RiskTier
 from domain.decision_evidence import (
-    DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
     DecisionEvidencePacketValidationError,
-    EvidenceClaimReference,
-    evidence_claim_references_metadata,
 )
 from domain.llm import (
     is_model_internal_reasoning_key,
@@ -424,7 +421,6 @@ def _section_record(
     display_order: int,
     authority_metadata: JsonObject,
 ) -> ReportSectionRecord:
-    claim_references = _section_claim_references(section)
     return ReportSectionRecord(
         section_id=_section_id(report_id, section_key),
         report_id=report_id,
@@ -443,40 +439,8 @@ def _section_record(
         ),
         metadata={
             "section_key": section_key,
-            **_claim_reference_metadata(claim_references),
             **authority_metadata,
         },
-    )
-
-
-def _section_claim_references(
-    section: ReportSection,
-) -> tuple[EvidenceClaimReference, ...]:
-    references: list[EvidenceClaimReference] = [*section.claim_references]
-    for bullet in (
-        *section.bullets,
-        *section.risks,
-        *section.recommendations,
-    ):
-        references.extend(
-            bullet.claim_references,
-        )
-    return tuple(
-        references,
-    )
-
-
-def _claim_reference_metadata(
-    references: tuple[EvidenceClaimReference, ...],
-) -> JsonObject:
-    if not references:
-        return {}
-    claim_references = evidence_claim_references_metadata(
-        references,
-    )
-    return cast(
-        JsonObject,
-        {DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: claim_references},
     )
 
 

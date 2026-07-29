@@ -252,7 +252,6 @@ class StrategySynthesisWorkflowOutputProjector:
             decision=decision,
             symbol=symbol,
             evidence_fingerprint=evidence_fingerprint,
-            evidence_packet_ids=evidence_packet_ids,
         )
         evaluations = _evaluation_records(
             request=request,
@@ -281,7 +280,6 @@ class StrategySynthesisWorkflowOutputProjector:
             request=request,
             decision=decision,
             decision_record=decision_record,
-            evidence_packet_ids=evidence_packet_ids,
         )
         if recommendation_bundle is not None:
             recommendation_result = (
@@ -517,7 +515,6 @@ def _decision_record(
     decision: StrategySynthesisDecision,
     symbol: str,
     evidence_fingerprint: str,
-    evidence_packet_ids: tuple[str, ...],
 ) -> StrategySynthesisDecisionRecord:
     selected = (
         None
@@ -554,7 +551,6 @@ def _decision_record(
             "node_output_id": request.node_output.node_output_id,
             "output_contract": request.node_output.output_contract,
             "output_schema_version": request.node_output.output_schema_version,
-            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_synthesis_decision_authority(
                     model_authority_claims_from_payloads(
@@ -779,7 +775,6 @@ def _strategy_recommendation_bundle(
     request: WorkflowOutputProjectorRequest,
     decision: StrategySynthesisDecision,
     decision_record: StrategySynthesisDecisionRecord,
-    evidence_packet_ids: tuple[str, ...],
 ) -> RecommendationPersistenceBundle | None:
     if not decision.recommendations:
         return None
@@ -805,7 +800,6 @@ def _strategy_recommendation_bundle(
             "selected_perspective": decision_record.selected_perspective,
             "selection_status": decision_record.selection_status,
             "evidence_fingerprint": decision_record.evidence_fingerprint,
-            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_record_authority(
                     model_authority_claims_from_payloads(
@@ -830,7 +824,6 @@ def _strategy_recommendation_bundle(
         confidence=decision.confidence,
         metadata={
             "recommendations": list(decision.recommendations),
-            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_rationale_authority(
                     model_authority_claims_from_payloads(

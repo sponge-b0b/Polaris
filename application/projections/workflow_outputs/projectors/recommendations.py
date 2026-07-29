@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Final, cast
+from typing import Final
 
 from application.decision_evidence.claim_binding import (
     ClaimEvidenceBindingError,
@@ -97,6 +97,9 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
             features,
         )
         try:
+            claim_references = _claim_references_from_boundary_payloads(
+                outputs, features
+            )
             rationale = _rationale(
                 recommendation_id=recommendation_id,
                 request=request,
@@ -108,6 +111,7 @@ class PortfolioAllocationIntentWorkflowOutputProjector:
                 self._claim_binding_service,
                 recommendation_id=recommendation_id,
                 rationale=rationale,
+                claim_references=claim_references,
             )
         except (
             ClaimEvidenceBindingError,
@@ -287,6 +291,11 @@ class TradeRecommendationWorkflowOutputProjector:
             },
         )
         try:
+            claim_references = _claim_references_from_boundary_payloads(
+                outputs,
+                features,
+                trade_intent,
+            )
             rationale = _rationale(
                 recommendation_id=recommendation_id,
                 request=request,
@@ -298,6 +307,7 @@ class TradeRecommendationWorkflowOutputProjector:
                 self._claim_binding_service,
                 recommendation_id=recommendation_id,
                 rationale=rationale,
+                claim_references=claim_references,
             )
         except (
             ClaimEvidenceBindingError,
@@ -369,9 +379,9 @@ async def _bind_recommendation_claim_evidence(
     *,
     recommendation_id: str,
     rationale: RecommendationRationaleRecord,
+    claim_references: tuple[EvidenceClaimReference, ...],
 ) -> tuple[RecommendationClaimEvidenceLinkRecord, ...]:
-    references = _rationale_claim_references(rationale)
-    if not references:
+    if not claim_references:
         _ensure_recommendation_claim_audit_treatment_present(rationale)
         return ()
     targets = tuple(
@@ -380,7 +390,7 @@ async def _bind_recommendation_claim_evidence(
             claim_target_id=f"{rationale.rationale_id}:claim:{reference.claim_id}",
             claim_references=(reference,),
         )
-        for reference in references
+        for reference in claim_references
     )
     if claim_binding_service is None:
         if has_material_claim_references(targets):
@@ -420,15 +430,6 @@ def _ensure_recommendation_claim_audit_treatment_present(
     )
 
 
-def _rationale_claim_references(
-    rationale: RecommendationRationaleRecord,
-) -> tuple[EvidenceClaimReference, ...]:
-    value = rationale.metadata.get(DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY)
-    if value is None:
-        return ()
-    return evidence_claim_references_from_metadata(value).claim_references
-
-
 def _rationale(
     *,
     recommendation_id: str,
@@ -453,7 +454,6 @@ def _rationale(
         confidence=confidence,
         metadata={
             "source_fingerprint": request.source_fingerprint,
-            **_claim_reference_metadata(outputs, features),
             **authority_contract_metadata(
                 recommendation_rationale_authority(
                     model_authority_claims_from_payloads(
@@ -466,21 +466,17 @@ def _rationale(
     )
 
 
-def _claim_reference_metadata(
+def _claim_references_from_boundary_payloads(
     *payloads: Mapping[str, object],
-) -> JsonObject:
+) -> tuple[EvidenceClaimReference, ...]:
+    """Read boundary-serialized claim refs before durable rationale persistence."""
+
     for payload in payloads:
         value = payload.get(DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY)
         if value is None:
             continue
-        claim_references = evidence_claim_references_from_metadata(
-            value,
-        ).as_metadata()
-        return cast(
-            JsonObject,
-            {DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: claim_references},
-        )
-    return {}
+        return evidence_claim_references_from_metadata(value).claim_references
+    return ()
 
 
 def _rationale_text(outputs: Mapping[str, object], fallback: str) -> str:

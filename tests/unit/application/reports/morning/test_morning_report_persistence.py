@@ -345,6 +345,10 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
             claim_references=(reference,),
         ),
     )
+    assert all(
+        DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY not in section.metadata
+        for section in repository.sections
+    )
 
 
 @pytest.mark.asyncio
@@ -497,14 +501,11 @@ async def test_morning_report_allows_contextual_claim_without_binding() -> None:
     assert result.success is True
     assert repository.report is not None
     assert repository.claim_evidence_links == ()
-    claim_metadata = cast(
-        dict[str, Any],
-        repository.sections[0].metadata[
-            DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY
-        ],
+    assert DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY not in (
+        repository.sections[0].metadata
     )
-    claim_references = cast(list[dict[str, Any]], claim_metadata["claim_references"])
-    assert claim_references[0]["materiality"] == ClaimMaterialityTier.CONTEXTUAL.value
+    assert "packet-context" not in str(repository.sections[0].metadata)
+    assert "claim-context" not in str(repository.sections[0].metadata)
 
 
 def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
@@ -551,7 +552,7 @@ def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
     assert bundle.artifacts[0].metadata["risk_authority"] == risk_authority
 
 
-def test_mapper_attaches_report_claim_packet_refs_without_payloads() -> None:
+def test_mapper_keeps_report_claim_refs_out_of_metadata_blobs() -> None:
     reference = EvidenceClaimReference(
         packet_id="packet-1",
         output_id="report-output-1",
@@ -594,21 +595,14 @@ def test_mapper_attaches_report_claim_packet_refs_without_payloads() -> None:
         markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
-    claim_metadata = cast(
-        dict[str, Any],
-        bundle.sections[0].metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
-    )
-    assert claim_metadata["packet_ids"] == ["packet-1"]
-    assert claim_metadata["reconstruction_reference_ids"] == ["workflow-node"]
-    claim_references = cast(list[dict[str, Any]], claim_metadata["claim_references"])
-    assert claim_references[0]["packet_id"] == "packet-1"
-    assert claim_references[0]["claim_id"] == "claim-1"
-    assert claim_references[0]["supporting_evidence_ids"] == ["evidence-1"]
-    assert claim_references[0]["uncertainty_ids"] == ["uncertainty-1"]
-    assert claim_references[0]["limitation_ids"] == ["limitation-1"]
-    serialized = str(claim_metadata)
-    assert "canonical evidence summary" not in serialized
-    assert "raw_payload" not in serialized
+    metadata = bundle.sections[0].metadata
+    assert metadata["section_key"] == "executive_summary"
+    assert DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY not in metadata
+    serialized_metadata = str(metadata)
+    assert "packet-1" not in serialized_metadata
+    assert "claim-1" not in serialized_metadata
+    assert "canonical evidence summary" not in serialized_metadata
+    assert "raw_payload" not in serialized_metadata
 
 
 def test_morning_report_mapper_fails_closed_on_unsupported_capital_advice() -> None:

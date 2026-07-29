@@ -181,7 +181,7 @@ async def test_allocation_projector_fails_closed_without_audit_treatment() -> No
 
 
 @pytest.mark.asyncio
-async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> None:
+async def test_trade_projector_binds_claim_refs_without_metadata_blob() -> None:
     repository = _FakeRecommendationRepository()
     claim_binding_service = _FakeRecommendationClaimBindingService(
         (
@@ -233,25 +233,13 @@ async def test_trade_recommendation_projector_attaches_claim_packet_refs() -> No
             claim_references=claim_binding_service.targets[0].claim_references,
         ),
     )
-    claim_metadata = cast(
-        dict[str, JsonValue],
-        repository.bundles[0]
-        .rationales[0]
-        .metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
-    )
-    assert claim_metadata["packet_ids"] == ["packet-1"]
-    assert claim_metadata["reconstruction_reference_ids"] == ["workflow-node"]
-    claim_references = cast(
-        list[dict[str, JsonValue]],
-        claim_metadata["claim_references"],
-    )
-    assert claim_references[0]["claim_id"] == "claim-1"
-    assert claim_references[0]["supporting_evidence_ids"] == ["evidence-1"]
-    assert claim_references[0]["uncertainty_ids"] == ["uncertainty-1"]
-    assert claim_references[0]["limitation_ids"] == ["limitation-1"]
-    serialized = str(claim_metadata)
-    assert "canonical evidence summary" not in serialized
-    assert "raw_payload" not in serialized
+    rationale_metadata = repository.bundles[0].rationales[0].metadata
+    assert DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY not in rationale_metadata
+    serialized_metadata = str(rationale_metadata)
+    assert "packet-1" not in serialized_metadata
+    assert "claim-1" not in serialized_metadata
+    assert "canonical evidence summary" not in serialized_metadata
+    assert "raw_payload" not in serialized_metadata
 
 
 @pytest.mark.asyncio
@@ -355,17 +343,10 @@ async def test_trade_projector_allows_contextual_claim_without_binding() -> None
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
     assert repository.bundles[0].claim_evidence_links == ()
-    claim_metadata = cast(
-        dict[str, JsonValue],
-        repository.bundles[0]
-        .rationales[0]
-        .metadata[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY],
-    )
-    claim_references = cast(
-        list[dict[str, JsonValue]],
-        claim_metadata["claim_references"],
-    )
-    assert claim_references[0]["materiality"] == ClaimMaterialityTier.CONTEXTUAL.value
+    rationale_metadata = repository.bundles[0].rationales[0].metadata
+    assert DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY not in rationale_metadata
+    assert "packet-1" not in str(rationale_metadata)
+    assert "claim-1" not in str(rationale_metadata)
 
 
 @pytest.mark.asyncio

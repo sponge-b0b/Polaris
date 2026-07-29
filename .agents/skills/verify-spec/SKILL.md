@@ -124,20 +124,6 @@ Before approving any specification that introduces a new module, helper function
    - **Fail Verification** if the specification proposes building a component that mirrors logic already present in the codebase.
    - **Require Revision** to force the specification to modify, reuse, or inherit from the existing canonical interface instead of creating a parallel implementation.
 
-## Verification Reporting & Remediation Check
-
-If any step in the macro validation pipeline fails, you must compile an aggregated, highly actionable failure and remediation report. 
-
-### Core Constraint
-You are strictly forbidden from simply outputting raw stack traces or ending the execution loop on the first tool crash. You must gather the failures across all verification steps, synthesize the underlying core issues, and provide direct, actionable steps to fix them.
-
-### Reporting Criteria
-For any errors detected by `ruff`, `mypy`, `pytest`, `graphify`, or `/duplication-checks`, your final response must contain a structured **Verification Failure Summary** using the following breakdown:
-
-1. **Aggregated Failure Inventory:** Group errors logically by the tool that caught them (e.g., Syntax/Formatting, Type Drift, Regression Failures, Architectural Drift, or Duplication Clones).
-2. **Root Cause Analysis:** A brief, clear synthesis explaining *why* these failures occurred (e.g., a shared helper signature changed, breaking down-stream typing contract blocks).
-3. **Remediation Roadmap:** A step-by-step, actionable checklist providing the exact file paths, lines of code, or command blocks the developer needs to modify to achieve a passing verification state.
-
 ## Examples
 
 ### Example 1: Pre-Review Integration Verification (Model Migration Spec)

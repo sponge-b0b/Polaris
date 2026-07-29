@@ -18,6 +18,7 @@ ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
 - `detect_changes` — Map git diff to affected symbols + blast radius with risk classification.
 - `get_graph_schema` — Node/edge counts, relationship patterns, property definitions per label.
 - `search_code` — Grep-like text search within indexed project files.
+- `manage_adr` — CRUD for Architecture Decision Records.
 
 ## When to fall back to grep/glob
 - Searching for string literals, error messages, config values

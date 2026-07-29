@@ -218,6 +218,29 @@ This project uses codebase-memory-mcp to maintain a knowledge graph of the codeb
 
 For search, trace, architecture, code discovery, impact analysis, targeted index-coverage checks, Cypher queries, dead code detection, cross-service HTTP linking, or ADR management, use the installed `.agents/skills/codebase-memory-mcp` skill before tracing raw files manually.
 
+## Architectural Decision Records (ADRs) Rules
+
+When creating or modifying architectural records inside `docs/adr/`, you MUST adhere to the strict structural format required by the codebase-memory-mcp indexer.
+
+### Naming Convention
+- Files MUST use a 4-digit zero-padded numeric prefix followed by a kebab-case slug.
+- Example: `0005-implement-redis-caching.md`
+- To determine the next number, list the directory first and increment the highest existing prefix by 1.
+
+### Markdown Structure & Frontmatter
+Every ADR file must include a explicit H1 title and a structural "Status" line matching MADR specifications in the top 5 lines of the document:
+
+# [Number]. [Title of Decision]
+
+Status: [accepted | proposed | superseded]
+Date: YYYY-MM-DD
+
+## Context and Problem Statement
+[Describe the architectural context and problem here]
+
+## Decision Outcome
+Chosen option: "[Selected Option Name]", because [core justification].
+
 ## Agent skills
 
 ### Issue tracker

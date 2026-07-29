@@ -198,19 +198,25 @@ Before editing any files or changing code patterns, you must leverage the projec
 
 This project maintains a codebase status registry and documentation layout inside the `.repowise/` directory tracking synchronization state, file health, and system hotspots.
 
-For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `.agents/skills/repowise` skill or instructions before doing anything else.
+For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `.agents/skills/repowise` skill or instructions before tracing raw files manually.
 
 ### graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
-For structural dependency lookups or codebase architecture questions, use the installed `.agents/skills/graphify` skill or instructions before doing anything else.
+For structural dependency lookups or codebase architecture questions, use the installed `.agents/skills/graphify` skill or instructions before tracing raw files manually.
 
 ### codegraph
 
 This project leverages an active edge-synthesizer engine to bridge dynamic runtime call flows, framework decorators, and decoupled execution targets.
 
 For tracing implicit function paths, event loops, or dynamic string-keyed dispatches in Python, use the installed `.agents/skills/codegraph` skill before tracing raw files manually.
+
+### codebase-memory-mcp
+
+This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase. ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
+
+For search, trace, architecture, code discovery, impact analysis, targeted index-coverage checks, Cypher queries, dead code detection, cross-service HTTP linking, or ADR management, use the installed `.agents/skills/codebase-memory-mcp` skill before tracing raw files manually.
 
 ## Agent skills
 

@@ -17,6 +17,10 @@ _REJECTED_SUPPORT_ID_PREFIXES: Final[tuple[str, ...]] = (
     "rejected:",
     "evidence-rejected:",
 )
+_REFERENCE_ONLY_EVALUATION_PACKET_ID_PREFIXES: Final[tuple[str, ...]] = (
+    "evaluation_run:",
+    "model_replacement_gate:",
+)
 
 
 class DecisionEvidencePacketReadinessFailureMode(StrEnum):
@@ -194,6 +198,7 @@ def _collect_packet_support_details(
     conflicting_evidence_ids: list[str] = []
     reconstruction_reference_ids: list[str] = []
     reconstruction_reference_kinds: list[str] = []
+    full_packet_ids = frozenset(packet.packet_id for packet in packets)
 
     for packet in packets:
         if _risk_tier_mismatch(packet.risk_tier, required_risk_tier):
@@ -219,6 +224,20 @@ def _collect_packet_support_details(
                     "Decision evidence claim reference risk tier does not match "
                     "selected risk tier."
                 ),
+            )
+        if _is_reference_only_evaluation_packet(reference, full_packet_ids):
+            return _readiness_failure(
+                DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING,
+                (
+                    "Reference-only evaluation case provenance cannot satisfy "
+                    "decision evidence packet readiness."
+                ),
+                packet_ids=(reference.packet_id,),
+                supporting_evidence_ids=reference.supporting_evidence_ids,
+                reconstruction_reference_ids=reference.reconstruction_reference_ids,
+                provenance_reconstruction_complete=False,
+                claim_support_complete=False,
+                correctness_support_complete=False,
             )
         packet_ids.append(reference.packet_id)
         reconstruction_reference_ids.extend(reference.reconstruction_reference_ids)
@@ -311,6 +330,18 @@ def _risk_tier_mismatch(
 ) -> bool:
     return (
         required_risk_tier is not None and observed_risk_tier is not required_risk_tier
+    )
+
+
+def _is_reference_only_evaluation_packet(
+    reference: EvidenceClaimReference,
+    full_packet_ids: frozenset[str],
+) -> bool:
+    return (
+        reference.packet_id not in full_packet_ids
+        and reference.packet_id.startswith(
+            _REFERENCE_ONLY_EVALUATION_PACKET_ID_PREFIXES,
+        )
     )
 
 

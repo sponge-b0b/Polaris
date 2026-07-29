@@ -16,6 +16,9 @@ from application.evaluations.contracts import (
 from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_definition_by_name,
 )
+from application.evaluations.evaluation_gate_evidence import (
+    canonical_evaluation_readiness_packet,
+)
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.risk_authority_gate import (
     RiskAuthorityGateDecision,
@@ -38,11 +41,9 @@ from domain.authority import (
     CanonicalOwner,
     IntendedSink,
     RiskAuthorityClassificationInput,
-    RiskTier,
     SourceOfTruthCategory,
     classify_risk_authority,
 )
-from domain.decision_evidence import EvidenceClaimReference
 from domain.evaluation import (
     EvaluationCase,
     EvaluationRun,
@@ -337,28 +338,26 @@ def authority_gate_evidence_for_evaluation_cases(
     run_id: str,
 ) -> RiskAuthorityGateEvidence:
     provenance_ids = _provenance_ids_for_evaluation_cases(cases)
-    decision_ids = (
-        (f"evaluation_run:{run_id}",)
-        if target_type
-        in {
-            EvaluationTargetType.STRATEGY_SYNTHESIS,
-            EvaluationTargetType.RECOMMENDATION_EXPLANATION,
-            EvaluationTargetType.MCP_TOOL_RESPONSE,
-        }
-        else ()
-    )
-    risk_tier = classify_risk_authority(
+    authority = classify_risk_authority(
         _authority_classification_input_for_target(target_type),
-    ).risk_tier
+    )
+    packet = canonical_evaluation_readiness_packet(
+        authority=authority,
+        packet_id=f"evaluation_run:{run_id}:readiness-packet",
+        output_id=f"evaluation_run:{run_id}",
+        claim_id=f"evaluation_run:{run_id}:readiness",
+        claim_text=(
+            "Evaluation run readiness is backed by canonical source and "
+            "reconstruction records, not only evaluation case provenance."
+        ),
+        cases=cases,
+    )
+    decision_packets = () if packet is None else (packet,)
     return RiskAuthorityGateEvidence(
         provenance_record_ids=provenance_ids,
-        decision_evidence_ids=decision_ids,
+        decision_evidence_ids=tuple(packet.packet_id for packet in decision_packets),
         evaluation_run_ids=(run_id,),
-        decision_evidence_claim_references=_claim_references_for_evaluation_cases(
-            cases,
-            run_id=run_id,
-            risk_tier=risk_tier,
-        ),
+        decision_evidence_packets=decision_packets,
     )
 
 
@@ -373,49 +372,6 @@ def _provenance_ids_for_evaluation_cases(
             provenance_ids.append(case.workflow_execution_id)
         provenance_ids.append(case.case_id)
     return tuple(dict.fromkeys(provenance_ids))
-
-
-def _claim_references_for_evaluation_cases(
-    cases: Sequence[EvaluationCase],
-    *,
-    run_id: str,
-    risk_tier: RiskTier,
-) -> tuple[EvidenceClaimReference, ...]:
-    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        return ()
-    return tuple(
-        EvidenceClaimReference(
-            packet_id=f"evaluation_run:{run_id}",
-            output_id=f"evaluation_case:{case.case_id}",
-            claim_id=f"evaluation_case:{case.case_id}",
-            risk_tier=risk_tier,
-            supporting_evidence_ids=_supporting_ids_for_evaluation_case(case),
-            reconstruction_reference_ids=_reconstruction_ids_for_evaluation_case(case),
-        )
-        for case in cases
-    )
-
-
-def _supporting_ids_for_evaluation_case(case: EvaluationCase) -> tuple[str, ...]:
-    support_ids = (
-        *case.source_record_ids,
-        *case.citation_context_ids,
-        case.workflow_execution_id,
-        case.case_id,
-    )
-    return tuple(dict.fromkeys(value for value in support_ids if value is not None))
-
-
-def _reconstruction_ids_for_evaluation_case(case: EvaluationCase) -> tuple[str, ...]:
-    reconstruction_ids = (
-        case.workflow_execution_id,
-        *case.source_record_ids,
-        *case.citation_context_ids,
-        case.case_id,
-    )
-    return tuple(
-        dict.fromkeys(value for value in reconstruction_ids if value is not None)
-    )
 
 
 def _authority_classification_input_for_target(

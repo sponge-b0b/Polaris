@@ -216,6 +216,32 @@ def test_enhanced_readiness_requires_complete_packet_not_only_provenance() -> No
     assert "packet" in decision.message.lower()
 
 
+def test_enhanced_readiness_rejects_reference_only_evaluation_packet_ids() -> None:
+    decision = select_risk_authority_gate(
+        _metadata(rag_answer_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("case-1",),
+            decision_evidence_claim_references=(
+                EvidenceClaimReference(
+                    packet_id="evaluation_run:run-1",
+                    output_id="evaluation_case:case-1",
+                    claim_id="evaluation_case:case-1",
+                    risk_tier=RiskTier.ENHANCED,
+                    supporting_evidence_ids=("case-1",),
+                    reconstruction_reference_ids=("case-1",),
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "reference-only" in decision.message.lower()
+    assert "packet" in decision.message.lower()
+
+
 def test_vigilant_strategy_output_fails_closed_when_only_evidence_ids_exist() -> None:
     decision = select_risk_authority_gate(
         _metadata(strategy_synthesis_authority_input()),

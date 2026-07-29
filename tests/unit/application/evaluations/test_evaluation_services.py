@@ -18,8 +18,10 @@ from application.evaluations import (
     RiskAuthorityGateDecisionStatus,
     RiskAuthorityGateEvidence,
     RiskAuthorityGateFailureMode,
+    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_slice_definition_by_name,
+    select_risk_authority_gate,
 )
 from core.storage.persistence.evaluation import (
     EvaluationArtifactRecord,
@@ -43,7 +45,6 @@ from domain.authority import (
     RiskTier,
     SourceOfTruthCategory,
 )
-from domain.decision_evidence import EvidenceClaimReference
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -248,6 +249,20 @@ def _case(dataset: EvaluationDatasetReference) -> EvaluationCase:
     )
 
 
+def _canonical_evidence_case(dataset: EvaluationDatasetReference) -> EvaluationCase:
+    return EvaluationCase(
+        case_id="case-1",
+        target_type=EvaluationTargetType.RAG_ANSWER,
+        input_text="Question?",
+        actual_output="Answer.",
+        dataset=dataset,
+        rubric="Answer must be grounded.",
+        source_record_ids=("rag-document-1",),
+        citation_context_ids=("rag-context-1",),
+        workflow_execution_id="workflow-run-1",
+    )
+
+
 def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
     return (
         RiskAuthorityClassifier()
@@ -265,19 +280,15 @@ def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
     )
 
 
-def _risk_gate_evidence_for_rag_answer() -> RiskAuthorityGateEvidence:
-    return RiskAuthorityGateEvidence(
-        provenance_record_ids=("case-1",),
-        decision_evidence_claim_references=(
-            EvidenceClaimReference(
-                packet_id="evaluation_run:run-1",
-                output_id="evaluation_case:case-1",
-                claim_id="evaluation_case:case-1",
-                risk_tier=RiskTier.ENHANCED,
-                supporting_evidence_ids=("case-1",),
-                reconstruction_reference_ids=("case-1",),
-            ),
-        ),
+def _risk_gate_evidence_for_rag_answer(
+    *,
+    run_id: str = "run-1",
+) -> RiskAuthorityGateEvidence:
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    return authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id=run_id,
     )
 
 
@@ -491,18 +502,8 @@ async def test_run_service_records_selected_authority_gate_profile() -> None:
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
             authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
-            authority_gate_evidence=RiskAuthorityGateEvidence(
-                provenance_record_ids=("rag-document-1",),
-                decision_evidence_claim_references=(
-                    EvidenceClaimReference(
-                        packet_id="evaluation_run:run-risk-gate",
-                        output_id="evaluation_case:case-1",
-                        claim_id="evaluation_case:case-1",
-                        risk_tier=RiskTier.ENHANCED,
-                        supporting_evidence_ids=("rag-document-1",),
-                        reconstruction_reference_ids=("rag-document-1",),
-                    ),
-                ),
+            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(
+                run_id="run-risk-gate",
             ),
         )
     )
@@ -514,6 +515,56 @@ async def test_run_service_records_selected_authority_gate_profile() -> None:
     assert (
         result.authority_gate_decision.failure_mode is RiskAuthorityGateFailureMode.NONE
     )
+
+
+def test_authority_gate_evidence_uses_canonical_packet_not_case_ids() -> None:
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-packet-backed",
+    )
+
+    readiness = evidence.packet_readiness(required_risk_tier=RiskTier.ENHANCED)
+
+    assert evidence.provenance_record_ids == (
+        "rag-document-1",
+        "rag-context-1",
+        "workflow-run-1",
+        "case-1",
+    )
+    assert evidence.decision_evidence_claim_references == ()
+    assert evidence.decision_evidence_ids == (
+        "evaluation_run:run-packet-backed:readiness-packet",
+    )
+    assert readiness.passed
+    assert "case-1" not in readiness.supporting_evidence_ids
+    assert "case-1" not in readiness.reconstruction_reference_ids
+
+
+def test_authority_gate_evidence_fails_closed_when_only_case_provenance_exists() -> (
+    None
+):
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_case(dataset),),
+        run_id="run-case-only",
+    )
+
+    decision = select_risk_authority_gate(
+        _risk_metadata_for_externally_visible_rag_answer(),
+        evidence=evidence,
+    )
+
+    assert evidence.provenance_record_ids == ("case-1",)
+    assert evidence.decision_evidence_ids == ()
+    assert evidence.decision_evidence_packets == ()
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "packet" in decision.message.lower()
 
 
 @pytest.mark.asyncio

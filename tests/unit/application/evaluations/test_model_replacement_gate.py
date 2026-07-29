@@ -187,6 +187,19 @@ async def test_replacement_gate_runs_complete_replacement_validation() -> None:
         == RiskAuthorityGateFailureMode.NONE.value
     )
     assert execution_section.details["model_replacement_gate_id"] == "gate-001"
+    supporting_ids = cast(
+        "tuple[str, ...]",
+        execution_section.details["packet_readiness_supporting_evidence_ids"],
+    )
+    reconstruction_ids = cast(
+        "tuple[str, ...]",
+        execution_section.details["packet_readiness_reconstruction_reference_ids"],
+    )
+    assert execution_section.details["packet_readiness_complete"] is True
+    assert execution_section.details["packet_readiness_failure_mode"] == "none"
+    assert execution_section.details["packet_readiness_packet_ids"]
+    assert set(execution_section.case_ids).isdisjoint(supporting_ids)
+    assert set(execution_section.case_ids).isdisjoint(reconstruction_ids)
 
 
 def test_gate_requires_explicit_settings_dependency() -> None:

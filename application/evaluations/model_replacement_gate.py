@@ -16,6 +16,9 @@ from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_slice_definition_by_name,
 )
+from application.evaluations.evaluation_gate_evidence import (
+    canonical_evaluation_readiness_packet,
+)
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
     mcp_tool_response_evaluation_metric_specs,
@@ -45,7 +48,6 @@ from domain.authority import (
     SourceOfTruthCategory,
     classify_risk_authority,
 )
-from domain.decision_evidence import EvidenceClaimReference
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -295,8 +297,13 @@ class _EvaluationAccumulator:
 
     @property
     def passed(self) -> bool:
-        return bool(self.run_ids) and all(
-            status is EvaluationStatus.PASSED for status in self.statuses
+        authority_gate_passed = (
+            self.authority_gate_decision is None or self.authority_gate_decision.passed
+        )
+        return (
+            authority_gate_passed
+            and bool(self.run_ids)
+            and all(status is EvaluationStatus.PASSED for status in self.statuses)
         )
 
 
@@ -718,48 +725,27 @@ def _authority_gate_evidence(
     section: ModelReplacementGateSection,
     loaded_cases: tuple[_LoadedCase, ...],
 ) -> RiskAuthorityGateEvidence:
-    decision_evidence_ids = (
-        (f"model_replacement_gate:{gate_id}:{section.value}",)
-        if section
-        in {
-            ModelReplacementGateSection.STRATEGY,
-            ModelReplacementGateSection.EXECUTION_RISK_RECOMMENDATION,
-        }
-        else ()
-    )
-    risk_tier = _authority_contract_for_section(section).risk_tier
-    return RiskAuthorityGateEvidence(
-        provenance_record_ids=_case_ids(loaded_cases),
-        decision_evidence_ids=decision_evidence_ids,
-        model_replacement_gate_ids=(gate_id,),
-        decision_evidence_claim_references=_claim_references_for_loaded_cases(
-            gate_id=gate_id,
-            section=section,
-            loaded_cases=loaded_cases,
-            risk_tier=risk_tier,
+    authority_contract = _authority_contract_for_section(section)
+    packet = canonical_evaluation_readiness_packet(
+        authority=authority_contract,
+        packet_id=f"model_replacement_gate:{gate_id}:{section.value}:readiness-packet",
+        output_id=f"model_replacement_gate:{gate_id}:{section.value}",
+        claim_id=f"model_replacement_gate:{gate_id}:{section.value}:readiness",
+        claim_text=(
+            f"Model replacement gate section {section.value!r} is backed by "
+            "canonical evaluation source and reconstruction records."
+        ),
+        cases=tuple(
+            _case_record_to_domain(loaded_case.record, loaded_case.dataset)
+            for loaded_case in loaded_cases
         ),
     )
-
-
-def _claim_references_for_loaded_cases(
-    *,
-    gate_id: str,
-    section: ModelReplacementGateSection,
-    loaded_cases: tuple[_LoadedCase, ...],
-    risk_tier: RiskTier,
-) -> tuple[EvidenceClaimReference, ...]:
-    if risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
-        return ()
-    return tuple(
-        EvidenceClaimReference(
-            packet_id=f"model_replacement_gate:{gate_id}:{section.value}",
-            output_id=f"model_replacement_case:{loaded_case.case_id}",
-            claim_id=f"model_replacement_case:{loaded_case.case_id}",
-            risk_tier=risk_tier,
-            supporting_evidence_ids=(loaded_case.case_id,),
-            reconstruction_reference_ids=(loaded_case.case_id,),
-        )
-        for loaded_case in loaded_cases
+    decision_packets = () if packet is None else (packet,)
+    return RiskAuthorityGateEvidence(
+        provenance_record_ids=_case_ids(loaded_cases),
+        decision_evidence_ids=tuple(packet.packet_id for packet in decision_packets),
+        model_replacement_gate_ids=(gate_id,),
+        decision_evidence_packets=decision_packets,
     )
 
 
@@ -777,6 +763,24 @@ def _authority_gate_details(
         "model_replacement_gate_ids": decision.evidence.model_replacement_gate_ids,
         "authority_gate_metric_result_count": decision.evidence.metric_result_count,
     }
+    if decision.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        packet_readiness = decision.evidence.packet_readiness(
+            required_risk_tier=decision.risk_tier,
+        )
+        details.update(
+            {
+                "packet_readiness_complete": packet_readiness.complete,
+                "packet_readiness_failure_mode": (packet_readiness.failure_mode.value),
+                "packet_readiness_message": packet_readiness.message,
+                "packet_readiness_packet_ids": packet_readiness.packet_ids,
+                "packet_readiness_supporting_evidence_ids": (
+                    packet_readiness.supporting_evidence_ids
+                ),
+                "packet_readiness_reconstruction_reference_ids": (
+                    packet_readiness.reconstruction_reference_ids
+                ),
+            }
+        )
     if decision.risk_tier is not None:
         details["selected_risk_tier"] = decision.risk_tier.value
     if decision.gate_profile is not None:

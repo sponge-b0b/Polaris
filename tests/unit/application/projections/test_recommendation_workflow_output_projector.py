@@ -262,6 +262,39 @@ async def test_trade_projector_fails_closed_for_invalid_material_binding() -> No
 
 
 @pytest.mark.asyncio
+async def test_trade_projector_fails_closed_for_substituted_material_link() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+        claim_binding_service=cast(
+            DecisionEvidenceClaimBindingService,
+            _FakeRecommendationClaimBindingService(
+                (
+                    replace(
+                        _recommendation_claim_link(),
+                        reconstruction_reference_ids=("workflow-node-substituted",),
+                    ),
+                )
+            ),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_node_with_claim_references())
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "ClaimEvidenceBindingError"
+    assert (
+        "reconstruction references do not match required canonical claim reference"
+        in str(outcome.error_message)
+    )
+    assert repository.bundles == []
+
+
+@pytest.mark.asyncio
 async def test_trade_projector_allows_contextual_claim_without_binding() -> None:
     repository = _FakeRecommendationRepository()
     projector = TradeRecommendationWorkflowOutputProjector(

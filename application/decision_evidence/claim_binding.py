@@ -213,7 +213,8 @@ def ensure_material_claim_evidence_links_bound(
 ) -> None:
     """Fail closed when material target refs lack matching durable link records."""
 
-    required_keys = _required_material_claim_binding_keys(targets)
+    required_references_by_key = _required_material_claim_references_by_key(targets)
+    required_keys = frozenset(required_references_by_key)
     link_records = tuple(links)
     material_link_keys = _material_claim_link_keys(link_records)
     unexpected_keys = material_link_keys - required_keys
@@ -241,16 +242,51 @@ def ensure_material_claim_evidence_links_bound(
     for link in link_records:
         if not link.material:
             continue
-        if not link.supporting_evidence_ids:
-            raise ClaimEvidenceBindingError(
-                f"{boundary_name} material claim {link.packet_claim_id!r} "
-                "lacks supporting evidence identifiers."
+        expected = required_references_by_key[
+            _MaterialClaimEvidenceBindingKey(
+                claim_target_id=link.claim_target_id,
+                packet_id=link.packet_id,
+                packet_claim_id=link.packet_claim_id,
             )
-        if not link.reconstruction_reference_ids:
-            raise ClaimEvidenceBindingError(
-                f"{boundary_name} material claim {link.packet_claim_id!r} "
-                "lacks reconstruction reference identifiers."
-            )
+        ]
+        _assert_material_link_matches_required_reference(
+            link=link,
+            reference=expected,
+            boundary_name=boundary_name,
+        )
+
+
+def _assert_material_link_matches_required_reference(
+    *,
+    link: ClaimEvidenceLinkRecordProtocol,
+    reference: EvidenceClaimReference,
+    boundary_name: str,
+) -> None:
+    if link.risk_tier is not reference.risk_tier:
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {link.packet_claim_id!r} risk_tier "
+            "does not match required canonical claim reference."
+        )
+    if link.supporting_evidence_ids != reference.supporting_evidence_ids:
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {link.packet_claim_id!r} "
+            "supporting evidence does not match required canonical claim reference."
+        )
+    if link.reconstruction_reference_ids != reference.reconstruction_reference_ids:
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {link.packet_claim_id!r} "
+            "reconstruction references do not match required canonical claim reference."
+        )
+    if link.uncertainty_ids != reference.uncertainty_ids:
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {link.packet_claim_id!r} "
+            "uncertainty references do not match required canonical claim reference."
+        )
+    if link.limitation_ids != reference.limitation_ids:
+        raise ClaimEvidenceBindingError(
+            f"{boundary_name} material claim {link.packet_claim_id!r} "
+            "limitation references do not match required canonical claim reference."
+        )
 
 
 def _report_claim_evidence_link(
@@ -312,16 +348,34 @@ def _recommendation_claim_evidence_link(
 def _required_material_claim_binding_keys(
     targets: Sequence[_ClaimEvidenceBindingTarget],
 ) -> frozenset[_MaterialClaimEvidenceBindingKey]:
-    return frozenset(
-        _MaterialClaimEvidenceBindingKey(
-            claim_target_id=target.claim_target_id,
-            packet_id=reference.packet_id,
-            packet_claim_id=reference.claim_id,
-        )
-        for target in targets
-        for reference in target.claim_references
-        if reference.material
-    )
+    return frozenset(_required_material_claim_references_by_key(targets))
+
+
+def _required_material_claim_references_by_key(
+    targets: Sequence[_ClaimEvidenceBindingTarget],
+) -> dict[_MaterialClaimEvidenceBindingKey, EvidenceClaimReference]:
+    references_by_key: dict[
+        _MaterialClaimEvidenceBindingKey, EvidenceClaimReference
+    ] = {}
+    for target in targets:
+        for reference in target.claim_references:
+            if not reference.material:
+                continue
+            key = _MaterialClaimEvidenceBindingKey(
+                claim_target_id=target.claim_target_id,
+                packet_id=reference.packet_id,
+                packet_claim_id=reference.claim_id,
+            )
+            existing = references_by_key.get(key)
+            if existing is not None and existing != reference:
+                raise ClaimEvidenceBindingError(
+                    "material claim references for target "
+                    f"{target.claim_target_id!r}, packet {reference.packet_id!r}, "
+                    f"claim {reference.claim_id!r} contain conflicting canonical "
+                    "evidence bindings."
+                )
+            references_by_key[key] = reference
+    return references_by_key
 
 
 def _material_claim_link_keys(

@@ -53,6 +53,10 @@ def assemble_strategy_synthesis_decision_evidence_packet(
         raise StrategySynthesisEvidencePacketAssemblyError(
             "strategy synthesis packet requires reconstruction references."
         )
+    _validate_decision_evidence_packet_binding(
+        decision=decision,
+        packet_id=packet_id,
+    )
 
     hypotheses_by_perspective = _hypotheses_by_perspective(hypotheses)
     evidence_by_id = _evidence_by_id(hypotheses)
@@ -119,6 +123,35 @@ def assemble_strategy_synthesis_decision_evidence_packet(
         uncertainties=(uncertainty,),
         limitations=limitations,
         retention=retention,
+    )
+
+
+def _validate_decision_evidence_packet_binding(
+    *,
+    decision: StrategySynthesisDecision,
+    packet_id: str,
+) -> None:
+    packet_ids = decision.evidence_packet_ids
+    if not packet_ids:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis decision requires canonical evidence packet "
+            f"binding for packet {packet_id!r}."
+        )
+    if packet_ids == (packet_id,):
+        return
+    if packet_id not in packet_ids:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis decision evidence_packet_ids "
+            f"{packet_ids!r} does not match canonical packet {packet_id!r}."
+        )
+    substituted_packet_ids = tuple(
+        existing_packet_id
+        for existing_packet_id in packet_ids
+        if existing_packet_id != packet_id
+    )
+    raise StrategySynthesisEvidencePacketAssemblyError(
+        "strategy synthesis decision contains substituted evidence packet ids "
+        f"{substituted_packet_ids!r} for canonical packet {packet_id!r}."
     )
 
 

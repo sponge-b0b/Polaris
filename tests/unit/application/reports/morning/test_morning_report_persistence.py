@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -389,6 +390,36 @@ async def test_morning_report_fails_closed_for_invalid_material_binding() -> Non
 
     assert result.success is False
     assert "unexpected material decision-evidence packet binding" in str(result.error)
+    assert repository.report is None
+
+
+@pytest.mark.asyncio
+async def test_morning_report_fails_closed_for_substituted_material_link() -> None:
+    reference = _material_claim_reference()
+    document = _document_with_claim_reference(reference)
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(
+        repository,
+        claim_binding_service=_FakeReportClaimBindingService(
+            (
+                replace(
+                    _report_claim_link(),
+                    supporting_evidence_ids=("evidence-substituted",),
+                ),
+            )
+        ),
+    )
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is False
+    assert (
+        "supporting evidence does not match required canonical claim reference"
+        in str(result.error)
+    )
     assert repository.report is None
 
 

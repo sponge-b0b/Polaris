@@ -86,6 +86,36 @@ def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
 
 
 @pytest.mark.parametrize(
+    ("evidence_packet_ids", "expected_message"),
+    [
+        ((), "requires canonical evidence packet binding"),
+        (("packet-substituted",), "does not match canonical packet"),
+        (
+            ("strategy-packet-1", "packet-substituted"),
+            "contains substituted evidence packet ids",
+        ),
+    ],
+)
+def test_strategy_synthesis_packet_fails_for_missing_or_substituted_binding(
+    evidence_packet_ids: tuple[str, ...],
+    expected_message: str,
+) -> None:
+    with pytest.raises(
+        StrategySynthesisEvidencePacketAssemblyError,
+        match=expected_message,
+    ):
+        assemble_strategy_synthesis_decision_evidence_packet(
+            decision=_decision(evidence_packet_ids=evidence_packet_ids),
+            hypotheses=_hypotheses(),
+            packet_id="strategy-packet-1",
+            output_id="strategy-synthesis-output-1",
+            authority=classify_risk_authority(strategy_synthesis_authority_input()),
+            reconstruction_references=(_workflow_reference(),),
+            retention=_retention_requirement(),
+        )
+
+
+@pytest.mark.parametrize(
     ("hypotheses", "expected_message"),
     [
         (

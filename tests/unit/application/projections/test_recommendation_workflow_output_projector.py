@@ -21,6 +21,7 @@ from application.projections.workflow_outputs.projection_models import (
     WorkflowOutputProjectorRequest,
 )
 from application.projections.workflow_outputs.projectors import (
+    PortfolioAllocationIntentWorkflowOutputProjector,
     TradeRecommendationWorkflowOutputProjector,
 )
 from core.storage.persistence.completed_run_archive import (
@@ -42,6 +43,7 @@ from domain.decision_evidence import (
     ClaimMaterialityTier,
 )
 from domain.workflow_outputs import (
+    PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
     TRADE_RECOMMENDATION_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
@@ -60,7 +62,9 @@ async def test_trade_recommendation_projector_maps_trade_proposal_distinctly() -
         ),
     )
 
-    outcome = await projector.project(_projector_request())
+    outcome = await projector.project(
+        _projector_request(node=_node_with_contextual_claim_reference())
+    )
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
     assert outcome.records_written == 3
@@ -100,7 +104,7 @@ async def test_trade_recommendation_projector_ignores_model_authority_claims() -
     )
 
     outcome = await projector.project(
-        _projector_request(node=_node_with_model_claims())
+        _projector_request(node=_node_with_model_claims_and_context_ref())
     )
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
@@ -132,6 +136,48 @@ async def test_trade_recommendation_projector_ignores_model_authority_claims() -
         "residual_risk_accepted",
         "risk_tier",
     ]
+
+
+@pytest.mark.asyncio
+async def test_trade_projector_fails_closed_without_claim_audit_treatment() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = TradeRecommendationWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(_projector_request())
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "ClaimEvidenceBindingError"
+    assert "no explicit decision-evidence claim audit treatment" in str(
+        outcome.error_message
+    )
+    assert "workflow output or feature metadata" in str(outcome.error_message)
+    assert "canonical decision-evidence packet provenance" in str(outcome.error_message)
+    assert repository.bundles == []
+
+
+@pytest.mark.asyncio
+async def test_allocation_projector_fails_closed_without_audit_treatment() -> None:
+    repository = _FakeRecommendationRepository()
+    projector = PortfolioAllocationIntentWorkflowOutputProjector(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        ),
+    )
+
+    outcome = await projector.project(
+        _projector_request(node=_allocation_node()),
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_type == "ClaimEvidenceBindingError"
+    assert "no explicit decision-evidence claim audit treatment" in str(
+        outcome.error_message
+    )
+    assert repository.bundles == []
 
 
 @pytest.mark.asyncio
@@ -506,6 +552,42 @@ def _node() -> CompletedNodeOutputRecord:
     )
 
 
+def _allocation_node() -> CompletedNodeOutputRecord:
+    return CompletedNodeOutputRecord(
+        node_output_id="node-output-allocation",
+        run_id="run-1",
+        workflow_name="morning_report",
+        execution_id="exec-1",
+        node_name="portfolio_manager_agent",
+        node_type="portfolio",
+        output_contract=PORTFOLIO_ALLOCATION_INTENT_OUTPUT_CONTRACT,
+        output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+        status="succeeded",
+        success=True,
+        outputs=cast(
+            JsonObject,
+            {
+                "symbol": "SPY",
+                "regime": "defensive",
+                "confidence": 0.66,
+                "features": {
+                    "scale_factor": 0.25,
+                    "composite_risk": 0.44,
+                    "portfolio_regime": "risk_managed",
+                    "selected_perspective": "capital_preservation",
+                    "selection_status": "selected",
+                    "thesis": "Hold a defensive allocation until breadth improves.",
+                },
+            },
+        ),
+        metadata={"quality_status": "normal"},
+        errors_json=(),
+        started_at=datetime(2026, 7, 10, 13, 29, tzinfo=UTC),
+        completed_at=datetime(2026, 7, 10, 13, 31, tzinfo=UTC),
+        duration_seconds=120.0,
+    )
+
+
 def _node_with_model_claims() -> CompletedNodeOutputRecord:
     node = _node()
     outputs = dict(node.outputs)
@@ -555,6 +637,21 @@ def _claim_reference_metadata(
             ],
         },
     )
+
+
+def _node_with_model_claims_and_context_ref() -> CompletedNodeOutputRecord:
+    node = _node_with_model_claims()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    features[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = cast(
+        JsonValue,
+        _claim_reference_metadata(
+            supporting_evidence_ids=[],
+            materiality=ClaimMaterialityTier.CONTEXTUAL,
+        ),
+    )
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))
 
 
 def _node_with_claim_references() -> CompletedNodeOutputRecord:

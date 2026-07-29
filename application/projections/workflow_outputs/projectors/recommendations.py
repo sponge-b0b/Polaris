@@ -34,6 +34,7 @@ from core.storage.persistence.recommendations import (
     new_recommendation_id,
 )
 from domain.authority import (
+    RiskTier,
     authority_contract_metadata,
     model_authority_claims_from_payloads,
     recommendation_rationale_authority,
@@ -55,6 +56,9 @@ PORTFOLIO_ALLOCATION_INTENT_PROJECTOR_NAME: Final = (
     "portfolio_allocation_intent_projector"
 )
 TRADE_RECOMMENDATION_PROJECTOR_NAME: Final = "trade_recommendation_projector"
+_HIGH_RISK_RECOMMENDATION_CLAIM_PROVENANCE_TIERS: Final = frozenset(
+    (RiskTier.ENHANCED.value, RiskTier.VIGILANT.value),
+)
 
 
 class PortfolioAllocationIntentWorkflowOutputProjector:
@@ -368,6 +372,7 @@ async def _bind_recommendation_claim_evidence(
 ) -> tuple[RecommendationClaimEvidenceLinkRecord, ...]:
     references = _rationale_claim_references(rationale)
     if not references:
+        _ensure_recommendation_claim_audit_treatment_present(rationale)
         return ()
     targets = tuple(
         RecommendationClaimEvidenceBindingTarget(
@@ -394,6 +399,25 @@ async def _bind_recommendation_claim_evidence(
         boundary_name="recommendation projection",
     )
     return links
+
+
+def _ensure_recommendation_claim_audit_treatment_present(
+    rationale: RecommendationRationaleRecord,
+) -> None:
+    risk_authority = rationale.metadata.get("risk_authority")
+    if not isinstance(risk_authority, Mapping):
+        return
+    risk_tier = risk_authority.get("risk_tier")
+    if risk_tier not in _HIGH_RISK_RECOMMENDATION_CLAIM_PROVENANCE_TIERS:
+        return
+
+    raise ClaimEvidenceBindingError(
+        "recommendation projection "
+        f"{risk_tier} rationale has no explicit decision-evidence claim audit "
+        "treatment from workflow output or feature metadata; material "
+        "recommendation records and rationales require canonical "
+        "decision-evidence packet provenance before persistence."
+    )
 
 
 def _rationale_claim_references(

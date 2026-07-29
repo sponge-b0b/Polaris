@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final, cast
 
+from application.decision_evidence import (
+    DecisionEvidencePacketPersistenceService,
+    calculate_completed_workflow_node_evidence_digest,
+)
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
@@ -16,6 +21,7 @@ from application.projections.workflow_outputs.projection_models import (
 from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
+from core.security.sensitive_data import sanitize_sensitive_value
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
 from core.storage.persistence.lineage import (
     JsonObject,
@@ -41,11 +47,19 @@ from core.storage.persistence.strategy import (
     new_strategy_hypothesis_id,
 )
 from domain.authority import (
+    RiskAuthorityContract,
+    SourceOfTruthCategory,
     authority_contract_metadata,
     model_authority_claims_from_payloads,
     strategy_recommendation_rationale_authority,
     strategy_recommendation_record_authority,
     strategy_synthesis_decision_authority,
+)
+from domain.decision_evidence import (
+    EvidenceRetentionRequirement,
+    ReconstructionReference,
+    ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from domain.workflow_outputs import (
     STRATEGY_BEAR_HYPOTHESIS_OUTPUT_CONTRACT,
@@ -54,8 +68,13 @@ from domain.workflow_outputs import (
     STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
     WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
 )
+from intelligence.strategy.hypothesis.evidence import StrategyEvidenceItem
 from intelligence.strategy.hypothesis.hypothesis import StrategyHypothesis
 from intelligence.strategy.synthesis.contracts import StrategySynthesisDecision
+from intelligence.strategy.synthesis.evidence_packets import (
+    StrategySynthesisEvidencePacketAssemblyError,
+    assemble_strategy_synthesis_decision_evidence_packet,
+)
 
 STRATEGY_BULL_HYPOTHESIS_PROJECTOR_NAME: Final = "strategy_bull_hypothesis_projector"
 STRATEGY_BEAR_HYPOTHESIS_PROJECTOR_NAME: Final = "strategy_bear_hypothesis_projector"
@@ -81,6 +100,13 @@ class _EvidencePacketSourceRecord:
     record: PersistenceRecordIdentity
     created_at: datetime
     lineage: PersistenceLineage
+
+
+@dataclass(frozen=True, slots=True)
+class _StrategyHypothesisProjectionEvidence:
+    hypothesis: StrategyHypothesis
+    node_output: CompletedNodeOutputRecord
+    content_digest: str
 
 
 class StrategyHypothesisWorkflowOutputProjector:
@@ -141,10 +167,16 @@ class StrategySynthesisWorkflowOutputProjector:
         *,
         strategy_persistence_service: StrategyPersistenceService,
         recommendation_persistence_service: RecommendationPersistenceService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
         lineage_persistence_service: LineagePersistenceService,
     ) -> None:
         self._strategy_persistence_service = strategy_persistence_service
         self._recommendation_persistence_service = recommendation_persistence_service
+        self._decision_evidence_packet_persistence_service = (
+            decision_evidence_packet_persistence_service
+        )
         self._lineage_persistence_service = lineage_persistence_service
 
     @property
@@ -167,17 +199,60 @@ class StrategySynthesisWorkflowOutputProjector:
         if symbol is None:
             return _skipped(request, self.projector_name, "Strategy symbol missing.")
 
-        hypotheses = _hypothesis_records_from_bundle(request, symbol=symbol)
+        hypothesis_evidence = _strategy_hypothesis_projection_evidence(request)
+        hypotheses = _hypothesis_records_from_projection_evidence(
+            request,
+            symbol=symbol,
+            hypothesis_evidence=hypothesis_evidence,
+        )
         evidence_fingerprint = _decision_evidence_fingerprint(
             decision=decision,
             hypotheses=hypotheses,
             request=request,
         )
+        try:
+            evidence_packet = assemble_strategy_synthesis_decision_evidence_packet(
+                decision=decision,
+                hypotheses=tuple(item.hypothesis for item in hypothesis_evidence),
+                packet_id=_canonical_strategy_packet_id(decision),
+                output_id=request.node_output.node_output_id,
+                authority=_strategy_synthesis_authority(
+                    request=request,
+                    outputs=outputs,
+                    features=features,
+                ),
+                reconstruction_references=_strategy_reconstruction_references(
+                    request=request,
+                    hypothesis_evidence=hypothesis_evidence,
+                ),
+                retention=_strategy_evidence_retention_requirement(request),
+                support_snapshots=_strategy_support_snapshots(hypothesis_evidence),
+            )
+        except StrategySynthesisEvidencePacketAssemblyError as exc:
+            return _failed(
+                request,
+                self.projector_name,
+                f"Strategy decision evidence packet assembly failed: {exc}",
+            )
+
+        packet_result = (
+            await self._decision_evidence_packet_persistence_service.persist_packet(
+                evidence_packet
+            )
+        )
+        if not packet_result.success:
+            error = "; ".join(packet_result.errors) or (
+                "Strategy decision evidence packet persistence failed."
+            )
+            return _failed(request, self.projector_name, error)
+        evidence_packet_ids = (evidence_packet.packet_id,)
+
         decision_record = _decision_record(
             request=request,
             decision=decision,
             symbol=symbol,
             evidence_fingerprint=evidence_fingerprint,
+            evidence_packet_ids=evidence_packet_ids,
         )
         evaluations = _evaluation_records(
             request=request,
@@ -199,11 +274,14 @@ class StrategySynthesisWorkflowOutputProjector:
                 strategy_result.error or "Strategy synthesis persistence failed.",
             )
 
-        records_written = strategy_result.records_persisted
+        records_written = (
+            packet_result.records_persisted + strategy_result.records_persisted
+        )
         recommendation_bundle = _strategy_recommendation_bundle(
             request=request,
             decision=decision,
             decision_record=decision_record,
+            evidence_packet_ids=evidence_packet_ids,
         )
         if recommendation_bundle is not None:
             recommendation_result = (
@@ -222,7 +300,7 @@ class StrategySynthesisWorkflowOutputProjector:
 
         lineage_links = _evidence_packet_lineage_links(
             request=request,
-            decision=decision,
+            evidence_packet_ids=evidence_packet_ids,
             decision_record=decision_record,
             recommendation_bundle=recommendation_bundle,
         )
@@ -254,6 +332,9 @@ def build_strategy_projector_registrations(
     *,
     strategy_persistence_service: StrategyPersistenceService,
     recommendation_persistence_service: RecommendationPersistenceService,
+    decision_evidence_packet_persistence_service: (
+        DecisionEvidencePacketPersistenceService
+    ),
     lineage_persistence_service: LineagePersistenceService,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical strategy projector registrations."""
@@ -290,6 +371,9 @@ def build_strategy_projector_registrations(
     synthesis_projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=strategy_persistence_service,
         recommendation_persistence_service=recommendation_persistence_service,
+        decision_evidence_packet_persistence_service=(
+            decision_evidence_packet_persistence_service
+        ),
         lineage_persistence_service=lineage_persistence_service,
     )
     registrations.append(
@@ -319,9 +403,19 @@ def _hypothesis_records_from_bundle(
     *,
     symbol: str,
 ) -> tuple[StrategyHypothesisRecord, ...]:
+    return _hypothesis_records_from_projection_evidence(
+        request,
+        symbol=symbol,
+        hypothesis_evidence=_strategy_hypothesis_projection_evidence(request),
+    )
+
+
+def _strategy_hypothesis_projection_evidence(
+    request: WorkflowOutputProjectorRequest,
+) -> tuple[_StrategyHypothesisProjectionEvidence, ...]:
     if request.bundle is None:
         return ()
-    records: list[StrategyHypothesisRecord] = []
+    evidence: list[_StrategyHypothesisProjectionEvidence] = []
     for node_output in request.bundle.node_outputs:
         if node_output.output_contract not in _HYPOTHESIS_CONTRACTS:
             continue
@@ -330,11 +424,32 @@ def _hypothesis_records_from_bundle(
         hypothesis = _hypothesis_from_node_output(node_output)
         if hypothesis is None:
             continue
+        evidence.append(
+            _StrategyHypothesisProjectionEvidence(
+                hypothesis=hypothesis,
+                node_output=node_output,
+                content_digest=calculate_completed_workflow_node_evidence_digest(
+                    run=request.run,
+                    node_output=node_output,
+                ),
+            )
+        )
+    return tuple(evidence)
+
+
+def _hypothesis_records_from_projection_evidence(
+    request: WorkflowOutputProjectorRequest,
+    *,
+    symbol: str,
+    hypothesis_evidence: tuple[_StrategyHypothesisProjectionEvidence, ...],
+) -> tuple[StrategyHypothesisRecord, ...]:
+    records: list[StrategyHypothesisRecord] = []
+    for item in hypothesis_evidence:
         records.append(
             _hypothesis_record(
                 request=request,
-                node_output=node_output,
-                hypothesis=hypothesis,
+                node_output=item.node_output,
+                hypothesis=item.hypothesis,
                 symbol=symbol,
             )
         )
@@ -402,6 +517,7 @@ def _decision_record(
     decision: StrategySynthesisDecision,
     symbol: str,
     evidence_fingerprint: str,
+    evidence_packet_ids: tuple[str, ...],
 ) -> StrategySynthesisDecisionRecord:
     selected = (
         None
@@ -438,7 +554,7 @@ def _decision_record(
             "node_output_id": request.node_output.node_output_id,
             "output_contract": request.node_output.output_contract,
             "output_schema_version": request.node_output.output_schema_version,
-            "evidence_packet_ids": list(decision.evidence_packet_ids),
+            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_synthesis_decision_authority(
                     model_authority_claims_from_payloads(
@@ -518,11 +634,152 @@ def _decision_evidence_fingerprint(
     return request.source_fingerprint
 
 
+def _canonical_strategy_packet_id(decision: StrategySynthesisDecision) -> str:
+    if not decision.evidence_packet_ids:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis decision requires canonical evidence packet binding."
+        )
+    return decision.evidence_packet_ids[0]
+
+
+def _strategy_synthesis_authority(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    outputs: Mapping[str, object],
+    features: Mapping[str, object],
+) -> RiskAuthorityContract:
+    return request.authority_contract or strategy_synthesis_decision_authority(
+        model_authority_claims_from_payloads(outputs, features)
+    )
+
+
+def _strategy_reconstruction_references(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    hypothesis_evidence: tuple[_StrategyHypothesisProjectionEvidence, ...],
+) -> tuple[ReconstructionReference, ...]:
+    if request.bundle is None:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis packet assembly requires completed run bundle for "
+            "retained support snapshots."
+        )
+
+    references: dict[str, ReconstructionReference] = {}
+    run_reference = ReconstructionReference(
+        reference_id="strategy_synthesis:completed-run",
+        kind=ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN,
+        record_id=f"{request.run.workflow_name}:{request.run.execution_id}",
+        source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+        snapshot_id=request.run.run_id,
+    )
+    references[run_reference.reference_id] = run_reference
+
+    node_outputs = (
+        request.node_output,
+        *(item.node_output for item in hypothesis_evidence),
+    )
+    for node_output in node_outputs:
+        reference = _workflow_node_reconstruction_reference(
+            request=request,
+            node_output=node_output,
+        )
+        references[reference.reference_id] = reference
+    return tuple(references.values())
+
+
+def _workflow_node_reconstruction_reference(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    node_output: CompletedNodeOutputRecord,
+) -> ReconstructionReference:
+    return ReconstructionReference(
+        reference_id=f"strategy_synthesis:node-output:{node_output.node_output_id}",
+        kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+        record_id=node_output.node_output_id,
+        source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+        snapshot_id=(
+            f"{node_output.workflow_name}:{node_output.execution_id}:"
+            f"{node_output.node_name}"
+        ),
+        content_digest=calculate_completed_workflow_node_evidence_digest(
+            run=request.run,
+            node_output=node_output,
+        ),
+    )
+
+
+def _strategy_support_snapshots(
+    hypothesis_evidence: tuple[_StrategyHypothesisProjectionEvidence, ...],
+) -> Mapping[str, SupportingEvidenceSnapshot]:
+    snapshots: dict[str, SupportingEvidenceSnapshot] = {}
+    for item in hypothesis_evidence:
+        for evidence in (
+            *item.hypothesis.supporting_evidence,
+            *item.hypothesis.contradicting_evidence,
+        ):
+            snapshots.setdefault(
+                evidence.evidence_id,
+                _strategy_support_snapshot(
+                    evidence=evidence,
+                    projection_evidence=item,
+                ),
+            )
+    return snapshots
+
+
+def _strategy_support_snapshot(
+    *,
+    evidence: StrategyEvidenceItem,
+    projection_evidence: _StrategyHypothesisProjectionEvidence,
+) -> SupportingEvidenceSnapshot:
+    content = {
+        "hypothesis_perspective": projection_evidence.hypothesis.perspective.value,
+        "hypothesis_evidence_fingerprint": (
+            projection_evidence.hypothesis.evidence_fingerprint
+        ),
+        "node_name": projection_evidence.node_output.node_name,
+        "node_output_id": projection_evidence.node_output.node_output_id,
+        "output_contract": projection_evidence.node_output.output_contract,
+        "output_schema_version": projection_evidence.node_output.output_schema_version,
+        "content_digest": projection_evidence.content_digest,
+        "strategy_evidence": sanitize_sensitive_value(evidence.to_dict()),
+    }
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"{evidence.evidence_id}:support-snapshot",
+        summary=_strategy_support_snapshot_summary(evidence),
+        redacted_content=json.dumps(content, sort_keys=True, separators=(",", ":")),
+        source_label=f"workflow_node_output:{projection_evidence.node_output.node_output_id}",
+    )
+
+
+def _strategy_support_snapshot_summary(evidence: StrategyEvidenceItem) -> str:
+    return f"Strategy support evidence {evidence.evidence_id}: {evidence.name}."
+
+
+def _strategy_evidence_retention_requirement(
+    request: WorkflowOutputProjectorRequest,
+) -> EvidenceRetentionRequirement:
+    retain_until = _add_years(_timestamp(request, request.node_output), years=5)
+    return EvidenceRetentionRequirement(
+        retain_until=retain_until.isoformat(),
+        policy_id="vigilant-strategy-synthesis-5y",
+    )
+
+
+def _add_years(value: datetime, *, years: int) -> datetime:
+    active_value = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    try:
+        return active_value.replace(year=active_value.year + years)
+    except ValueError:
+        return active_value.replace(year=active_value.year + years, day=28)
+
+
 def _strategy_recommendation_bundle(
     *,
     request: WorkflowOutputProjectorRequest,
     decision: StrategySynthesisDecision,
     decision_record: StrategySynthesisDecisionRecord,
+    evidence_packet_ids: tuple[str, ...],
 ) -> RecommendationPersistenceBundle | None:
     if not decision.recommendations:
         return None
@@ -548,7 +805,7 @@ def _strategy_recommendation_bundle(
             "selected_perspective": decision_record.selected_perspective,
             "selection_status": decision_record.selection_status,
             "evidence_fingerprint": decision_record.evidence_fingerprint,
-            "evidence_packet_ids": list(decision.evidence_packet_ids),
+            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_record_authority(
                     model_authority_claims_from_payloads(
@@ -573,7 +830,7 @@ def _strategy_recommendation_bundle(
         confidence=decision.confidence,
         metadata={
             "recommendations": list(decision.recommendations),
-            "evidence_packet_ids": list(decision.evidence_packet_ids),
+            "evidence_packet_ids": list(evidence_packet_ids),
             **authority_contract_metadata(
                 strategy_recommendation_rationale_authority(
                     model_authority_claims_from_payloads(
@@ -592,7 +849,7 @@ def _strategy_recommendation_bundle(
 def _evidence_packet_lineage_links(
     *,
     request: WorkflowOutputProjectorRequest,
-    decision: StrategySynthesisDecision,
+    evidence_packet_ids: tuple[str, ...],
     decision_record: StrategySynthesisDecisionRecord,
     recommendation_bundle: RecommendationPersistenceBundle | None,
 ) -> tuple[PersistenceLineageLinkRecord, ...]:
@@ -624,7 +881,7 @@ def _evidence_packet_lineage_links(
             for rationale in recommendation_bundle.rationales
         )
 
-    for packet_id in decision.evidence_packet_ids:
+    for packet_id in evidence_packet_ids:
         for source in source_records:
             source_record = source.record
             target_record = PersistenceRecordIdentity(

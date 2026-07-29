@@ -5,6 +5,9 @@ from dishka import Provider, Scope, provide
 from application.decision_evidence.claim_binding import (
     DecisionEvidenceClaimBindingService,
 )
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketPersistenceService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -56,6 +59,9 @@ class WorkflowOutputProjectionDIProvider(Provider):
         portfolio_persistence_service: PortfolioPersistenceService,
         recommendation_persistence_service: RecommendationPersistenceService,
         claim_binding_service: DecisionEvidenceClaimBindingService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
         lineage_persistence_service: LineagePersistenceService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
@@ -85,6 +91,9 @@ class WorkflowOutputProjectionDIProvider(Provider):
                     strategy_persistence_service=strategy_persistence_service,
                     recommendation_persistence_service=(
                         recommendation_persistence_service
+                    ),
+                    decision_evidence_packet_persistence_service=(
+                        decision_evidence_packet_persistence_service
                     ),
                     lineage_persistence_service=lineage_persistence_service,
                 ),

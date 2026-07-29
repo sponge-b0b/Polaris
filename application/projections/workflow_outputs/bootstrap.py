@@ -162,13 +162,16 @@ class PostgresWorkflowOutputProjectionCoordinator:
         lineage_persistence_service = LineagePersistenceService(
             PostgresPersistenceLineageLinkRepository(session),
         )
-        claim_binding_service = DecisionEvidenceClaimBindingService(
+        decision_evidence_packet_persistence_service = (
             DecisionEvidencePacketPersistenceService(
                 repository=PostgresDecisionEvidencePacketRepository(session),
                 completed_run_archive=PostgresCompletedRunArchive(
                     session_factory=self._session_factory,
                 ),
             )
+        )
+        claim_binding_service = DecisionEvidenceClaimBindingService(
+            decision_evidence_packet_persistence_service
         )
         sentiment_persistence_service = SentimentPersistenceService(
             PostgresSentimentPersistenceRepository(session),
@@ -201,6 +204,9 @@ class PostgresWorkflowOutputProjectionCoordinator:
                     strategy_persistence_service=strategy_persistence_service,
                     recommendation_persistence_service=(
                         recommendation_persistence_service
+                    ),
+                    decision_evidence_packet_persistence_service=(
+                        decision_evidence_packet_persistence_service
                     ),
                     lineage_persistence_service=lineage_persistence_service,
                 ),

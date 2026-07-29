@@ -7,6 +7,7 @@ from domain.decision_evidence import (
     EvidenceRetentionRequirement,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from intelligence.strategy.hypothesis import StrategyPerspective
 from intelligence.strategy.hypothesis.evidence import (
@@ -37,6 +38,7 @@ def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
         authority=classify_risk_authority(strategy_synthesis_authority_input()),
         reconstruction_references=(_workflow_reference(),),
         retention=_retention_requirement(),
+        support_snapshots=_support_snapshots(_hypotheses()),
     )
 
     assert packet.packet_id == "strategy-packet-1"
@@ -58,6 +60,12 @@ def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
         "bear-credit-stress",
         "sideways-range",
     }.issubset(evidence_ids)
+    assert all(evidence.support_snapshot is not None for evidence in packet.evidence)
+    assert {
+        evidence.support_snapshot.snapshot_id
+        for evidence in packet.evidence
+        if evidence.support_snapshot is not None
+    } == {f"{evidence_id}:support-snapshot" for evidence_id in evidence_ids}
 
     constraint_ids = {constraint.constraint_id for constraint in packet.constraints}
     assert "bull:assumption:bull-liquidity" in constraint_ids
@@ -112,6 +120,7 @@ def test_strategy_synthesis_packet_fails_for_missing_or_substituted_binding(
             authority=classify_risk_authority(strategy_synthesis_authority_input()),
             reconstruction_references=(_workflow_reference(),),
             retention=_retention_requirement(),
+            support_snapshots=_support_snapshots(_hypotheses()),
         )
 
 
@@ -211,18 +220,37 @@ def test_strategy_synthesis_packet_assembly_fails_when_references_are_missing(
     hypotheses: object,
     expected_message: str,
 ) -> None:
+    active_hypotheses = hypotheses()  # type: ignore[operator]
     with pytest.raises(
         StrategySynthesisEvidencePacketAssemblyError,
         match=expected_message,
     ):
         assemble_strategy_synthesis_decision_evidence_packet(
             decision=_decision(evidence_packet_ids=("strategy-packet-1",)),
-            hypotheses=hypotheses(),  # type: ignore[operator]
+            hypotheses=active_hypotheses,
             packet_id="strategy-packet-1",
             output_id="strategy-synthesis-output-1",
             authority=classify_risk_authority(strategy_synthesis_authority_input()),
             reconstruction_references=(_workflow_reference(),),
             retention=_retention_requirement(),
+            support_snapshots=_support_snapshots(active_hypotheses),
+        )
+
+
+def test_strategy_synthesis_packet_assembly_fails_when_snapshot_missing() -> None:
+    with pytest.raises(
+        StrategySynthesisEvidencePacketAssemblyError,
+        match="lacks retained support snapshot",
+    ):
+        assemble_strategy_synthesis_decision_evidence_packet(
+            decision=_decision(evidence_packet_ids=("strategy-packet-1",)),
+            hypotheses=_hypotheses(),
+            packet_id="strategy-packet-1",
+            output_id="strategy-synthesis-output-1",
+            authority=classify_risk_authority(strategy_synthesis_authority_input()),
+            reconstruction_references=(_workflow_reference(),),
+            retention=_retention_requirement(),
+            support_snapshots={},
         )
 
 
@@ -391,6 +419,24 @@ def _workflow_reference() -> ReconstructionReference:
         record_id="run-1:node:strategy_synthesis",
         source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
     )
+
+
+def _support_snapshots(
+    hypotheses: tuple[StrategyHypothesis, ...],
+) -> dict[str, SupportingEvidenceSnapshot]:
+    snapshots: dict[str, SupportingEvidenceSnapshot] = {}
+    for hypothesis in hypotheses:
+        for evidence in (
+            *hypothesis.supporting_evidence,
+            *hypothesis.contradicting_evidence,
+        ):
+            snapshots[evidence.evidence_id] = SupportingEvidenceSnapshot(
+                snapshot_id=f"{evidence.evidence_id}:support-snapshot",
+                summary=f"Retained {evidence.evidence_id} support.",
+                redacted_content=f"redacted strategy support {evidence.evidence_id}",
+                source_label="workflow_node_output:test-node",
+            )
+    return snapshots
 
 
 def _retention_requirement() -> EvidenceRetentionRequirement:

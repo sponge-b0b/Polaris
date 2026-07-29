@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from domain.authority import RiskAuthorityContract, SourceOfTruthCategory
 from domain.decision_evidence import (
@@ -14,6 +14,7 @@ from domain.decision_evidence import (
     EvidenceUncertainty,
     MaterialClaim,
     ReconstructionReference,
+    SupportingEvidenceSnapshot,
 )
 from intelligence.strategy.hypothesis.contracts import StrategyPerspective
 from intelligence.strategy.hypothesis.evidence import (
@@ -38,6 +39,7 @@ def assemble_strategy_synthesis_decision_evidence_packet(
     authority: RiskAuthorityContract,
     reconstruction_references: tuple[ReconstructionReference, ...],
     retention: EvidenceRetentionRequirement,
+    support_snapshots: Mapping[str, SupportingEvidenceSnapshot],
 ) -> DecisionEvidencePacket:
     """Build the canonical evidence packet for a strategy synthesis decision.
 
@@ -87,6 +89,10 @@ def assemble_strategy_synthesis_decision_evidence_packet(
             reconstruction_reference_ids=reconstruction_reference_ids,
             summary=_evidence_summary(item),
             source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            support_snapshot=_support_snapshot_for_evidence(
+                item,
+                support_snapshots,
+            ),
         )
         for item in evidence_by_id.values()
     )
@@ -153,6 +159,19 @@ def _validate_decision_evidence_packet_binding(
         "strategy synthesis decision contains substituted evidence packet ids "
         f"{substituted_packet_ids!r} for canonical packet {packet_id!r}."
     )
+
+
+def _support_snapshot_for_evidence(
+    item: StrategyEvidenceItem,
+    support_snapshots: Mapping[str, SupportingEvidenceSnapshot],
+) -> SupportingEvidenceSnapshot:
+    snapshot = support_snapshots.get(item.evidence_id)
+    if snapshot is None:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            f"strategy synthesis evidence '{item.evidence_id}' lacks retained "
+            "support snapshot."
+        )
+    return snapshot
 
 
 def _hypotheses_by_perspective(

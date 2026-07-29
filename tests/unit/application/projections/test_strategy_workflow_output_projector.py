@@ -6,6 +6,7 @@ from typing import cast
 
 import pytest
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
@@ -22,11 +23,17 @@ from application.projections.workflow_outputs.projectors import (
 )
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
+    CompletedRunArchive,
     CompletedRunBundle,
     CompletedRunExecutionMode,
     CompletedRunRecord,
     JsonObject,
     JsonValue,
+)
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceRepository,
+    DecisionEvidencePacketPersistenceResult,
+    DecisionEvidencePacketRecord,
 )
 from core.storage.persistence.lineage import (
     PersistenceLineageLinkRecord,
@@ -89,11 +96,22 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
     lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
     run = _run()
     bull_node = _bull_node()
     synthesis_node = _synthesis_node()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
     lineage_service = LineagePersistenceService(
         cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
     )
     projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=StrategyPersistenceService(
@@ -102,6 +120,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         recommendation_persistence_service=RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, recommendation_repository),
         ),
+        decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
     )
 
@@ -109,14 +128,28 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         _projector_request(
             synthesis_node,
             run=run,
-            bundle=CompletedRunBundle(
-                run=run, node_outputs=(bull_node, synthesis_node)
-            ),
+            bundle=bundle,
         )
     )
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
-    assert outcome.records_written == 8
+    assert outcome.records_written == 9
+    assert set(packet_repository.records) == {"strategy-packet-1"}
+    packet = await packet_service.reconstruct_packet("strategy-packet-1")
+    assert packet.packet_id == "strategy-packet-1"
+    assert packet.output_id == "node-output-synthesis"
+    assert {constraint.constraint_id for constraint in packet.constraints} == {
+        "bull:assumption:bull-liquidity"
+    }
+    assert {limitation.limitation_id for limitation in packet.limitations} == {
+        "bull:invalidation:bull-invalidated"
+    }
+    assert packet.uncertainties[0].evidence_ids == ("bull-momentum",)
+    evidence = packet.evidence[0]
+    assert evidence.evidence_id == "bull-momentum"
+    assert evidence.support_snapshot is not None
+    assert evidence.support_snapshot.snapshot_id == "bull-momentum:support-snapshot"
+    assert "node-output-bull" in evidence.support_snapshot.redacted_content
     assert len(strategy_repository.bundles) == 1
     strategy_bundle = strategy_repository.bundles[0]
     assert strategy_bundle.decision.symbol == "SPY"
@@ -203,10 +236,22 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
     lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
     run = _run()
+    bull_node = _bull_node()
     synthesis_node = _synthesis_node_with_model_claims()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
     lineage_service = LineagePersistenceService(
         cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
     )
     projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=StrategyPersistenceService(
@@ -215,6 +260,7 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
         recommendation_persistence_service=RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, recommendation_repository),
         ),
+        decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
     )
 
@@ -222,7 +268,7 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
         _projector_request(
             synthesis_node,
             run=run,
-            bundle=CompletedRunBundle(run=run, node_outputs=(synthesis_node,)),
+            bundle=bundle,
         )
     )
 
@@ -265,11 +311,23 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
     lineage_repository = _FakeLineageRepository(fail_after=0)
+    packet_repository = _FakeDecisionEvidencePacketRepository()
     lineage_service = LineagePersistenceService(
         cast(PersistenceLineageLinkRepository, lineage_repository),
     )
     run = _run()
+    bull_node = _bull_node()
     synthesis_node = _synthesis_node()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
+    )
     projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=StrategyPersistenceService(
             cast(StrategyPersistenceRepository, strategy_repository),
@@ -277,6 +335,7 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
         recommendation_persistence_service=RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, recommendation_repository),
         ),
+        decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
     )
 
@@ -284,7 +343,7 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
         _projector_request(
             synthesis_node,
             run=run,
-            bundle=CompletedRunBundle(run=run, node_outputs=(synthesis_node,)),
+            bundle=bundle,
         )
     )
 
@@ -294,6 +353,94 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
     )
     assert len(strategy_repository.bundles) == 1
     assert len(recommendation_repository.bundles) == 1
+    assert lineage_repository.links == []
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_fails_closed_without_support_evidence() -> (
+    None
+):
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
+    run = _run()
+    bull_node = _bull_node_without_support_evidence()
+    synthesis_node = _synthesis_node()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
+    )
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        decision_evidence_packet_persistence_service=packet_service,
+        lineage_persistence_service=lineage_service,
+    )
+
+    outcome = await projector.project(
+        _projector_request(synthesis_node, run=run, bundle=bundle)
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_message is not None
+    assert "lacks supporting evidence references" in outcome.error_message
+    assert strategy_repository.bundles == []
+    assert recommendation_repository.bundles == []
+    assert packet_repository.records == {}
+    assert lineage_repository.links == []
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_fails_closed_without_snapshots() -> None:
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
+    run = _run()
+    synthesis_node = _synthesis_node()
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(CompletedRunArchive, _FakeCompletedRunArchive(None)),
+    )
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        decision_evidence_packet_persistence_service=packet_service,
+        lineage_persistence_service=lineage_service,
+    )
+
+    outcome = await projector.project(_projector_request(synthesis_node, run=run))
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_message is not None
+    assert "retained support snapshots" in outcome.error_message
+    assert strategy_repository.bundles == []
+    assert recommendation_repository.bundles == []
+    assert packet_repository.records == {}
     assert lineage_repository.links == []
 
 
@@ -380,6 +527,78 @@ class _FakeLineageRepository:
         raise NotImplementedError
 
 
+class _FakeDecisionEvidencePacketRepository:
+    def __init__(self) -> None:
+        self.records: dict[str, DecisionEvidencePacketRecord] = {}
+
+    async def persist_packet_record(
+        self,
+        record: DecisionEvidencePacketRecord,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.records[record.packet_id] = record
+        return DecisionEvidencePacketPersistenceResult.succeeded(
+            record.packet_id,
+        )
+
+    async def get_packet_record(
+        self,
+        packet_id: str,
+    ) -> DecisionEvidencePacketRecord | None:
+        return self.records.get(packet_id)
+
+
+class _FakeCompletedRunArchive:
+    def __init__(self, bundle: CompletedRunBundle | None) -> None:
+        self._bundle = bundle
+
+    async def archive_run(
+        self,
+        bundle: CompletedRunBundle,
+    ) -> None:
+        self._bundle = bundle
+
+    async def load_archived_run(
+        self,
+        workflow_name: str,
+        execution_id: str,
+    ) -> CompletedRunBundle | None:
+        if self._bundle is None:
+            return None
+        if (
+            self._bundle.run.workflow_name == workflow_name
+            and self._bundle.run.execution_id == execution_id
+        ):
+            return self._bundle
+        return None
+
+    async def list_archived_runs(
+        self,
+        workflow_name: str,
+    ) -> list[str]:
+        if self._bundle is None or self._bundle.run.workflow_name != workflow_name:
+            return []
+        return [self._bundle.run.execution_id]
+
+    async def delete_archived_run(
+        self,
+        workflow_name: str,
+        execution_id: str,
+    ) -> None:
+        if (
+            self._bundle is not None
+            and self._bundle.run.workflow_name == workflow_name
+            and self._bundle.run.execution_id == execution_id
+        ):
+            self._bundle = None
+
+    async def cleanup_archived_runs(
+        self,
+        max_age_days: int | None = None,
+        max_count: int | None = None,
+    ) -> int:
+        return 0
+
+
 def _projector_request(
     node_output: CompletedNodeOutputRecord,
     *,
@@ -445,6 +664,41 @@ def _bull_node() -> CompletedNodeOutputRecord:
     )
 
 
+def _bull_node_without_support_evidence() -> CompletedNodeOutputRecord:
+    from dataclasses import replace
+
+    node = _bull_node()
+    payload = _bull_hypothesis_payload()
+    payload["supporting_evidence"] = []
+    payload["contradicting_evidence"] = [
+        {
+            "evidence_id": "bull-contradiction",
+            "source": "strategy-runtime",
+            "name": "contradicting evidence",
+            "observed_value": 0.45,
+            "strength": 0.50,
+            "reliability": 0.70,
+            "supports": [],
+            "contradicts": ["bull"],
+            "explanation": "Contradicting retained evidence is not support.",
+        }
+    ]
+    payload["key_assumptions"] = [
+        {
+            "assumption_id": "bull-liquidity",
+            "perspective": "bull",
+            "description": "Liquidity remains supportive.",
+            "confidence": 0.70,
+            "evidence_ids": ["bull-contradiction"],
+        }
+    ]
+    payload["invalidation_conditions"] = []
+    return replace(
+        node,
+        outputs=cast(JsonObject, {"strategy_hypothesis": payload}),
+    )
+
+
 def _synthesis_node() -> CompletedNodeOutputRecord:
     return CompletedNodeOutputRecord(
         node_output_id="node-output-synthesis",
@@ -476,10 +730,40 @@ def _bull_hypothesis_payload() -> dict[str, object]:
         "directional_bias": 0.65,
         "hypothesis_strength": 0.72,
         "confidence": 0.8,
-        "supporting_evidence": [],
+        "supporting_evidence": [
+            {
+                "evidence_id": "bull-momentum",
+                "source": "strategy-runtime",
+                "name": "bull momentum",
+                "observed_value": 0.74,
+                "strength": 0.82,
+                "reliability": 0.88,
+                "supports": ["bull"],
+                "contradicts": [],
+                "explanation": "Momentum remains constructive.",
+            }
+        ],
         "contradicting_evidence": [],
-        "key_assumptions": [],
-        "invalidation_conditions": [],
+        "key_assumptions": [
+            {
+                "assumption_id": "bull-liquidity",
+                "perspective": "bull",
+                "description": "Liquidity remains supportive.",
+                "confidence": 0.70,
+                "evidence_ids": ["bull-momentum"],
+            }
+        ],
+        "invalidation_conditions": [
+            {
+                "condition_id": "bull-invalidated",
+                "perspective": "bull",
+                "description": "Trend exhaustion is elevated.",
+                "observed_value": 0.91,
+                "operator": "gte",
+                "threshold": 0.90,
+                "evidence_id": "bull-momentum",
+            }
+        ],
         "risks": ["reversal risk"],
         "recommendations": ["Prefer constructive exposure."],
         "data_quality_flags": [],

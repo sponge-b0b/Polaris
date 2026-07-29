@@ -1,14 +1,15 @@
-# ADR-002: Dishka Composition and Request Scopes
+# 0002. Dishka Composition and Request Scopes
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 The platform requires shared runtime infrastructure and request-local application dependencies across CLI, MCP, and future interfaces. Manual construction, globals, and service locators can create duplicate `EventBus`, control, telemetry, persistence, or facade instances and make resource cleanup unreliable.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "Dishka composition with application and request scopes", because it keeps long-lived infrastructure shared, request-local services isolated, and dependency construction explicit across interfaces.
 
 Dishka is the canonical dependency-injection framework. Application-scope providers own long-lived infrastructure and shared runtime components. Every command, request, or tool invocation opens a Dishka request scope and resolves request-scoped services from that scope. Interfaces may own transport parsing, but they must not manually recreate the application object graph.
 

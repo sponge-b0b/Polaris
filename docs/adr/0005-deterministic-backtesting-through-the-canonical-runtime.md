@@ -1,14 +1,15 @@
-# ADR-005: Deterministic Backtesting Through the Canonical Runtime
+# 0005. Deterministic Backtesting Through the Canonical Runtime
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Backtesting must validate that calculations, risk assessments, and recommendations are correct for deterministic inputs. A dedicated simulation runtime or backtest-only execution semantics would diverge from live behavior and invalidate those comparisons.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "Backtesting through the canonical workflow runtime with provider composition", because it validates production workflow behavior against deterministic provider inputs instead of maintaining a divergent simulation runtime.
 
 Backtests execute through the existing workflow runtime and application boundaries. The runtime remains unaware of whether providers are live or simulated. Dishka provider composition selects deterministic simulated or historical providers, while workflows, services, intelligence nodes, policies, governance, telemetry, and persistence retain their normal contracts.
 

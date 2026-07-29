@@ -1,16 +1,17 @@
-# ADR-007: Structured Strategy Hypotheses
+# 0007. Structured Strategy Hypotheses
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Polaris strategy analysis previously mixed perspective scoring, synthesis, and downstream portfolio intent in ways that made it difficult to prove why a strategy was selected. A debate-style agent design was considered, but free-form agent-to-agent debate would make authority, replay, evidence attribution, deterministic testing, and persistence projection weaker.
 
 Strategy decisions must be attributable to the same upstream evidence used by the workflow, replayable from runtime outputs, persisted as typed records, and projected into RAG and graph stores without introducing a second strategy stack.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "Structured strategy hypotheses instead of free-form agent debate", because it provides deterministic, replayable, attributable strategy selection from a shared typed evidence context.
 
 Polaris uses a structured-hypothesis strategy architecture instead of agent debate.
 

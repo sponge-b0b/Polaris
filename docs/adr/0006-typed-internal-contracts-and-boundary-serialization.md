@@ -1,14 +1,15 @@
-# ADR-006: Typed Internal Contracts and Boundary Serialization
+# 0006. Typed Internal Contracts and Boundary Serialization
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Unstructured dictionaries used between services, agents, runtime components, and persistence layers hide schema changes until runtime and make replay, telemetry, attribution, and refactoring inconsistent.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "Typed internal contracts with serialization only at explicit boundaries", because it makes platform schemas discoverable and refactorable while keeping unstructured dictionaries confined to external, persistence, telemetry, event, and presentation boundaries.
 
 Internal platform communication uses strongly typed domain objects, request/result contracts, signals, runtime context, and persistence models. Immutable value objects should use frozen, slotted dataclasses where appropriate. `dict[str, Any]` is limited to untrusted external payloads and explicit serialization boundaries such as HTTP, vendor SDKs, runtime persistence, checkpoints, replay, events, telemetry, and report rendering.
 

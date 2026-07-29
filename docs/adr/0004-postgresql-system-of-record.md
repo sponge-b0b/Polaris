@@ -1,14 +1,15 @@
-# ADR-004: PostgreSQL Is the Platform System of Record
+# 0004. PostgreSQL Is the Platform System of Record
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 The platform persists workflow history, completed runs, market and portfolio facts, signals, recommendations, reports, telemetry, backtests, lineage, and curated RAG records. Treating caches, local files, vector stores, or graph projections as authoritative would create inconsistent recovery, replay, retention, and audit behavior.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "PostgreSQL as the canonical durable system of record", because it gives durable platform state one transactional authority while keeping Qdrant, Neo4j, files, caches, and reports rebuildable or bounded artifacts.
 
 PostgreSQL is the canonical system of record for durable platform state. SQLAlchemy models and Alembic migrations define the relational schema. Application persistence services coordinate use cases; typed repositories own persistence contracts; PostgreSQL repository implementations perform database access.
 

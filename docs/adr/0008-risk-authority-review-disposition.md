@@ -1,10 +1,9 @@
-# ADR-008: Risk Authority Spec Review Disposition
+# 0008. Risk Authority Spec Review Disposition
 
-## Status
+Status: accepted
+Date: 2026-07-22
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Issue #64 introduced the canonical risk tier and authority contract. The first
 spec review for that work compared `1462412...HEAD` and created review parent
@@ -27,7 +26,9 @@ The review diff characteristics that triggered #79 were:
 - broad non-authority areas also touched: agent skills, notebooks, plugin
   metadata, provider/client modules, CLI modules, and repository-wide tests
 
-## Decision
+## Decision Outcome
+
+Chosen option: "Risk-authority review disposition without retroactive blanket core authorization", because it keeps the #64/#79 review trail explicit and preserves the repository rule that broad or unrelated core changes need separate approval.
 
 The risk-authority remediation trail records that #64 did **not** provide a
 pre-existing blanket authorization for broad `core/` churn. #79 does not

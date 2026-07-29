@@ -1,14 +1,15 @@
-# ADR-003: Runtime Events, Telemetry, and Trace Propagation
+# 0003. Runtime Events, Telemetry, and Trace Propagation
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Workflow execution, progress, control, persistence, and observability require consistent event identity and trace correlation across asynchronous boundaries. Direct callbacks or independent event systems would fragment notifications, metrics, logs, traces, and audit records.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "RuntimeEvent notifications through EventBus with boundary telemetry mapping", because it keeps workflow notifications, persistence reactions, metrics, logs, and traces correlated without creating parallel event systems.
 
 `EventBus` and typed `RuntimeEvent` objects are the canonical runtime coordination and notification mechanism. Runtime components publish domain events; subscribers handle persistence or other reactions without taking execution ownership. Telemetry maps runtime events at the observability boundary into structured logs, metrics, and traces.
 

@@ -1,14 +1,15 @@
-# ADR-001: Runtime Execution and Workflow Boundaries
+# 0001. Runtime Execution and Workflow Boundaries
 
-## Status
+Status: accepted
+Date: 2026-07-17
 
-Accepted
-
-## Context
+## Context and Problem Statement
 
 Workflow execution spans interface, application, workflow, and runtime layers. Without explicit ownership, callers can bypass policy, governance, replay, control, telemetry, or lifecycle behavior by invoking the runtime directly or assembling alternate execution paths.
 
-## Decision
+## Decision Outcome
+
+Chosen option: "RuntimeEngine-owned execution behind WorkflowFacade and WorkflowBootstrap", because it preserves a single runtime owner, application boundary, and composition root for workflow execution, replay, inspection, and control.
 
 `RuntimeEngine` owns graph execution and runtime lifecycle semantics. `WorkflowFacade` is the canonical application boundary for workflow registration, execution, replay, inspection, and control. `WorkflowBootstrap` is the composition root that assembles the facade and its runtime dependencies. Interface and application callers must use the facade rather than construct or mutate runtime components directly.
 

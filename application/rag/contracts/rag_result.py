@@ -34,6 +34,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 
 
@@ -434,6 +435,7 @@ def _evidence_to_payload(evidence: EvidenceReference) -> dict[str, Any]:
         "reconstruction_reference_ids": list(evidence.reconstruction_reference_ids),
         "summary": evidence.summary,
         "source_of_truth": _optional_enum_value(evidence.source_of_truth),
+        "support_snapshot": _support_snapshot_to_payload(evidence.support_snapshot),
     }
 
 
@@ -448,6 +450,43 @@ def _evidence_from_payload(value: object) -> EvidenceReference:
         ),
         summary=_optional_str(payload.get("summary")) or "",
         source_of_truth=_optional_source_of_truth(payload.get("source_of_truth")),
+        support_snapshot=_support_snapshot_from_payload(
+            payload.get("support_snapshot")
+        ),
+    )
+
+
+def _support_snapshot_to_payload(
+    snapshot: SupportingEvidenceSnapshot | None,
+) -> dict[str, Any] | None:
+    if snapshot is None:
+        return None
+    return {
+        "snapshot_id": snapshot.snapshot_id,
+        "summary": snapshot.summary,
+        "redacted_content": snapshot.redacted_content,
+        "source_label": snapshot.source_label,
+        "redaction_policy_id": snapshot.redaction_policy_id,
+        "content_digest": snapshot.content_digest,
+    }
+
+
+def _support_snapshot_from_payload(
+    value: object,
+) -> SupportingEvidenceSnapshot | None:
+    if value is None:
+        return None
+    payload = _require_mapping(value)
+    return SupportingEvidenceSnapshot(
+        snapshot_id=_required_str(payload, "snapshot_id"),
+        summary=_required_str(payload, "summary"),
+        redacted_content=_required_str(payload, "redacted_content"),
+        source_label=_optional_str(payload.get("source_label")) or "",
+        redaction_policy_id=(
+            _optional_str(payload.get("redaction_policy_id"))
+            or "decision-evidence-support-snapshot-v1"
+        ),
+        content_digest=_optional_str(payload.get("content_digest")),
     )
 
 

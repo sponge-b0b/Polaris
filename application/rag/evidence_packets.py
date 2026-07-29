@@ -33,6 +33,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
     UnsupportedMaterialClaimError,
 )
 
@@ -155,6 +156,7 @@ def assemble_rag_answer_evidence_packet(
             )
         )
         evidence_id = _evidence_id(citation_id)
+        evidence_summary = _evidence_summary(citation_id, context)
         evidence_by_citation_id[citation_id] = evidence_id
         evidence.append(
             EvidenceReference(
@@ -164,8 +166,13 @@ def assemble_rag_answer_evidence_packet(
                     retrieval_reference_id,
                     citation_reference_id,
                 ),
-                summary=_evidence_summary(citation_id, context),
+                summary=evidence_summary,
                 source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                support_snapshot=_support_snapshot(
+                    citation_id=citation_id,
+                    context=context,
+                    summary=evidence_summary,
+                ),
             )
         )
         if _context_was_sanitized(context):
@@ -306,6 +313,20 @@ def _source_record_id(source: RagSource) -> str:
         source.chunk_id or "document",
     )
     return ":".join(part for part in parts if part)
+
+
+def _support_snapshot(
+    *,
+    citation_id: str,
+    context: RagRetrievedContext,
+    summary: str,
+) -> SupportingEvidenceSnapshot:
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"rag-support-snapshot:{citation_id}:{context.context_id}",
+        summary=summary,
+        redacted_content=context.text,
+        source_label=_source_record_id(context.source),
+    )
 
 
 def _evidence_summary(citation_id: str, context: RagRetrievedContext) -> str:

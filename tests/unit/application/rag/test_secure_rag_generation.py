@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
 
@@ -11,14 +12,30 @@ from application.ai_optimization.runtime_artifacts import (
     RAG_ANSWER_GENERATION_ARTIFACT_TARGET,
     ResolvedAiPromptArtifact,
 )
+from application.decision_evidence import (
+    DecisionEvidencePacketPersistenceService,
+    MissingDecisionEvidenceSnapshotError,
+    TamperedDecisionEvidenceSnapshotError,
+)
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.generation import RagAnswerGenerator, SecureRagPromptBuilder
 from core.storage.persistence.ai_artifacts import AiArtifactType
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunArchive,
+    CompletedRunBundle,
+)
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidenceJsonObject,
+    DecisionEvidencePacketPersistenceRepository,
+    DecisionEvidencePacketPersistenceResult,
+    DecisionEvidencePacketRecord,
+)
 from domain.decision_evidence import (
     ClaimMaterialityTier,
+    DecisionEvidencePacket,
     EvidenceReferenceKind,
     ReconstructionReferenceKind,
 )
@@ -231,9 +248,76 @@ async def test_answer_generator_attaches_decision_evidence_packet() -> None:
     assert packet_metadata["reconstruction_reference_ids"] == list(
         packet.reconstruction_reference_ids
     )
+    support_snapshot = packet.evidence[0].support_snapshot
+    assert support_snapshot is not None
+    assert support_snapshot.redacted_content == "Market breadth improved."
+    assert support_snapshot.source_label == "reports:report-1:document-1:chunk-1"
     restored = RagResult.from_dict(result.to_dict())
     assert restored.evidence_packet == packet
     assert restored.generated_claims == result.generated_claims
+
+
+@pytest.mark.asyncio
+async def test_material_rag_packet_persists_through_canonical_path() -> None:
+    packet = await _material_rag_answer_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=EmptyCompletedRunArchive(),
+    )
+
+    persist_result = await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet(packet.packet_id)
+
+    assert persist_result.success is True
+    assert reconstructed == packet
+    raw_snapshot = repository.records[packet.packet_id].evidence_references[0][
+        "support_snapshot"
+    ]
+    assert isinstance(raw_snapshot, Mapping)
+    assert raw_snapshot["redacted_content"] == "Market breadth improved."
+    assert raw_snapshot["source_label"] == "reports:report-1:document-1:chunk-1"
+    assert isinstance(raw_snapshot["content_digest"], str)
+
+
+@pytest.mark.asyncio
+async def test_material_rag_packet_reconstruction_fails_without_support_data() -> None:
+    packet = await _material_rag_answer_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=EmptyCompletedRunArchive(),
+    )
+    await service.persist_packet(packet)
+    repository.records[packet.packet_id] = _record_without_support_snapshots(
+        repository.records[packet.packet_id]
+    )
+
+    with pytest.raises(
+        MissingDecisionEvidenceSnapshotError,
+        match="lacks a retained support snapshot",
+    ):
+        await service.reconstruct_packet(packet.packet_id)
+
+
+@pytest.mark.asyncio
+async def test_material_rag_packet_reconstruction_fails_for_tampered_data() -> None:
+    packet = await _material_rag_answer_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=EmptyCompletedRunArchive(),
+    )
+    await service.persist_packet(packet)
+    repository.records[packet.packet_id] = _record_with_tampered_support_snapshot(
+        repository.records[packet.packet_id]
+    )
+
+    with pytest.raises(
+        TamperedDecisionEvidenceSnapshotError,
+        match="tampered retained support snapshot",
+    ):
+        await service.reconstruct_packet(packet.packet_id)
 
 
 @pytest.mark.asyncio
@@ -713,6 +797,107 @@ async def test_answer_generator_removes_reasoning_metadata_from_persisted_result
     assert "hidden deliberation" not in serialized_metadata
     assert "hidden scratch work" not in serialized_metadata
     assert "hidden message deliberation" not in serialized_metadata
+
+
+class InMemoryDecisionEvidencePacketRepository(
+    DecisionEvidencePacketPersistenceRepository
+):
+    def __init__(self) -> None:
+        self.records: dict[str, DecisionEvidencePacketRecord] = {}
+
+    async def persist_packet_record(
+        self,
+        record: DecisionEvidencePacketRecord,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.records[record.packet_id] = record
+        return DecisionEvidencePacketPersistenceResult.succeeded(record.packet_id)
+
+    async def get_packet_record(
+        self,
+        packet_id: str,
+    ) -> DecisionEvidencePacketRecord | None:
+        return self.records.get(packet_id)
+
+
+class EmptyCompletedRunArchive(CompletedRunArchive):
+    async def archive_run(self, bundle: CompletedRunBundle) -> None:
+        raise AssertionError("RAG packet persistence should not archive runs")
+
+    async def load_archived_run(
+        self,
+        workflow_name: str,
+        run_id: str,
+    ) -> CompletedRunBundle | None:
+        return None
+
+    async def list_archived_runs(self, workflow_name: str) -> list[str]:
+        return []
+
+    async def delete_archived_run(
+        self,
+        workflow_name: str,
+        run_id: str,
+    ) -> None:
+        return None
+
+    async def cleanup_archived_runs(
+        self,
+        max_age_days: int | None = None,
+        max_count: int | None = None,
+    ) -> int:
+        return 0
+
+
+def _record_without_support_snapshots(
+    record: DecisionEvidencePacketRecord,
+) -> DecisionEvidencePacketRecord:
+    evidence_references = tuple(
+        {key: value for key, value in values.items() if key != "support_snapshot"}
+        for values in record.evidence_references
+    )
+    return replace(record, evidence_references=evidence_references)
+
+
+def _record_with_tampered_support_snapshot(
+    record: DecisionEvidencePacketRecord,
+) -> DecisionEvidencePacketRecord:
+    evidence_references: list[DecisionEvidenceJsonObject] = []
+    for values in record.evidence_references:
+        updated = dict(values)
+        snapshot = updated.get("support_snapshot")
+        if isinstance(snapshot, Mapping):
+            tampered_snapshot = dict(snapshot)
+            tampered_snapshot["redacted_content"] = "Tampered support content."
+            updated["support_snapshot"] = tampered_snapshot
+        evidence_references.append(cast(DecisionEvidenceJsonObject, updated))
+    return replace(record, evidence_references=tuple(evidence_references))
+
+
+async def _material_rag_answer_packet() -> DecisionEvidencePacket:
+    request = RagRequest(
+        query="Summarize market breadth.",
+        request_id="rag_query:persistence-packet",
+    )
+    provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="Market breadth improved with broad participation [C1].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.82,
+            generated_claims=(_generated_claim(),),
+        )
+    )
+    generator = RagAnswerGenerator(answer_provider=provider)
+
+    result = await generator.generate(
+        request=request,
+        contexts=(_context(text="Market breadth improved."),),
+    )
+
+    assert result.status == "answered"
+    packet = result.evidence_packet
+    assert packet is not None
+    return packet
 
 
 class FakePromptArtifactResolver:

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final, cast
 
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
 from application.projections.workflow_outputs.projection_models import (
@@ -15,7 +17,13 @@ from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
-from core.storage.persistence.lineage import JsonObject
+from core.storage.persistence.lineage import (
+    JsonObject,
+    PersistenceLineage,
+    PersistenceLineageLinkRecord,
+    PersistenceRecordIdentity,
+    new_persistence_lineage_link_id,
+)
 from core.storage.persistence.recommendations import (
     RecommendationPersistenceBundle,
     RecommendationRationaleRecord,
@@ -61,6 +69,18 @@ _HYPOTHESIS_CONTRACTS: Final = {
     STRATEGY_BEAR_HYPOTHESIS_OUTPUT_CONTRACT,
     STRATEGY_SIDEWAYS_HYPOTHESIS_OUTPUT_CONTRACT,
 }
+_DECISION_EVIDENCE_PACKET_RECORD_TYPE: Final = "decision_evidence_packet"
+_STRATEGY_DECISION_RECORD_TYPE: Final = "strategy_synthesis_decision"
+_STRATEGY_RECOMMENDATION_RECORD_TYPE: Final = "recommendation"
+_STRATEGY_RECOMMENDATION_RATIONALE_RECORD_TYPE: Final = "recommendation_rationale"
+_EVIDENCE_PACKET_RELATIONSHIP_TYPE: Final = "supported_by_decision_evidence_packet"
+
+
+@dataclass(frozen=True, slots=True)
+class _EvidencePacketSourceRecord:
+    record: PersistenceRecordIdentity
+    created_at: datetime
+    lineage: PersistenceLineage
 
 
 class StrategyHypothesisWorkflowOutputProjector:
@@ -121,9 +141,11 @@ class StrategySynthesisWorkflowOutputProjector:
         *,
         strategy_persistence_service: StrategyPersistenceService,
         recommendation_persistence_service: RecommendationPersistenceService,
+        lineage_persistence_service: LineagePersistenceService,
     ) -> None:
         self._strategy_persistence_service = strategy_persistence_service
         self._recommendation_persistence_service = recommendation_persistence_service
+        self._lineage_persistence_service = lineage_persistence_service
 
     @property
     def projector_name(self) -> str:
@@ -198,6 +220,24 @@ class StrategySynthesisWorkflowOutputProjector:
                 )
             records_written += recommendation_result.records_persisted
 
+        lineage_links = _evidence_packet_lineage_links(
+            request=request,
+            decision=decision,
+            decision_record=decision_record,
+            recommendation_bundle=recommendation_bundle,
+        )
+        lineage_records_written, lineage_error = await _persist_lineage_links(
+            self._lineage_persistence_service,
+            links=lineage_links,
+        )
+        if lineage_error is not None:
+            return _failed(
+                request,
+                self.projector_name,
+                f"Evidence packet lineage persistence failed: {lineage_error}",
+            )
+        records_written += lineage_records_written
+
         return _outcome(
             request=request,
             projector_name=self.projector_name,
@@ -214,6 +254,7 @@ def build_strategy_projector_registrations(
     *,
     strategy_persistence_service: StrategyPersistenceService,
     recommendation_persistence_service: RecommendationPersistenceService,
+    lineage_persistence_service: LineagePersistenceService,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical strategy projector registrations."""
     hypothesis_specs = (
@@ -249,6 +290,7 @@ def build_strategy_projector_registrations(
     synthesis_projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=strategy_persistence_service,
         recommendation_persistence_service=recommendation_persistence_service,
+        lineage_persistence_service=lineage_persistence_service,
     )
     registrations.append(
         WorkflowOutputProjectorRegistration(
@@ -545,6 +587,101 @@ def _strategy_recommendation_bundle(
     return RecommendationPersistenceBundle(
         recommendation=recommendation, rationales=(rationale,)
     )
+
+
+def _evidence_packet_lineage_links(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    decision: StrategySynthesisDecision,
+    decision_record: StrategySynthesisDecisionRecord,
+    recommendation_bundle: RecommendationPersistenceBundle | None,
+) -> tuple[PersistenceLineageLinkRecord, ...]:
+    links: list[PersistenceLineageLinkRecord] = []
+    source_records = [
+        _evidence_packet_source_record(
+            record_type=_STRATEGY_DECISION_RECORD_TYPE,
+            record_id=decision_record.decision_id,
+            created_at=decision_record.created_at,
+            lineage=decision_record.lineage,
+        )
+    ]
+    if recommendation_bundle is not None:
+        source_records.append(
+            _evidence_packet_source_record(
+                record_type=_STRATEGY_RECOMMENDATION_RECORD_TYPE,
+                record_id=recommendation_bundle.recommendation.recommendation_id,
+                created_at=recommendation_bundle.recommendation.created_at,
+                lineage=recommendation_bundle.recommendation.lineage,
+            )
+        )
+        source_records.extend(
+            _evidence_packet_source_record(
+                record_type=_STRATEGY_RECOMMENDATION_RATIONALE_RECORD_TYPE,
+                record_id=rationale.rationale_id,
+                created_at=rationale.created_at,
+                lineage=rationale.lineage,
+            )
+            for rationale in recommendation_bundle.rationales
+        )
+
+    for packet_id in decision.evidence_packet_ids:
+        for source in source_records:
+            source_record = source.record
+            target_record = PersistenceRecordIdentity(
+                record_type=_DECISION_EVIDENCE_PACKET_RECORD_TYPE,
+                record_id=packet_id,
+            )
+            links.append(
+                PersistenceLineageLinkRecord(
+                    link_id=new_persistence_lineage_link_id(
+                        source_record=source_record,
+                        target_record=target_record,
+                        relationship_type=_EVIDENCE_PACKET_RELATIONSHIP_TYPE,
+                    ),
+                    source_record=source_record,
+                    target_record=target_record,
+                    relationship_type=_EVIDENCE_PACKET_RELATIONSHIP_TYPE,
+                    created_at=source.created_at,
+                    lineage=source.lineage,
+                    metadata={
+                        "projection_source": "strategy_synthesis",
+                        "source_fingerprint": request.source_fingerprint,
+                        "node_output_id": request.node_output.node_output_id,
+                    },
+                )
+            )
+    return tuple(links)
+
+
+def _evidence_packet_source_record(
+    *,
+    record_type: str,
+    record_id: str,
+    created_at: datetime,
+    lineage: PersistenceLineage,
+) -> _EvidencePacketSourceRecord:
+    return _EvidencePacketSourceRecord(
+        record=PersistenceRecordIdentity(
+            record_type=record_type,
+            record_id=record_id,
+        ),
+        created_at=created_at,
+        lineage=lineage,
+    )
+
+
+async def _persist_lineage_links(
+    lineage_persistence_service: LineagePersistenceService,
+    *,
+    links: tuple[PersistenceLineageLinkRecord, ...],
+) -> tuple[int, str | None]:
+    records_persisted = 0
+    for link in links:
+        result = await lineage_persistence_service.persist_lineage_link(link)
+        if not result.success:
+            return records_persisted, result.error or "unknown lineage error"
+        records_persisted += result.records_persisted
+    return records_persisted, None
 
 
 def _risk_level(uncertainty: float) -> str:

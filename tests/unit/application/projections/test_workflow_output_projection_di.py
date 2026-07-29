@@ -6,6 +6,7 @@ from application.decision_evidence.claim_binding import (
     DecisionEvidenceClaimBindingService,
 )
 from application.persistence.agent_signals import AgentSignalPersistenceService
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
@@ -19,6 +20,7 @@ from application.projections.workflow_outputs import (
 )
 from core.storage.persistence.agent_signals import AgentSignalPersistenceRepository
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
+from core.storage.persistence.lineage import PersistenceLineageLinkRepository
 from core.storage.persistence.macro import MacroPersistenceRepository
 from core.storage.persistence.market import MarketPersistenceRepository
 from core.storage.persistence.news import NewsPersistenceRepository
@@ -69,6 +71,10 @@ class _FakeRecommendationRepository:
     pass
 
 
+class _FakeLineageRepository:
+    pass
+
+
 class _FakeSentimentRepository:
     pass
 
@@ -103,6 +109,9 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
     recommendation_persistence_service = RecommendationPersistenceService(
         cast(RecommendationPersistenceRepository, _FakeRecommendationRepository()),
     )
+    lineage_persistence_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, _FakeLineageRepository()),
+    )
     sentiment_persistence_service = SentimentPersistenceService(
         cast(SentimentPersistenceRepository, _FakeSentimentRepository()),
     )
@@ -117,6 +126,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         portfolio_persistence_service,
         recommendation_persistence_service,
         cast(DecisionEvidenceClaimBindingService, object()),
+        lineage_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,
     )

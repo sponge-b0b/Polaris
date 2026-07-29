@@ -6,6 +6,7 @@ from application.decision_evidence.claim_binding import (
     DecisionEvidenceClaimBindingService,
 )
 from application.persistence.agent_signals import AgentSignalPersistenceService
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
@@ -55,6 +56,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         portfolio_persistence_service: PortfolioPersistenceService,
         recommendation_persistence_service: RecommendationPersistenceService,
         claim_binding_service: DecisionEvidenceClaimBindingService,
+        lineage_persistence_service: LineagePersistenceService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
     ) -> WorkflowOutputProjectionRegistry:
@@ -84,6 +86,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
                     recommendation_persistence_service=(
                         recommendation_persistence_service
                     ),
+                    lineage_persistence_service=lineage_persistence_service,
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,

@@ -13,6 +13,7 @@ from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
 from application.persistence.agent_signals import AgentSignalPersistenceService
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
@@ -54,6 +55,7 @@ from core.storage.persistence.postgres_completed_run_archive import (
 )
 from core.storage.persistence.repositories import (
     PostgresDecisionEvidencePacketRepository,
+    PostgresPersistenceLineageLinkRepository,
 )
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresAgentSignalPersistenceRepository,
@@ -157,6 +159,9 @@ class PostgresWorkflowOutputProjectionCoordinator:
         recommendation_persistence_service = RecommendationPersistenceService(
             PostgresRecommendationPersistenceRepository(session),
         )
+        lineage_persistence_service = LineagePersistenceService(
+            PostgresPersistenceLineageLinkRepository(session),
+        )
         claim_binding_service = DecisionEvidenceClaimBindingService(
             DecisionEvidencePacketPersistenceService(
                 repository=PostgresDecisionEvidencePacketRepository(session),
@@ -197,6 +202,7 @@ class PostgresWorkflowOutputProjectionCoordinator:
                     recommendation_persistence_service=(
                         recommendation_persistence_service
                     ),
+                    lineage_persistence_service=lineage_persistence_service,
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,

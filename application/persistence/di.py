@@ -9,6 +9,7 @@ from application.decision_evidence.persistence import (
 )
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
 from application.persistence.news import NewsPersistenceService
@@ -31,6 +32,7 @@ from core.storage.persistence.repositories import (
     PostgresMacroPersistenceRepository,
     PostgresMarketPersistenceRepository,
     PostgresNewsPersistenceRepository,
+    PostgresPersistenceLineageLinkRepository,
     PostgresRecommendationPersistenceRepository,
     PostgresReportPersistenceRepository,
     PostgresSentimentPersistenceRepository,
@@ -162,6 +164,20 @@ class ApplicationPersistenceDIProvider(Provider):
         packet_persistence_service: DecisionEvidencePacketPersistenceService,
     ) -> DecisionEvidenceClaimBindingService:
         return DecisionEvidenceClaimBindingService(packet_persistence_service)
+
+    @provide
+    def provide_lineage_persistence_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresPersistenceLineageLinkRepository:
+        return PostgresPersistenceLineageLinkRepository(session)
+
+    @provide
+    def provide_lineage_persistence_service(
+        self,
+        repository: PostgresPersistenceLineageLinkRepository,
+    ) -> LineagePersistenceService:
+        return LineagePersistenceService(repository)
 
     @provide
     def provide_recommendation_persistence_repository(

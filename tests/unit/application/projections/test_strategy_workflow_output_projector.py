@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 
+from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
 from application.projections.workflow_outputs.projection_identity import (
@@ -26,6 +27,14 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunRecord,
     JsonObject,
     JsonValue,
+)
+from core.storage.persistence.lineage import (
+    PersistenceLineageLinkRecord,
+    PersistenceLineageLinkRepository,
+    PersistenceLineageLinkResult,
+    PersistenceLineageTraversalRequest,
+    PersistenceLineageTraversalResult,
+    PersistenceRecordIdentity,
 )
 from core.storage.persistence.recommendations import (
     RecommendationPersistenceBundle,
@@ -79,9 +88,13 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
 ):
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
     run = _run()
     bull_node = _bull_node()
     synthesis_node = _synthesis_node()
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
     projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=StrategyPersistenceService(
             cast(StrategyPersistenceRepository, strategy_repository),
@@ -89,6 +102,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         recommendation_persistence_service=RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, recommendation_repository),
         ),
+        lineage_persistence_service=lineage_service,
     )
 
     outcome = await projector.project(
@@ -102,6 +116,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     )
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
+    assert outcome.records_written == 8
     assert len(strategy_repository.bundles) == 1
     strategy_bundle = strategy_repository.bundles[0]
     assert strategy_bundle.decision.symbol == "SPY"
@@ -146,13 +161,53 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     assert rationale_authority["risk_tier"] == RiskTier.ENHANCED.value
     assert rationale_authority["authority_effect"] == "advisory_context"
 
+    packet_identity = PersistenceRecordIdentity(
+        record_type="decision_evidence_packet",
+        record_id="strategy-packet-1",
+    )
+    lineage_links = await lineage_service.list_links_for_target(packet_identity)
+    lineage_sources = {
+        (link.source_record.record_type, link.source_record.record_id): link
+        for link in lineage_links
+    }
+    assert set(lineage_sources) == {
+        (
+            "strategy_synthesis_decision",
+            strategy_bundle.decision.decision_id,
+        ),
+        (
+            "recommendation",
+            recommendation_bundle.recommendation.recommendation_id,
+        ),
+        (
+            "recommendation_rationale",
+            recommendation_bundle.rationales[0].rationale_id,
+        ),
+    }
+    assert {link.relationship_type for link in lineage_links} == {
+        "supported_by_decision_evidence_packet"
+    }
+    assert all(link.target_record == packet_identity for link in lineage_links)
+    assert all(
+        link.metadata["projection_source"] == "strategy_synthesis"
+        for link in lineage_links
+    )
+    assert all(
+        link.metadata["node_output_id"] == "node-output-synthesis"
+        for link in lineage_links
+    )
+
 
 @pytest.mark.asyncio
 async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> None:
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
     run = _run()
     synthesis_node = _synthesis_node_with_model_claims()
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
     projector = StrategySynthesisWorkflowOutputProjector(
         strategy_persistence_service=StrategyPersistenceService(
             cast(StrategyPersistenceRepository, strategy_repository),
@@ -160,6 +215,7 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
         recommendation_persistence_service=RecommendationPersistenceService(
             cast(RecommendationPersistenceRepository, recommendation_repository),
         ),
+        lineage_persistence_service=lineage_service,
     )
 
     outcome = await projector.project(
@@ -202,6 +258,45 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
     assert rationale_authority["ignored_model_authority_claims"] == ignored_claims
 
 
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails() -> (
+    None
+):
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository(fail_after=0)
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    run = _run()
+    synthesis_node = _synthesis_node()
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        lineage_persistence_service=lineage_service,
+    )
+
+    outcome = await projector.project(
+        _projector_request(
+            synthesis_node,
+            run=run,
+            bundle=CompletedRunBundle(run=run, node_outputs=(synthesis_node,)),
+        )
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_message == (
+        "Evidence packet lineage persistence failed: lineage unavailable"
+    )
+    assert len(strategy_repository.bundles) == 1
+    assert len(recommendation_repository.bundles) == 1
+    assert lineage_repository.links == []
+
+
 class _FakeStrategyRepository:
     def __init__(self) -> None:
         self.hypothesis_batches: list[tuple[StrategyHypothesisRecord, ...]] = []
@@ -241,6 +336,48 @@ class _FakeRecommendationRepository:
             recommendation_id=bundle.recommendation.recommendation_id,
             records_persisted=1 + len(bundle.rationales),
         )
+
+
+class _FakeLineageRepository:
+    def __init__(self, *, fail_after: int | None = None) -> None:
+        self.links: list[PersistenceLineageLinkRecord] = []
+        self._fail_after = fail_after
+
+    async def persist_lineage_link(
+        self,
+        link: PersistenceLineageLinkRecord,
+    ) -> PersistenceLineageLinkResult:
+        if self._fail_after is not None and len(self.links) >= self._fail_after:
+            return PersistenceLineageLinkResult.failed("lineage unavailable")
+        self.links.append(link)
+        return PersistenceLineageLinkResult.succeeded(link_id=link.link_id)
+
+    async def get_lineage_link(
+        self,
+        link_id: str,
+    ) -> PersistenceLineageLinkRecord | None:
+        for link in self.links:
+            if link.link_id == link_id:
+                return link
+        return None
+
+    async def list_links_for_source(
+        self,
+        source_record: PersistenceRecordIdentity,
+    ) -> Sequence[PersistenceLineageLinkRecord]:
+        return tuple(link for link in self.links if link.source_record == source_record)
+
+    async def list_links_for_target(
+        self,
+        target_record: PersistenceRecordIdentity,
+    ) -> Sequence[PersistenceLineageLinkRecord]:
+        return tuple(link for link in self.links if link.target_record == target_record)
+
+    async def traverse_lineage(
+        self,
+        request: PersistenceLineageTraversalRequest,
+    ) -> PersistenceLineageTraversalResult:
+        raise NotImplementedError
 
 
 def _projector_request(

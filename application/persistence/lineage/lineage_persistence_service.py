@@ -11,6 +11,7 @@ from core.storage.persistence.lineage import (
     DEFAULT_LINEAGE_TRAVERSAL_EDGE_LIMIT,
     PersistenceLineageLinkRecord,
     PersistenceLineageLinkRepository,
+    PersistenceLineageLinkResult,
     PersistenceLineageTraversalRequest,
     PersistenceLineageTraversalResult,
     PersistenceRecordIdentity,
@@ -32,6 +33,12 @@ class LineagePersistenceService:
         repository: PersistenceLineageLinkRepository,
     ) -> None:
         self._repository = repository
+
+    async def persist_lineage_link(
+        self,
+        link: PersistenceLineageLinkRecord,
+    ) -> PersistenceLineageLinkResult:
+        return await self._repository.persist_lineage_link(link)
 
     async def trace_lineage(
         self,

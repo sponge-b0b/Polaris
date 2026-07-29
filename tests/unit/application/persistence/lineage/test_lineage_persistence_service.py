@@ -227,6 +227,31 @@ async def test_list_lineage_links_preserves_sequence_api_and_result_envelope() -
     assert target_result.query.metadata["lineage_query_direction"] == "upstream"
 
 
+@pytest.mark.asyncio
+async def test_persist_lineage_link_delegates_to_canonical_repository() -> None:
+    report = _identity(
+        "report",
+        "morning-report-1",
+    )
+    packet = _identity(
+        "decision_evidence_packet",
+        "packet-1",
+    )
+    link = _link(
+        report,
+        packet,
+        "supported_by_decision_evidence_packet",
+    )
+    repository = FakeLineageRepository(links=())
+    service = LineagePersistenceService(repository)
+
+    result = await service.persist_lineage_link(link)
+
+    assert result.success is True
+    assert result.link_id == link.link_id
+    assert repository.persisted_links == (link,)
+
+
 class FakeLineageRepository:
     def __init__(
         self,
@@ -236,12 +261,18 @@ class FakeLineageRepository:
         self._links = tuple(
             links,
         )
+        self._persisted_links: list[PersistenceLineageLinkRecord] = []
         self.last_request: PersistenceLineageTraversalRequest | None = None
+
+    @property
+    def persisted_links(self) -> tuple[PersistenceLineageLinkRecord, ...]:
+        return tuple(self._persisted_links)
 
     async def persist_lineage_link(
         self,
         link: PersistenceLineageLinkRecord,
     ) -> PersistenceLineageLinkResult:
+        self._persisted_links.append(link)
         return PersistenceLineageLinkResult.succeeded(
             link_id=link.link_id,
         )

@@ -388,6 +388,9 @@ def _claim_to_payload(claim: MaterialClaim) -> dict[str, Any]:
         "evidence": {
             "supporting_evidence_ids": list(claim.evidence.supporting_evidence_ids),
             "conflicting_evidence_ids": list(claim.evidence.conflicting_evidence_ids),
+            "unresolved_conflicting_evidence_ids": list(
+                claim.evidence.unresolved_conflicting_evidence_ids
+            ),
             "constraint_ids": list(claim.evidence.constraint_ids),
             "uncertainty_ids": list(claim.evidence.uncertainty_ids),
             "limitation_ids": list(claim.evidence.limitation_ids),
@@ -411,6 +414,10 @@ def _claim_from_payload(value: object) -> MaterialClaim:
             conflicting_evidence_ids=_string_tuple(
                 evidence_payload.get("conflicting_evidence_ids", ()),
                 "conflicting_evidence_ids",
+            ),
+            unresolved_conflicting_evidence_ids=_string_tuple(
+                evidence_payload.get("unresolved_conflicting_evidence_ids", ()),
+                "unresolved_conflicting_evidence_ids",
             ),
             constraint_ids=_string_tuple(
                 evidence_payload.get("constraint_ids", ()),

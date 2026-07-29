@@ -187,6 +187,9 @@ def _claim_values(claim: MaterialClaim) -> DecisionEvidenceJsonObject:
             "evidence": {
                 "supporting_evidence_ids": claim.evidence.supporting_evidence_ids,
                 "conflicting_evidence_ids": claim.evidence.conflicting_evidence_ids,
+                "unresolved_conflicting_evidence_ids": (
+                    claim.evidence.unresolved_conflicting_evidence_ids
+                ),
                 "constraint_ids": claim.evidence.constraint_ids,
                 "uncertainty_ids": claim.evidence.uncertainty_ids,
                 "limitation_ids": claim.evidence.limitation_ids,
@@ -308,6 +311,10 @@ def _claim_from_values(values: DecisionEvidenceJsonObject) -> MaterialClaim:
             conflicting_evidence_ids=_string_tuple(
                 evidence_values,
                 "conflicting_evidence_ids",
+            ),
+            unresolved_conflicting_evidence_ids=_string_tuple(
+                evidence_values,
+                "unresolved_conflicting_evidence_ids",
             ),
             constraint_ids=_string_tuple(evidence_values, "constraint_ids"),
             uncertainty_ids=_string_tuple(evidence_values, "uncertainty_ids"),

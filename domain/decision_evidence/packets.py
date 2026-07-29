@@ -88,6 +88,7 @@ class ClaimEvidenceBinding:
 
     supporting_evidence_ids: tuple[str, ...] = ()
     conflicting_evidence_ids: tuple[str, ...] = ()
+    unresolved_conflicting_evidence_ids: tuple[str, ...] = ()
     constraint_ids: tuple[str, ...] = ()
     uncertainty_ids: tuple[str, ...] = ()
     limitation_ids: tuple[str, ...] = ()
@@ -95,6 +96,8 @@ class ClaimEvidenceBinding:
     def __post_init__(self) -> None:
         _set_clean_tuple(self, "supporting_evidence_ids")
         _set_clean_tuple(self, "conflicting_evidence_ids")
+        _set_clean_tuple(self, "unresolved_conflicting_evidence_ids")
+        _validate_unresolved_conflicts_are_disclosed(self)
         _set_clean_tuple(self, "constraint_ids")
         _set_clean_tuple(self, "uncertainty_ids")
         _set_clean_tuple(self, "limitation_ids")
@@ -459,6 +462,12 @@ class DecisionEvidencePacket:
         )
         _ensure_known_ids(
             owner=claim.claim_id,
+            relationship="unresolved conflicting evidence",
+            referenced_ids=claim.evidence.unresolved_conflicting_evidence_ids,
+            known_ids=evidence_ids,
+        )
+        _ensure_known_ids(
+            owner=claim.claim_id,
             relationship="constraint",
             referenced_ids=claim.evidence.constraint_ids,
             known_ids=constraint_ids,
@@ -517,6 +526,16 @@ def calculate_supporting_evidence_snapshot_digest(
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _validate_unresolved_conflicts_are_disclosed(binding: ClaimEvidenceBinding) -> None:
+    disclosed_conflict_ids = frozenset(binding.conflicting_evidence_ids)
+    for evidence_id in binding.unresolved_conflicting_evidence_ids:
+        if evidence_id not in disclosed_conflict_ids:
+            raise DecisionEvidencePacketValidationError(
+                "unresolved conflicting evidence must also be disclosed as "
+                f"conflicting evidence: {evidence_id!r}."
+            )
 
 
 def _validate_snapshot_text_safety(value: str, label: str) -> None:

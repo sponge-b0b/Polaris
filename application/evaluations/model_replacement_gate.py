@@ -776,6 +776,12 @@ def _authority_gate_details(
                 "packet_readiness_supporting_evidence_ids": (
                     packet_readiness.supporting_evidence_ids
                 ),
+                "packet_readiness_conflicting_evidence_ids": (
+                    packet_readiness.conflicting_evidence_ids
+                ),
+                "packet_readiness_unresolved_conflicting_evidence_ids": (
+                    packet_readiness.unresolved_conflicting_evidence_ids
+                ),
                 "packet_readiness_reconstruction_reference_ids": (
                     packet_readiness.reconstruction_reference_ids
                 ),

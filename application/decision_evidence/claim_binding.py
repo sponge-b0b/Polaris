@@ -397,6 +397,7 @@ def _assert_reference_matches_canonical(
             f"claim {reference.claim_id!r} conflicting evidence does not match "
             "canonical packet."
         )
+    _assert_unresolved_conflicts_match(reference=reference, canonical=canonical)
     if reference.reconstruction_reference_ids != canonical.reconstruction_reference_ids:
         raise ClaimEvidenceBindingError(
             f"claim {reference.claim_id!r} reconstruction references do not match "
@@ -411,6 +412,21 @@ def _assert_reference_matches_canonical(
         raise ClaimEvidenceBindingError(
             f"claim {reference.claim_id!r} limitation references do not match "
             "canonical packet."
+        )
+
+
+def _assert_unresolved_conflicts_match(
+    *,
+    reference: EvidenceClaimReference,
+    canonical: EvidenceClaimReference,
+) -> None:
+    if (
+        reference.unresolved_conflicting_evidence_ids
+        != canonical.unresolved_conflicting_evidence_ids
+    ):
+        raise ClaimEvidenceBindingError(
+            f"claim {reference.claim_id!r} unresolved conflicting evidence does "
+            "not match canonical packet."
         )
 
 

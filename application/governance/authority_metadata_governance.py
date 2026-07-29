@@ -270,6 +270,12 @@ def _authority_governance_result(
                     "decision_evidence_supporting_evidence_ids": list(
                         readiness.supporting_evidence_ids
                     ),
+                    "decision_evidence_conflicting_evidence_ids": list(
+                        readiness.conflicting_evidence_ids
+                    ),
+                    "decision_evidence_unresolved_conflicting_evidence_ids": list(
+                        readiness.unresolved_conflicting_evidence_ids
+                    ),
                     "decision_evidence_reconstruction_reference_ids": list(
                         readiness.reconstruction_reference_ids
                     ),

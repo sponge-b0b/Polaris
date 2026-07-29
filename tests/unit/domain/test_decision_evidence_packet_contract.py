@@ -193,12 +193,17 @@ def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
         retention=retention_requirement(),
     )
 
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
     assert packet.material_claims == packet.claims
     assert packet.claims[0].materiality is ClaimMaterialityTier.READINESS_GATING
     assert packet.claims[0].material is True
+    assert readiness.passed is True
+    assert readiness.conflicting_evidence_ids == ()
+    assert readiness.unresolved_conflicting_evidence_ids == ()
 
 
-def test_supported_material_claim_with_conflict_fails_readiness_closed() -> None:
+def test_unresolved_material_conflict_fails_readiness_closed() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
 
     packet = DecisionEvidencePacket(
@@ -208,10 +213,13 @@ def test_supported_material_claim_with_conflict_fails_readiness_closed() -> None
         claims=(
             MaterialClaim(
                 claim_id="claim-conflicted",
-                text="This material claim has both support and contradiction.",
+                text=(
+                    "This material claim has both support and unresolved contradiction."
+                ),
                 evidence=ClaimEvidenceBinding(
                     supporting_evidence_ids=("evidence-1",),
                     conflicting_evidence_ids=("evidence-conflict",),
+                    unresolved_conflicting_evidence_ids=("evidence-conflict",),
                 ),
             ),
         ),
@@ -227,7 +235,45 @@ def test_supported_material_claim_with_conflict_fails_readiness_closed() -> None
         readiness.failure_mode
         is DecisionEvidencePacketReadinessFailureMode.MATERIAL_CONFLICT_UNRESOLVED
     )
+    assert readiness.claim_support_complete is True
+    assert readiness.correctness_support_complete is False
     assert readiness.conflicting_evidence_ids == ("evidence-conflict",)
+    assert readiness.unresolved_conflicting_evidence_ids == ("evidence-conflict",)
+
+
+def test_resolved_contrary_evidence_stays_reviewable_without_blocking() -> None:
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
+
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=authority,
+        claims=(
+            MaterialClaim(
+                claim_id="claim-reviewed",
+                text=(
+                    "This material claim discloses contrary evidence resolved "
+                    "in review."
+                ),
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-1",),
+                    conflicting_evidence_ids=("evidence-conflict",),
+                ),
+            ),
+        ),
+        evidence=(supporting_evidence(), conflicting_evidence()),
+        reconstruction_references=(workflow_reference(), conflict_reference()),
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
+    assert readiness.passed is True
+    assert readiness.failure_mode is DecisionEvidencePacketReadinessFailureMode.NONE
+    assert readiness.claim_support_complete is True
+    assert readiness.correctness_support_complete is True
+    assert readiness.conflicting_evidence_ids == ("evidence-conflict",)
+    assert readiness.unresolved_conflicting_evidence_ids == ()
 
 
 def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() -> None:

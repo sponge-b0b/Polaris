@@ -46,6 +46,7 @@ def test_claim_references_preserve_reconstruction_uncertainty_limits() -> None:
         "materiality": ClaimMaterialityTier.READINESS_GATING.value,
         "supporting_evidence_ids": ["evidence-1"],
         "conflicting_evidence_ids": [],
+        "unresolved_conflicting_evidence_ids": [],
         "reconstruction_reference_ids": ["workflow-node"],
         "uncertainty_ids": ["uncertainty-1"],
         "limitation_ids": ["limitation-1"],
@@ -68,6 +69,65 @@ def test_claim_reference_metadata_round_trips_for_presentation_boundaries() -> N
     assert parsed == references
     assert parsed.claim_references[0].uncertainty_ids == ("uncertainty-1",)
     assert parsed.claim_references[0].limitation_ids == ("limitation-1",)
+
+
+def test_claim_reference_metadata_exposes_resolved_contrary_evidence() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-with-contrary-evidence",
+        output_id="recommendation-output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(
+            MaterialClaim(
+                claim_id="claim-1",
+                text="SPY momentum remains supported after contrary evidence review.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-1",),
+                    conflicting_evidence_ids=("evidence-conflict",),
+                ),
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id="evidence-1",
+                kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
+                reconstruction_reference_ids=("workflow-node",),
+                summary="Runtime node output supporting the material claim.",
+            ),
+            EvidenceReference(
+                evidence_id="evidence-conflict",
+                kind=EvidenceReferenceKind.CANONICAL_RECORD,
+                reconstruction_reference_ids=("conflict-record",),
+                summary="Contrary evidence disclosed for governance review.",
+            ),
+        ),
+        reconstruction_references=(
+            ReconstructionReference(
+                reference_id="workflow-node",
+                kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+                record_id="run-1:node:market-analysis",
+            ),
+            ReconstructionReference(
+                reference_id="conflict-record",
+                kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+                record_id="market-snapshot:SPY:2026-07-25",
+            ),
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
+    )
+
+    references = evidence_claim_references_from_packet(packet)
+    parsed = evidence_claim_references_from_metadata(references.as_metadata())
+    claim_reference = parsed.claim_references[0]
+
+    assert claim_reference.conflicting_evidence_ids == ("evidence-conflict",)
+    assert claim_reference.unresolved_conflicting_evidence_ids == ()
+    assert claim_reference.reconstruction_reference_ids == (
+        "workflow-node",
+        "conflict-record",
+    )
 
 
 @pytest.mark.parametrize("tier", [RiskTier.ENHANCED, RiskTier.VIGILANT])

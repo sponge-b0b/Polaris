@@ -40,6 +40,7 @@ class EvidenceClaimReference:
     supporting_evidence_ids: tuple[str, ...]
     reconstruction_reference_ids: tuple[str, ...]
     conflicting_evidence_ids: tuple[str, ...] = ()
+    unresolved_conflicting_evidence_ids: tuple[str, ...] = ()
     uncertainty_ids: tuple[str, ...] = ()
     limitation_ids: tuple[str, ...] = ()
     material: bool = True
@@ -76,6 +77,15 @@ class EvidenceClaimReference:
                 "conflicting_evidence_id",
             ),
         )
+        object.__setattr__(
+            self,
+            "unresolved_conflicting_evidence_ids",
+            _clean_string_tuple(
+                self.unresolved_conflicting_evidence_ids,
+                "unresolved_conflicting_evidence_id",
+            ),
+        )
+        _validate_unresolved_conflicts_are_disclosed(self)
         object.__setattr__(
             self,
             "uncertainty_ids",
@@ -122,6 +132,9 @@ class EvidenceClaimReference:
             "materiality": self.materiality.value,
             "supporting_evidence_ids": list(self.supporting_evidence_ids),
             "conflicting_evidence_ids": list(self.conflicting_evidence_ids),
+            "unresolved_conflicting_evidence_ids": list(
+                self.unresolved_conflicting_evidence_ids
+            ),
             "reconstruction_reference_ids": list(self.reconstruction_reference_ids),
             "uncertainty_ids": list(self.uncertainty_ids),
             "limitation_ids": list(self.limitation_ids),
@@ -257,6 +270,7 @@ def _claim_reference_from_packet_claim(
     for evidence_id in (
         *claim.evidence.supporting_evidence_ids,
         *claim.evidence.conflicting_evidence_ids,
+        *claim.evidence.unresolved_conflicting_evidence_ids,
     ):
         evidence = evidence_by_id[evidence_id]
         reconstruction_ids.extend(evidence.reconstruction_reference_ids)
@@ -269,6 +283,9 @@ def _claim_reference_from_packet_claim(
         materiality=claim.materiality,
         supporting_evidence_ids=claim.evidence.supporting_evidence_ids,
         conflicting_evidence_ids=claim.evidence.conflicting_evidence_ids,
+        unresolved_conflicting_evidence_ids=(
+            claim.evidence.unresolved_conflicting_evidence_ids
+        ),
         reconstruction_reference_ids=tuple(dict.fromkeys(reconstruction_ids)),
         uncertainty_ids=claim.evidence.uncertainty_ids,
         limitation_ids=claim.evidence.limitation_ids,
@@ -295,6 +312,10 @@ def _claim_reference_from_mapping(value: object) -> EvidenceClaimReference:
             value.get("conflicting_evidence_ids", ()),
             "conflicting_evidence_ids",
         ),
+        unresolved_conflicting_evidence_ids=_string_tuple(
+            value.get("unresolved_conflicting_evidence_ids", ()),
+            "unresolved_conflicting_evidence_ids",
+        ),
         reconstruction_reference_ids=_string_tuple(
             value.get("reconstruction_reference_ids", ()),
             "reconstruction_reference_ids",
@@ -311,6 +332,18 @@ def _claim_reference_from_mapping(value: object) -> EvidenceClaimReference:
             "schema_version",
         ),
     )
+
+
+def _validate_unresolved_conflicts_are_disclosed(
+    reference: EvidenceClaimReference,
+) -> None:
+    disclosed_conflict_ids = frozenset(reference.conflicting_evidence_ids)
+    for evidence_id in reference.unresolved_conflicting_evidence_ids:
+        if evidence_id not in disclosed_conflict_ids:
+            raise DecisionEvidencePacketValidationError(
+                "unresolved conflicting evidence must also be disclosed as "
+                f"conflicting evidence: {evidence_id!r}."
+            )
 
 
 def _required_string(value: Mapping[object, object], key: str) -> str:

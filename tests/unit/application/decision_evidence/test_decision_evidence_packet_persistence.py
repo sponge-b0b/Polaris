@@ -90,6 +90,65 @@ async def test_persists_references_and_reconstructs_from_runtime_ids() -> None:
 
 
 @pytest.mark.asyncio
+async def test_persists_unresolved_conflicting_evidence_classification() -> None:
+    packet = await _packet(bundle=_bundle())
+    packet = replace(
+        packet,
+        claims=(
+            replace(
+                packet.claims[0],
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-synthesis",),
+                    conflicting_evidence_ids=("evidence-conflict",),
+                    unresolved_conflicting_evidence_ids=("evidence-conflict",),
+                ),
+            ),
+        ),
+        evidence=(
+            *packet.evidence,
+            EvidenceReference(
+                evidence_id="evidence-conflict",
+                kind=EvidenceReferenceKind.CANONICAL_RECORD,
+                reconstruction_reference_ids=("conflict-record",),
+                summary="Contrary evidence still unresolved for readiness review.",
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            ),
+        ),
+        reconstruction_references=(
+            *packet.reconstruction_references,
+            ReconstructionReference(
+                reference_id="conflict-record",
+                kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+                record_id="market-snapshot:SPY:2026-07-25",
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            ),
+        ),
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+    )
+
+    result = await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-1")
+
+    assert result.success is True
+    raw_claim_evidence = repository.records["packet-1"].claim_audit[0]["evidence"]
+    assert isinstance(raw_claim_evidence, Mapping)
+    assert raw_claim_evidence["unresolved_conflicting_evidence_ids"] == [
+        "evidence-conflict",
+    ]
+    assert reconstructed == packet
+    assert reconstructed.claims[0].evidence.conflicting_evidence_ids == (
+        "evidence-conflict",
+    )
+    assert reconstructed.claims[0].evidence.unresolved_conflicting_evidence_ids == (
+        "evidence-conflict",
+    )
+
+
+@pytest.mark.asyncio
 async def test_reconstruction_validates_evaluation_provenance_references() -> None:
     bundle = _bundle()
     evaluation_run = _evaluation_run()

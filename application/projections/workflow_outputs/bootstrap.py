@@ -163,7 +163,10 @@ class PostgresWorkflowOutputProjectionCoordinator:
             state_repository=PostgresPortfolioStateRepository(session),
         )
         recommendation_persistence_service = RecommendationPersistenceService(
-            PostgresRecommendationPersistenceRepository(session),
+            PostgresRecommendationPersistenceRepository(
+                session,
+                observability_manager=self._observability_manager,
+            ),
         )
         lineage_persistence_service = LineagePersistenceService(
             PostgresPersistenceLineageLinkRepository(session),

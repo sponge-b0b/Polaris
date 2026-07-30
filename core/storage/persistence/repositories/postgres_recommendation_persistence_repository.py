@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -17,6 +18,8 @@ from core.database.models.recommendations import (
     WatchlistItemModel,
 )
 from core.storage.persistence.claim_evidence_links import (
+    PostgresClaimEvidenceLinkObservability,
+    claim_evidence_link_started_at,
     claim_evidence_link_upsert_set_values,
     execute_claim_evidence_link_upserts,
 )
@@ -36,6 +39,21 @@ from core.storage.persistence.recommendations.recommendation_persistence_reposit
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (
     RecommendationPersistenceSerializer,
 )
+from core.telemetry.observability import ObservabilityManager
+
+logger = logging.getLogger(__name__)
+
+_COMPONENT_NAME = "PostgresRecommendationPersistenceRepository"
+_RECOMMENDATION_CLAIM_EVIDENCE_LINK_TABLE = "recommendation_claim_evidence_links"
+_RECOMMENDATION_CLAIM_EVIDENCE_LINK_METRIC_PREFIX = (
+    "storage.postgres.recommendation_claim_evidence_link"
+)
+_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION = (
+    "recommendation_claim_evidence_link_write"
+)
+_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION = (
+    "recommendation_claim_evidence_link_read"
+)
 
 
 class PostgresRecommendationPersistenceRepository(
@@ -53,13 +71,24 @@ class PostgresRecommendationPersistenceRepository(
     def __init__(
         self,
         session: AsyncSession,
+        *,
+        observability_manager: ObservabilityManager | None = None,
     ) -> None:
         self._session = session
+        self._claim_evidence_observability = PostgresClaimEvidenceLinkObservability(
+            observability_manager=observability_manager,
+            component_name=_COMPONENT_NAME,
+            table_name=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_TABLE,
+            metric_prefix=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_METRIC_PREFIX,
+            owner_id_attribute="recommendation_id",
+        )
 
     async def persist_recommendation_bundle(
         self,
         bundle: RecommendationPersistenceBundle,
     ) -> RecommendationPersistenceResult:
+        claim_evidence_links = tuple(bundle.claim_evidence_links)
+        claim_evidence_started_at: float | None = None
         try:
             await self._session.execute(
                 _upsert_recommendation_statement(
@@ -90,17 +119,43 @@ class PostgresRecommendationPersistenceRepository(
                         item,
                     )
                 )
-            await execute_claim_evidence_link_upserts(
-                self._session,
-                bundle.claim_evidence_links,
-                _upsert_claim_evidence_link_statement,
-            )
+            if claim_evidence_links:
+                claim_evidence_started_at = claim_evidence_link_started_at()
+                await execute_claim_evidence_link_upserts(
+                    self._session,
+                    claim_evidence_links,
+                    _upsert_claim_evidence_link_statement,
+                )
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
+            if claim_evidence_started_at is not None:
+                logger.exception(
+                    "Recommendation PostgreSQL claim-evidence link write failed.",
+                    extra=_recommendation_claim_evidence_link_log_context(
+                        operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                        recommendation_id=bundle.recommendation.recommendation_id,
+                    ),
+                )
+                await self._claim_evidence_observability.record_operation(
+                    operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                    owner_id=bundle.recommendation.recommendation_id,
+                    started_at=claim_evidence_started_at,
+                    success=False,
+                    error=exc,
+                )
 
             return RecommendationPersistenceResult.failed(
                 str(exc),
+            )
+
+        if claim_evidence_started_at is not None:
+            await self._claim_evidence_observability.record_operation(
+                operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                owner_id=bundle.recommendation.recommendation_id,
+                started_at=claim_evidence_started_at,
+                success=True,
+                records_persisted=len(claim_evidence_links),
             )
 
         return RecommendationPersistenceResult.succeeded(
@@ -279,6 +334,12 @@ class PostgresRecommendationPersistenceRepository(
         packet_id: str | None = None,
         claim_target_id: str | None = None,
     ) -> Sequence[RecommendationClaimEvidenceLinkRecord]:
+        started_at = claim_evidence_link_started_at()
+        filters = {
+            "rationale_id": rationale_id,
+            "packet_id": packet_id,
+            "claim_target_id": claim_target_id,
+        }
         stmt = select(RecommendationClaimEvidenceLinkModel)
         if recommendation_id is not None:
             stmt = stmt.where(
@@ -304,14 +365,63 @@ class PostgresRecommendationPersistenceRepository(
             RecommendationClaimEvidenceLinkModel.packet_claim_id,
             RecommendationClaimEvidenceLinkModel.link_id,
         )
-        result = await self._session.execute(stmt)
-
-        return tuple(
-            RecommendationPersistenceSerializer.claim_evidence_link_from_model(
-                model,
+        try:
+            result = await self._session.execute(stmt)
+            records = tuple(
+                RecommendationPersistenceSerializer.claim_evidence_link_from_model(
+                    model,
+                )
+                for model in result.scalars().all()
             )
-            for model in result.scalars().all()
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Recommendation PostgreSQL claim-evidence link read failed.",
+                extra=_recommendation_claim_evidence_link_log_context(
+                    operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+                    recommendation_id=recommendation_id,
+                    filters=filters,
+                ),
+            )
+            await self._claim_evidence_observability.record_operation(
+                operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+                owner_id=recommendation_id,
+                started_at=started_at,
+                success=False,
+                filters=filters,
+                error=exc,
+            )
+            raise
+
+        await self._claim_evidence_observability.record_operation(
+            operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+            owner_id=recommendation_id,
+            started_at=started_at,
+            success=True,
+            filters=filters,
+            records_returned=len(records),
         )
+        return records
+
+
+def _recommendation_claim_evidence_link_log_context(
+    *,
+    operation: str,
+    recommendation_id: str | None,
+    filters: dict[str, str | None] | None = None,
+) -> dict[str, Any]:
+    context: dict[str, Any] = {
+        "component_name": _COMPONENT_NAME,
+        "database_system": "postgresql",
+        "operation": operation,
+        "table": _RECOMMENDATION_CLAIM_EVIDENCE_LINK_TABLE,
+    }
+    if recommendation_id is not None:
+        context["recommendation_id"] = recommendation_id
+    if filters is not None:
+        context.update(
+            {key: value for key, value in filters.items() if value is not None}
+        )
+    return context
 
 
 def _upsert_recommendation_statement(

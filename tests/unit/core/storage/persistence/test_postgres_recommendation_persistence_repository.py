@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -33,6 +34,9 @@ from core.storage.persistence.repositories.postgres_recommendation_persistence_r
 from core.storage.persistence.serializers.recommendation_persistence_serializer import (
     RecommendationPersistenceSerializer,
 )
+from core.telemetry.events import TelemetryEvent
+from core.telemetry.observability import ObservabilityManager
+from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from domain.authority import RiskTier
 
 
@@ -62,15 +66,20 @@ class FakeAsyncSession:
         self,
         result: FakeExecuteResult | None = None,
         error: SQLAlchemyError | None = None,
+        execute_errors: dict[int, SQLAlchemyError] | None = None,
     ) -> None:
         self.result = result or FakeExecuteResult()
         self.error = error
+        self.execute_errors = execute_errors or {}
         self.executed: list[Any] = []
         self.commits = 0
         self.rollbacks = 0
 
     async def execute(self, statement: Any) -> FakeExecuteResult:
         self.executed.append(statement)
+        execute_index = len(self.executed)
+        if execute_index in self.execute_errors:
+            raise self.execute_errors[execute_index]
         if self.error is not None:
             raise self.error
         return self.result
@@ -282,6 +291,93 @@ async def test_persist_recommendation_bundle_includes_claim_evidence_links() -> 
 
 
 @pytest.mark.asyncio
+async def test_persist_recommendation_claim_links_records_success_observability() -> (
+    None
+):
+    observability_manager, sink = _observability()
+    session = FakeAsyncSession()
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session),
+        observability_manager=observability_manager,
+    )
+
+    result = await repository.persist_recommendation_bundle(
+        RecommendationPersistenceBundle(
+            recommendation=_recommendation(),
+            claim_evidence_links=(_claim_evidence_link(),),
+        )
+    )
+
+    assert result.success is True
+    event = _datastore_event(sink)
+    assert event.success is True
+    assert event.event_type == "storage.postgres.operation"
+    assert event.duration_seconds is not None
+    assert event.attributes["operation"] == "recommendation_claim_evidence_link_write"
+    assert event.attributes["operation_kind"] == "datastore_operation"
+    assert event.attributes["database_system"] == "postgresql"
+    assert event.attributes["recommendation_id"] == "rec-1"
+    assert event.payload["records_persisted"] == 1
+    metric_names = _metric_names(observability_manager)
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.operations.total"
+        in metric_names
+    )
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.duration_seconds"
+        in metric_names
+    )
+
+
+@pytest.mark.asyncio
+async def test_persist_recommendation_claim_evidence_links_logs_and_records_failures(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    observability_manager, sink = _observability()
+    session = FakeAsyncSession(
+        execute_errors={2: SQLAlchemyError("database unavailable")},
+    )
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session),
+        observability_manager=observability_manager,
+    )
+
+    with caplog.at_level(logging.ERROR):
+        result = await repository.persist_recommendation_bundle(
+            RecommendationPersistenceBundle(
+                recommendation=_recommendation(),
+                claim_evidence_links=(_claim_evidence_link(),),
+            )
+        )
+
+    assert result.success is False
+    assert session.rollbacks == 1
+    event = _datastore_event(sink)
+    assert event.success is False
+    assert event.error_count == 1
+    assert event.exception_details is not None
+    assert event.exception_details.exception_type == "SQLAlchemyError"
+    assert "database unavailable" in event.exception_details.stack_trace
+    assert event.attributes["operation"] == "recommendation_claim_evidence_link_write"
+    metric_names = _metric_names(observability_manager)
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.operations.failed"
+        in metric_names
+    )
+    failure_logs = [
+        record
+        for record in caplog.records
+        if record.message
+        == "Recommendation PostgreSQL claim-evidence link write failed."
+    ]
+    assert failure_logs
+    assert failure_logs[0].exc_info is not None
+    failure_context = vars(failure_logs[0])
+    assert failure_context["recommendation_id"] == "rec-1"
+    assert failure_context["operation"] == "recommendation_claim_evidence_link_write"
+
+
+@pytest.mark.asyncio
 async def test_list_recommendation_claim_evidence_links_returns_typed_records() -> None:
     model = RecommendationClaimEvidenceLinkModel(
         link_id="rec-1:claim_evidence:claim-1:packet-1:claim-a",
@@ -313,6 +409,120 @@ async def test_list_recommendation_claim_evidence_links_returns_typed_records() 
     assert records[0].risk_tier is RiskTier.VIGILANT
     assert records[0].supporting_evidence_ids == ("evidence-1",)
     assert records[0].reconstruction_reference_ids == ("reconstruction-1",)
+
+
+@pytest.mark.asyncio
+async def test_list_recommendation_claim_links_records_success_observability() -> None:
+    model = RecommendationClaimEvidenceLinkModel(
+        link_id="rec-1:claim_evidence:claim-1:packet-1:claim-a",
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        claim_target_id="claim-1",
+        packet_id="packet-1",
+        packet_claim_id="claim-a",
+        risk_tier="vigilant",
+        material=True,
+        supporting_evidence_ids=["evidence-1"],
+        reconstruction_reference_ids=["reconstruction-1"],
+        uncertainty_ids=["uncertainty-1"],
+        limitation_ids=["limitation-1"],
+    )
+    observability_manager, sink = _observability()
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session),
+        observability_manager=observability_manager,
+    )
+
+    records = await repository.list_claim_evidence_links(
+        recommendation_id="rec-1",
+        rationale_id="rec-1:rationale:primary",
+        packet_id="packet-1",
+        claim_target_id="claim-1",
+    )
+
+    assert len(records) == 1
+    event = _datastore_event(sink)
+    assert event.success is True
+    assert event.duration_seconds is not None
+    assert event.attributes["operation"] == "recommendation_claim_evidence_link_read"
+    assert event.attributes["operation_kind"] == "datastore_operation"
+    assert event.attributes["recommendation_id"] == "rec-1"
+    assert event.payload["records_returned"] == 1
+    metric_names = _metric_names(observability_manager)
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.operations.total"
+        in metric_names
+    )
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.duration_seconds"
+        in metric_names
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_recommendation_claim_evidence_links_logs_and_records_failures(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    observability_manager, sink = _observability()
+    session = FakeAsyncSession(error=SQLAlchemyError("database unavailable"))
+    repository = PostgresRecommendationPersistenceRepository(
+        cast(AsyncSession, session),
+        observability_manager=observability_manager,
+    )
+
+    with caplog.at_level(logging.ERROR), pytest.raises(SQLAlchemyError):
+        await repository.list_claim_evidence_links(
+            recommendation_id="rec-1",
+            rationale_id="rec-1:rationale:primary",
+            packet_id="packet-1",
+            claim_target_id="claim-1",
+        )
+
+    event = _datastore_event(sink)
+    assert event.success is False
+    assert event.error_count == 1
+    assert event.exception_details is not None
+    assert event.exception_details.exception_type == "SQLAlchemyError"
+    assert "database unavailable" in event.exception_details.stack_trace
+    assert event.attributes["operation"] == "recommendation_claim_evidence_link_read"
+    metric_names = _metric_names(observability_manager)
+    assert (
+        "storage.postgres.recommendation_claim_evidence_link.operations.failed"
+        in metric_names
+    )
+    failure_logs = [
+        record
+        for record in caplog.records
+        if record.message
+        == "Recommendation PostgreSQL claim-evidence link read failed."
+    ]
+    assert failure_logs
+    assert failure_logs[0].exc_info is not None
+    failure_context = vars(failure_logs[0])
+    assert failure_context["recommendation_id"] == "rec-1"
+    assert failure_context["operation"] == "recommendation_claim_evidence_link_read"
+
+
+def _observability() -> tuple[ObservabilityManager, InMemoryTelemetrySink]:
+    sink = InMemoryTelemetrySink()
+    observability_manager = ObservabilityManager()
+    observability_manager.add_sink(sink)
+    return observability_manager, sink
+
+
+def _datastore_event(sink: InMemoryTelemetrySink) -> TelemetryEvent:
+    events = [
+        event
+        for event in sink.events
+        if event.event_type == "storage.postgres.operation"
+    ]
+    assert len(events) == 1
+    return events[0]
+
+
+def _metric_names(observability_manager: ObservabilityManager) -> set[str]:
+    return {point.name for point in observability_manager.metrics_store.points()}
 
 
 def _bundle() -> RecommendationPersistenceBundle:

@@ -223,8 +223,12 @@ class ApplicationPersistenceDIProvider(Provider):
     def provide_recommendation_persistence_repository(
         self,
         session: AsyncSession,
+        observability_manager: ObservabilityManager,
     ) -> PostgresRecommendationPersistenceRepository:
-        return PostgresRecommendationPersistenceRepository(session)
+        return PostgresRecommendationPersistenceRepository(
+            session,
+            observability_manager=observability_manager,
+        )
 
     @provide
     def provide_recommendation_persistence_service(

@@ -56,6 +56,7 @@ from core.storage.persistence.repositories.postgres_sentiment_persistence_reposi
 from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501 - canonical module path
     PostgresWorkflowOutputProjectionJobRepository,
 )
+from core.telemetry.observability import ObservabilityManager
 
 
 class RagPersistenceDIProvider(Provider):
@@ -79,8 +80,12 @@ class RagPersistenceDIProvider(Provider):
     def provide_report_repository(
         self,
         session: AsyncSession,
+        observability_manager: ObservabilityManager,
     ) -> PostgresReportPersistenceRepository:
-        return PostgresReportPersistenceRepository(session)
+        return PostgresReportPersistenceRepository(
+            session,
+            observability_manager=observability_manager,
+        )
 
     @provide
     def provide_agent_signal_repository(
@@ -93,8 +98,12 @@ class RagPersistenceDIProvider(Provider):
     def provide_recommendation_repository(
         self,
         session: AsyncSession,
+        observability_manager: ObservabilityManager,
     ) -> PostgresRecommendationPersistenceRepository:
-        return PostgresRecommendationPersistenceRepository(session)
+        return PostgresRecommendationPersistenceRepository(
+            session,
+            observability_manager=observability_manager,
+        )
 
     @provide
     def provide_macro_repository(

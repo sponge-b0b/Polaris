@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -17,6 +18,8 @@ from core.database.models.reports import (
     ReportVersionModel,
 )
 from core.storage.persistence.claim_evidence_links import (
+    PostgresClaimEvidenceLinkObservability,
+    claim_evidence_link_started_at,
     claim_evidence_link_upsert_set_values,
     execute_claim_evidence_link_upserts,
 )
@@ -36,6 +39,17 @@ from core.storage.persistence.reports.report_persistence_repository import (
 from core.storage.persistence.serializers.report_persistence_serializer import (
     ReportPersistenceSerializer,
 )
+from core.telemetry.observability import ObservabilityManager
+
+logger = logging.getLogger(__name__)
+
+_COMPONENT_NAME = "PostgresReportPersistenceRepository"
+_REPORT_CLAIM_EVIDENCE_LINK_TABLE = "report_claim_evidence_links"
+_REPORT_CLAIM_EVIDENCE_LINK_METRIC_PREFIX = (
+    "storage.postgres.report_claim_evidence_link"
+)
+_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION = "report_claim_evidence_link_write"
+_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION = "report_claim_evidence_link_read"
 
 
 class PostgresReportPersistenceRepository(ReportPersistenceRepository):
@@ -51,8 +65,17 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
     def __init__(
         self,
         session: AsyncSession,
+        *,
+        observability_manager: ObservabilityManager | None = None,
     ) -> None:
         self._session = session
+        self._claim_evidence_observability = PostgresClaimEvidenceLinkObservability(
+            observability_manager=observability_manager,
+            component_name=_COMPONENT_NAME,
+            table_name=_REPORT_CLAIM_EVIDENCE_LINK_TABLE,
+            metric_prefix=_REPORT_CLAIM_EVIDENCE_LINK_METRIC_PREFIX,
+            owner_id_attribute="report_id",
+        )
 
     async def persist_report(
         self,
@@ -89,6 +112,8 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
         self,
         bundle: ReportPersistenceBundle,
     ) -> ReportPersistenceResult:
+        claim_evidence_links = tuple(bundle.claim_evidence_links)
+        claim_evidence_started_at: float | None = None
         try:
             await self._session.execute(
                 _upsert_report_statement(
@@ -119,17 +144,43 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
                         publication,
                     )
                 )
-            await execute_claim_evidence_link_upserts(
-                self._session,
-                bundle.claim_evidence_links,
-                _upsert_claim_evidence_link_statement,
-            )
+            if claim_evidence_links:
+                claim_evidence_started_at = claim_evidence_link_started_at()
+                await execute_claim_evidence_link_upserts(
+                    self._session,
+                    claim_evidence_links,
+                    _upsert_claim_evidence_link_statement,
+                )
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
+            if claim_evidence_started_at is not None:
+                logger.exception(
+                    "Report PostgreSQL claim-evidence link write failed.",
+                    extra=_report_claim_evidence_link_log_context(
+                        operation=_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                        report_id=bundle.report.report_id,
+                    ),
+                )
+                await self._claim_evidence_observability.record_operation(
+                    operation=_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                    owner_id=bundle.report.report_id,
+                    started_at=claim_evidence_started_at,
+                    success=False,
+                    error=exc,
+                )
 
             return ReportPersistenceResult.failed(
                 str(exc),
+            )
+
+        if claim_evidence_started_at is not None:
+            await self._claim_evidence_observability.record_operation(
+                operation=_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
+                owner_id=bundle.report.report_id,
+                started_at=claim_evidence_started_at,
+                success=True,
+                records_persisted=len(claim_evidence_links),
             )
 
         return ReportPersistenceResult.succeeded(
@@ -353,6 +404,12 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
         packet_id: str | None = None,
         claim_target_id: str | None = None,
     ) -> Sequence[ReportClaimEvidenceLinkRecord]:
+        started_at = claim_evidence_link_started_at()
+        filters = {
+            "section_id": section_id,
+            "packet_id": packet_id,
+            "claim_target_id": claim_target_id,
+        }
         stmt = select(ReportClaimEvidenceLinkModel)
         if report_id is not None:
             stmt = stmt.where(
@@ -377,14 +434,63 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
             ReportClaimEvidenceLinkModel.packet_claim_id,
             ReportClaimEvidenceLinkModel.link_id,
         )
-        result = await self._session.execute(stmt)
-
-        return tuple(
-            ReportPersistenceSerializer.claim_evidence_link_from_model(
-                model,
+        try:
+            result = await self._session.execute(stmt)
+            records = tuple(
+                ReportPersistenceSerializer.claim_evidence_link_from_model(
+                    model,
+                )
+                for model in result.scalars().all()
             )
-            for model in result.scalars().all()
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Report PostgreSQL claim-evidence link read failed.",
+                extra=_report_claim_evidence_link_log_context(
+                    operation=_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+                    report_id=report_id,
+                    filters=filters,
+                ),
+            )
+            await self._claim_evidence_observability.record_operation(
+                operation=_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+                owner_id=report_id,
+                started_at=started_at,
+                success=False,
+                filters=filters,
+                error=exc,
+            )
+            raise
+
+        await self._claim_evidence_observability.record_operation(
+            operation=_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION,
+            owner_id=report_id,
+            started_at=started_at,
+            success=True,
+            filters=filters,
+            records_returned=len(records),
         )
+        return records
+
+
+def _report_claim_evidence_link_log_context(
+    *,
+    operation: str,
+    report_id: str | None,
+    filters: dict[str, str | None] | None = None,
+) -> dict[str, Any]:
+    context: dict[str, Any] = {
+        "component_name": _COMPONENT_NAME,
+        "database_system": "postgresql",
+        "operation": operation,
+        "table": _REPORT_CLAIM_EVIDENCE_LINK_TABLE,
+    }
+    if report_id is not None:
+        context["report_id"] = report_id
+    if filters is not None:
+        context.update(
+            {key: value for key, value in filters.items() if value is not None}
+        )
+    return context
 
 
 def _upsert_report_statement(

@@ -41,6 +41,7 @@ from core.storage.persistence.repositories import (
     PostgresStrategyPersistenceRepository,
     PostgresTelemetryPersistenceRepository,
 )
+from core.telemetry.observability import ObservabilityManager
 
 
 class ApplicationPersistenceDIProvider(Provider):
@@ -147,8 +148,12 @@ class ApplicationPersistenceDIProvider(Provider):
     def provide_decision_evidence_packet_repository(
         self,
         session: AsyncSession,
+        observability_manager: ObservabilityManager,
     ) -> PostgresDecisionEvidencePacketRepository:
-        return PostgresDecisionEvidencePacketRepository(session)
+        return PostgresDecisionEvidencePacketRepository(
+            session,
+            observability_manager=observability_manager,
+        )
 
     @provide
     def provide_decision_evidence_rag_repository(

@@ -167,7 +167,10 @@ class PostgresWorkflowOutputProjectionCoordinator:
         )
         decision_evidence_packet_persistence_service = (
             DecisionEvidencePacketPersistenceService(
-                repository=PostgresDecisionEvidencePacketRepository(session),
+                repository=PostgresDecisionEvidencePacketRepository(
+                    session,
+                    observability_manager=self._observability_manager,
+                ),
                 completed_run_archive=PostgresCompletedRunArchive(
                     session_factory=self._session_factory,
                 ),

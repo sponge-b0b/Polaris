@@ -25,6 +25,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    evidence_claim_references_from_packet,
 )
 from tests.helpers.risk_authority_examples import (
     authority_input_for_tier,
@@ -123,9 +124,7 @@ def _claim_reference(
             _metadata(recommendation_explanation_authority_input()),
             RiskAuthorityGateEvidence(
                 provenance_record_ids=("recommendation-record-1",),
-                decision_evidence_claim_references=(
-                    _claim_reference(RiskTier.VIGILANT),
-                ),
+                decision_evidence_packets=(_packet(RiskTier.VIGILANT),),
             ),
             RiskTier.VIGILANT,
             GateProfile.VIGILANT_DECISION_EVIDENCE,
@@ -240,6 +239,43 @@ def test_enhanced_readiness_rejects_reference_only_evaluation_packet_ids() -> No
     )
     assert "reference-only" in decision.message.lower()
     assert "packet" in decision.message.lower()
+
+
+def test_vigilant_readiness_accepts_claim_reference_when_packet_backed() -> None:
+    packet = _packet(RiskTier.VIGILANT)
+    references = evidence_claim_references_from_packet(packet).claim_references
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+            decision_evidence_claim_references=references,
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.PASSED
+    assert decision.failure_mode is RiskAuthorityGateFailureMode.NONE
+
+
+def test_enhanced_readiness_rejects_generic_reference_only_claim_metadata() -> None:
+    decision = select_risk_authority_gate(
+        _metadata(rag_answer_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("rag-doc-1",),
+            decision_evidence_claim_references=(_claim_reference(RiskTier.ENHANCED),),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert (
+        decision.evidence.decision_evidence_claim_references[0].packet_id == "packet-1"
+    )
+    assert "reference-only" in decision.message.lower()
+    assert "canonical" in decision.message.lower()
 
 
 def test_vigilant_strategy_output_fails_closed_when_only_evidence_ids_exist() -> None:

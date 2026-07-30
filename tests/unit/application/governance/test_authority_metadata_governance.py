@@ -36,6 +36,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    evidence_claim_references_from_packet,
     evidence_claim_references_metadata,
 )
 from tests.helpers.risk_authority_examples import (
@@ -158,9 +159,33 @@ async def test_enhanced_and_vigilant_outputs_require_evidence_when_absent() -> N
 
 @pytest.mark.asyncio
 async def test_enhanced_insufficient_evidence_with_packet_requires_approval() -> None:
+    packet = _packet(RiskTier.ENHANCED)
+
     result = await _engine().evaluate(
         subject={
             "risk_authority": _enhanced_metadata_with_insufficient_evidence(),
+            "decision_evidence_packet": packet,
+            DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: (
+                evidence_claim_references_metadata(
+                    evidence_claim_references_from_packet(packet).claim_references
+                )
+            ),
+        },
+        emit_telemetry=False,
+    )
+
+    rule_result = result.results[0]
+    assert rule_result.decision is GovernanceDecision.REQUIRE_APPROVAL
+    assert rule_result.reason == "enhanced_authority_evidence_required"
+
+
+@pytest.mark.asyncio
+async def test_governance_denies_reference_only_claim_metadata_as_readiness_proof() -> (
+    None
+):
+    result = await _engine().evaluate(
+        subject={
+            "risk_authority": _authority_metadata(RiskTier.ENHANCED),
             DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY: (
                 evidence_claim_references_metadata(
                     (_claim_reference(RiskTier.ENHANCED),)
@@ -171,8 +196,19 @@ async def test_enhanced_insufficient_evidence_with_packet_requires_approval() ->
     )
 
     rule_result = result.results[0]
-    assert rule_result.decision is GovernanceDecision.REQUIRE_APPROVAL
+    assert rule_result.decision is GovernanceDecision.DENY
     assert rule_result.reason == "enhanced_authority_evidence_required"
+    assert rule_result.metadata["decision_evidence_packet_readiness_failure_mode"] == (
+        "packet_support_missing"
+    )
+    assert rule_result.metadata["decision_evidence_packet_ids"] == ["packet-1"]
+    assert rule_result.metadata["decision_evidence_supporting_evidence_ids"] == [
+        "evidence-1"
+    ]
+    assert rule_result.metadata["decision_evidence_reconstruction_reference_ids"] == [
+        "workflow-node"
+    ]
+    assert rule_result.metadata["decision_evidence_claim_support_complete"] is False
 
 
 @pytest.mark.asyncio
@@ -334,14 +370,11 @@ def _authority_subject(
         )
     }
     if tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+        packet = _packet(tier, supporting_evidence_id=supporting_evidence_id)
+        subject["decision_evidence_packet"] = packet
         subject[DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY] = (
             evidence_claim_references_metadata(
-                (
-                    _claim_reference(
-                        tier,
-                        supporting_evidence_id=supporting_evidence_id,
-                    ),
-                )
+                evidence_claim_references_from_packet(packet).claim_references
             )
         )
     return subject

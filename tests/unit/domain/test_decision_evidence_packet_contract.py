@@ -11,6 +11,7 @@ from domain.decision_evidence import (
     DecisionEvidencePacket,
     DecisionEvidencePacketReadinessFailureMode,
     DecisionEvidencePacketValidationError,
+    EvidenceClaimReference,
     EvidenceConstraint,
     EvidenceLimitation,
     EvidenceReference,
@@ -22,6 +23,7 @@ from domain.decision_evidence import (
     ReconstructionReferenceKind,
     UnsupportedMaterialClaimError,
     assess_decision_evidence_packet_readiness,
+    evidence_claim_references_from_packet,
 )
 from tests.helpers.risk_authority_examples import (
     authority_input_for_tier,
@@ -201,6 +203,124 @@ def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
     assert readiness.passed is True
     assert readiness.conflicting_evidence_ids == ()
     assert readiness.unresolved_conflicting_evidence_ids == ()
+
+
+def test_verified_claim_reference_matches_canonical_packet_binding() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+    reference = evidence_claim_references_from_packet(packet).claim_references[0]
+
+    readiness = assess_decision_evidence_packet_readiness(
+        packets=(packet,),
+        claim_references=(reference,),
+        required_risk_tier=RiskTier.ENHANCED,
+    )
+
+    assert readiness.passed is True
+    assert readiness.packet_ids == ("packet-1",)
+    assert readiness.supporting_evidence_ids == ("evidence-1",)
+    assert readiness.reconstruction_reference_ids == ("workflow-node",)
+
+
+def test_reference_only_claim_metadata_cannot_satisfy_material_readiness() -> None:
+    reference = EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="output-1",
+        claim_id="claim-1",
+        risk_tier=RiskTier.ENHANCED,
+        supporting_evidence_ids=("evidence-1",),
+        reconstruction_reference_ids=("workflow-node",),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(
+        claim_references=(reference,),
+        required_risk_tier=RiskTier.ENHANCED,
+    )
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING
+    )
+    assert "reference-only" in readiness.message.lower()
+    assert "canonical" in readiness.message.lower()
+    assert readiness.packet_ids == ("packet-1",)
+    assert readiness.supporting_evidence_ids == ("evidence-1",)
+    assert readiness.reconstruction_reference_ids == ("workflow-node",)
+    assert readiness.claim_support_complete is False
+
+
+def test_fabricated_claim_reference_must_match_verified_packet_binding() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+    fabricated_reference = EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="output-1",
+        claim_id="claim-1",
+        risk_tier=RiskTier.ENHANCED,
+        supporting_evidence_ids=("stale-evidence",),
+        reconstruction_reference_ids=("workflow-node",),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(
+        packets=(packet,),
+        claim_references=(fabricated_reference,),
+        required_risk_tier=RiskTier.ENHANCED,
+    )
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.AUTHORITY_METADATA_INCONSISTENT
+    )
+    assert "canonical" in readiness.message.lower()
+    assert readiness.packet_ids == ("packet-1",)
+    assert readiness.supporting_evidence_ids == ("stale-evidence",)
+    assert readiness.reconstruction_reference_ids == ("workflow-node",)
+
+
+def test_reference_only_contextual_metadata_is_audit_not_readiness_proof() -> None:
+    reference = EvidenceClaimReference(
+        packet_id="packet-1",
+        output_id="output-1",
+        claim_id="claim-context",
+        risk_tier=RiskTier.ENHANCED,
+        supporting_evidence_ids=(),
+        conflicting_evidence_ids=("evidence-conflict",),
+        unresolved_conflicting_evidence_ids=("evidence-conflict",),
+        reconstruction_reference_ids=("conflict-record",),
+        material=False,
+        materiality=ClaimMaterialityTier.CONTEXTUAL,
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(
+        claim_references=(reference,),
+        required_risk_tier=RiskTier.ENHANCED,
+    )
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING
+    )
+    assert readiness.claim_support_complete is False
+    assert readiness.correctness_support_complete is False
+    assert readiness.conflicting_evidence_ids == ("evidence-conflict",)
+    assert readiness.unresolved_conflicting_evidence_ids == ("evidence-conflict",)
 
 
 def test_unresolved_material_conflict_fails_readiness_closed() -> None:

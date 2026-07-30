@@ -6,7 +6,10 @@ from enum import StrEnum
 from typing import Final
 
 from domain.authority import RiskTier
-from domain.decision_evidence.claim_references import EvidenceClaimReference
+from domain.decision_evidence.claim_references import (
+    EvidenceClaimReference,
+    evidence_claim_references_from_packet,
+)
 from domain.decision_evidence.packets import (
     DecisionEvidencePacket,
     ReconstructionReferenceKind,
@@ -16,10 +19,6 @@ _REJECTED_SUPPORT_ID_PREFIXES: Final[tuple[str, ...]] = (
     "rag-context-rejected:",
     "rejected:",
     "evidence-rejected:",
-)
-_REFERENCE_ONLY_EVALUATION_PACKET_ID_PREFIXES: Final[tuple[str, ...]] = (
-    "evaluation_run:",
-    "model_replacement_gate:",
 )
 
 
@@ -206,7 +205,7 @@ def _collect_packet_support_details(
     unresolved_conflicting_evidence_ids: list[str] = []
     reconstruction_reference_ids: list[str] = []
     reconstruction_reference_kinds: list[str] = []
-    full_packet_ids = frozenset(packet.packet_id for packet in packets)
+    canonical_references = _canonical_claim_references_by_key(packets)
 
     for packet in packets:
         if _risk_tier_mismatch(packet.risk_tier, required_risk_tier):
@@ -236,20 +235,11 @@ def _collect_packet_support_details(
                     "selected risk tier."
                 ),
             )
-        if _is_reference_only_evaluation_packet(reference, full_packet_ids):
-            return _readiness_failure(
-                DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING,
-                (
-                    "Reference-only evaluation case provenance cannot satisfy "
-                    "decision evidence packet readiness."
-                ),
-                packet_ids=(reference.packet_id,),
-                supporting_evidence_ids=reference.supporting_evidence_ids,
-                reconstruction_reference_ids=reference.reconstruction_reference_ids,
-                provenance_reconstruction_complete=False,
-                claim_support_complete=False,
-                correctness_support_complete=False,
-            )
+        canonical_reference = canonical_references.get(_claim_reference_key(reference))
+        if canonical_reference is None:
+            return _unverified_claim_reference_failure(reference)
+        if reference != canonical_reference:
+            return _stale_claim_reference_failure(reference)
         packet_ids.append(reference.packet_id)
         reconstruction_reference_ids.extend(reference.reconstruction_reference_ids)
         if reference.material:
@@ -348,15 +338,66 @@ def _risk_tier_mismatch(
     )
 
 
-def _is_reference_only_evaluation_packet(
+def _canonical_claim_references_by_key(
+    packets: tuple[DecisionEvidencePacket, ...],
+) -> dict[tuple[str, str, str], EvidenceClaimReference]:
+    references_by_key: dict[tuple[str, str, str], EvidenceClaimReference] = {}
+    for packet in packets:
+        reference_set = evidence_claim_references_from_packet(packet)
+        for reference in reference_set.claim_references:
+            references_by_key[_claim_reference_key(reference)] = reference
+    return references_by_key
+
+
+def _claim_reference_key(reference: EvidenceClaimReference) -> tuple[str, str, str]:
+    return (reference.packet_id, reference.output_id, reference.claim_id)
+
+
+def _unverified_claim_reference_failure(
     reference: EvidenceClaimReference,
-    full_packet_ids: frozenset[str],
-) -> bool:
-    return (
-        reference.packet_id not in full_packet_ids
-        and reference.packet_id.startswith(
-            _REFERENCE_ONLY_EVALUATION_PACKET_ID_PREFIXES,
-        )
+) -> DecisionEvidencePacketReadiness:
+    return _claim_reference_binding_failure(
+        reference,
+        failure_mode=DecisionEvidencePacketReadinessFailureMode.PACKET_SUPPORT_MISSING,
+        message=(
+            "Reference-only claim metadata cannot satisfy decision evidence "
+            "packet readiness without a matching canonical packet binding."
+        ),
+    )
+
+
+def _stale_claim_reference_failure(
+    reference: EvidenceClaimReference,
+) -> DecisionEvidencePacketReadiness:
+    return _claim_reference_binding_failure(
+        reference,
+        failure_mode=(
+            DecisionEvidencePacketReadinessFailureMode.AUTHORITY_METADATA_INCONSISTENT
+        ),
+        message=(
+            "Decision evidence claim reference metadata does not match its "
+            "verified canonical packet binding."
+        ),
+    )
+
+
+def _claim_reference_binding_failure(
+    reference: EvidenceClaimReference,
+    *,
+    failure_mode: DecisionEvidencePacketReadinessFailureMode,
+    message: str,
+) -> DecisionEvidencePacketReadiness:
+    return _readiness_failure(
+        failure_mode,
+        message,
+        packet_ids=(reference.packet_id,),
+        supporting_evidence_ids=reference.supporting_evidence_ids,
+        conflicting_evidence_ids=reference.conflicting_evidence_ids,
+        unresolved_conflicting_evidence_ids=reference.unresolved_conflicting_evidence_ids,
+        reconstruction_reference_ids=reference.reconstruction_reference_ids,
+        provenance_reconstruction_complete=False,
+        claim_support_complete=False,
+        correctness_support_complete=False,
     )
 
 

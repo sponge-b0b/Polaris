@@ -488,7 +488,14 @@ class DecisionEvidencePacket:
 def validate_material_support_snapshots(packet: DecisionEvidencePacket) -> None:
     """Ensure readiness-gating claim support has retained redacted snapshots."""
 
-    material_support_snapshots_by_reconstruction_id(packet)
+    snapshots_by_reference_id = material_support_snapshots_by_reconstruction_id(packet)
+    for snapshot in snapshots_by_reference_id.values():
+        expected_digest = calculate_supporting_evidence_snapshot_digest(snapshot)
+        if snapshot.content_digest != expected_digest:
+            raise UnsupportedMaterialClaimError(
+                f"material support snapshot {snapshot.snapshot_id!r} content digest "
+                "does not match retained snapshot content."
+            )
 
 
 def material_support_snapshots_by_reconstruction_id(

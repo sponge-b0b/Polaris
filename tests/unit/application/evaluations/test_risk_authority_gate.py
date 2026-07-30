@@ -25,6 +25,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
     evidence_claim_references_from_packet,
 )
 from tests.helpers.risk_authority_examples import (
@@ -69,6 +70,7 @@ def _packet(
                 kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
                 reconstruction_reference_ids=("workflow-node",),
                 summary="Runtime node output supporting the material claim.",
+                support_snapshot=_support_snapshot(supporting_evidence_id),
             ),
         ),
         reconstruction_references=(
@@ -82,6 +84,15 @@ def _packet(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+    )
+
+
+def _support_snapshot(evidence_id: str) -> SupportingEvidenceSnapshot:
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"{evidence_id}:support-snapshot",
+        summary="Runtime node output supporting the material claim.",
+        redacted_content="Supported material claim evidence retained for readiness.",
+        source_label="workflow_node_output:workflow-node",
     )
 
 

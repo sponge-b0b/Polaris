@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+from typing import Final
 
 import pytest
 
@@ -21,6 +22,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
     UnsupportedMaterialClaimError,
     assess_decision_evidence_packet_readiness,
     evidence_claim_references_from_packet,
@@ -54,6 +56,10 @@ def test_enhanced_packet_models_claim_relationships_and_reconstruction_refs() ->
                 kind=EvidenceReferenceKind.RAG_CITATION_CONTEXT,
                 reconstruction_reference_ids=("rag-context",),
                 summary="Curated retrieval context supporting the answer claim.",
+                support_snapshot=material_support_snapshot(
+                    snapshot_id="evidence-support:support-snapshot",
+                    source_label="rag-context",
+                ),
             ),
             EvidenceReference(
                 evidence_id="evidence-conflict",
@@ -203,6 +209,68 @@ def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
     assert readiness.passed is True
     assert readiness.conflicting_evidence_ids == ()
     assert readiness.unresolved_conflicting_evidence_ids == ()
+
+
+def test_readiness_requires_retained_material_support_snapshot() -> None:
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(retain_snapshot=False),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.MATERIAL_SUPPORT_SNAPSHOT_MISSING
+    )
+    assert "retained support snapshot" in readiness.message
+    assert readiness.provenance_reconstruction_complete is True
+    assert readiness.claim_support_complete is False
+    assert readiness.correctness_support_complete is False
+    assert readiness.packet_ids == ("packet-1",)
+    assert readiness.supporting_evidence_ids == ("evidence-1",)
+    assert readiness.reconstruction_reference_ids == ("workflow-node",)
+
+
+@pytest.mark.parametrize(
+    ("tampered_field", "tampered_value"),
+    [
+        ("redacted_content", "Tampered material support content."),
+        ("content_digest", None),
+    ],
+)
+def test_readiness_detects_tampered_or_incomplete_material_support_snapshot(
+    tampered_field: str,
+    tampered_value: str | None,
+) -> None:
+    snapshot = material_support_snapshot()
+    object.__setattr__(snapshot, tampered_field, tampered_value)
+    packet = DecisionEvidencePacket(
+        packet_id="packet-1",
+        output_id="output-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(supported_claim(),),
+        evidence=(supporting_evidence(support_snapshot=snapshot),),
+        reconstruction_references=(workflow_reference(),),
+        retention=retention_requirement(),
+    )
+
+    readiness = assess_decision_evidence_packet_readiness(packets=(packet,))
+
+    assert readiness.passed is False
+    assert (
+        readiness.failure_mode
+        is DecisionEvidencePacketReadinessFailureMode.MATERIAL_SUPPORT_SNAPSHOT_MISSING
+    )
+    assert "content digest" in readiness.message
+    assert readiness.supporting_evidence_ids == ("evidence-1",)
+    assert readiness.reconstruction_reference_ids == ("workflow-node",)
 
 
 def test_verified_claim_reference_matches_canonical_packet_binding() -> None:
@@ -409,19 +477,21 @@ def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() ->
                 text="This contextual claim is retained for audit only.",
                 materiality=ClaimMaterialityTier.CONTEXTUAL,
                 evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-1",),
                     conflicting_evidence_ids=("evidence-conflict",),
                 ),
             ),
         ),
-        evidence=(conflicting_evidence(),),
-        reconstruction_references=(conflict_reference(),),
+        evidence=(supporting_evidence(retain_snapshot=False), conflicting_evidence()),
+        reconstruction_references=(workflow_reference(), conflict_reference()),
         retention=retention_requirement(),
     )
 
     assert packet.material_claims == ()
     assert packet.claims[0].materiality is ClaimMaterialityTier.CONTEXTUAL
     assert packet.claims[0].material is False
-    assert packet.claims[0].evidence.supporting_evidence_ids == ()
+    assert packet.claims[0].evidence.supporting_evidence_ids == ("evidence-1",)
+    assert packet.evidence[0].support_snapshot is None
     assert packet.claims[0].evidence.conflicting_evidence_ids == ("evidence-conflict",)
     assert assess_decision_evidence_packet_readiness(packets=(packet,)).passed is True
 
@@ -480,6 +550,7 @@ def test_readiness_validates_every_canonical_reconstruction_reference_kind() -> 
                     reference.reference_id for reference in reconstruction_references
                 ),
                 summary="Evidence backed by every canonical reconstruction kind.",
+                support_snapshot=material_support_snapshot(),
             ),
         ),
         reconstruction_references=reconstruction_references,
@@ -551,6 +622,22 @@ def test_unknown_relationship_targets_are_rejected() -> None:
         )
 
 
+_DEFAULT_SUPPORT_SNAPSHOT_ID: Final[str] = "evidence-1:support-snapshot"
+
+
+def material_support_snapshot(
+    *,
+    snapshot_id: str = _DEFAULT_SUPPORT_SNAPSHOT_ID,
+    source_label: str = "workflow_node_output:workflow-node",
+) -> SupportingEvidenceSnapshot:
+    return SupportingEvidenceSnapshot(
+        snapshot_id=snapshot_id,
+        summary="Runtime node output supporting the material claim.",
+        redacted_content="Supported material claim evidence retained for readiness.",
+        source_label=source_label,
+    )
+
+
 def supported_claim() -> MaterialClaim:
     return MaterialClaim(
         claim_id="claim-1",
@@ -559,12 +646,20 @@ def supported_claim() -> MaterialClaim:
     )
 
 
-def supporting_evidence() -> EvidenceReference:
+def supporting_evidence(
+    *,
+    retain_snapshot: bool = True,
+    support_snapshot: SupportingEvidenceSnapshot | None = None,
+) -> EvidenceReference:
+    snapshot = support_snapshot
+    if retain_snapshot and snapshot is None:
+        snapshot = material_support_snapshot()
     return EvidenceReference(
         evidence_id="evidence-1",
         kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
         reconstruction_reference_ids=("workflow-node",),
         summary="Runtime node output supporting the material claim.",
+        support_snapshot=snapshot,
     )
 
 

@@ -13,6 +13,8 @@ from domain.decision_evidence.claim_references import (
 from domain.decision_evidence.packets import (
     DecisionEvidencePacket,
     ReconstructionReferenceKind,
+    UnsupportedMaterialClaimError,
+    validate_material_support_snapshots,
 )
 
 _REJECTED_SUPPORT_ID_PREFIXES: Final[tuple[str, ...]] = (
@@ -27,6 +29,7 @@ class DecisionEvidencePacketReadinessFailureMode(StrEnum):
 
     NONE = "none"
     PACKET_SUPPORT_MISSING = "packet_support_missing"
+    MATERIAL_SUPPORT_SNAPSHOT_MISSING = "material_support_snapshot_missing"
     RECONSTRUCTION_REFERENCES_MISSING = "reconstruction_references_missing"
     AUTHORITY_METADATA_INCONSISTENT = "authority_metadata_inconsistent"
     REJECTED_EVIDENCE_CITED = "rejected_evidence_cited"
@@ -225,6 +228,19 @@ def _collect_packet_support_details(
             unresolved_conflicting_evidence_ids.extend(
                 claim.evidence.unresolved_conflicting_evidence_ids
             )
+        snapshot_failure = _material_support_snapshot_failure(
+            packet=packet,
+            packet_ids=tuple(packet_ids),
+            supporting_evidence_ids=tuple(supporting_evidence_ids),
+            conflicting_evidence_ids=tuple(conflicting_evidence_ids),
+            unresolved_conflicting_evidence_ids=tuple(
+                unresolved_conflicting_evidence_ids
+            ),
+            reconstruction_reference_ids=tuple(reconstruction_reference_ids),
+            reconstruction_reference_kinds=tuple(reconstruction_reference_kinds),
+        )
+        if snapshot_failure is not None:
+            return snapshot_failure
 
     for reference in claim_references:
         if _risk_tier_mismatch(reference.risk_tier, required_risk_tier):
@@ -315,6 +331,43 @@ def _canonical_reconstruction_reference_kind_value(
     kind: ReconstructionReferenceKind,
 ) -> str:
     return kind.value
+
+
+def _material_support_snapshot_failure(
+    *,
+    packet: DecisionEvidencePacket,
+    packet_ids: tuple[str, ...],
+    supporting_evidence_ids: tuple[str, ...],
+    conflicting_evidence_ids: tuple[str, ...],
+    unresolved_conflicting_evidence_ids: tuple[str, ...],
+    reconstruction_reference_ids: tuple[str, ...],
+    reconstruction_reference_kinds: tuple[str, ...],
+) -> DecisionEvidencePacketReadiness | None:
+    try:
+        validate_material_support_snapshots(packet)
+    except UnsupportedMaterialClaimError as exc:
+        return _readiness_failure(
+            DecisionEvidencePacketReadinessFailureMode.MATERIAL_SUPPORT_SNAPSHOT_MISSING,
+            str(exc),
+            packet_ids=_unique(packet_ids),
+            supporting_evidence_ids=_unique(supporting_evidence_ids),
+            conflicting_evidence_ids=_unique(conflicting_evidence_ids),
+            unresolved_conflicting_evidence_ids=_unique(
+                unresolved_conflicting_evidence_ids
+            ),
+            reconstruction_reference_ids=_unique(reconstruction_reference_ids),
+            reconstruction_reference_kinds=_unique(reconstruction_reference_kinds),
+            provenance_reconstruction_complete=bool(reconstruction_reference_ids),
+            claim_support_complete=False,
+            correctness_support_complete=False,
+            claim_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.MATERIAL_SUPPORT_SNAPSHOT_MISSING
+            ),
+            correctness_support_failure_mode=(
+                DecisionEvidencePacketReadinessFailureMode.MATERIAL_SUPPORT_SNAPSHOT_MISSING
+            ),
+        )
+    return None
 
 
 def _rejected_supporting_ids(

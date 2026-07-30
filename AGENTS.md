@@ -218,6 +218,17 @@ This project uses codebase-memory-mcp to maintain a knowledge graph of the codeb
 
 For search, trace, architecture, code discovery, impact analysis, targeted index-coverage checks, Cypher queries, dead code detection, cross-service HTTP linking, or ADR management, use the installed `.agents/skills/codebase-memory-mcp` skill before tracing raw files manually.
 
+## Development Strategy & Versioning Policies
+
+- **Database Migrations Pre-1.0.0**: Until the project reaches production version `1.0.0`, all database migrations MUST be continuously squashed into a single clean baseline migration file per feature branch.
+- Do NOT generate sequential incremental migration files for minor local schema changes.
+- Always check the current project version before creating a migration path.
+
+### Version Awareness
+- The definitive project version is tracked inside the `pyproject.toml` file under the `[project]` version key.
+- Alternatively, check active Git release tags.
+- If the resolved version is less than `1.0.0`, proceed with the database migration squashing rules outlined above.
+
 ## Architectural Decision Records (ADRs) Rules
 
 When creating or modifying architectural records inside `docs/adr/`, you MUST adhere to the strict structural format required by the codebase-memory-mcp indexer.

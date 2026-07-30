@@ -5,6 +5,7 @@ disable-model-invocation: true
 ---
 
 - Implement the work in the ticket provided by the user.
+- Use the identified standards source `CODING_STANDARDS.md` to guide implementation.
 - Use the /tdd skill where possible, at pre-agreed seams.
 - Use the /format-code skill during implementation where necessary.
 - Once the work is complete, but before you close the ticket, invoke the /verify-code skill to verify the implementation of the ticket.

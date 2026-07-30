@@ -11,6 +11,7 @@ from application.decision_evidence import (
     CompletedWorkflowEvidencePacketAssembler,
     CompletedWorkflowEvidencePacketAssemblyRequest,
     CompletedWorkflowNodeEvidenceRequirement,
+    DecisionEvidencePacketNotFoundError,
     DecisionEvidencePacketPersistenceService,
     EvaluationProvenanceRequirement,
     MalformedDecisionEvidenceReconstructionIdentifierError,
@@ -28,6 +29,7 @@ from application.decision_evidence import (
     calculate_rag_retrieval_context_evidence_digest,
     calculate_trace_context_evidence_digest,
 )
+from application.persistence.di import ApplicationPersistenceDIProvider
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
     CompletedRunArchive,
@@ -49,6 +51,12 @@ from core.storage.persistence.rag import (
     RagChunkRecord,
     RagDocumentRecord,
     RagQueryLogRecord,
+)
+from core.storage.persistence.repositories import (
+    PostgresDecisionEvidencePacketRepository,
+    PostgresEvaluationPersistenceRepository,
+    PostgresRagPersistenceRepository,
+    PostgresTelemetryPersistenceRepository,
 )
 from core.storage.persistence.telemetry import TelemetryTraceRecord
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
@@ -919,6 +927,79 @@ async def test_reconstruction_failure_emits_canonical_telemetry() -> None:
     assert event.attributes["risk_tier"] == "enhanced"
     assert event.attributes["retention_policy_id"] == "enhanced-provenance-5y"
     assert event.payload["error_type"] == "StaleDecisionEvidenceSourceError"
+
+
+@pytest.mark.asyncio
+async def test_persistence_di_reconstruction_failure_emits_telemetry() -> None:
+    provider = ApplicationPersistenceDIProvider()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+
+    service = provider.provide_decision_evidence_packet_persistence_service(
+        repository=cast(PostgresDecisionEvidencePacketRepository, repository),
+        completed_run_archive=FakeCompletedRunArchive(None),
+        rag_repository=cast(
+            PostgresRagPersistenceRepository,
+            FakeRagEvidenceSourceRepository(),
+        ),
+        evaluation_repository=cast(
+            PostgresEvaluationPersistenceRepository,
+            FakeEvaluationProvenanceRepository(),
+        ),
+        trace_repository=cast(
+            PostgresTelemetryPersistenceRepository,
+            FakeTelemetryTraceSourceRepository(),
+        ),
+        application_service_telemetry=ApplicationServiceTelemetry(observability),
+    )
+
+    with pytest.raises(DecisionEvidencePacketNotFoundError):
+        await service.reconstruct_packet("missing-packet")
+
+    failure_events = [
+        event
+        for event in sink.events
+        if event.event_type == "application.service.failed"
+    ]
+    assert len(failure_events) == 1
+    event = failure_events[0]
+    assert (
+        event.attributes["service_name"] == "DecisionEvidencePacketPersistenceService"
+    )
+    assert event.attributes["request_name"] == "DecisionEvidencePacketReconstruction"
+    assert event.attributes["operation"] == "decision_evidence_packet_reconstruction"
+    assert event.attributes["packet_id"] == "missing-packet"
+    assert event.payload["error_type"] == "DecisionEvidencePacketNotFoundError"
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_failure_logs_when_telemetry_dependency_omitted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(None),
+    )
+
+    with caplog.at_level("WARNING"):
+        with pytest.raises(DecisionEvidencePacketNotFoundError):
+            await service.reconstruct_packet("missing-packet")
+
+    missing_telemetry_logs = [
+        record
+        for record in caplog.records
+        if record.message
+        == "Decision evidence packet reconstruction telemetry is not configured."
+    ]
+    assert len(missing_telemetry_logs) == 1
+    assert missing_telemetry_logs[0].packet_id == "missing-packet"
+    assert (
+        missing_telemetry_logs[0].operation == "decision_evidence_packet_reconstruction"
+    )
+    assert missing_telemetry_logs[0].error_type == "DecisionEvidencePacketNotFoundError"
 
 
 @pytest.mark.asyncio

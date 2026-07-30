@@ -41,6 +41,9 @@ from core.storage.persistence.repositories import (
     PostgresStrategyPersistenceRepository,
     PostgresTelemetryPersistenceRepository,
 )
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
 from core.telemetry.observability import ObservabilityManager
 
 
@@ -184,6 +187,7 @@ class ApplicationPersistenceDIProvider(Provider):
         rag_repository: PostgresRagPersistenceRepository,
         evaluation_repository: PostgresEvaluationPersistenceRepository,
         trace_repository: PostgresTelemetryPersistenceRepository,
+        application_service_telemetry: ApplicationServiceTelemetry,
     ) -> DecisionEvidencePacketPersistenceService:
         return DecisionEvidencePacketPersistenceService(
             repository=repository,
@@ -191,6 +195,7 @@ class ApplicationPersistenceDIProvider(Provider):
             evaluation_repository=evaluation_repository,
             rag_repository=rag_repository,
             trace_repository=trace_repository,
+            telemetry=application_service_telemetry,
         )
 
     @provide

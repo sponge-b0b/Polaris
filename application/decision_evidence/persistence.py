@@ -247,6 +247,14 @@ class DecisionEvidencePacketPersistenceService:
     ) -> None:
         telemetry = self.telemetry
         if telemetry is None:
+            logger.warning(
+                "Decision evidence packet reconstruction telemetry is not configured.",
+                extra={
+                    "packet_id": packet_id,
+                    "operation": "decision_evidence_packet_reconstruction",
+                    "error_type": type(error).__name__,
+                },
+            )
             return
         try:
             await telemetry.emit_service_failed(

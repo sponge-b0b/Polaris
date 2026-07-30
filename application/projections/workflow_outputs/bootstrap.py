@@ -90,6 +90,9 @@ from core.storage.persistence.repositories.postgres_strategy_persistence_reposit
 from core.storage.persistence.repositories.postgres_workflow_output_projection_job_repository import (  # noqa: E501 - canonical module path
     PostgresWorkflowOutputProjectionJobRepository,
 )
+from core.telemetry.emitters.application_service_telemetry import (
+    ApplicationServiceTelemetry,
+)
 from core.telemetry.observability.observability_manager import ObservabilityManager
 
 ProjectionSessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -177,6 +180,9 @@ class PostgresWorkflowOutputProjectionCoordinator:
                 evaluation_repository=PostgresEvaluationPersistenceRepository(session),
                 rag_repository=PostgresRagPersistenceRepository(session),
                 trace_repository=PostgresTelemetryPersistenceRepository(session),
+                telemetry=None
+                if self._observability_manager is None
+                else ApplicationServiceTelemetry(self._observability_manager),
             )
         )
         claim_binding_service = DecisionEvidenceClaimBindingService(

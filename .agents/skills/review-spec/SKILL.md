@@ -49,16 +49,20 @@ Classification rules:
 
 ### 1. Pin the fixed point
 
-Whatever the user said is the fixed point — a commit SHA, branch name, tag,
-`main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
+The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden by the user. Follow these steps to resolve and validate it:
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so
-the comparison is against the merge-base). Also note the list of commits via
-`git log <fixed-point>..HEAD --oneline`.
-
-Before going further, confirm the fixed point resolves (`git rev-parse
-<fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail
-here — not inside two parallel sub-agents.
+1. **Extract Baseline Metadata**: Query the parent spec issue using the GitHub CLI (`gh issue view <spec_issue_number>`) to automatically parse and extract the **Baseline Commit Hash** stored in its description layout.
+2. **Fallback**: If the metadata is missing from the issue body and the user did not explicitly specify a commit SHA, branch name, tag, or relative ref (e.g., `main`, `HEAD~5`), ask the user for it directly.
+3. **Verify Execution Path**: Ensure you are executing commands inside the correct **Worktree Root Path** matching that spec workspace (`spec-<spec_issue_number>`).
+4. **Validate the Ref**: Confirm the extracted or provided fixed point resolves locally by running:
+   ```bash
+   git rev-parse <fixed-point>
+   ```
+   *If the ref is bad or fails to resolve, halt execution immediately with a clear error message.*
+5. **Capture Diff and Log**: Once validated, capture the targeted differential context since development started:
+   * **The Diff**: Run `git diff <fixed-point>...HEAD` (three-dot comparison to evaluate strictly against the merge-base).
+   * **The Commit Log**: Run `git log <fixed-point>..HEAD --oneline` to note the exact list of commits authored within this spec worktree.
+6. **Pre-Flight Check**: Verify that the generated diff is non-empty. An empty diff or unresolved ref must fail immediately here—never inside down-stream parallel sub-agents. Use this comprehensive diff as the primary source of truth to review if the aggregate changes accurately satisfy the parent specification goals.
 
 ### 2. Identify the spec source
 
@@ -212,9 +216,29 @@ If the user/owner explicitly authorizes or rejects a finding:
 
 ### 5. The Exit Gate
 
-You are authorized to log a closing comment and **Close** the parent "Spec
-Review" issue when a complete audit run returns exactly zero **Blocking**
-findings.
+You are authorized to log a closing comment, **Close** the provided "Spec" issue this review is based on and **Close** the parent "Spec Review" issue when a complete audit run returns exactly zero **Blocking** findings.
 
-Advisory findings may remain documented without preventing closure. Owner-
-overridden findings must remain suppressed in future review passes.
+Advisory findings may remain documented without preventing closure. Owner-overridden findings must remain suppressed in future review passes.
+
+Once all issues are closed successfully, you must clean up and breakdown the workspace using best-practice branch safety procedures. If no isolated git worktree was created for this spec, halt the cleanup immediately as there is nothing to process.
+
+1. **Detect Worktree Existence**: Run `git worktree list` or check for the directory `../worktrees/spec-<spec_issue_number>` to determine if an isolated worktree was used for this spec.
+   * **If NO worktree is found**: Exit the cleanup workflow immediately. No further actions are required.
+   * **If a worktree IS found**: Proceed directly to the subsequent steps below.
+2. **Verify Remote Sync**: Ensure all local progress within the worktree has been fully pushed up to the public remote repository before any destructive actions. Run:
+   ```bash
+   git push origin spec-<spec_issue_number>
+   ```
+3. **Pivot Out**: Move your active terminal session execution path entirely out of the worktree directory back into the main primary repository directory.
+4. **Remove Worktree**: Safely unmount and clean the spec workspace files from disk by executing:
+   ```bash
+   git worktree remove ../worktrees/spec-<spec_issue_number>
+   ```
+5. **Delete Local Branch**: Delete the development branch locally using the safe deletion flag `-d`. This ensures Git will double-check that your work is successfully merged upstream before allowing destruction:
+   ```bash
+   git branch -d spec-<spec_issue_number>
+   ```
+6. **Prune References**: Force Git to prune dead backend tracking references to keep internal metadata organized:
+   ```bash
+   git worktree prune
+   ```

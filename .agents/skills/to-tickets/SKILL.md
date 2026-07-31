@@ -7,7 +7,6 @@ disable-model-invocation: true
 # To Tickets
 
 Break a plan, spec, or conversation into a set of **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
-
 The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
 
 ## Process
@@ -105,6 +104,21 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
 
 Work the frontier one ticket at a time with `/implement-ticket`, clearing context between tickets.
+
+## Spec Workspace Isolation Rule
+Unless overridden by the user, you MUST initialize a dedicated Git worktree to isolate all development work tied to this spec after breaking the provided parent specification issue down into sub-tickets and publishing them to the configured tracker. This ensures that all work is done in a clean, isolated environment, preventing accidental changes to unrelated parts of the codebase:
+
+1. **Extract Spec ID**: Parse the issue number of the parent specification issue (`<spec_issue_number>`).
+2. **Name the Environment**: Construct the target branch and folder identity as `spec-<spec_issue_number>`.
+3. **Capture Baseline**: Record the current baseline Git commit hash of the target branch (e.g., `main`).
+4. **Initialize Worktree**: Spin up the isolated workspace by executing:
+   ```bash
+   git worktree add ../worktrees/spec-<spec_issue_number> -b spec-<spec_issue_number> main
+   ```
+5. **Update Parent Issue via GitHub CLI**: Use the `gh` CLI tool to append workspace metadata directly to the parent specification description. Create a clean markdown section at the bottom of the spec issue containing:
+   * **Baseline Commit Hash**: The exact fixed commit hash snapshot.
+   * **Worktree Root Path**: The relative or absolute file directory pointing to the workspace folder.
+6. **Pivot Execution**: Pivot your active terminal session execution path into `../worktrees/spec-<spec_issue_number>` to perform all subsequent ticket-generation and code-implementation tasks.
 
 ## Delta Slicing Rules (For Re-Review Headers)
 

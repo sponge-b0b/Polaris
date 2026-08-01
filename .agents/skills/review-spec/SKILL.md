@@ -1,7 +1,7 @@
 ---
 name: review-spec
-description: Review the changes of the provided spec since a fixed point (commit, branch, tag, or merge-base). Review the spec along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Run both reviews in parallel sub-agents and report them side by side.
-compatibility: product=codex product=claude-code system=git system=python network=none
+description: Review the changes of the provided spec since a fixed point (commit, branch, tag, or merge-base). Review the spec along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Run both reviews in parallel sub-agents and report them side by side. On a clean pass (zero Blocking findings), also merges the spec branch into `main` via PR and tears down the isolated worktree.
+compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
@@ -160,8 +160,20 @@ promote or ticket them.
   `Spec Review: <Feature Name>`.
 - Populate the description field with the aggregated breakdown of Blocking and
   Advisory findings, clearly separated.
-- Natively link or cross-reference this new tracking issue to the original
-  project Specification issue.
+- Link this new tracking issue back to the original project Specification issue
+  using a **fixed, parseable format** — the first line of the body must be:
+  `**Parent Spec:** #<spec_issue_number>`. This isn't just a human-readable
+  cross-reference: `/to-tickets` parses this exact line when it's later handed
+  this Spec Review issue during a remediation re-invocation, to resolve which
+  spec's worktree to reuse rather than accidentally branching a new one off
+  `main`. Do not substitute a differently-worded reference, a GitHub "Tracked
+  by" relationship, or a plain `#<n>` mention elsewhere in the body — none of
+  those are what the parser looks for.
+  ```bash
+  gh issue create \
+    --title "Spec Review: <Feature Name>" \
+    --body "$(printf '**Parent Spec:** #%s\n\n%s' "<spec_issue_number>" "$AGGREGATED_FINDINGS_BODY")"
+  ```
 
 ### 2. The Human Handoff Intercept
 
@@ -200,7 +212,11 @@ remediation tickets, perform a bounded re-review:
   missed because a previous blocker hid the code path.
 - Open the existing parent "Spec Review" issue and append new Blocking or useful
   Advisory findings to the bottom of the body under a fresh, dated header:
-  `## Re-review Findings [YYYY-MM-DD HH:MM]`.
+  `## Re-review Findings [YYYY-MM-DD HH:MM]`. Read the current body and write
+  back the original content plus the new section — do not replace it with only
+  the new section, or the `**Parent Spec:** #<n>` line from Step 1 above is
+  lost, and `/to-tickets` will no longer be able to resolve which worktree to
+  reuse on the next remediation pass.
 - Re-trigger the **Human Handoff Intercept** block only when Blocking findings
   remain.
 
@@ -216,29 +232,139 @@ If the user/owner explicitly authorizes or rejects a finding:
 
 ### 5. The Exit Gate
 
-You are authorized to log a closing comment, **Close** the provided "Spec" issue this review is based on and **Close** the parent "Spec Review" issue when a complete audit run returns exactly zero **Blocking** findings.
+You are authorized to proceed to the Merge & Teardown workflow — **not** to close the "Spec" issue directly — when a complete audit run returns exactly zero **Blocking** findings.
 
-Advisory findings may remain documented without preventing closure. Owner-overridden findings must remain suppressed in future review passes.
+Advisory findings may remain documented without preventing progression. Owner-overridden findings must remain suppressed in future review passes.
 
-Once all issues are closed successfully, you must clean up and breakdown the workspace using best-practice branch safety procedures. If no isolated git worktree was created for this spec, halt the cleanup immediately as there is nothing to process.
+Do **not** close the "Spec" issue at this gate. It is closed either automatically when the merge PR lands (Phase A, via `Closes #<spec_issue_number>` in the PR body), or explicitly by the routing step at the start of the next section if this spec has no branch — and therefore no PR — to merge at all. Closing it here — before either of those is confirmed — would mark the issue done even if the merge is later halted, fails, or never happens.
 
-1. **Detect Worktree Existence**: Run `git worktree list` or check for the directory `../worktrees/spec-<spec_issue_number>` to determine if an isolated worktree was used for this spec.
-   * **If NO worktree is found**: Exit the cleanup workflow immediately. No further actions are required.
-   * **If a worktree IS found**: Proceed directly to the subsequent steps below.
-2. **Verify Remote Sync**: Ensure all local progress within the worktree has been fully pushed up to the public remote repository before any destructive actions. Run:
+Do **not** close the parent "Spec Review" issue here either. That closure happens only once one of the two paths below has fully completed — at the end of Phase B for the standard PR path, or immediately within the routing step for the no-branch path — **and only if a Spec Review issue exists for this spec** in either case. This keeps both issues' closed state aligned with verified completion, not with the audit decision alone.
+
+## Spec Merge & Workspace Teardown Rule
+
+This runs only once the Exit Gate above has authorized it — i.e., this review's own aggregate audit returned exactly zero **Blocking** findings. From here, execution splits into two paths depending on whether this spec actually used the standard worktree/branch pattern.
+
+### Step 0 — Route: Standard Path vs. Direct-Close Path
+
+The setup skill creates the branch and the worktree together, atomically, in a single `git worktree add -b spec-<spec_issue_number> ...` command — there is no path where one exists without the other under normal operation. If the user overrode worktree isolation for this spec, neither the branch nor the worktree exist — which also means **there is no PR that will ever exist to auto-close the Spec issue**. On this path, closure has to happen explicitly, right here, rather than being deferred to a PR merge that isn't coming:
+
+```bash
+if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
+   ! git ls-remote --exit-code --heads origin "spec-<spec_issue_number>" >/dev/null 2>&1; then
+
+  echo "No spec-<spec_issue_number> branch found locally or on origin — this spec didn't use the standard worktree/branch pattern (likely overridden). No PR will ever exist for it, so close both issues explicitly rather than relying on auto-close."
+
+  # No PR exists or ever will for this spec, so the Spec issue must be closed
+  # explicitly here rather than relying on a PR's "Closes #<n>" trigger.
+  gh issue close <spec_issue_number> --comment "Spec work completed and reviewed directly (no isolated worktree/branch was used for this spec). Zero blocking findings on final review."
+
+  # Same conditional as Phase B Step 8 below — a Spec Review issue only exists if
+  # this spec required at least one remediation loop (see Remediation Loop, Step 1).
+  if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
+    gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" --comment "Spec #<spec_issue_number> closed directly (no worktree/branch pattern was used for this spec). Zero blocking findings on final review."
+  else
+    echo "No Spec Review issue was created for this spec (passed on the first review) — nothing to close."
+  fi
+
+  exit 0
+fi
+```
+
+If the branch was found, continue to Phase A below — the standard PR-merge path closes both issues at their respective points instead: the Spec issue via the PR's `Closes #<spec_issue_number>` in Phase A, and the Spec Review issue explicitly in Phase B's Finalize step.
+
+### Phase A — Merge to Main
+
+1. **Confirm Precondition**: Do not proceed unless the Exit Gate above authorized it for `spec-<spec_issue_number>` — i.e., this review's aggregate audit returned exactly zero Blocking findings. If Blocking findings remain, do not run this phase; follow the Human Handoff Intercept instead.
+2. **Push Final State**: Ensure everything committed in the worktree is on the remote (defensive — you should already be committing/pushing as you go per `/implement-ticket`, but this guards against any stragglers):
    ```bash
-   git push origin spec-<spec_issue_number>
+   WORKTREE_PATH=$(git rev-parse --show-toplevel)
+   git -C "$WORKTREE_PATH" push origin spec-<spec_issue_number>
    ```
-3. **Pivot Out**: Move your active terminal session execution path entirely out of the worktree directory back into the main primary repository directory.
-4. **Remove Worktree**: Safely unmount and clean the spec workspace files from disk by executing:
+3. **Create the PR (idempotent)**: Check for an existing open PR before creating a new one, so this step is safe to re-run:
    ```bash
-   git worktree remove ../worktrees/spec-<spec_issue_number>
+   EXISTING_PR=$(gh pr list --head spec-<spec_issue_number> --state open --json number -q '.[0].number')
+
+   if [ -z "$EXISTING_PR" ]; then
+     SPEC_TITLE=$(gh issue view <spec_issue_number> --json title -q .title)
+     gh pr create \
+       --base main \
+       --head spec-<spec_issue_number> \
+       --title "Spec #<spec_issue_number>: ${SPEC_TITLE}" \
+       --body "Closes #<spec_issue_number>"
+   fi
    ```
-5. **Delete Local Branch**: Delete the development branch locally using the safe deletion flag `-d`. This ensures Git will double-check that your work is successfully merged upstream before allowing destruction:
+   The `Closes #<spec_issue_number>` line auto-closes the parent spec issue the moment this PR merges.
+4. **Merge the PR**: Use a regular merge commit — **not squash** — so commit ancestry is preserved. This matters because Phase B's `git branch -d` (Step 5 below) relies on ancestry to verify the branch is safely mergeable before deleting it; a squash merge would break that check permanently.
+   ```bash
+   PR_NUMBER=$(gh pr list --head spec-<spec_issue_number> --state open --json number -q '.[0].number')
+   gh pr merge "$PR_NUMBER" --merge
+   ```
+   Deliberately **not** using `--delete-branch` here — its interaction with a branch that's currently checked out in a separate worktree isn't reliable, and could fail the whole command even after a successful merge. Remote branch deletion is handled explicitly in Phase B instead, once we're safely out of the worktree.
+5. **Verify Merge Succeeded**: Do not proceed to teardown on a failed or unmerged PR:
+   ```bash
+   MERGED_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
+   if [ "$MERGED_STATE" != "MERGED" ]; then
+     echo "❌ PR #$PR_NUMBER did not merge (state: $MERGED_STATE). Halting before teardown — resolve manually."
+     exit 1
+   fi
+   ```
+
+### Phase B — Workspace Cleanup
+
+Only reached if Phase A confirmed a successful merge.
+
+1. **Detect Worktree Existence and Resolve Paths**: The Shared Precondition Check above already confirmed the branch exists; this re-check of the worktree specifically is a secondary safety net, not the primary gate:
+   ```bash
+   WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null)
+   MAIN_REPO_PATH=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+
+   if ! git worktree list | grep -q "spec-<spec_issue_number>"; then
+     echo "No worktree found for spec-<spec_issue_number>. Nothing to clean up."
+     exit 0
+   fi
+   ```
+2. **Pivot Out**: Move the active terminal session back into the main repository directory:
+   ```bash
+   PROJECT_NAME=$(basename "$MAIN_REPO_PATH")
+   VAR_NAME="${PROJECT_NAME^^}_ROOT"
+   VAR_NAME="${VAR_NAME//-/_}"
+
+   echo "🚀 Merge confirmed. Moving back to project root (${VAR_NAME}=${MAIN_REPO_PATH})..."
+
+   # Resolved directly from Git in Step 1 above — not from a persisted env var,
+   # which may not exist in this shell session (see note in the setup skill).
+   cd "$MAIN_REPO_PATH"
+
+   echo "📍 Currently back in: $(pwd)"
+   git status -s
+   ```
+3. **Sync Local Main**: Make sure `main` is actually checked out before pulling — don't assume the current branch — then pull down the merge you just made so it's reflected before branch deletion is evaluated against it:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+4. **Remove Worktree**:
+   ```bash
+   git worktree remove "$WORKTREE_PATH"
+   ```
+5. **Delete Local Branch**: This should now succeed cleanly — the merge commit in Step 4 of Phase A preserved ancestry, so Git can verify it:
    ```bash
    git branch -d spec-<spec_issue_number>
    ```
-6. **Prune References**: Force Git to prune dead backend tracking references to keep internal metadata organized:
+   If this fails, treat it as a signal to stop and investigate — do not force it with `-D`.
+6. **Delete Remote Branch**: Safe to do unconditionally here, since Phase A already confirmed the PR merged:
+   ```bash
+   git push origin --delete spec-<spec_issue_number>
+   ```
+7. **Prune References**:
    ```bash
    git worktree prune
+   ```
+8. **Finalize: Close the Spec Review Issue (if one exists)**: Only reached if every step above succeeded. A "Spec Review" issue only exists if this spec required at least one remediation loop — created in the *First-Pass Failure* step (Remediation Loop, Step 1), or reused across *Recursive Passes* (Step 3). If the audit returned zero Blocking findings on the very first pass, no such issue was ever created, and this step should be skipped entirely — there's nothing to close. The Spec issue itself is already closed automatically via the PR's `Closes #<spec_issue_number>`; the Spec Review issue has no equivalent automatic trigger, so it must be closed explicitly when it exists. (For specs with no branch/worktree, this same closure already happened in Step 0's routing check above, and this step is never reached.):
+   ```bash
+   if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
+     gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" --comment "Spec merged (PR #$PR_NUMBER) and workspace cleaned up. Zero blocking findings on final review."
+   else
+     echo "No Spec Review issue was created for this spec (passed on the first review) — nothing to close."
+   fi
    ```

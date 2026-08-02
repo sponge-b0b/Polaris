@@ -93,6 +93,34 @@ class UnsupportedDecisionEvidenceReferenceError(
     """Raised when no canonical validator exists for a reconstruction reference."""
 
 
+class TamperedDecisionEvidenceSourceError(DecisionEvidencePacketReconstructionError):
+    """Raised when canonical source record content is internally inconsistent."""
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalDomainSourceRecord:
+    """Verifiable identity metadata for a canonical domain source record."""
+
+    record_id: str
+    source_of_truth: SourceOfTruthCategory = (
+        SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    )
+    content_digest: str | None = None
+    snapshot_id: str | None = None
+    version: str | None = None
+    snapshot_payload: Mapping[str, object] | None = None
+
+
+class CanonicalDomainRecordRepository(Protocol):
+    """Read model needed to verify generic canonical domain records."""
+
+    async def get_canonical_domain_record(
+        self,
+        record_id: str,
+    ) -> CanonicalDomainSourceRecord | None:
+        """Load canonical domain record identity metadata by id."""
+
+
 class EvaluationProvenanceRepository(Protocol):
     """Read model needed to verify canonical evaluation provenance sources."""
 
@@ -147,6 +175,10 @@ class DecisionEvidencePacketPersistenceService:
         repr=False,
     )
     trace_repository: TelemetryTraceSourceRepository | None = field(
+        default=None,
+        repr=False,
+    )
+    canonical_domain_record_repository: CanonicalDomainRecordRepository | None = field(
         default=None,
         repr=False,
     )
@@ -344,7 +376,7 @@ class DecisionEvidencePacketPersistenceService:
         elif reference.kind is ReconstructionReferenceKind.EVALUATION_METRIC_RESULT:
             await self._validate_evaluation_metric_result(reference)
         elif reference.kind is ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD:
-            _validate_canonical_domain_record_reference(reference)
+            await self._validate_canonical_domain_record_reference(reference)
         elif reference.kind is ReconstructionReferenceKind.RAG_RETRIEVAL_CONTEXT:
             await self._validate_rag_retrieval_context(reference)
         elif reference.kind is ReconstructionReferenceKind.RAG_CITATION_CONTEXT:
@@ -492,6 +524,30 @@ class DecisionEvidencePacketPersistenceService:
                 "evaluation metric result evidence content digest is stale for "
                 f"'{reference.record_id}'."
             )
+
+    async def _validate_canonical_domain_record_reference(
+        self,
+        reference: ReconstructionReference,
+    ) -> None:
+        _validate_canonical_domain_record_reference(reference)
+        repository = self.canonical_domain_record_repository
+        if repository is None:
+            raise MissingDecisionEvidenceSourceError(
+                "canonical domain record repository is required to reconstruct "
+                f"source record '{reference.record_id}'."
+            )
+
+        source_record = await repository.get_canonical_domain_record(
+            reference.record_id,
+        )
+        if source_record is None:
+            raise MissingDecisionEvidenceSourceError(
+                f"canonical domain source record '{reference.record_id}' was not found."
+            )
+        _validate_canonical_domain_record_identity(
+            reference=reference,
+            source_record=source_record,
+        )
 
     async def _validate_rag_retrieval_context(
         self,
@@ -1132,6 +1188,104 @@ def _validate_canonical_domain_record_reference(
         expected=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
         label="canonical domain record reconstruction reference",
     )
+
+
+def _validate_canonical_domain_record_identity(
+    *,
+    reference: ReconstructionReference,
+    source_record: CanonicalDomainSourceRecord,
+) -> None:
+    if source_record.record_id != reference.record_id:
+        raise SubstitutedDecisionEvidenceSourceError(
+            "canonical domain record evidence does not match reconstruction "
+            f"identifier '{reference.record_id}'."
+        )
+    if (
+        source_record.source_of_truth
+        is not SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    ):
+        raise SubstitutedDecisionEvidenceSourceError(
+            "canonical domain record evidence has non-canonical source of truth "
+            f"'{source_record.source_of_truth.value}'."
+        )
+
+    _validate_canonical_domain_record_payload_digest(
+        reference=reference,
+        source_record=source_record,
+    )
+    digest_verified = _validate_canonical_domain_record_digest(
+        reference=reference,
+        source_record=source_record,
+    )
+    snapshot_verified = _validate_canonical_domain_record_snapshot(
+        reference=reference,
+        source_record=source_record,
+    )
+    if not digest_verified and not snapshot_verified:
+        raise MalformedDecisionEvidenceReconstructionIdentifierError(
+            "canonical domain record reconstruction reference must include a "
+            "content digest, version, or snapshot identifier."
+        )
+
+
+def _validate_canonical_domain_record_payload_digest(
+    *,
+    reference: ReconstructionReference,
+    source_record: CanonicalDomainSourceRecord,
+) -> None:
+    if source_record.snapshot_payload is None or source_record.content_digest is None:
+        return
+    payload_digest = _stable_content_digest(source_record.snapshot_payload)
+    if payload_digest != source_record.content_digest:
+        raise TamperedDecisionEvidenceSourceError(
+            "canonical domain source record content digest does not match "
+            f"retained source content for '{reference.record_id}'."
+        )
+
+
+def _validate_canonical_domain_record_digest(
+    *,
+    reference: ReconstructionReference,
+    source_record: CanonicalDomainSourceRecord,
+) -> bool:
+    if reference.content_digest is None:
+        return False
+    if source_record.content_digest is None:
+        raise StaleDecisionEvidenceSourceError(
+            "canonical domain source record does not expose the required "
+            f"content digest for '{reference.record_id}'."
+        )
+    if source_record.content_digest != reference.content_digest:
+        raise StaleDecisionEvidenceSourceError(
+            "canonical domain record evidence content digest is stale for "
+            f"'{reference.record_id}'."
+        )
+    return True
+
+
+def _validate_canonical_domain_record_snapshot(
+    *,
+    reference: ReconstructionReference,
+    source_record: CanonicalDomainSourceRecord,
+) -> bool:
+    if reference.snapshot_id is None:
+        return False
+    valid_source_snapshots = tuple(
+        value
+        for value in (source_record.snapshot_id, source_record.version)
+        if value is not None
+    )
+    if not valid_source_snapshots:
+        raise StaleDecisionEvidenceSourceError(
+            "canonical domain source record does not expose the required "
+            f"version or snapshot identifier for '{reference.record_id}'."
+        )
+    if reference.snapshot_id not in valid_source_snapshots:
+        raise StaleDecisionEvidenceSourceError(
+            "canonical domain record evidence version or snapshot is stale for "
+            f"'{reference.record_id}'."
+        )
+    return True
 
 
 def _validate_rag_retrieval_context_reference(

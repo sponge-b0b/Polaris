@@ -8,6 +8,7 @@ from typing import cast
 import pytest
 
 from application.decision_evidence import (
+    CanonicalDomainSourceRecord,
     CompletedWorkflowEvidencePacketAssembler,
     CompletedWorkflowEvidencePacketAssemblyRequest,
     CompletedWorkflowNodeEvidenceRequirement,
@@ -21,6 +22,7 @@ from application.decision_evidence import (
     StaleDecisionEvidenceSourceError,
     SubstitutedDecisionEvidenceSourceError,
     TamperedDecisionEvidenceSnapshotError,
+    TamperedDecisionEvidenceSourceError,
     calculate_completed_workflow_node_evidence_digest,
     calculate_evaluation_artifact_evidence_digest,
     calculate_evaluation_metric_result_evidence_digest,
@@ -143,6 +145,7 @@ async def test_persists_unresolved_conflicting_evidence_classification() -> None
                 kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
                 record_id="market-snapshot:SPY:2026-07-25",
                 source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                content_digest="digest-conflict-record",
             ),
         ),
     )
@@ -150,6 +153,14 @@ async def test_persists_unresolved_conflicting_evidence_classification() -> None
     service = DecisionEvidencePacketPersistenceService(
         repository=repository,
         completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(
+                _canonical_domain_source_record(
+                    record_id="market-snapshot:SPY:2026-07-25",
+                    content_digest="digest-conflict-record",
+                ),
+            ),
+        ),
     )
 
     result = await service.persist_packet(packet)
@@ -221,6 +232,9 @@ async def test_reconstruction_accepts_all_canonical_reference_kinds() -> None:
         evaluation_repository=FakeEvaluationProvenanceRepository(
             runs=(evaluation_run,),
             metric_results=(metric_result,),
+        ),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(_canonical_domain_source_record(),),
         ),
     )
 
@@ -318,10 +332,178 @@ async def test_reconstruction_validates_non_workflow_canonical_sources() -> None
             query_logs=(_rag_query_log(context_payload=rag_context_payload),),
         ),
         trace_repository=FakeTelemetryTraceSourceRepository(traces=(trace,)),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(_canonical_domain_source_record(),),
+        ),
     )
 
     await service.persist_packet(packet)
     reconstructed = await service.reconstruct_packet("packet-all-reference-kinds")
+
+    assert reconstructed == packet
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_source_verifies_canonical_domain_record() -> None:
+    reference = _canonical_domain_record_reference(snapshot_id="record-version-1")
+    packet = _canonical_domain_packet(reference=reference)
+    canonical_repository = FakeCanonicalDomainRecordRepository(
+        records=(
+            _canonical_domain_source_record(
+                content_digest=reference.content_digest,
+                version="record-version-1",
+            ),
+        ),
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=canonical_repository,
+    )
+
+    await service.persist_packet(packet)
+    reconstructed = await service.reconstruct_packet("packet-canonical-record")
+
+    assert reconstructed == packet
+    assert canonical_repository.requested_record_ids == ("strategy-decision-1",)
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_missing_canonical_domain_record() -> None:
+    packet = _canonical_domain_packet(
+        materiality=ClaimMaterialityTier.CONTEXTUAL,
+        support_snapshot=None,
+    )
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        MissingDecisionEvidenceSourceError,
+        match="canonical domain source record 'strategy-decision-1' was not found",
+    ):
+        await service.reconstruct_packet("packet-canonical-record")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_stale_canonical_domain_record_version() -> None:
+    reference = _canonical_domain_record_reference(snapshot_id="record-version-1")
+    packet = _canonical_domain_packet(reference=reference)
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(
+                _canonical_domain_source_record(
+                    content_digest=reference.content_digest,
+                    version="record-version-2",
+                ),
+            ),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="version or snapshot is stale",
+    ):
+        await service.reconstruct_packet("packet-canonical-record")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_substituted_canonical_domain_record() -> None:
+    packet = _canonical_domain_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records_by_lookup={
+                "strategy-decision-1": _canonical_domain_source_record(
+                    record_id="strategy-decision-2",
+                ),
+            },
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        SubstitutedDecisionEvidenceSourceError,
+        match="does not match reconstruction identifier",
+    ):
+        await service.reconstruct_packet("packet-canonical-record")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_tampered_canonical_domain_record() -> None:
+    packet = _canonical_domain_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(
+                _canonical_domain_source_record(
+                    snapshot_payload={
+                        "record_id": "strategy-decision-1",
+                        "decision": "tampered",
+                    },
+                ),
+            ),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        TamperedDecisionEvidenceSourceError,
+        match="content digest does not match retained source content",
+    ):
+        await service.reconstruct_packet("packet-canonical-record")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_reports_canonical_domain_record_digest_mismatch() -> None:
+    packet = _canonical_domain_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(
+                _canonical_domain_source_record(
+                    content_digest="digest-canonical-record-v2",
+                ),
+            ),
+        ),
+    )
+    await service.persist_packet(packet)
+
+    with pytest.raises(
+        StaleDecisionEvidenceSourceError,
+        match="content digest is stale",
+    ):
+        await service.reconstruct_packet("packet-canonical-record")
+
+
+@pytest.mark.asyncio
+async def test_reconstruction_allows_canonical_domain_record_snapshot_fallback() -> (
+    None
+):
+    packet = _canonical_domain_packet()
+    repository = InMemoryDecisionEvidencePacketRepository()
+    service = DecisionEvidencePacketPersistenceService(
+        repository=repository,
+        completed_run_archive=FakeCompletedRunArchive(_bundle()),
+    )
+    await service.persist_packet(packet)
+
+    reconstructed = await service.reconstruct_packet("packet-canonical-record")
 
     assert reconstructed == packet
 
@@ -591,6 +773,9 @@ async def test_reconstruction_reports_missing_rag_source_without_snapshot() -> N
             metric_results=(metric_result,),
         ),
         rag_repository=FakeRagEvidenceSourceRepository(),
+        canonical_domain_record_repository=FakeCanonicalDomainRecordRepository(
+            records=(_canonical_domain_source_record(),),
+        ),
     )
     contextual_packet = replace(
         packet,
@@ -1168,6 +1353,26 @@ class FakeCompletedRunArchive(CompletedRunArchive):
         return 0
 
 
+class FakeCanonicalDomainRecordRepository:
+    def __init__(
+        self,
+        *,
+        records: tuple[CanonicalDomainSourceRecord, ...] = (),
+        records_by_lookup: Mapping[str, CanonicalDomainSourceRecord] | None = None,
+    ) -> None:
+        self.records = {record.record_id: record for record in records}
+        if records_by_lookup is not None:
+            self.records.update(records_by_lookup)
+        self.requested_record_ids: tuple[str, ...] = ()
+
+    async def get_canonical_domain_record(
+        self,
+        record_id: str,
+    ) -> CanonicalDomainSourceRecord | None:
+        self.requested_record_ids = (*self.requested_record_ids, record_id)
+        return self.records.get(record_id)
+
+
 class FakeEvaluationProvenanceRepository:
     def __init__(
         self,
@@ -1349,6 +1554,92 @@ def _assembly_request(
             policy_id="enhanced-provenance-5y",
         ),
         evaluation_provenance=evaluation_provenance,
+    )
+
+
+def _canonical_domain_record_reference(
+    *,
+    record_id: str = "strategy-decision-1",
+    content_digest: str | None = "digest-canonical-record",
+    snapshot_id: str | None = None,
+) -> ReconstructionReference:
+    return ReconstructionReference(
+        reference_id="canonical-record",
+        kind=ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD,
+        record_id=record_id,
+        source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        snapshot_id=snapshot_id,
+        content_digest=content_digest,
+    )
+
+
+def _canonical_domain_source_record(
+    *,
+    record_id: str = "strategy-decision-1",
+    content_digest: str | None = "digest-canonical-record",
+    snapshot_id: str | None = None,
+    version: str | None = None,
+    source_of_truth: SourceOfTruthCategory = (
+        SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    ),
+    snapshot_payload: Mapping[str, object] | None = None,
+) -> CanonicalDomainSourceRecord:
+    return CanonicalDomainSourceRecord(
+        record_id=record_id,
+        source_of_truth=source_of_truth,
+        content_digest=content_digest,
+        snapshot_id=snapshot_id,
+        version=version,
+        snapshot_payload=snapshot_payload,
+    )
+
+
+def _canonical_domain_packet(
+    *,
+    reference: ReconstructionReference | None = None,
+    materiality: ClaimMaterialityTier = ClaimMaterialityTier.READINESS_GATING,
+    support_snapshot: SupportingEvidenceSnapshot | None = None,
+) -> DecisionEvidencePacket:
+    reconstruction_reference = reference or _canonical_domain_record_reference()
+    if (
+        support_snapshot is None
+        and materiality is ClaimMaterialityTier.READINESS_GATING
+    ):
+        support_snapshot = SupportingEvidenceSnapshot(
+            snapshot_id="canonical-record:support-snapshot",
+            summary="Retained canonical record support snapshot.",
+            redacted_content='{"record_id":"strategy-decision-1"}',
+            source_label="canonical_record:strategy-decision-1",
+        )
+    return DecisionEvidencePacket(
+        packet_id="packet-canonical-record",
+        output_id="strategy-decision-1",
+        authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
+        claims=(
+            MaterialClaim(
+                claim_id="claim-canonical-record",
+                text="The canonical strategy decision is reconstructable.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("evidence-canonical-record",),
+                ),
+                materiality=materiality,
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id="evidence-canonical-record",
+                kind=EvidenceReferenceKind.CANONICAL_RECORD,
+                reconstruction_reference_ids=(reconstruction_reference.reference_id,),
+                summary="Canonical strategy decision record evidence.",
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                support_snapshot=support_snapshot,
+            ),
+        ),
+        reconstruction_references=(reconstruction_reference,),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-07-25T00:00:00Z",
+            policy_id="enhanced-provenance-5y",
+        ),
     )
 
 

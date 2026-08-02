@@ -74,6 +74,8 @@ Do NOT close or modify any parent issue. (This refers to the ticket-publishing s
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
 
+**Ticket branch:** the shared branch for this spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch name, or "None" when dedicated branch use was explicitly disabled.
+
 **Status:** ready-for-agent
 
 - [ ] Acceptance criterion 1

@@ -30,6 +30,9 @@ from core.storage.persistence.repositories.postgres_completed_run_repository imp
 from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresEvaluationPersistenceRepository,
 )
+from core.storage.persistence.repositories.postgres_governance_audit_repository import (
+    PostgresAutomatedDecisionAuditRepository,
+)
 from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceLineageLinkRepository,
 )
@@ -81,6 +84,7 @@ __all__ = [
     "PostgresAiObservabilityExportJobRepository",
     "PostgresAiArtifactPersistenceRepository",
     "PostgresEvaluationPersistenceRepository",
+    "PostgresAutomatedDecisionAuditRepository",
     "PortfolioStateRepository",
     "PostgresAgentIntelligencePersistenceRepository",
     "PostgresAgentSignalPersistenceRepository",

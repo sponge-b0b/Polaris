@@ -36,6 +36,10 @@ from core.database.models.evaluation import (
     EvaluationMetricResultModel,
     EvaluationRunModel,
 )
+from core.database.models.governance_audit import (
+    AutomatedGovernanceAuditRecordModel,
+    AutomatedPolicyAuditRecordModel,
+)
 from core.database.models.lineage import PersistenceLineageLinkModel
 from core.database.models.macro import (
     EconomicCalendarEventModel,
@@ -126,6 +130,8 @@ __all__ = [
     "BacktestRunModel",
     "BacktestScenarioModel",
     "BacktestStepModel",
+    "AutomatedGovernanceAuditRecordModel",
+    "AutomatedPolicyAuditRecordModel",
     "PersistenceAuditEventModel",
     "DecisionEvidencePacketModel",
     "CompletedWorkflowRunModel",

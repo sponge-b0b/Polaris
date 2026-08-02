@@ -2,7 +2,7 @@
 name: conventional-commits
 description: Enforces strict adherence to the Conventional Commits 1.0.0 specification for staging and saving changes. Use when a user asks to commit files, draft a git message, or finalize code tasks.
 license: MIT
-compatibility: product=claude-code product=codex system=git network=none
+compatibility: product=claude-code product=codex system=git network=required
 metadata:
   version: 1.0.0
   specification: conventional-commits-1.0.0

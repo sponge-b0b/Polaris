@@ -1,0 +1,5 @@
+interface:
+  display_name: "GitHub Issue Dependencies"
+  short_description: "Manage GitHub issue dependencies"
+policy:
+  allow_implicit_invocation: false

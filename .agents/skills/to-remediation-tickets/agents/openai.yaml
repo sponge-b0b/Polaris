@@ -1,0 +1,5 @@
+interface:
+  display_name: "To Remediation Tickets"
+  short_description: "Split a spec review into tracer-bullet remediation tickets"
+policy:
+  allow_implicit_invocation: false

@@ -4,7 +4,7 @@ description: Manage the entire database schema lifecycle, including script gener
 license: MIT
 compatibility: product=codex product=claude-code system=alembic system=postgresql network=none
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Database Migrations Skill
@@ -20,37 +20,112 @@ Before writing or executing any database schema modification:
 
 ## Execution Workflow
 
-### Step 1: Check Project Release Version & Apply Strategy
-You must check the current project release version prior to modifying or generating migration files:
-1. Locate the definitive version string (e.g., in `pyproject.toml` or active Git release tags).
-2. **Pre-1.0.0 Squashing Rule:** If the current project version is less than `1.0.0`, you MUST continuously squash revisions into a single clean baseline migration file per feature branch. 
-3. Inspect the existing `/migrations` or `alembic/versions` directory. If local modifications already exist on your active branch, alter the baseline file directly rather than appending a new sequential file node.
+### Step 1: Check Project Release Version & Select Strategy
 
-### Step 2: Generate or Append the Revision Script
-If a new revision is permitted by the version rules, run the automated generation tool via `uv`:
+Check the current project release version before modifying or generating
+migration files. The definitive source is `pyproject.toml` under
+`[project].version`; active Git release tags are secondary context.
+
+Apply this lifecycle policy:
+
+* **Before 1.0:** migrations created for an active feature are mutable until
+  that feature is merged or released. If the current feature already has an
+  unapplied/unreleased branch migration representing its schema work, modify
+  that migration instead of adding sequential corrective migrations. Do not
+  rewrite migration baselines belonging to previously merged features merely to
+  incorporate the current ticket. The squashed branch migration file must remain
+  tracked and committed so schema state syncs across environments.
+* **1.0 release preparation:** repository-wide squashing into the canonical
+  initial schema is a deliberate release operation after intended 1.0 feature
+  branches have landed. Validate a clean install and reset development/test
+  databases as necessary.
+* **After 1.0:** migration history is immutable. Never edit an applied or
+  released migration; every schema change gets a new migration.
+
+### Step 2: Identify the Target Migration File
+
+Inspect the migration history and the active branch before editing schema
+files:
+
 ```bash
-uv run alembic revision --autogenerate -m "type: descriptive migration intent"
+uv run alembic heads
+uv run alembic history
+git status --short migrations/versions
+git log --oneline -- migrations/versions
 ```
-If squashing, append your structural mutations directly to the target baseline file code block.
+
+For pre-1.0 feature work, choose the current feature's existing branch
+migration when one exists. If no active feature migration exists, create one
+with Alembic. Do not create a second corrective branch migration only because
+the first branch migration needs adjustment.
+
+Autogenerate may be used as a scratch/diff aid, but do not blindly overwrite a
+hand-maintained baseline: preserve explicit constraints, indexes, operation
+ordering, comments, and downgrade logic. If force-overwriting is truly safer,
+pass the existing revision ID intentionally and audit the result before keeping
+it:
+
+```bash
+uv run alembic revision --autogenerate -m "initial_setup" --rev-id=<EXISTING_REVISION_ID>
+```
 
 ### Step 3: Audit the Structural Code Blocks
-Open the target migration file and verify that the syntax maps exactly to expected states:
-- Explicit column types match your frozen dataclass or model structures.
-- Foreign key restraints specify clear cascade actions.
-- Indexes are applied cleanly to high-churn lookups to maximize retrieval speeds.
 
-### Step 4: Run the UP / DOWN Lifecycle Validation
-You must execute a full round-trip execution matrix to guarantee the migration script is completely reversible and safe:
-1. **Apply Upgrade:** Run the upgrade command to test your `upgrade()` block.
-   ```bash
-   uv run alembic upgrade head
-   ```
-2. **Verify State:** Confirm database tables and constraints match expected shapes.
-3. **Apply Downgrade:** Revert the change immediately by exactly one step to test your `downgrade()` block.
-   ```bash
-   uv run alembic downgrade -1
-   ```
-4. **Final Verification:** Confirm your local database schema returns precisely to its baseline state with zero lingering structures, orphaned objects, or active table locks.
+Open the target migration file and verify that the syntax maps exactly to the
+expected SQLAlchemy model state:
+
+* Explicit column types match typed model structures.
+* Foreign keys specify intended cascade behavior.
+* Check constraints enforce canonical enums and JSON object/array shapes.
+* Indexes cover expected high-churn lookups.
+* `downgrade()` removes objects in safe reverse dependency order.
+
+### Step 4: Inspect and Apply the Target Database
+
+Use the standard runtime environment variables and `uv` tooling. If
+`POLARIS_DATABASE_URL` is not exported but `.env` contains the canonical
+PostgreSQL parts, load `.env` for local execution without printing secrets:
+
+```bash
+set -a; source .env; set +a; uv run alembic heads
+set -a; source .env; set +a; uv run alembic current
+set -a; source .env; set +a; uv run alembic upgrade head
+```
+
+If a DB-backed integration test needs `POLARIS_TEST_DATABASE_URL` and it is not
+pre-exported, derive it from the same `.env` PostgreSQL settings or the
+project's `PostgresSettings` environment contract instead of skipping solely
+because the variable was absent. Prefer an isolated test database or schema for
+migration-contract tests. Never echo full connection strings or secrets.
+
+### Step 5: Handle Stale or Squashed Local Revisions
+
+If `alembic current` fails because the database is stamped with a revision that
+no longer exists in the branch, inspect Git history to determine whether that
+revision was squashed into an active feature migration. Do not blindly run
+`alembic stamp head`; stamping can hide missing tables, constraints, indexes, or
+other operations from the edited squashed migration.
+
+* For disposable local development/test databases, reset or recreate the local
+  database/schema, then run `uv run alembic upgrade head` from the current repo
+  state.
+* For data-preserving environments, stop and create an explicit remediation plan
+  that compares actual schema state with the current migration head before any
+  stamping or manual DDL.
+
+### Step 6: Run the UP / DOWN Lifecycle Validation
+
+Execute a full round-trip validation matrix for migration changes:
+
+1. Apply upgrade: `uv run alembic upgrade head`.
+2. Verify state: inspect tables, columns, constraints, and indexes relevant to
+   the change.
+3. Apply downgrade by exactly one relevant step or against an isolated migration
+   test schema: `uv run alembic downgrade -1`.
+4. Re-upgrade to the final intended state: `uv run alembic upgrade head`.
+5. Run targeted migration-contract and PostgreSQL integration tests with a real
+   env-derived database URL; do not count a skipped DB test as passing database
+   verification.
 
 ## Examples
 

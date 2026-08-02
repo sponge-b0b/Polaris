@@ -45,6 +45,7 @@ from domain.authority import (
     RiskTier,
     SourceOfTruthCategory,
 )
+from domain.decision_evidence import evidence_claim_references_from_packet
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -540,6 +541,131 @@ def test_authority_gate_evidence_uses_canonical_packet_not_case_ids() -> None:
     assert readiness.passed
     assert "case-1" not in readiness.supporting_evidence_ids
     assert "case-1" not in readiness.reconstruction_reference_ids
+
+
+def test_authority_gate_evidence_retains_reconstructable_support_snapshots() -> None:
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-packet-backed",
+    )
+
+    packet = evidence.decision_evidence_packets[0]
+    evidence_by_id = {reference.evidence_id: reference for reference in packet.evidence}
+    source_evidence = evidence_by_id["canonical_record:rag-document-1"]
+    snapshot = source_evidence.support_snapshot
+
+    assert snapshot is not None
+    assert '"dataset_id":"dataset-1"' in snapshot.redacted_content
+    assert '"version":"v1"' in snapshot.redacted_content
+    assert '"rubric_digest"' in snapshot.redacted_content
+    assert "Answer must be grounded." not in snapshot.redacted_content
+    assert '"input_text_digest"' in snapshot.redacted_content
+    assert '"actual_output_digest"' in snapshot.redacted_content
+    assert "Question?" not in snapshot.redacted_content
+    assert "Answer." not in snapshot.redacted_content
+    reconstruction = {
+        reference.reference_id: reference
+        for reference in packet.reconstruction_references
+    }["canonical_record:rag-document-1"]
+    assert (
+        reconstruction.source_of_truth is SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD
+    )
+    assert reconstruction.snapshot_id == snapshot.snapshot_id
+    assert reconstruction.content_digest == snapshot.content_digest
+
+
+def test_authority_gate_fails_closed_when_evaluation_snapshot_is_missing() -> None:
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-missing-snapshot",
+    )
+    packet = evidence.decision_evidence_packets[0]
+    unsupported_evidence = replace(packet.evidence[0], support_snapshot=None)
+    unsupported_packet = replace(
+        packet,
+        evidence=(unsupported_evidence, *packet.evidence[1:]),
+    )
+
+    decision = select_risk_authority_gate(
+        _risk_metadata_for_externally_visible_rag_answer(),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=evidence.provenance_record_ids,
+            evaluation_run_ids=evidence.evaluation_run_ids,
+            decision_evidence_ids=evidence.decision_evidence_ids,
+            decision_evidence_packets=(unsupported_packet,),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "retained support snapshot" in decision.message.lower()
+
+
+def test_authority_gate_fails_closed_when_evaluation_snapshot_is_stale() -> None:
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-stale-snapshot",
+    )
+    snapshot = evidence.decision_evidence_packets[0].evidence[0].support_snapshot
+    assert snapshot is not None
+    object.__setattr__(
+        snapshot,
+        "redacted_content",
+        "Tampered evaluation support snapshot content.",
+    )
+
+    decision = select_risk_authority_gate(
+        _risk_metadata_for_externally_visible_rag_answer(),
+        evidence=evidence,
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "content digest" in decision.message.lower()
+
+
+def test_authority_gate_fails_closed_for_substituted_evaluation_claim_reference() -> (
+    None
+):
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-substituted-reference",
+    )
+    packet = evidence.decision_evidence_packets[0]
+    reference = evidence_claim_references_from_packet(packet).claim_references[0]
+    substituted_reference = replace(
+        reference,
+        supporting_evidence_ids=("canonical_record:substituted",),
+    )
+
+    decision = select_risk_authority_gate(
+        _risk_metadata_for_externally_visible_rag_answer(),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=evidence.provenance_record_ids,
+            evaluation_run_ids=evidence.evaluation_run_ids,
+            decision_evidence_ids=evidence.decision_evidence_ids,
+            decision_evidence_packets=(packet,),
+            decision_evidence_claim_references=(substituted_reference,),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode is RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+    )
+    assert "does not match" in decision.message.lower()
 
 
 def test_authority_gate_evidence_fails_closed_when_only_case_provenance_exists() -> (

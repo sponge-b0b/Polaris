@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Sequence
 
-from domain.authority import RiskAuthorityContract, RiskTier
+from domain.authority import RiskAuthorityContract, RiskTier, SourceOfTruthCategory
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     DecisionEvidencePacket,
@@ -12,6 +14,7 @@ from domain.decision_evidence import (
     MaterialClaim,
     ReconstructionReference,
     ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from domain.evaluation import EvaluationCase
 
@@ -71,50 +74,147 @@ def _canonical_evidence_references_for_cases(
     evidence_by_id: dict[str, EvidenceReference] = {}
     for case in cases:
         for source_record_id in case.source_record_ids:
+            evidence_id = f"canonical_record:{source_record_id}"
             evidence_by_id.setdefault(
-                f"canonical_record:{source_record_id}",
-                EvidenceReference(
-                    evidence_id=f"canonical_record:{source_record_id}",
+                evidence_id,
+                _case_evidence_reference(
+                    case=case,
+                    evidence_id=evidence_id,
                     kind=EvidenceReferenceKind.CANONICAL_RECORD,
-                    reconstruction_reference_ids=(
-                        f"canonical_record:{source_record_id}",
-                    ),
+                    reconstruction_id=evidence_id,
                     summary=(
                         "Canonical source record used to construct an evaluation case."
                     ),
+                    source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                    source_identifier=source_record_id,
                 ),
             )
         for citation_context_id in case.citation_context_ids:
+            evidence_id = f"rag_citation_context:{citation_context_id}"
             evidence_by_id.setdefault(
-                f"rag_citation_context:{citation_context_id}",
-                EvidenceReference(
-                    evidence_id=f"rag_citation_context:{citation_context_id}",
+                evidence_id,
+                _case_evidence_reference(
+                    case=case,
+                    evidence_id=evidence_id,
                     kind=EvidenceReferenceKind.RAG_CITATION_CONTEXT,
-                    reconstruction_reference_ids=(
-                        f"rag_citation_context:{citation_context_id}",
-                    ),
+                    reconstruction_id=evidence_id,
                     summary=(
                         "Curated RAG citation context used to construct an "
                         "evaluation case."
                     ),
+                    source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                    source_identifier=citation_context_id,
                 ),
             )
         if case.workflow_execution_id is not None:
             workflow_execution_id = case.workflow_execution_id
+            evidence_id = f"completed_workflow_run:{workflow_execution_id}"
             evidence_by_id.setdefault(
-                f"completed_workflow_run:{workflow_execution_id}",
-                EvidenceReference(
-                    evidence_id=f"completed_workflow_run:{workflow_execution_id}",
+                evidence_id,
+                _case_evidence_reference(
+                    case=case,
+                    evidence_id=evidence_id,
                     kind=EvidenceReferenceKind.WORKFLOW_RUN,
-                    reconstruction_reference_ids=(
-                        f"completed_workflow_run:{workflow_execution_id}",
-                    ),
+                    reconstruction_id=evidence_id,
                     summary=(
                         "Completed workflow run used to construct an evaluation case."
                     ),
+                    source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+                    source_identifier=workflow_execution_id,
                 ),
             )
     return tuple(evidence_by_id.values())
+
+
+def _case_evidence_reference(
+    *,
+    case: EvaluationCase,
+    evidence_id: str,
+    kind: EvidenceReferenceKind,
+    reconstruction_id: str,
+    summary: str,
+    source_of_truth: SourceOfTruthCategory,
+    source_identifier: str,
+) -> EvidenceReference:
+    return EvidenceReference(
+        evidence_id=evidence_id,
+        kind=kind,
+        reconstruction_reference_ids=(reconstruction_id,),
+        summary=summary,
+        source_of_truth=source_of_truth,
+        support_snapshot=_case_support_snapshot(
+            case=case,
+            evidence_id=evidence_id,
+            kind=kind,
+            reconstruction_id=reconstruction_id,
+            summary=summary,
+            source_identifier=source_identifier,
+        ),
+    )
+
+
+def _case_support_snapshot(
+    *,
+    case: EvaluationCase,
+    evidence_id: str,
+    kind: EvidenceReferenceKind,
+    reconstruction_id: str,
+    summary: str,
+    source_identifier: str,
+) -> SupportingEvidenceSnapshot:
+    return SupportingEvidenceSnapshot(
+        snapshot_id=f"{evidence_id}:support-snapshot",
+        summary=summary,
+        redacted_content=_case_support_snapshot_content(
+            case=case,
+            evidence_id=evidence_id,
+            kind=kind,
+            reconstruction_id=reconstruction_id,
+            source_identifier=source_identifier,
+        ),
+        source_label=f"{kind.value}:{source_identifier}",
+    )
+
+
+def _case_support_snapshot_content(
+    *,
+    case: EvaluationCase,
+    evidence_id: str,
+    kind: EvidenceReferenceKind,
+    reconstruction_id: str,
+    source_identifier: str,
+) -> str:
+    dataset = None if case.dataset is None else case.dataset.to_dict()
+    payload = {
+        "case_id": case.case_id,
+        "target_type": case.target_type.value,
+        "evidence_id": evidence_id,
+        "evidence_kind": kind.value,
+        "source_identifier": source_identifier,
+        "reconstruction_reference_ids": (reconstruction_id,),
+        "dataset": dataset,
+        "rubric_digest": _optional_text_digest(case.rubric),
+        "rubric_present": case.rubric is not None,
+        "expected_output_digest": _optional_text_digest(case.expected_output),
+        "input_text_digest": _text_digest(case.input_text),
+        "actual_output_digest": _text_digest(case.actual_output),
+        "source_record_ids": case.source_record_ids,
+        "citation_context_ids": case.citation_context_ids,
+        "workflow_execution_id": case.workflow_execution_id,
+        "created_at": case.created_at.isoformat(),
+        "snapshot_schema_version": 1,
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _text_digest(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _optional_text_digest(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return _text_digest(value)
 
 
 def _reconstruction_references_for_evidence(
@@ -144,10 +244,14 @@ def _reconstruction_reference_for_evidence(
         kind = ReconstructionReferenceKind.COMPLETED_WORKFLOW_RUN
     else:
         kind = ReconstructionReferenceKind.CANONICAL_DOMAIN_RECORD
+    snapshot = evidence.support_snapshot
     return ReconstructionReference(
         reference_id=reconstruction_id,
         kind=kind,
         record_id=reconstruction_id.split(":", maxsplit=1)[1],
+        source_of_truth=evidence.source_of_truth,
+        snapshot_id=None if snapshot is None else snapshot.snapshot_id,
+        content_digest=None if snapshot is None else snapshot.content_digest,
     )
 
 

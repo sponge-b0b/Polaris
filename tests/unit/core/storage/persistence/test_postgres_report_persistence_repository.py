@@ -16,6 +16,9 @@ from core.database.models.reports import (
     ReportPublicationModel,
     ReportVersionModel,
 )
+from core.storage.persistence.claim_evidence_links import (
+    ClaimEvidenceObservabilityError,
+)
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
     ReportClaimEvidenceLinkRecord,
@@ -60,6 +63,18 @@ class FakeExecuteResult:
         return tuple(
             self._rows,
         )
+
+
+class _FailingMetricObservabilityManager(ObservabilityManager):
+    def increment(
+        self,
+        name: str,
+        value: float = 1.0,
+        tags: tuple[str, ...] = (),
+        attributes: dict[str, Any] | None = None,
+    ) -> None:
+        del name, value, tags, attributes
+        raise RuntimeError("claim-evidence metrics backend unavailable")
 
 
 class FakeAsyncSession:
@@ -374,6 +389,44 @@ async def test_persist_report_claim_evidence_links_records_success_observability
     assert (
         "storage.postgres.report_claim_evidence_link.duration_seconds" in metric_names
     )
+
+
+@pytest.mark.asyncio
+async def test_persist_report_claim_links_survives_observability_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    session = FakeAsyncSession()
+    repository = PostgresReportPersistenceRepository(
+        cast(AsyncSession, session),
+        observability_manager=_FailingMetricObservabilityManager(),
+    )
+
+    with caplog.at_level(
+        logging.ERROR,
+        logger="core.storage.persistence.claim_evidence_links",
+    ):
+        result = await repository.persist_report_bundle(
+            ReportPersistenceBundle(
+                report=_report(),
+                claim_evidence_links=(_claim_evidence_link(),),
+            )
+        )
+
+    assert result.success is True
+    assert result.records_persisted == 2
+    assert session.commits == 1
+    failure_logs = [
+        record
+        for record in caplog.records
+        if record.message == "Claim-evidence PostgreSQL observability recording failed."
+    ]
+    assert failure_logs
+    failure = failure_logs[0]
+    assert failure.exc_info is not None
+    exc_type, exc, _traceback = failure.exc_info
+    assert exc_type is ClaimEvidenceObservabilityError
+    assert exc is not None
+    assert isinstance(exc.__cause__, RuntimeError)
 
 
 @pytest.mark.asyncio

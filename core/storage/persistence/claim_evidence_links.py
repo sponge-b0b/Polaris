@@ -51,6 +51,11 @@ _COMMON_CLAIM_EVIDENCE_LINK_UPSERT_COLUMNS = (
 
 _DATASTORE_EVENT_TYPE = "storage.postgres.operation"
 _SOURCE = "core.storage.persistence"
+_OBSERVABILITY_FAILURE_EXCEPTIONS = (RuntimeError, OSError, ValueError, TypeError)
+
+
+class ClaimEvidenceObservabilityError(RuntimeError):
+    """Raised when claim-evidence PostgreSQL observability emission fails."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,101 +85,23 @@ class PostgresClaimEvidenceLinkObservability:
         if self.observability_manager is None:
             return
 
-        duration_seconds = perf_counter() - started_at
-        normalized_filters = _non_empty_filter_values(filters or {})
-        context = _claim_evidence_operation_context(
-            component_name=self.component_name,
-            table_name=self.table_name,
-            operation=operation,
-            success=success,
-            owner_id_attribute=self.owner_id_attribute,
-            owner_id=owner_id,
-            filters=normalized_filters,
-        )
-        attributes = _claim_evidence_operation_attributes(
-            component_name=self.component_name,
-            table_name=self.table_name,
-            operation=operation,
-            success=success,
-            owner_id_attribute=self.owner_id_attribute,
-            owner_id=owner_id,
-            filters=normalized_filters,
-        )
-        metric_attributes = _claim_evidence_operation_metric_attributes(
-            component_name=self.component_name,
-            table_name=self.table_name,
-            operation=operation,
-            success=success,
-        )
-        payload: dict[str, Any] = {
-            "component_name": self.component_name,
-            "database_system": "postgresql",
-            "duration_seconds": duration_seconds,
-            "operation": operation,
-            "outcome": "succeeded" if success else "failed",
-            "success": success,
-            "table": self.table_name,
-        }
-        if owner_id is not None:
-            payload[self.owner_id_attribute] = owner_id
-        payload.update(normalized_filters)
-        if records_persisted is not None:
-            payload["records_persisted"] = records_persisted
-        if records_returned is not None:
-            payload["records_returned"] = records_returned
-        if error is not None:
-            payload["error_message"] = str(error)
-            payload["error_type"] = type(error).__name__
-
         try:
-            self.observability_manager.increment(
-                f"{self.metric_prefix}.operations.total",
-                tags=("postgresql", operation),
-                attributes=metric_attributes,
+            await _record_claim_evidence_observability(
+                observability_manager=self.observability_manager,
+                component_name=self.component_name,
+                table_name=self.table_name,
+                metric_prefix=self.metric_prefix,
+                owner_id_attribute=self.owner_id_attribute,
+                operation=operation,
+                started_at=started_at,
+                success=success,
+                owner_id=owner_id,
+                filters=filters,
+                error=error,
+                records_persisted=records_persisted,
+                records_returned=records_returned,
             )
-            if not success:
-                self.observability_manager.increment(
-                    f"{self.metric_prefix}.operations.failed",
-                    tags=("postgresql", operation),
-                    attributes=metric_attributes,
-                )
-            self.observability_manager.observe(
-                f"{self.metric_prefix}.duration_seconds",
-                value=duration_seconds,
-                tags=("postgresql", operation),
-                attributes=metric_attributes,
-            )
-            await self.observability_manager.emit(
-                TelemetryEvent(
-                    event_type=_DATASTORE_EVENT_TYPE,
-                    source=_SOURCE,
-                    level=(
-                        TelemetryEventLevel.INFO
-                        if success
-                        else TelemetryEventLevel.ERROR
-                    ),
-                    workflow_id=context.workflow_id,
-                    execution_id=context.execution_id,
-                    runtime_id=context.runtime_id,
-                    node_name=context.node_name,
-                    correlation_id=context.correlation_id,
-                    trace_id=context.trace_id,
-                    span_id=context.span_id,
-                    parent_span_id=context.parent_span_id,
-                    duration_seconds=duration_seconds,
-                    success=success,
-                    error_count=0 if success else 1,
-                    exception_details=(
-                        TelemetryExceptionDetails.from_exception(error)
-                        if error is not None
-                        else None
-                    ),
-                    tags=context.tags,
-                    attributes=context.merged_attributes(attributes),
-                    payload=payload,
-                )
-            )
-        except Exception:  # noqa: BLE001 - observability must not alter results.
+        except ClaimEvidenceObservabilityError:
             logger.exception(
                 "Claim-evidence PostgreSQL observability recording failed.",
                 extra={
@@ -184,6 +111,122 @@ class PostgresClaimEvidenceLinkObservability:
                     "table": self.table_name,
                 },
             )
+
+
+async def _record_claim_evidence_observability(
+    *,
+    observability_manager: ObservabilityManager,
+    component_name: str,
+    table_name: str,
+    metric_prefix: str,
+    owner_id_attribute: str,
+    operation: str,
+    started_at: float,
+    success: bool,
+    owner_id: str | None,
+    filters: Mapping[str, str | None] | None,
+    error: BaseException | None,
+    records_persisted: int | None,
+    records_returned: int | None,
+) -> None:
+    """Emit claim-evidence observability behind a typed failure boundary."""
+
+    try:
+        duration_seconds = perf_counter() - started_at
+        normalized_filters = _non_empty_filter_values(filters or {})
+        context = _claim_evidence_operation_context(
+            component_name=component_name,
+            table_name=table_name,
+            operation=operation,
+            success=success,
+            owner_id_attribute=owner_id_attribute,
+            owner_id=owner_id,
+            filters=normalized_filters,
+        )
+        attributes = _claim_evidence_operation_attributes(
+            component_name=component_name,
+            table_name=table_name,
+            operation=operation,
+            success=success,
+            owner_id_attribute=owner_id_attribute,
+            owner_id=owner_id,
+            filters=normalized_filters,
+        )
+        metric_attributes = _claim_evidence_operation_metric_attributes(
+            component_name=component_name,
+            table_name=table_name,
+            operation=operation,
+            success=success,
+        )
+        payload: dict[str, Any] = {
+            "component_name": component_name,
+            "database_system": "postgresql",
+            "duration_seconds": duration_seconds,
+            "operation": operation,
+            "outcome": "succeeded" if success else "failed",
+            "success": success,
+            "table": table_name,
+        }
+        if owner_id is not None:
+            payload[owner_id_attribute] = owner_id
+        payload.update(normalized_filters)
+        if records_persisted is not None:
+            payload["records_persisted"] = records_persisted
+        if records_returned is not None:
+            payload["records_returned"] = records_returned
+        if error is not None:
+            payload["error_message"] = str(error)
+            payload["error_type"] = type(error).__name__
+
+        observability_manager.increment(
+            f"{metric_prefix}.operations.total",
+            tags=("postgresql", operation),
+            attributes=metric_attributes,
+        )
+        if not success:
+            observability_manager.increment(
+                f"{metric_prefix}.operations.failed",
+                tags=("postgresql", operation),
+                attributes=metric_attributes,
+            )
+        observability_manager.observe(
+            f"{metric_prefix}.duration_seconds",
+            value=duration_seconds,
+            tags=("postgresql", operation),
+            attributes=metric_attributes,
+        )
+        await observability_manager.emit(
+            TelemetryEvent(
+                event_type=_DATASTORE_EVENT_TYPE,
+                source=_SOURCE,
+                level=(
+                    TelemetryEventLevel.INFO if success else TelemetryEventLevel.ERROR
+                ),
+                workflow_id=context.workflow_id,
+                execution_id=context.execution_id,
+                runtime_id=context.runtime_id,
+                node_name=context.node_name,
+                correlation_id=context.correlation_id,
+                trace_id=context.trace_id,
+                span_id=context.span_id,
+                parent_span_id=context.parent_span_id,
+                duration_seconds=duration_seconds,
+                success=success,
+                error_count=0 if success else 1,
+                exception_details=(
+                    TelemetryExceptionDetails.from_exception(error)
+                    if error is not None
+                    else None
+                ),
+                tags=context.tags,
+                attributes=context.merged_attributes(attributes),
+                payload=payload,
+            )
+        )
+    except _OBSERVABILITY_FAILURE_EXCEPTIONS as exc:
+        raise ClaimEvidenceObservabilityError(
+            "Claim-evidence PostgreSQL observability recording failed."
+        ) from exc
 
 
 class ClaimEvidenceLinkRecordProtocol(Protocol):

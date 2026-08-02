@@ -59,6 +59,23 @@ This check MUST happen before editing, formatting, generating, deleting, or othe
 * Use the `/format-code` skill during implementation where necessary.
 * Avoid unrelated cleanup or scope expansion unless it is necessary to complete the ticket correctly.
 
+### Database change guard
+
+If the ticket changes any database-affecting surface, invoke the
+`/database-migrations` skill before treating implementation as complete.
+Database-affecting surfaces include:
+
+* SQLAlchemy model changes.
+* Alembic migration changes.
+* New or changed PostgreSQL-backed repositories, persistence serializers, or
+  durable persistence contracts.
+* Tests whose acceptance depends on a PostgreSQL schema object.
+
+The database migration workflow owns the schema strategy, the migration file
+selection, local database application, stale-revision remediation, and
+DB-backed migration/integration verification. Do not skip it because the code
+changes are otherwise small.
+
 ## 3. Verify the implementation
 
 Once the implementation is complete, but before committing or closing the ticket, invoke the `/verify-code` skill to verify the implementation of the ticket.
@@ -154,6 +171,10 @@ Report:
 * The ticket branch used, or `None` if dedicated branch enforcement was disabled.
 * The commit created.
 * Whether the push succeeded.
+* For database-affecting tickets: the `/database-migrations` result, migration
+  file strategy, active database apply/reset status, migration-contract tests,
+  and DB-backed integration tests. State explicitly if any required DB check
+  skipped or could not run.
 * The targeted verification that was run and its result.
 * Any broader verification that the user explicitly authorized and its result.
 * Which broad checks were not run, including full-suite tests, whole-repo mypy, whole-repo lint, or coverage when applicable.

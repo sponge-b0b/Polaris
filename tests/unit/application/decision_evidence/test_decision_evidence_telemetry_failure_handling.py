@@ -11,6 +11,10 @@ import pytest
     (
         Path("application/decision_evidence/completed_workflow_assembly.py"),
         Path("application/decision_evidence/persistence.py"),
+        Path(
+            "core/storage/persistence/repositories/"
+            "postgres_decision_evidence_persistence_repository.py"
+        ),
     ),
 )
 def test_decision_evidence_telemetry_paths_do_not_catch_generic_exception(

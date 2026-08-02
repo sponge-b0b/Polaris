@@ -236,12 +236,17 @@ class PostgresDecisionEvidencePacketRepository(
                     payload=payload,
                 )
             )
-        except Exception:
-            logger.exception(
+        except (RuntimeError, OSError) as observability_error:
+            logger.error(
                 "Decision evidence PostgreSQL observability recording failed.",
                 extra=_log_context(
                     operation=operation,
                     packet_id=packet_id,
+                ),
+                exc_info=(
+                    type(observability_error),
+                    observability_error,
+                    observability_error.__traceback__,
                 ),
             )
 

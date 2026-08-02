@@ -174,10 +174,16 @@ Unless overridden by the user, you MUST create a dedicated branch for all develo
 
 If the target input issue contains multiple dated review headers (e.g., `## Initial Findings`, `## Re-review Findings [2026-07-22]`), you must perform a strict delta analysis before generating any GitHub issues. This is exactly the "Spec Review issue" case Step 0 above handles for branch routing — the tickets drafted here still land on the *original* spec's branch, not a new one:
 
-1. **Scan Linked Tree:** Pull the list of existing child issues already linked to this parent issue.
+1. **Scan Linked Tree:** Pull the list of existing child issues already linked to this parent issue, including each issue's title, body, comments, state, and closing note when available.
 2. **Isolate the Newest Delta:** Focus your text parsing *only* on the bullet points listed under the most recent chronological date header.
 3. **Cross-Reference:** Compare the new text findings against the titles/descriptions of the child issues that are already open or closed.
-4. **De-duplicate:** 
-   - If a finding matches an existing child ticket description -> **Skip it completely.**
+4. **Verify Closed Matches Against Current Truth:** A closed matching ticket is not automatically stale. Before skipping it, verify the finding against the current source of truth:
+   - If the finding cites source code, inspect the current cited files/symbols and any named tests.
+   - If the finding cites a standards, migration, documentation, branch, or tracker rule, inspect the current authoritative file, command output, or issue metadata for that rule.
+   - If current evidence is ambiguous, treat the closed match as still actionable and create a regression ticket rather than skipping it.
+5. **De-duplicate by State and Evidence:**
+   - If a finding matches an **open** child ticket -> **Skip it as already tracked.**
+   - If a finding matches a **closed** child ticket and current evidence shows the violation is fixed -> **Skip it as a stale duplicate.**
+   - If a finding matches a **closed** child ticket and current evidence still confirms the violation -> **Graduate it into a new child ticket titled with a `Regression:` prefix.** Reference the older closed ticket as historical context, but do not reopen or edit the closed ticket.
    - If a finding has no matching child ticket -> **Graduate it into a brand new child ticket.**
-5. **Report the Delta:** Print a summary telling the user exactly how many *new* tickets were added versus how many *stale duplicates* were ignored.
+6. **Report the Delta:** Print a summary telling the user exactly how many *new* tickets were added, how many *open duplicates* were skipped, how many *closed-and-fixed stale duplicates* were ignored, and how many *closed-but-still-confirmed regressions* were added.

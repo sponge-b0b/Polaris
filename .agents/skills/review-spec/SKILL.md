@@ -139,6 +139,48 @@ issue tracker:
 - Confirm Owner-overridden findings are not counted or ticketed.
 - Do not merge the Standards and Spec axes or pick one overall priority winner.
 
+When any Blocking findings remain, synthesize them into root blockers before
+creating or updating the tracking issue:
+
+- Group related findings by the durable invariant they violate, not by the file,
+  hunk, subsystem, or sub-agent that noticed them.
+- Assign stable root IDs (`RB-1`, `RB-2`, ...). Keep existing IDs on later
+  passes; never renumber merely because the evidence examples changed.
+- For each root, record the invariant, affected surfaces/reference kinds,
+  concrete evidence examples, exit checks, owner overrides, and current status.
+- Classify every new Blocking finding as one of:
+  - `new root` — a distinct invariant not already represented;
+  - `child symptom` — another manifestation of an existing root; or
+  - `regression` — a previously ticketed/closed root or symptom that current
+    source truth still violates.
+- For cross-cutting specs, maintain a compact acceptance matrix in the parent
+  issue. Rows should be the relevant output/evidence families; columns should be
+  the obligations that prove the spec through production paths (for example:
+  assembly, canonical persistence, reconstruction validation, fail-closed
+  readiness, observability, negative tests). Use the spec's own vocabulary rather
+  than inventing generic rows.
+
+Use these parseable headings when a parent Spec Review issue has blockers:
+
+```markdown
+## Root Blocker Ledger
+
+### RB-1 — <short root name>
+Status: open | closed | regressed | owner-overridden
+Invariant: <durable invariant being violated>
+Affected surfaces/reference kinds: <comma-separated list>
+Exit checks: <production-path checks/tests required to close the root>
+Current evidence: <short bullets or dated finding references>
+
+## Spec Acceptance Matrix
+
+| Root | Surface/reference kind | Production-path obligation | Status | Evidence |
+| --- | --- | --- | --- | --- |
+```
+
+Do not let a helper, validator, serializer, or test seam count as root-complete
+unless the production path named by the spec is proven by source and tests.
+
 Present the two reports under `## Standards` and `## Spec` headings. Within each
 axis, use `### Blocking` and `### Advisory` subsections when both exist. Mention
 Owner-overridden findings only when useful to explain suppression.
@@ -170,7 +212,10 @@ promote or ticket them.
 - Create a single, dedicated parent GitHub issue titled:
   `Spec Review: <Feature Name>`.
 - Populate the description field with the aggregated breakdown of Blocking and
-  Advisory findings, clearly separated.
+  Advisory findings, clearly separated. Blocking findings must be presented as a
+  **Root Blocker Ledger** first, followed by concrete evidence examples. Treat
+  individual bullets as evidence for roots, not as an ever-growing independent
+  blocker list.
 - Link this new tracking issue back to the original project Specification issue
   using a **fixed, parseable format** — the first line of the body must be:
   `**Parent Spec:** #<spec_issue_number>`. This isn't just a human-readable
@@ -217,6 +262,13 @@ remediation tickets, perform a bounded re-review:
 - Include regressions introduced by the remediation diff.
 - Include newly exposed spec failures only when they are directly connected to a
   prior fix or the remediated behavior.
+- Reconcile every finding against the existing Root Blocker Ledger before
+  ticketing: update the existing root status/evidence when it is a child symptom,
+  mark it as a regression when a closed ticket did not actually satisfy the root,
+  and create a new root only when the invariant is genuinely distinct.
+- Update the acceptance matrix with proven, unproven, or regressed cells. A root
+  is not fixed while any required production-path cell for that root remains
+  unproven.
 - Do not re-mine the full original diff for new Advisory smells.
 - Do not add new Blocking Standards findings unless they are deterministic,
   cite a documented standard, and were introduced by the remediation work or
@@ -224,10 +276,11 @@ remediation tickets, perform a bounded re-review:
 - Open the existing parent "Spec Review" issue and append new Blocking or useful
   Advisory findings to the bottom of the body under a fresh, dated header:
   `## Re-review Findings [YYYY-MM-DD HH:MM]`. Read the current body and write
-  back the original content plus the new section — do not replace it with only
-  the new section, or the `**Parent Spec:** #<n>` line from Step 1 above is
-  lost, and `/to-tickets` will no longer be able to resolve which branch to
-  reuse on the next remediation pass.
+  back the original content plus the new section and any Root Blocker Ledger /
+  acceptance-matrix updates — do not replace it with only the new section, or
+  the `**Parent Spec:** #<n>` line from Step 1 above is lost, and `/to-tickets`
+  will no longer be able to resolve which branch to reuse on the next remediation
+  pass.
 - Re-trigger the **Human Handoff Intercept** block only when Blocking findings
   remain.
 
@@ -243,7 +296,7 @@ If the user/owner explicitly authorizes or rejects a finding:
 
 ### 5. The Exit Gate
 
-You are authorized to proceed to the Merge & Cleanup workflow — **not** to close the "Spec" issue directly — when a complete audit run returns exactly zero **Blocking** findings.
+You are authorized to proceed to the Merge & Cleanup workflow — **not** to close the "Spec" issue directly — when a complete audit run returns exactly zero **Blocking** findings and any Root Blocker Ledger / acceptance matrix maintained for the Spec Review issue has no open or regressed root cells.
 
 Advisory findings may remain documented without preventing progression. Owner-overridden findings must remain suppressed in future review passes.
 

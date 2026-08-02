@@ -13,6 +13,12 @@ Implement the work described by a single ticket, verify it, commit it to the tic
 
 Before modifying any files, read the full ticket provided by the user and locate its **Ticket branch** field.
 
+If the ticket has a `Root blocker` section or says it is part of a `Spec Review`
+issue, also read the parent spec and the parent Spec Review issue before editing.
+Capture the root blocker ID, invariant, affected sibling surfaces/reference
+kinds, and acceptance-matrix cells the ticket is expected to prove. This root
+context is part of the ticket scope; do not treat it as optional background.
+
 The ticket's `Ticket branch` value is authoritative for the branch on which this ticket must be implemented. All tickets belonging to the same spec share the same branch.
 
 ### Branch guard
@@ -43,6 +49,10 @@ This check MUST happen before editing, formatting, generating, deleting, or othe
 ## 2. Implement the ticket
 
 * Implement only the work described by the provided ticket.
+* For Spec Review remediation tickets, implement the root invariant described by
+  the ticket, not merely the first cited symptom, hunk, or helper. Auditing and
+  fixing sibling surfaces/reference kinds named by the root blocker is in scope;
+  unrelated cleanup remains out of scope.
 * Use the identified standards source `CODING_STANDARDS.md` to guide implementation.
 * Respect the ticket's acceptance criteria and blocking assumptions.
 * Use the `/tdd` skill where possible, at pre-agreed seams.
@@ -64,6 +74,15 @@ Default ticket verification must be targeted.
 
   Do not run the proposed broad command until the user says yes.
 * If targeted verification fails, do not commit, push, or close the ticket. Fix failures that are within the ticket's scope and re-run the targeted verification.
+* For Spec Review remediation tickets, targeted verification must prove the
+  production path named by the root blocker. A unit test of a helper, validator,
+  serializer, or mapper is not sufficient by itself unless the production path is
+  also exercised or there is a documented reason that seam is the production
+  boundary.
+* For Spec Review remediation tickets, add or run at least one regression test
+  that would have failed for the root blocker or a named child symptom. Include
+  missing/stale/substituted/tampered or fail-closed cases when the root invariant
+  concerns reconstruction, provenance, readiness, persistence, or observability.
 * In the final handoff, report targeted verification separately from any broad verification. State when the full suite, whole-repo mypy, whole-repo lint, or coverage were not run.
 
 ## 4. Re-verify the ticket branch before committing
@@ -129,6 +148,9 @@ Do not close the ticket merely because implementation or verification completed 
 Report:
 
 * What was implemented.
+* For Spec Review remediation tickets: the root blocker ID, the root invariant
+  addressed, sibling surfaces/reference kinds audited, and any root acceptance
+  cells still unproven or intentionally deferred.
 * The ticket branch used, or `None` if dedicated branch enforcement was disabled.
 * The commit created.
 * Whether the push succeeded.

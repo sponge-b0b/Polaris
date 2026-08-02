@@ -7,6 +7,9 @@ from typing import cast
 
 import pytest
 
+from application.decision_evidence.persistence import (
+    DecisionEvidencePacketPersistenceService,
+)
 from application.observability import AiObservationType
 from application.rag.contracts.rag_context import (
     RagRetrievalFilters,
@@ -22,6 +25,15 @@ from application.rag.graphs import RagCorrectiveAction
 from application.rag.rag_service import RagService
 from application.rag.retrieval.rag_retriever import RagRetrievalResult
 from application.rag.routing.query_routing_models import RagQueryModelExecution
+from core.storage.persistence.completed_run_archive import (
+    CompletedRunArchive,
+    CompletedRunBundle,
+)
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceRepository,
+    DecisionEvidencePacketPersistenceResult,
+    DecisionEvidencePacketRecord,
+)
 from core.storage.persistence.rag import (
     JsonObject,
     RagAnswerLogRecord,
@@ -109,6 +121,75 @@ async def test_rag_service_run_persists_success_query_and_answer_logs() -> None:
     assert repository.answer_logs[0].source_count == 1
     assert repository.answer_logs[0].answer_hash is not None
     assert answer_provider.requests[0].query == "Summarize SPY breadth."
+
+
+@pytest.mark.asyncio
+async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        requester="unit-test",
+        workflow_name="morning_report",
+        execution_id="exec-1",
+        request_id="rag_query:packet-reconstruction",
+        metadata={
+            "rag_authority": {
+                "audience": "external",
+                "capital_relevant": True,
+            }
+        },
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    repository = FakeRagRepository(
+        documents=(_document_from_context(context),),
+        chunks=(_chunk_from_context(context),),
+    )
+    answer_provider = FakeAnswerProvider(
+        result=RagAnswerGenerationResult(
+            answer_text="SPY breadth improved with broad participation [C1].",
+            model="unit-test-model",
+            provider_name="unit-test-provider",
+            confidence_score=0.88,
+            generated_claims=(_generated_claim(),),
+        )
+    )
+    service = RagService(
+        pipeline=FakePipeline(
+            retriever=FakeRetriever(contexts=(context,)),
+            answer_generator=RagAnswerGenerator(
+                answer_provider=answer_provider,
+            ),
+        ),
+        repository=cast(RagPersistenceRepository, repository),
+    )
+
+    result = await service.run(request)
+
+    assert result.evidence_packet is not None
+    final_query_log = repository.query_logs[-1]
+    retrieved_contexts = cast(
+        Sequence[Mapping[str, object]],
+        final_query_log.metadata["retrieved_contexts"],
+    )
+    assert retrieved_contexts == (context.to_dict(),)
+    packet_repository = FakeDecisionEvidencePacketRepository()
+    packet_persistence = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(CompletedRunArchive, FakeCompletedRunArchive()),
+        rag_repository=cast(RagPersistenceRepository, repository),
+    )
+    await packet_persistence.persist_packet(result.evidence_packet)
+
+    reconstructed = await packet_persistence.reconstruct_packet(
+        result.evidence_packet.packet_id,
+    )
+
+    assert reconstructed == result.evidence_packet
 
 
 @pytest.mark.asyncio
@@ -204,7 +285,9 @@ async def test_rag_service_persists_query_model_execution_metadata() -> None:
             success=True,
         ),
     )
-    assert repository.query_logs[-1].metadata == {}
+    persisted_metadata = repository.query_logs[-1].metadata
+    assert "request_metadata" not in persisted_metadata
+    assert persisted_metadata["retrieved_contexts"] == (context.to_dict(),)
 
 
 @pytest.mark.asyncio
@@ -496,9 +579,14 @@ class FakeAnswerProvider:
 class FakeRagRepository:
     def __init__(
         self,
+        *,
+        documents: Sequence[RagDocumentRecord] = (),
+        chunks: Sequence[RagChunkRecord] = (),
     ) -> None:
         self.query_logs: list[RagQueryLogRecord] = []
         self.answer_logs: list[RagAnswerLogRecord] = []
+        self.documents = {document.document_id: document for document in documents}
+        self.chunks = {chunk.chunk_id: chunk for chunk in chunks}
 
     async def persist_document(
         self,
@@ -515,19 +603,21 @@ class FakeRagRepository:
         self,
         document_id: str,
     ) -> RagDocumentRecord | None:
-        return None
+        return self.documents.get(document_id)
 
     async def list_chunks(
         self,
         document_id: str,
     ) -> Sequence[RagChunkRecord]:
-        return ()
+        return tuple(
+            chunk for chunk in self.chunks.values() if chunk.document_id == document_id
+        )
 
     async def get_chunk(
         self,
         chunk_id: str,
     ) -> RagChunkRecord | None:
-        return None
+        return self.chunks.get(chunk_id)
 
     async def list_chunks_by_metadata(
         self,
@@ -683,6 +773,60 @@ def _context(
         rank=1,
         retrieval_route="hybrid",
         metadata={"fused_score": 0.91},
+    )
+
+
+class FakeCompletedRunArchive:
+    async def load_archived_run(
+        self,
+        workflow_name: str,
+        execution_id: str,
+    ) -> CompletedRunBundle | None:
+        return None
+
+
+class FakeDecisionEvidencePacketRepository:
+    def __init__(self) -> None:
+        self.records: dict[str, DecisionEvidencePacketRecord] = {}
+
+    async def persist_packet_record(
+        self,
+        record: DecisionEvidencePacketRecord,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.records[record.packet_id] = record
+        return DecisionEvidencePacketPersistenceResult.succeeded(
+            packet_id=record.packet_id,
+        )
+
+    async def get_packet_record(
+        self,
+        packet_id: str,
+    ) -> DecisionEvidencePacketRecord | None:
+        return self.records.get(packet_id)
+
+
+def _document_from_context(context: RagRetrievedContext) -> RagDocumentRecord:
+    return RagDocumentRecord(
+        document_id=context.source.document_id,
+        source_table=context.source.source_table,
+        source_id=context.source.source_id,
+        source_type=context.source.source_type,
+        title=context.source.title,
+        content_text=context.text,
+        generated_at=context.source.generated_at or datetime(2026, 6, 1, tzinfo=UTC),
+        workflow_name=context.source.workflow_name,
+        execution_id=context.source.execution_id,
+        metadata={"section_name": context.source.section_name or ""},
+    )
+
+
+def _chunk_from_context(context: RagRetrievedContext) -> RagChunkRecord:
+    return RagChunkRecord(
+        chunk_id=context.source.chunk_id or context.context_id,
+        document_id=context.source.document_id,
+        chunk_index=0,
+        chunk_text=context.text,
+        metadata={"section_name": context.source.section_name or ""},
     )
 
 

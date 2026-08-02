@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any, Protocol, cast
 
 from application.rag.authority import classify_rag_result_authority
+from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.observability import (
@@ -384,7 +385,10 @@ def _query_log_from_result(
         completed_at=completed_at,
         duration_ms=duration_seconds * 1000.0,
         error=result.error,
-        metadata=_request_debug_metadata(request.metadata),
+        metadata=_query_result_metadata(
+            request_metadata=request.metadata,
+            result=result,
+        ),
     )
 
 
@@ -461,6 +465,47 @@ def _request_debug_metadata(
             "request_metadata": request_metadata,
         }
     )
+
+
+def _query_result_metadata(
+    *,
+    request_metadata: JsonObject,
+    result: RagResult,
+) -> JsonObject:
+    metadata: dict[str, object] = dict(_request_debug_metadata(request_metadata))
+    if result.status != "answered":
+        return _json_object(metadata)
+
+    retrieved_contexts = _retained_retrieval_context_payloads(result.contexts)
+    if retrieved_contexts:
+        metadata["retrieved_contexts"] = retrieved_contexts
+    return _json_object(metadata)
+
+
+def _retained_retrieval_context_payloads(
+    contexts: Sequence[RagRetrievedContext],
+) -> tuple[JsonObject, ...]:
+    return tuple(
+        _json_object(context.to_dict())
+        for context in contexts
+        if _is_durable_retrieval_context(context)
+    )
+
+
+def _is_durable_retrieval_context(context: RagRetrievedContext) -> bool:
+    source = context.source
+    if (
+        context.metadata.get("transient") is True
+        or source.metadata.get("transient") is True
+    ):
+        return False
+    if context.retrieval_route in {"web", "web_fallback"}:
+        return False
+    if source.source_table in {"web", "web_fallback"}:
+        return False
+    if source.source_type in {"web", "web_fallback"}:
+        return False
+    return True
 
 
 def _debug_metadata(

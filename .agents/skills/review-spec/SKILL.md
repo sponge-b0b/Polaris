@@ -49,7 +49,7 @@ Classification rules:
 
 ### 1. Pin the fixed point
 
-The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden by the user. Follow these steps to resolve and validate it:
+The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden or provided by the user. Follow these steps to resolve and validate it:
 
 1. **Extract Baseline Metadata**: `/to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `/to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
    ```bash

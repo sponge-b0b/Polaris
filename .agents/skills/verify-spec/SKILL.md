@@ -1,7 +1,7 @@
 ---
 name: verify-spec
 description: Perform global codebase verification, full static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules since a fixed point (commit, branch, tag, or merge-base).
-compatibility: product=codex product=claude-code system=git system=python network=none
+compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
@@ -9,22 +9,45 @@ disable-model-invocation: true
 
 Verification of the diff between `HEAD` and a fixed point the user supplies:
 
-## Pin the fixed point
+## 1. Pin the fixed point
 
-Whatever the user said is the fixed point — a commit SHA, branch name, tag, `main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
+The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden or provided by the user. Follow these steps to resolve and validate it:
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+1. **Extract Baseline Metadata**: `/to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `/to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
+   ```bash
+   BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
+     | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
+   ```
+2. **Fallback**: If the metadata is missing (checked across the issue's comments) and the user did not explicitly specify a commit SHA, branch name, tag, or relative ref (e.g., `main`, `HEAD~5`), ask the user for it directly.
+3. **Verify Branch Checked Out**: Ensure `spec-<spec_issue_number>` is actually the currently checked-out branch before running the diff commands below — there's no isolated worktree here to make this automatic, so it's easy to accidentally review against the wrong branch if something switched branches earlier in the session:
+   ```bash
+   CURRENT_BRANCH=$(git branch --show-current)
+   if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
+     echo "❌ Expected spec-<spec_issue_number> to be checked out, but current branch is $CURRENT_BRANCH. Checkout the spec branch before continuing."
+     exit 1
+   fi
+   ```
+4. **Validate the Ref**: Confirm the extracted or provided fixed point resolves locally by running:
+   ```bash
+   git rev-parse <fixed-point>
+   ```
+   *If the ref is bad or fails to resolve, halt execution immediately with a clear error message.*
+5. **Capture Diff and Log**: Once validated, capture the targeted differential context since development started:
+   * **The Diff**: Run `git diff <fixed-point>...HEAD` (three-dot comparison to evaluate strictly against the merge-base).
+   * **The Commit Log**: Run `git log <fixed-point>..HEAD --oneline` to note the exact list of commits authored on this spec branch.
+6. **Pre-Flight Check**: Verify that the generated diff is non-empty. An empty diff or unresolved ref must fail immediately here—never inside down-stream parallel sub-agents. Use this comprehensive diff as the primary source of truth to review if the aggregate changes accurately satisfy the parent specification goals.
 
-Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here.
-
-## Identify the spec source
+## 2. Identify the spec source
 
 Look for the originating spec, in this order:
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`,
+   etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
 2. A path the user passed as an argument.
-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is.
+3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name
+   or feature.
+4. If nothing is found, ask the user where the spec is. If they say there isn't
+   one, the **Spec** sub-agent will skip and report "no spec available".
 
 ## Objective
 Validate the entire project repository as a unified system to catch cross-module regressions, integration failures, and type-drift resulting from the completed specification sprint, using our project testing guide to target relevant integration test categories.
@@ -96,9 +119,9 @@ UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
 ### Step 5: Execute Targeted Architectural Check
-Invoke graphing infrastructure to check for architectural anomalies or unmapped cross-module dependencies introduced in this spec implementation:
+Invoke graphing infrastructure to check for architectural anomalies or unmapped cross-module dependencies introduced in this spec implementation. `--update` is a flag on the target path, not a subcommand — `graphify update .` is invalid syntax and will not do what's intended:
 ```bash
-graphify update .
+graphify . --update
 graphify query "<canonical concepts and changed subsystems from the spec>"
 ```
 Verifier is required to answer:

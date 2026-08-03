@@ -39,6 +39,8 @@ from core.database.models.evaluation import (
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 from core.database.models.lineage import PersistenceLineageLinkModel
@@ -133,6 +135,8 @@ __all__ = [
     "BacktestStepModel",
     "AutomatedGovernanceAuditRecordModel",
     "AutomatedPolicyAuditRecordModel",
+    "GovernanceResidualRiskAcceptanceModel",
+    "GovernanceReviewDecisionModel",
     "GovernanceReviewTaskModel",
     "PersistenceAuditEventModel",
     "DecisionEvidencePacketModel",

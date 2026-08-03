@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,8 @@ from sqlalchemy.sql import ColumnElement, Select
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
@@ -19,7 +21,10 @@ from core.storage.persistence.governance_audit import (
     AutomatedDecisionAuditRepository,
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditRecord,
+    GovernanceResidualRiskAcceptanceRecord,
+    GovernanceReviewDecisionRecord,
     GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
 )
 from core.storage.persistence.serializers import (
     AutomatedDecisionAuditPersistenceSerializer,
@@ -133,6 +138,113 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             model,
         )
 
+    async def update_governance_review_task_status(
+        self,
+        *,
+        review_task_id: str,
+        status: GovernanceReviewTaskStatus,
+        updated_at: datetime,
+    ) -> AutomatedDecisionAuditPersistenceResult:
+        try:
+            result = await self._session.execute(
+                update(GovernanceReviewTaskModel)
+                .where(GovernanceReviewTaskModel.review_task_id == review_task_id)
+                .values(status=status.value, updated_at=updated_at)
+            )
+            await self._session.commit()
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            logger.exception(
+                "Governance review task status update failed.",
+                extra={"review_task_id": review_task_id},
+            )
+            return AutomatedDecisionAuditPersistenceResult.failed(
+                str(exc),
+                audit_record_id=review_task_id,
+            )
+        return AutomatedDecisionAuditPersistenceResult.succeeded(
+            review_task_id,
+            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            review_task_id=review_task_id,
+        )
+
+    async def persist_governance_review_decision(
+        self,
+        decision: GovernanceReviewDecisionRecord,
+    ) -> AutomatedDecisionAuditPersistenceResult:
+        try:
+            result = await self._session.execute(_insert_review_decision(decision))
+            await self._session.commit()
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            logger.exception(
+                "Governance review decision write failed.",
+                extra={"review_decision_id": decision.review_decision_id},
+            )
+            return AutomatedDecisionAuditPersistenceResult.failed(
+                str(exc),
+                audit_record_id=decision.review_decision_id,
+            )
+        return AutomatedDecisionAuditPersistenceResult.succeeded(
+            decision.review_decision_id,
+            records_persisted=max(getattr(result, "rowcount", 1), 0),
+        )
+
+    async def get_governance_review_decision(
+        self,
+        review_decision_id: str,
+    ) -> GovernanceReviewDecisionRecord | None:
+        result = await self._session.execute(
+            select(GovernanceReviewDecisionModel).where(
+                GovernanceReviewDecisionModel.review_decision_id == review_decision_id,
+            )
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return AutomatedDecisionAuditPersistenceSerializer.review_decision_from_model(
+            model,
+        )
+
+    async def persist_residual_risk_acceptance(
+        self,
+        acceptance: GovernanceResidualRiskAcceptanceRecord,
+    ) -> AutomatedDecisionAuditPersistenceResult:
+        try:
+            result = await self._session.execute(
+                _insert_residual_risk_acceptance(acceptance)
+            )
+            await self._session.commit()
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            logger.exception(
+                "Governance residual-risk acceptance write failed.",
+                extra={"acceptance_id": acceptance.acceptance_id},
+            )
+            return AutomatedDecisionAuditPersistenceResult.failed(
+                str(exc),
+                audit_record_id=acceptance.acceptance_id,
+            )
+        return AutomatedDecisionAuditPersistenceResult.succeeded(
+            acceptance.acceptance_id,
+            records_persisted=max(getattr(result, "rowcount", 1), 0),
+        )
+
+    async def get_residual_risk_acceptance(
+        self,
+        acceptance_id: str,
+    ) -> GovernanceResidualRiskAcceptanceRecord | None:
+        result = await self._session.execute(
+            select(GovernanceResidualRiskAcceptanceModel).where(
+                GovernanceResidualRiskAcceptanceModel.acceptance_id == acceptance_id,
+            )
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        serializer = AutomatedDecisionAuditPersistenceSerializer
+        return serializer.residual_risk_acceptance_from_model(model)
+
     async def get_governance_audit_record(
         self,
         audit_record_id: str,
@@ -229,6 +341,52 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             for model in result.scalars().all()
         )
 
+    async def list_governance_review_decisions(
+        self,
+        *,
+        review_task_id: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        outcome: str | None = None,
+        evidence_packet_id: str | None = None,
+    ) -> tuple[GovernanceReviewDecisionRecord, ...]:
+        stmt = _review_decision_query_statement(
+            review_task_id=review_task_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            outcome=outcome,
+            evidence_packet_id=evidence_packet_id,
+        )
+        result = await self._session.execute(stmt)
+        return tuple(
+            AutomatedDecisionAuditPersistenceSerializer.review_decision_from_model(
+                model
+            )
+            for model in result.scalars().all()
+        )
+
+    async def list_residual_risk_acceptances(
+        self,
+        *,
+        review_task_id: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        evidence_packet_id: str | None = None,
+    ) -> tuple[GovernanceResidualRiskAcceptanceRecord, ...]:
+        stmt = _residual_risk_acceptance_query_statement(
+            review_task_id=review_task_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            evidence_packet_id=evidence_packet_id,
+        )
+        result = await self._session.execute(stmt)
+        return tuple(
+            AutomatedDecisionAuditPersistenceSerializer.residual_risk_acceptance_from_model(
+                model,
+            )
+            for model in result.scalars().all()
+        )
+
 
 def _insert_policy_statement(record: AutomatedPolicyAuditRecord):
     return insert(AutomatedPolicyAuditRecordModel).values(
@@ -255,6 +413,22 @@ def _upsert_review_task_statement(task: GovernanceReviewTaskRecord):
             "evidence_references": statement.excluded.evidence_references,
             "updated_at": statement.excluded.updated_at,
         },
+    )
+
+
+def _insert_review_decision(decision: GovernanceReviewDecisionRecord):
+    return insert(GovernanceReviewDecisionModel).values(
+        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(decision),
+    )
+
+
+def _insert_residual_risk_acceptance(
+    acceptance: GovernanceResidualRiskAcceptanceRecord,
+):
+    return insert(GovernanceResidualRiskAcceptanceModel).values(
+        **AutomatedDecisionAuditPersistenceSerializer.residual_risk_acceptance_values(
+            acceptance,
+        ),
     )
 
 
@@ -355,6 +529,66 @@ def _review_task_query_statement(
     return stmt.order_by(
         GovernanceReviewTaskModel.created_at.desc(),
         GovernanceReviewTaskModel.review_task_id.asc(),
+    )
+
+
+def _review_decision_query_statement(
+    *,
+    review_task_id: str | None,
+    subject_type: str | None,
+    subject_id: str | None,
+    outcome: str | None,
+    evidence_packet_id: str | None,
+) -> Select[tuple[GovernanceReviewDecisionModel]]:
+    stmt = select(GovernanceReviewDecisionModel)
+    if review_task_id is not None:
+        stmt = stmt.where(
+            GovernanceReviewDecisionModel.review_task_id == review_task_id
+        )
+    if subject_type is not None:
+        stmt = stmt.where(GovernanceReviewDecisionModel.subject_type == subject_type)
+    if subject_id is not None:
+        stmt = stmt.where(GovernanceReviewDecisionModel.subject_id == subject_id)
+    if outcome is not None:
+        stmt = stmt.where(GovernanceReviewDecisionModel.outcome == outcome)
+    if evidence_packet_id is not None:
+        stmt = stmt.where(
+            GovernanceReviewDecisionModel.evidence_packet_id == evidence_packet_id
+        )
+    return stmt.order_by(
+        GovernanceReviewDecisionModel.decided_at.desc(),
+        GovernanceReviewDecisionModel.review_decision_id.asc(),
+    )
+
+
+def _residual_risk_acceptance_query_statement(
+    *,
+    review_task_id: str | None,
+    subject_type: str | None,
+    subject_id: str | None,
+    evidence_packet_id: str | None,
+) -> Select[tuple[GovernanceResidualRiskAcceptanceModel]]:
+    stmt = select(GovernanceResidualRiskAcceptanceModel)
+    if review_task_id is not None:
+        stmt = stmt.where(
+            GovernanceResidualRiskAcceptanceModel.review_task_id == review_task_id
+        )
+    if subject_type is not None:
+        stmt = stmt.where(
+            GovernanceResidualRiskAcceptanceModel.subject_type == subject_type
+        )
+    if subject_id is not None:
+        stmt = stmt.where(
+            GovernanceResidualRiskAcceptanceModel.subject_id == subject_id
+        )
+    if evidence_packet_id is not None:
+        stmt = stmt.where(
+            GovernanceResidualRiskAcceptanceModel.evidence_packet_id
+            == evidence_packet_id
+        )
+    return stmt.order_by(
+        GovernanceResidualRiskAcceptanceModel.accepted_at.desc(),
+        GovernanceResidualRiskAcceptanceModel.acceptance_id.asc(),
     )
 
 

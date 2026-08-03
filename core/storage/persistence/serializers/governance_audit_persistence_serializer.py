@@ -5,6 +5,8 @@ from typing import Any, cast
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
@@ -14,6 +16,11 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceResidualRiskAcceptanceRecord,
+    GovernanceReviewDecisionOutcome,
+    GovernanceReviewDecisionRecord,
+    GovernanceReviewerActorType,
+    GovernanceReviewerIdentity,
     GovernanceReviewTaskRecord,
     GovernanceReviewTaskStatus,
     JsonObject,
@@ -80,6 +87,57 @@ class AutomatedDecisionAuditPersistenceSerializer:
             "evidence_references": dict(task.evidence_references),
             "created_at": task.created_at,
             "updated_at": task.updated_at,
+        }
+
+    @staticmethod
+    def review_decision_values(
+        decision: GovernanceReviewDecisionRecord,
+    ) -> dict[str, Any]:
+        return {
+            "review_decision_id": decision.review_decision_id,
+            "review_task_id": decision.review_task_id,
+            "automated_governance_audit_record_id": (
+                decision.automated_governance_audit_record_id
+            ),
+            "subject_type": decision.subject_type,
+            "subject_id": decision.subject_id,
+            "risk_tier": decision.risk_tier.value,
+            "outcome": decision.outcome.value,
+            "reviewer_id": decision.reviewer.reviewer_id,
+            "reviewer_actor_type": decision.reviewer.actor_type.value,
+            "reviewer_display_name": decision.reviewer.display_name,
+            "rationale": decision.rationale,
+            "review_scope": decision.review_scope,
+            "evidence_packet_id": decision.evidence_packet_id,
+            "evidence_packet_version": decision.evidence_packet_version,
+            "residual_risk_acceptance_required": (
+                decision.residual_risk_acceptance_required
+            ),
+            "residual_risk_acceptance_id": decision.residual_risk_acceptance_id,
+            "metadata_payload": dict(decision.metadata),
+            "decided_at": decision.decided_at,
+        }
+
+    @staticmethod
+    def residual_risk_acceptance_values(
+        acceptance: GovernanceResidualRiskAcceptanceRecord,
+    ) -> dict[str, Any]:
+        return {
+            "acceptance_id": acceptance.acceptance_id,
+            "review_task_id": acceptance.review_task_id,
+            "subject_type": acceptance.subject_type,
+            "subject_id": acceptance.subject_id,
+            "risk_tier": acceptance.risk_tier.value,
+            "reviewer_id": acceptance.reviewer.reviewer_id,
+            "reviewer_actor_type": acceptance.reviewer.actor_type.value,
+            "reviewer_display_name": acceptance.reviewer.display_name,
+            "rationale": acceptance.rationale,
+            "review_scope": acceptance.review_scope,
+            "residual_risk_scope": acceptance.residual_risk_scope,
+            "evidence_packet_id": acceptance.evidence_packet_id,
+            "evidence_packet_version": acceptance.evidence_packet_version,
+            "metadata_payload": dict(acceptance.metadata),
+            "accepted_at": acceptance.accepted_at,
         }
 
     @staticmethod
@@ -156,6 +214,67 @@ class AutomatedDecisionAuditPersistenceSerializer:
             evidence_references=cast(JsonObject, model.evidence_references),
             created_at=model.created_at,
             updated_at=model.updated_at,
+        )
+
+    @staticmethod
+    def review_decision_from_model(
+        model: GovernanceReviewDecisionModel,
+    ) -> GovernanceReviewDecisionRecord:
+        return GovernanceReviewDecisionRecord(
+            review_decision_id=model.review_decision_id,
+            review_task_id=model.review_task_id,
+            automated_governance_audit_record_id=(
+                model.automated_governance_audit_record_id
+            ),
+            subject=AutomatedDecisionSubject(
+                subject_type=model.subject_type,
+                subject_id=model.subject_id,
+            ),
+            risk_tier=RiskTier(model.risk_tier),
+            outcome=GovernanceReviewDecisionOutcome(model.outcome),
+            reviewer=GovernanceReviewerIdentity(
+                reviewer_id=model.reviewer_id,
+                actor_type=GovernanceReviewerActorType(model.reviewer_actor_type),
+                display_name=model.reviewer_display_name,
+            ),
+            rationale=model.rationale,
+            review_scope=model.review_scope,
+            evidence=AutomatedDecisionEvidenceReference(
+                packet_id=model.evidence_packet_id,
+                packet_version=model.evidence_packet_version,
+            ),
+            residual_risk_acceptance_required=(model.residual_risk_acceptance_required),
+            residual_risk_acceptance_id=model.residual_risk_acceptance_id,
+            metadata=cast(JsonObject, model.metadata_payload),
+            decided_at=model.decided_at,
+        )
+
+    @staticmethod
+    def residual_risk_acceptance_from_model(
+        model: GovernanceResidualRiskAcceptanceModel,
+    ) -> GovernanceResidualRiskAcceptanceRecord:
+        return GovernanceResidualRiskAcceptanceRecord(
+            acceptance_id=model.acceptance_id,
+            review_task_id=model.review_task_id,
+            subject=AutomatedDecisionSubject(
+                subject_type=model.subject_type,
+                subject_id=model.subject_id,
+            ),
+            risk_tier=RiskTier(model.risk_tier),
+            reviewer=GovernanceReviewerIdentity(
+                reviewer_id=model.reviewer_id,
+                actor_type=GovernanceReviewerActorType(model.reviewer_actor_type),
+                display_name=model.reviewer_display_name,
+            ),
+            rationale=model.rationale,
+            review_scope=model.review_scope,
+            residual_risk_scope=model.residual_risk_scope,
+            evidence=AutomatedDecisionEvidenceReference(
+                packet_id=model.evidence_packet_id,
+                packet_version=model.evidence_packet_version,
+            ),
+            metadata=cast(JsonObject, model.metadata_payload),
+            accepted_at=model.accepted_at,
         )
 
 

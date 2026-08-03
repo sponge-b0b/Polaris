@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
@@ -18,6 +20,11 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceResidualRiskAcceptanceRecord,
+    GovernanceReviewDecisionOutcome,
+    GovernanceReviewDecisionRecord,
+    GovernanceReviewerActorType,
+    GovernanceReviewerIdentity,
     GovernanceReviewTaskRecord,
     GovernanceReviewTaskStatus,
 )
@@ -146,6 +153,129 @@ async def test_list_review_tasks_filters_pending_evidence_queue() -> None:
         assert expected_fragment in compiled
 
 
+@pytest.mark.asyncio
+async def test_persist_review_decision_uses_immutable_insert() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+    decision = _review_decision_record()
+
+    result = await repository.persist_governance_review_decision(decision)
+
+    assert result.success is True
+    assert result.audit_record_id == "governance-review-decision-1"
+    compiled = session.executed[0].compile(dialect=postgresql.dialect())
+    assert "INSERT INTO governance_review_decisions" in str(compiled)
+    assert compiled.params["reviewer_id"] == "reviewer-1"
+    assert compiled.params["evidence_packet_version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_persist_residual_risk_acceptance_uses_scoped_insert() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+    acceptance = _residual_risk_acceptance_record()
+
+    result = await repository.persist_residual_risk_acceptance(acceptance)
+
+    assert result.success is True
+    assert result.audit_record_id == "governance-residual-risk-acceptance-1"
+    compiled = session.executed[0].compile(dialect=postgresql.dialect())
+    assert "INSERT INTO governance_residual_risk_acceptances" in str(compiled)
+    assert compiled.params["residual_risk_scope"] == ("recommendation publication only")
+    assert compiled.params["evidence_packet_version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_update_review_task_status_updates_visible_state() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+    updated_at = datetime(2026, 8, 2, 13, 0, tzinfo=UTC)
+
+    result = await repository.update_governance_review_task_status(
+        review_task_id="governance-review-task-1",
+        status=GovernanceReviewTaskStatus.APPROVED,
+        updated_at=updated_at,
+    )
+
+    assert result.success is True
+    compiled = session.executed[0].compile(dialect=postgresql.dialect())
+    assert "UPDATE governance_review_tasks" in str(compiled)
+    assert compiled.params["status"] == "approved"
+    assert compiled.params["updated_at"] == updated_at
+
+
+@pytest.mark.asyncio
+async def test_list_review_decisions_filters_by_scoped_evidence() -> None:
+    model = GovernanceReviewDecisionModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(
+            _review_decision_record(),
+        )
+    )
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    decisions = await repository.list_governance_review_decisions(
+        review_task_id="governance-review-task-1",
+        subject_type="recommendation",
+        subject_id="rec-1",
+        outcome="approved",
+        evidence_packet_id="packet-1",
+    )
+
+    assert decisions == (_review_decision_record(),)
+    compiled = str(
+        session.executed[0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    for expected_fragment in (
+        "governance_review_decisions",
+        "review_task_id",
+        "subject_type",
+        "subject_id",
+        "outcome",
+        "evidence_packet_id",
+        "ORDER BY",
+    ):
+        assert expected_fragment in compiled
+
+
+@pytest.mark.asyncio
+async def test_list_residual_risk_acceptances_filters_by_scoped_evidence() -> None:
+    model = GovernanceResidualRiskAcceptanceModel(
+        **AutomatedDecisionAuditPersistenceSerializer.residual_risk_acceptance_values(
+            _residual_risk_acceptance_record(),
+        )
+    )
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    acceptances = await repository.list_residual_risk_acceptances(
+        review_task_id="governance-review-task-1",
+        subject_type="recommendation",
+        subject_id="rec-1",
+        evidence_packet_id="packet-1",
+    )
+
+    assert acceptances == (_residual_risk_acceptance_record(),)
+    compiled = str(
+        session.executed[0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    for expected_fragment in (
+        "governance_residual_risk_acceptances",
+        "review_task_id",
+        "subject_type",
+        "subject_id",
+        "evidence_packet_id",
+        "ORDER BY",
+    ):
+        assert expected_fragment in compiled
+
+
 class FakeAsyncSession:
     def __init__(self, result: FakeExecuteResult | None = None) -> None:
         self.result = result or FakeExecuteResult([])
@@ -241,4 +371,43 @@ def _review_task_record() -> GovernanceReviewTaskRecord:
         },
         created_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
         updated_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+    )
+
+
+def _review_decision_record() -> GovernanceReviewDecisionRecord:
+    return GovernanceReviewDecisionRecord(
+        review_decision_id="governance-review-decision-1",
+        review_task_id="governance-review-task-1",
+        automated_governance_audit_record_id="governance-audit-1",
+        subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+        risk_tier=RiskTier.VIGILANT,
+        outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        reviewer=_reviewer(),
+        rationale="Human reviewed scoped decision evidence.",
+        review_scope="recommendation",
+        evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
+    )
+
+
+def _residual_risk_acceptance_record() -> GovernanceResidualRiskAcceptanceRecord:
+    return GovernanceResidualRiskAcceptanceRecord(
+        acceptance_id="governance-residual-risk-acceptance-1",
+        review_task_id="governance-review-task-1",
+        subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+        risk_tier=RiskTier.VIGILANT,
+        reviewer=_reviewer(),
+        rationale="Accept scoped residual risk.",
+        review_scope="recommendation",
+        residual_risk_scope="recommendation publication only",
+        evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        accepted_at=datetime(2026, 8, 2, 13, 5, tzinfo=UTC),
+    )
+
+
+def _reviewer() -> GovernanceReviewerIdentity:
+    return GovernanceReviewerIdentity(
+        reviewer_id="reviewer-1",
+        actor_type=GovernanceReviewerActorType.HUMAN_REVIEWER,
+        display_name="Jane Reviewer",
     )

@@ -8,6 +8,10 @@ from application.governance.authority_metadata_governance import (
 from application.governance.automated_decision_audit import (
     AutomatedDecisionAuditContext,
     AutomatedDecisionAuditService,
+    GovernanceResidualRiskAcceptanceRequest,
+    GovernanceReviewApprovalState,
+    GovernanceReviewResolution,
+    GovernanceReviewResolutionRequest,
 )
 
 __all__ = [
@@ -18,4 +22,8 @@ __all__ = [
     "AuthorityMetadataGovernanceRule",
     "AutomatedDecisionAuditContext",
     "AutomatedDecisionAuditService",
+    "GovernanceResidualRiskAcceptanceRequest",
+    "GovernanceReviewApprovalState",
+    "GovernanceReviewResolution",
+    "GovernanceReviewResolutionRequest",
 ]

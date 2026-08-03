@@ -4,6 +4,8 @@ from core.database.base import Base
 from core.database.models import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 
@@ -12,6 +14,8 @@ def test_automated_decision_audit_models_are_imported_into_metadata() -> None:
     assert "automated_policy_audit_records" in Base.metadata.tables
     assert "automated_governance_audit_records" in Base.metadata.tables
     assert "governance_review_tasks" in Base.metadata.tables
+    assert "governance_review_decisions" in Base.metadata.tables
+    assert "governance_residual_risk_acceptances" in Base.metadata.tables
 
 
 def test_policy_and_governance_audit_models_have_separate_outcome_shapes() -> None:
@@ -62,3 +66,41 @@ def test_governance_review_task_model_captures_scoped_review_work_queue() -> Non
     assert "ix_governance_review_tasks_status" in indexes
     assert "idx_governance_review_tasks_subject_status" in indexes
     assert "idx_governance_review_tasks_evidence_status" in indexes
+
+
+def test_review_decision_model_captures_attributable_approval_audit() -> None:
+    constraints = {
+        constraint.name
+        for constraint in GovernanceReviewDecisionModel.__table__.constraints
+    }
+    indexes = {index.name for index in GovernanceReviewDecisionModel.__table__.indexes}
+
+    assert "ck_governance_review_decisions_outcome" in constraints
+    assert "ck_governance_review_decisions_reviewer_actor_type" in constraints
+    assert "reviewer_id" in GovernanceReviewDecisionModel.__table__.columns
+    assert "rationale" in GovernanceReviewDecisionModel.__table__.columns
+    assert "evidence_packet_version" in GovernanceReviewDecisionModel.__table__.columns
+    assert "idx_governance_review_decisions_task_outcome" in indexes
+    assert "idx_governance_review_decisions_evidence_outcome" in indexes
+
+
+def test_residual_risk_acceptance_model_is_scoped_to_evidence_version() -> None:
+    constraints = {
+        constraint.name
+        for constraint in GovernanceResidualRiskAcceptanceModel.__table__.constraints
+    }
+    indexes = {
+        index.name for index in GovernanceResidualRiskAcceptanceModel.__table__.indexes
+    }
+
+    assert "ck_governance_residual_risk_acceptances_risk_tier" in constraints
+    assert "uq_governance_residual_acceptances_scoped_evidence" in constraints
+    assert "reviewer_id" in GovernanceResidualRiskAcceptanceModel.__table__.columns
+    assert "rationale" in GovernanceResidualRiskAcceptanceModel.__table__.columns
+    assert "residual_risk_scope" in (
+        GovernanceResidualRiskAcceptanceModel.__table__.columns
+    )
+    assert "evidence_packet_version" in (
+        GovernanceResidualRiskAcceptanceModel.__table__.columns
+    )
+    assert "idx_governance_residual_acceptances_task_evidence" in indexes

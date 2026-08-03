@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
@@ -22,6 +24,11 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceResidualRiskAcceptanceRecord,
+    GovernanceReviewDecisionOutcome,
+    GovernanceReviewDecisionRecord,
+    GovernanceReviewerActorType,
+    GovernanceReviewerIdentity,
     GovernanceReviewTaskRecord,
     GovernanceReviewTaskStatus,
 )
@@ -84,6 +91,24 @@ async def postgres_session_factory() -> AsyncIterator[async_sessionmaker[AsyncSe
                 checkfirst=True,
             )
         )
+        await connection.run_sync(
+            lambda sync_connection: cast(
+                Table,
+                GovernanceResidualRiskAcceptanceModel.__table__,
+            ).create(
+                sync_connection,
+                checkfirst=True,
+            )
+        )
+        await connection.run_sync(
+            lambda sync_connection: cast(
+                Table,
+                GovernanceReviewDecisionModel.__table__,
+            ).create(
+                sync_connection,
+                checkfirst=True,
+            )
+        )
 
     yield session_factory
 
@@ -112,10 +137,29 @@ async def test_postgres_governance_audit_records_survive_round_trip(
             review_task_result = await repository.persist_governance_review_task(
                 review_task,
             )
+            acceptance = _residual_risk_acceptance_record(review_task)
+            acceptance_result = await repository.persist_residual_risk_acceptance(
+                acceptance,
+            )
+            decision = _review_decision_record(
+                review_task,
+                residual_risk_acceptance_id=acceptance.acceptance_id,
+            )
+            decision_result = await repository.persist_governance_review_decision(
+                decision,
+            )
+            status_result = await repository.update_governance_review_task_status(
+                review_task_id=review_task.review_task_id,
+                status=GovernanceReviewTaskStatus.APPROVED,
+                updated_at=decision.decided_at,
+            )
 
             assert policy_result.success is True
             assert governance_result.success is True
             assert review_task_result.success is True
+            assert acceptance_result.success is True
+            assert decision_result.success is True
+            assert status_result.success is True
 
         async with postgres_session_factory() as session:
             repository = PostgresAutomatedDecisionAuditRepository(session)
@@ -133,16 +177,35 @@ async def test_postgres_governance_audit_records_survive_round_trip(
             persisted_review_task = await repository.get_governance_review_task(
                 review_task.review_task_id,
             )
+            persisted_acceptance = await repository.get_residual_risk_acceptance(
+                acceptance.acceptance_id,
+            )
+            persisted_decision = await repository.get_governance_review_decision(
+                decision.review_decision_id,
+            )
             queried_review_tasks = await repository.list_governance_review_tasks(
-                status="pending",
+                status="approved",
+                evidence_packet_id="ticket-129-packet",
+            )
+            queried_decisions = await repository.list_governance_review_decisions(
+                outcome="approved",
+                evidence_packet_id="ticket-129-packet",
+            )
+            queried_acceptances = await repository.list_residual_risk_acceptances(
                 evidence_packet_id="ticket-129-packet",
             )
 
         assert persisted_policy == policy_record
         assert persisted_governance == governance_record
         assert queried_governance == (governance_record,)
-        assert persisted_review_task == review_task
-        assert queried_review_tasks == (review_task,)
+        assert persisted_review_task is not None
+        assert persisted_review_task.status is GovernanceReviewTaskStatus.APPROVED
+        assert persisted_review_task.updated_at == decision.decided_at
+        assert queried_review_tasks == (persisted_review_task,)
+        assert persisted_acceptance == acceptance
+        assert persisted_decision == decision
+        assert queried_decisions == (decision,)
+        assert queried_acceptances == (acceptance,)
     finally:
         await _delete_test_records(postgres_session_factory)
 
@@ -151,6 +214,20 @@ async def _delete_test_records(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     async with session_factory() as session:
+        await session.execute(
+            delete(GovernanceReviewDecisionModel).where(
+                GovernanceReviewDecisionModel.review_decision_id.like(
+                    "ticket-129-%",
+                )
+            )
+        )
+        await session.execute(
+            delete(GovernanceResidualRiskAcceptanceModel).where(
+                GovernanceResidualRiskAcceptanceModel.acceptance_id.like(
+                    "ticket-129-%",
+                )
+            )
+        )
         await session.execute(
             delete(GovernanceReviewTaskModel).where(
                 GovernanceReviewTaskModel.review_task_id.like(
@@ -231,4 +308,53 @@ def _review_task_record(
         },
         created_at=governance_record.timestamp,
         updated_at=governance_record.timestamp,
+    )
+
+
+def _review_decision_record(
+    review_task: GovernanceReviewTaskRecord,
+    *,
+    residual_risk_acceptance_id: str,
+) -> GovernanceReviewDecisionRecord:
+    return GovernanceReviewDecisionRecord(
+        review_decision_id="ticket-129-review-decision",
+        review_task_id=review_task.review_task_id,
+        automated_governance_audit_record_id=(
+            review_task.automated_governance_audit_record_id
+        ),
+        subject=review_task.subject,
+        risk_tier=review_task.risk_tier,
+        outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        reviewer=_reviewer(),
+        rationale="Human reviewer approved the scoped evidence packet.",
+        review_scope=review_task.review_scope,
+        evidence=review_task.evidence,
+        decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
+        residual_risk_acceptance_required=True,
+        residual_risk_acceptance_id=residual_risk_acceptance_id,
+    )
+
+
+def _residual_risk_acceptance_record(
+    review_task: GovernanceReviewTaskRecord,
+) -> GovernanceResidualRiskAcceptanceRecord:
+    return GovernanceResidualRiskAcceptanceRecord(
+        acceptance_id="ticket-129-residual-risk-acceptance",
+        review_task_id=review_task.review_task_id,
+        subject=review_task.subject,
+        risk_tier=review_task.risk_tier,
+        reviewer=_reviewer(),
+        rationale="Accept residual market risk for this output only.",
+        review_scope=review_task.review_scope,
+        residual_risk_scope="recommendation publication only",
+        evidence=review_task.evidence,
+        accepted_at=datetime(2026, 8, 2, 13, 5, tzinfo=UTC),
+    )
+
+
+def _reviewer() -> GovernanceReviewerIdentity:
+    return GovernanceReviewerIdentity(
+        reviewer_id="reviewer-1",
+        actor_type=GovernanceReviewerActorType.HUMAN_REVIEWER,
+        display_name="Jane Reviewer",
     )

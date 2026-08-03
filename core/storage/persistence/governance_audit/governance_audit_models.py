@@ -43,6 +43,20 @@ class GovernanceReviewTaskStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class GovernanceReviewDecisionOutcome(StrEnum):
+    """Immutable human review outcomes for governance review tasks."""
+
+    APPROVED = "approved"
+    DENIED = "denied"
+
+
+class GovernanceReviewerActorType(StrEnum):
+    """Actor categories allowed to author human governance review records."""
+
+    HUMAN_REVIEWER = "human_reviewer"
+    ORGANIZATION_REVIEWER = "organization_reviewer"
+
+
 @dataclass(frozen=True, slots=True)
 class AutomatedDecisionSubject:
     """Stable subject identity for an automated audit decision."""
@@ -318,6 +332,196 @@ class GovernanceReviewTaskRecord:
         return self.status.value
 
 
+@dataclass(frozen=True, slots=True)
+class GovernanceReviewerIdentity:
+    """Attributable reviewer identity for a human governance action."""
+
+    reviewer_id: str
+    actor_type: GovernanceReviewerActorType
+    display_name: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "reviewer_id",
+            _clean_identifier(self.reviewer_id, "reviewer_id"),
+        )
+        object.__setattr__(
+            self,
+            "actor_type",
+            _coerce_reviewer_actor_type(self.actor_type),
+        )
+        object.__setattr__(
+            self,
+            "display_name",
+            _clean_optional_text(self.display_name, "display_name"),
+        )
+
+    @property
+    def actor_type_value(self) -> str:
+        return self.actor_type.value
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceReviewDecisionRecord:
+    """Immutable audit entry for a human approval or denial."""
+
+    review_decision_id: str
+    review_task_id: str
+    automated_governance_audit_record_id: str
+    subject: AutomatedDecisionSubject
+    risk_tier: RiskTier
+    outcome: GovernanceReviewDecisionOutcome
+    reviewer: GovernanceReviewerIdentity
+    rationale: str
+    review_scope: str
+    evidence: AutomatedDecisionEvidenceReference
+    decided_at: datetime
+    residual_risk_acceptance_required: bool = False
+    residual_risk_acceptance_id: str | None = None
+    metadata: JsonObject = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "review_decision_id",
+            _clean_identifier(self.review_decision_id, "review_decision_id"),
+        )
+        object.__setattr__(
+            self,
+            "review_task_id",
+            _clean_identifier(self.review_task_id, "review_task_id"),
+        )
+        object.__setattr__(
+            self,
+            "automated_governance_audit_record_id",
+            _clean_identifier(
+                self.automated_governance_audit_record_id,
+                "automated_governance_audit_record_id",
+            ),
+        )
+        object.__setattr__(self, "risk_tier", _coerce_risk_tier(self.risk_tier))
+        object.__setattr__(
+            self,
+            "outcome",
+            _coerce_review_decision_outcome(self.outcome),
+        )
+        object.__setattr__(
+            self,
+            "rationale",
+            _clean_identifier(self.rationale, "rationale"),
+        )
+        object.__setattr__(
+            self,
+            "review_scope",
+            _clean_identifier(self.review_scope, "review_scope"),
+        )
+        object.__setattr__(
+            self,
+            "residual_risk_acceptance_id",
+            _clean_optional_text(
+                self.residual_risk_acceptance_id,
+                "residual_risk_acceptance_id",
+            ),
+        )
+        object.__setattr__(self, "metadata", _validated_review_metadata(self.metadata))
+        if (
+            self.residual_risk_acceptance_required
+            and self.outcome is GovernanceReviewDecisionOutcome.APPROVED
+            and self.residual_risk_acceptance_id is None
+        ):
+            raise ValueError(
+                "approved vigilant review decisions with remaining residual risk "
+                "require explicit residual-risk acceptance."
+            )
+
+    @property
+    def subject_type(self) -> str:
+        return self.subject.subject_type
+
+    @property
+    def subject_id(self) -> str:
+        return self.subject.subject_id
+
+    @property
+    def evidence_packet_id(self) -> str:
+        return self.evidence.packet_id
+
+    @property
+    def evidence_packet_version(self) -> int:
+        return self.evidence.packet_version
+
+    @property
+    def outcome_value(self) -> str:
+        return self.outcome.value
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceResidualRiskAcceptanceRecord:
+    """Explicit scoped human acceptance of residual risk for one evidence version."""
+
+    acceptance_id: str
+    review_task_id: str
+    subject: AutomatedDecisionSubject
+    risk_tier: RiskTier
+    reviewer: GovernanceReviewerIdentity
+    rationale: str
+    review_scope: str
+    residual_risk_scope: str
+    evidence: AutomatedDecisionEvidenceReference
+    accepted_at: datetime
+    metadata: JsonObject = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "acceptance_id",
+            _clean_identifier(self.acceptance_id, "acceptance_id"),
+        )
+        object.__setattr__(
+            self,
+            "review_task_id",
+            _clean_identifier(self.review_task_id, "review_task_id"),
+        )
+        object.__setattr__(self, "risk_tier", _coerce_risk_tier(self.risk_tier))
+        if self.risk_tier is not RiskTier.VIGILANT:
+            raise ValueError(
+                "residual-risk acceptance is only valid for vigilant reviews."
+            )
+        object.__setattr__(
+            self,
+            "rationale",
+            _clean_identifier(self.rationale, "rationale"),
+        )
+        object.__setattr__(
+            self,
+            "review_scope",
+            _clean_identifier(self.review_scope, "review_scope"),
+        )
+        object.__setattr__(
+            self,
+            "residual_risk_scope",
+            _clean_identifier(self.residual_risk_scope, "residual_risk_scope"),
+        )
+        object.__setattr__(self, "metadata", _validated_review_metadata(self.metadata))
+
+    @property
+    def subject_type(self) -> str:
+        return self.subject.subject_type
+
+    @property
+    def subject_id(self) -> str:
+        return self.subject.subject_id
+
+    @property
+    def evidence_packet_id(self) -> str:
+        return self.evidence.packet_id
+
+    @property
+    def evidence_packet_version(self) -> int:
+        return self.evidence.packet_version
+
+
 def governance_review_task_id(
     *,
     subject: AutomatedDecisionSubject,
@@ -396,6 +600,14 @@ def new_automated_governance_audit_record_id() -> str:
     return f"automated_governance_audit:{uuid4().hex}"
 
 
+def new_governance_review_decision_id() -> str:
+    return f"governance_review_decision:{uuid4().hex}"
+
+
+def new_governance_residual_risk_acceptance_id() -> str:
+    return f"governance_residual_risk_acceptance:{uuid4().hex}"
+
+
 def authority_metadata_from_contract(
     contract: RiskAuthorityContract,
 ) -> JsonObject:
@@ -426,6 +638,24 @@ def _coerce_review_task_status(value: object) -> GovernanceReviewTaskStatus:
     if isinstance(value, str):
         return GovernanceReviewTaskStatus(value.strip().lower())
     raise ValueError("review task status must be a governance review task status.")
+
+
+def _coerce_review_decision_outcome(
+    value: object,
+) -> GovernanceReviewDecisionOutcome:
+    if isinstance(value, GovernanceReviewDecisionOutcome):
+        return value
+    if isinstance(value, str):
+        return GovernanceReviewDecisionOutcome(value.strip().lower())
+    raise ValueError("review decision outcome must be approved or denied.")
+
+
+def _coerce_reviewer_actor_type(value: object) -> GovernanceReviewerActorType:
+    if isinstance(value, GovernanceReviewerActorType):
+        return value
+    if isinstance(value, str):
+        return GovernanceReviewerActorType(value.strip().lower())
+    raise ValueError("reviewer actor type must identify a human reviewer.")
 
 
 def _coerce_risk_tier(value: object) -> RiskTier:
@@ -474,6 +704,38 @@ def _reject_model_authority_assertions(metadata: Mapping[str, object]) -> None:
             for item in value:
                 if isinstance(item, Mapping):
                     _reject_model_authority_assertions(item)
+
+
+def _validated_review_metadata(value: Mapping[str, object]) -> dict[str, object]:
+    metadata = _json_object(value)
+    _reject_model_authority_assertions(metadata)
+    _reject_nonhuman_review_assertions(metadata)
+    return metadata
+
+
+def _reject_nonhuman_review_assertions(metadata: Mapping[str, object]) -> None:
+    forbidden_keys = {
+        "model_output",
+        "workflow_metadata",
+        "evaluator_score",
+        "generated_text",
+        "policy_outcome_override",
+    }
+    for key, value in metadata.items():
+        normalized_key = key.strip().lower()
+        if normalized_key in forbidden_keys:
+            raise ValueError(
+                f"non-human governance review metadata cannot set {key!r}."
+            )
+        if isinstance(value, Mapping):
+            _reject_nonhuman_review_assertions(value)
+            continue
+        if isinstance(value, Sequence) and not isinstance(
+            value, str | bytes | bytearray
+        ):
+            for item in value:
+                if isinstance(item, Mapping):
+                    _reject_nonhuman_review_assertions(item)
 
 
 def _json_object(value: Mapping[str, object]) -> dict[str, object]:

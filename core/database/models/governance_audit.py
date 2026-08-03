@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -242,6 +243,144 @@ class GovernanceReviewTaskModel(Base):
     )
 
 
+class GovernanceReviewDecisionModel(Base):
+    """Immutable human approval or denial audit entry."""
+
+    __tablename__ = "governance_review_decisions"
+    __table_args__ = (
+        CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant', "
+            "'prohibited_outside_authority')",
+            name="ck_governance_review_decisions_risk_tier",
+        ),
+        CheckConstraint(
+            "outcome IN ('approved', 'denied')",
+            name="ck_governance_review_decisions_outcome",
+        ),
+        CheckConstraint(
+            "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
+            name="ck_governance_review_decisions_reviewer_actor_type",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_governance_review_decisions_metadata_object",
+        ),
+    )
+
+    review_decision_id: Mapped[str] = mapped_column(String, primary_key=True)
+    review_task_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("governance_review_tasks.review_task_id"),
+        nullable=False,
+        index=True,
+    )
+    automated_governance_audit_record_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("automated_governance_audit_records.audit_record_id"),
+        nullable=False,
+    )
+    subject_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    subject_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    risk_tier: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    reviewer_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    reviewer_actor_type: Mapped[str] = mapped_column(String, nullable=False)
+    reviewer_display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    rationale: Mapped[str] = mapped_column(String, nullable=False)
+    review_scope: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    evidence_packet_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    evidence_packet_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    residual_risk_acceptance_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    residual_risk_acceptance_id: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        index=True,
+    )
+    metadata_payload: Mapped[dict[str, Any]] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    row_created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class GovernanceResidualRiskAcceptanceModel(Base):
+    """Explicit scoped residual-risk acceptance audit entry."""
+
+    __tablename__ = "governance_residual_risk_acceptances"
+    __table_args__ = (
+        CheckConstraint(
+            "risk_tier IN ('vigilant')",
+            name="ck_governance_residual_risk_acceptances_risk_tier",
+        ),
+        CheckConstraint(
+            "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
+            name="ck_governance_residual_acceptances_reviewer_actor_type",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_governance_residual_risk_acceptances_metadata_object",
+        ),
+        UniqueConstraint(
+            "review_task_id",
+            "evidence_packet_id",
+            "evidence_packet_version",
+            "review_scope",
+            "residual_risk_scope",
+            name="uq_governance_residual_acceptances_scoped_evidence",
+        ),
+    )
+
+    acceptance_id: Mapped[str] = mapped_column(String, primary_key=True)
+    review_task_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("governance_review_tasks.review_task_id"),
+        nullable=False,
+        index=True,
+    )
+    subject_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    subject_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    risk_tier: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    reviewer_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    reviewer_actor_type: Mapped[str] = mapped_column(String, nullable=False)
+    reviewer_display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    rationale: Mapped[str] = mapped_column(String, nullable=False)
+    review_scope: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    residual_risk_scope: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    evidence_packet_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    evidence_packet_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    metadata_payload: Mapped[dict[str, Any]] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+    accepted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    row_created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 Index(
     "idx_automated_policy_audit_subject_outcome",
     AutomatedPolicyAuditRecordModel.subject_type,
@@ -276,4 +415,25 @@ Index(
     GovernanceReviewTaskModel.evidence_packet_id,
     GovernanceReviewTaskModel.evidence_packet_version,
     GovernanceReviewTaskModel.status,
+)
+Index(
+    "ix_governance_review_decisions_gov_audit_id",
+    GovernanceReviewDecisionModel.automated_governance_audit_record_id,
+)
+Index(
+    "idx_governance_review_decisions_task_outcome",
+    GovernanceReviewDecisionModel.review_task_id,
+    GovernanceReviewDecisionModel.outcome,
+)
+Index(
+    "idx_governance_review_decisions_evidence_outcome",
+    GovernanceReviewDecisionModel.evidence_packet_id,
+    GovernanceReviewDecisionModel.evidence_packet_version,
+    GovernanceReviewDecisionModel.outcome,
+)
+Index(
+    "idx_governance_residual_acceptances_task_evidence",
+    GovernanceResidualRiskAcceptanceModel.review_task_id,
+    GovernanceResidualRiskAcceptanceModel.evidence_packet_id,
+    GovernanceResidualRiskAcceptanceModel.evidence_packet_version,
 )

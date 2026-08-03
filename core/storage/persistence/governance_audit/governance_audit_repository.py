@@ -8,7 +8,10 @@ from core.storage.persistence.governance_audit.governance_audit_models import (
     AutomatedDecisionAuditPersistenceResult,
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditRecord,
+    GovernanceResidualRiskAcceptanceRecord,
+    GovernanceReviewDecisionRecord,
     GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
 )
 
 
@@ -39,6 +42,34 @@ class AutomatedDecisionAuditRepository(Protocol):
         self,
         review_task_id: str,
     ) -> GovernanceReviewTaskRecord | None: ...
+
+    async def update_governance_review_task_status(
+        self,
+        *,
+        review_task_id: str,
+        status: GovernanceReviewTaskStatus,
+        updated_at: datetime,
+    ) -> AutomatedDecisionAuditPersistenceResult: ...
+
+    async def persist_governance_review_decision(
+        self,
+        decision: GovernanceReviewDecisionRecord,
+    ) -> AutomatedDecisionAuditPersistenceResult: ...
+
+    async def get_governance_review_decision(
+        self,
+        review_decision_id: str,
+    ) -> GovernanceReviewDecisionRecord | None: ...
+
+    async def persist_residual_risk_acceptance(
+        self,
+        acceptance: GovernanceResidualRiskAcceptanceRecord,
+    ) -> AutomatedDecisionAuditPersistenceResult: ...
+
+    async def get_residual_risk_acceptance(
+        self,
+        acceptance_id: str,
+    ) -> GovernanceResidualRiskAcceptanceRecord | None: ...
 
     async def get_governance_audit_record(
         self,
@@ -80,3 +111,22 @@ class AutomatedDecisionAuditRepository(Protocol):
         status: str | None = None,
         evidence_packet_id: str | None = None,
     ) -> Sequence[GovernanceReviewTaskRecord]: ...
+
+    async def list_governance_review_decisions(
+        self,
+        *,
+        review_task_id: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        outcome: str | None = None,
+        evidence_packet_id: str | None = None,
+    ) -> Sequence[GovernanceReviewDecisionRecord]: ...
+
+    async def list_residual_risk_acceptances(
+        self,
+        *,
+        review_task_id: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        evidence_packet_id: str | None = None,
+    ) -> Sequence[GovernanceResidualRiskAcceptanceRecord]: ...

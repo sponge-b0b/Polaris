@@ -14,6 +14,11 @@ Both axes run as **parallel sub-agents** so they don't pollute each other's cont
 then this skill aggregates their findings. The review loop is bounded: it closes
 when there are zero **Blocking** findings, even if Advisory notes remain.
 
+This is a **review-only** workflow, not a verification workflow. Do not run
+`pytest`, `ruff`, `mypy`, graph updates, duplication scans, or other static/test
+verification commands from this skill. If spec-wide verification is needed, stop
+and invoke `/verify-spec` as a separate workflow.
+
 The issue tracker should have been provided to you — run `/setup-matt-pocock-skills`
 if `docs/agents/issue-tracker.md` is missing.
 
@@ -97,6 +102,13 @@ Anything in the repo that documents how code should be written, such as
 Send a single message with two `Agent` tool calls. Use the `general-purpose`
 subagent for both.
 
+**Main-agent orchestration boundary:** after spawning, do not independently
+perform the Standards review or the Spec review while the sub-agents run. Waiting
+time may be used only for orchestration work that does not discover new review
+findings, such as preparing report headings, checking tracker metadata, or
+collecting already-identified context. Do not inspect additional hunks, run
+verification commands, or duplicate a sub-agent's assigned analysis.
+
 **Standards sub-agent prompt** — include:
 
 - The full diff command and commit list.
@@ -131,12 +143,18 @@ report.
 ### 5. Aggregate
 
 Lightly validate sub-agent findings before adding them to the final report or the
-issue tracker:
+issue tracker. Validation is bounded to checking whether a cited finding is
+legitimate; it is not permission to perform a fresh review pass or verification
+run.
 
 - Confirm Blocking Standards findings cite a documented rule and are not merely a
   smell-baseline judgement call.
 - Confirm scope-creep findings have not been explicitly owner-authorized.
 - Confirm Owner-overridden findings are not counted or ticketed.
+- Inspect only the standards/spec text or diff/source evidence needed to validate
+  a sub-agent's cited finding; do not search for additional findings yourself.
+- Do not run tests, static checks, format checks, graph updates, or duplication
+  scans while aggregating. Those belong to `/verify-spec` or `/verify-code`.
 - Do not merge the Standards and Spec axes or pick one overall priority winner.
 
 Present the two reports under `## Standards` and `## Spec` headings. Within each

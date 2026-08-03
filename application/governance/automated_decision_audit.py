@@ -19,6 +19,7 @@ from core.storage.persistence.governance_audit import (
     GovernanceResidualRiskAcceptanceRecord,
     GovernanceReviewDecisionOutcome,
     GovernanceReviewDecisionRecord,
+    GovernanceReviewerActorType,
     GovernanceReviewerIdentity,
     GovernanceReviewTaskRecord,
     GovernanceReviewTaskStatus,
@@ -100,6 +101,106 @@ class GovernedOutputReleaseDecision:
     approval_state: GovernanceReviewApprovalState | None = None
     review_task_id: str | None = None
     residual_risk_acceptance_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AutomatedDecisionAuditQuery:
+    """Typed query filters for authoritative automated decision records."""
+
+    subject_type: str | None = None
+    subject_id: str | None = None
+    risk_tier: RiskTier | str | None = None
+    outcome: StrEnum | str | None = None
+    evidence_packet_id: str | None = None
+    evidence_packet_version: int | None = None
+    rule_name: str | None = None
+    policy_name: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceReviewTaskQuery:
+    """Typed query filters for operator-visible governance review work."""
+
+    subject_type: str | None = None
+    subject_id: str | None = None
+    risk_tier: RiskTier | str | None = None
+    status: GovernanceReviewTaskStatus | str | None = None
+    approval_state: GovernanceReviewApprovalState | str | None = None
+    review_scope: str | None = None
+    intended_sink: str | None = None
+    requested_action: str | None = None
+    evidence_packet_id: str | None = None
+    evidence_packet_version: int | None = None
+    closed: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceReviewDecisionQuery:
+    """Typed query filters for immutable human review audit entries."""
+
+    review_task_id: str | None = None
+    subject_type: str | None = None
+    subject_id: str | None = None
+    risk_tier: RiskTier | str | None = None
+    outcome: GovernanceReviewDecisionOutcome | str | None = None
+    review_scope: str | None = None
+    reviewer_id: str | None = None
+    reviewer_actor_type: GovernanceReviewerActorType | str | None = None
+    evidence_packet_id: str | None = None
+    evidence_packet_version: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceResidualRiskAcceptanceQuery:
+    """Typed query filters for scoped residual-risk acceptance records."""
+
+    review_task_id: str | None = None
+    subject_type: str | None = None
+    subject_id: str | None = None
+    risk_tier: RiskTier | str | None = None
+    review_scope: str | None = None
+    residual_risk_scope: str | None = None
+    reviewer_id: str | None = None
+    reviewer_actor_type: GovernanceReviewerActorType | str | None = None
+    evidence_packet_id: str | None = None
+    evidence_packet_version: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GovernanceReviewState:
+    """Transport-ready read model for one governance review task."""
+
+    task: GovernanceReviewTaskRecord
+    approval_state: GovernanceReviewApprovalState
+    automated_decision: AutomatedGovernanceAuditRecord | None
+    audit_history: tuple[GovernanceReviewDecisionRecord, ...]
+    residual_risk_acceptances: tuple[GovernanceResidualRiskAcceptanceRecord, ...]
+
+    @property
+    def review_task_id(self) -> str:
+        return self.task.review_task_id
+
+    @property
+    def risk_tier(self) -> RiskTier:
+        return self.task.risk_tier
+
+    @property
+    def review_scope(self) -> str:
+        return self.task.review_scope
+
+    @property
+    def status(self) -> GovernanceReviewTaskStatus:
+        return self.task.status
+
+    @property
+    def evidence_packet_version(self) -> int:
+        return self.task.evidence_packet_version
+
+    @property
+    def closed(self) -> bool:
+        return _review_task_is_closed(self.task)
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +350,161 @@ class AutomatedDecisionAuditService:
             )
         return replace(audit_result, review_task_id=task.review_task_id)
 
+    async def list_policy_audit_records(
+        self,
+        query: AutomatedDecisionAuditQuery | None = None,
+    ) -> tuple[AutomatedPolicyAuditRecord, ...]:
+        """List authoritative automated policy decisions for operator queries."""
+        filters = query or AutomatedDecisionAuditQuery()
+        records = await self._repository.list_policy_audit_records(
+            subject_type=filters.subject_type,
+            subject_id=filters.subject_id,
+            risk_tier=_filter_value(filters.risk_tier),
+            outcome=_filter_value(filters.outcome),
+            policy_name=filters.policy_name,
+            evidence_packet_id=filters.evidence_packet_id,
+            start=filters.start,
+            end=filters.end,
+        )
+        return tuple(
+            sorted(
+                (
+                    record
+                    for record in records
+                    if _matches_evidence_version(
+                        record.evidence_packet_version,
+                        filters.evidence_packet_version,
+                    )
+                ),
+                key=lambda record: record.timestamp,
+                reverse=True,
+            )
+        )
+
+    async def list_governance_audit_records(
+        self,
+        query: AutomatedDecisionAuditQuery | None = None,
+    ) -> tuple[AutomatedGovernanceAuditRecord, ...]:
+        """List authoritative automated governance decisions for queries."""
+        filters = query or AutomatedDecisionAuditQuery()
+        records = await self._repository.list_governance_audit_records(
+            subject_type=filters.subject_type,
+            subject_id=filters.subject_id,
+            risk_tier=_filter_value(filters.risk_tier),
+            outcome=_filter_value(filters.outcome),
+            rule_name=filters.rule_name,
+            evidence_packet_id=filters.evidence_packet_id,
+            start=filters.start,
+            end=filters.end,
+        )
+        return tuple(
+            sorted(
+                (
+                    record
+                    for record in records
+                    if _matches_evidence_version(
+                        record.evidence_packet_version,
+                        filters.evidence_packet_version,
+                    )
+                ),
+                key=lambda record: record.timestamp,
+                reverse=True,
+            )
+        )
+
+    async def list_governance_review_tasks(
+        self,
+        query: GovernanceReviewTaskQuery | None = None,
+    ) -> tuple[GovernanceReviewTaskRecord, ...]:
+        """List pending or closed review work without exposing mutation paths."""
+        filters = query or GovernanceReviewTaskQuery()
+        tasks = await self._repository.list_governance_review_tasks(
+            subject_type=filters.subject_type,
+            subject_id=filters.subject_id,
+            risk_tier=_filter_value(filters.risk_tier),
+            status=_filter_value(filters.status),
+            evidence_packet_id=filters.evidence_packet_id,
+        )
+        return tuple(
+            sorted(
+                (task for task in tasks if _matches_review_task_filters(task, filters)),
+                key=lambda task: task.updated_at,
+                reverse=True,
+            )
+        )
+
+    async def list_governance_review_decisions(
+        self,
+        query: GovernanceReviewDecisionQuery | None = None,
+    ) -> tuple[GovernanceReviewDecisionRecord, ...]:
+        """List immutable approvals, denials, contests, and overrides."""
+        filters = query or GovernanceReviewDecisionQuery()
+        decisions = await self._repository.list_governance_review_decisions(
+            review_task_id=filters.review_task_id,
+            subject_type=filters.subject_type,
+            subject_id=filters.subject_id,
+            outcome=_filter_value(filters.outcome),
+            evidence_packet_id=filters.evidence_packet_id,
+        )
+        return tuple(
+            sorted(
+                (
+                    decision
+                    for decision in decisions
+                    if _matches_review_decision_filters(decision, filters)
+                ),
+                key=lambda decision: decision.decided_at,
+                reverse=True,
+            )
+        )
+
+    async def list_residual_risk_acceptances(
+        self,
+        query: GovernanceResidualRiskAcceptanceQuery | None = None,
+    ) -> tuple[GovernanceResidualRiskAcceptanceRecord, ...]:
+        """List explicit scoped residual-risk acceptance records."""
+        filters = query or GovernanceResidualRiskAcceptanceQuery()
+        acceptances = await self._repository.list_residual_risk_acceptances(
+            review_task_id=filters.review_task_id,
+            subject_type=filters.subject_type,
+            subject_id=filters.subject_id,
+            evidence_packet_id=filters.evidence_packet_id,
+        )
+        return tuple(
+            sorted(
+                (
+                    acceptance
+                    for acceptance in acceptances
+                    if _matches_residual_risk_acceptance_filters(
+                        acceptance,
+                        filters,
+                    )
+                ),
+                key=lambda acceptance: acceptance.accepted_at,
+                reverse=True,
+            )
+        )
+
+    async def get_governance_review_state(
+        self,
+        review_task_id: str,
+    ) -> GovernanceReviewState:
+        """Inspect one review task with automated decision and audit history."""
+        task = await self._repository.get_governance_review_task(review_task_id)
+        if task is None:
+            raise ValueError("governance review task was not found.")
+        return await self._governance_review_state_from_task(task)
+
+    async def list_governance_review_states(
+        self,
+        query: GovernanceReviewTaskQuery | None = None,
+    ) -> tuple[GovernanceReviewState, ...]:
+        """List review work as transport-ready states with audit history."""
+        states: list[GovernanceReviewState] = []
+        for task in await self.list_governance_review_tasks(query):
+            states.append(await self._governance_review_state_from_task(task))
+        return tuple(states)
+
     async def resolve_governance_review_task(
         self,
         request: GovernanceReviewResolutionRequest,
@@ -375,6 +631,27 @@ class AutomatedDecisionAuditService:
             reason="governance review permits release",
         )
 
+    async def _governance_review_state_from_task(
+        self,
+        task: GovernanceReviewTaskRecord,
+    ) -> GovernanceReviewState:
+        automated_decision = await self._repository.get_governance_audit_record(
+            task.automated_governance_audit_record_id,
+        )
+        audit_history = await self.list_governance_review_decisions(
+            GovernanceReviewDecisionQuery(review_task_id=task.review_task_id),
+        )
+        residual_risk_acceptances = await self.list_residual_risk_acceptances(
+            GovernanceResidualRiskAcceptanceQuery(review_task_id=task.review_task_id),
+        )
+        return GovernanceReviewState(
+            task=task,
+            approval_state=_approval_state_for_task_status(task.status),
+            automated_decision=automated_decision,
+            audit_history=tuple(reversed(audit_history)),
+            residual_risk_acceptances=tuple(reversed(residual_risk_acceptances)),
+        )
+
     async def _matching_residual_risk_acceptance(
         self,
         *,
@@ -438,6 +715,110 @@ def requires_governed_output_release_review(
             or authority.governance_impact
         )
     )
+
+
+def _filter_value(value: StrEnum | str | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, StrEnum):
+        return value.value
+    return value
+
+
+def _matches_evidence_version(
+    record_version: int | None,
+    query_version: int | None,
+) -> bool:
+    return query_version is None or record_version == query_version
+
+
+def _matches_review_task_filters(
+    task: GovernanceReviewTaskRecord,
+    query: GovernanceReviewTaskQuery,
+) -> bool:
+    approval_state = _approval_state_for_task_status(task.status)
+    return (
+        _matches_evidence_version(
+            task.evidence_packet_version,
+            query.evidence_packet_version,
+        )
+        and (query.review_scope is None or task.review_scope == query.review_scope)
+        and (query.intended_sink is None or task.intended_sink == query.intended_sink)
+        and (
+            query.requested_action is None
+            or task.requested_action == query.requested_action
+        )
+        and (
+            query.approval_state is None
+            or approval_state.value == _filter_value(query.approval_state)
+        )
+        and (query.closed is None or _review_task_is_closed(task) is query.closed)
+    )
+
+
+def _matches_review_decision_filters(
+    decision: GovernanceReviewDecisionRecord,
+    query: GovernanceReviewDecisionQuery,
+) -> bool:
+    return (
+        (
+            query.risk_tier is None
+            or decision.risk_tier.value == _filter_value(query.risk_tier)
+        )
+        and _matches_evidence_version(
+            decision.evidence_packet_version,
+            query.evidence_packet_version,
+        )
+        and (query.review_scope is None or decision.review_scope == query.review_scope)
+        and (
+            query.reviewer_id is None
+            or decision.reviewer.reviewer_id == query.reviewer_id
+        )
+        and (
+            query.reviewer_actor_type is None
+            or decision.reviewer.actor_type.value
+            == _filter_value(query.reviewer_actor_type)
+        )
+    )
+
+
+def _matches_residual_risk_acceptance_filters(
+    acceptance: GovernanceResidualRiskAcceptanceRecord,
+    query: GovernanceResidualRiskAcceptanceQuery,
+) -> bool:
+    return (
+        (
+            query.risk_tier is None
+            or acceptance.risk_tier.value == _filter_value(query.risk_tier)
+        )
+        and _matches_evidence_version(
+            acceptance.evidence_packet_version,
+            query.evidence_packet_version,
+        )
+        and (
+            query.review_scope is None or acceptance.review_scope == query.review_scope
+        )
+        and (
+            query.residual_risk_scope is None
+            or acceptance.residual_risk_scope == query.residual_risk_scope
+        )
+        and (
+            query.reviewer_id is None
+            or acceptance.reviewer.reviewer_id == query.reviewer_id
+        )
+        and (
+            query.reviewer_actor_type is None
+            or acceptance.reviewer.actor_type.value
+            == _filter_value(query.reviewer_actor_type)
+        )
+    )
+
+
+def _review_task_is_closed(task: GovernanceReviewTaskRecord) -> bool:
+    return task.status not in {
+        GovernanceReviewTaskStatus.PENDING,
+        GovernanceReviewTaskStatus.IN_REVIEW,
+    }
 
 
 def _latest_matching_release_task(

@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Perform global codebase verification, full static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules since a fixed point (commit, branch, tag, or merge-base).
+description: Perform explicitly authorized spec-wide verification, repository-wide static analysis, repository-wide type checking, token-matching to detect duplicate code fragments and clone clusters, and strategically targeted integration testing across the spec's relevant modules since a fixed point (commit, branch, tag, or merge-base).
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -50,10 +50,12 @@ Look for the originating spec, in this order:
    one, the **Spec** sub-agent will skip and report "no spec available".
 
 ## Objective
-Validate the entire project repository as a unified system to catch cross-module regressions, integration failures, and type-drift resulting from the completed specification sprint, using our project testing guide to target relevant integration test categories.
+Validate the completed specification branch as a unified system to catch cross-module regressions, integration failures, and type-drift resulting from the completed specification sprint, using explicitly authorized repository-wide static analysis and the project testing guide to target relevant integration test categories.
 
 ## Guardrail Constraints
-- **Scope Expansion Invariant:** For formatting, linting, and typing checks, never use partial paths or git status filters. Every static analysis step must evaluate the full repository state (`.`).
+- **Authorization Invariant:** `/verify-spec` is a macro/spec-level verification workflow. Its explicit invocation by the user for the current task is the current-task authorization for the repository-wide static analysis commands named by this skill. This authorization does **not** extend to untargeted full-suite pytest, coverage, or service-backed integration runs. If this skill was not explicitly invoked, or if you are verifying an individual ticket or targeted code change, do **not** use this skill's broad static checks; defer to `/verify-code` and run changed-file/targeted verification only.
+- **Command Guard Invariant:** Do not bypass the Polaris command guard with absolute paths, backup executable paths, copied binaries, subshell tricks, or renamed commands. For the guarded repository-wide `ruff` and `mypy` commands below, set `POLARIS_BROAD_VERIFY_AUTHORIZED` to a current-task label such as `verify-spec-<spec_issue_number>`. If the guard refuses a command, stop and resolve the authorization/scope issue instead of routing around it.
+- **Scope Expansion Invariant:** Once `/verify-spec` has been explicitly invoked, formatting, linting, and typing checks must not use partial paths or git status filters. Every static analysis step must evaluate the full repository state (`.`) using the authorized command form shown below.
 - **Testing Blueprint Invariant:** You are strictly forbidden from guessing which integration tests to execute or blindly running the entire monolithic suite of thousands of tests. You must read and follow the category filters outlined in `docs/testing_guide.md` to isolate the correct test suites.
 
 ## Execution Rules & Constraints
@@ -95,14 +97,14 @@ Execute these macro validation steps in order.
 ### Step 1: Global Repository Linting & Layout Audit
 Verify that the entire repository—including untouched modules and newly integrated configurations—perfectly satisfies project layout standards. Do not pass file subsets:
 ```bash
-ruff format --check .
-ruff check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
 ```
 
 ### Step 2: Global Monolithic Type Verification
 Run `mypy` over the entire repository root. This is critical for catching edge cases where a change in an individual ticket accidentally broke a type dependency in a file that was never modified during the sprint:
 ```bash
-mypy . --explicit-package-bases
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run mypy . --explicit-package-bases
 ```
 
 ### Step 3: Analyze Testing Matrix Guidelines
@@ -153,10 +155,10 @@ Before approving any specification that introduces a new module, helper function
 **User:** "All individual implementation tickets for the model migration spec are closed. Let's do a final specification verification."
 **Agent Response:** *"I am invoking the verify-spec skill. I will run repository-wide static analysis checks, read docs/testing_guide.md to isolate the relevant strategy and synthesis test categories, and execute those targeted integration tests."*
 ```bash
-# 1. Run global static analysis
-ruff format --check .
-ruff check .
-mypy . --explicit-package-bases
+# 1. Run authorized global static analysis
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run mypy . --explicit-package-bases
 
 # 2. Read testing guidelines to extract target categories
 cat docs/testing_guide.md

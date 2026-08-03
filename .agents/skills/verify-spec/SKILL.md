@@ -68,8 +68,9 @@ Validate the completed specification branch as a unified system to catch cross-m
 ### 2. Environment & Service Dependency Check
 - Ensure all tests use environment variables or redacted placeholders.
 - Before running integration or live-service tests, identify required infrastructure services: `PostgreSQL`, `Qdrant`, `Neo4j`, `LiteLLM`, `Ollama`, `Langfuse`, `BGE reranker`, `Prometheus`, `Jaeger`, or `Grafana`.
-- If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. 
-- **Authorization Override**: If service-free tests do not meet required acceptance criteria, you are authorized to start the required Docker services yourself and run the tests.
+- If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead.
+- **Authorization Override**: If service-free tests do not meet required acceptance criteria, you are authorized to start only the required Docker services yourself and run the targeted tests.
+- **Targeted Integration Skip Remediation**: A selected targeted integration or regression test that skips only because a repo-local environment variable or local service is missing is not verified. If a DB-backed test needs `POLARIS_TEST_DATABASE_URL`, derive a safe local value from `.env`, `.env.example`, `docker-compose.yml`, test fixtures, or typed settings when possible, start only the required local service when authorized, and rerun the exact targeted test. Never echo full connection strings or secrets. Do not broaden to untargeted full-suite, full coverage, or unrelated service-backed integration runs to compensate for the skip.
 
 ### 3. Timeouts & Efficiency Guardrails
 - Do not wait for unavailable services to time out when the test is unnecessary.

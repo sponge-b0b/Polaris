@@ -93,10 +93,18 @@ set -a; source .env; set +a; uv run alembic upgrade head
 ```
 
 If a DB-backed integration test needs `POLARIS_TEST_DATABASE_URL` and it is not
-pre-exported, derive it from the same `.env` PostgreSQL settings or the
-project's `PostgresSettings` environment contract instead of skipping solely
-because the variable was absent. Prefer an isolated test database or schema for
+pre-exported, derive it from the same `.env` PostgreSQL settings,
+`.env.example`, `docker-compose.yml`, test fixtures, or the project's
+`PostgresSettings` environment contract instead of skipping solely because the
+variable was absent. Prefer an isolated test database or schema for
 migration-contract tests. Never echo full connection strings or secrets.
+
+If the derived local database depends on a Docker service and repository rules
+authorize service management, start only the required service, for example
+`docker compose up -d postgres`, before rerunning the exact targeted migration
+or DB-backed integration test. If local env or services cannot be safely
+resolved, report database verification as unresolved or owner-deferred; do not
+count the skip as a pass.
 
 ### Step 5: Handle Stale or Squashed Local Revisions
 

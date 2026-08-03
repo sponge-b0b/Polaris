@@ -80,7 +80,13 @@ mypy --explicit-package-bases <path_to_modified_file_1> <path_to_modified_file_2
 
 ### Step 4: Targeted Testing
 Run only the tests relevant to modified or created files in the workspace OR as part of the current ticket scope, using isolated cache directories.
-**Identify Required Services:** Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana. If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start the services yourself and run the tests.
+
+**Identify Required Services:** Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana. If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start only the required Docker services yourself and run the targeted tests.
+
+**Targeted Integration Skip Remediation:** A targeted test selected for the changed behavior is not verified if it skips only because local environment variables or local services are missing. If a selected DB-backed test skips because `POLARIS_TEST_DATABASE_URL` is unset, inspect repo-local configuration such as `.env`, `.env.example`, `docker-compose.yml`, test fixtures, or typed settings, derive a safe local test database URL when possible, and rerun the exact targeted test with the variable set inline or loaded from local env. If the required local Docker service is absent or stopped and repository instructions authorize Docker service management, start only that service, such as `docker compose up -d postgres`, then rerun the exact targeted test. Never echo full connection strings or secrets.
+
+Do not compensate for a skipped targeted test by broadening to a full suite, whole test directory, full coverage run, or service-backed integration suite outside the ticket scope. Report a targeted integration check as passed only when it actually ran and passed. If local env or services cannot be safely resolved, report the check as unresolved or owner-deferred with the exact missing dependency.
+
 ```bash
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.py
 ```

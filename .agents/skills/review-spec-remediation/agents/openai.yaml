@@ -1,0 +1,5 @@
+interface:
+  display_name: "Review Spec Remediation"
+  short_description: "The remediation loop of spec review findings."
+policy:
+  allow_implicit_invocation: false

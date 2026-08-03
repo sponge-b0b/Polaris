@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from interfaces.cli.app import create_app
+from interfaces.cli.commands import inspect_command
 
 
 def test_cli_help_lists_platform_commands() -> None:
@@ -79,6 +80,86 @@ def test_inspect_config_applies_provider_profile(
     assert data["news_provider"] == "backtest_news_provider"
     assert data["portfolio_provider"] == "backtest_portfolio_provider"
     assert data["sentiment_provider"] == "backtest_sentiment_provider"
+
+
+def test_inspect_persistence_outputs_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def inspect_values() -> dict[str, object]:
+        return _persistence_health_values()
+
+    monkeypatch.setattr(
+        inspect_command,
+        "_inspect_persistence_values",
+        inspect_values,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        create_app(),
+        [
+            "inspect",
+            "persistence",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(
+        result.output,
+    )
+    assert data["status"] == "healthy"
+    assert data["checks"][0]["check_name"] == "alembic_schema_drift"
+
+
+def test_inspect_persistence_outputs_console(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def inspect_values() -> dict[str, object]:
+        return _persistence_health_values()
+
+    monkeypatch.setattr(
+        inspect_command,
+        "_inspect_persistence_values",
+        inspect_values,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        create_app(),
+        [
+            "inspect",
+            "persistence",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Persistence diagnostics:" in result.output
+    assert "status: healthy" in result.output
+    assert "alembic_schema_drift" in result.output
+
+
+def _persistence_health_values() -> dict[str, object]:
+    return {
+        "status": "healthy",
+        "healthy_check_count": 1,
+        "degraded_check_count": 0,
+        "unhealthy_check_count": 0,
+        "unknown_check_count": 0,
+        "checks": (
+            {
+                "category": "migration_state",
+                "check_name": "alembic_schema_drift",
+                "status": "healthy",
+                "message": "Database schema matches SQLAlchemy metadata.",
+                "metadata": {
+                    "operation_count": 0,
+                    "operations": (),
+                },
+            },
+        ),
+    }
 
 
 def test_workflow_list_includes_morning_report() -> None:

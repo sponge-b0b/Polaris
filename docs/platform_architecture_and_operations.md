@@ -224,6 +224,15 @@ docker compose ps postgres
 uv run alembic upgrade head
 uv run alembic current
 uv run alembic check
+uv run polaris inspect persistence
+```
+
+`alembic current` validates the version stamp only. If local development has
+rewritten the pre-1.0 squashed baseline and the physical schema is disposable,
+reset and reapply the schema with:
+
+```bash
+uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
 ```
 
 Inspect completed-run and backtest command surfaces before destructive or

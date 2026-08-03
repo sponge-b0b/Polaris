@@ -90,7 +90,16 @@ PostgreSQL parts, load `.env` for local execution without printing secrets:
 set -a; source .env; set +a; uv run alembic heads
 set -a; source .env; set +a; uv run alembic current
 set -a; source .env; set +a; uv run alembic upgrade head
+set -a; source .env; set +a; uv run alembic check
+set -a; source .env; set +a; uv run polaris inspect persistence
 ```
+
+`alembic current` verifies only the stored revision stamp. Always run
+`alembic check` after applying migrations so the physical database schema is
+compared against SQLAlchemy metadata. In Polaris, also run
+`polaris inspect persistence` when a local PostgreSQL database is available; its
+`alembic_schema_drift` check exposes the same drift through the canonical
+application diagnostics boundary.
 
 If a DB-backed integration test needs `POLARIS_TEST_DATABASE_URL` and it is not
 pre-exported, derive it from the same `.env` PostgreSQL settings,
@@ -116,7 +125,11 @@ other operations from the edited squashed migration.
 
 * For disposable local development/test databases, reset or recreate the local
   database/schema, then run `uv run alembic upgrade head` from the current repo
-  state.
+  state. When the repository provides a guarded local reset helper, prefer it
+  over hand-written destructive SQL; for Polaris, use
+  `uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db`.
+  Confirm afterward with `uv run alembic check` and
+  `uv run polaris inspect persistence`.
 * For data-preserving environments, stop and create an explicit remediation plan
   that compares actual schema state with the current migration head before any
   stamping or manual DDL.
@@ -126,12 +139,16 @@ other operations from the edited squashed migration.
 Execute a full round-trip validation matrix for migration changes:
 
 1. Apply upgrade: `uv run alembic upgrade head`.
-2. Verify state: inspect tables, columns, constraints, and indexes relevant to
+2. Verify metadata parity: `uv run alembic check`.
+3. Verify canonical diagnostics, when a local PostgreSQL database is available:
+   `uv run polaris inspect persistence`.
+4. Verify state: inspect tables, columns, constraints, and indexes relevant to
    the change.
-3. Apply downgrade by exactly one relevant step or against an isolated migration
+5. Apply downgrade by exactly one relevant step or against an isolated migration
    test schema: `uv run alembic downgrade -1`.
-4. Re-upgrade to the final intended state: `uv run alembic upgrade head`.
-5. Run targeted migration-contract and PostgreSQL integration tests with a real
+6. Re-upgrade to the final intended state: `uv run alembic upgrade head`.
+7. Re-run `uv run alembic check` after the final upgrade.
+8. Run targeted migration-contract and PostgreSQL integration tests with a real
    env-derived database URL; do not count a skipped DB test as passing database
    verification.
 

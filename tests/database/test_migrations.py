@@ -92,6 +92,46 @@ def test_rag_query_audit_schema_has_promoted_fields(
     } <= index_names
 
 
+def test_governance_review_decisions_schema_exposes_approval_state(
+    alembic_runner: MigrationContext,
+    alembic_engine: object,
+) -> None:
+    from sqlalchemy import Engine, inspect
+
+    engine = alembic_engine
+    assert isinstance(engine, Engine)
+    alembic_runner.migrate_up_to("heads")
+
+    inspector = inspect(engine)
+    decision_columns = {
+        column["name"]: column
+        for column in inspector.get_columns("governance_review_decisions")
+    }
+
+    assert {
+        "resulting_task_status",
+        "residual_risk_acceptance_required",
+        "residual_risk_acceptance_id",
+    } <= set(decision_columns)
+    assert decision_columns["resulting_task_status"]["nullable"] is False
+    assert decision_columns["residual_risk_acceptance_required"]["nullable"] is False
+    assert decision_columns["residual_risk_acceptance_id"]["nullable"] is True
+
+    index_names = {
+        index["name"] for index in inspector.get_indexes("governance_review_decisions")
+    }
+    assert {
+        "ix_governance_review_decisions_resulting_task_status",
+        "ix_governance_review_decisions_residual_risk_acceptance_id",
+    } <= index_names
+
+    constraint_names = {
+        constraint["name"]
+        for constraint in inspector.get_check_constraints("governance_review_decisions")
+    }
+    assert "ck_governance_review_decisions_resulting_status" in constraint_names
+
+
 def test_strategy_persistence_migration_creates_canonical_schema(
     alembic_runner: MigrationContext,
     alembic_engine: object,

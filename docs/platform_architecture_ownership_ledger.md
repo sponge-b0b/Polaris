@@ -57,10 +57,69 @@ a typed, attributable, deterministic boundary.
 | Runtime notifications | `EventBus` and typed `RuntimeEvent` | Runtime publishers/subscribers | Runtime event and telemetry sinks | Ad hoc notification buses or telemetry-owned runtime events |
 | Policy decisions | `PolicyEngine` | Canonical runtime/facade path | Runtime/audit evidence | Interface or node bypasses |
 | Governance decisions | `GovernanceEngine` | Canonical runtime/facade path | Runtime/audit evidence | Local allow/deny logic that bypasses governance |
+| Automated governance decision audit | `AutomatedDecisionAuditService` | `record_governance_decision()` with `AutomatedDecisionAuditContext` and `GovernanceResult` | PostgreSQL `automated_governance_audit_records` through `AutomatedDecisionAuditRepository` | Interfaces, report renderers, MCP handlers, or projection jobs writing automated governance audit rows directly |
+| Governance review tasks | `AutomatedDecisionAuditService` | Evidence-scoped `REQUIRE_APPROVAL` audit records | PostgreSQL `governance_review_tasks` through `AutomatedDecisionAuditRepository` | Interface-local review queues, duplicated task stores, or non-evidence-scoped approval work items |
+| Governance review outcomes and contestability | `AutomatedDecisionAuditService` | `resolve_governance_review_task()` with an attributable reviewer and reviewed evidence | PostgreSQL `governance_review_decisions` immutable audit entries plus task status updates | Model metadata, telemetry, CLI state, reports, or MCP transports declaring approval, denial, contest, requested changes, or override |
+| Residual-risk acceptance | `AutomatedDecisionAuditService` | Explicit `GovernanceResidualRiskAcceptanceRequest` attached to review resolution | PostgreSQL `governance_residual_risk_acceptances` through `AutomatedDecisionAuditRepository` | Model-generated residual-risk acceptance, generic metadata flags, broader-scope reuse, or non-attributable acceptance |
+| Governed output release gate | `AutomatedDecisionAuditService` | `evaluate_governed_output_release()` invoked by report persistence and workflow-output projection boundaries | Reads PostgreSQL review/acceptance records and emits release decisions/observability; publication/promotion remains blocked when unresolved | Renderers, projectors, future MCP tools, or durable promotion paths bypassing canonical review-state evaluation |
 | AI risk tier and authority metadata | `domain.authority.RiskAuthorityContract` with `RiskAuthorityClassifier` | Platform-known classification input at the producing boundary | Persisted only as metadata on the owning runtime evidence, canonical record, report, RAG answer, recommendation, evaluation gate, or future tool response | Model-generated claims declaring authority, approval, production readiness, residual-risk acceptance, or lower risk |
 | Trace identity | Polaris `TraceContext` and observability boundary | Runtime context, events, async tasks, providers, datastores | Telemetry traces as configured | Vendor tracing objects as internal platform contracts |
 | External access | Client → provider → application service | Typed provider protocols and service requests/results | Curated records only after explicit projection | Agents calling vendor SDKs or application services containing transport code |
 | Dependency lifecycle | Dishka | Application and request scopes | None | Hidden globals, manual request-scoped construction, or unclosed resources |
+
+## Governance approval and contestability ownership
+
+The governance approval lifecycle is a canonical application-service lifecycle,
+not a property of any interface. The implemented source of truth is:
+
+```text
+GovernanceEngine result
+    → AutomatedDecisionAuditService
+    → AutomatedDecisionAuditRepository
+    → PostgreSQL governance audit/review tables
+    → query/read models, release decisions, and observability views
+```
+
+Ownership rules:
+
+- `GovernanceEngine` owns the automated governance recommendation; it does not
+  persist human approvals or residual-risk acceptance.
+- `AutomatedDecisionAuditService` owns the lifecycle that turns automated
+  governance evidence into audit records, review tasks, human or organizational
+  review outcomes, residual-risk acceptance records, approval-state read models,
+  and governed-output release decisions.
+- `AutomatedDecisionAuditRepository` is the canonical write boundary. The
+  PostgreSQL implementation is the durable writer for `automated_policy_audit_records`
+  records, `automated_governance_audit_records`, `governance_review_tasks`,
+  `governance_review_decisions`, and `governance_residual_risk_acceptances`.
+- `ApprovalLifecycleObservability` observes required approval, review
+  resolution, blocked release, review failure, automated denial, and automated
+  skip outcomes. It is not a writer for approval state.
+- Report persistence and workflow-output projection may ask whether a governed
+  output can be published or durably promoted. They may not create local approval
+  records or decide that unresolved governance work is safe.
+
+Review and residual-risk records are scoped and attributable. A review task is
+keyed by subject, evidence packet, evidence version, review scope, and requested
+action. Review decisions record the reviewer identity, actor type, rationale,
+reviewed evidence, requested remediation when applicable, and resulting status.
+Residual-risk acceptance records are limited to Vigilant risk, carry a reviewer,
+rationale, review scope, residual-risk scope, subject, and evidence
+packet/version, and must be interpreted only within that recorded scope and
+evidence version.
+
+Contestability semantics are durable audit semantics. `denied`, `contested`,
+`changes_requested`, and `overridden` outcomes are immutable review decisions;
+they never erase the automated governance audit record. `changes_requested`,
+`review_denied`, `review_contested`, pending, and cancelled states block release
+until a later canonical review state permits release. An override is an
+attributable governance review outcome, not a model or interface escape hatch.
+
+Audit reconstruction must begin from the PostgreSQL records above and the
+decision evidence packet identifiers they reference. Logs, traces, counters,
+runtime events, rendered reports, CLI state, MCP responses, Qdrant vectors, and
+Neo4j graph nodes may help locate or explain a governance trail, but they are not
+canonical approval evidence.
 
 ## Runtime evidence ownership
 

@@ -105,6 +105,80 @@ CLI execution uses its runtime-scope helper and request-scoped command services.
 MCP and future interfaces must follow the same pattern rather than becoming
 service locators or alternative composition roots.
 
+## Governance approval, residual risk, and contestability
+
+Policy and governance remain separate even when they are audited together:
+
+- policy answers **“May this happen?”** and persists `ALLOW` or `DENY` automated
+  policy audit outcomes;
+- governance answers **“Should this happen?”** and persists `ALLOW`, `WARN`,
+  `DENY`, `REQUIRE_APPROVAL`, or `SKIP` automated governance audit outcomes.
+
+`PolicyEngine` and `GovernanceEngine` compute automated decisions in the
+canonical runtime/facade path. They are not approval stores. The canonical
+application owner for approval lifecycle behavior is
+`AutomatedDecisionAuditService`, backed by `AutomatedDecisionAuditRepository` and
+its PostgreSQL implementation. The service records automated governance audit
+records, creates evidence-scoped review tasks when `REQUIRE_APPROVAL` supplies
+decision evidence, resolves review tasks, writes immutable review decisions,
+updates task status, writes scoped residual-risk acceptances, exposes review
+state queries, and evaluates governed-output release requests.
+
+The implemented governance decision flow is:
+
+1. Automated governance records the platform-computed outcome and authority
+   metadata as durable audit evidence.
+2. `ALLOW` and `WARN` remain durable automated governance recommendations in
+   the current source path and do not create human review tasks by themselves.
+3. `DENY` and `SKIP` are durable and observable automated outcomes; they are not
+   converted into pending human approvals.
+4. `REQUIRE_APPROVAL` creates at most one scoped review task for the subject,
+   evidence packet, evidence version, review scope, requested action, and sink
+   represented in the governance audit record.
+5. A human or organizational reviewer resolves the task with an immutable
+   outcome: `approved`, `denied`, `contested`, `changes_requested`, or
+   `overridden`.
+6. The externally visible approval state is derived from the durable task status:
+   `pending_review`, `review_approved`, `review_denied`, `review_contested`,
+   `changes_requested`, `review_overridden`, or
+   `residual_risk_acceptance_required`.
+
+Residual-risk acceptance is intentionally human and organizational. It is not a
+model assertion and not a hidden metadata flag. When a Vigilant task is approved
+or overridden while residual risk remains, the reviewer must supply an explicit
+acceptance containing the reviewer identity, rationale, residual-risk scope,
+review scope, subject, risk tier, and evidence packet/version. The acceptance is
+persisted as a first-class record with the reviewed subject, evidence packet,
+evidence version, review scope, and residual-risk scope. A new evidence version
+or broader residual-risk scope must be represented by a new explicit acceptance,
+not by mutating or reinterpreting an old record.
+
+Contestability is also a durable audit concept. A contested decision, requested
+changes, denial, or override does not delete or rewrite the automated governance
+audit record that caused the review. The review decision records who acted, why,
+which evidence version was reviewed, the requested remediation when applicable,
+and the resulting task status. `changes_requested`, `review_denied`,
+`review_contested`, pending, and cancelled states remain blocking for governed
+publication or durable promotion until a later canonical review outcome permits
+release.
+
+Capital-relevant publication and durable promotion are checked through the
+application release boundary, not by renderers or projectors inventing local
+state. `AutomatedDecisionAuditService.evaluate_governed_output_release()` allows
+release only when the output's authority tier does not require release review or
+when an approved/overridden review task matches the subject, scope, action, sink,
+and evidence version; if residual-risk acceptance is required, the matching
+acceptance must also exist. Morning-report persistence and workflow-output
+projection call this service and return a blocked/skip outcome instead of
+publishing or promoting unresolved governed outputs.
+
+Audit reconstruction starts from PostgreSQL, not telemetry: automated governance
+audit records, review tasks, immutable review decisions, residual-risk
+acceptance records, and the evidence packet identifiers they reference are the
+canonical trail. Approval lifecycle logs, metrics, traces, and runtime events are
+observability for diagnosis and operations; they must not become an alternate
+approval ledger.
+
 ## Service, provider, and client boundary
 
 External information enters the platform through one dependency-inverted path:

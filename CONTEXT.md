@@ -266,9 +266,34 @@ classification.
 
 Policy answers **“May this happen?”** with `ALLOW` or `DENY`.
 
-Governance answers **“Should this happen?”** with outcomes such as `ALLOW`, `WARN`, `DENY`, `REQUIRE_APPROVAL`, or `SKIP`.
+Governance answers **“Should this happen?”** with `ALLOW`, `WARN`, `DENY`,
+`REQUIRE_APPROVAL`, or `SKIP`.
 
-Governance may signal that approval is required, but a complete approval workflow subsystem is not currently implemented. Do not describe approval storage, human-review interfaces, or resume semantics as available until corresponding source and tests exist.
+Automated policy and governance evaluations are recorded as PostgreSQL-backed
+audit evidence. `AutomatedDecisionAuditService` is the canonical application
+owner for automated governance audit records, governance review tasks, human or
+organizational review outcomes, scoped residual-risk acceptances, review-state
+queries, and governed-output release decisions. Its repository boundary writes
+the durable PostgreSQL records; logs, metrics, runtime events, reports, CLI
+output, future MCP responses, and projection stores are diagnostic or transport
+views, not approval sources of truth.
+
+`REQUIRE_APPROVAL` can create an evidence-scoped review task. Review outcomes
+are immutable, attributable records for approval, denial, contest, requested
+changes, or override. Vigilant approvals or overrides with residual risk still
+remaining require an explicit human or organizational residual-risk acceptance
+that records the reviewed subject, review scope, residual-risk scope, and
+evidence packet version. Model-generated text or metadata may not approve a
+review, accept residual risk, contest a decision, override governance, clear
+requested changes, declare production readiness, or lower a risk tier.
+
+Capital-relevant publication and durable promotion of Enhanced or Vigilant
+outputs are blocked until the canonical review state and, when required, scoped
+residual-risk acceptance permit release. A missing, pending, denied, contested,
+changes-requested, cancelled, stale, or unaccepted review remains blocking.
+Current external interfaces may expose these semantics only by resolving the
+canonical application/query services through Dishka request scopes; they must not
+implement interface-local approval queues, persistence, or state machines.
 
 ## Repository Layout
 

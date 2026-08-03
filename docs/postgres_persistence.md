@@ -310,6 +310,31 @@ Report persistence stores:
 Generated files should be linked as report artifacts rather than treated as the
 only system of record.
 
+## Governance approval and residual-risk audit persistence
+
+Governance approval lifecycle records are canonical PostgreSQL audit records,
+not telemetry, projections, or interface-local state. The durable write boundary
+is `AutomatedDecisionAuditRepository`, invoked by `AutomatedDecisionAuditService`.
+The governance audit family includes:
+
+- automated policy and governance audit records for platform-computed outcomes;
+- `governance_review_tasks` for evidence-scoped human or organizational review
+  work created from `REQUIRE_APPROVAL` governance outcomes;
+- `governance_review_decisions` for immutable approval, denial, contest,
+  requested-changes, and override outcomes;
+- `governance_residual_risk_acceptances` for explicit scoped Vigilant
+  residual-risk acceptance.
+
+Residual-risk acceptance records are scoped to the review task, subject, review
+scope, residual-risk scope, evidence packet, and evidence version. They must
+carry an attributable reviewer and rationale. Model metadata, report text,
+telemetry, RAG records, MCP responses, and local files may not substitute for
+these rows.
+
+Publication and durable promotion boundaries read the canonical review and
+acceptance state before release. They block unresolved governed outputs instead
+of writing alternate approval records or deleting canonical audit history.
+
 ## Telemetry persistence
 
 Telemetry persistence is operational observability storage. It is intentionally

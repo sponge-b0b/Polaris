@@ -76,6 +76,12 @@ selection, local database application, stale-revision remediation, and
 DB-backed migration/integration verification. Do not skip it because the code
 changes are otherwise small.
 
+A DB-affecting ticket is not complete if a required targeted PostgreSQL-backed
+test skipped only because `POLARIS_TEST_DATABASE_URL` or an equivalent local
+service setting was absent. Follow `/database-migrations` and `/verify-code` to
+derive safe local env from repo-local configuration, start only the required
+authorized Docker service when needed, and rerun the exact targeted test.
+
 ## 3. Verify the implementation
 
 Once the implementation is complete, but before committing or closing the ticket, invoke the `/verify-code` skill to verify the implementation of the ticket.
@@ -174,8 +180,9 @@ Report:
 * Whether the push succeeded.
 * For database-affecting tickets: the `/database-migrations` result, migration
   file strategy, active database apply/reset status, migration-contract tests,
-  and DB-backed integration tests. State explicitly if any required DB check
-  skipped or could not run.
+  and DB-backed integration tests. State explicitly whether required DB checks
+  passed, were owner-deferred, or remain unresolved. A skip caused only by
+  missing local env/service setup is unresolved verification, not a pass.
 * The targeted verification that was run and its result.
 * Any broader verification that the user explicitly authorized and its result.
 * Which broad checks were not run, including full-suite tests, whole-repo mypy, whole-repo lint, or coverage when applicable.

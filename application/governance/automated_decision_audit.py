@@ -31,8 +31,12 @@ from core.storage.persistence.governance_audit import (
     new_governance_residual_risk_acceptance_id,
     new_governance_review_decision_id,
 )
+from core.telemetry.observability import ObservabilityManager
+from core.telemetry.tracing import TraceContext
 from domain.authority import RiskAuthorityContract, RiskTier
 from domain.decision_evidence import DecisionEvidencePacket
+
+from .approval_lifecycle_observability import ApprovalLifecycleObservability
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +47,7 @@ class AutomatedDecisionAuditContext:
     authority: RiskAuthorityContract
     evidence: AutomatedDecisionEvidenceReference | None = None
     timestamp: datetime | None = None
+    trace_context: TraceContext | None = None
 
     @classmethod
     def from_packet(
@@ -90,6 +95,7 @@ class GovernedOutputReleaseRequest:
     requested_action: str
     boundary_name: str
     residual_risk_acceptance_required: bool = False
+    trace_context: TraceContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +235,7 @@ class GovernanceReviewResolutionRequest:
     residual_risk_remaining: bool = False
     residual_risk_acceptance: GovernanceResidualRiskAcceptanceRequest | None = None
     metadata: JsonObject | None = None
+    trace_context: TraceContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,8 +264,12 @@ class AutomatedDecisionAuditService:
     def __init__(
         self,
         repository: AutomatedDecisionAuditRepository,
+        observability_manager: ObservabilityManager | None = None,
     ) -> None:
         self._repository = repository
+        self._approval_observability = ApprovalLifecycleObservability(
+            observability_manager,
+        )
 
     async def record_policy_evaluation(
         self,
@@ -337,17 +348,67 @@ class AutomatedDecisionAuditService:
             },
         )
         audit_result = await self._repository.persist_governance_audit_record(record)
-        if not audit_result.success or not _requires_review_task(record):
+        if not audit_result.success:
+            await self._approval_observability.review_failure(
+                operation="record_governance_decision",
+                reason="governance_audit_persistence_failed",
+                error=ValueError(
+                    "automated governance audit record could not be persisted.",
+                ),
+                trace_context=context.trace_context,
+                record=record,
+                metadata={"repository_errors": tuple(audit_result.errors)},
+            )
+            return audit_result
+
+        if record.outcome is AutomatedGovernanceAuditOutcome.DENY:
+            await self._approval_observability.automated_governance_outcome(
+                record=record,
+                lifecycle_outcome="denied",
+                trace_context=context.trace_context,
+            )
+        if record.outcome is AutomatedGovernanceAuditOutcome.SKIP:
+            await self._approval_observability.automated_governance_outcome(
+                record=record,
+                lifecycle_outcome="skipped",
+                trace_context=context.trace_context,
+            )
+
+        if not _requires_review_task(record):
+            if record.outcome is AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL:
+                await self._approval_observability.review_failure(
+                    operation="record_governance_decision",
+                    reason="required_approval_missing_evidence",
+                    error=ValueError(
+                        "governance review tasks require decision evidence.",
+                    ),
+                    trace_context=context.trace_context,
+                    record=record,
+                )
             return audit_result
 
         task = _review_task_from_record(record)
         review_result = await self._repository.persist_governance_review_task(task)
         if not review_result.success:
+            await self._approval_observability.review_failure(
+                operation="record_governance_decision",
+                reason="review_task_persistence_failed",
+                error=ValueError("governance review task could not be persisted."),
+                trace_context=context.trace_context,
+                record=record,
+                task=task,
+                metadata={"repository_errors": tuple(review_result.errors)},
+            )
             return AutomatedDecisionAuditPersistenceResult(
                 success=False,
                 audit_record_id=audit_result.audit_record_id,
                 errors=review_result.errors,
             )
+        await self._approval_observability.required_approval(
+            record=record,
+            task=task,
+            trace_context=context.trace_context,
+        )
         return replace(audit_result, review_task_id=task.review_task_id)
 
     async def list_policy_audit_records(
@@ -511,14 +572,46 @@ class AutomatedDecisionAuditService:
     ) -> GovernanceReviewResolution:
         task = await self._repository.get_governance_review_task(request.review_task_id)
         if task is None:
-            raise ValueError("governance review task was not found.")
-        _validate_review_matches_task(task=task, request=request)
+            error = ValueError("governance review task was not found.")
+            await self._approval_observability.review_failure(
+                operation="resolve_governance_review_task",
+                reason="review_task_not_found",
+                error=error,
+                trace_context=request.trace_context,
+                review_task_id=request.review_task_id,
+            )
+            raise error
+        try:
+            _validate_review_matches_task(task=task, request=request)
+        except ValueError as error:
+            await self._approval_observability.review_failure(
+                operation="resolve_governance_review_task",
+                reason="review_validation_failed",
+                error=error,
+                trace_context=request.trace_context,
+                task=task,
+                evidence=request.reviewed_evidence,
+                review_task_id=request.review_task_id,
+                metadata={"review_outcome": request.outcome.value},
+            )
+            raise
 
         residual_risk_required = _requires_residual_risk_acceptance(
             task=task,
             request=request,
         )
         if residual_risk_required and request.residual_risk_acceptance is None:
+            await self._approval_observability.review_failure(
+                operation="resolve_governance_review_task",
+                reason="residual_risk_acceptance_required",
+                error=ValueError(
+                    "residual-risk acceptance is required before vigilant review "
+                    "can be approved.",
+                ),
+                trace_context=request.trace_context,
+                task=task,
+                metadata={"review_outcome": request.outcome.value},
+            )
             return GovernanceReviewResolution(
                 review_task_id=task.review_task_id,
                 approval_state=(
@@ -536,7 +629,21 @@ class AutomatedDecisionAuditService:
                 acceptance,
             )
             if not acceptance_result.success:
-                raise ValueError("residual-risk acceptance could not be persisted.")
+                persistence_error = ValueError(
+                    "residual-risk acceptance could not be persisted.",
+                )
+                await self._approval_observability.review_failure(
+                    operation="resolve_governance_review_task",
+                    reason="residual_risk_acceptance_persistence_failed",
+                    error=persistence_error,
+                    trace_context=request.trace_context,
+                    task=task,
+                    metadata={
+                        "review_outcome": request.outcome.value,
+                        "repository_errors": tuple(acceptance_result.errors),
+                    },
+                )
+                raise persistence_error
 
         decision = _review_decision_record_from_request(
             task=task,
@@ -546,9 +653,26 @@ class AutomatedDecisionAuditService:
             ),
         )
         status = _resulting_task_status_for_outcome(request.outcome)
-        await self._persist_review_decision_and_status(
+        try:
+            await self._persist_review_decision_and_status(
+                decision=decision,
+                status=status,
+            )
+        except ValueError as error:
+            await self._approval_observability.review_failure(
+                operation="resolve_governance_review_task",
+                reason="review_decision_or_status_persistence_failed",
+                error=error,
+                trace_context=request.trace_context,
+                task=task,
+                metadata={"review_outcome": request.outcome.value},
+            )
+            raise
+        await self._approval_observability.review_resolution(
+            task=task,
             decision=decision,
-            status=status,
+            residual_risk_acceptance=acceptance,
+            trace_context=request.trace_context,
         )
         return GovernanceReviewResolution(
             review_task_id=task.review_task_id,
@@ -576,8 +700,8 @@ class AutomatedDecisionAuditService:
         )
         task = _latest_matching_release_task(tasks, request=request)
         if task is None:
-            return GovernedOutputReleaseDecision(
-                allowed=False,
+            return await self._blocked_governed_output_release_decision(
+                request,
                 approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
                 reason=(
                     f"{request.boundary_name} is blocked: no authoritative "
@@ -588,8 +712,8 @@ class AutomatedDecisionAuditService:
 
         approval_state = _approval_state_for_task_status(task.status)
         if task.status not in _RELEASE_APPROVED_TASK_STATUSES:
-            return GovernedOutputReleaseDecision(
-                allowed=False,
+            return await self._blocked_governed_output_release_decision(
+                request,
                 approval_state=approval_state,
                 review_task_id=task.review_task_id,
                 reason=(
@@ -604,8 +728,8 @@ class AutomatedDecisionAuditService:
                 request=request,
             )
             if acceptance is None:
-                return GovernedOutputReleaseDecision(
-                    allowed=False,
+                return await self._blocked_governed_output_release_decision(
+                    request,
                     approval_state=(
                         GovernanceReviewApprovalState.RESIDUAL_RISK_ACCEPTANCE_REQUIRED
                     ),
@@ -630,6 +754,34 @@ class AutomatedDecisionAuditService:
             review_task_id=task.review_task_id,
             reason="governance review permits release",
         )
+
+    async def _blocked_governed_output_release_decision(
+        self,
+        request: GovernedOutputReleaseRequest,
+        *,
+        approval_state: GovernanceReviewApprovalState,
+        reason: str,
+        review_task_id: str | None = None,
+    ) -> GovernedOutputReleaseDecision:
+        decision = GovernedOutputReleaseDecision(
+            allowed=False,
+            approval_state=approval_state,
+            review_task_id=review_task_id,
+            reason=reason,
+        )
+        await self._approval_observability.blocked_release(
+            authority=request.authority,
+            subject=request.subject,
+            evidence=request.evidence,
+            review_scope=request.review_scope,
+            requested_action=request.requested_action,
+            boundary_name=request.boundary_name,
+            reason=decision.reason,
+            approval_state=approval_state.value,
+            review_task_id=review_task_id,
+            trace_context=request.trace_context,
+        )
+        return decision
 
     async def _governance_review_state_from_task(
         self,

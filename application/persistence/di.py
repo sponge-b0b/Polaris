@@ -257,8 +257,12 @@ class ApplicationPersistenceDIProvider(Provider):
     def provide_automated_decision_audit_service(
         self,
         repository: PostgresAutomatedDecisionAuditRepository,
+        observability_manager: ObservabilityManager,
     ) -> AutomatedDecisionAuditService:
-        return AutomatedDecisionAuditService(repository)
+        return AutomatedDecisionAuditService(
+            repository,
+            observability_manager=observability_manager,
+        )
 
     @provide
     def provide_morning_report_persistence_service(

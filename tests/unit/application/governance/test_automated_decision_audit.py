@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
@@ -36,12 +38,39 @@ from core.storage.persistence.governance_audit import (
     GovernanceReviewTaskRecord,
     GovernanceReviewTaskStatus,
 )
+from core.telemetry.events.telemetry_event import TelemetryEvent
+from core.telemetry.observability import ObservabilityManager
+from core.telemetry.tracing import TraceContext
 from domain.authority import RiskAuthorityContract, classify_risk_authority
 from tests.helpers.risk_authority_examples import (
     rag_answer_authority_input,
     recommendation_explanation_authority_input,
     runtime_evidence_authority_input,
 )
+
+
+class TrackingObservabilityManager(ObservabilityManager):
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[TelemetryEvent] = []
+
+    async def emit(self, event: TelemetryEvent) -> None:
+        self.events.append(event)
+        await super().emit(event)
+
+
+class FailingObservabilityManager(ObservabilityManager):
+    def increment(
+        self,
+        name: str,
+        value: float = 1.0,
+        tags: tuple[str, ...] = (),
+        attributes: dict[str, Any] | None = None,
+    ) -> None:
+        raise RuntimeError("metrics unavailable")
+
+    async def emit(self, event: TelemetryEvent) -> None:
+        raise RuntimeError("telemetry unavailable")
 
 
 @pytest.mark.asyncio
@@ -1257,11 +1286,287 @@ async def test_records_every_policy_and_governance_evaluation_outcome() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_required_approval_emits_canonical_observability_once() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    observability = TrackingObservabilityManager()
+    service = AutomatedDecisionAuditService(repository, observability)
+    trace_context = TraceContext(correlation_id="ticket-135")
+
+    result = await service.record_governance_decision(
+        context=_context(trace_context=trace_context),
+        result=GovernanceResult.require_approval(
+            rule_name="authority_metadata_governance",
+            message="vigilant output requires approval",
+            reason="vigilant_authority_requires_approval",
+            metadata={"authority_subject_family": "recommendation"},
+        ),
+    )
+
+    assert result.success is True
+    assert result.review_task_id == repository.review_tasks[0].review_task_id
+    assert [event.event_type for event in observability.events] == [
+        "governance.approval_lifecycle.required_approval",
+    ]
+    event = observability.events[0]
+    assert event.source == "application.governance.approval_lifecycle"
+    assert event.trace_id == trace_context.trace_id
+    assert event.parent_span_id == trace_context.span_id
+    assert event.success is True
+    assert event.attributes["subject_type"] == "recommendation"
+    assert event.attributes["subject_id"] == "rec-1"
+    assert event.attributes["risk_tier"] == "vigilant"
+    assert event.attributes["review_task_id"] == result.review_task_id
+    assert event.attributes["evidence_packet_version"] == 1
+    assert event.attributes["decision_kind"] == "automated_governance"
+    assert event.attributes["lifecycle_outcome"] == "required_approval"
+    assert event.attributes["governance_outcome"] == "require_approval"
+
+    metric_names = [point.name for point in observability.metrics_store.points()]
+    assert "governance.approval_lifecycle.events.total" in metric_names
+    assert "governance.approval_lifecycle.required_approvals.total" in metric_names
+
+
+@pytest.mark.parametrize(
+    ("outcome", "event_type"),
+    (
+        (
+            GovernanceReviewDecisionOutcome.APPROVED,
+            "governance.approval_lifecycle.approved",
+        ),
+        (
+            GovernanceReviewDecisionOutcome.DENIED,
+            "governance.approval_lifecycle.denied",
+        ),
+        (
+            GovernanceReviewDecisionOutcome.CONTESTED,
+            "governance.approval_lifecycle.contested",
+        ),
+        (
+            GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+            "governance.approval_lifecycle.changes_requested",
+        ),
+    ),
+)
+@pytest.mark.asyncio
+async def test_review_resolution_emits_human_outcomes_without_automated_approval(
+    outcome: GovernanceReviewDecisionOutcome,
+    event_type: str,
+) -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    observability = TrackingObservabilityManager()
+    service = AutomatedDecisionAuditService(repository, observability)
+    await _create_enhanced_review_task(service)
+    task = repository.review_tasks[0]
+    observability.events.clear()
+
+    resolution = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=outcome,
+            reviewer=_reviewer(),
+            rationale="Human reviewer resolved the scoped governance task.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+            requested_remediation=(
+                "Resolve reviewer objections before publication."
+                if outcome
+                in {
+                    GovernanceReviewDecisionOutcome.CONTESTED,
+                    GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+                }
+                else None
+            ),
+        )
+    )
+
+    assert resolution.decision_record is not None
+    assert [event.event_type for event in observability.events] == [event_type]
+    event = observability.events[0]
+    assert event.attributes["decision_kind"] == "human_review"
+    assert event.attributes["policy_governance_separation"] == "governance_review_only"
+    assert event.attributes["review_outcome"] == outcome.value
+    assert event.attributes["review_task_id"] == task.review_task_id
+    assert event.attributes["review_decision_id"] == (
+        resolution.decision_record.review_decision_id
+    )
+    assert event.attributes["reviewer_id"] == "reviewer-1"
+    assert event.attributes["evidence_packet_version"] == task.evidence.packet_version
+    assert event.attributes.get("governance_outcome") is None
+
+
+@pytest.mark.asyncio
+async def test_review_override_emits_override_outcome() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    observability = TrackingObservabilityManager()
+    service = AutomatedDecisionAuditService(repository, observability)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    observability.events.clear()
+
+    await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.DENIED,
+            reviewer=_reviewer(),
+            rationale="Evidence packet omits material uncertainty.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+        )
+    )
+    observability.events.clear()
+
+    override = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.OVERRIDDEN,
+            reviewer=_organization_reviewer(),
+            rationale="Organization accepts this scoped exception.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+        )
+    )
+
+    assert override.decision_record is not None
+    assert [event.event_type for event in observability.events] == [
+        "governance.approval_lifecycle.override",
+    ]
+    event = observability.events[0]
+    assert event.attributes["decision_kind"] == "human_review"
+    assert event.attributes["review_outcome"] == "overridden"
+    assert event.attributes["reviewer_actor_type"] == "organization_reviewer"
+
+
+@pytest.mark.asyncio
+async def test_deny_skip_and_blocked_release_emit_lifecycle_observability() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    observability = TrackingObservabilityManager()
+    service = AutomatedDecisionAuditService(repository, observability)
+
+    await service.record_governance_evaluation(
+        context=_context(),
+        evaluation=GovernanceEvaluationResult(
+            subject_type="recommendation",
+            results=(
+                GovernanceResult.deny(
+                    rule_name="authority_metadata_governance",
+                    message="outside authority denied",
+                    reason="prohibited_authority",
+                ),
+                GovernanceResult.skip(
+                    rule_name="manual_review_rule",
+                    message="review not applicable",
+                    reason="not_applicable",
+                ),
+            ),
+        ),
+    )
+
+    assert [event.event_type for event in observability.events] == [
+        "governance.approval_lifecycle.denied",
+        "governance.approval_lifecycle.skipped",
+    ]
+    assert all(
+        event.attributes["decision_kind"] == "automated_governance"
+        for event in observability.events
+    )
+    assert all(
+        event.attributes["policy_governance_separation"] == "governance_only"
+        for event in observability.events
+    )
+
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    observability.events.clear()
+
+    release = await service.evaluate_governed_output_release(
+        _release_request(task=task),
+    )
+
+    assert release.allowed is False
+    assert [event.event_type for event in observability.events] == [
+        "governance.approval_lifecycle.blocked_release",
+    ]
+    event = observability.events[0]
+    assert event.success is False
+    assert event.attributes["decision_kind"] == "release_gate"
+    assert event.attributes["review_task_id"] == task.review_task_id
+    assert event.attributes["approval_state"] == "pending_review"
+    assert event.attributes["failure_reason"] == release.reason
+
+
+@pytest.mark.asyncio
+async def test_review_failure_emits_traceback_diagnostics() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    observability = TrackingObservabilityManager()
+    service = AutomatedDecisionAuditService(repository, observability)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    observability.events.clear()
+
+    with pytest.raises(ValueError, match="evidence version"):
+        await service.resolve_governance_review_task(
+            GovernanceReviewResolutionRequest(
+                review_task_id=task.review_task_id,
+                outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                reviewer=_reviewer(),
+                rationale="Attempt to approve later packet version.",
+                reviewed_evidence=AutomatedDecisionEvidenceReference(
+                    task.evidence.packet_id,
+                    task.evidence.packet_version + 1,
+                ),
+                review_scope=task.review_scope,
+            )
+        )
+
+    assert [event.event_type for event in observability.events] == [
+        "governance.approval_lifecycle.review_failure",
+    ]
+    event = observability.events[0]
+    assert event.success is False
+    assert event.error_count == 1
+    assert event.exception_details is not None
+    assert event.exception_details.exception_type == "ValueError"
+    assert "ValueError" in event.exception_details.stack_trace
+    assert event.attributes["failure_reason"] == "review_validation_failed"
+    assert event.attributes["review_task_id"] == task.review_task_id
+    assert (
+        event.attributes["evidence_packet_version"] == task.evidence.packet_version + 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_observability_failure_does_not_block_domain_persistence(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository, FailingObservabilityManager())
+
+    with caplog.at_level(logging.ERROR):
+        result = await service.record_governance_decision(
+            context=_context(),
+            result=GovernanceResult.require_approval(
+                rule_name="authority_metadata_governance",
+                message="vigilant output requires approval",
+                reason="vigilant_authority_requires_approval",
+                metadata={"authority_subject_family": "recommendation"},
+            ),
+        )
+
+    assert result.success is True
+    assert result.review_task_id == repository.review_tasks[0].review_task_id
+    assert len(repository.governance_records) == 1
+    assert len(repository.review_tasks) == 1
+    assert "governance_approval_lifecycle.metrics_failed" in caplog.messages
+    assert "governance_approval_lifecycle.telemetry_emit_failed" in caplog.messages
+
+
 def _context(
     *,
     authority: RiskAuthorityContract | None = None,
     evidence: AutomatedDecisionEvidenceReference | None = None,
     timestamp: datetime | None = None,
+    trace_context: TraceContext | None = None,
 ) -> AutomatedDecisionAuditContext:
     return AutomatedDecisionAuditContext(
         subject=AutomatedDecisionSubject("recommendation", "rec-1"),
@@ -1269,6 +1574,7 @@ def _context(
         or classify_risk_authority(recommendation_explanation_authority_input()),
         evidence=evidence or AutomatedDecisionEvidenceReference("packet-1", 1),
         timestamp=timestamp,
+        trace_context=trace_context,
     )
 
 
@@ -1623,6 +1929,7 @@ def _release_request(
     review_scope: str | None = None,
     requested_action: str | None = None,
     residual_risk_acceptance_required: bool = False,
+    trace_context: TraceContext | None = None,
 ) -> GovernedOutputReleaseRequest:
     return GovernedOutputReleaseRequest(
         authority=_context().authority,
@@ -1632,6 +1939,7 @@ def _release_request(
         requested_action=requested_action or task.requested_action,
         boundary_name="recommendation.durable_promotion",
         residual_risk_acceptance_required=residual_risk_acceptance_required,
+        trace_context=trace_context,
     )
 
 

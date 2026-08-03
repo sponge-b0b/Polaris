@@ -167,6 +167,8 @@ async def test_persist_review_decision_uses_immutable_insert() -> None:
     assert "INSERT INTO governance_review_decisions" in str(compiled)
     assert compiled.params["reviewer_id"] == "reviewer-1"
     assert compiled.params["evidence_packet_version"] == 1
+    assert compiled.params["resulting_task_status"] == "approved"
+    assert compiled.params["requested_remediation"] is None
 
 
 @pytest.mark.asyncio
@@ -206,10 +208,12 @@ async def test_update_review_task_status_updates_visible_state() -> None:
 
 @pytest.mark.asyncio
 async def test_list_review_decisions_filters_by_scoped_evidence() -> None:
+    decision = _review_decision_record(
+        outcome=GovernanceReviewDecisionOutcome.CONTESTED,
+        requested_remediation="Reconcile disputed decision evidence.",
+    )
     model = GovernanceReviewDecisionModel(
-        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(
-            _review_decision_record(),
-        )
+        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(decision)
     )
     session = FakeAsyncSession(result=FakeExecuteResult([model]))
     repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
@@ -218,11 +222,15 @@ async def test_list_review_decisions_filters_by_scoped_evidence() -> None:
         review_task_id="governance-review-task-1",
         subject_type="recommendation",
         subject_id="rec-1",
-        outcome="approved",
+        outcome="contested",
         evidence_packet_id="packet-1",
     )
 
-    assert decisions == (_review_decision_record(),)
+    assert decisions == (decision,)
+    assert decisions[0].resulting_task_status is GovernanceReviewTaskStatus.CONTESTED
+    assert decisions[0].requested_remediation == (
+        "Reconcile disputed decision evidence."
+    )
     compiled = str(
         session.executed[0].compile(
             dialect=postgresql.dialect(),
@@ -374,18 +382,23 @@ def _review_task_record() -> GovernanceReviewTaskRecord:
     )
 
 
-def _review_decision_record() -> GovernanceReviewDecisionRecord:
+def _review_decision_record(
+    *,
+    outcome: GovernanceReviewDecisionOutcome = GovernanceReviewDecisionOutcome.APPROVED,
+    requested_remediation: str | None = None,
+) -> GovernanceReviewDecisionRecord:
     return GovernanceReviewDecisionRecord(
         review_decision_id="governance-review-decision-1",
         review_task_id="governance-review-task-1",
         automated_governance_audit_record_id="governance-audit-1",
         subject=AutomatedDecisionSubject("recommendation", "rec-1"),
         risk_tier=RiskTier.VIGILANT,
-        outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        outcome=outcome,
         reviewer=_reviewer(),
         rationale="Human reviewed scoped decision evidence.",
         review_scope="recommendation",
         evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        requested_remediation=requested_remediation,
         decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
     )
 

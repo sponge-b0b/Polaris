@@ -110,6 +110,8 @@ class AutomatedDecisionAuditPersistenceSerializer:
             "review_scope": decision.review_scope,
             "evidence_packet_id": decision.evidence_packet_id,
             "evidence_packet_version": decision.evidence_packet_version,
+            "resulting_task_status": decision.resulting_task_status_value,
+            "requested_remediation": decision.requested_remediation,
             "residual_risk_acceptance_required": (
                 decision.residual_risk_acceptance_required
             ),
@@ -243,6 +245,10 @@ class AutomatedDecisionAuditPersistenceSerializer:
                 packet_id=model.evidence_packet_id,
                 packet_version=model.evidence_packet_version,
             ),
+            resulting_task_status=GovernanceReviewTaskStatus(
+                model.resulting_task_status,
+            ),
+            requested_remediation=model.requested_remediation,
             residual_risk_acceptance_required=(model.residual_risk_acceptance_required),
             residual_risk_acceptance_id=model.residual_risk_acceptance_id,
             metadata=cast(JsonObject, model.metadata_payload),

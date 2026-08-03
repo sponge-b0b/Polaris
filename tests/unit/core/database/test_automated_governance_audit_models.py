@@ -68,7 +68,7 @@ def test_governance_review_task_model_captures_scoped_review_work_queue() -> Non
     assert "idx_governance_review_tasks_evidence_status" in indexes
 
 
-def test_review_decision_model_captures_attributable_approval_audit() -> None:
+def test_review_decision_model_captures_attributable_outcome_audit() -> None:
     constraints = {
         constraint.name
         for constraint in GovernanceReviewDecisionModel.__table__.constraints
@@ -76,10 +76,14 @@ def test_review_decision_model_captures_attributable_approval_audit() -> None:
     indexes = {index.name for index in GovernanceReviewDecisionModel.__table__.indexes}
 
     assert "ck_governance_review_decisions_outcome" in constraints
+    assert "ck_governance_review_decisions_resulting_status" in constraints
     assert "ck_governance_review_decisions_reviewer_actor_type" in constraints
     assert "reviewer_id" in GovernanceReviewDecisionModel.__table__.columns
     assert "rationale" in GovernanceReviewDecisionModel.__table__.columns
+    assert "resulting_task_status" in GovernanceReviewDecisionModel.__table__.columns
+    assert "requested_remediation" in GovernanceReviewDecisionModel.__table__.columns
     assert "evidence_packet_version" in GovernanceReviewDecisionModel.__table__.columns
+    assert "ix_governance_review_decisions_resulting_task_status" in indexes
     assert "idx_governance_review_decisions_task_outcome" in indexes
     assert "idx_governance_review_decisions_evidence_outcome" in indexes
 

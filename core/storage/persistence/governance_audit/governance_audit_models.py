@@ -39,7 +39,9 @@ class GovernanceReviewTaskStatus(StrEnum):
     IN_REVIEW = "in_review"
     APPROVED = "approved"
     DENIED = "denied"
+    CONTESTED = "contested"
     CHANGES_REQUESTED = "changes_requested"
+    OVERRIDDEN = "overridden"
     CANCELLED = "cancelled"
 
 
@@ -48,6 +50,9 @@ class GovernanceReviewDecisionOutcome(StrEnum):
 
     APPROVED = "approved"
     DENIED = "denied"
+    CONTESTED = "contested"
+    CHANGES_REQUESTED = "changes_requested"
+    OVERRIDDEN = "overridden"
 
 
 class GovernanceReviewerActorType(StrEnum):
@@ -364,7 +369,7 @@ class GovernanceReviewerIdentity:
 
 @dataclass(frozen=True, slots=True)
 class GovernanceReviewDecisionRecord:
-    """Immutable audit entry for a human approval or denial."""
+    """Immutable audit entry for attributable human review outcomes."""
 
     review_decision_id: str
     review_task_id: str
@@ -377,6 +382,8 @@ class GovernanceReviewDecisionRecord:
     review_scope: str
     evidence: AutomatedDecisionEvidenceReference
     decided_at: datetime
+    resulting_task_status: GovernanceReviewTaskStatus | None = None
+    requested_remediation: str | None = None
     residual_risk_acceptance_required: bool = False
     residual_risk_acceptance_id: str | None = None
     metadata: JsonObject = field(default_factory=dict)
@@ -416,6 +423,27 @@ class GovernanceReviewDecisionRecord:
             "review_scope",
             _clean_identifier(self.review_scope, "review_scope"),
         )
+        expected_status = _review_task_status_for_decision_outcome(self.outcome)
+        resulting_status = _coerce_review_task_status(
+            self.resulting_task_status or expected_status,
+        )
+        if resulting_status is not expected_status:
+            raise ValueError(
+                "resulting_task_status must match the human review outcome.",
+            )
+        object.__setattr__(
+            self,
+            "resulting_task_status",
+            resulting_status,
+        )
+        object.__setattr__(
+            self,
+            "requested_remediation",
+            _clean_optional_text(
+                self.requested_remediation,
+                "requested_remediation",
+            ),
+        )
         object.__setattr__(
             self,
             "residual_risk_acceptance_id",
@@ -427,12 +455,27 @@ class GovernanceReviewDecisionRecord:
         object.__setattr__(self, "metadata", _validated_review_metadata(self.metadata))
         if (
             self.residual_risk_acceptance_required
-            and self.outcome is GovernanceReviewDecisionOutcome.APPROVED
+            and self.outcome
+            in {
+                GovernanceReviewDecisionOutcome.APPROVED,
+                GovernanceReviewDecisionOutcome.OVERRIDDEN,
+            }
             and self.residual_risk_acceptance_id is None
         ):
             raise ValueError(
-                "approved vigilant review decisions with remaining residual risk "
-                "require explicit residual-risk acceptance."
+                "approved or overridden vigilant review decisions with remaining "
+                "residual risk require explicit residual-risk acceptance."
+            )
+        if (
+            self.outcome
+            in {
+                GovernanceReviewDecisionOutcome.CONTESTED,
+                GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+            }
+            and self.requested_remediation is None
+        ):
+            raise ValueError(
+                "contested and request-changes outcomes require requested remediation."
             )
 
     @property
@@ -454,6 +497,13 @@ class GovernanceReviewDecisionRecord:
     @property
     def outcome_value(self) -> str:
         return self.outcome.value
+
+    @property
+    def resulting_task_status_value(self) -> str:
+        status = self.resulting_task_status
+        if status is None:
+            raise ValueError("resulting_task_status was not resolved.")
+        return status.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -608,6 +658,22 @@ def new_governance_residual_risk_acceptance_id() -> str:
     return f"governance_residual_risk_acceptance:{uuid4().hex}"
 
 
+def _review_task_status_for_decision_outcome(
+    outcome: GovernanceReviewDecisionOutcome,
+) -> GovernanceReviewTaskStatus:
+    return {
+        GovernanceReviewDecisionOutcome.APPROVED: GovernanceReviewTaskStatus.APPROVED,
+        GovernanceReviewDecisionOutcome.DENIED: GovernanceReviewTaskStatus.DENIED,
+        GovernanceReviewDecisionOutcome.CONTESTED: GovernanceReviewTaskStatus.CONTESTED,
+        GovernanceReviewDecisionOutcome.CHANGES_REQUESTED: (
+            GovernanceReviewTaskStatus.CHANGES_REQUESTED
+        ),
+        GovernanceReviewDecisionOutcome.OVERRIDDEN: (
+            GovernanceReviewTaskStatus.OVERRIDDEN
+        ),
+    }[outcome]
+
+
 def authority_metadata_from_contract(
     contract: RiskAuthorityContract,
 ) -> JsonObject:
@@ -647,7 +713,7 @@ def _coerce_review_decision_outcome(
         return value
     if isinstance(value, str):
         return GovernanceReviewDecisionOutcome(value.strip().lower())
-    raise ValueError("review decision outcome must be approved or denied.")
+    raise ValueError("review decision outcome must identify a human review result.")
 
 
 def _coerce_reviewer_actor_type(value: object) -> GovernanceReviewerActorType:
@@ -717,9 +783,19 @@ def _reject_nonhuman_review_assertions(metadata: Mapping[str, object]) -> None:
     forbidden_keys = {
         "model_output",
         "workflow_metadata",
+        "changes_requested",
+        "clear_review_task",
+        "contest",
+        "contested",
         "evaluator_score",
         "generated_text",
+        "override",
+        "overridden",
         "policy_outcome_override",
+        "request_changes",
+        "requested_changes_satisfied",
+        "review_satisfied",
+        "satisfy_review_task",
     }
     for key, value in metadata.items():
         normalized_key = key.strip().lower()

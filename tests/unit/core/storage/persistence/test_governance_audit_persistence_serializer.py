@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import pytest
@@ -102,8 +103,53 @@ def test_review_decision_serializer_round_trips_immutable_audit_entry() -> None:
 
     assert round_tripped == decision
     assert round_tripped.outcome is GovernanceReviewDecisionOutcome.APPROVED
+    assert round_tripped.resulting_task_status is GovernanceReviewTaskStatus.APPROVED
+    assert round_tripped.requested_remediation is None
     assert round_tripped.reviewer == _reviewer()
     assert round_tripped.evidence_packet_version == 1
+
+
+@pytest.mark.parametrize(
+    ("outcome", "status", "requested_remediation"),
+    (
+        (
+            GovernanceReviewDecisionOutcome.CONTESTED,
+            GovernanceReviewTaskStatus.CONTESTED,
+            "Resolve the disputed claim before publication.",
+        ),
+        (
+            GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+            GovernanceReviewTaskStatus.CHANGES_REQUESTED,
+            "Regenerate the packet with fresh evidence.",
+        ),
+        (
+            GovernanceReviewDecisionOutcome.OVERRIDDEN,
+            GovernanceReviewTaskStatus.OVERRIDDEN,
+            None,
+        ),
+    ),
+)
+def test_review_decision_serializer_round_trips_contestable_audit_outcomes(
+    outcome: GovernanceReviewDecisionOutcome,
+    status: GovernanceReviewTaskStatus,
+    requested_remediation: str | None,
+) -> None:
+    decision = _review_decision_record(
+        outcome=outcome,
+        requested_remediation=requested_remediation,
+    )
+    model = GovernanceReviewDecisionModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(decision)
+    )
+
+    round_tripped = (
+        AutomatedDecisionAuditPersistenceSerializer.review_decision_from_model(model)
+    )
+
+    assert round_tripped == decision
+    assert round_tripped.outcome is outcome
+    assert round_tripped.resulting_task_status is status
+    assert round_tripped.requested_remediation == requested_remediation
 
 
 def test_residual_risk_acceptance_serializer_round_trips_scoped_record() -> None:
@@ -164,6 +210,45 @@ def test_nested_model_authority_claims_cannot_be_authoritative_audit_metadata() 
         )
 
 
+def test_contest_and_request_changes_require_requested_remediation() -> None:
+    for outcome in (
+        GovernanceReviewDecisionOutcome.CONTESTED,
+        GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+    ):
+        with pytest.raises(ValueError, match="requested remediation"):
+            _review_decision_record(outcome=outcome)
+
+
+def test_resulting_status_must_match_human_review_outcome() -> None:
+    with pytest.raises(ValueError, match="resulting_task_status"):
+        GovernanceReviewDecisionRecord(
+            review_decision_id="governance-review-decision-1",
+            review_task_id="governance-review-task-1",
+            automated_governance_audit_record_id="governance-audit-require_approval",
+            subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+            risk_tier=RiskTier.VIGILANT,
+            outcome=GovernanceReviewDecisionOutcome.CONTESTED,
+            reviewer=_reviewer(),
+            rationale="Human reviewed decision evidence.",
+            review_scope="recommendation",
+            evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+            decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
+            resulting_task_status=GovernanceReviewTaskStatus.APPROVED,
+            requested_remediation="Resolve the disputed claim.",
+        )
+
+
+def test_nonhuman_review_metadata_cannot_claim_contest_override_or_clear() -> None:
+    for metadata in (
+        {"contest": True},
+        {"override": True},
+        {"clear_review_task": True},
+        {"satisfy_review_task": True},
+    ):
+        with pytest.raises(ValueError, match="non-human governance review metadata"):
+            _review_decision_record(metadata=metadata)
+
+
 def _policy_record(
     outcome: AutomatedPolicyAuditOutcome,
 ) -> AutomatedPolicyAuditRecord:
@@ -221,18 +306,25 @@ def _review_task_record() -> GovernanceReviewTaskRecord:
     )
 
 
-def _review_decision_record() -> GovernanceReviewDecisionRecord:
+def _review_decision_record(
+    *,
+    outcome: GovernanceReviewDecisionOutcome = GovernanceReviewDecisionOutcome.APPROVED,
+    requested_remediation: str | None = None,
+    metadata: Mapping[str, object] | None = None,
+) -> GovernanceReviewDecisionRecord:
     return GovernanceReviewDecisionRecord(
-        review_decision_id="governance-review-decision-1",
+        review_decision_id=f"governance-review-decision-{outcome.value}",
         review_task_id="governance-review-task-1",
         automated_governance_audit_record_id="governance-audit-require_approval",
         subject=AutomatedDecisionSubject("recommendation", "rec-1"),
         risk_tier=RiskTier.VIGILANT,
-        outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        outcome=outcome,
         reviewer=_reviewer(),
         rationale="Human reviewed decision evidence.",
         review_scope="recommendation",
         evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        requested_remediation=requested_remediation,
+        metadata=metadata or {},
         decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
     )
 

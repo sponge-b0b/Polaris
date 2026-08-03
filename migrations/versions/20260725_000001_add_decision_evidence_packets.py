@@ -400,7 +400,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "status IN ('pending', 'in_review', 'approved', 'denied', "
-            "'changes_requested', 'cancelled')",
+            "'contested', 'changes_requested', 'overridden', 'cancelled')",
             name="ck_governance_review_tasks_status",
         ),
         sa.CheckConstraint(
@@ -635,6 +635,8 @@ def upgrade() -> None:
         sa.Column("review_scope", sa.String(), nullable=False),
         sa.Column("evidence_packet_id", sa.String(), nullable=False),
         sa.Column("evidence_packet_version", sa.Integer(), nullable=False),
+        sa.Column("resulting_task_status", sa.String(), nullable=False),
+        sa.Column("requested_remediation", sa.String(), nullable=True),
         sa.Column(
             "residual_risk_acceptance_required",
             sa.Boolean(),
@@ -659,8 +661,14 @@ def upgrade() -> None:
             name="ck_governance_review_decisions_risk_tier",
         ),
         sa.CheckConstraint(
-            "outcome IN ('approved', 'denied')",
+            "outcome IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
             name="ck_governance_review_decisions_outcome",
+        ),
+        sa.CheckConstraint(
+            "resulting_task_status IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
+            name="ck_governance_review_decisions_resulting_status",
         ),
         sa.CheckConstraint(
             "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
@@ -732,6 +740,12 @@ def upgrade() -> None:
         "ix_governance_review_decisions_evidence_packet_id",
         "governance_review_decisions",
         ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_resulting_task_status",
+        "governance_review_decisions",
+        ["resulting_task_status"],
         unique=False,
     )
     op.create_index(
@@ -1052,6 +1066,10 @@ def downgrade() -> None:
     )
     op.drop_index(
         "ix_governance_review_decisions_residual_risk_acceptance_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_resulting_task_status",
         table_name="governance_review_decisions",
     )
     op.drop_index(

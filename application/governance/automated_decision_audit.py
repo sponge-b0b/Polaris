@@ -71,6 +71,9 @@ class GovernanceReviewApprovalState(StrEnum):
     PENDING_REVIEW = "pending_review"
     REVIEW_APPROVED = "review_approved"
     REVIEW_DENIED = "review_denied"
+    REVIEW_CONTESTED = "review_contested"
+    CHANGES_REQUESTED = "changes_requested"
+    REVIEW_OVERRIDDEN = "review_overridden"
     RESIDUAL_RISK_ACCEPTANCE_REQUIRED = "residual_risk_acceptance_required"
 
 
@@ -96,6 +99,7 @@ class GovernanceReviewResolutionRequest:
     reviewed_evidence: AutomatedDecisionEvidenceReference
     review_scope: str
     decided_at: datetime | None = None
+    requested_remediation: str | None = None
     residual_risk_remaining: bool = False
     residual_risk_acceptance: GovernanceResidualRiskAcceptanceRequest | None = None
     metadata: JsonObject | None = None
@@ -223,22 +227,6 @@ class AutomatedDecisionAuditService:
             raise ValueError("governance review task was not found.")
         _validate_review_matches_task(task=task, request=request)
 
-        if request.outcome is GovernanceReviewDecisionOutcome.DENIED:
-            decision = _review_decision_record_from_request(
-                task=task,
-                request=request,
-                residual_risk_acceptance_id=None,
-            )
-            await self._persist_review_decision_and_status(
-                decision=decision,
-                status=GovernanceReviewTaskStatus.DENIED,
-            )
-            return GovernanceReviewResolution(
-                review_task_id=task.review_task_id,
-                approval_state=GovernanceReviewApprovalState.REVIEW_DENIED,
-                decision_record=decision,
-            )
-
         residual_risk_required = _requires_residual_risk_acceptance(
             task=task,
             request=request,
@@ -270,13 +258,14 @@ class AutomatedDecisionAuditService:
                 acceptance.acceptance_id if acceptance is not None else None
             ),
         )
+        status = _resulting_task_status_for_outcome(request.outcome)
         await self._persist_review_decision_and_status(
             decision=decision,
-            status=GovernanceReviewTaskStatus.APPROVED,
+            status=status,
         )
         return GovernanceReviewResolution(
             review_task_id=task.review_task_id,
-            approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+            approval_state=_approval_state_for_task_status(status),
             decision_record=decision,
             residual_risk_acceptance=acceptance,
         )
@@ -288,11 +277,7 @@ class AutomatedDecisionAuditService:
         task = await self._repository.get_governance_review_task(review_task_id)
         if task is None:
             raise ValueError("governance review task was not found.")
-        if task.status is GovernanceReviewTaskStatus.APPROVED:
-            return GovernanceReviewApprovalState.REVIEW_APPROVED
-        if task.status is GovernanceReviewTaskStatus.DENIED:
-            return GovernanceReviewApprovalState.REVIEW_DENIED
-        return GovernanceReviewApprovalState.PENDING_REVIEW
+        return _approval_state_for_task_status(task.status)
 
     async def _persist_review_decision_and_status(
         self,
@@ -379,11 +364,8 @@ def _validate_review_matches_task(
         )
     if request.review_scope != task.review_scope:
         raise ValueError("review scope must match the governance review task.")
-    if task.status not in {
-        GovernanceReviewTaskStatus.PENDING,
-        GovernanceReviewTaskStatus.IN_REVIEW,
-    }:
-        raise ValueError("governance review task is not open for resolution.")
+    if not _task_status_accepts_outcome(status=task.status, outcome=request.outcome):
+        raise ValueError("governance review task status cannot accept that outcome.")
 
 
 def _requires_residual_risk_acceptance(
@@ -392,10 +374,80 @@ def _requires_residual_risk_acceptance(
     request: GovernanceReviewResolutionRequest,
 ) -> bool:
     return (
-        request.outcome is GovernanceReviewDecisionOutcome.APPROVED
+        request.outcome
+        in {
+            GovernanceReviewDecisionOutcome.APPROVED,
+            GovernanceReviewDecisionOutcome.OVERRIDDEN,
+        }
         and task.risk_tier is RiskTier.VIGILANT
         and request.residual_risk_remaining
     )
+
+
+def _resulting_task_status_for_outcome(
+    outcome: GovernanceReviewDecisionOutcome,
+) -> GovernanceReviewTaskStatus:
+    return {
+        GovernanceReviewDecisionOutcome.APPROVED: GovernanceReviewTaskStatus.APPROVED,
+        GovernanceReviewDecisionOutcome.DENIED: GovernanceReviewTaskStatus.DENIED,
+        GovernanceReviewDecisionOutcome.CONTESTED: GovernanceReviewTaskStatus.CONTESTED,
+        GovernanceReviewDecisionOutcome.CHANGES_REQUESTED: (
+            GovernanceReviewTaskStatus.CHANGES_REQUESTED
+        ),
+        GovernanceReviewDecisionOutcome.OVERRIDDEN: (
+            GovernanceReviewTaskStatus.OVERRIDDEN
+        ),
+    }[outcome]
+
+
+def _approval_state_for_task_status(
+    status: GovernanceReviewTaskStatus,
+) -> GovernanceReviewApprovalState:
+    return {
+        GovernanceReviewTaskStatus.PENDING: (
+            GovernanceReviewApprovalState.PENDING_REVIEW
+        ),
+        GovernanceReviewTaskStatus.IN_REVIEW: (
+            GovernanceReviewApprovalState.PENDING_REVIEW
+        ),
+        GovernanceReviewTaskStatus.APPROVED: (
+            GovernanceReviewApprovalState.REVIEW_APPROVED
+        ),
+        GovernanceReviewTaskStatus.DENIED: (
+            GovernanceReviewApprovalState.REVIEW_DENIED
+        ),
+        GovernanceReviewTaskStatus.CONTESTED: (
+            GovernanceReviewApprovalState.REVIEW_CONTESTED
+        ),
+        GovernanceReviewTaskStatus.CHANGES_REQUESTED: (
+            GovernanceReviewApprovalState.CHANGES_REQUESTED
+        ),
+        GovernanceReviewTaskStatus.OVERRIDDEN: (
+            GovernanceReviewApprovalState.REVIEW_OVERRIDDEN
+        ),
+        GovernanceReviewTaskStatus.CANCELLED: (
+            GovernanceReviewApprovalState.PENDING_REVIEW
+        ),
+    }[status]
+
+
+def _task_status_accepts_outcome(
+    *,
+    status: GovernanceReviewTaskStatus,
+    outcome: GovernanceReviewDecisionOutcome,
+) -> bool:
+    if status in {
+        GovernanceReviewTaskStatus.PENDING,
+        GovernanceReviewTaskStatus.IN_REVIEW,
+    }:
+        return True
+    if outcome is GovernanceReviewDecisionOutcome.OVERRIDDEN:
+        return status in {
+            GovernanceReviewTaskStatus.DENIED,
+            GovernanceReviewTaskStatus.CONTESTED,
+            GovernanceReviewTaskStatus.CHANGES_REQUESTED,
+        }
+    return False
 
 
 def _review_decision_record_from_request(
@@ -422,6 +474,8 @@ def _review_decision_record_from_request(
         review_scope=task.review_scope,
         evidence=task.evidence,
         decided_at=request.decided_at or datetime.now(UTC),
+        resulting_task_status=_resulting_task_status_for_outcome(request.outcome),
+        requested_remediation=request.requested_remediation,
         residual_risk_acceptance_required=residual_risk_acceptance_required,
         residual_risk_acceptance_id=residual_risk_acceptance_id,
         metadata=request.metadata or {},

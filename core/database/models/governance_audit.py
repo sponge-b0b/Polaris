@@ -172,7 +172,7 @@ class GovernanceReviewTaskModel(Base):
         ),
         CheckConstraint(
             "status IN ('pending', 'in_review', 'approved', 'denied', "
-            "'changes_requested', 'cancelled')",
+            "'contested', 'changes_requested', 'overridden', 'cancelled')",
             name="ck_governance_review_tasks_status",
         ),
         CheckConstraint(
@@ -244,7 +244,7 @@ class GovernanceReviewTaskModel(Base):
 
 
 class GovernanceReviewDecisionModel(Base):
-    """Immutable human approval or denial audit entry."""
+    """Immutable attributable human review outcome audit entry."""
 
     __tablename__ = "governance_review_decisions"
     __table_args__ = (
@@ -254,8 +254,14 @@ class GovernanceReviewDecisionModel(Base):
             name="ck_governance_review_decisions_risk_tier",
         ),
         CheckConstraint(
-            "outcome IN ('approved', 'denied')",
+            "outcome IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
             name="ck_governance_review_decisions_outcome",
+        ),
+        CheckConstraint(
+            "resulting_task_status IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
+            name="ck_governance_review_decisions_resulting_status",
         ),
         CheckConstraint(
             "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
@@ -290,6 +296,12 @@ class GovernanceReviewDecisionModel(Base):
     review_scope: Mapped[str] = mapped_column(String, nullable=False, index=True)
     evidence_packet_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     evidence_packet_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    resulting_task_status: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        index=True,
+    )
+    requested_remediation: Mapped[str | None] = mapped_column(String, nullable=True)
     residual_risk_acceptance_required: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

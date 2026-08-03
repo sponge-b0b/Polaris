@@ -104,6 +104,7 @@ async def test_records_governance_require_approval_as_queryable_audit_record() -
     assert queried == (record,)
 
 
+@pytest.mark.asyncio
 async def test_enhanced_require_approval_creates_review_task_for_packet_version() -> (
     None
 ):
@@ -350,6 +351,176 @@ async def test_human_reviewer_denies_task_with_visible_denied_state() -> None:
 
 
 @pytest.mark.asyncio
+async def test_human_reviewer_contests_task_with_remediation_audit_entry() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    contested_at = datetime(2026, 8, 2, 13, 10, tzinfo=UTC)
+
+    result = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.CONTESTED,
+            reviewer=_reviewer(),
+            rationale="Claim conflicts with cited downside evidence.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+            requested_remediation=(
+                "Reconcile the downside-risk claim with packet evidence."
+            ),
+            decided_at=contested_at,
+        )
+    )
+
+    assert result.approval_state is GovernanceReviewApprovalState.REVIEW_CONTESTED
+    assert result.review_approved is False
+    assert repository.review_tasks[0].status is GovernanceReviewTaskStatus.CONTESTED
+    decision = repository.review_decisions[0]
+    assert decision.outcome is GovernanceReviewDecisionOutcome.CONTESTED
+    assert decision.resulting_task_status is GovernanceReviewTaskStatus.CONTESTED
+    assert decision.requested_remediation == (
+        "Reconcile the downside-risk claim with packet evidence."
+    )
+    assert decision.decided_at == contested_at
+    queried = await repository.list_governance_review_decisions(
+        review_task_id=task.review_task_id,
+        outcome="contested",
+        evidence_packet_id="packet-1",
+    )
+    assert queried == (decision,)
+
+
+@pytest.mark.asyncio
+async def test_request_changes_keeps_output_unapproved_until_new_review_path() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+
+    result = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+            reviewer=_reviewer(),
+            rationale="Evidence is stale for the requested publication scope.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+            requested_remediation="Regenerate the evidence packet with fresh quotes.",
+        )
+    )
+
+    assert result.approval_state is GovernanceReviewApprovalState.CHANGES_REQUESTED
+    assert result.review_approved is False
+    assert repository.review_tasks[0].status is (
+        GovernanceReviewTaskStatus.CHANGES_REQUESTED
+    )
+    decision = repository.review_decisions[0]
+    assert decision.outcome is GovernanceReviewDecisionOutcome.CHANGES_REQUESTED
+    assert decision.requested_remediation == (
+        "Regenerate the evidence packet with fresh quotes."
+    )
+
+    with pytest.raises(ValueError, match="cannot accept that outcome"):
+        await service.resolve_governance_review_task(
+            GovernanceReviewResolutionRequest(
+                review_task_id=task.review_task_id,
+                outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                reviewer=_reviewer(),
+                rationale="Attempt to approve the stale packet anyway.",
+                reviewed_evidence=task.evidence,
+                review_scope=task.review_scope,
+            )
+        )
+
+    assert len(repository.review_decisions) == 1
+    assert repository.review_tasks[0].status is (
+        GovernanceReviewTaskStatus.CHANGES_REQUESTED
+    )
+
+    updated_evidence = AutomatedDecisionEvidenceReference("packet-1", 2)
+    fresh_path = await service.record_governance_decision(
+        context=_context(evidence=updated_evidence),
+        result=GovernanceResult.require_approval(
+            rule_name="authority_metadata_governance",
+            message="updated evidence requires approval",
+            reason="vigilant_authority_requires_approval",
+            metadata={"authority_subject_family": "recommendation"},
+        ),
+    )
+    fresh_task = repository.review_tasks[1]
+    assert fresh_path.review_task_id == fresh_task.review_task_id
+    assert fresh_task.evidence == updated_evidence
+
+    approved_fresh_path = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=fresh_task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.APPROVED,
+            reviewer=_reviewer(),
+            rationale="Fresh evidence resolves the requested change.",
+            reviewed_evidence=fresh_task.evidence,
+            review_scope=fresh_task.review_scope,
+        )
+    )
+
+    assert approved_fresh_path.approval_state is (
+        GovernanceReviewApprovalState.REVIEW_APPROVED
+    )
+    assert repository.review_tasks[0].status is (
+        GovernanceReviewTaskStatus.CHANGES_REQUESTED
+    )
+    assert repository.review_tasks[1].status is GovernanceReviewTaskStatus.APPROVED
+
+
+@pytest.mark.asyncio
+async def test_override_preserves_original_automated_and_contested_audit_records() -> (
+    None
+):
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    original_audit = repository.governance_records[0]
+
+    contested = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.CONTESTED,
+            reviewer=_reviewer(),
+            rationale="The automated decision underweights missing evidence.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+            requested_remediation="Escalate to governance owner for scoped override.",
+        )
+    )
+    overridden = await service.resolve_governance_review_task(
+        GovernanceReviewResolutionRequest(
+            review_task_id=task.review_task_id,
+            outcome=GovernanceReviewDecisionOutcome.OVERRIDDEN,
+            reviewer=_organization_reviewer(),
+            rationale="Organization accepts the scoped exception for this packet.",
+            reviewed_evidence=task.evidence,
+            review_scope=task.review_scope,
+            metadata={"override_ticket": "GOV-123"},
+        )
+    )
+
+    assert contested.approval_state is GovernanceReviewApprovalState.REVIEW_CONTESTED
+    assert overridden.approval_state is GovernanceReviewApprovalState.REVIEW_OVERRIDDEN
+    assert overridden.review_approved is False
+    assert repository.review_tasks[0].status is GovernanceReviewTaskStatus.OVERRIDDEN
+    assert repository.governance_records[0] == original_audit
+    assert [decision.outcome for decision in repository.review_decisions] == [
+        GovernanceReviewDecisionOutcome.CONTESTED,
+        GovernanceReviewDecisionOutcome.OVERRIDDEN,
+    ]
+    assert repository.review_decisions[1].reviewer == _organization_reviewer()
+    assert repository.review_decisions[1].resulting_task_status is (
+        GovernanceReviewTaskStatus.OVERRIDDEN
+    )
+
+
+@pytest.mark.asyncio
 async def test_vigilant_approval_requires_explicit_residual_risk_acceptance() -> None:
     repository = FakeAutomatedDecisionAuditRepository()
     service = AutomatedDecisionAuditService(repository)
@@ -449,21 +620,39 @@ async def test_model_workflow_and_evaluator_metadata_cannot_approve_review() -> 
     await _create_vigilant_review_task(service)
     task = repository.review_tasks[0]
 
-    for metadata in (
-        {"model_output": "approved"},
-        {"workflow_metadata": {"production_ready": True}},
-        {"evaluator_score": 1.0},
-        {"generated_text": "residual risk accepted"},
+    for metadata, outcome in (
+        ({"model_output": "approved"}, GovernanceReviewDecisionOutcome.APPROVED),
+        (
+            {"workflow_metadata": {"production_ready": True}},
+            GovernanceReviewDecisionOutcome.APPROVED,
+        ),
+        ({"evaluator_score": 1.0}, GovernanceReviewDecisionOutcome.APPROVED),
+        (
+            {"generated_text": "residual risk accepted"},
+            GovernanceReviewDecisionOutcome.APPROVED,
+        ),
+        (
+            {"contest": "model disputes claim"},
+            GovernanceReviewDecisionOutcome.CONTESTED,
+        ),
+        ({"override": True}, GovernanceReviewDecisionOutcome.OVERRIDDEN),
+        (
+            {"requested_changes_satisfied": True},
+            GovernanceReviewDecisionOutcome.CHANGES_REQUESTED,
+        ),
     ):
         with pytest.raises(ValueError):
             await service.resolve_governance_review_task(
                 GovernanceReviewResolutionRequest(
                     review_task_id=task.review_task_id,
-                    outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    outcome=outcome,
                     reviewer=_reviewer(),
                     rationale="Attempt non-human approval path.",
                     reviewed_evidence=task.evidence,
                     review_scope=task.review_scope,
+                    requested_remediation=(
+                        "Human remediation must not come from metadata."
+                    ),
                     metadata=metadata,
                 )
             )
@@ -472,7 +661,6 @@ async def test_model_workflow_and_evaluator_metadata_cannot_approve_review() -> 
     assert repository.review_decisions == []
 
 
-@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_model_metadata_cannot_self_approve_or_lower_audit_risk() -> None:
     repository = FakeAutomatedDecisionAuditRepository()
@@ -605,13 +793,14 @@ async def test_records_every_policy_and_governance_evaluation_outcome() -> None:
 def _context(
     *,
     authority: RiskAuthorityContract | None = None,
+    evidence: AutomatedDecisionEvidenceReference | None = None,
     timestamp: datetime | None = None,
 ) -> AutomatedDecisionAuditContext:
     return AutomatedDecisionAuditContext(
         subject=AutomatedDecisionSubject("recommendation", "rec-1"),
         authority=authority
         or classify_risk_authority(recommendation_explanation_authority_input()),
-        evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        evidence=evidence or AutomatedDecisionEvidenceReference("packet-1", 1),
         timestamp=timestamp,
     )
 
@@ -964,4 +1153,12 @@ def _reviewer() -> GovernanceReviewerIdentity:
         reviewer_id="reviewer-1",
         actor_type=GovernanceReviewerActorType.HUMAN_REVIEWER,
         display_name="Jane Reviewer",
+    )
+
+
+def _organization_reviewer() -> GovernanceReviewerIdentity:
+    return GovernanceReviewerIdentity(
+        reviewer_id="governance-board",
+        actor_type=GovernanceReviewerActorType.ORGANIZATION_REVIEWER,
+        display_name="Governance Board",
     )

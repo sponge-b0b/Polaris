@@ -8,6 +8,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -118,6 +119,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         registry: WorkflowOutputProjectionRegistry,
         eligibility_policy: WorkflowOutputProjectionEligibilityPolicy,
         observability_manager: ObservabilityManager,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> WorkflowOutputProjectionService:
         return WorkflowOutputProjectionService(
             completed_run_archive=completed_run_archive,
@@ -125,6 +127,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
             registry=registry,
             eligibility_policy=eligibility_policy,
             observability_manager=observability_manager,
+            governed_output_release_service=automated_decision_audit_service,
         )
 
     @provide

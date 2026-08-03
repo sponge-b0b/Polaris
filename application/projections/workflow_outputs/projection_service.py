@@ -6,8 +6,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from time import perf_counter
-from typing import cast
+from typing import Protocol, cast
 
+from application.governance import (
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
+)
 from application.observability.risk_authority import risk_authority_attributes
 from application.projections.workflow_output_fingerprints import (
     calculate_workflow_output_source_fingerprint,
@@ -41,6 +46,10 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunBundle,
     CompletedRunRecord,
 )
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+)
 from core.storage.persistence.projections import (
     WorkflowOutputProjectionJobRecord,
     WorkflowOutputProjectionJobRepository,
@@ -54,6 +63,29 @@ logger = logging.getLogger(__name__)
 
 _UNRESOLVED_PROJECTOR_NAME = "unresolved"
 _UNSUPPORTED_OUTPUT_CONTRACT = "unsupported"
+_GOVERNED_RELEASE_SKIP_REASON = "governance_review_required"
+_REVIEW_SUBJECT_TYPE_METADATA_KEY = "governance_review_subject_type"
+_REVIEW_SUBJECT_ID_METADATA_KEY = "governance_review_subject_id"
+_REVIEW_EVIDENCE_PACKET_ID_METADATA_KEY = "governance_review_evidence_packet_id"
+_REVIEW_EVIDENCE_PACKET_VERSION_METADATA_KEY = (
+    "governance_review_evidence_packet_version"
+)
+_REVIEW_SCOPE_METADATA_KEY = "governance_review_scope"
+_REVIEW_REQUESTED_ACTION_METADATA_KEY = "governance_review_requested_action"
+_REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY = (
+    "governance_residual_risk_acceptance_required"
+)
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Approval-state service used before capital-relevant output release."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Return whether this scoped output may be promoted or published."""
+        ...
 
 
 class CompletedRunProjectionNotFoundError(LookupError):
@@ -71,6 +103,7 @@ class WorkflowOutputProjectionService:
         registry: WorkflowOutputProjectionRegistry,
         eligibility_policy: WorkflowOutputProjectionEligibilityPolicy | None = None,
         observability_manager: ObservabilityManager | None = None,
+        governed_output_release_service: GovernedOutputReleaseService | None = None,
     ) -> None:
         self._completed_run_archive = completed_run_archive
         self._projection_job_repository = projection_job_repository
@@ -79,6 +112,7 @@ class WorkflowOutputProjectionService:
             eligibility_policy or WorkflowOutputProjectionEligibilityPolicy()
         )
         self._observability_manager = observability_manager
+        self._governed_output_release_service = governed_output_release_service
         self._telemetry = WorkflowOutputProjectionTelemetry(observability_manager)
 
     async def project_completed_run(
@@ -242,6 +276,27 @@ class WorkflowOutputProjectionService:
             )
             return outcome
 
+        release_outcome = await self._governed_release_skip_outcome(
+            decision=decision,
+            registration=registration,
+            node_output=node_output,
+            source_fingerprint=source_fingerprint,
+        )
+        if release_outcome is not None:
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=release_outcome,
+                skip_reason=_GOVERNED_RELEASE_SKIP_REASON,
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=registration.projector_name,
+                ),
+                authority_contract=decision.authority_contract,
+            )
+            return release_outcome
+
         job = await self._projection_job_repository.create_job(
             _new_projection_job_record(
                 run=run,
@@ -396,6 +451,72 @@ class WorkflowOutputProjectionService:
         )
         return persisted_outcome
 
+    async def _governed_release_skip_outcome(
+        self,
+        *,
+        decision: WorkflowOutputProjectionEligibilityDecision,
+        registration: WorkflowOutputProjectorRegistration,
+        node_output: CompletedNodeOutputRecord,
+        source_fingerprint: str,
+    ) -> WorkflowOutputProjectionOutcome | None:
+        service = self._governed_output_release_service
+        authority = decision.authority_contract
+        if service is None or authority is None:
+            return None
+        if not requires_governed_output_release_review(authority):
+            return None
+
+        boundary_name = f"workflow_output_projection.{registration.projector_name}"
+        release_request = _governed_output_release_request_from_metadata(
+            authority=authority,
+            node_output=node_output,
+            boundary_name=boundary_name,
+        )
+        if isinstance(release_request, str):
+            logger.warning(
+                "workflow_output_projection.governance_review_blocked",
+                extra={
+                    "node_name": node_output.node_name,
+                    "projector_name": registration.projector_name,
+                    "output_contract": registration.output_contract,
+                    "reason": release_request,
+                },
+            )
+            return _governed_release_blocked_outcome(
+                registration=registration,
+                node_output=node_output,
+                source_fingerprint=source_fingerprint,
+                message=release_request,
+            )
+
+        release_decision = await service.evaluate_governed_output_release(
+            release_request,
+        )
+        if release_decision.allowed:
+            return None
+
+        logger.warning(
+            "workflow_output_projection.governance_review_blocked",
+            extra={
+                "node_name": node_output.node_name,
+                "projector_name": registration.projector_name,
+                "output_contract": registration.output_contract,
+                "review_task_id": release_decision.review_task_id,
+                "approval_state": (
+                    release_decision.approval_state.value
+                    if release_decision.approval_state is not None
+                    else None
+                ),
+                "reason": release_decision.reason,
+            },
+        )
+        return _governed_release_blocked_outcome(
+            registration=registration,
+            node_output=node_output,
+            source_fingerprint=source_fingerprint,
+            message=release_decision.reason,
+        )
+
     async def _persist_projector_outcome(
         self,
         *,
@@ -499,6 +620,103 @@ def _quality_status_from_metadata(
                 extra={"quality_status": raw_value},
             )
     return WorkflowOutputQualityStatus.NORMAL
+
+
+def _governed_output_release_request_from_metadata(
+    *,
+    authority: RiskAuthorityContract,
+    node_output: CompletedNodeOutputRecord,
+    boundary_name: str,
+) -> GovernedOutputReleaseRequest | str:
+    evidence_packet_id = _metadata_text(
+        node_output.metadata,
+        _REVIEW_EVIDENCE_PACKET_ID_METADATA_KEY,
+    )
+    evidence_packet_version = _metadata_int(
+        node_output.metadata,
+        _REVIEW_EVIDENCE_PACKET_VERSION_METADATA_KEY,
+    )
+    if evidence_packet_id is None or evidence_packet_version is None:
+        return (
+            f"{boundary_name} is blocked: governed workflow output release "
+            "requires governance review evidence metadata."
+        )
+
+    subject_type = (
+        _metadata_text(
+            node_output.metadata,
+            _REVIEW_SUBJECT_TYPE_METADATA_KEY,
+        )
+        or node_output.output_contract
+        or node_output.node_name
+    )
+    subject_id = (
+        _metadata_text(
+            node_output.metadata,
+            _REVIEW_SUBJECT_ID_METADATA_KEY,
+        )
+        or node_output.node_output_id
+    )
+    review_scope = (
+        _metadata_text(
+            node_output.metadata,
+            _REVIEW_SCOPE_METADATA_KEY,
+        )
+        or subject_type
+    )
+    requested_action = (
+        _metadata_text(
+            node_output.metadata,
+            _REVIEW_REQUESTED_ACTION_METADATA_KEY,
+        )
+        or "durable_promotion"
+    )
+
+    return GovernedOutputReleaseRequest(
+        authority=authority,
+        subject=AutomatedDecisionSubject(subject_type, subject_id),
+        evidence=AutomatedDecisionEvidenceReference(
+            packet_id=evidence_packet_id,
+            packet_version=evidence_packet_version,
+        ),
+        review_scope=review_scope,
+        requested_action=requested_action,
+        boundary_name=boundary_name,
+        residual_risk_acceptance_required=_metadata_bool(
+            node_output.metadata,
+            _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY,
+        ),
+    )
+
+
+def _metadata_text(metadata: Mapping[str, object], key: str) -> str | None:
+    value = metadata.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _metadata_int(metadata: Mapping[str, object], key: str) -> int | None:
+    value = metadata.get(key)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _metadata_bool(metadata: Mapping[str, object], key: str) -> bool:
+    value = metadata.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y"}
+    return False
 
 
 def _new_projection_job_record(
@@ -616,6 +834,25 @@ def _dry_run_outcome(
         message=(
             "Projection dry run skipped durable job creation and projector execution."
         ),
+        completed_at=datetime.now(UTC),
+    )
+
+
+def _governed_release_blocked_outcome(
+    *,
+    registration: WorkflowOutputProjectorRegistration,
+    node_output: CompletedNodeOutputRecord,
+    source_fingerprint: str,
+    message: str,
+) -> WorkflowOutputProjectionOutcome:
+    return WorkflowOutputProjectionOutcome(
+        status=WorkflowOutputProjectionStatus.SKIPPED,
+        projector_name=registration.projector_name,
+        node_name=node_output.node_name,
+        output_contract=registration.output_contract,
+        output_schema_version=registration.output_schema_version,
+        source_fingerprint=source_fingerprint,
+        message=message,
         completed_at=datetime.now(UTC),
     )
 

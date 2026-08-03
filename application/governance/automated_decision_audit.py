@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -78,6 +79,30 @@ class GovernanceReviewApprovalState(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class GovernedOutputReleaseRequest:
+    """Review-state lookup for one capital-relevant publication or promotion."""
+
+    authority: RiskAuthorityContract
+    subject: AutomatedDecisionSubject
+    evidence: AutomatedDecisionEvidenceReference
+    review_scope: str
+    requested_action: str
+    boundary_name: str
+    residual_risk_acceptance_required: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedOutputReleaseDecision:
+    """Decision for whether a governed output may leave its pending state."""
+
+    allowed: bool
+    reason: str
+    approval_state: GovernanceReviewApprovalState | None = None
+    review_task_id: str | None = None
+    residual_risk_acceptance_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class GovernanceResidualRiskAcceptanceRequest:
     """Explicit reviewer acceptance of residual risk for one reviewed version."""
 
@@ -117,6 +142,12 @@ class GovernanceReviewResolution:
     @property
     def review_approved(self) -> bool:
         return self.approval_state is GovernanceReviewApprovalState.REVIEW_APPROVED
+
+
+_RELEASE_REVIEW_TIERS = frozenset((RiskTier.ENHANCED, RiskTier.VIGILANT))
+_RELEASE_APPROVED_TASK_STATUSES = frozenset(
+    (GovernanceReviewTaskStatus.APPROVED, GovernanceReviewTaskStatus.OVERRIDDEN)
+)
 
 
 class AutomatedDecisionAuditService:
@@ -270,6 +301,102 @@ class AutomatedDecisionAuditService:
             residual_risk_acceptance=acceptance,
         )
 
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Gate capital-relevant publication and durable promotion by review state."""
+        if not requires_governed_output_release_review(request.authority):
+            return GovernedOutputReleaseDecision(
+                allowed=True,
+                reason="authority tier does not require governed release review",
+            )
+
+        tasks = await self._repository.list_governance_review_tasks(
+            subject_type=request.subject.subject_type,
+            subject_id=request.subject.subject_id,
+            risk_tier=request.authority.risk_tier.value,
+            evidence_packet_id=request.evidence.packet_id,
+        )
+        task = _latest_matching_release_task(tasks, request=request)
+        if task is None:
+            return GovernedOutputReleaseDecision(
+                allowed=False,
+                approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+                reason=(
+                    f"{request.boundary_name} is blocked: no authoritative "
+                    "governance review task approved this subject, scope, "
+                    "requested action, sink, and evidence version."
+                ),
+            )
+
+        approval_state = _approval_state_for_task_status(task.status)
+        if task.status not in _RELEASE_APPROVED_TASK_STATUSES:
+            return GovernedOutputReleaseDecision(
+                allowed=False,
+                approval_state=approval_state,
+                review_task_id=task.review_task_id,
+                reason=(
+                    f"{request.boundary_name} is blocked by governance review "
+                    f"state {approval_state.value}."
+                ),
+            )
+
+        if request.residual_risk_acceptance_required:
+            acceptance = await self._matching_residual_risk_acceptance(
+                task=task,
+                request=request,
+            )
+            if acceptance is None:
+                return GovernedOutputReleaseDecision(
+                    allowed=False,
+                    approval_state=(
+                        GovernanceReviewApprovalState.RESIDUAL_RISK_ACCEPTANCE_REQUIRED
+                    ),
+                    review_task_id=task.review_task_id,
+                    reason=(
+                        f"{request.boundary_name} is blocked: vigilant review "
+                        "requires scoped residual-risk acceptance for this "
+                        "evidence version."
+                    ),
+                )
+            return GovernedOutputReleaseDecision(
+                allowed=True,
+                approval_state=approval_state,
+                review_task_id=task.review_task_id,
+                residual_risk_acceptance_id=acceptance.acceptance_id,
+                reason="governance review and residual-risk acceptance permit release",
+            )
+
+        return GovernedOutputReleaseDecision(
+            allowed=True,
+            approval_state=approval_state,
+            review_task_id=task.review_task_id,
+            reason="governance review permits release",
+        )
+
+    async def _matching_residual_risk_acceptance(
+        self,
+        *,
+        task: GovernanceReviewTaskRecord,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernanceResidualRiskAcceptanceRecord | None:
+        acceptances = await self._repository.list_residual_risk_acceptances(
+            review_task_id=task.review_task_id,
+            subject_type=request.subject.subject_type,
+            subject_id=request.subject.subject_id,
+            evidence_packet_id=request.evidence.packet_id,
+        )
+        matching_acceptances = tuple(
+            acceptance
+            for acceptance in acceptances
+            if acceptance.evidence.packet_version == request.evidence.packet_version
+            and acceptance.review_scope == request.review_scope
+        )
+        if not matching_acceptances:
+            return None
+        return max(matching_acceptances, key=lambda acceptance: acceptance.accepted_at)
+
     async def approval_state_for_review_task(
         self,
         review_task_id: str,
@@ -297,6 +424,38 @@ class AutomatedDecisionAuditService:
         )
         if not status_result.success:
             raise ValueError("governance review task status could not be updated.")
+
+
+def requires_governed_output_release_review(
+    authority: RiskAuthorityContract,
+) -> bool:
+    return (
+        authority.capital_relevant
+        and authority.risk_tier in _RELEASE_REVIEW_TIERS
+        and (
+            authority.durable_authority
+            or authority.externally_visible
+            or authority.governance_impact
+        )
+    )
+
+
+def _latest_matching_release_task(
+    tasks: Sequence[GovernanceReviewTaskRecord],
+    *,
+    request: GovernedOutputReleaseRequest,
+) -> GovernanceReviewTaskRecord | None:
+    matching_tasks = tuple(
+        task
+        for task in tasks
+        if task.evidence.packet_version == request.evidence.packet_version
+        and task.review_scope == request.review_scope
+        and task.requested_action == request.requested_action
+        and task.intended_sink == request.authority.intended_sink.value
+    )
+    if not matching_tasks:
+        return None
+    return max(matching_tasks, key=lambda task: task.updated_at)
 
 
 def _requires_review_task(record: AutomatedGovernanceAuditRecord) -> bool:

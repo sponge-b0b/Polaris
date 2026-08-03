@@ -5,7 +5,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from application.decision_evidence.claim_binding import (
     ClaimEvidenceBindingError,
@@ -17,6 +17,12 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketReconstructionError,
 )
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
+)
 from application.reports.authority import (
     ensure_report_publication_authority,
     report_authority_metadata,
@@ -25,6 +31,7 @@ from application.reports.morning_report_models import (
     MorningReportDocument,
     ReportBullet,
     ReportMetric,
+    ReportPublicationReview,
     ReportSection,
     ReportTable,
 )
@@ -39,7 +46,7 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     new_report_id,
 )
-from domain.authority import RiskTier
+from domain.authority import RiskAuthorityContract, RiskTier
 from domain.decision_evidence import (
     DecisionEvidencePacketValidationError,
 )
@@ -52,6 +59,17 @@ logger = logging.getLogger(__name__)
 _HIGH_RISK_REPORT_CLAIM_PROVENANCE_TIERS = frozenset(
     (RiskTier.ENHANCED, RiskTier.VIGILANT),
 )
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Approval-state service used before report publication."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Return whether this scoped report may be published."""
+        ...
 
 
 @dataclass(
@@ -204,10 +222,12 @@ class MorningReportPersistenceService:
         *,
         mapper: MorningReportPersistenceMapper | None = None,
         claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
+        governed_output_release_service: GovernedOutputReleaseService | None = None,
     ) -> None:
         self._repository = repository
         self._mapper = mapper or MorningReportPersistenceMapper()
         self._claim_binding_service = claim_binding_service
+        self._governed_output_release_service = governed_output_release_service
 
     async def persist(
         self,
@@ -218,6 +238,24 @@ class MorningReportPersistenceService:
         runtime_id: str | None = None,
         artifact_references: Iterable[ReportArtifactReference] = (),
     ) -> ReportPersistenceResult:
+        release_decision = await self._evaluate_publication_release(document)
+        if release_decision is not None and not release_decision.allowed:
+            logger.warning(
+                "morning_report.persistence.governance_review_blocked",
+                extra={
+                    "execution_id": document.execution_id,
+                    "risk_tier": document.authority.risk_tier.value,
+                    "approval_state": (
+                        release_decision.approval_state.value
+                        if release_decision.approval_state is not None
+                        else None
+                    ),
+                    "review_task_id": release_decision.review_task_id,
+                    "reason": release_decision.reason,
+                },
+            )
+            return ReportPersistenceResult.failed(release_decision.reason)
+
         bundle = self._mapper.build_bundle(
             document,
             markdown_body=markdown_body,
@@ -255,6 +293,63 @@ class MorningReportPersistenceService:
             artifacts=bundle.artifacts,
             claim_evidence_links=claim_evidence_links,
         )
+
+    async def _evaluate_publication_release(
+        self,
+        document: MorningReportDocument,
+    ) -> GovernedOutputReleaseDecision | None:
+        service = self._governed_output_release_service
+        if service is None:
+            return None
+        if not requires_governed_output_release_review(document.authority):
+            return None
+
+        review = document.publication_review
+        if review is None:
+            return _missing_publication_review_decision(
+                document.authority,
+                boundary_name="morning_report.persistence",
+            )
+
+        return await service.evaluate_governed_output_release(
+            _report_publication_release_request(
+                document=document,
+                review=review,
+                boundary_name="morning_report.persistence",
+            )
+        )
+
+
+def _missing_publication_review_decision(
+    authority: RiskAuthorityContract,
+    *,
+    boundary_name: str,
+) -> GovernedOutputReleaseDecision:
+    return GovernedOutputReleaseDecision(
+        allowed=False,
+        approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+        reason=(
+            f"{boundary_name} is blocked: capital-relevant {authority.risk_tier.value} "
+            "report publication requires authoritative governance review metadata."
+        ),
+    )
+
+
+def _report_publication_release_request(
+    *,
+    document: MorningReportDocument,
+    review: ReportPublicationReview,
+    boundary_name: str,
+) -> GovernedOutputReleaseRequest:
+    return GovernedOutputReleaseRequest(
+        authority=document.authority,
+        subject=review.subject,
+        evidence=review.evidence,
+        review_scope=review.review_scope,
+        requested_action=review.requested_action,
+        boundary_name=boundary_name,
+        residual_risk_acceptance_required=(review.residual_risk_acceptance_required),
+    )
 
 
 async def _bind_report_claim_evidence(

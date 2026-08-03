@@ -7,6 +7,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
 from application.persistence.lineage import LineagePersistenceService
@@ -27,6 +28,7 @@ from core.storage.persistence.portfolio.portfolio_state_repository import (
 )
 from core.storage.persistence.repositories import (
     PostgresAgentSignalPersistenceRepository,
+    PostgresAutomatedDecisionAuditRepository,
     PostgresBacktestPersistenceRepository,
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
@@ -245,12 +247,28 @@ class ApplicationPersistenceDIProvider(Provider):
         return BacktestPersistenceService(repository)
 
     @provide
+    def provide_automated_decision_audit_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresAutomatedDecisionAuditRepository:
+        return PostgresAutomatedDecisionAuditRepository(session)
+
+    @provide
+    def provide_automated_decision_audit_service(
+        self,
+        repository: PostgresAutomatedDecisionAuditRepository,
+    ) -> AutomatedDecisionAuditService:
+        return AutomatedDecisionAuditService(repository)
+
+    @provide
     def provide_morning_report_persistence_service(
         self,
         repository: PostgresReportPersistenceRepository,
         claim_binding_service: DecisionEvidenceClaimBindingService,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> MorningReportPersistenceService:
         return MorningReportPersistenceService(
             repository,
             claim_binding_service=claim_binding_service,
+            governed_output_release_service=automated_decision_audit_service,
         )

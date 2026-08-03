@@ -12,6 +12,9 @@ from application.governance.automated_decision_audit import (
     GovernanceReviewApprovalState,
     GovernanceReviewResolution,
     GovernanceReviewResolutionRequest,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
 )
 
 __all__ = [
@@ -22,8 +25,11 @@ __all__ = [
     "AuthorityMetadataGovernanceRule",
     "AutomatedDecisionAuditContext",
     "AutomatedDecisionAuditService",
+    "GovernedOutputReleaseDecision",
+    "GovernedOutputReleaseRequest",
     "GovernanceResidualRiskAcceptanceRequest",
     "GovernanceReviewApprovalState",
     "GovernanceReviewResolution",
     "GovernanceReviewResolutionRequest",
+    "requires_governed_output_release_review",
 ]

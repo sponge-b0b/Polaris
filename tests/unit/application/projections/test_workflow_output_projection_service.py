@@ -7,6 +7,11 @@ from typing import cast
 
 import pytest
 
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
 from application.projections.workflow_outputs import (
     CompletedRunProjectionNotFoundError,
     WorkflowOutputProjectionOutcome,
@@ -26,6 +31,10 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunExecutionMode,
     CompletedRunRecord,
     JsonObject,
+)
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
 )
 from core.storage.persistence.lineage import PersistenceLineage
 from core.storage.persistence.projections import (
@@ -73,6 +82,19 @@ class StubProjector:
             source_fingerprint=request.source_fingerprint,
             records_written=self.records_written,
         )
+
+
+class FakeGovernedOutputReleaseService:
+    def __init__(self, decision: GovernedOutputReleaseDecision) -> None:
+        self.decision = decision
+        self.requests: list[GovernedOutputReleaseRequest] = []
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        self.requests.append(request)
+        return self.decision
 
 
 class FakeCompletedRunArchive(CompletedRunArchive):
@@ -255,6 +277,171 @@ async def test_project_completed_run_creates_claims_invokes_projector_and_marks_
     assert len(repository.created) == 1
     assert len(repository.claimed) == 1
     assert repository.succeeded == [repository.created[0].projection_job_id]
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_blocks_governed_promotion() -> None:
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    gate = FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=False,
+            reason="pending review for packet-1",
+            approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+        )
+    )
+    service = _service(
+        projector=projector,
+        repository=repository,
+        governed_output_release_service=gate,
+        bundle=_bundle(
+            node_outputs=(_node(metadata=_metadata_with_governance_review()),),
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.skipped_jobs == 1
+    assert repository.created == []
+    assert projector.calls == 0
+    assert "pending review" in str(summary.outcomes[0].message)
+    assert gate.requests == [
+        GovernedOutputReleaseRequest(
+            authority=gate.requests[0].authority,
+            subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+            evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+            review_scope="recommendation",
+            requested_action="vigilant_authority_requires_approval",
+            boundary_name="workflow_output_projection.technical_projector",
+            residual_risk_acceptance_required=True,
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_promotes_after_governed_approval() -> None:
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    gate = FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=True,
+            reason="governance review permits release",
+            approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+            review_task_id="review-task-1",
+        )
+    )
+    service = _service(
+        projector=projector,
+        repository=repository,
+        governed_output_release_service=gate,
+        bundle=_bundle(
+            node_outputs=(_node(metadata=_metadata_with_governance_review()),),
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.success is True
+    assert summary.succeeded_jobs == 1
+    assert len(repository.created) == 1
+    assert projector.calls == 1
+    assert gate.requests[0].evidence == AutomatedDecisionEvidenceReference(
+        "packet-1",
+        1,
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_fails_closed_without_governance_metadata() -> None:
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    gate = FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=True,
+            reason="should not be called without scoped evidence metadata",
+        )
+    )
+    service = _service(
+        projector=projector,
+        repository=repository,
+        governed_output_release_service=gate,
+        bundle=_bundle(
+            node_outputs=(
+                _node(
+                    metadata={
+                        "risk_authority": _authority_metadata(capital_relevant=True)
+                    }
+                ),
+            ),
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.skipped_jobs == 1
+    assert repository.created == []
+    assert projector.calls == 0
+    assert gate.requests == []
+    assert "requires governance review evidence metadata" in str(
+        summary.outcomes[0].message
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_completed_run_dry_run_does_not_require_governed_release() -> (
+    None
+):
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    gate = FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=False,
+            reason="should not be called for dry-run projection",
+        )
+    )
+    service = _service(
+        projector=projector,
+        repository=repository,
+        governed_output_release_service=gate,
+        bundle=_bundle(
+            node_outputs=(
+                _node(
+                    metadata={
+                        "risk_authority": _authority_metadata(capital_relevant=True)
+                    }
+                ),
+            ),
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+            dry_run=True,
+        )
+    )
+
+    assert summary.skipped_jobs == 1
+    assert summary.outcomes[0].status is WorkflowOutputProjectionStatus.SKIPPED
+    assert "dry run skipped durable job creation" in summary.outcomes[0].message
+    assert repository.created == []
+    assert gate.requests == []
 
 
 @pytest.mark.asyncio
@@ -709,12 +896,14 @@ def _service(
     repository: FakeProjectionJobRepository,
     bundle: CompletedRunBundle | None = None,
     observability_manager: ObservabilityManager | None = None,
+    governed_output_release_service: FakeGovernedOutputReleaseService | None = None,
 ) -> WorkflowOutputProjectionService:
     return WorkflowOutputProjectionService(
         completed_run_archive=FakeCompletedRunArchive(bundle or _bundle()),
         projection_job_repository=repository,
         registry=_registry(projector),
         observability_manager=observability_manager,
+        governed_output_release_service=governed_output_release_service,
     )
 
 
@@ -802,6 +991,19 @@ def _node(
     )
 
 
+def _metadata_with_governance_review() -> JsonObject:
+    return {
+        "risk_authority": _authority_metadata(capital_relevant=True),
+        "governance_review_subject_type": "recommendation",
+        "governance_review_subject_id": "rec-1",
+        "governance_review_evidence_packet_id": "packet-1",
+        "governance_review_evidence_packet_version": 1,
+        "governance_review_scope": "recommendation",
+        "governance_review_requested_action": ("vigilant_authority_requires_approval"),
+        "governance_residual_risk_acceptance_required": True,
+    }
+
+
 def _authority_metadata(
     *,
     content_type: AiOutputContentType = AiOutputContentType.DURABLE_RECORD,
@@ -812,6 +1014,7 @@ def _authority_metadata(
     ),
     intended_sink: IntendedSink = IntendedSink.DURABLE_DOMAIN_RECORD,
     durable_authority: bool = True,
+    capital_relevant: bool = False,
 ) -> JsonObject:
     return cast(
         JsonObject,
@@ -823,6 +1026,7 @@ def _authority_metadata(
                 source_of_truth=source_of_truth,
                 intended_sink=intended_sink,
                 durable_authority=durable_authority,
+                capital_relevant=capital_relevant,
             )
         ).to_metadata(),
     )

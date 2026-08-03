@@ -8,6 +8,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -146,6 +147,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         registry=registry,
         eligibility_policy=policy,
         observability_manager=observability,
+        automated_decision_audit_service=cast(AutomatedDecisionAuditService, object()),
     )
 
     assert isinstance(service, WorkflowOutputProjectionService)
@@ -165,3 +167,4 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
     assert registry.supported_schema_versions("polaris.trade.recommendation") == (1,)
     assert service._eligibility_policy is policy
     assert service._observability_manager is observability
+    assert service._governed_output_release_service is not None

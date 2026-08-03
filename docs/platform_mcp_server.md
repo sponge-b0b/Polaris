@@ -41,6 +41,14 @@ through a canonical Polaris service, implement that service capability first and
 then expose it through MCP. Do not implement the missing behavior inside the MCP
 server.
 
+Governance approval, contestability, residual-risk acceptance, and publication
+release semantics follow the same rule. MCP may transport those capabilities
+only after the canonical application/query service supports the exact behavior,
+and any MCP handler must delegate through a Dishka request scope. MCP must not
+create a local approval queue, review-state cache, residual-risk table,
+publication gate, RAG approval stack, direct repository writer, or separate audit
+store.
+
 ## Supported transports
 
 ### Trusted local stdio
@@ -358,6 +366,32 @@ attributes, and dependency error strings before crossing the transport boundary.
 The MCP telemetry layer records approved dimensions only and must not record raw
 queries, answers, node outputs, credentials, database URLs, exception messages,
 or tracebacks.
+
+## Governance and approval tools
+
+V1 is read-only and exposes no approval or review mutation tools. Future MCP
+review tools, if explicitly approved, must be thin transports over canonical
+application services:
+
+- list/query operations call the canonical governance review query methods and
+  return transport-shaped read models only;
+- approval, denial, contest, requested-changes, override, or residual-risk
+  acceptance submissions call `AutomatedDecisionAuditService` with an
+  attributable actor, reviewed evidence packet/version, scope, rationale, and
+  requested remediation or residual-risk scope when required;
+- publication or durable-promotion checks call the canonical governed-output
+  release service and must preserve blocked decisions for pending, denied,
+  contested, changes-requested, cancelled, stale, or residual-risk-unaccepted
+  review states;
+- MCP responses may report canonical approval state but must not infer approval
+  from model text, report metadata, telemetry, RAG citations, or MCP-local state;
+- MCP must not write PostgreSQL directly, own SQLAlchemy sessions for approval
+  mutation, store review decisions in files or vector/graph projections, or
+  implement interface-local retry/resume/clear semantics for governance work.
+
+If an MCP capability needs behavior that is absent from the canonical service,
+add that behavior to the application service first, cover it with targeted tests,
+and then expose only the transport wrapper.
 
 ## Deferred and prohibited V1 tools
 

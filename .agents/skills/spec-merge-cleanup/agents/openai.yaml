@@ -1,0 +1,5 @@
+interface:
+  display_name: "Spec Merge & Cleanup"
+  short_description: "Merge a spec branch into main and clean up associated issues"
+policy:
+  allow_implicit_invocation: false

@@ -19,6 +19,7 @@ Enforce consistent formatting, catch hidden type exceptions, and maintain test c
 - **Scope Extraction Invariant:** Before running any verification checks, you must explicitly isolate the modified file paths using local version control records or active workspace diffs.
 - **Safety Invariant:** If targeted verification checks produce errors that cannot be solved automatically, do not attempt to guess manual overrides; log the file paths and error details clearly for the developer or next workflow block and report when completed.
 - **Authorization Invariant:** Approved shell command prefixes are execution permissions only. They are never authorization to broaden verification scope. A persisted approval rule, allowlisted command prefix, or sandbox permission does not count as task-specific authorization for broad verification.
+- **Command Guard Invariant:** When the Polaris command guard is installed, do not bypass it by invoking real executable backups, absolute virtualenv tool paths, or alternate Python module entrypoints to run broad verification. A guard refusal is a hard stop unless the owner explicitly authorizes the exact broad command for the current task.
 
 ## Verification Scope Authorization
 

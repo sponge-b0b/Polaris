@@ -85,6 +85,7 @@ Default ticket verification must be targeted.
 * Run only targeted checks unless the user explicitly authorizes broad verification for the current task.
 * Do not escalate from targeted tests to full-suite tests, whole-repo type checks, whole-repo lint checks, full coverage runs, or service-dependent integration suites without explicit user authorization, even if those commands are already approved by the shell permission system.
 * Approved shell command prefixes are execution permissions only. They are not task-specific authorization to broaden scope.
+* If the Polaris command guard blocks a broad verification command, treat that refusal as final for the ticket unless the owner explicitly authorizes the exact proposed broad command in the current task. Do not bypass the guard through real executable backups, absolute virtualenv paths, or alternate Python module entrypoints.
 * If broader verification seems useful after targeted verification, stop and ask:
 
   `I have completed targeted verification. Do you want me to run broader verification? Proposed command: ...`

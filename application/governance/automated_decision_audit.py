@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from core.runtime.governance import GovernanceEvaluationResult, GovernanceResult
@@ -14,7 +14,10 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
     authority_metadata_from_contract,
+    governance_review_task_id,
     new_automated_governance_audit_record_id,
     new_automated_policy_audit_record_id,
 )
@@ -139,4 +142,70 @@ class AutomatedDecisionAuditService:
                 "blocking": result.blocking,
             },
         )
-        return await self._repository.persist_governance_audit_record(record)
+        audit_result = await self._repository.persist_governance_audit_record(record)
+        if not audit_result.success or not _requires_review_task(record):
+            return audit_result
+
+        task = _review_task_from_record(record)
+        review_result = await self._repository.persist_governance_review_task(task)
+        if not review_result.success:
+            return AutomatedDecisionAuditPersistenceResult(
+                success=False,
+                audit_record_id=audit_result.audit_record_id,
+                errors=review_result.errors,
+            )
+        return replace(audit_result, review_task_id=task.review_task_id)
+
+
+def _requires_review_task(record: AutomatedGovernanceAuditRecord) -> bool:
+    return (
+        record.outcome is AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL
+        and record.evidence is not None
+    )
+
+
+def _review_task_from_record(
+    record: AutomatedGovernanceAuditRecord,
+) -> GovernanceReviewTaskRecord:
+    if record.evidence is None:
+        raise ValueError("governance review tasks require decision evidence.")
+    review_scope = _review_scope(record)
+    requested_action = record.reason or record.rule_name
+    intended_sink = _intended_sink(record)
+    return GovernanceReviewTaskRecord(
+        review_task_id=governance_review_task_id(
+            subject=record.subject,
+            evidence=record.evidence,
+            review_scope=review_scope,
+            requested_action=requested_action,
+        ),
+        automated_governance_audit_record_id=record.audit_record_id,
+        subject=record.subject,
+        risk_tier=record.risk_tier,
+        authority_metadata=record.authority_metadata,
+        review_scope=review_scope,
+        intended_sink=intended_sink,
+        requested_action=requested_action,
+        status=GovernanceReviewTaskStatus.PENDING,
+        evidence=record.evidence,
+        evidence_references={
+            "automated_governance_audit_record_id": record.audit_record_id,
+            "evidence_packet": record.evidence.as_dict(),
+        },
+        created_at=record.timestamp,
+        updated_at=record.timestamp,
+    )
+
+
+def _review_scope(record: AutomatedGovernanceAuditRecord) -> str:
+    candidate = record.metadata.get("authority_subject_family")
+    if isinstance(candidate, str) and candidate.strip():
+        return candidate
+    return record.subject_type
+
+
+def _intended_sink(record: AutomatedGovernanceAuditRecord) -> str:
+    candidate = record.authority_metadata.get("intended_sink")
+    if isinstance(candidate, str) and candidate.strip():
+        return candidate
+    return record.subject_type

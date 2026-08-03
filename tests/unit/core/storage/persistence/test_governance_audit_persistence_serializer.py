@@ -7,6 +7,7 @@ import pytest
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
@@ -15,6 +16,8 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
 )
 from core.storage.persistence.serializers import (
     AutomatedDecisionAuditPersistenceSerializer,
@@ -59,6 +62,25 @@ def test_governance_audit_serializer_persists_all_governance_outcomes(
 
     assert round_tripped == record
     assert round_tripped.outcome is outcome
+
+
+def test_governance_review_task_serializer_round_trips_work_queue_record() -> None:
+    task = _review_task_record()
+    model = GovernanceReviewTaskModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_task_values(task)
+    )
+
+    round_tripped = AutomatedDecisionAuditPersistenceSerializer.review_task_from_model(
+        model,
+    )
+
+    assert round_tripped == task
+    assert round_tripped.status is GovernanceReviewTaskStatus.PENDING
+    assert round_tripped.evidence_packet_id == "packet-1"
+    assert round_tripped.evidence_references["evidence_packet"] == {
+        "packet_id": "packet-1",
+        "packet_version": 1,
+    }
 
 
 def test_model_authority_claims_cannot_be_authoritative_audit_metadata() -> None:
@@ -132,4 +154,25 @@ def _governance_record(
         message="governance message",
         metadata={"rule_version": "2026-08-02"},
         timestamp=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+    )
+
+
+def _review_task_record() -> GovernanceReviewTaskRecord:
+    return GovernanceReviewTaskRecord(
+        review_task_id="governance-review-task-1",
+        automated_governance_audit_record_id="governance-audit-require_approval",
+        subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+        risk_tier=RiskTier.VIGILANT,
+        authority_metadata=authority_metadata_for_tier(RiskTier.VIGILANT),
+        review_scope="recommendation",
+        intended_sink="recommendation",
+        requested_action="vigilant_authority_requires_approval",
+        status=GovernanceReviewTaskStatus.PENDING,
+        evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        evidence_references={
+            "automated_governance_audit_record_id": "governance-audit-require_approval",
+            "evidence_packet": {"packet_id": "packet-1", "packet_version": 1},
+        },
+        created_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
     )

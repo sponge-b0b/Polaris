@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from hashlib import sha256
 from uuid import uuid4
 
 from domain.authority import RiskAuthorityContract, RiskTier
@@ -29,6 +30,17 @@ class AutomatedGovernanceAuditOutcome(StrEnum):
     DENY = "deny"
     REQUIRE_APPROVAL = "require_approval"
     SKIP = "skip"
+
+
+class GovernanceReviewTaskStatus(StrEnum):
+    """Durable states for human governance review work items."""
+
+    PENDING = "pending"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    DENIED = "denied"
+    CHANGES_REQUESTED = "changes_requested"
+    CANCELLED = "cancelled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +231,117 @@ class AutomatedGovernanceAuditRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class GovernanceReviewTaskRecord:
+    """Durable human review work item for governance approval requirements."""
+
+    review_task_id: str
+    automated_governance_audit_record_id: str
+    subject: AutomatedDecisionSubject
+    risk_tier: RiskTier
+    authority_metadata: JsonObject
+    review_scope: str
+    intended_sink: str
+    requested_action: str
+    status: GovernanceReviewTaskStatus
+    evidence: AutomatedDecisionEvidenceReference
+    evidence_references: JsonObject
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "review_task_id",
+            _clean_identifier(self.review_task_id, "review_task_id"),
+        )
+        object.__setattr__(
+            self,
+            "automated_governance_audit_record_id",
+            _clean_identifier(
+                self.automated_governance_audit_record_id,
+                "automated_governance_audit_record_id",
+            ),
+        )
+        object.__setattr__(self, "risk_tier", _coerce_risk_tier(self.risk_tier))
+        object.__setattr__(
+            self,
+            "authority_metadata",
+            _validate_authority_metadata(
+                self.authority_metadata,
+                risk_tier=self.risk_tier,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "review_scope",
+            _clean_identifier(self.review_scope, "review_scope"),
+        )
+        object.__setattr__(
+            self,
+            "intended_sink",
+            _clean_identifier(self.intended_sink, "intended_sink"),
+        )
+        object.__setattr__(
+            self,
+            "requested_action",
+            _clean_identifier(self.requested_action, "requested_action"),
+        )
+        object.__setattr__(
+            self,
+            "status",
+            _coerce_review_task_status(self.status),
+        )
+        object.__setattr__(
+            self,
+            "evidence_references",
+            _json_object(self.evidence_references),
+        )
+
+    @property
+    def subject_type(self) -> str:
+        return self.subject.subject_type
+
+    @property
+    def subject_id(self) -> str:
+        return self.subject.subject_id
+
+    @property
+    def evidence_packet_id(self) -> str:
+        return self.evidence.packet_id
+
+    @property
+    def evidence_packet_version(self) -> int:
+        return self.evidence.packet_version
+
+    @property
+    def status_value(self) -> str:
+        return self.status.value
+
+
+def governance_review_task_id(
+    *,
+    subject: AutomatedDecisionSubject,
+    evidence: AutomatedDecisionEvidenceReference,
+    review_scope: str,
+    requested_action: str,
+) -> str:
+    """Build a stable idempotency key for one scoped evidence review."""
+
+    fingerprint = "|".join(
+        (
+            subject.subject_type,
+            subject.subject_id,
+            evidence.packet_id,
+            str(evidence.packet_version),
+            _clean_identifier(review_scope, "review_scope"),
+            _clean_identifier(requested_action, "requested_action"),
+        )
+    )
+    digest = sha256(fingerprint.encode("utf-8")).hexdigest()[:32]
+    return f"governance_review_task:{digest}"
+
+
+@dataclass(frozen=True, slots=True)
 class AutomatedDecisionAuditPersistenceResult:
     """Result of writing an automated decision audit record."""
 
@@ -226,6 +349,7 @@ class AutomatedDecisionAuditPersistenceResult:
     audit_record_id: str | None = None
     records_persisted: int = 0
     errors: tuple[str, ...] = ()
+    review_task_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.records_persisted < 0:
@@ -241,11 +365,13 @@ class AutomatedDecisionAuditPersistenceResult:
         audit_record_id: str,
         *,
         records_persisted: int = 1,
+        review_task_id: str | None = None,
     ) -> AutomatedDecisionAuditPersistenceResult:
         return cls(
             success=True,
             audit_record_id=_clean_identifier(audit_record_id, "audit_record_id"),
             records_persisted=records_persisted,
+            review_task_id=_clean_optional_text(review_task_id, "review_task_id"),
         )
 
     @classmethod
@@ -292,6 +418,14 @@ def _coerce_governance_outcome(value: object) -> AutomatedGovernanceAuditOutcome
     raise ValueError(
         "governance outcome must be an automated governance audit outcome."
     )
+
+
+def _coerce_review_task_status(value: object) -> GovernanceReviewTaskStatus:
+    if isinstance(value, GovernanceReviewTaskStatus):
+        return value
+    if isinstance(value, str):
+        return GovernanceReviewTaskStatus(value.strip().lower())
+    raise ValueError("review task status must be a governance review task status.")
 
 
 def _coerce_risk_tier(value: object) -> RiskTier:

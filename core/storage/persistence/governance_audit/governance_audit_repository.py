@@ -8,6 +8,7 @@ from core.storage.persistence.governance_audit.governance_audit_models import (
     AutomatedDecisionAuditPersistenceResult,
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
 )
 
 
@@ -28,6 +29,16 @@ class AutomatedDecisionAuditRepository(Protocol):
         self,
         audit_record_id: str,
     ) -> AutomatedPolicyAuditRecord | None: ...
+
+    async def persist_governance_review_task(
+        self,
+        task: GovernanceReviewTaskRecord,
+    ) -> AutomatedDecisionAuditPersistenceResult: ...
+
+    async def get_governance_review_task(
+        self,
+        review_task_id: str,
+    ) -> GovernanceReviewTaskRecord | None: ...
 
     async def get_governance_audit_record(
         self,
@@ -59,3 +70,13 @@ class AutomatedDecisionAuditRepository(Protocol):
         start: datetime | None = None,
         end: datetime | None = None,
     ) -> Sequence[AutomatedGovernanceAuditRecord]: ...
+
+    async def list_governance_review_tasks(
+        self,
+        *,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        risk_tier: str | None = None,
+        status: str | None = None,
+        evidence_packet_id: str | None = None,
+    ) -> Sequence[GovernanceReviewTaskRecord]: ...

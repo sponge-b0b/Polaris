@@ -7,7 +7,10 @@ import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models.governance_audit import AutomatedGovernanceAuditRecordModel
+from core.database.models.governance_audit import (
+    AutomatedGovernanceAuditRecordModel,
+    GovernanceReviewTaskModel,
+)
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
     AutomatedDecisionSubject,
@@ -15,6 +18,8 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
 )
 from core.storage.persistence.repositories.postgres_governance_audit_repository import (
     PostgresAutomatedDecisionAuditRepository,
@@ -83,6 +88,59 @@ async def test_list_governance_audit_records_filters_queryable_states() -> None:
         "evidence_packet_id",
         "timestamp >=",
         "timestamp <=",
+        "ORDER BY",
+    ):
+        assert expected_fragment in compiled
+
+
+@pytest.mark.asyncio
+async def test_persist_review_task_uses_scoped_evidence_upsert() -> None:
+    session = FakeAsyncSession()
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+    task = _review_task_record()
+
+    result = await repository.persist_governance_review_task(task)
+
+    assert result.success is True
+    assert result.review_task_id == "governance-review-task-1"
+    assert session.committed is True
+    compiled = str(session.executed[0].compile(dialect=postgresql.dialect()))
+    assert "INSERT INTO governance_review_tasks" in compiled
+    assert "uq_governance_review_tasks_scoped_evidence_action" in compiled
+
+
+@pytest.mark.asyncio
+async def test_list_review_tasks_filters_pending_evidence_queue() -> None:
+    model = GovernanceReviewTaskModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_task_values(
+            _review_task_record(),
+        )
+    )
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    tasks = await repository.list_governance_review_tasks(
+        subject_type="recommendation",
+        subject_id="rec-1",
+        risk_tier="vigilant",
+        status="pending",
+        evidence_packet_id="packet-1",
+    )
+
+    assert tasks == (_review_task_record(),)
+    compiled = str(
+        session.executed[0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    for expected_fragment in (
+        "governance_review_tasks",
+        "subject_type",
+        "subject_id",
+        "risk_tier",
+        "status",
+        "evidence_packet_id",
         "ORDER BY",
     ):
         assert expected_fragment in compiled
@@ -162,4 +220,25 @@ def _governance_record(
         message="governance message",
         metadata={"rule_version": "2026-08-02"},
         timestamp=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+    )
+
+
+def _review_task_record() -> GovernanceReviewTaskRecord:
+    return GovernanceReviewTaskRecord(
+        review_task_id="governance-review-task-1",
+        automated_governance_audit_record_id="governance-audit-1",
+        subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+        risk_tier=RiskTier.VIGILANT,
+        authority_metadata=authority_metadata_for_tier(RiskTier.VIGILANT),
+        review_scope="recommendation",
+        intended_sink="recommendation",
+        requested_action="vigilant_authority_requires_approval",
+        status=GovernanceReviewTaskStatus.PENDING,
+        evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
+        evidence_references={
+            "automated_governance_audit_record_id": "governance-audit-1",
+            "evidence_packet": {"packet_id": "packet-1", "packet_version": 1},
+        },
+        created_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
     )

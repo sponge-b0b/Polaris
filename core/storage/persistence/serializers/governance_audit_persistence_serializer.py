@@ -5,6 +5,7 @@ from typing import Any, cast
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
@@ -13,6 +14,8 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
     JsonObject,
 )
 from domain.authority import RiskTier
@@ -55,6 +58,28 @@ class AutomatedDecisionAuditPersistenceSerializer:
             "message": record.message,
             "metadata_payload": dict(record.metadata),
             "timestamp": record.timestamp,
+        }
+
+    @staticmethod
+    def review_task_values(task: GovernanceReviewTaskRecord) -> dict[str, Any]:
+        return {
+            "review_task_id": task.review_task_id,
+            "automated_governance_audit_record_id": (
+                task.automated_governance_audit_record_id
+            ),
+            "subject_type": task.subject_type,
+            "subject_id": task.subject_id,
+            "risk_tier": task.risk_tier.value,
+            "authority_metadata": dict(task.authority_metadata),
+            "review_scope": task.review_scope,
+            "intended_sink": task.intended_sink,
+            "requested_action": task.requested_action,
+            "status": task.status.value,
+            "evidence_packet_id": task.evidence_packet_id,
+            "evidence_packet_version": task.evidence_packet_version,
+            "evidence_references": dict(task.evidence_references),
+            "created_at": task.created_at,
+            "updated_at": task.updated_at,
         }
 
     @staticmethod
@@ -103,6 +128,34 @@ class AutomatedDecisionAuditPersistenceSerializer:
             message=model.message,
             metadata=cast(JsonObject, model.metadata_payload),
             timestamp=model.timestamp,
+        )
+
+    @staticmethod
+    def review_task_from_model(
+        model: GovernanceReviewTaskModel,
+    ) -> GovernanceReviewTaskRecord:
+        return GovernanceReviewTaskRecord(
+            review_task_id=model.review_task_id,
+            automated_governance_audit_record_id=(
+                model.automated_governance_audit_record_id
+            ),
+            subject=AutomatedDecisionSubject(
+                subject_type=model.subject_type,
+                subject_id=model.subject_id,
+            ),
+            risk_tier=RiskTier(model.risk_tier),
+            authority_metadata=cast(JsonObject, model.authority_metadata),
+            review_scope=model.review_scope,
+            intended_sink=model.intended_sink,
+            requested_action=model.requested_action,
+            status=GovernanceReviewTaskStatus(model.status),
+            evidence=AutomatedDecisionEvidenceReference(
+                packet_id=model.evidence_packet_id,
+                packet_version=model.evidence_packet_version,
+            ),
+            evidence_references=cast(JsonObject, model.evidence_references),
+            created_at=model.created_at,
+            updated_at=model.updated_at,
         )
 
 

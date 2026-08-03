@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
     AutomatedPolicyAuditRecordModel,
+    GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
@@ -21,6 +22,8 @@ from core.storage.persistence.governance_audit import (
     AutomatedGovernanceAuditRecord,
     AutomatedPolicyAuditOutcome,
     AutomatedPolicyAuditRecord,
+    GovernanceReviewTaskRecord,
+    GovernanceReviewTaskStatus,
 )
 from core.storage.persistence.repositories import (
     PostgresAutomatedDecisionAuditRepository,
@@ -72,6 +75,15 @@ async def postgres_session_factory() -> AsyncIterator[async_sessionmaker[AsyncSe
                 checkfirst=True,
             )
         )
+        await connection.run_sync(
+            lambda sync_connection: cast(
+                Table,
+                GovernanceReviewTaskModel.__table__,
+            ).create(
+                sync_connection,
+                checkfirst=True,
+            )
+        )
 
     yield session_factory
 
@@ -96,9 +108,14 @@ async def test_postgres_governance_audit_records_survive_round_trip(
             governance_result = await repository.persist_governance_audit_record(
                 governance_record,
             )
+            review_task = _review_task_record(governance_record)
+            review_task_result = await repository.persist_governance_review_task(
+                review_task,
+            )
 
             assert policy_result.success is True
             assert governance_result.success is True
+            assert review_task_result.success is True
 
         async with postgres_session_factory() as session:
             repository = PostgresAutomatedDecisionAuditRepository(session)
@@ -113,10 +130,19 @@ async def test_postgres_governance_audit_records_survive_round_trip(
                 outcome="require_approval",
                 evidence_packet_id="ticket-129-packet",
             )
+            persisted_review_task = await repository.get_governance_review_task(
+                review_task.review_task_id,
+            )
+            queried_review_tasks = await repository.list_governance_review_tasks(
+                status="pending",
+                evidence_packet_id="ticket-129-packet",
+            )
 
         assert persisted_policy == policy_record
         assert persisted_governance == governance_record
         assert queried_governance == (governance_record,)
+        assert persisted_review_task == review_task
+        assert queried_review_tasks == (review_task,)
     finally:
         await _delete_test_records(postgres_session_factory)
 
@@ -125,6 +151,13 @@ async def _delete_test_records(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     async with session_factory() as session:
+        await session.execute(
+            delete(GovernanceReviewTaskModel).where(
+                GovernanceReviewTaskModel.review_task_id.like(
+                    "ticket-129-%",
+                )
+            )
+        )
         await session.execute(
             delete(AutomatedGovernanceAuditRecordModel).where(
                 AutomatedGovernanceAuditRecordModel.audit_record_id.like(
@@ -175,4 +208,27 @@ def _governance_record(
         message="governance message",
         metadata={"rule_version": "2026-08-02"},
         timestamp=datetime(2026, 8, 2, 12, 0, tzinfo=UTC),
+    )
+
+
+def _review_task_record(
+    governance_record: AutomatedGovernanceAuditRecord,
+) -> GovernanceReviewTaskRecord:
+    assert governance_record.evidence is not None
+    return GovernanceReviewTaskRecord(
+        review_task_id="ticket-129-governance-review-task",
+        automated_governance_audit_record_id=governance_record.audit_record_id,
+        subject=governance_record.subject,
+        risk_tier=governance_record.risk_tier,
+        authority_metadata=governance_record.authority_metadata,
+        review_scope="recommendation",
+        intended_sink="recommendation",
+        requested_action="governance_reason",
+        status=GovernanceReviewTaskStatus.PENDING,
+        evidence=governance_record.evidence,
+        evidence_references={
+            "automated_governance_audit_record_id": governance_record.audit_record_id,
+        },
+        created_at=governance_record.timestamp,
+        updated_at=governance_record.timestamp,
     )

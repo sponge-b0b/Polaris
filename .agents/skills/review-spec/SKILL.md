@@ -94,8 +94,8 @@ Look for the originating spec, in this order:
 
 ### 3. Identify the standards sources
 
-Anything in the repo that documents how code should be written, such as
-`CODING_STANDARDS.md` or `CONTRIBUTING.md`.
+Use the `/coding-standards` skill as the definitive source for the project's coding standards
+and anything in the repo that documents how code should be written, such as `CONTRIBUTING.md`.
 
 ### 4. Spawn both sub-agents in parallel
 

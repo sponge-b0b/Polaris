@@ -1,13 +1,13 @@
 ---
 name: review-spec-remediation
-description: Invoked only by `/review-spec` when a review returns one or more Blocking findings — not a standalone command. Synthesizes findings into a Root Blocker Ledger, creates or updates the tracking issue, and halts for the Human Handoff Intercept so `/to-tickets` can slice the blockers into tickets.
+description: Invoked only by `$review-spec` when a review returns one or more Blocking findings — not a standalone command. Synthesizes findings into a Root Blocker Ledger, creates or updates the tracking issue, and halts for the Human Handoff Intercept so `$to-tickets` can slice the blockers into tickets.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec Remediation
 
-This skill is invoked by `/review-spec` whenever its Aggregate step finds one or more Blocking findings. You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors — this skill's job is to turn Blocking findings into a tracked remediation loop, not to fix them. Once this skill halts for the Human Handoff Intercept (or, on a Recursive Pass, confirms no Blocking findings remain), return to `/review-spec`'s Exit Gate.
+This skill is invoked by `$review-spec` whenever its Aggregate step finds one or more Blocking findings. You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors — this skill's job is to turn Blocking findings into a tracked remediation loop, not to fix them. Once this skill halts for the Human Handoff Intercept (or, on a Recursive Pass, confirms no Blocking findings remain), return to `$review-spec`'s Exit Gate.
 
 ## Synthesizing Root Blockers
 
@@ -65,7 +65,7 @@ unless the production path named by the spec is proven by source and tests.
 - Link this new tracking issue back to the original project Specification issue
   using a **fixed, parseable format** — the first line of the body must be:
   `**Parent Spec:** #<spec_issue_number>`. This isn't just a human-readable
-  cross-reference: `/to-tickets` parses this exact line when it's later handed
+  cross-reference: `$to-tickets` parses this exact line when it's later handed
   this Spec Review issue during a remediation re-invocation, to resolve which
   spec's branch to reuse rather than accidentally branching a new one off
   `main`. Do not substitute a differently-worded reference, a GitHub "Tracked
@@ -79,12 +79,12 @@ unless the production path named by the spec is proven by source and tests.
 
 ## 2. The Human Handoff Intercept
 
-Because the `/to-tickets` skill is explicitly locked to
+Because the `$to-tickets` skill is explicitly locked to
 `allow_implicit_invocation: false`, you cannot execute the slicing step yourself.
 You MUST halt operations and present a clear **Human Action Block** instructing
 the user to run the tool manually.
 
-The handoff must say that `/to-tickets` should slice **Blocking findings only**
+The handoff must say that `$to-tickets` should slice **Blocking findings only**
 unless the user explicitly wants Advisory findings ticketed.
 
 - **Required Terminal Output Template:**
@@ -100,7 +100,7 @@ unless the user explicitly wants Advisory findings ticketed.
 
 ## 3. Handling Recursive Passes & Secondary Findings
 
-When the user re-runs this `/review-spec` skill after completing child
+When the user re-runs this `$review-spec` skill after completing child
 remediation tickets, perform a bounded re-review:
 
 - **DO NOT** create a brand-new parent issue.
@@ -124,7 +124,7 @@ remediation tickets, perform a bounded re-review:
   `## Re-review Findings [YYYY-MM-DD HH:MM]`. Read the current body and write
   back the original content plus the new section and any Root Blocker Ledger /
   acceptance-matrix updates — do not replace it with only the new section, or
-  the `**Parent Spec:** #<n>` line from Step 1 above is lost, and `/to-tickets`
+  the `**Parent Spec:** #<n>` line from Step 1 above is lost, and `$to-tickets`
   will no longer be able to resolve which branch to reuse on the next remediation
   pass.
 - Re-trigger the **Human Handoff Intercept** block only when Blocking findings

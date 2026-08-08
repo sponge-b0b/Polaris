@@ -17,7 +17,7 @@ when there are zero **Blocking** findings, even if Advisory notes remain.
 This is a **review-only** workflow, not a verification workflow. Do not run
 `pytest`, `ruff`, `mypy`, graph updates, duplication scans, or other static/test
 verification commands from this skill. If spec-wide verification is needed, stop
-and invoke `/verify-spec` as a separate workflow.
+and invoke `$verify-spec` as a separate workflow.
 
 The issue tracker should have been provided to you — run `/setup-matt-pocock-skills`
 if `docs/agents/issue-tracker.md` is missing.
@@ -56,7 +56,7 @@ Classification rules:
 
 The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden or provided by the user. Follow these steps to resolve and validate it:
 
-1. **Extract Baseline Metadata**: `/to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `/to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
+1. **Extract Baseline Metadata**: `$to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `$to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
    ```bash
    BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
      | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
@@ -94,7 +94,7 @@ Look for the originating spec, in this order:
 
 ### 3. Identify the standards sources
 
-Use the `/coding-standards` skill as the definitive source for the project's coding standards
+Use the `$coding-standards` skill as the definitive source for the project's coding standards
 and anything in the repo that documents how code should be written, such as `CONTRIBUTING.md`.
 
 ### 4. Spawn both sub-agents in parallel
@@ -154,7 +154,7 @@ run.
 - Inspect only the standards/spec text or diff/source evidence needed to validate
   a sub-agent's cited finding; do not search for additional findings yourself.
 - Do not run tests, static checks, format checks, graph updates, or duplication
-  scans while aggregating. Those belong to `/verify-spec` or `/verify-code`.
+  scans while aggregating. Those belong to `$verify-spec` or `$verify-code`.
 - Do not merge the Standards and Spec axes or pick one overall priority winner.
 
 Present the two reports under `## Standards` and `## Spec` headings. Within each

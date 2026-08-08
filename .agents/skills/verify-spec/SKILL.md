@@ -13,7 +13,7 @@ Verification of the diff between `HEAD` and a fixed point the user supplies:
 
 The fixed point is automatically stored in the parent specification issue on GitHub, unless explicitly overridden or provided by the user. Follow these steps to resolve and validate it:
 
-1. **Extract Baseline Metadata**: `/to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `/to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
+1. **Extract Baseline Metadata**: `$to-tickets` posts the baseline as a **comment** on the parent spec issue (it never edits the issue body — see the Spec Branch Rule in `$to-tickets`), so fetch comments specifically, not just the body, to find and parse the **Baseline Commit Hash**:
    ```bash
    BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
      | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
@@ -53,9 +53,9 @@ Look for the originating spec, in this order:
 Validate the completed specification branch as a unified system to catch cross-module regressions, integration failures, and type-drift resulting from the completed specification sprint, using explicitly authorized repository-wide static analysis and the project testing guide to target relevant integration test categories.
 
 ## Guardrail Constraints
-- **Authorization Invariant:** `/verify-spec` is a macro/spec-level verification workflow. Its explicit invocation by the user for the current task is the current-task authorization for the repository-wide static analysis commands named by this skill. This authorization does **not** extend to untargeted full-suite pytest, coverage, or service-backed integration runs. If this skill was not explicitly invoked, or if you are verifying an individual ticket or targeted code change, do **not** use this skill's broad static checks; defer to `/verify-code` and run changed-file/targeted verification only.
+- **Authorization Invariant:** `$verify-spec` is a macro/spec-level verification workflow. Its explicit invocation by the user for the current task is the current-task authorization for the repository-wide static analysis commands named by this skill. This authorization does **not** extend to untargeted full-suite pytest, coverage, or service-backed integration runs. If this skill was not explicitly invoked, or if you are verifying an individual ticket or targeted code change, do **not** use this skill's broad static checks; defer to `$verify-code` and run changed-file/targeted verification only.
 - **Command Guard Invariant:** Do not bypass the Polaris command guard with absolute paths, backup executable paths, copied binaries, subshell tricks, or renamed commands. For the guarded repository-wide `ruff` and `mypy` commands below, set `POLARIS_BROAD_VERIFY_AUTHORIZED` to a current-task label such as `verify-spec-<spec_issue_number>`. If the guard refuses a command, stop and resolve the authorization/scope issue instead of routing around it.
-- **Scope Expansion Invariant:** Once `/verify-spec` has been explicitly invoked, formatting, linting, and typing checks must not use partial paths or git status filters. Every static analysis step must evaluate the full repository state (`.`) using the authorized command form shown below.
+- **Scope Expansion Invariant:** Once `$verify-spec` has been explicitly invoked, formatting, linting, and typing checks must not use partial paths or git status filters. Every static analysis step must evaluate the full repository state (`.`) using the authorized command form shown below.
 - **Testing Blueprint Invariant:** You are strictly forbidden from guessing which integration tests to execute or blindly running the entire monolithic suite of thousands of tests. You must read and follow the category filters outlined in `docs/testing_guide.md` to isolate the correct test suites.
 
 ## Execution Rules & Constraints
@@ -141,10 +141,10 @@ Verifier is required to answer:
 When verifying a specification, you must ensure the new requirements do not introduce structural bloat or split-brain business logic into the codebase. 
 
 ### Core Constraint
-Before approving any specification that introduces a new module, helper function, utility layer, or service, you must explicitly run the `/duplication-checks` skill.
+Before approving any specification that introduces a new module, helper function, utility layer, or service, you must explicitly run the `$duplication-checks` skill.
 
 ### Verification Criteria
-1. **Trigger Scan:** Execute `/duplication-checks` using both `pylint` and `jscpd` over the targets outlined in the specification.
+1. **Trigger Scan:** Execute `$duplication-checks` using both `pylint` and `jscpd` over the targets outlined in the specification.
 2. **Review Findings:** Examine the duplicate code outputs or structural clone blocks flagged by the scanner.
 3. **Enforce Single Source of Truth:** 
    - **Fail Verification** if the specification proposes building a component that mirrors logic already present in the codebase.

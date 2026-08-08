@@ -37,7 +37,7 @@ Break the work into **tracer bullet** tickets.
 
 Give each ticket its **blocking edges** — the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
-**If the source issue is a `/review-spec` parent issue** (title prefixed `Spec Review: `), this is a remediation re-invocation, not a fresh breakdown — stop here and invoke `/to-remediation-tickets` before drafting anything. It defines the Root Blocker Ledger process and the strict delta analysis that replace ordinary vertical-slice drafting for this case. Once it hands you a ticket list, return here and continue at Step 4.
+**If the source issue is a `$review-spec` parent issue** (title prefixed `Spec Review: `), this is a remediation re-invocation, not a fresh breakdown — stop here and invoke `/to-remediation-tickets` before drafting anything. It defines the Root Blocker Ledger process and the strict delta analysis that replace ordinary vertical-slice drafting for this case. Once it hands you a ticket list, return here and continue at Step 4.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
 
@@ -121,13 +121,13 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 
 In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
 
-Work the frontier one ticket at a time with `/implement-ticket`, clearing context between tickets.
+Work the frontier one ticket at a time with `$implement-ticket`, clearing context between tickets.
 
 ## Spec Branch Rule
 
-Unless overridden by the user, you MUST create a dedicated branch for all development work tied to this spec, after breaking the provided parent specification issue down into sub-tickets and publishing them to the configured tracker. This keeps the spec's commits grouped under one clearly-named branch, ready for `/review-spec` to diff against and merge later.
+Unless overridden by the user, you MUST create a dedicated branch for all development work tied to this spec, after breaking the provided parent specification issue down into sub-tickets and publishing them to the configured tracker. This keeps the spec's commits grouped under one clearly-named branch, ready for `$review-spec` to diff against and merge later.
 
-**This rule targets one branch per spec, not one per invocation of `/to-tickets`.** `/to-tickets` can legitimately be invoked twice for the same spec: once on the original Spec issue for the initial breakdown, and again later on the **Spec Review** issue that `/review-spec`'s remediation loop hands off to via its Human Handoff Intercept (title prefixed `Spec Review: `). Both invocations must resolve to the *same* branch — remediation tickets get implemented against the same in-progress code, not a fresh branch off `main`. Step 0 below exists to make that resolution explicit rather than assuming the provided issue number is always the spec itself.
+**This rule targets one branch per spec, not one per invocation of `$to-tickets`.** `$to-tickets` can legitimately be invoked twice for the same spec: once on the original Spec issue for the initial breakdown, and again later on the **Spec Review** issue that `$review-spec`'s remediation loop hands off to via its Human Handoff Intercept (title prefixed `Spec Review: `). Both invocations must resolve to the *same* branch — remediation tickets get implemented against the same in-progress code, not a fresh branch off `main`. Step 0 below exists to make that resolution explicit rather than assuming the provided issue number is always the spec itself.
 
 0. **Resolve the Spec Issue Number**: Determine which issue number this branch should actually be named after:
    ```bash
@@ -152,7 +152,7 @@ Unless overridden by the user, you MUST create a dedicated branch for all develo
        ;;
    esac
    ```
-   This depends on `/review-spec` recording the link back to the original Spec issue as a `**Parent Spec:** #<n>` line in the Spec Review issue's body when it's created — confirm that convention is actually in place before relying on this.
+   This depends on `$review-spec` recording the link back to the original Spec issue as a `**Parent Spec:** #<n>` line in the Spec Review issue's body when it's created — confirm that convention is actually in place before relying on this.
 1. **Extract Spec ID**: `<spec_issue_number>` is now resolved by Step 0 above, whether directly or via the Spec Review lookup.
 2. **Name the Branch**: Construct the branch identity as `spec-<spec_issue_number>`.
 3. **Capture Baseline**: Record the current commit hash of `main` so the branch is pinned to a fixed starting point, independent of any commits landing on `main` afterward. On a remediation re-invocation this value goes unused once Step 4 finds the branch already exists — that's expected, not a bug:
@@ -179,4 +179,4 @@ Unless overridden by the user, you MUST create a dedicated branch for all develo
      gh issue comment <spec_issue_number> --body "$(printf '## Workspace Metadata\n**Baseline Commit Hash:** %s\n**Branch:** spec-%s\n' "$BASELINE_COMMIT" "<spec_issue_number>")"
    fi
    ```
-   `/review-spec`'s "Pin the fixed point" step reads this back to resolve the fixed point for its diff — when you patch that file next, double check it's actually reading issue *comments* (not just the body) to find this, since that's where this step posts it.
+   `$review-spec`'s "Pin the fixed point" step reads this back to resolve the fixed point for its diff — when you patch that file next, double check it's actually reading issue *comments* (not just the body) to find this, since that's where this step posts it.

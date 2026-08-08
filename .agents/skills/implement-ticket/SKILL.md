@@ -24,7 +24,7 @@ The ticket's `Ticket branch` value is authoritative for the branch on which this
 ### Branch guard
 
 * If **Ticket branch** contains a branch name, the currently checked-out Git branch MUST exactly match that value before any implementation work begins.
-* Do NOT automatically create, switch, rename, or otherwise repair the branch here. `/to-tickets` owns spec-branch creation and selection. A mismatch is a safety failure that must halt implementation.
+* Do NOT automatically create, switch, rename, or otherwise repair the branch here. `$to-tickets` owns spec-branch creation and selection. A mismatch is a safety failure that must halt implementation.
 * If **Ticket branch** is `None`, dedicated branch enforcement was explicitly disabled for this ticket. Skip the exact branch comparison.
 * If the **Ticket branch** field is missing, halt rather than guessing the intended branch. Do not fall back to deriving a branch from the ticket number, parent issue, current branch, or naming conventions.
 
@@ -50,15 +50,15 @@ This check MUST happen before editing, formatting, generating, deleting, or othe
 
 ### Entity wiki guard
 
-Before making any file edits in this step, invoke the `/wiki-sync`
+Before making any file edits in this step, invoke the `$wiki-sync`
 skill's audit (steps 1-4): map the change to its entity, load the
 target and any referenced entities, and check for invariant
 conflicts. This satisfies AGENTS.md's rule that source code
-modification is always preceded by a `/wiki-sync` audit — do not treat
+modification is always preceded by a `$wiki-sync` audit — do not treat
 this as optional because the ticket already describes the intended
 change; the audit still runs.
 
-* If `/wiki-sync`'s trivial-diff exemption applies (the ticket is
+* If `$wiki-sync`'s trivial-diff exemption applies (the ticket is
   formatting/comment-only, or a pure rename with no cited anchor
   path), the audit may be skipped per that exemption.
 * If the audit finds no conflict, or finds no entity coverage for
@@ -71,13 +71,13 @@ change; the audit still runs.
   conflict has been deliberately resolved — either the invariant is
   confirmed outdated, or the ticket's approach is adjusted.
 
-After implementation is complete, apply `/wiki-sync`'s step 6: update
+After implementation is complete, apply `$wiki-sync`'s step 6: update
 the relevant entity page if the change altered a structural boundary
 or invariant (not on every edit).
 
 If the ticket's changes include creating, editing, or reclassifying
 any non-ADR file under `docs/` — not just source code — also apply
-`/wiki-sync`'s "Docs-change trigger" after that change: an edit to an
+`$wiki-sync`'s "Docs-change trigger" after that change: an edit to an
 existing `doc_class: current` file triggers the staleness check; a
 newly created `doc_class: current` or `doc_class: proposed` file, or
 a document promoted to `doc_class: current`, triggers the
@@ -86,14 +86,14 @@ audit above — a ticket can trigger any combination of these depending
 on what it touches.
 
 If the ticket's changes include creating a new ADR, or changing an
-existing ADR's `status` field, also apply `/wiki-sync`'s "ADR-change
+existing ADR's `status` field, also apply `$wiki-sync`'s "ADR-change
 trigger" after that change — checking whether the new or changed
 decision belongs on an entity page as an invariant, a Planned entry,
 or a signal that an existing citation is now stale. This is
 independent of the docs-change trigger above, since ADR lifecycle
 (`status`) uses a different mechanism than `doc_class`.
 
-Within this workflow, do not let `/wiki-sync` perform its own separate
+Within this workflow, do not let `$wiki-sync` perform its own separate
 commit for any of these triggers — stage any resulting entity page
 diff and the corresponding `wiki/log.md` line, and let step 5 below
 include them in the single ticket commit. The "never write one
@@ -109,15 +109,15 @@ not by a standalone wiki commit.
   fixing sibling surfaces/reference kinds named by the root blocker is in scope;
   unrelated cleanup remains out of scope.
 * Respect the ticket's acceptance criteria and blocking assumptions.
-* Use the `/coding-standards` skill to guide implementation.
-* Use the `/tdd` skill where possible, at pre-agreed seams.
-* Use the `/format-code` skill during implementation where necessary.
+* Use the `$coding-standards` skill to guide implementation.
+* Use the `$tdd` skill where possible, at pre-agreed seams.
+* Use the `$format-code` skill during implementation where necessary.
 * Avoid unrelated cleanup or scope expansion unless it is necessary to complete the ticket correctly.
 
 ### Database change guard
 
 If the ticket changes any database-affecting surface, invoke the
-`/database-migrations` skill before treating implementation as complete.
+`$database-migrations` skill before treating implementation as complete.
 Database-affecting surfaces include:
 
 * SQLAlchemy model changes.
@@ -133,13 +133,13 @@ changes are otherwise small.
 
 A DB-affecting ticket is not complete if a required targeted PostgreSQL-backed
 test skipped only because `POLARIS_TEST_DATABASE_URL` or an equivalent local
-service setting was absent. Follow `/database-migrations` and `/verify-code` to
+service setting was absent. Follow `$database-migrations` and `$verify-code` to
 derive safe local env from repo-local configuration, start only the required
 authorized Docker service when needed, and rerun the exact targeted test.
 
 ## 3. Verify the implementation
 
-Once the implementation is complete, but before committing or closing the ticket, invoke the `/verify-code` skill to verify the implementation of the ticket.
+Once the implementation is complete, but before committing or closing the ticket, invoke the `$verify-code` skill to verify the implementation of the ticket.
 
 Default ticket verification must be targeted.
 
@@ -196,7 +196,7 @@ If **Ticket branch** is `None`, skip the exact branch comparison.
 
 After targeted verification succeeds and the branch invariant has been confirmed:
 
-1. Commit the completed ticket work to the current branch using the `/conventional-commits` skill. If the entity wiki guard staged an entity page update and `wiki/log.md` line, include them in this same commit — do not split them into a separate commit.
+1. Commit the completed ticket work to the current branch using the `$conventional-commits` skill. If the entity wiki guard staged an entity page update and `wiki/log.md` line, include them in this same commit — do not split them into a separate commit.
 2. Push the current branch to `origin` and establish its upstream if necessary:
 
 ```bash
@@ -231,7 +231,7 @@ Report:
   addressed, sibling surfaces/reference kinds audited, and any root acceptance
   cells still unproven or intentionally deferred.
 * The ticket branch used, or `None` if dedicated branch enforcement was disabled.
-* Entity wiki status: whether the pre-edit `/wiki-sync` audit found a
+* Entity wiki status: whether the pre-edit `$wiki-sync` audit found a
   conflict (and how it was resolved); whether any non-ADR `docs/`
   file was created, edited, or reclassified and, if so, which
   docs-change check applied (staleness, or invariant/Planned) and its
@@ -241,7 +241,7 @@ Report:
   whether the update was included in the ticket commit.
 * The commit created.
 * Whether the push succeeded.
-* For database-affecting tickets: the `/database-migrations` result, migration
+* For database-affecting tickets: the `$database-migrations` result, migration
   file strategy, active database apply/reset status, migration-contract tests,
   and DB-backed integration tests. State explicitly whether required DB checks
   passed, were owner-deferred, or remain unresolved. A skip caused only by

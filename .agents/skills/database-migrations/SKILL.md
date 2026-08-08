@@ -16,9 +16,9 @@ Manage, generate, and validate database schema migrations seamlessly while ensur
 Before writing or executing any database schema modification:
 1. Identify the authoritative SQLAlchemy models being altered.
 2. Confirm that changes are driven purely via `alembic` migration scripts.
-3. If `wiki/entities/` exists, invoke `/wiki-sync`'s pre-edit audit,
+3. If `wiki/entities/` exists, invoke `$wiki-sync`'s pre-edit audit,
    scoped to the SQLAlchemy models and tables being altered — do not
-   assume which entity this maps to; let `/wiki-sync` step 1 resolve
+   assume which entity this maps to; let `$wiki-sync` step 1 resolve
    it against `wiki/index.md`. This check is what enforces cross-store
    constraints — for example, whether a projection store may delete
    canonical source records — rather than restating them here as
@@ -165,12 +165,12 @@ Execute a full round-trip validation matrix for migration changes:
 
 If `wiki/entities/` exists and this migration altered a structural
 boundary or invariant — a new cross-store constraint, a changed
-contract, a boundary moving — apply `/wiki-sync` step 6 to update
-whichever entity page the Initial Pre-flight Check's `/wiki-sync`
+contract, a boundary moving — apply `$wiki-sync` step 6 to update
+whichever entity page the Initial Pre-flight Check's `$wiki-sync`
 audit (item 3) identified as covering the altered models or tables.
-If invoked from within `/implement-ticket`, stage this alongside that
+If invoked from within `$implement-ticket`, stage this alongside that
 skill's own entity wiki guard rather than committing separately, per
-`/wiki-sync`'s guidance for calling skills.
+`$wiki-sync`'s guidance for calling skills.
 
 ## Examples
 

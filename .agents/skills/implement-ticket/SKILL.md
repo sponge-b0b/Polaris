@@ -1,10 +1,9 @@
 ---
-
 name: implement-ticket
 description: "Implement work based on a single ticket."
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
-------------------------------
+---
 
 # Implement Ticket
 

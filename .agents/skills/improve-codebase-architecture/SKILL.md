@@ -1,10 +1,9 @@
 ---
-
 name: improve-codebase-architecture
 description: Surface architectural friction and propose module-deepening opportunities that improve locality, leverage, testability, and AI navigability.
 compatibility: product=codex product=claude-code system=git network=none
 disable-model-invocation: true
-------------------------------
+---
 
 # Improve Codebase Architecture
 

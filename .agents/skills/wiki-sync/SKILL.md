@@ -1,9 +1,8 @@
 ---
-
 name: wiki-sync
 description: Maintain the Living Entity Wiki around specific source-code, authoritative-document, ADR, and entity-topology changes. Audits architectural constraints before code changes, detects source conflicts, synchronizes derived entity knowledge, promotes realized accepted decisions, and keeps the active entity registry consistent.
 compatibility: product=codex product=claude-code system=git network=none
-------------------------------------------------------------------------
+---
 
 # Wiki Sync
 

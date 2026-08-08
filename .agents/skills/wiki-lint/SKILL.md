@@ -1,9 +1,8 @@
 ---
-
 name: wiki-lint
 description: Audit the Living Entity Wiki as a whole for structural integrity, citation validity, authoritative-source conflicts, derived-document drift, implementation contradictions, stale questions, and classification hygiene.
 compatibility: product=codex product=claude-code system=git network=none
-------------------------------------------------------------------------
+---
 
 # Wiki Lint
 

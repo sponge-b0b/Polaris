@@ -1,9 +1,8 @@
 ---
-
 name: database-migrations
 description: Manage, generate, apply, and validate PostgreSQL schema migrations using SQLAlchemy and Alembic, including the pre-1.0 branch-baseline policy and targeted database verification.
 compatibility: product=codex product=claude-code system=python system=git network=none
---------------------------------------------------------------------------------------
+---
 
 # Database Migrations
 

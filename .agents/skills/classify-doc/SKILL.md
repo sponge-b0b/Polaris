@@ -1,9 +1,8 @@
 ---
-
 name: classify-doc
 description: Classify, reclassify, relocate, or rename an existing non-ADR document under docs/, updating inbound references and Living Entity Wiki consequences when required.
 compatibility: product=codex product=claude-code system=git network=none
-------------------------------------------------------------------------
+---
 
 # Classify Doc
 

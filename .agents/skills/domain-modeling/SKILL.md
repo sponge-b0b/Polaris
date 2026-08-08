@@ -1,9 +1,8 @@
 ---
-
 name: domain-modeling
 description: Actively sharpen the project's domain model by resolving terminology, stress-testing concepts, reconciling domain language with implementation, and maintaining canonical vocabulary in CONTEXT.md.
 compatibility: product=codex product=claude-code network=none
--------------------------------------------------------------
+---
 
 # Domain Modeling
 

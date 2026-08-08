@@ -1,9 +1,8 @@
 ---
-
 name: to-doc
 description: Create new non-ADR documents under docs/ using the classification, naming, placement, and Living Entity Wiki rules defined by the repository schema.
 compatibility: product=codex product=claude-code network=none
--------------------------------------------------------------
+---
 
 # To Doc
 

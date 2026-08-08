@@ -1,9 +1,8 @@
 ---
-
 name: prototype
 description: Build throwaway code to answer one concrete design question, then preserve only the useful conclusion.
 compatibility: product=codex product=claude-code system=git network=none
-------------------------------------------------------------------------
+---
 
 # Prototype
 

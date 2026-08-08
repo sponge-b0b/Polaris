@@ -1,10 +1,9 @@
 ---
-
 name: wiki-synthesize
 description: Scan the full Living Entity Wiki for recurring patterns across Rejected Approaches and Open Questions that no single entity states alone. Produces higher-inference hypotheses for human review and never mutates authoritative or wiki state.
 compatibility: product=codex product=claude-code network=none
 disable-model-invocation: true
-------------------------------
+---
 
 # Wiki Synthesize
 

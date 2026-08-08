@@ -1,9 +1,8 @@
 ---
-
 name: to-adr-doc
 description: Create and manage Architectural Decision Records (ADRs) in docs/adr/. Owns ADR format, numbering, naming, lifecycle transitions, content mutability, supersession, and Living Entity Wiki synchronization triggers.
 compatibility: product=codex product=claude-code network=none
--------------------------------------------------------------
+---
 
 # To ADR Doc
 

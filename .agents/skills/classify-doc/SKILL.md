@@ -1,409 +1,200 @@
 ---
+
 name: classify-doc
-description: Classify, reclassify, relocate, and rename an existing non-ADR document under docs/. Determines the document's correct structural class and filename, updates inbound path references atomically, and invokes wiki-sync when the document's authority change affects derived Living Entity Wiki claims. Use for existing non-ADR documents only; for new documents, use to-doc.
+description: Classify, reclassify, relocate, or rename an existing non-ADR document under docs/, updating inbound references and Living Entity Wiki consequences when required.
 compatibility: product=codex product=claude-code system=git network=none
----
+------------------------------------------------------------------------
 
 # Classify Doc
 
-`$classify-doc` owns structural classification changes for **existing non-ADR documents** under `docs/`.
+`$classify-doc` owns the structural lifecycle of **existing non-ADR documents** under `docs/`.
 
-Use it when an existing document:
+Use it when a document:
 
-* was never classified;
-* sits loose in `docs/` or an unrecognized subdirectory;
-* belongs in a different recognized document class;
+* is unclassified or misplaced;
+* belongs in a different document class;
 * needs relocation because its purpose changed;
-* needs its entity or `platform-` prefix corrected; or
-* is surfaced by `$wiki-lint` as `[unclassified-doc]`.
+* needs its entity or `platform-` prefix corrected;
+* is surfaced by `$wiki-lint` as structurally misclassified.
 
-This includes both:
+For a new document, use `$to-doc`.
 
-```text
-unclassified → classified
-```
+For an ADR, use `$to-adr-doc`.
 
-and later transitions such as:
+## 1. Confirm Scope
 
-```text
-research → proposed
-proposed → current
-current → proposed
-current → reference
-```
+The file must already exist and must not be an ADR.
 
-For a newly created document, use `$to-doc`.
+If it is under `docs/adr/`, use `$to-adr-doc`.
 
-For ADRs under `docs/adr/`, use `$to-adr-doc`; ADR lifecycle is status-based and is not handled here.
+If new content is being created, use `$to-doc`.
 
----
+## 2. Respect External Scaffold Ownership
 
-# 1. Confirm Scope
+Check the External Scaffold Directories registry in `wiki/_schema.md`.
 
-This skill applies only to an **existing non-ADR document**.
+If another skill owns the path:
 
-If the file is under:
+* do not move or rename it;
+* do not apply normal project prefix rules;
+* follow the owning workflow.
 
-```text
-docs/adr/
-```
+If the registry appears wrong, surface that rather than altering the externally owned path.
 
-stop and use `$to-adr-doc`.
+## 3. Determine Current and Target Classification
 
-If the file does not yet exist and new content is being created, stop and use `$to-doc`.
+Derive the current class from the document's location.
 
----
+Apply the target-class rules in `wiki/_schema.md` to the document's **current content and purpose**, not merely its existing folder.
 
-# 2. Check External Scaffold Ownership
+Possible project-owned classes are:
 
-Before classifying or moving the file, check the External Scaffold Directories registry in `wiki/_schema.md`.
-
-If the file belongs to a registered external scaffold directory:
-
-* do not move it;
-* do not rename it;
-* do not apply this project's normal prefix rules;
-* treat it according to the registry's declared class.
-
-If the registry appears outdated or incorrect, surface that problem rather than modifying externally owned paths.
-
-An unfamiliar directory is not automatically externally owned.
-
----
-
-# 3. Determine the Current Classification
-
-Determine the document's current structural class from its location according to `wiki/_schema.md`.
-
-Possible current states include:
-
-```text
+```text id="gf2lwx"
 current
 proposed
 research
 reference
 process
-unclassified
 ```
 
-Do not inspect or create an in-file `doc_class` or `Doc-Class:` field.
+An existing loose or unrecognized document may be `unclassified`.
 
-Non-ADR classification is derived entirely from folder placement.
+Do not use or introduce:
 
-The current folder describes the document's **current classification**.
-
-It does not determine where the document should remain if its purpose has changed.
-
----
-
-# 4. Determine the Target Classification
-
-Apply **Determining a Non-ADR Document's Target Class** from `wiki/_schema.md`.
-
-Do not duplicate those rules here.
-
-Classify the document according to its present content and purpose, not merely its existing path.
-
-When the distinction between `current` and `proposed` is genuinely unclear, apply the schema's fail-safe rule:
-
-```text
-default to proposed
+```text id="rw6zdz"
+doc_class:
+Doc-Class:
 ```
 
-For other unresolved classification ambiguity, surface the uncertainty rather than inventing a confident classification unsupported by the document.
+If `current` vs `proposed` is genuinely ambiguous, follow the schema fail-safe and use `proposed`.
 
 Record:
 
-```text
-current class: <class | unclassified>
-target class: <class>
+```text id="8p8i8m"
+current: <class | unclassified>
+target:  <class>
 ```
 
-If the target class equals the current class, the file may still require a filename correction. Continue to the naming check.
+## 4. Determine the Correct Filename and Destination
 
----
+Apply the naming and cross-cutting-document rules in `wiki/_schema.md`.
 
-# 5. Determine the Correct Filename
+When the active entity registry exists:
 
-Apply the Document Naming Convention and Cross-Cutting Documents rules in `wiki/_schema.md`.
+* use the primary Entity ID when the document belongs to one entity;
+* use `platform-` only for genuinely cross-cutting documents;
+* do not entity/platform-prefix `process` documents.
 
-Do not restate those rules here.
-
-In summary, determine whether the document:
-
-* primarily belongs to one active entity;
-* genuinely requires the `platform-` prefix; or
-* is a `process` document exempt from entity/platform prefixing.
-
-Use `wiki/index.md` as the authoritative active-entity registry.
+Use `wiki/index.md` for active Entity IDs. Do not invent one.
 
 Preserve the existing descriptive slug where reasonable.
 
-This operation should normally correct classification, attribution, or placement — not rewrite an already useful filename without cause.
-
----
-
-# 6. Determine the Destination
-
 The destination is:
 
-```text
+```text id="2hmjqt"
 docs/<target-class>/<correct-filename>
 ```
 
-except for externally scaffolded files, which were already excluded above.
+Create only the required target directory if missing.
 
-If the required target directory does not exist, create only that directory.
+If classification and filename are already correct, no move is required.
 
-Do not eagerly create all possible document-class folders.
+## 5. Find Inbound References
 
----
-
-# 7. Find Inbound Path References
-
-Before moving or renaming the document, locate references to its current path.
+Before moving or renaming the file, find references to its existing path.
 
 Check at minimum:
 
 * inline `source:` citations under `wiki/entities/`;
-* direct links in `wiki/index.md`;
-* references in other files under `docs/`;
+* cross-cutting links in `wiki/index.md`;
+* other documents under `docs/`;
 * `README.md`;
-* project instructions or skills that explicitly cite the document path where relevant.
+* repository instructions, skills, scripts, or configuration that explicitly reference the path.
 
-Use exact path/reference discovery for this step.
+Use exact path discovery.
 
-Do not recreate a `linked_docs` registry.
+Do not recreate `linked_docs`; inline `source:` citations remain the entity-document relationship mechanism.
 
-Inline `source:` citations are the sole entity-to-document relationship representation.
+## 6. Move Atomically
 
-Record every reference that must move with the document.
+Use `git mv` or an equivalent history-preserving operation.
 
----
+In the same change, update every known inbound reference to the new path.
 
-# 8. Identify the Authority Transition
+This includes applicable:
 
-Before changing the path, determine whether the classification transition changes what the document is allowed to support in the entity wiki.
+* inline `source:` citations;
+* `wiki/index.md` links;
+* documentation links;
+* repository instructions.
 
-Relevant transitions include:
+After the move, search for the old path again and resolve any remaining valid references.
 
-## No authority change
+Do not add classification metadata to the document body.
 
-Examples:
+## 7. Apply Living Entity Wiki Follow-Through
 
-```text
-current → current
-proposed → proposed
-research → research
-reference → reference
-process → process
-```
+If the Living Entity Wiki has not been bootstrapped, skip this step.
 
-A path/name correction alone does not change the document's semantic authority.
+Otherwise invoke `$wiki-sync` when:
 
-Existing citations may still need path updates.
+* the document's classification authority changed;
+* an entity claim cites the moved document;
+* the document became `current` or `proposed`;
+* the document left `current` or `proposed`;
+* substantive content changed as part of the operation.
 
----
+Pass the old/new class and old/new path.
 
-## Newly eligible for Planned
+Let `$wiki-sync` determine the semantic consequence.
 
-Examples:
+In particular, do not locally assume that:
 
-```text
-unclassified → proposed
-research → proposed
-reference → proposed
-process → proposed
-```
-
-The document may now support `Planned` content.
-
----
-
-## Newly eligible for Strict Invariants
-
-Examples:
-
-```text
-unclassified → current
-research → current
-reference → current
-process → current
-```
-
-The document now claims to describe current reality and may support `Strict Invariants`, subject to `$wiki-sync` source-consistency and implementation-evidence checks.
-
----
-
-## Proposed to current
-
-```text
+```text id="fh23jr"
 proposed → current
 ```
 
-This does **not** automatically convert existing `Planned` claims into `Strict Invariants`.
+automatically means:
 
-The document now claims to describe current reality.
-
-`$wiki-sync` must first evaluate:
-
-* applicable accepted ADRs;
-* relevant implementation evidence; and
-* `[source-conflict]`.
-
-Only legitimately current claims are promoted.
-
----
-
-## Current to proposed
-
-```text
-current → proposed
+```text id="13lb23"
+Planned → Strict Invariant
 ```
 
-The document can no longer independently support an active `Strict Invariant`.
+or that leaving `current` automatically deletes an invariant.
 
-`$wiki-sync` must re-evaluate every affected invariant:
+Those decisions require `$wiki-sync`'s normal authority, implementation-evidence, and `[source-conflict]` evaluation.
 
-* retain it only if another valid active source independently supports it;
-* move appropriate future-state content to `Planned`;
-* otherwise remove the unsupported active claim.
+### Path-only move
 
----
+If classification did not change and the operation is purely structural:
 
-## Losing active wiki authority
+* update citations and references mechanically;
+* do not semantically rewrite wiki claims solely because their source path changed.
 
-Examples:
+Invoke full source reevaluation only if there is separate evidence that the claim itself may be stale.
 
-```text
-current → research
-current → reference
-current → process
+## 8. Source Conflicts
 
-proposed → research
-proposed → reference
-proposed → process
-```
+If `$wiki-sync` surfaces `[source-conflict]`, do not resolve it by:
 
-The document can no longer perform its previous active wiki role.
+* rewriting the document;
+* altering an ADR;
+* forcing the entity wiki to follow the reclassified document;
+* choosing one authority unilaterally.
 
-`$wiki-sync` must re-evaluate any derived claims sourced from it.
+Complete safe mechanical path updates where appropriate, but leave judgment-bearing wiki changes unresolved until the conflict is resolved.
 
----
+## 9. Commit Ownership
 
-# 9. Move and Rename Atomically
+`$classify-doc` does not require a standalone commit when called by a parent workflow.
 
-Move the file using:
+The document move, inbound-reference updates, and any resulting wiki mutation must land consistently with the caller's commit strategy.
 
-```text
-git mv
-```
+If `$wiki-sync` makes a substantive wiki mutation, its semantic `wiki/log.md` entry must land with that mutation.
 
-or an equivalent history-preserving operation.
+Do not create a commit merely because `$classify-doc` or `$wiki-sync` ran.
 
-Move from the current path to the destination determined above.
-
-In the same operation:
-
-* update every inbound path reference found earlier;
-* update inline entity `source:` citations to the new path;
-* update any direct `wiki/index.md` platform-document link;
-* update other document links;
-* update repository instructions that explicitly depend on the path.
-
-Do not leave known references pointing at the old location.
-
-Do not insert any classification metadata into the document body.
-
----
-
-# 10. Invoke `$wiki-sync`
-
-If `wiki/entities/` does not exist, skip Living Entity Wiki synchronization.
-
-Otherwise, invoke `$wiki-sync` whenever:
-
-* classification authority changed;
-* an existing derived claim cites the moved document;
-* the document became newly eligible to support `Planned` or `Strict Invariants`; or
-* substantive content changes were made as part of the same operation.
-
-Pass the relevant transition context:
-
-```text
-<old-class | unclassified> → <new-class>
-```
-
-and the old/new document paths.
-
----
-
-## Path-Only Move With Existing Derived Claims
-
-If classification did not change and only the path/name changed:
-
-* update the inline citation path atomically;
-* the underlying derived claim does not need semantic reevaluation solely because of the move.
-
-If other evidence suggests the claim itself may now be stale, invoke the normal `$wiki-sync` source reevaluation rather than assuming path-only equivalence.
-
----
-
-## Newly Eligible Document With No Existing Citation
-
-If the document becomes `current` or `proposed` and no entity currently cites it, `$wiki-sync` must still inspect whether its content introduces:
-
-* a current architectural constraint; or
-* meaningful Planned direction.
-
-A document does not need an existing citation before newly authoritative content can enter the wiki.
-
----
-
-## Transition Away From Active Authority
-
-If the document leaves `current` or `proposed`, `$wiki-sync` must search for affected derived claims even if all path references were mechanically updated.
-
-Changing the citation path is not enough when the document's authority changed.
-
----
-
-# 11. Handle Source Conflicts
-
-Reclassification can expose disagreement between:
-
-* the document;
-* accepted ADRs;
-* implementation evidence.
-
-If `$wiki-sync` identifies a material disagreement, surface:
-
-```text
-[source-conflict]
-```
-
-Do not:
-
-* alter the document to match another source;
-* alter an ADR;
-* force the entity wiki to follow the newly classified document; or
-* choose which source is correct.
-
-Finish the safe mechanical relocation/reference update if appropriate, but leave judgment-bearing derived wiki changes unresolved until the source conflict is resolved.
-
----
-
-# 12. Preserve Historical ADR Paths
-
-This skill does not rename or relocate ADRs.
-
-If an entity rename or other topology change suggests that historical ADR filenames no longer match current entity terminology, leave those historical filenames unchanged unless an explicit ADR/document migration operation separately requires otherwise.
-
-Historical provenance is more important than forcing every old filename to mirror current topology.
-
----
-
-# 13. Report
+## 10. Report
 
 Report:
 
@@ -411,59 +202,22 @@ Report:
 * new path;
 * current classification;
 * target classification;
-* whether classification changed;
-* every inbound reference updated;
+* inbound references updated;
 * whether `$wiki-sync` ran;
-* any wiki claims added, updated, removed, or left for human review;
-* any `[source-conflict]` or other unresolved condition.
+* resulting wiki changes or unresolved review;
+* any `[source-conflict]`.
 
-Example:
-
-```text
-Classified document:
-docs/persistence-plan.md
-→ docs/proposed/persistence-postgres-migration.md
-
-Transition:
-unclassified → proposed
-
-References updated:
-- README.md
-
-$wiki-sync:
-Added Planned entry to persistence entity.
-
-Source conflicts:
-none
-```
-
----
-
-# Commit Ownership
-
-`$classify-doc` does not require a standalone commit when invoked inside another workflow that owns the overall change.
-
-Whether committed standalone or through a calling skill:
-
-* the document move;
-* path-reference updates; and
-* any resulting `$wiki-sync` mutation and semantic `wiki/log.md` entry
-
-must land consistently and atomically enough that no committed state contains knowingly broken paths or half-applied wiki authority transitions.
-
----
-
-# Out of Scope
+## Out of Scope
 
 `$classify-doc` does not:
 
-* create brand-new documents — use `$to-doc`;
-* manage ADR lifecycle or ADR status — use `$to-adr-doc`;
-* decide new entity topology — use `$wiki-sync` plus `wiki/_schema.md`;
+* create new documents — use `$to-doc`;
+* manage ADR lifecycle — use `$to-adr-doc`;
+* own classification or naming policy — see `wiki/_schema.md`;
+* decide entity topology — use `$wiki-sync`;
 * resolve `[source-conflict]`;
-* rewrite document content merely to justify a preferred classification;
+* rewrite content merely to justify a preferred classification;
 * maintain `linked_docs`;
-* add in-file classification fields;
 * perform a full wiki audit — use `$wiki-lint`.
 
-Its responsibility is the structural classification lifecycle of an **existing non-ADR document** and the safe propagation of that change into references and derived wiki knowledge.
+Its responsibility is to put an **existing non-ADR document in the correct structural location without breaking references or derived architectural knowledge**.

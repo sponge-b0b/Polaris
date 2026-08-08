@@ -19,7 +19,7 @@ This is a **review-only** workflow, not a verification workflow. Do not run
 verification commands from this skill. If spec-wide verification is needed, stop
 and invoke `$verify-spec` as a separate workflow.
 
-The issue tracker should have been provided to you — run `/setup-matt-pocock-skills`
+The issue tracker should have been provided to you — run `$setup-matt-pocock-skills`
 if `docs/agents/issue-tracker.md` is missing.
 
 ## Finding Taxonomy
@@ -166,7 +166,7 @@ per axis and names the worst Blocking issue within each axis, if any.
 
 If any Blocking findings remain, do not synthesize them into root blockers or
 create/update a tracking issue yourself here — that entire process lives in
-the `/review-spec-remediation` skill. See "Remediation Loop" below.
+the `$review-spec-remediation` skill. See "Remediation Loop" below.
 
 ## Why two axes
 
@@ -185,7 +185,7 @@ You are strictly prohibited from performing immediate, "in-flight" file edits to
 fix code-review errors. If your verification pass reveals any **Blocking**
 specification mismatches or standards violations, do not attempt to resolve them
 yourself, and do not draft or publish any tracking issue directly — invoke the 
-`/review-spec-remediation` skill in full instead. It covers root-blocker
+`$review-spec-remediation` skill in full instead. It covers root-blocker
 synthesis, Parent Issue Creation, the Human Handoff Intercept, Recursive Passes,
 and Owner Overrides — the complete sequence for turning Blocking findings into a
 tracked remediation loop. Advisory-only findings do not trigger this at all
@@ -197,10 +197,10 @@ suppressed every remaining finding — return here to the Exit Gate below.
 
 ## The Exit Gate
 
-You are authorized to proceed and invoke the `/spec-merge-cleanup` skill — **not** to close the "Spec" issue directly — when a complete audit run returns exactly zero **Blocking** findings and any Root Blocker Ledger / acceptance matrix maintained for the Spec Review issue has no open or regressed root cells.
+You are authorized to proceed and invoke the `$spec-merge-cleanup` skill — **not** to close the "Spec" issue directly — when a complete audit run returns exactly zero **Blocking** findings and any Root Blocker Ledger / acceptance matrix maintained for the Spec Review issue has no open or regressed root cells.
 
 Advisory findings may remain documented without preventing progression. Owner-overridden findings must remain suppressed in future review passes.
 
-Do **not** close the "Spec" issue at this gate. It is closed either automatically when the merge PR lands (`/spec-merge-cleanup` skill's Phase A, via `Closes #<spec_issue_number>` in the PR body), or explicitly by that skill's routing step if this spec has no branch — and therefore no PR — to merge at all. Closing it here — before either of those is confirmed — would mark the issue done even if the merge is later halted, fails, or never happens.
+Do **not** close the "Spec" issue at this gate. It is closed either automatically when the merge PR lands (`$spec-merge-cleanup` skill's Phase A, via `Closes #<spec_issue_number>` in the PR body), or explicitly by that skill's routing step if this spec has no branch — and therefore no PR — to merge at all. Closing it here — before either of those is confirmed — would mark the issue done even if the merge is later halted, fails, or never happens.
 
-Do **not** close the parent "Spec Review" issue here either. That closure happens only once the `/spec-merge-cleanup` skill has fully completed one of its two paths — at the end of its Phase B for the standard PR path, or immediately within its routing step for the no-branch path — **and only if a Spec Review issue exists for this spec** in either case. This keeps both issues' closed state aligned with verified completion, not with the audit decision alone.
+Do **not** close the parent "Spec Review" issue here either. That closure happens only once the `$spec-merge-cleanup` skill has fully completed one of its two paths — at the end of its Phase B for the standard PR path, or immediately within its routing step for the no-branch path — **and only if a Spec Review issue exists for this spec** in either case. This keeps both issues' closed state aligned with verified completion, not with the audit decision alone.

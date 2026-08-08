@@ -65,8 +65,8 @@ When a term is resolved, update `CONTEXT.md` right there. Don't batch these up �
 
 ### Offer ADRs sparingly
 
-See "When to offer an ADR" in `/to-adr-doc` for the
+See "When to offer an ADR" in `$to-adr-doc` for the
 criteria — do not duplicate them here. When they're met, follow
-`/to-adr-doc` for the format, the required
+`$to-adr-doc` for the format, the required
 `status` field, and — if `wiki/entities/` exists — the Living Entity
 Wiki sync step.

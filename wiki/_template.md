@@ -2,84 +2,56 @@
 
 # [Entity Name] (Entity ID: system-slug)
 
-**Boundary Rationale:** [One or two sentences explaining why this is a distinct entity rather than part of another boundary, or why the boundary sits where it does.]
+**Boundary Rationale:** [Why this is a distinct architectural boundary and why the boundary sits here.]
 (source: [docs/... | owner-approved entity boundary determination | owner-approved entity promotion])
 
-Boundary Rationale is required for every entity. It records the reasoning behind the architectural decomposition, not mechanically derivable structure.
-
-Change it only as part of an explicit entity-boundary or topology decision such as creation, promotion, split, merge, or a scope-changing rename. Ordinary code movement or refactoring is not sufficient reason to rewrite it.
+Required for every entity. Change only through an explicit boundary/topology decision, not ordinary code movement or refactoring.
 
 ### Strict Invariants
 
 * [Invariant] — because [causal reasoning]. (source: docs/...)
-* [Cross-entity invariant, when applicable, may link directly to the other entity whose constraint is relevant.] (source: docs/...)
+* [Cross-entity invariant, when applicable, may link directly to the relevant entity.] (source: docs/...)
 
-Only claims backed by an accepted ADR or a `docs/current/` document may appear here.
+Valid sources are accepted ADRs and `docs/current/`.
 
-An accepted ADR contributes a Strict Invariant only when either:
+An accepted realization-required decision remains under Planned as `accepted, implementation pending` until realization is verified. Immediately effective accepted constraints may appear here directly.
 
-* acceptance itself establishes an immediately-effective constraint; or
-* a realization-required decision has been verified as implemented.
-
-A realization-required accepted decision that has not yet been verified belongs under `Planned`, marked `accepted, implementation pending`.
-
-Keep the strength of implementation claims proportional to available evidence. A mechanically observable invariant may be positively verified against implementation. An architectural or intent-level invariant may be audited for concrete contradictory evidence, but absence of such evidence does not prove compliance.
-
-If authoritative sources materially disagree, do not choose a winner or rewrite the invariant. Surface a `[source-conflict]` and resolve the source disagreement first.
+If applicable authorities materially disagree, surface `[source-conflict]` rather than rewriting the invariant.
 
 ### Rejected Approaches
 
 * **[Approach]** — rejected because [specific causal reason].
-  [Reconsider when: concrete condition that would materially change the original reasoning.]
+  [Reconsider when: concrete condition that would materially change the reasoning.]
   (source: docs/... | owner-confirmed session decision, undocumented | session experiment, undocumented)
 
-Record a Rejected Approach only when:
+Record only owner-confirmed rejections, concrete failed experiments, or documented rejections. Unsupported agent judgment is insufficient.
 
-* the owner explicitly rejected it;
-* it was actually attempted and failed for a concrete, non-obvious reason worth preserving; or
-* an authoritative document records the rejection.
+`Reconsider when:` is optional and does not expire automatically.
 
-An agent's unsupported judgment is not sufficient to create a durable Rejected Approach.
-
-`Reconsider when:` is optional and should be used only when the rejection depends on a concrete condition that may later change. Rejections do not expire merely because time passes.
-
-When reconsideration becomes appropriate, preserve the history rather than silently deleting the old rejection. Record the subsequent decision through the appropriate authoritative source when warranted.
-
-Omit this section if there are no Rejected Approaches for the entity.
+Omit this section when empty.
 
 ### Open Questions
 
 * **[Unresolved concern or question]** — noted YYYY-MM-DD.
   (source: docs/... | owner-raised session question, undocumented | agent-observed during session, unresolved)
 
-Open Questions preserve unresolved signals, not decisions or current facts. An agent may record a concrete concern it discovers, provided it is clearly represented as unresolved rather than as established truth.
+Open Questions are unresolved signals, not facts or decisions.
 
-When a question is resolved:
+When resolved, convert or remove them through the appropriate `$wiki-sync` lifecycle.
 
-* convert the outcome to a Strict Invariant if it establishes an active constraint;
-* move a qualifying failed direction to Rejected Approaches;
-* update the relevant Planned entry when it changes future direction; or
-* remove the question when the resolution produces no durable entity knowledge.
-
-Omit this section if there are no open questions.
+Omit this section when empty.
 
 ### Planned
 
 * **[Anticipated change or direction]** — proposed, not yet accepted. (source: docs/...)
 * **[Accepted decision]** — accepted, implementation pending. (source: docs/...)
 
-`Planned` contains future state that is explicitly not yet established as current implementation.
+Valid sources are:
 
-It may be sourced from:
+* `docs/proposed/`;
+* proposed ADRs;
+* accepted ADRs whose realization remains pending.
 
-* `docs/proposed/` documents;
-* ADRs with `status: proposed`; or
-* accepted ADRs whose realization still requires implementation or other current-state verification.
+Planned describes future state, never current implementation.
 
-When an accepted realization-required decision is verified as realized, remove the Planned entry and represent the resulting active constraint under Strict Invariants.
-
-If acceptance itself establishes an immediately-effective constraint, the claim may enter Strict Invariants directly instead of passing through `accepted, implementation pending`.
-
-When a cited proposed source changes, re-evaluate the corresponding Planned entry rather than allowing the derived description to drift.
-
-Omit this section if there is no planned content for the entity.
+Omit this section when empty.

@@ -40,6 +40,10 @@ against.
 
 ## 3. Write the file
 
+If `docs/<folder>/` (the folder determined in step 1) does not yet
+exist, create it now — lazily, only this one folder, not the full set
+of possible folders.
+
 Create the file at `docs/<folder>/<filename>` determined above. Do
 not insert any classification line or field into the file's
 content — classification is derived entirely from folder location.

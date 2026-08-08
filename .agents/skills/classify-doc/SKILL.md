@@ -70,6 +70,9 @@ scoped to detecting a moved (rather than edited or newly-stale)
 
 ## 4. Move and update
 
+If `docs/<folder>/` (the folder determined in step 1) does not yet
+exist, create it now — lazily, only this one folder.
+
 `git mv` (or equivalent) the file from its current path to
 `docs/<folder>/<filename>` determined in steps 1-2, preserving
 history. Update every reference found in step 3 to the new path in

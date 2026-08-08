@@ -4,44 +4,40 @@
 
 These are the operating rules for coding agents working on Polaris.
 
-`AGENTS.md` is primarily **prescriptive agent policy**: how an agent must work in this repository.
-
-It is not intended to become a second authoritative copy of project architecture.
+`AGENTS.md` is primarily **prescriptive agent policy**: how an agent must work in this repository. It is not a second authoritative copy of project architecture.
 
 At the start of a task:
 
-1. `CONTEXT.md` holds the project's canonical domain vocabulary. Load it on demand, not automatically at the start of every session. Load it when:
+1. Load `CONTEXT.md` only when domain vocabulary matters, including when:
 
-   * a domain term in the current task is ambiguous, contested, or being introduced;
-   * writing or updating a `wiki/entities/` page; or
-   * explicitly running `$domain-modeling`.
+   * a domain term is ambiguous, contested, or new;
+   * writing/updating an entity page;
+   * running `$domain-modeling`.
 
-   A task that does not depend on domain vocabulary does not need to load it.
+2. Match claims to the correct authority:
 
-2. Match claims to their proper authority:
+   * code, configuration, executable checks, and relevant tests → implementation reality;
+   * accepted ADRs → active architectural decisions;
+   * `docs/current/` → current architectural description;
+   * `wiki/entities/` → derived architectural knowledge.
 
-   * current source code, configuration, executable architecture checks, and relevant tests provide evidence of **implementation reality**;
-   * accepted ADRs establish **active architectural decisions**;
-   * `docs/current/` claims to describe **current architectural state**;
-   * `wiki/entities/` is a **derived synthesis layer**, never an authority over its sources.
+3. If applicable authorities materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the task easiest.
 
-3. If accepted ADRs, `docs/current/`, and verified implementation evidence materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the current task easiest.
+4. Merge these repository rules with narrower user instructions for the active task.
 
-4. Merge these repository rules with any narrower user instructions for the active task.
-
-`AGENTS.md` is prescriptive. `CONTEXT.md` is descriptive vocabulary. Avoid duplicating content between them.
+`CONTEXT.md` is canonical domain vocabulary. Avoid duplicating it here.
 
 ---
 
 ## Non-Negotiable Architecture
 
-> **Migration note:** This section predates the Living Entity Wiki and still contains architectural facts that ultimately belong in accepted ADRs, `docs/current/`, and derived entity invariants.
+> **Migration note:** This section predates the Living Entity Wiki and still contains architectural facts that should eventually live in accepted ADRs, `docs/current/`, and derived entity invariants.
 >
-> Preserve these guardrails until each architectural fact has a verified authoritative source and corresponding wiki representation. Do **not** remove one merely because the wiki system now exists.
+> Preserve each rule until it has verified authoritative coverage and corresponding wiki representation.
 >
-> Do not add new durable architectural facts here. New decisions belong through `$to-adr-doc` or `$to-doc`, with `$wiki-sync` maintaining the derived entity knowledge.
+> Do not add new durable architectural facts here. Use `$to-adr-doc` or `$to-doc`, with `$wiki-sync` maintaining derived entity knowledge.
 >
-> If a rule here materially conflicts with an accepted ADR, `docs/current/`, or verified implementation evidence, surface `[source-conflict]` rather than assuming this section automatically wins.
+> If a rule here conflicts materially with accepted ADRs, `docs/current/`, or verified implementation, surface `[source-conflict]`.
 
 ### Inside-out design
 
@@ -50,37 +46,37 @@ The runtime is the trunk; application, integration, intelligence, portfolio, str
 * Protect stable core contracts.
 * Refactor edge code directly to current contracts.
 * Do not add compatibility wrappers or legacy adapters unless explicitly approved with a removal plan.
-* Do not modify `core/` without user authorization. If a core change is architecturally necessary, explain why and obtain approval first.
+* Do not modify `core/` without user authorization. If necessary, explain why and obtain approval first.
 
 ### Runtime and workflow boundaries
 
 * `RuntimeEngine` owns execution.
 * `WorkflowFacade` is the application workflow boundary.
 * `WorkflowBootstrap` is the workflow composition root.
-* New workflow capabilities must use `RuntimeNode` and the canonical graph/runtime path.
+* New workflow capabilities use `RuntimeNode` and the canonical graph/runtime path.
 * Do not create parallel runtimes or bypass the facade/bootstrap.
 * `RuntimeContext` and `RuntimeNodeOutput` contain workflow evidence; do not recreate competing runtime business-state aggregates.
 
 ### Workflow control and events
 
-* `WorkflowControlManager` owns pause, resume, and cancel state.
-* The runtime checks control state cooperatively at safe boundaries.
+* `WorkflowControlManager` owns pause/resume/cancel state.
+* Runtime checks control state cooperatively at safe boundaries.
 * `WorkflowFacade` exposes control APIs.
 * `EventBus` and typed `RuntimeEvent` objects are the canonical notification path.
 * Telemetry maps runtime events at the boundary.
-* Do not mutate runtime state directly from CLI or application code.
+* CLI/application code must not mutate runtime state directly.
 
 ### Dependency injection
 
 Use Dishka with explicit constructor dependencies.
 
 * Long-lived infrastructure belongs in application scope.
-* Each command, request, or future MCP invocation owns a request scope.
-* Do not use globals, service locators, hidden dependencies, or split-brain `EventBus`, control, telemetry, persistence, or facade instances.
+* Each command/request/future MCP invocation owns a request scope.
+* Do not use globals, service locators, hidden dependencies, or split-brain infrastructure instances.
 
 ### Layering
 
-External access must follow:
+External access follows:
 
 ```text
 Application service
@@ -90,52 +86,52 @@ Application service
 ```
 
 * Clients own transport, authentication, retries, pagination, rate limits, timeouts, and raw parsing.
-* Providers normalize vendor data into stable platform contracts.
+* Providers normalize vendor data into stable contracts.
 * Application services coordinate use cases.
 * Intelligence consumes typed service results.
-* Agents must never call vendor SDKs directly.
-* Intelligence components must not contain transport logic.
+* Agents never call vendor SDKs directly.
+* Intelligence must not contain transport logic.
 
 ### Persistence and projections
 
 * PostgreSQL is the authoritative durable system of record.
 * SQLAlchemy models and Alembic migrations govern schema.
 * Typed repositories and application persistence services own database access.
-* Qdrant, Neo4j, files, caches, and rendered reports are projections or artifacts, not competing authorities.
+* Qdrant, Neo4j, files, caches, and rendered reports are projections/artifacts, not competing authorities.
 * Projection rebuilds must not delete canonical PostgreSQL records.
-* Workflow outputs become curated records only through an explicit typed eligibility and projection policy.
-* Do not promote arbitrary metadata into durable schema; add first-class typed fields when the concept is canonical.
+* Workflow outputs become curated records only through explicit typed eligibility/projection policy.
+* Canonical concepts get first-class typed fields rather than arbitrary metadata.
 
 ### RAG and MCP
 
 * RAG orchestration belongs in canonical application services.
-* PostgreSQL owns curated RAG records; Qdrant and Neo4j are rebuildable retrieval projections.
-* Do not implement a second retrieval, ranking, graph, ingestion, or persistence stack in an interface.
-* A future MCP server must be a thin external transport over Dishka-resolved application services. If behavior is missing, add it to the canonical service first.
+* PostgreSQL owns curated RAG records; Qdrant and Neo4j are rebuildable projections.
+* Do not create a second retrieval, ranking, graph, ingestion, or persistence stack in an interface.
+* A future MCP server is a thin transport over Dishka-resolved application services.
 
 ### Backtesting
 
-* Backtests use the production runtime, workflows, services, and contracts.
-* Live versus simulated behavior is selected through provider composition.
-* The runtime must remain unaware of execution mode.
+* Backtests use production runtime, workflows, services, and contracts.
+* Live vs simulated behavior is selected through provider composition.
+* Runtime remains unaware of execution mode.
 * Deterministic scenarios require fixed inputs, time, seeds, and independently derived expected outcomes.
 
 ### Policy and governance
 
-* Policy answers "May this happen?" with `ALLOW` or `DENY`.
-* Governance answers "Should this happen?" with `ALLOW`, `WARN`, `DENY`, `REQUIRE_APPROVAL`, or `SKIP`.
+* Policy answers **May this happen?** with `ALLOW` or `DENY`.
+* Governance answers **Should this happen?** with `ALLOW`, `WARN`, `DENY`, `REQUIRE_APPROVAL`, or `SKIP`.
 * Governance operates above policy.
-* Workflow and capability code must not bypass policy or governance evaluation.
-* Do not claim a complete approval subsystem exists unless its contracts, persistence, interfaces, and tests are implemented.
+* Workflow/capability code must not bypass either.
+* Do not claim a complete approval subsystem exists until its contracts, persistence, interfaces, and tests exist.
 
 ### Architecture guardrails
 
-* **Authority:** Ensure exactly one authoritative model, owner, and canonical writer for every durable business concept.
-* **Classification:** Distinguish cleanly between runtime evidence, canonical domain records, projections, telemetry, and presentation output.
-* **Conflict Handling:** Ensure that two separate components do not claim to be the source of truth for the same data.
-* **Redundancy Audit:** Evaluate whether existing responsibilities become obsolete or superseded by new capabilities.
-* **Analytical Services Boundary:** Analytical services must return typed results. They must not persist workflow-derived results unless database persistence is the explicit use case.
-* **Architectural Correctness:** Never infer architectural correctness from imports, passing tests, or high code-health scores alone.
+* **Authority:** one authoritative model, owner, and canonical writer per durable business concept.
+* **Classification:** distinguish runtime evidence, canonical records, projections, telemetry, and presentation.
+* **Conflict:** two components must not claim authority over the same durable data.
+* **Redundancy:** new capabilities should retire superseded responsibilities where appropriate.
+* **Analytical services:** return typed results; persist workflow-derived results only when persistence is the explicit use case.
+* **Correctness:** do not infer architectural correctness from imports, passing tests, or code-health scores alone.
 
 ---
 
@@ -151,14 +147,14 @@ class ExampleSignal:
     ...
 ```
 
-Use typed requests, results, DTOs, domain records, signals, and runtime contracts inside the platform.
+Use typed requests, results, DTOs, domain records, signals, and runtime contracts internally.
 
-`dict[str, Any]` is acceptable only at boundaries such as:
+`dict[str, Any]` is acceptable at serialization/transport boundaries such as:
 
-* external APIs and vendor SDKs;
-* JSON and transport serialization;
-* telemetry and event serialization;
-* persistence, checkpoints, and replay serialization.
+* external APIs/vendor SDKs;
+* JSON transport;
+* telemetry/events;
+* persistence/checkpoints/replay.
 
 Serialize typed objects only when crossing a boundary.
 
@@ -166,15 +162,13 @@ Serialize typed objects only when crossing a boundary.
 
 Never use `round()` in application, intelligence, analysis, regime, calibration, or persistence logic.
 
-Preserve full precision internally.
-
-Round only in CLI, Markdown, PDF, web, or other human-facing renderers.
+Preserve full precision internally. Round only in human-facing renderers.
 
 ### Python conventions
 
-* Type all public interfaces.
+* Type public interfaces.
 * Prefer `@dataclass(frozen=True, slots=True)` for immutable models.
-* Workflow definitions expose `workflow_name` and `workflow_description` as `@property` methods, not class attributes.
+* Workflow definitions expose `workflow_name` and `workflow_description` as properties.
 * Use async provider/client calls consistently.
 * Do not add sync/async compatibility branches without a real boundary requirement.
 
@@ -182,23 +176,22 @@ Round only in CLI, Markdown, PDF, web, or other human-facing renderers.
 
 ## Observability
 
-Every meaningful operational boundary must be observable once, at its canonical owner.
+Every meaningful operational boundary is observable once at its canonical owner.
 
-Verify:
+Verify appropriate:
 
-* structured logs for entry failures, retries, degradation, and caught exceptions;
-* active trace spans for external calls, datastore operations, LLM flows, and long-running work;
-* counters or histograms for latency, volume, success, and failure;
-* trace-context propagation through `asyncio` tasks, providers, runtime events, and persistence.
+* structured failure/retry/degradation logs;
+* trace spans for external calls, datastore operations, LLM flows, and long work;
+* latency/volume/success/failure metrics;
+* trace propagation through async tasks, providers, runtime events, and persistence.
 
 Rules:
 
-* External provider calls use the established telemetry wrapper, such as `record_provider_call()`.
-* PostgreSQL, Qdrant, and Neo4j operations record latency and defensively log failures.
-* Exception logs that diagnose failures include tracebacks.
-* Telemetry failures remain non-fatal to valid domain results but must be visible.
-* Do not emit duplicate lifecycle events from multiple layers.
-* Reuse established emitter and span conventions; do not invent parallel telemetry systems.
+* use established telemetry wrappers/emitter/span conventions;
+* datastore operations record latency and defensively log failures;
+* diagnostic exception logs include tracebacks;
+* telemetry failure must not invalidate a valid domain result, but must remain visible;
+* do not emit duplicate lifecycle events or create parallel telemetry systems.
 
 ---
 
@@ -210,7 +203,7 @@ Never place credentials, passwords, tokens, or full authenticated connection str
 
 ## Authorized Docker Operations
 
-These Docker operations are authorized when a required service must be managed:
+When required and otherwise safe:
 
 ```text
 docker compose up -d [service ...]
@@ -219,7 +212,7 @@ docker compose restart [service ...]
 docker compose down
 ```
 
-Current local services may include PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana.
+Manage only services needed for the active task.
 
 ---
 
@@ -236,274 +229,125 @@ Standard read-only discovery and diagnostic shell commands are allowed.
 
 ---
 
-## Repository Analysis Tools
+## Repository Analysis
 
-Before editing files or changing code patterns, use the project's native discovery tool belt to map relevant context, enforce safety guards, and understand the likely change blast radius.
+Use the smallest discovery tool sufficient for the question rather than broad manual scanning.
 
-Use the smallest tool sufficient for the question rather than performing broad manual source scans by default.
+* `$repowise` — repository status, hot spots, health, and behavioral location.
+* `$graphify` — broad structural/dependency relationships.
+* `$codegraph` — implicit/dynamic call paths and dispatch.
+* `$codebase-memory-mcp` — graph-backed discovery, architecture, impact, dead-code, and cross-service analysis.
 
-### `repowise`
-
-This project maintains a codebase status registry and documentation layout inside `.repowise/`, tracking synchronization state, file health, and system hotspots.
-
-For behavioral location, mapping source contexts, code-health overview, or file-risk auditing, prefer the installed `$repowise` skill before tracing raw files manually.
-
-### `graphify`
-
-This project maintains a knowledge graph under `graphify-out/` containing community structure and cross-file relationships.
-
-For structural dependency lookups or broad codebase architecture questions, prefer the installed `$graphify` skill before tracing raw files manually.
-
-### `codegraph`
-
-The project uses an edge-synthesizer capable of connecting dynamic runtime call flows, framework decorators, and decoupled execution targets.
-
-For tracing implicit function paths, event loops, or dynamic string-keyed dispatch in Python, prefer the installed `$codegraph` skill before tracing raw files manually.
-
-### `codebase-memory-mcp`
-
-This project uses `codebase-memory-mcp` to maintain a knowledge graph of the codebase.
-
-Prefer the installed `$codebase-memory-mcp` skill over raw grep/glob/file-search for code discovery, architecture exploration, impact analysis, targeted index-coverage checks, Cypher queries, dead-code analysis, cross-service HTTP linking, and related graph-backed investigation.
-
-Exact literal reference checks remain appropriate where graph analysis provides no advantage.
+Exact literal searches remain appropriate when graph analysis provides no advantage.
 
 ---
 
-## Development Strategy and Versioning
+## Database Migrations
 
-Project version resolution and database migration lifecycle policy — including pre-1.0 squashing, 1.0 release handling, and post-1.0 immutability — are owned by the `$database-migrations` skill.
+Migration lifecycle policy is owned by `$database-migrations`.
 
-Read `$database-migrations` before creating or modifying migration files.
+Read and use it before creating or modifying migration files.
 
-Do not duplicate migration lifecycle rules here.
+Do not duplicate migration policy here.
 
 ---
 
-## Architectural Decision Records
+## ADRs
 
-The `$to-adr-doc` skill is the single source of truth for:
+`$to-adr-doc` is the single source of truth for ADR creation and lifecycle.
 
-* ADR format;
-* mandatory status metadata;
-* numbering and naming;
-* when an ADR is warranted;
-* allowed lifecycle transitions;
-* body mutability and historical immutability;
-* reconsideration and supersession; and
-* Living Entity Wiki synchronization triggered by ADR changes.
-
-Use `$to-adr-doc` whenever:
+Use it when:
 
 * creating an ADR;
-* substantively editing a proposed ADR; or
-* changing an ADR lifecycle status.
+* substantively editing a proposed ADR;
+* changing ADR status.
 
-Do not manually invent an ADR lifecycle outside that skill.
+Do not invent ADR lifecycle behavior independently.
 
 ---
 
-## Non-ADR Documents Under `docs/`
+## Non-ADR Documents
 
-For a **new** non-ADR document, use `$to-doc`.
+Use:
 
-It owns creation-time classification, canonical placement, naming, and relevant Living Entity Wiki follow-through.
+* `$to-doc` for a new non-ADR document;
+* `$classify-doc` for classification, reclassification, relocation, or naming correction of an existing non-ADR document.
 
-For an **existing** non-ADR document that needs classification, reclassification, relocation, or naming correction, use `$classify-doc`.
-
-Document classification and naming policy itself is defined in `wiki/_schema.md`.
+Classification/naming policy lives in `wiki/_schema.md`.
 
 Do not:
 
-* store an independent `doc_class` or `Doc-Class:` field in non-ADR documents;
-* place new project-owned documents loose under `docs/`;
-* manually move an existing classified document without accounting for its inbound references and possible change in wiki authority.
+* store `doc_class` or `Doc-Class:` metadata;
+* leave new project-owned documents loose under `docs/`;
+* manually move classified documents without updating references and authority consequences.
 
 ---
 
 ## Living Entity Wiki
 
-The project maintains a machine-oriented architecture knowledge layer under `wiki/`.
+The project maintains a machine-oriented architectural knowledge layer under `wiki/`.
 
-Its purpose is to preserve durable architectural knowledge that cannot be cheaply and reliably reconstructed from current code structure alone.
+It preserves durable knowledge that is not cheaply reconstructable from current code, especially:
 
-This includes:
-
-* why an entity boundary exists;
-* active architectural invariants and their causal reasoning;
+* boundary rationale;
+* active invariants and causal reasoning;
 * meaningful rejected approaches;
-* unresolved architectural questions;
-* accepted decisions whose implementation is still pending;
-* proposed future direction worth preserving.
+* unresolved questions;
+* future architectural direction.
 
-The wiki must complement live repository analysis, not duplicate it.
+### Structure
 
-### Authority model
+* `wiki/index.md` — active entity registry and routing metadata.
+* `wiki/entities/` — derived entity knowledge.
+* `wiki/log.md` — semantic wiki mutation history.
+* `wiki/_schema.md` — structural policy.
+* `wiki/_template.md` — entity-page format/provenance.
 
-The entity wiki is always derived.
+### Lifecycle
 
-```text
-accepted ADRs + current docs + implementation evidence
-                         ↓
-                  wiki/entities/
-```
+Use `$wiki-sync` for:
 
-An entity page never overrides its sources.
+* substantive source changes, before and after;
+* substantive `docs/current/` / `docs/proposed/` changes;
+* ADR creation, proposed-body edits, or lifecycle changes;
+* entity topology/boundary changes.
 
-When authoritative sources materially disagree, surface `[source-conflict]` before attempting ordinary drift repair.
+Do not reproduce `$wiki-sync` procedure here.
 
-### Wiki structure
+Start entity routing from `wiki/index.md`; use `$codegraph` or `$codebase-memory-mcp` when routing is ambiguous.
 
-* `wiki/index.md` — authoritative registry of active entities and their Category, Implementation state, Routing Anchors, and concise Summary. It also provides discovery links for genuinely cross-cutting platform documents where required by `wiki/_schema.md`.
-* `wiki/entities/` — active derived entity pages containing architectural knowledge defined by `wiki/_template.md`.
-* `wiki/log.md` — concise semantic history of **substantive wiki mutations**, not tool executions.
-* `wiki/_schema.md` — structural rules for document classification, source authority, entity boundaries, index structure, naming, and topology.
-* `wiki/_template.md` — required entity-page structure and claim provenance rules.
+Entity pages:
 
-### When to invoke `$wiki-sync`
+* have no YAML frontmatter;
+* preserve causal **why**;
+* use canonical `CONTEXT.md` terminology where relevant;
+* do not store Category, Implementation, Routing Anchors, `last_updated`, `linked_docs`, file inventories, call chains, or dependency lists.
 
-Use `$wiki-sync` for these triggers:
+Use inline `source:` citations for entity-document relationships.
 
-1. **Source code**
-   Before and after a substantive source-code change.
+Do not claim stronger implementation certainty than the evidence supports.
 
-2. **Current or proposed non-ADR documents**
-   After substantive creation, editing, or authority-changing reclassification involving `docs/current/` or `docs/proposed/`.
+Use `$wiki-lint` for whole-wiki health/conflict/drift auditing.
 
-3. **ADRs**
-   After:
-
-   * creating an ADR;
-   * substantively editing an ADR while it remains `proposed`; or
-   * changing an ADR lifecycle status.
-
-4. **Entity topology**
-   When an entity is created/promoted, renamed, split, merged, removed, or materially changes scope/boundary rationale.
-
-Do not inline the `$wiki-sync` procedure here.
-
-`$wiki-sync` is the single source of truth for per-change wiki maintenance.
-
-Other implementation skills must invoke it explicitly when their work meets one of these triggers.
-
-### Entity routing
-
-Begin with `wiki/index.md`.
-
-Routing Anchors are coarse, non-exhaustive starting hints only.
-
-If routing is ambiguous, cross-boundary, or unmatched, use repository analysis such as `$codegraph` or `$codebase-memory-mcp` rather than guessing entity ownership.
-
-Do not maintain a second dependency graph inside entity pages.
-
-### Entity-page formatting
-
-Entity pages are optimized for reliable machine ingestion.
-
-Keep them:
-
-* concise;
-* claim-oriented;
-* causally explicit;
-* source-backed where required;
-* honest about uncertainty.
-
-Preserve the **why** behind architectural constraints. That causal reasoning is the durable information that code structure usually cannot recover.
-
-When domain terminology matters, use canonical terms from `CONTEXT.md`.
-
-Entity pages have no YAML frontmatter.
-
-Do not add:
-
-* `category`;
-* `implementation`;
-* Routing Anchors;
-* `last_updated`;
-* `linked_docs`;
-* full file inventories;
-* module listings;
-* call chains;
-* manually maintained upstream/downstream dependency lists.
-
-Category, Implementation, and Routing Anchors belong only in `wiki/index.md`.
-
-Inline `source:` citations are the sole representation of entity-to-document relationships.
-
-### Evidence strength
-
-Do not claim more certainty than the evidence supports.
-
-A mechanically observable invariant may be positively verified against implementation.
-
-An architectural or intent-level invariant may be audited for concrete contradictory evidence, but failure to find a violation does not prove compliance.
-
-Use:
-
-> no contrary implementation evidence found
-
-when that is the strongest conclusion available.
-
-Do not convert inference into architectural fact.
-
-### Wiki health
-
-Run `$wiki-lint` on demand, after broad multi-entity work, or whenever wiki trustworthiness is in doubt.
-
-`$wiki-lint` owns:
-
-* `[source-conflict]`;
-* `[code-drift]`;
-* `[doc-drift]`;
-* citation validity and lifecycle;
-* document-classification hygiene;
-* Open Question review;
-* entity/index structural integrity;
-* direct cross-entity contradictions.
-
-A clean `$wiki-lint` run produces a report only.
-
-It does not modify `wiki/log.md` or create a commit merely to record that lint ran.
-
-Run `$wiki-synthesize` manually when accumulated Rejected Approaches and Open Questions may reveal a broader recurring pattern.
-
-`$wiki-synthesize` is higher-inference and strictly report-only.
-
-It never:
-
-* creates architectural authority;
-* mutates the wiki;
-* edits docs;
-* edits code;
-* writes `wiki/log.md`; or
-* creates a commit.
-
-A synthesis finding becomes durable knowledge only after human review and action through the normal owning workflow such as `$to-adr-doc` or `$wiki-sync`.
+Use `$wiki-synthesize` manually for higher-inference recurring-pattern analysis; it is report-only.
 
 ---
 
-## Migration of Architecture Facts Out of `AGENTS.md`
+## Migrating Architecture Facts Out of `AGENTS.md`
 
-The architectural facts still present under **Non-Negotiable Architecture** are transitional.
+The facts under **Non-Negotiable Architecture** are transitional.
 
-Migrate them incrementally rather than deleting them wholesale.
+For each one:
 
-For each architectural fact:
-
-1. determine whether an accepted ADR or `docs/current/` document already authoritatively supports it;
-2. if no authoritative source exists, create the appropriate decision/current-state documentation through `$to-adr-doc` or `$to-doc`;
-3. classify or reclassify existing documents through `$classify-doc` where necessary;
-4. allow the bootstrap or `$wiki-sync` process to derive the corresponding entity knowledge;
-5. verify the entity representation and source consistency;
-6. only then remove the duplicate architectural fact from `AGENTS.md`.
+1. verify an authoritative accepted ADR or `docs/current/` source exists;
+2. create the appropriate source through `$to-adr-doc` or `$to-doc` only when genuinely needed;
+3. use `$classify-doc` for existing documents where necessary;
+4. derive/verify corresponding wiki knowledge;
+5. remove the duplicate from `AGENTS.md` only after authoritative coverage is established.
 
 Do not create ADRs merely to empty this section.
 
-Use an ADR only when the `$to-adr-doc` decision criteria are actually met.
-
-Current-state facts that do not warrant an ADR may belong in `docs/current/`.
-
-True agent-behavior rules remain in `AGENTS.md`.
+True agent-behavior policy remains here.
 
 ---
 
@@ -517,7 +361,7 @@ See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The default triage labels are:
+Default labels:
 
 * `needs-triage`
 * `needs-info`

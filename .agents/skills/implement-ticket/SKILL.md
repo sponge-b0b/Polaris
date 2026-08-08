@@ -13,6 +13,8 @@ Implement the work described by a single ticket, verify it, commit it to the tic
 
 Before modifying any files, read the full ticket and locate its **Ticket branch** field.
 
+If the ticket has an **Architecture context** section, capture its affected entities and governing ADR/doc references. Treat these as routing context, not duplicated architectural authority; `$wiki-sync` must still evaluate the current sources.
+
 If the ticket has a `Root blocker` section or belongs to a `Spec Review` issue, also read the parent spec and parent Spec Review issue. Capture the root blocker ID, invariant, affected sibling surfaces/reference kinds, and acceptance-matrix cells the ticket is expected to prove.
 
 The ticket's `Ticket branch` is authoritative. All tickets belonging to the same spec share the same branch.
@@ -47,9 +49,11 @@ This check MUST occur before editing, formatting, generating, deleting, or other
 
 If the ticket includes substantive source-code changes and the Living Entity Wiki exists, invoke `$wiki-sync` before editing.
 
-Let `$wiki-sync` own entity routing, source consistency, Strict Invariant checks, Rejected Approaches, and any blocking `[source-conflict]`. Do not duplicate those rules here.
+Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` own entity routing, source consistency, Strict Invariant checks, Rejected Approaches, and any blocking `[source-conflict]`.
 
-If `$wiki-sync` surfaces a blocking conflict, halt before editing and report it. Do not resolve architectural authority unilaterally.
+If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
+
+If implementation exposes a new material architectural decision that the spec did not resolve, halt and return it upstream rather than deciding it locally.
 
 After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 
@@ -196,6 +200,7 @@ For GitHub-backed tickets, use the configured GitHub tooling only after all cond
 Report:
 
 * what was implemented;
+* architecture context used and any divergence found;
 * for Spec Review work:
 
   * root blocker ID;

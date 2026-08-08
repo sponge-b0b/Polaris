@@ -1,308 +1,851 @@
 ---
 name: wiki-sync
-description: Maintains the Living Entity Wiki (wiki/entities/) around three triggers — before any source code change (auditing compliance against stated invariants and previously rejected approaches, updating the entity page afterward if the change alters a structural boundary or invariant, or validates/rejects an approach, or surfaces an open question); around non-ADR docs/ content (checking whether entity pages citing an edited doc_class:current document are now stale, and separately checking whether a newly created or newly-promoted doc_class:current or doc_class:proposed document belongs on an entity page); and after an ADR is created or its status changes (checking whether the new or changed decision belongs on an entity page). Use before modifications to source code, after creating, editing, or reclassifying living docs/ content, and after ADR creation or status changes, triggered by any of these.
+description: Maintains the Living Entity Wiki around source-code changes, authoritative document changes, ADR lifecycle events, and entity-topology changes. Audits relevant architectural constraints before code changes, detects source conflicts before drift, synchronizes Strict Invariants and Planned content from their inline sources, records qualifying rejected approaches and open questions, promotes realized accepted decisions, and keeps the active entity registry consistent.
 compatibility: product=codex product=claude-code system=git network=none
 ---
 
 # Wiki Sync
 
-## When this runs
+`$wiki-sync` maintains the Living Entity Wiki in the context of a specific change.
 
-Before modifying source code — triggered by any change, with one
-mechanical exemption below. Not gated by "could this affect an
-invariant," since predicting that answer is the audit's job, not a
-precondition for running it — judging significance before loading the
-entity page means guessing the audit's conclusion instead of running
-it. Steps 1-4 stay cheap by design (a single lazy-loaded entity plus
-direct references, or a fast `index.md` miss and exit when nothing
-applies) specifically so this doesn't need a significance filter to
-be worth running broadly. Step 6, the write-back, has a separate,
-non-circular gate — see step 6 below — because by that point the
-audit has already produced the real answer, not a prediction of one.
+It is not a full-wiki audit. `$wiki-lint` performs independent whole-wiki health checking.
 
-This is a convention, not an enforced gate — nothing prevents a code
-change from happening without this skill running. That gap is
-expected, not solved here. `[code-drift]` in the `/wiki-lint` check
-exists specifically to catch it: an invariant that no longer matches
-code is frequently the downstream evidence of a missed `/wiki-sync`
-invocation, not just organic staleness. Treat `/wiki-lint` as the
-second line of defense for exactly this scenario, and lean on it more
-heavily than usual during stretches with a lot of ad hoc, skill-free
-edits.
+The Living Entity Wiki is derived:
 
-### Trivial-diff exemption
+```text
+authoritative docs + implementation evidence
+                    ↓
+             wiki/entities/
+```
 
-Skip steps 1-4 entirely — no audit, not even the cheap one — only
-when the diff is mechanically classifiable as one of:
+Never edit an authoritative `docs/` source merely to make it agree with an entity page.
 
-- Whitespace/formatting-only (e.g., an automated formatter pass).
-- Comment or docstring only, with no code change.
-- A pure rename/move where the old path is not cited as an anchor
-  path in any entity page (a quick path lookup against `wiki/index.md`
-  or entity frontmatter — not a full audit).
+When authoritative sources materially disagree, surface `[source-conflict]` before attempting ordinary drift repair.
 
-This is a syntactic check on the diff itself, not a judgment about
-downstream impact. If there's any doubt whether a change fits one of
-these categories, it doesn't — run the audit.
+---
 
-## Steps
+# When This Runs
 
-### 1. Map boundaries
+Invoke `$wiki-sync` for any of these triggers:
 
-Read `wiki/index.md` to identify which entity the change falls under.
-If no entity covers it, skip to "No matching entity" below.
+1. **Before and after a substantive source-code change.**
+2. **After a substantive edit, creation, or reclassification of a `docs/current/` or `docs/proposed/` document.**
+3. **After an ADR is created, a proposed ADR body is substantively edited, or an ADR lifecycle status changes through `$to-adr-doc`.**
+4. **When an entity boundary or topology changes.**
 
-### 2. Lazy-load the target entity
+These triggers apply whether the work occurs inside another skill such as `$implement-ticket` or as an ad hoc edit.
 
-Load only the identified entity page from `wiki/entities/`. Do not
-scan the full directory.
+This is a workflow convention, not a mechanically enforced repository gate. `$wiki-lint` is the independent backstop for missed synchronization.
 
-### 3. Load referenced entities
+---
 
-If the target entity's invariants or "Dependent Entities" section
-reference other entities relevant to this change, load those too —
-not just the target page. A change can violate an invariant, or repeat
-a rejected approach, stated on a *related* entity's page even when the
-target entity's own page looks fine. This is the specific gap the
-original single-page check missed.
+# Trigger 1 — Source-Code Change
 
-### 4. Compliance audit
+## Trivial-Diff Exemption
 
-Check the intended change against every invariant *and* every
-Rejected Approaches entry loaded in steps 2-3.
+Skip the pre-change entity audit only when the intended diff is mechanically classifiable as one of:
 
-- **No conflict with an invariant, and no match against a rejected
-  approach** → proceed to step 5.
-- **Conflict found with an invariant** → stop and surface it before
-  writing any code. Do not resolve it unilaterally — flag it and let
-  the invoking context (you, or the calling skill) decide whether the
-  invariant is outdated or the change needs to adapt. This mirrors
-  `/wiki-lint`'s rule: `/wiki-sync` flags, it does not silently
-  overwrite a prior claim.
-- **The intended approach matches or closely resembles a Rejected Approaches entry** → stop and surface it with the same severity as
-  an invariant conflict. Report the matched entry, its reasoning, and
-  its source. Do not silently retry a previously rejected approach —
-  the invoking context decides whether circumstances have genuinely
-  changed enough to revisit it. This is the check that makes Rejected
-  Approaches actually prevent repeated failure, rather than just
-  recording it after the fact.
-- **No entity found at all for this boundary** → see "No matching
-  entity" below; proceed with the code change, but note in the
-  eventual commit that no entity coverage existed to audit against.
+* whitespace or formatting only;
+* comment or docstring only, with no executable or contractual change; or
+* a pure file/symbol rename or move that:
 
-### 5. Modify source code
+  * changes no behavior or contract; and
+  * does not alter a Routing Anchor in `wiki/index.md`.
 
-Standard implementation work, per the invoking skill/task.
+If a pure rename or move changes a Routing Anchor, no invariant audit is required solely because of the rename, but update `wiki/index.md` after the move so routing remains correct.
 
-### 6. Update the entity page — conditionally
+If there is doubt whether the change is trivial, run the normal audit.
 
-Update if any of the following occurred, even if only one applies:
+---
 
-- The change altered a **structural boundary or invariant**.
-- An approach was **validated or rejected** during this change — even
-  if no invariant or boundary changed as a result. This is what feeds
-  Rejected Approaches: a tried-and-failed approach that leaves the
-  invariant landscape unchanged still needs to be recorded, or a
-  future session will retry it with no memory of the first attempt.
-- A concern surfaced that may warrant future change, without yet being
-  resolved into a decision — recorded as an Open Questions entry
-  rather than a structural update.
+## 1. Route the Change to an Entity
 
-A rename, a new function, an internal refactor with no behavioral,
-contractual, validated, rejected, or open-question outcome: no update.
+Read `wiki/index.md`.
 
-When updating:
-- Never write structural facts (file paths, module membership, call
-  chains) — those come from codebase-memory-mcp/codegraph at query
-  time, per `wiki/_template.md`. Only invariants, rationale,
-  `linked_docs`, Rejected Approaches, and Open Questions change here.
-- Any new or changed invariant must cite a source per the citation
-  rule in `wiki/_schema.md` (`accepted` or `current` docs only).
-- A new Rejected Approaches or Open Questions entry may cite either a
-  `docs/` source or `(source: session decision, undocumented)`, per
-  `wiki/_template.md` — these are exempt from the invariant citation
-  rule, since they aren't backing an active invariant.
-- If a session resolves an existing Open Questions entry — into a new
-  invariant, a Rejected Approaches entry, or a decision to leave
-  things as-is — remove or update that entry rather than leaving a
-  stale, already-resolved question sitting on the page.
-- If the change adds or changes a link to another entity, add the
-  reciprocal link on that entity's own page in the same pass — don't
-  leave it for the next `/wiki-lint` run to catch.
-- Bump `last_updated`.
-- Commit the entity-page change and append the matching `wiki/log.md`
-  line as one atomic step, sharing a label:
+Use its Routing Anchors as **non-exhaustive starting hints**, not ownership declarations.
 
-      commit: wiki(entity-update): <entity> — <what changed>
-      log.md: ## [YYYY-MM-DD] entity-update | <entity> — <what changed>
+### Clear match
 
-  Never write one without the other.
+If the touched code clearly falls under one entity's Routing Anchors, load that entity first.
 
-  When invoked from within another skill's workflow that performs its
-  own single commit for the overall change (e.g. `/implement-ticket`),
-  the entity-page diff and `wiki/log.md` line may instead be staged
-  and included in that skill's commit rather than committed here
-  directly. The pairing invariant is satisfied as long as both land
-  in the same commit together — it does not require the commit to be
-  `/wiki-sync`'s own.
+### Ambiguous, cross-boundary, or unmatched path
 
-### No matching entity
+If:
 
-If the boundary being touched has no entity page:
+* multiple entities plausibly apply;
+* the change crosses architectural boundaries;
+* no Routing Anchor matches; or
+* the touched path alone is insufficient to understand architectural ownership,
 
-1. Check it against the promotion test in `wiki/_schema.md` (2 of 3:
-   structural boundary, independent invariants, cross-entity fan-in;
-   or the ADR-only exception with `implementation: pending`).
-2. **Passes** → apply the "Entity naming and creation" rules in
-   `wiki/_schema.md`: check `wiki/index.md` for an existing entity
-   covering the same concept before assuming this is new, then assign
-   a kebab-case Entity ID and matching filename, and a category per
-   the same section's category-assignment rule — reuse an existing
-   category from `wiki/index.md` where the new entity clearly fits
-   one, and flag it explicitly if none does and a new top-level
-   category is being introduced. Create the page using
-   `wiki/_template.md`, add it to `wiki/index.md`, commit and log as
-   in step 6.
-3. **Doesn't pass** → this boundary belongs under an existing parent
-   entity's invariants, not its own page. Update the parent instead.
-4. **Unclear** → proceed with the code change without wiki coverage,
-   and say so explicitly rather than silently skipping the audit. Do
-   not guess at entity boundaries to force a fit.
+use current repository analysis rather than guessing.
 
-## Docs-change trigger
+Prefer the project's established discovery tooling, such as `$codegraph` or `$codebase-memory-mcp`, to determine the relevant architectural boundary and blast radius.
 
-`/wiki-sync` also runs around non-ADR content under `docs/` — edited,
-newly created, or reclassified. This branches by what actually
-happened, the same way the ADR-change trigger branches by the ADR's
-new `status`:
+If no active entity covers the boundary, follow **No Matching Entity** below.
 
-### Existing doc edited (staleness check)
+---
 
-An edit to an already-existing `doc_class: current` document. Docs
-are the authoritative source entity invariants are derived from, so
-there's no "conflict to block" the way a code change can violate a
-stated invariant; the doc's new content is simply correct by
-definition. What can go stale is the *wiki's copy* of a claim from
-that doc, so this check looks forward from the edit, not backward.
+## 2. Load Only Relevant Entity Knowledge
 
-1. After the edit is saved, check `linked_docs` across
-   `wiki/entities/` for any entity citing the edited doc's path — a
-   targeted grep, not a full-wiki scan.
-2. **No entity cites it** → nothing to do.
-3. **One or more entities cite it** → for each, compare the doc's new
-   content against the specific invariant(s) that cite it.
-   - **Invariant still holds** → no update needed.
-   - **Invariant is now stale** → this is a live catch of what would
-     otherwise surface later as `[doc-drift]` at the next
-     `/wiki-lint` run. Update the entity page following step 6's
-     rules above.
-   - **Unclear whether it's stale** → flag it for human review rather
-     than guessing.
+Load the target entity page.
 
-### New or promoted doc (invariant/Planned check)
+Do not scan every entity.
 
-A new file created under `docs/` (outside `docs/adr/`) with
-`doc_class: current` or `doc_class: proposed`, or an existing
-document whose `Doc-Class:` line changes to `current` (most commonly
-a promotion from `proposed`). Unlike the staleness check above, this
-looks forward: a brand-new or newly-promoted doc has no existing
-citation to check for drift, but may describe something that belongs
-on an entity page immediately, rather than waiting for an unrelated
-future code change to organically surface it.
+Then inspect the target entity's relevant:
 
-1. **New doc with `doc_class: current`, or a doc just promoted to
-   `current`** → check whether it establishes or changes an
-   invariant that belongs on an entity page, using the same logic as
-   step 6 and the "No matching entity" flow above. If a Planned entry
-   already exists on some entity citing this doc from when it was
-   `proposed`, replace it with the now-settled invariant — same rule
-   as the ADR-change trigger's `accepted` branch.
-2. **New doc with `doc_class: proposed`** → check whether it belongs
-   in some entity's Planned section, citing the doc.
-3. If it's unclear whether the doc belongs on any entity page, flag
-   it for human review rather than silently guessing — same as the
-   ADR-change trigger.
+* Strict Invariants;
+* Rejected Approaches;
+* Open Questions; and
+* Planned entries.
 
-`doc_class: research`, `process`, and `reference` documents are
-excluded from this entire trigger, both branches — per the citation
-rule in `wiki/_schema.md`, none of those classes may ever back an
-invariant or a Planned entry, so there's nothing for either check to
-do when one is created or edited.
+If one of those claims explicitly references another entity and that related entity's constraints materially affect the intended change, load that entity too.
 
-Both branches apply independently of whether the change happened
-inside a ticket workflow or as an ad hoc edit. Same caveat as every
-other trigger: this is a convention, not an enforced gate, and a
-missed invocation is still caught eventually by `/wiki-lint`'s
-`[doc-drift]` or `[unclassified-doc]` checks.
+Do not load related entities merely because a structural dependency exists.
 
-This does not apply to `docs/adr/` — ADRs have their own trigger
-below, since ADR lifecycle (`status`) is a distinct mechanism from
-`doc_class`.
+Cross-entity loading is driven by relevant architectural knowledge, not by a hand-maintained dependency graph.
 
-## ADR-change trigger
+---
 
-`/wiki-sync` also runs after `/domain-modeling` creates a new ADR or
-changes an existing ADR's `status` field. This trigger only applies if
-`wiki/entities/` exists in this repository — `/domain-modeling` may be
-used in repos without a Living Entity Wiki, per `/to-adr-doc`'s own
-carve-out, in which case there is nothing for this trigger to do.
+## 3. Check Source Consistency First
 
-Unlike the docs-change trigger, which only ever checks for staleness,
-this trigger branches on the ADR's new `status`:
+Before using a Strict Invariant as the basis for blocking or reshaping the change, inspect its inline `source:` citation.
 
-- **New status is `proposed`** → check whether this decision, if
-  adopted, would belong in some entity's Planned section (per
-  `wiki/_template.md`, sourced from `doc_class: proposed` content).
-  If so, add it there, citing the ADR.
-- **New status is `accepted`** → check whether this establishes or
-  changes an invariant that belongs on an entity page, using the same
-  logic as step 6 and the "No matching entity" flow above. If a
-  Planned entry already exists on some entity citing this ADR from
-  when it was `proposed`, replace it with the now-settled invariant
-  rather than leaving both a stale Planned entry and a new invariant
-  describing the same decision.
-- **New status is `rejected`, `deprecated`, or `superseded by
-  ADR-NNNN`** → check whether any entity currently cites this ADR in
-  an active invariant. If so, this is a live catch of what
-  `/wiki-lint`'s `[stale-citation]` check would otherwise surface
-  later. Flag it — do not resolve it unilaterally, per the same rule
-  as step 4's compliance audit; deciding what the invariant becomes
-  (removed, replaced, left as historical note) is a human call.
+For claims materially relevant to the intended change:
 
-### Steps
+1. resolve the cited authoritative source;
+2. confirm that the source still has a citation-eligible class/status;
+3. inspect applicable accepted ADRs, `docs/current/` claims, and implementation evidence for material disagreement.
 
-1. Confirm `wiki/entities/` exists. If not, this trigger does not
-   apply — stop here.
-2. Based on the ADR's new `status`, apply the corresponding check
-   above.
-3. If a wiki update is warranted, apply it following step 6's rules:
-   citation must be `accepted` or `current` only for an active
-   invariant (a newly `accepted` ADR now qualifies), preserve causal
-   reasoning, bump `last_updated`, and pair the commit with its
-   `wiki/log.md` line atomically — or stage both for inclusion in a
-   calling skill's single commit, same as step 6.
-4. If it's unclear whether the ADR belongs on any entity page, flag
-   it for human review rather than silently guessing. Do not force an
-   ADR onto an entity it doesn't clearly belong to just to close the
-   loop.
+Authority is claim-specific:
 
-## Out of scope
+* source code, configuration, tests, and executable architecture checks provide evidence of **implementation reality**;
+* accepted ADRs establish **active architectural decisions**;
+* `docs/current/` claims to describe **current architecture**;
+* entity pages are **derived** and never choose among conflicting authorities.
 
-- **Bootstrap** (initial creation of all entities from `docs/`) is a
-  separate, one-time operation — not something `/wiki-sync` performs
-  incrementally.
-- **Lint** (contradiction/drift/citation checks across the whole
-  wiki) is handled by the separate `/wiki-lint` skill, not run as
-  part of every `/wiki-sync` invocation. `/wiki-sync` maintains one
-  entity at a time, in the context of one change; `/wiki-lint` audits
-  the wiki as a whole.
-- **Cross-entity pattern synthesis** (recurring themes across Rejected
-  Approaches or Open Questions entries on different entities) is
-  handled by the separate `/wiki-synthesize` skill, not attempted
-  here. `/wiki-sync`'s step 3 only loads entities directly referenced
-  by the one being edited — it does not scan the full wiki for
-  patterns the way `/wiki-synthesize` does.
-- **`docs/` is never edited by this skill.** Direction of truth is
-  one-way, `docs/` → `wiki/entities/`. If a change reveals that a
-  `docs/` file is now wrong, that's a signal to raise to the human,
-  not something `/wiki-sync` corrects itself.
+### Source conflict
+
+If authoritative evidence materially disagrees, stop and surface:
+
+```text
+[source-conflict]
+```
+
+Report:
+
+* the conflicting sources;
+* what each currently claims;
+* the implementation evidence where relevant; and
+* why the disagreement affects the intended change.
+
+Do not:
+
+* pick a winner;
+* rewrite the entity to match one side;
+* modify an ADR or current document to manufacture consistency; or
+* continue treating the disputed entity claim as settled architectural truth.
+
+Resolve the authoritative-source conflict first.
+
+Only then update the derived wiki.
+
+---
+
+## 4. Audit Strict Invariants
+
+Check the intended change against every relevant Strict Invariant whose authoritative sources are not in conflict.
+
+### No conflict
+
+Proceed.
+
+### Proposed change violates an invariant
+
+Stop before writing code and surface:
+
+* the invariant;
+* its causal reasoning;
+* its source;
+* the concrete aspect of the proposed change that conflicts with it.
+
+Do not silently override or rewrite the invariant.
+
+The invoking task or owner must determine whether:
+
+* the implementation should change;
+* an authoritative architectural decision needs to change through its normal lifecycle; or
+* the apparent conflict concerns a different scope.
+
+---
+
+## 5. Audit Rejected Approaches
+
+Check the intended approach against relevant Rejected Approaches entries.
+
+A close semantic match matters even when implementation details or naming differ.
+
+### Ordinary active rejection
+
+If the intended approach matches a prior rejection whose reasoning still applies:
+
+* stop;
+* surface the rejected approach;
+* include its reason and provenance;
+* do not silently retry it.
+
+### Conditional rejection
+
+If the entry contains:
+
+```text
+Reconsider when: ...
+```
+
+check whether that condition now appears satisfied.
+
+If the condition is clearly unchanged, treat the rejection normally.
+
+If the condition appears satisfied, surface the approach as **eligible for reconsideration** rather than assuming the old rejection no longer applies.
+
+Do not silently erase or bypass the prior rejection.
+
+If it is unclear whether the condition has been satisfied, surface that uncertainty for owner judgment.
+
+---
+
+## 6. Modify Source Code
+
+Proceed with the implementation work only after the relevant pre-change audit is clear.
+
+The invoking task or skill owns ordinary implementation procedure.
+
+---
+
+## 7. Re-Evaluate Implementation Evidence
+
+After the source change, re-evaluate any affected Strict Invariants and relevant accepted-pending Planned decisions.
+
+The strength of the conclusion must match the strength of the evidence.
+
+### Mechanically observable invariant
+
+Where an invariant is directly testable through source structure, tests, configuration, executable architecture checks, `$codegraph`, `$codebase-memory-mcp`, or equivalent evidence:
+
+* positively verify it when the evidence supports that conclusion;
+* report concrete contradictory evidence when it does not.
+
+### Architectural or intent-level invariant
+
+Where an invariant cannot be positively proven mechanically:
+
+* inspect plausible implementation surfaces for concrete evidence of violation;
+* report a violation when concrete contradictory evidence exists;
+* do not claim compliance merely because no violation was found.
+
+The strongest valid clean conclusion is:
+
+```text
+no contrary implementation evidence found
+```
+
+not:
+
+```text
+verified
+```
+
+unless the invariant is actually mechanically observable.
+
+Whenever a stable subset of an architectural rule can be enforced through an executable architecture test or static rule, prefer that mechanical enforcement for the testable subset.
+
+---
+
+## 8. Promote Realized Accepted Decisions
+
+Inspect relevant Planned entries marked:
+
+```text
+accepted, implementation pending
+```
+
+If the current change realizes such a decision:
+
+1. verify realization using appropriate current-state evidence;
+2. re-check for `[source-conflict]`;
+3. remove the accepted-pending Planned entry; and
+4. create or update the resulting Strict Invariant with the accepted ADR citation.
+
+Do not change the ADR's `status`.
+
+ADR acceptance and implementation realization are separate lifecycles.
+
+If realization remains incomplete or ambiguous, leave the entry under Planned.
+
+---
+
+## 9. Record Durable Outcomes Conditionally
+
+Update the entity page only when the change produces durable entity knowledge.
+
+A wiki update is warranted when one or more of these occurred:
+
+* a Strict Invariant changed or was established;
+* an accepted implementation-pending decision was realized;
+* a qualifying Rejected Approach was established;
+* an Open Question surfaced;
+* an existing Open Question was resolved;
+* Boundary Rationale changed through an explicit topology decision; or
+* entity topology changed.
+
+Do **not** update the entity merely because:
+
+* a new function was added;
+* an internal refactor occurred;
+* code moved;
+* an implementation technique worked;
+* a dependency changed without architectural consequence; or
+* the entity's code was touched.
+
+A successful or "validated" approach is not an independent wiki-write trigger.
+
+If success produces no durable architectural outcome, the implementation itself is sufficient evidence.
+
+---
+
+## 10. Recording a Rejected Approach
+
+A durable Rejected Approaches entry may be created only when:
+
+* the owner explicitly rejected the approach;
+* the approach was actually attempted and failed for a concrete, non-obvious reason worth preserving; or
+* an authoritative document records the rejection.
+
+Allowed provenance includes:
+
+```text
+(source: docs/...)
+(source: owner-confirmed session decision, undocumented)
+(source: session experiment, undocumented)
+```
+
+An agent's unsupported judgment is never enough to create a durable Rejected Approaches entry.
+
+Where the reason depends on a condition that may later change, add:
+
+```text
+Reconsider when: ...
+```
+
+Do not add expiration dates merely because time may pass.
+
+---
+
+## 11. Recording or Resolving an Open Question
+
+An unresolved concern may be recorded as an Open Question when it represents a concrete signal worth preserving.
+
+Allowed provenance includes:
+
+```text
+(source: docs/...)
+(source: owner-raised session question, undocumented)
+(source: agent-observed during session, unresolved)
+```
+
+Agent-observed questions must remain clearly phrased as unresolved questions, not facts or decisions.
+
+When an Open Question is resolved:
+
+* convert the result into a Strict Invariant if an active constraint is established;
+* add a qualifying Rejected Approach when appropriate;
+* update Planned when future direction changes; or
+* remove the question if the resolution produces no durable entity knowledge.
+
+Do not leave resolved questions behind as if they remain open.
+
+---
+
+# No Matching Entity
+
+If no active entity covers the architectural boundary being changed, do not force-fit the code into an unrelated entity.
+
+## 1. Check for Existing Coverage
+
+Search `wiki/index.md` by scope as well as name.
+
+Different wording does not imply a new entity.
+
+If an existing entity already owns the concern, route to it.
+
+## 2. Apply the Promotion Test
+
+Use the Entity Boundaries rules in `wiki/_schema.md`.
+
+A newly surfaced sub-boundary normally requires at least 2 of:
+
+* meaningful structural boundary;
+* independent invariants;
+* cross-entity fan-in.
+
+Apply the ADR-only pending-implementation exception where appropriate.
+
+## 3. Passes
+
+If promotion is clearly warranted:
+
+* assign a stable kebab-case Entity ID;
+* reuse an existing Category when appropriate;
+* surface introduction of a new top-level Category for explicit approval;
+* create the page from `wiki/_template.md`;
+* add it to `wiki/index.md`;
+* set Implementation to `present` or `pending` as appropriate;
+* add 1–2 coarse Routing Anchors for a `present` implementation where useful; and
+* record Boundary Rationale with required provenance.
+
+Treat creation as an entity-topology mutation and follow the atomic logging rules below.
+
+## 4. Does Not Pass
+
+Do not create an entity.
+
+If durable architectural knowledge emerged, place it on the existing entity whose scope actually owns the constraint.
+
+If no durable entity knowledge changed, no wiki write is needed.
+
+## 5. Unclear
+
+Proceed without inventing a boundary solely to close the workflow.
+
+Surface that entity coverage is unresolved and requires owner judgment.
+
+Do not silently create architectural topology from ambiguous evidence.
+
+---
+
+# Trigger 2 — Non-ADR Document Change
+
+This trigger applies to substantive creation, editing, or reclassification involving:
+
+* `docs/current/`; or
+* `docs/proposed/`.
+
+Documents classified as `research`, `reference`, or `process` do not directly establish Strict Invariants or Planned entries.
+
+Their ordinary content edits therefore do not trigger entity synchronization unless reclassification changes their authority.
+
+Existing-document classification and reclassification are owned by `$classify-doc`.
+
+New-document creation is owned by `$to-doc`.
+
+---
+
+## 1. Determine the Document's Current Class
+
+Classification is derived from folder location according to `wiki/_schema.md`.
+
+Do not look for or create a `Doc-Class:` line or independent classification field.
+
+---
+
+## 2. Find Existing Derived Claims
+
+Search inline `source:` citations across `wiki/entities/` for the document's path.
+
+Do not use or recreate a `linked_docs` registry.
+
+The inline citation attached to the actual claim is the single source of truth.
+
+If citations exist, note the section containing each one:
+
+* Strict Invariants;
+* Planned;
+* Rejected Approaches;
+* Open Questions;
+* Boundary Rationale.
+
+---
+
+## 3. Re-Evaluate Existing Claims
+
+### `docs/current/`
+
+Re-evaluate any Strict Invariant sourced from the changed document.
+
+Before deciding that an entity is stale:
+
+1. check applicable accepted ADRs;
+2. inspect relevant implementation evidence;
+3. evaluate `[source-conflict]` first.
+
+If sources are consistent:
+
+* claim still supported → leave it unchanged;
+* claim wording or meaning changed → update the derived entity claim;
+* source no longer supports the claim → remove or revise the derived claim;
+* unclear → surface for human review.
+
+### `docs/proposed/`
+
+Re-evaluate any Planned entry sourced from the changed document.
+
+* still supported → no change;
+* proposed direction changed → update the Planned entry;
+* direction was removed → remove the Planned entry;
+* unclear → surface for human review.
+
+Do not let Planned content remain stale merely because the document stayed inside `docs/proposed/`.
+
+---
+
+## 4. Check for Newly Introduced Claims
+
+A substantive edit may introduce new architectural knowledge even if the document was already classified and previously cited nowhere.
+
+After re-evaluating existing citations, inspect the changed content for newly introduced material.
+
+### Current document
+
+If the edit establishes a new current architectural constraint:
+
+* determine the relevant entity;
+* check authoritative-source consistency;
+* inspect implementation evidence at the appropriate evidentiary strength;
+* add a Strict Invariant only when the claim is legitimately current and source-consistent.
+
+### Proposed document
+
+If the edit establishes a meaningful future direction:
+
+* determine the relevant entity;
+* add or update the corresponding Planned entry.
+
+Do not require a document to be newly created before newly added architectural content can enter the wiki.
+
+---
+
+## 5. Reclassification Transitions
+
+When `$classify-doc` moves an existing document between classes, invoke `$wiki-sync` after the atomic move/reference update.
+
+Evaluate the transition according to the new authority.
+
+Examples:
+
+### `research | reference | process → proposed`
+
+Evaluate newly eligible content for Planned.
+
+### `research | reference | process → current`
+
+Evaluate newly eligible content for Strict Invariants, subject to `[source-conflict]` and implementation evidence.
+
+### `proposed → current`
+
+Do not automatically convert Planned content into Strict Invariants.
+
+The document now claims to describe current reality, so:
+
+1. verify source consistency;
+2. inspect applicable current-state evidence;
+3. promote only claims that are legitimately current;
+4. surface `[source-conflict]` where authorities disagree.
+
+### `current → proposed`
+
+Claims sourced solely from that document may no longer remain active Strict Invariants.
+
+Re-evaluate them:
+
+* move appropriate future-state content to Planned;
+* retain an invariant only if another valid active source independently supports it;
+* otherwise remove the active derived claim.
+
+### `current | proposed → research | reference | process`
+
+The document can no longer serve its previous active wiki role.
+
+Re-evaluate all derived claims sourced from it and remove or replace those that no longer have valid authority.
+
+---
+
+# Trigger 3 — ADR Lifecycle or Proposed-ADR Edit
+
+ADR lifecycle rules are owned by `$to-adr-doc`.
+
+Invoke `$wiki-sync` after:
+
+* creating a new ADR;
+* substantively editing an ADR while it remains `proposed`; or
+* changing an ADR lifecycle status.
+
+---
+
+## Proposed ADR
+
+A proposed ADR may support Planned content.
+
+### New proposed ADR
+
+Determine whether the decision belongs under Planned on an existing entity.
+
+If the decision introduces a possible new entity boundary, apply the Entity Boundaries rules rather than silently creating one.
+
+### Proposed ADR body edit
+
+Search inline citations for Planned entries sourced from the ADR and re-evaluate them.
+
+Also inspect whether the edit introduces a newly meaningful Planned claim not previously represented.
+
+Do not assume a proposed ADR remains semantically unchanged merely because its `status` field did not change.
+
+---
+
+## `proposed → accepted`
+
+First evaluate `[source-conflict]` against applicable current documentation and implementation evidence.
+
+Then determine the nature of the accepted decision.
+
+### Immediately-effective constraint
+
+If acceptance itself establishes the active constraint, add or update the Strict Invariant immediately.
+
+Remove the corresponding proposed Planned entry if one exists.
+
+### Realization-required decision already realized
+
+If the decision requires implementation but current evidence shows it is already fully realized at acceptance time:
+
+* verify realization;
+* create/update the Strict Invariant;
+* remove the proposed Planned entry.
+
+### Realization-required decision not yet realized
+
+Keep or replace the Planned entry as:
+
+```text
+accepted, implementation pending
+```
+
+Do not create a Strict Invariant yet.
+
+---
+
+## `proposed → rejected`
+
+Remove any Planned entry sourced solely from the rejected proposal.
+
+If the rejection captures a non-obvious failure or direction worth protecting against future retries, add or update a Rejected Approaches entry citing the rejected ADR.
+
+Do not create a Rejected Approaches entry merely because every proposed ADR necessarily ended in rejection; preserve only durable repeat-prevention knowledge.
+
+---
+
+## `accepted → deprecated`
+
+The ADR is no longer active architectural authority.
+
+Search entity claims citing it.
+
+For each affected Strict Invariant:
+
+* retain it only if another valid active source independently supports the claim;
+* otherwise remove it from active Strict Invariants;
+* if applicable authoritative sources disagree, surface `[source-conflict]`.
+
+Do not preserve an active invariant solely because implementation still happens to reflect a deprecated decision.
+
+Current implementation reality does not by itself turn a retired architectural decision back into an active invariant.
+
+---
+
+## `accepted | deprecated → superseded by ADR-NNNN`
+
+Re-evaluate all entity claims citing the old ADR.
+
+Then process the successor ADR according to its own status and meaning.
+
+Do not leave the superseded ADR as active authority.
+
+If the successor establishes a replacement constraint, derive the new entity claim from the successor rather than rewriting the historical ADR.
+
+---
+
+# Trigger 4 — Entity Topology Change
+
+`$wiki-sync` owns living entity topology after bootstrap.
+
+Topology changes include:
+
+* creation or promotion;
+* rename;
+* split;
+* merge;
+* removal;
+* a material scope change; or
+* a change to Boundary Rationale.
+
+These are architectural changes, not ordinary file maintenance.
+
+---
+
+## Rename
+
+When an entity ID changes:
+
+1. rename `wiki/entities/<old-id>.md`;
+2. update its `wiki/index.md` entry;
+3. update explicit entity links using the old path or ID;
+4. update document prefixes only when the owning document workflow explicitly requires that rename; do not casually rename historical ADRs merely because an entity ID changed;
+5. keep the operation atomic.
+
+Do not leave both old and new entities active.
+
+---
+
+## Split
+
+When one entity becomes multiple meaningful boundaries:
+
+1. apply the Entity Boundaries rules to each resulting boundary;
+2. create the resulting active entities;
+3. redistribute existing knowledge by actual scope:
+
+   * Strict Invariants;
+   * Rejected Approaches;
+   * Open Questions;
+   * Planned entries;
+   * Boundary Rationale;
+4. do not duplicate claims across resulting entities unless the same cross-entity constraint genuinely applies to both;
+5. update `wiki/index.md`;
+6. remove the old entity if it no longer represents an active boundary.
+
+---
+
+## Merge
+
+When multiple entities become one boundary:
+
+1. choose or create the surviving Entity ID;
+2. combine only still-valid knowledge;
+3. deduplicate overlapping claims;
+4. resolve `[source-conflict]` rather than hiding contradictions during the merge;
+5. update Boundary Rationale;
+6. update `wiki/index.md`;
+7. remove obsolete entity pages.
+
+---
+
+## Removal
+
+When a boundary ceases to exist:
+
+* remove it from `wiki/index.md`;
+* remove its entity page;
+* update explicit entity links;
+* preserve history in ADRs, authoritative documents, Git, and the semantic wiki log.
+
+Do not create tombstone entity pages.
+
+`wiki/entities/` contains active entities only.
+
+---
+
+## Boundary Rationale Changes
+
+Boundary Rationale changes only as part of an explicit topology or boundary decision.
+
+Required provenance is defined by `wiki/_template.md`.
+
+Ordinary source-file movement, package cleanup, or refactoring is not sufficient reason to rewrite Boundary Rationale.
+
+---
+
+# Wiki Mutation Rules
+
+Whenever `$wiki-sync` makes a substantive wiki mutation:
+
+1. keep the affected entity pages and `wiki/index.md` mutually consistent;
+2. update inline citations rather than maintaining a separate document registry;
+3. preserve causal reasoning;
+4. avoid mechanically derivable structure;
+5. append one concise semantic entry to `wiki/log.md`; and
+6. land the wiki mutation and matching log entry atomically.
+
+Examples of substantive mutations:
+
+* entity created;
+* entity content materially updated;
+* Planned decision promoted to Strict Invariant;
+* qualifying Rejected Approach recorded;
+* Open Question added or resolved;
+* Implementation changed from `pending` to `present`;
+* Routing Anchor changed;
+* entity renamed, split, merged, or removed;
+* Boundary Rationale changed.
+
+Example:
+
+```text
+## [YYYY-MM-DD] entity-update | persistence — promoted ADR-0012 to implemented invariant
+```
+
+---
+
+## When Invoked Inside Another Committing Skill
+
+If `$wiki-sync` runs inside a workflow such as `$implement-ticket` that performs one commit for the overall change:
+
+* stage the wiki mutation and matching `wiki/log.md` entry with that change;
+* do not create a second standalone wiki commit.
+
+The requirement is atomicity of the semantic wiki mutation and its log entry, not ownership of the Git commit.
+
+---
+
+## No Wiki Mutation
+
+If `$wiki-sync` audits the change and determines that no durable wiki knowledge changed:
+
+* do not edit `wiki/log.md`;
+* do not create a wiki-only commit;
+* report that no entity update was required.
+
+The wiki log records state changes, not tool executions.
+
+---
+
+# Failure and Ambiguity Rules
+
+`$wiki-sync` must not manufacture certainty to complete its workflow.
+
+Surface rather than silently resolve:
+
+* `[source-conflict]`;
+* ambiguous entity ownership;
+* unclear entity promotion;
+* unclear new Category introduction;
+* uncertainty about whether an accepted ADR is immediately effective or realization-required;
+* uncertainty about implementation realization;
+* uncertainty about whether a `Reconsider when:` condition has been met;
+* unresolved material disagreement among relevant entity claims.
+
+Derived wiki content must never become the mechanism used to conceal ambiguity in its sources.
+
+---
+
+# Out of Scope
+
+`$wiki-sync` does not:
+
+* perform the initial repository-wide entity decomposition and bootstrap;
+* independently classify or move non-ADR documents — use `$classify-doc`;
+* create new non-ADR documents — use `$to-doc`;
+* own ADR lifecycle rules — use `$to-adr-doc`;
+* perform a full independent wiki-health audit — use `$wiki-lint`;
+* synthesize inferred cross-entity patterns — use `$wiki-synthesize`;
+* rewrite authoritative `docs/` sources merely to make the wiki consistent;
+* persist mechanically derivable dependency graphs, file inventories, or call chains.
+
+`$wiki-sync` maintains the derived wiki around a specific change. `$wiki-lint` independently checks the system as a whole.

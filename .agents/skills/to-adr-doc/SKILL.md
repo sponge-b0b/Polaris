@@ -1,135 +1,405 @@
 ---
 name: to-adr-doc
-description: Create or modify an Architectural Decision Record (ADR) in docs/adr/ — required frontmatter, sequential numbering, entity-prefixed naming when a Living Entity Wiki exists, and when creating an ADR is actually warranted. Use whenever a decision needs to be recorded as an ADR, or when another skill (e.g. /domain-modeling) needs to write one.
+description: Create and manage Architectural Decision Records (ADRs) in docs/adr/. Owns ADR format, required status metadata, numbering, naming, lifecycle transitions, content mutability, supersession, and Living Entity Wiki synchronization. Use whenever an ADR is created, a proposed ADR is edited, or an existing ADR changes lifecycle status.
 compatibility: product=codex product=claude-code network=none
 ---
 
 # To ADR Doc
 
-ADRs live in `docs/adr/` and use sequential numbering. Create the
-`docs/adr/` directory lazily — only when the first ADR is needed.
+This skill is the single source of truth for ADR creation and lifecycle management in this repository.
 
-## Template
+ADRs live in `docs/adr/` and use globally sequential numbering.
+
+Create `docs/adr/` lazily when the first ADR is needed.
+
+## ADR Format
+
+Use this minimal structure:
 
 ```md
 ---
-status: "{proposed | rejected | accepted | deprecated | superseded by ADR-NNNN}"
+status: proposed
 ---
 
-# {Short title of the decision}
+# [Short decision title]
 
-{1-3 sentences: what's the context, what did we decide, and why.}
+## Context
+
+[What problem, constraint, or architectural question requires a decision?]
+
+## Decision
+
+[What was decided?]
+
+## Rationale
+
+[Why was this option chosen over the meaningful alternatives?]
 ```
 
-`status` must appear as a YAML frontmatter field, delimited by `---`
-at the very top of the file, before the title — not as a plain text
-line in the body. This is a required deviation from base MADR (which
-treats status as optional metadata) — see "Project-specific
-requirement" below for why.
+Keep ADRs concise. Preserve enough causal reasoning that a future contributor can understand why the decision was made without reconstructing the original discussion.
 
-## Project-specific requirement: status is mandatory
+Optional sections may be added only when they provide durable value:
 
-Base MADR treats `status` as optional metadata, useful mainly when a
-decision gets revisited. In this repository, `status` is **required on
-every ADR, not optional**, because the Living Entity Wiki (`wiki/`)
-derives each ADR's `doc_class` directly from this field — see
-`wiki/_schema.md`. An ADR with no `status` field cannot be classified,
-which breaks citation and drift-checking for anything that would
-reference it.
+```md
+## Considered Options
 
-If this skill is used in a repository without a Living Entity Wiki,
-this requirement does not apply — treat `status` as optional, per base
-MADR, in that context.
+[Meaningful alternatives and why they were not chosen.]
+
+## Consequences
+
+[Non-obvious downstream costs, constraints, or trade-offs created by the decision.]
+```
+
+Do not add sections merely to fill out a template.
+
+---
+
+## Status Is Mandatory
+
+Every ADR in a repository with the Living Entity Wiki must have a `status` YAML frontmatter field at the very top of the file.
+
+Allowed values are:
+
+```text
+proposed
+accepted
+rejected
+deprecated
+superseded by ADR-NNNN
+```
+
+The wiki derives the ADR's `doc_class` from this field. No separate `doc_class` is stored.
+
+If this skill is used in a repository without a Living Entity Wiki, mandatory status is not required by this project-specific rule.
+
+---
+
+## ADR Lifecycle
+
+The allowed lifecycle is:
+
+```text
+proposed
+   ├──→ accepted
+   └──→ rejected
+
+accepted
+   ├──→ deprecated
+   └──→ superseded by ADR-NNNN
+
+deprecated
+   └──→ superseded by ADR-NNNN
+
+rejected
+   └── terminal
+
+superseded
+   └── terminal
+```
+
+Do not invent additional transitions.
+
+### `proposed`
+
+The decision is still being developed or evaluated.
+
+The ADR body may be edited while status remains `proposed`.
+
+Because proposed ADR content may feed an entity's `Planned` section, substantive edits to a proposed ADR must invoke the `$wiki-sync` ADR/docs-source reevaluation path even when the `status` field itself does not change.
+
+### `accepted`
+
+The architectural decision has been adopted.
+
+Acceptance means:
+
+> this is the active architectural decision.
+
+It does **not** necessarily mean:
+
+> the repository has already finished implementing the decision.
+
+Once accepted, the ADR's decision content becomes historical and immutable.
+
+Only lifecycle status may subsequently change.
+
+### `rejected`
+
+The proposed decision was deliberately not adopted.
+
+The ADR body is historical and immutable.
+
+`rejected` is terminal.
+
+If changed circumstances later make the rejected direction worth reconsidering, create a new ADR that references the earlier rejection and explains what changed. Do not rewrite or reactivate the rejected ADR.
+
+### `deprecated`
+
+The accepted decision is no longer recommended or active, but no formal replacement decision necessarily exists yet.
+
+The ADR body remains historical and immutable.
+
+A deprecated ADR may later become:
+
+```text
+superseded by ADR-NNNN
+```
+
+when a formal successor exists.
+
+### `superseded by ADR-NNNN`
+
+A later ADR has replaced this decision.
+
+The successor ADR must already exist.
+
+The old ADR remains unchanged except for its lifecycle status.
+
+`superseded` is terminal.
+
+---
+
+## Content Immutability
+
+ADR content is editable only while status is `proposed`.
+
+Once an ADR leaves `proposed`, its decision content is historical and must not be rewritten to reflect later understanding.
+
+Do not modify an accepted, rejected, deprecated, or superseded ADR's Context, Decision, Rationale, Considered Options, or Consequences.
+
+When a historical decision needs to be changed:
+
+1. create a new ADR describing the new decision;
+2. reference the prior ADR where relevant; and
+3. transition the prior accepted or deprecated ADR to `superseded by ADR-NNNN` when the new ADR formally replaces it.
+
+Preserve history rather than rewriting it.
+
+---
+
+## Acceptance vs. Implementation
+
+An accepted ADR can affect the entity wiki in one of two ways.
+
+### Immediately-effective constraint
+
+Some decisions become active constraints simply because they have been adopted.
+
+Examples include:
+
+* product-scope restrictions;
+* governance constraints;
+* ownership boundaries;
+* prohibited architectural directions;
+* compliance constraints.
+
+When acceptance itself makes the constraint effective, `$wiki-sync` may represent it immediately as a `Strict Invariant`.
+
+### Realization-required decision
+
+Some accepted decisions describe architecture or behavior that still has to be implemented.
+
+Examples include:
+
+* migrating canonical persistence;
+* replacing an orchestration boundary;
+* introducing a new projection architecture;
+* moving responsibility between components.
+
+These remain in the relevant entity's `Planned` section as:
+
+```text
+accepted, implementation pending
+```
+
+until current-state evidence confirms that the decision has actually been realized.
+
+Once realization is verified, `$wiki-sync` removes the Planned entry and represents the resulting active constraint under `Strict Invariants`.
+
+Do not change the ADR status when implementation finishes. The ADR remains `accepted`; implementation realization is wiki/current-state lifecycle, not ADR lifecycle.
+
+If it is unclear whether acceptance itself establishes the constraint or implementation is still required, surface the question rather than guessing.
+
+---
 
 ## Numbering
 
-Before creating a new ADR, list `docs/adr/` to find the highest
-existing numeric prefix, and increment by one. Numbering is global
-across `docs/adr/` regardless of which entity an ADR concerns — it
-governs chronological order and "next number" lookups, not
-organization by topic; that's the entity prefix's job (below).
+Before creating a new ADR, inspect `docs/adr/` for the highest existing numeric prefix and increment it by one.
 
-## Entity-prefixed naming
+Numbering is global across `docs/adr/`.
 
-If `wiki/entities/` exists in this repository, the filename is
-`000X-<primary-entity-id>-<slug>.md`, per "Document naming
-convention" in `wiki/_schema.md` — the sequential prefix from
-Numbering above, followed by the entity this ADR primarily concerns.
+Example:
 
-Determine `<primary-entity-id>` by checking `wiki/index.md` for the
-entity the decision most concerns. If the ADR genuinely spans
-multiple entities equally, or concerns a cross-cutting decision no
-single entity owns, use `platform-` in place of an entity ID instead
-— per "Cross-cutting documents" in `wiki/_schema.md`. Reach for
-`platform-` only when there's genuinely no primary entity, not as a
-shortcut to avoid picking one.
+```text
+0007-...
+0008-...
+0009-...
+```
 
-If `wiki/entities/` does not exist, this does not apply — use
-`000X-<slug>.md`, the base convention, with no entity prefix.
+The number records ADR sequence. It does not indicate entity ownership.
 
-## Living Entity Wiki sync
+---
 
-If `wiki/entities/` exists in this repository, invoke the
-`/wiki-sync` skill's ADR-change trigger immediately after:
+## Entity-Prefixed Naming
 
-- Creating a new ADR, or
-- Changing an existing ADR's `status` field.
+If `wiki/index.md` exists and contains the active entity registry, determine the ADR's primary architectural subject from that registry.
 
-This lets the wiki pick up a new or changed decision — whether it
-belongs on an entity page as an invariant, a Planned entry, or a
-signal that an existing citation is now stale — without waiting for
-an unrelated code or docs change to surface it later. See
-`/wiki-sync`'s "ADR-change trigger" section for what it checks and
-how it branches on the new `status` value.
+For an ADR primarily concerning one entity:
 
-If `wiki/entities/` does not exist, this does not apply — proceed
-without invoking `/wiki-sync`.
+```text
+000X-<primary-entity-id>-<slug>.md
+```
 
-## Optional sections
+Example:
 
-Only include these when they add genuine value. Most ADRs won't need
-them.
+```text
+0012-persistence-postgres-source-of-record.md
+```
 
-- **Considered Options** — only when the rejected alternatives are
-  worth remembering.
-- **Consequences** — only when non-obvious downstream effects need to
-  be called out.
+For a genuinely cross-cutting decision with no meaningful primary entity:
 
-## When to offer an ADR
+```text
+000X-platform-<slug>.md
+```
 
-All three of these must be true:
+Use `platform-` only when no single active entity meaningfully owns the decision.
 
-1. **Hard to reverse** — the cost of changing your mind later is
-   meaningful.
-2. **Surprising without context** — a future reader will look at the
-   code and wonder "why on earth did they do it this way?"
-3. **The result of a real trade-off** — there were genuine
-   alternatives and you picked one for specific reasons.
+Do not use it merely to avoid choosing a primary entity.
 
-If a decision is easy to reverse, skip it — you'll just reverse it. If
-it's not surprising, nobody will wonder why. If there was no real
-alternative, there's nothing to record beyond "we did the obvious
-thing."
+If the Living Entity Wiki has not yet been bootstrapped, use:
 
-### What qualifies
+```text
+000X-<slug>.md
+```
 
-- **Architectural shape.** "We're using a monorepo." "The write model
-  is event-sourced, the read model is projected into Postgres."
-- **Integration patterns between contexts.** "Ordering and Billing
-  communicate via domain events, not synchronous HTTP."
-- **Technology choices that carry lock-in.** Database, message bus,
-  auth provider, deployment target. Not every library — just the ones
-  that would take a quarter to swap out.
-- **Boundary and scope decisions.** "Customer data is owned by the
-  Customer context; other contexts reference it by ID only." The
-  explicit no-s are as valuable as the yes-s.
-- **Deliberate deviations from the obvious path.** "We're using manual
-  SQL instead of an ORM because X." Anything where a reasonable reader
-  would assume the opposite. These stop the next engineer from
-  "fixing" something that was deliberate.
-- **Constraints not visible in the code.** "We can't use AWS because
-  of compliance requirements." "Response times must be under 200ms
-  because of the partner API contract."
-- **Rejected alternatives when the rejection is non-obvious.** If you
-  considered GraphQL and picked REST for subtle reasons, record it —
-  otherwise someone will suggest GraphQL again in six months.
+Entity prefixes may be introduced later through the approved document classification/renaming process.
+
+---
+
+## Living Entity Wiki Synchronization
+
+If `wiki/entities/` exists, invoke `$wiki-sync` after any ADR event that may change derived entity knowledge.
+
+### New ADR
+
+After creating an ADR, invoke `$wiki-sync`.
+
+Behavior depends on its status:
+
+* `proposed` → evaluate whether the decision belongs under `Planned`;
+* `accepted` → determine whether it is immediately effective or realization-required;
+* `rejected`, `deprecated`, or `superseded` → verify that no active derived wiki claim incorrectly treats it as current authority.
+
+### Proposed ADR body edit
+
+After substantively editing an ADR whose status remains `proposed`, invoke `$wiki-sync`.
+
+Re-evaluate any `Planned` entry sourced from that ADR.
+
+The fact that its status did not change does not exempt it from synchronization; its meaning may have changed.
+
+### Status change
+
+After changing an ADR's lifecycle status, invoke `$wiki-sync`.
+
+Examples:
+
+```text
+proposed → accepted
+proposed → rejected
+accepted → deprecated
+accepted → superseded by ADR-NNNN
+deprecated → superseded by ADR-NNNN
+```
+
+`$wiki-sync` owns the resulting entity-wiki transition.
+
+### Source conflicts
+
+If the ADR conflicts materially with verified implementation evidence or applicable `docs/current/` authority, do not silently alter the ADR or derived wiki to force agreement.
+
+Surface `[source-conflict]` according to `wiki/_schema.md`.
+
+The entity wiki never chooses between conflicting authorities by itself.
+
+---
+
+## When to Create an ADR
+
+Create or offer an ADR only when all three conditions are true:
+
+1. **Hard to reverse**
+   Changing the decision later would carry meaningful cost or migration effort.
+
+2. **Surprising without context**
+   A future contributor could reasonably question why the architecture was designed this way.
+
+3. **Result of a real trade-off**
+   Meaningful alternatives existed and one was selected for specific reasons.
+
+If a decision is easy to reverse, obvious from context, or has no meaningful alternative, an ADR is usually unnecessary.
+
+### Typical ADR subjects
+
+Good ADR candidates include:
+
+* architectural shape;
+* integration patterns between contexts;
+* technology choices with meaningful lock-in;
+* ownership and boundary decisions;
+* deliberate deviations from the obvious approach;
+* constraints not visible in source code;
+* consequential governance or product-scope boundaries;
+* non-obvious rejected alternatives.
+
+Do not create ADRs for routine implementation choices or ordinary library usage that can be changed cheaply.
+
+---
+
+## Reconsidering Earlier Decisions
+
+Do not modify historical ADR content merely because circumstances changed.
+
+### Previously rejected direction becomes viable
+
+Create a new ADR that:
+
+* references the rejected ADR;
+* explains what changed;
+* evaluates the decision under the new conditions.
+
+The old rejected ADR remains rejected.
+
+### Accepted decision is replaced
+
+Create the successor ADR first.
+
+Once the successor formally replaces the prior decision, update the old ADR's status to:
+
+```text
+superseded by ADR-NNNN
+```
+
+### Accepted decision is retired without replacement
+
+Change its status to:
+
+```text
+deprecated
+```
+
+A later successor may then transition it from `deprecated` to `superseded by ADR-NNNN`.
+
+---
+
+## Out of Scope
+
+This skill does not:
+
+* decide entity topology;
+* update entity pages directly;
+* determine whether implementation has realized an accepted decision;
+* resolve `[source-conflict]`;
+* classify or move non-ADR documents.
+
+Those responsibilities belong respectively to `wiki/_schema.md`, `$wiki-sync`, and `$classify-doc`.

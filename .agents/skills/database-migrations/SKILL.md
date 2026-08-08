@@ -7,7 +7,7 @@ metadata:
   version: 1.2.0
 ---
 
-# Database Migrations Skill
+# Database Migrations
 
 ## Objective
 Manage, generate, and validate database schema migrations seamlessly while ensuring data integrity, absolute backward reversibility, and alignment with the repository's lifecycle release version.
@@ -16,15 +16,24 @@ Manage, generate, and validate database schema migrations seamlessly while ensur
 Before writing or executing any database schema modification:
 1. Identify the authoritative SQLAlchemy models being altered.
 2. Confirm that changes are driven purely via `alembic` migration scripts.
-3. **Constraint:** Projection rebuilds (e.g., Qdrant, Neo4j) are strictly forbidden from deleting canonical PostgreSQL source records.
+3. If `wiki/entities/` exists, invoke `/wiki-sync`'s pre-edit audit,
+   scoped to the SQLAlchemy models and tables being altered — do not
+   assume which entity this maps to; let `/wiki-sync` step 1 resolve
+   it against `wiki/index.md`. This check is what enforces cross-store
+   constraints — for example, whether a projection store may delete
+   canonical source records — rather than restating them here as
+   fixed prose that could silently drift from the entity page's
+   actual, current invariant. If `wiki/entities/` does not exist,
+   proceed without this check.
 
 ## Execution Workflow
 
 ### Step 1: Check Project Release Version & Select Strategy
 
 Check the current project release version before modifying or generating
-migration files. The definitive source is `pyproject.toml` under
-`[project].version`; active Git release tags are secondary context.
+migration files. `pyproject.toml` under `[project].version` is authoritative;
+if an active Git release tag ever disagrees with it, `pyproject.toml` wins —
+active Git release tags are secondary, corroborating context only.
 
 Apply this lifecycle policy:
 
@@ -151,6 +160,17 @@ Execute a full round-trip validation matrix for migration changes:
 8. Run targeted migration-contract and PostgreSQL integration tests with a real
    env-derived database URL; do not count a skipped DB test as passing database
    verification.
+
+### Step 7: Entity Wiki Sync
+
+If `wiki/entities/` exists and this migration altered a structural
+boundary or invariant — a new cross-store constraint, a changed
+contract, a boundary moving — apply `/wiki-sync` step 6 to update
+whichever entity page the Initial Pre-flight Check's `/wiki-sync`
+audit (item 3) identified as covering the altered models or tables.
+If invoked from within `/implement-ticket`, stage this alongside that
+skill's own entity wiki guard rather than committing separately, per
+`/wiki-sync`'s guidance for calling skills.
 
 ## Examples
 

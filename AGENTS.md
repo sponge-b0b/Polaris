@@ -6,11 +6,24 @@ These are the operating rules for coding agents working on Polaris.
 
 At the start of a session:
 
-1. Read `CONTEXT.md` for the current platform map and descriptive architectural status.
-2. Verify implementation claims directly against current source files and unit tests; documentation maps may lag the active repository state.
+1. `CONTEXT.md` holds the project's canonical vocabulary. Load it on
+   demand, not automatically at the start of every session — this
+   mirrors how `wiki/entities/` is lazily loaded rather than scanned
+   in full. Load it when: a domain term in the current task is
+   ambiguous, contested, or being introduced; writing or updating a
+   `wiki/entities/` page, per the canonical-terms rule under
+   Formatting; or when explicitly running `/domain-modeling`. A task
+   that never touches domain vocabulary has no reason to load it.
+2. Verify implementation claims directly against current source files
+   and unit tests. Entity pages in `wiki/entities/`, if present,
+   describe architecture and rationale but can lag real code — see
+   `/wiki-lint`'s `[code-drift]` check rather than trusting an entity
+   page's claim at face value.
 3. Merge these prescriptive rules with any narrower user instructions provided for the active task.
 
-`AGENTS.md` is prescriptive. `CONTEXT.md` is descriptive. Avoid duplicating detailed architecture between them.
+`AGENTS.md` is prescriptive. `CONTEXT.md` is descriptive. Avoid duplicating content between them.
+
+---
 
 ## Non-Negotiable Architecture
 
@@ -108,6 +121,8 @@ Application service
 - **Analytical Services Boundary:** Analytical services must return typed results. They are strictly prohibited from persisting workflow-derived results unless database persistence is the explicit use case.
 - **Architectural Correctness:** Never infer architectural correctness from imports, passing tests, or high code-health scores alone.
 
+---
+
 ## Data Contracts
 
 ### Typed internals
@@ -142,6 +157,8 @@ Never use `round()` in application, intelligence, analysis, regime, calibration,
 - Workflow definitions expose `workflow_name` and `workflow_description` as `@property` methods, not class attributes.
 - Use async provider/client calls consistently; do not add sync/async compatibility branches without a real boundary requirement.
 
+---
+
 ## Observability
 
 Every meaningful operational boundary must be observable once, at its canonical owner.
@@ -162,9 +179,13 @@ Rules:
 - Do not emit duplicate lifecycle events from multiple layers.
 - Reuse established emitter and span conventions; do not invent parallel telemetry systems.
 
+---
+
 ## Secrets
 
 Never place credentials, passwords, tokens, or full authenticated connection strings in source, tests, plans, or documentation.
+
+---
 
 ## Authorized Docker Operations
 
@@ -179,6 +200,8 @@ docker compose down
 
 Current local services may include PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana et-all.
 
+---
+
 ## Dependencies and shell
 
 Use:
@@ -190,6 +213,8 @@ Use:
 
 Standard read-only discovery and diagnostic shell commands are allowed.
 
+---
+
 ## Repository Analysis Tools
 
 Before editing any files or changing code patterns, you must leverage the project's native discovery tool belt to map context, enforce safety guards, and isolate change blast radiuses.
@@ -198,59 +223,217 @@ Before editing any files or changing code patterns, you must leverage the projec
 
 This project maintains a codebase status registry and documentation layout inside the `.repowise/` directory tracking synchronization state, file health, and system hotspots.
 
-For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `.agents/skills/repowise` skill or instructions before tracing raw files manually.
+For behavioral location, mapping source contexts, code health overview, or file risk auditing, use the installed `/repowise` skill or instructions before tracing raw files manually.
 
 ### graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+This project has a knowledge graph at `graphify-out/` with god nodes, community structure, and cross-file relationships.
 
-For structural dependency lookups or codebase architecture questions, use the installed `.agents/skills/graphify` skill or instructions before tracing raw files manually.
+For structural dependency lookups or codebase architecture questions, use the installed `/graphify` skill or instructions before tracing raw files manually.
 
 ### codegraph
 
 This project leverages an active edge-synthesizer engine to bridge dynamic runtime call flows, framework decorators, and decoupled execution targets.
 
-For tracing implicit function paths, event loops, or dynamic string-keyed dispatches in Python, use the installed `.agents/skills/codegraph` skill before tracing raw files manually.
+For tracing implicit function paths, event loops, or dynamic string-keyed dispatches in Python, use the installed `/codegraph` skill before tracing raw files manually.
 
 ### codebase-memory-mcp
 
 This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase. ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
 
-For search, trace, architecture, code discovery, impact analysis, targeted index-coverage checks, Cypher queries, dead code detection, cross-service HTTP linking, or ADR management, use the installed `.agents/skills/codebase-memory-mcp` skill before tracing raw files manually.
+For search, trace, architecture, code discovery, impact analysis, targeted index-coverage checks, Cypher queries, dead code detection, cross-service HTTP linking, or ADR management, use the installed `/codebase-memory-mcp` skill before tracing raw files manually.
+
+---
 
 ## Development Strategy & Versioning Policies
 
-- **Database Migrations Pre-1.0.0**: Until the project reaches production version `1.0.0`, all database migrations MUST be continuously squashed into a single clean baseline migration file per feature branch.
-- Do NOT generate sequential incremental migration files for minor local schema changes.
-- Always check the current project version before creating a migration path.
+Project version resolution and database migration lifecycle policy —
+pre-1.0 squashing, 1.0 release squashing, and post-1.0 immutability —
+are defined in full in the `/database-migrations` skill,
+the single source of truth. Read it before creating or modifying any
+migration file. Do not duplicate its rules here.
 
-### Version Awareness
-- The definitive project version is tracked inside the `pyproject.toml` file under the `[project]` version key.
-- Alternatively, check active Git release tags.
-- If the resolved version is less than `1.0.0`, proceed with the database migration squashing rules outlined above.
+---
 
 ## Architectural Decision Records (ADRs) Rules
 
-When creating or modifying architectural records inside `docs/adr/`, you MUST adhere to the strict structural format required by the codebase-memory-mcp indexer.
+ADR format, the `status` field, numbering, and when an ADR is
+warranted are all defined in `/to-adr-doc` — the single source of
+truth for ADR creation. Read it before creating or modifying any file
+in `docs/adr/`. Do not duplicate its rules here.
 
-### Naming Convention
-- Files MUST use a 4-digit zero-padded numeric prefix followed by a kebab-case slug.
-- Example: `0005-implement-redis-caching.md`
-- To determine the next number, list the directory first and increment the highest existing prefix by 1.
+---
 
-### Markdown Structure & Frontmatter
-Every ADR file must include a explicit H1 title and a structural "Status" line matching MADR specifications in the top 5 lines of the document:
+## Non-ADR Documents in docs/ Rules
 
-# [Number]. [Title of Decision]
+Folder placement, classification, and the entity-prefixed naming
+convention for any file created inside `docs/` outside of `docs/adr/`
+— which follows `/to-adr-doc` instead — are defined in `/to-doc`, the
+single source of truth for non-ADR document creation. Read it before
+creating any file under `docs/current/`, `docs/proposed/`,
+`docs/reference/`, `docs/process/`, or `docs/research/`. Do not
+duplicate its rules here.
 
-Status: [accepted | proposed | superseded]
-Date: YYYY-MM-DD
+---
 
-## Context and Problem Statement
-[Describe the architectural context and problem here]
+## Living Entity Wiki
 
-## Decision Outcome
-Chosen option: "[Selected Option Name]", because [core justification].
+The project maintains a machine-optimized architecture wiki at
+`wiki/`. See `wiki/_schema.md` for entity boundaries and document
+classification rules, and `wiki/_template.md` for the entity page
+format.
+
+### Purpose
+
+`wiki/entities/` is not a second copy of the codebase index. It exists
+to hold the one category of knowledge that codebase-memory-mcp,
+codegraph, and any other structural tool cannot produce, no matter how
+good they get: things that are true about this project but are not
+*derivable by parsing the code*.
+
+Those tools answer "what does the code look like right now" — call
+chains, module membership, function signatures — by reading the code
+directly. That answer is always available on demand and never goes
+stale in a way that matters, because it's regenerated from source
+every time. Writing that same information into a markdown page would
+only add a second, worse copy that silently drifts the moment
+something is renamed. Entity pages must never attempt this — see
+"What entity pages do *not* contain" below.
+
+What those tools structurally cannot answer, because it was never in
+the code to begin with:
+
+- **Why a boundary was drawn where it was** — not what the boundary
+  is, which codegraph can show, but the reasoning that made it the
+  right boundary and not a different one.
+- **What was tried and rejected**, and why — the failed approaches
+  that will otherwise get silently retried by a future session that
+  has no memory of the last one.
+- **What the product actually needs to do next**, and what it must
+  never do — for this project specifically, that includes constraints
+  like "recommendation-oriented, not autonomous trading": nothing in
+  the source code of a well-implemented recommendation engine and a
+  poorly-scoped autonomous trading system looks structurally
+  different at the function-signature level. That distinction lives
+  entirely in intent, and intent is exactly what a parser cannot
+  recover. An agent implementing a new feature needs this *before*
+  deciding how to build it, not as a retrospective check after.
+- **What an earlier session already decided, and why** — so that
+  decision doesn't get silently re-litigated or reversed by a later
+  session working from the code alone, with no visibility into the
+  reasoning that produced it.
+
+This is judgment and synthesis, not structure. It is also,
+concretely, the difference between an agent that writes code
+consistent with this project's architecture and constraints, and one
+that writes code that merely compiles. Consulting the entity wiki
+before making a structural change is not a formality — treat a
+missed or skipped `/wiki-sync` check with the same seriousness as
+shipping code that breaks an existing invariant, because in practice
+that is usually what it produces, just discovered later and by
+someone else.
+
+### Layers
+
+- `docs/` — authored source layer, human (and human-directed agent)
+  maintained.
+    - `docs/adr/` — write-once by convention. Content is immutable
+      once an ADR's own `status` field is `accepted`; the `status`
+      field itself is the one recognized transition (proposed →
+      accepted, rejected, deprecated, or superseded by a later ADR),
+      changed directly by ADR authors as part of normal ADR lifecycle
+      — never by `/wiki-sync`. See `/to-adr-doc` for the full field
+      format. The wiki's `doc_class` for these mirrors that `status`
+      directly: proposed → proposed, accepted → accepted, rejected →
+      rejected, deprecated → deprecated, superseded by ADR-NNNN →
+      superseded.
+    - Everything else in `docs/` — living documents (`doc_class:
+      current`, `proposed`, `process`, `research`, or `reference`),
+      edited as the project evolves. Editing itself is ordinary dev
+      work, with no pre-edit gate — but editing a `doc_class: current`
+      document also triggers `/wiki-sync`'s post-edit staleness check,
+      since that class is the only one (besides accepted ADRs)
+      permitted to back an entity invariant. Edits to `proposed`,
+      `process`, `research`, or `reference` docs remain fully
+      independent of the `/wiki-sync` workflow, since none of those
+      classes can ever be cited by an invariant.
+- `wiki/entities/` — derived layer, owned exclusively by the agent.
+  Contains only real entity pages — no template, no schema, no
+  exceptions list. Always downstream of `docs/`: the agent may update
+  an entity page to reflect a docs/ change, but never edits docs/ to
+  match what an entity page currently says. Direction of truth is
+  one-way.
+- `wiki/index.md` — high-density catalog: one line per entity, link,
+  one-sentence summary, category. Also links `reference` and
+  `research` docs directly, since neither decomposes into a single
+  entity.
+- `wiki/log.md` — chronological record of wiki activity: entity
+  creations/updates and lint runs, in one append-only file. Written as
+  part of the same operation as its corresponding commit, using a
+  matching label, so the two can't silently drift apart.
+- `wiki/_schema.md` — document classification rules (`doc_class`
+  values and how they're assigned) and the entity promotion test.
+- `wiki/_template.md` — the mandatory entity page structure.
+
+### When to consult or update the wiki
+
+Before modifying source code, after editing a `doc_class: current`
+document under `docs/`, and after an ADR is created or its `status`
+changes, follow the `/wiki-sync` skill. It governs three triggers: a
+pre-change audit for source code (reading the relevant entity page
+before changes, checking compliance against stated invariants and
+Rejected Approaches, updating the entity page afterward if the change
+alters a structural boundary or invariant), a post-edit staleness
+check for living `docs/` content (checking whether any entity page's
+invariant, now potentially outdated, cites the just-edited doc), and
+an ADR-change check (checking whether a new or changed decision
+belongs on an entity page). None run on every edit — see `/wiki-sync`
+for the exact conditions. Do not inline any of the three procedures
+here; `/wiki-sync` is the single source of truth for all of them, and
+other skills (e.g. `/implement-ticket`, `/domain-modeling`) invoke it
+explicitly rather than assuming it happens implicitly.
+
+### Formatting
+
+Entity pages are written for AI ingestion, not human reading: strip
+narrative scaffolding, use tables/bullets/exact identifiers, use
+absolute confidence only in things that are actually structural facts.
+Never strip the causal justification behind an invariant — "why" is
+the content that makes an invariant worth respecting instead of
+"fixing" later. Where `CONTEXT.md` exists, use its canonical domain
+terms rather than ad hoc names for the same concept — no dedicated
+sync mechanism enforces this going forward, so a stale term simply
+gets corrected the next time `/wiki-sync` touches that entity for an
+unrelated reason.
+
+### What entity pages do *not* contain
+
+Full file-path enumeration, module contents, or call chains — that's
+what codebase-memory-mcp / codegraph already give you live, and it
+never drifts because it's derived, not authored. Entity pages hold
+what those tools structurally cannot: invariants, rationale, and
+cross-component contracts. An entity page with more than 1-2 anchor
+paths is a sign it's duplicating the code graph rather than
+complementing it.
+
+### Wiki health checks
+
+Periodically, or on-demand, run the `/wiki-lint` skill to audit the
+wiki as a whole — contradictions between entities, drift against code
+or docs, stale or invalid citations, and structural hygiene. See
+`/wiki-lint` for the full list of checks, severity categories, and the
+`wiki/log.md` entry format. Do not inline that procedure here;
+`/wiki-lint` is the single source of truth for it.
+
+Separately, the user can explicitly run `/wiki-synthesize` periodically as Rejected Approaches
+and Open Questions entries accumulate across entities, to surface
+recurring cross-entity patterns that no single entity page states on
+its own and that `/wiki-lint`'s direct-contradiction check cannot
+catch. Unlike `/wiki-lint`, `/wiki-synthesize` never writes to the
+wiki — it produces a report for human review only. See
+`/wiki-synthesize` for cadence guidance and report format.
+
+---
 
 ## Agent skills
 

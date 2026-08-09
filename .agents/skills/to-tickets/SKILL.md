@@ -17,7 +17,9 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
-If the source is a spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket. If the spec still has an unresolved architecture question, stop and return to `$to-specs`; do not resolve architecture here.
+If the source is a spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket. If the originating spec itself still has an unresolved material architecture question, stop and return to `$to-specs`; do not resolve architecture here.
+
+A Blocking Architecture finding in a Spec Review issue is not by itself an unresolved architecture question. Remediation routing for those findings belongs to `$to-remediation-tickets`.
 
 ### 2. Explore the codebase (optional)
 

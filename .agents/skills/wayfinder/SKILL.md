@@ -138,6 +138,16 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
    * **IF** the output labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time. The default case.
    * **ELSE** based on the given Ticket Type, proceed via `$research`, `$prototype`, or route to **AFK** mode and execute the task autonomously using local tools as needed.
 
+### Architecture Re-entry
+
+When an existing implementation or spec workflow returns upstream with a newly discovered material architecture question, re-enter the Wayfinder effort that produced the existing spec.
+
+Add the question to that map as a new decision ticket and resolve it through the normal Wayfinder lifecycle. Do not create a new map when the question belongs to the existing destination.
+
+Reconcile any required authoritative architecture records, record the resolution in the ticket, close it, and append its context pointer to the map's **Decisions so far**.
+
+After the route is clear again, hand the updated Wayfinder context to `$to-specs` for re-entry into the existing spec.
+
 ### Chart the map
 
 User invokes with a loose idea.

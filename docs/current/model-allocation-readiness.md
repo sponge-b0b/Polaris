@@ -2,7 +2,7 @@
 
 This runbook records the final service-free readiness check for GitHub issue #24
 against the parent model-allocation plan in issue #14. It complements the
-canonical policy in [Polaris Model Profile Policy](model_profile_policy.md) and
+canonical policy in [Polaris Model Profile Policy](model-profile-policy.md) and
 keeps live-service validation prerequisites explicit before any optional live
 run.
 
@@ -21,7 +21,7 @@ operator documentation. The required acceptance matrix is:
 | strategy | `tests/unit/config/test_strategy_model_config.py` covers strategy alias settings, `tests/unit/intelligence/strategy/test_strategy_model_alias_behavior.py` verifies the current code-owned non-execution metadata reports `strategy_model_execution_mode=not_executed` while preserving configured reasoning and synthesis lane metadata, and `tests/evaluation/test_strategy_synthesis_evals.py` covers deterministic strategy quality fixtures. | Required |
 | RAG | `tests/unit/config/test_rag_model_config.py`, `tests/unit/application/rag/test_rag_security.py`, `tests/unit/application/rag/test_secure_rag_generation.py`, `tests/unit/integration/providers/rag/test_litellm_query_routing_provider.py`, `tests/unit/integration/providers/rag/test_litellm_quality_evaluation_provider.py`, `tests/unit/integration/providers/rag/test_structured_answer_generation_provider.py`, `tests/evaluation/test_structured_rag_output_evals.py`, and `tests/evaluation/test_rag_regression_evals.py` cover RAG alias routing, secure generation, structured answer generation, quality checks, and deterministic RAG regression fixtures. | Required |
 | evaluation gate | `tests/evaluation/test_golden_dataset_fixtures.py`, `tests/unit/application/evaluations/test_evaluation_datasets.py`, and `tests/unit/application/evaluations/test_model_replacement_gate.py` cover the canonical dataset slice and the model replacement validation gate. | Required |
-| documentation current | `docs/model_profile_policy.md`, this readiness check, `docs/testing_guide.md`, `docs/litellm_gateway.md`, `docs/platform_rag_pipeline.md`, and `tests/unit/config/test_model_allocation_readiness.py` document and enforce local and production alias policy, test scope, and live-service requirements. | Required |
+| documentation current | `docs/current/model-profile-policy.md`, this readiness check, `docs/process/testing-guide.md`, `docs/current/litellm-gateway.md`, `docs/current/platform-rag-pipeline.md`, and `tests/unit/config/test_model_allocation_readiness.py` document and enforce local and production alias policy, test scope, and live-service requirements. | Required |
 | live-service requirements | See [Optional live validation requirements](#optional-live-validation-requirements) before any live run. | Required before live validation |
 
 ## Service-free readiness command

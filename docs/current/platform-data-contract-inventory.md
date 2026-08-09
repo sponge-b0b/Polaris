@@ -38,7 +38,7 @@ below:
 The classifications and boundary rules remain valid. Tables and findings below
 that use present tense describe the 2026-06-27 audit baseline unless explicitly
 marked as resolved. Current architecture and operations are documented in
-[`platform_architecture_and_operations.md`](platform_architecture_and_operations.md).
+[`platform-architecture-and-operations.md`](platform-architecture-and-operations.md).
 
 ## Canonical classification
 

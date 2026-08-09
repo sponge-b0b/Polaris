@@ -6,9 +6,9 @@
   <a href="#project-status"><img alt="Status: WIP" src="https://img.shields.io/badge/status-WIP%20%2F%20under%20active%20development-orange"></a>
   <a href="pyproject.toml"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
   <a href="pyproject.toml"><img alt="Package: polaris" src="https://img.shields.io/badge/package-polaris-6f42c1"></a>
-  <a href="docs/postgres_persistence.md"><img alt="System of record: PostgreSQL" src="https://img.shields.io/badge/system%20of%20record-PostgreSQL-336791"></a>
-  <a href="docs/platform_rag_pipeline.md"><img alt="RAG: Qdrant + Neo4j" src="https://img.shields.io/badge/RAG-Qdrant%20%2B%20Neo4j-00a88f"></a>
-  <a href="docs/core_telemetry_observability.md"><img alt="Observability: Prometheus Jaeger Grafana" src="https://img.shields.io/badge/observability-Prometheus%20%7C%20Jaeger%20%7C%20Grafana-e6522c"></a>
+  <a href="docs/current/postgres-persistence.md"><img alt="System of record: PostgreSQL" src="https://img.shields.io/badge/system%20of%20record-PostgreSQL-336791"></a>
+  <a href="docs/current/platform-rag-pipeline.md"><img alt="RAG: Qdrant + Neo4j" src="https://img.shields.io/badge/RAG-Qdrant%20%2B%20Neo4j-00a88f"></a>
+  <a href="docs/current/core-telemetry-observability.md"><img alt="Observability: Prometheus Jaeger Grafana" src="https://img.shields.io/badge/observability-Prometheus%20%7C%20Jaeger%20%7C%20Grafana-e6522c"></a>
 </p>
 
 <h1 align="center">Polaris</h1>
@@ -132,7 +132,7 @@ Polaris can be used as a decision-support platform for portfolio workflows such 
 | Intelligence | `intelligence` | Analysts, portfolio/risk/strategy agents, research nodes, and domain signal production. |
 | Persistence | `core/database`, `core/storage/persistence`, `alembic` | SQLAlchemy models, migrations, repositories, retention, and PostgreSQL-backed system-of-record storage. |
 | Interfaces | `interfaces/cli`, `mcp_server` | Typer CLI and MCP tools that delegate to canonical services. |
-| Operations | `deployment`, `docs/core_telemetry_observability.md` | Prometheus, Jaeger, Grafana, logs, metrics, traces, and local service operations. |
+| Operations | `deployment`, `docs/current/core-telemetry-observability.md` | Prometheus, Jaeger, Grafana, logs, metrics, traces, and local service operations. |
 
 ## Quick start
 
@@ -361,7 +361,7 @@ Important rules:
 - RAG documents are generated only from eligible, typed, attributable records.
 - Query and answer logs are persisted for audit and inspection.
 
-See [`docs/platform_rag_pipeline.md`](docs/platform_rag_pipeline.md) for the full architecture.
+See [`docs/current/platform-rag-pipeline.md`](docs/current/platform-rag-pipeline.md) for the full architecture.
 
 ## Observability
 
@@ -385,7 +385,7 @@ Useful local endpoints when services are running:
 | Neo4j Browser | <http://localhost:7474> |
 | Qdrant | <http://localhost:6333> |
 
-See [`docs/core_telemetry_observability.md`](docs/core_telemetry_observability.md).
+See [`docs/current/core-telemetry-observability.md`](docs/current/core-telemetry-observability.md).
 
 ## Development
 
@@ -416,13 +416,13 @@ uv run graphify update .
 
 | Document | Description |
 | --- | --- |
-| [`docs/platform_architecture_and_operations.md`](docs/platform_architecture_and_operations.md) | Runtime, workflow, DI, persistence, telemetry, and operations overview. |
-| [`docs/postgres_persistence.md`](docs/postgres_persistence.md) | PostgreSQL setup, migrations, schema ownership, and validation. |
-| [`docs/platform_rag_pipeline.md`](docs/platform_rag_pipeline.md) | RAG architecture, chunking, model configuration, projections, and operations. |
-| [`docs/backtesting_system.md`](docs/backtesting_system.md) | Runtime-native deterministic backtesting design and usage. |
-| [`docs/platform_mcp_server.md`](docs/platform_mcp_server.md) | MCP server boundary and tool catalog guidance. |
-| [`docs/core_telemetry_observability.md`](docs/core_telemetry_observability.md) | Prometheus, Jaeger, Grafana, tracing, metrics, and telemetry persistence. |
-| [`docs/decisions/`](docs/decisions/) | Accepted architectural decision records. |
+| [`docs/current/platform-architecture-and-operations.md`](docs/current/platform-architecture-and-operations.md) | Runtime, workflow, DI, persistence, telemetry, and operations overview. |
+| [`docs/current/postgres-persistence.md`](docs/current/postgres-persistence.md) | PostgreSQL setup, migrations, schema ownership, and validation. |
+| [`docs/current/platform-rag-pipeline.md`](docs/current/platform-rag-pipeline.md) | RAG architecture, chunking, model configuration, projections, and operations. |
+| [`docs/current/backtesting-system.md`](docs/current/backtesting-system.md) | Runtime-native deterministic backtesting design and usage. |
+| [`docs/current/platform-mcp-server.md`](docs/current/platform-mcp-server.md) | MCP server boundary and tool catalog guidance. |
+| [`docs/current/core-telemetry-observability.md`](docs/current/core-telemetry-observability.md) | Prometheus, Jaeger, Grafana, tracing, metrics, and telemetry persistence. |
+| [`docs/adr/`](docs/adr/) | Accepted architectural decision records. |
 
 ## Public roadmap themes
 

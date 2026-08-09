@@ -288,7 +288,7 @@ Langfuse SDK boundary
 
 Evaluator code must not call Langfuse directly. Langfuse projection failures must not erase successful PostgreSQL evaluation results. Evaluation reasons are durable AI-observability content and are subject to the same capture, redaction, truncation, and retention policies as RAG and intelligence observations.
 
-For the full evaluation architecture, dataset catalog, threshold policy, CLI workflow, and test commands, see `docs/llm_evaluation.md`.
+For the full evaluation architecture, dataset catalog, threshold policy, CLI workflow, and test commands, see `docs/current/llm-evaluation.md`.
 
 ## Test support
 

@@ -233,8 +233,8 @@ successful workflow. Unsupported outputs remain completed-run evidence only.
 Projectors may reject, skip, or quarantine outputs whose schema, execution mode,
 or required fields are unsuitable for the target record family.
 
-See `docs/platform_architecture_ownership_ledger.md` and
-`docs/workflow_output_curation.md` for the ownership and curation rules.
+See `docs/current/platform-architecture-ownership-ledger.md` and
+`docs/current/workflow-output-curation.md` for the ownership and curation rules.
 
 ## RAG persistence and projections
 

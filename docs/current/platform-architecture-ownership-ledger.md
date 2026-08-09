@@ -10,7 +10,7 @@ obsolete responsibilities, and hidden persistence paths.
 The ledger is normative. Existing code that conflicts with it is an
 architectural gap; current behavior does not become canonical merely because it
 is implemented or tested. Strategy ownership follows
-`docs/decisions/adr-007-structured-strategy-hypotheses.md`.
+`docs/adr/0007-structured-strategy-hypotheses.md`.
 
 ## Core ownership rules
 

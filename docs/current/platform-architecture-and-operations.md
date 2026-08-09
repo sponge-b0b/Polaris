@@ -4,13 +4,45 @@ This guide is the canonical non-RAG overview of Polaris's current platform
 architecture and local operating model. It consolidates the stabilized runtime,
 composition, telemetry, persistence, integration, and backtesting boundaries.
 RAG-specific architecture and operations remain documented in
-[`platform_rag_pipeline.md`](platform_rag_pipeline.md).
+[`platform-rag-pipeline.md`](platform-rag-pipeline.md).
+
+## Platform scope and goals
+
+Polaris is a Python AI intelligence and workflow-orchestration platform for
+portfolio analysis, risk assessment, strategy synthesis, reporting, replay, and
+deterministic backtesting.
+
+The platform is recommendation-driven rather than an autonomous trading system.
+It can produce portfolio intent, trade proposals, and execution-safety decisions,
+but broker execution is outside the current platform boundary.
+
+The architecture exists to support replayable and resumable workflows,
+deterministic analysis and backtesting, strongly typed internal contracts,
+observable and attributable decisions, policy and governance enforcement, capital
+preservation, and production-grade persistence and operations.
 
 ## Architectural invariants
 
 Polaris follows an inside-out architecture. Lower-level runtime contracts define
-the execution trunk; application, integration, intelligence, reporting, and
-interface code conform to that trunk.
+the execution trunk; application, integration, intelligence, portfolio, strategy,
+recommendation, reporting, and interface code conform to that trunk rather than
+forcing compatibility behavior into the runtime.
+
+The intended dependency direction is:
+
+```text
+Runtime
+  -> replay and persistence
+  -> telemetry
+  -> plugins
+  -> policy and governance
+  -> capabilities
+  -> application services
+  -> intelligence
+  -> portfolio and strategy
+  -> trade proposals and execution safety
+  -> external interfaces
+```
 
 The following rules are non-negotiable:
 
@@ -31,28 +63,33 @@ The following rules are non-negotiable:
 - Internal calculations and persistence preserve full numeric precision.
   Rounding belongs only in human-facing renderers.
 
-The accepted architectural decisions are recorded under
-[`.docs/decisions/`](decisions/).
+Accepted architectural decisions are recorded under
+[`docs/adr/`](../adr/).
 Canonical responsibility, data ownership, single-writer, and projection
 assignments are maintained in
-[`platform_architecture_ownership_ledger.md`](platform_architecture_ownership_ledger.md).
+[`platform-architecture-ownership-ledger.md`](platform-architecture-ownership-ledger.md).
 
 ## Canonical runtime flow
 
-A CLI workflow run follows one execution path:
+Every workflow-capable interface follows the same canonical execution path:
 
 ```text
-Typer command
-  -> CLI runtime/request scope
-  -> Dishka request-scoped command service
+Interface
+  -> Dishka request scope
   -> WorkflowFacade
-  -> WorkflowEngine
+  -> WorkflowBootstrap composition
+  -> workflow definition and compiler
   -> RuntimeEngine
   -> RuntimeNode graph
   -> RuntimeNodeOutput values
   -> RuntimeContext snapshot
-  -> events, checkpoints, completed-run persistence, and report rendering
+  -> PostgreSQL persistence for completed-run evidence
 ```
+
+The CLI specializes the first two steps as a Typer command and CLI
+runtime/request scope. Other transports, including MCP and future HTTP/API
+surfaces, must enter through their own request scope and then delegate to the
+same facade and runtime path.
 
 Interfaces parse input and render output. They do not execute nodes, mutate the
 runtime, or call vendor SDKs. `WorkflowFacade` applies the canonical workflow,
@@ -83,6 +120,20 @@ Completed-run history and runtime checkpoints are intentionally different:
   curation records after execution has finished.
 
 A completed run is not a substitute for a checkpoint.
+
+### Runtime and workflow capabilities
+
+The runtime capability set includes workflow graph compilation and execution,
+checkpointing, replay, resume, completed-run retrieval, cooperative
+pause/resume/cancel control, progress notifications, typed lifecycle events,
+event dispatch, policy and governance evaluation, plugin loading and lifecycle
+management, telemetry and trace-context propagation, artifact handling,
+validation, and runtime state management.
+
+`RuntimeContext` and `RuntimeNodeOutput` are the canonical workflow evidence
+contracts. Workflow evidence can later become curated domain records only through
+an explicit typed eligibility and projection policy; it is not automatically a
+business system-of-record update or RAG source.
 
 ## Composition and dependency ownership
 
@@ -229,7 +280,7 @@ checkpoint, and persistence serialization boundaries without mutating the
 in-memory source object.
 
 Local Prometheus, Jaeger, and Grafana setup is documented in
-[`core_telemetry_observability.md`](core_telemetry_observability.md).
+[`core-telemetry-observability.md`](core-telemetry-observability.md).
 
 ## Persistence classification
 
@@ -248,10 +299,10 @@ complete nested payloads. Planned canonical fields must not be hidden in generic
 `metadata`. New first-class fields require SQLAlchemy model changes, an Alembic
 migration, and migration/metadata-divergence tests.
 
-See [`postgres_persistence.md`](postgres_persistence.md) for the schema,
+See [`postgres-persistence.md`](postgres-persistence.md) for the schema,
 migration, retention, and completed-run conventions. The historical contract
 audit and its superseding resolutions are recorded in
-[`platform_data_contract_inventory.md`](platform_data_contract_inventory.md).
+[`platform-data-contract-inventory.md`](platform-data-contract-inventory.md).
 
 ## Deterministic backtesting
 
@@ -264,7 +315,34 @@ Deterministic scenarios fix their data, time, identifiers, ordering, and
 expectations. Verification compares platform results with independently derived
 expected calculations rather than merely comparing against a previous Polaris
 output. Full details and CLI examples are in
-[`backtesting_system.md`](backtesting_system.md).
+[`backtesting-system.md`](backtesting-system.md).
+
+## Current interface and workflow surface
+
+The native implemented user interface is the async Typer CLI exposed as
+`polaris`. It supports workflow execution and control, morning-report execution,
+completed-run inspection, platform inspection, backtesting, RAG operations, AI
+and evaluation operations, and observability commands through application
+services and the workflow facade.
+
+The built-in workflow catalog currently registers `morning_report` as the
+canonical built-in workflow. Strategy workflow definition modules can exist in
+the source tree without becoming catalog entries; a workflow is part of the
+built-in operational surface only when it is registered through the canonical
+workflow catalog/bootstrap path.
+
+The MCP server is implemented as a thin read-only FastMCP transport for approved
+agent hosts. It exposes grounded RAG questions, RAG readiness, workflow metadata,
+and completed-run evidence by resolving canonical application services and
+`WorkflowFacade` through Dishka request scopes. MCP must not become a second RAG,
+persistence, workflow, provider, or approval implementation. Its detailed
+transport contract is documented in
+[`platform-mcp-server.md`](platform-mcp-server.md).
+
+The HTTP API tree under `interfaces/api/` remains empty non-production
+scaffolding. API, scheduler, and UI surfaces are not production interfaces until
+their transport, request-scope lifecycle, persistence, security, and governance
+contracts are intentionally implemented.
 
 ## Common local commands
 
@@ -339,11 +417,36 @@ Start only the infrastructure needed by the operation under test.
 | PostgreSQL-backed backtest history or persistence | PostgreSQL |
 | External metrics/traces validation | Prometheus and Jaeger; Grafana for dashboards; PostgreSQL when validating telemetry persistence/retention |
 | Live provider workflow | The configured vendor credentials/network plus PostgreSQL when durable runtime/report persistence is enabled |
-| RAG ingestion, retrieval, or projection rebuild | See `platform_rag_pipeline.md`; service requirements may include PostgreSQL, Qdrant, Neo4j, BGE reranker, and configured model/provider endpoints |
+| RAG ingestion, retrieval, or projection rebuild | See `platform-rag-pipeline.md`; service requirements may include PostgreSQL, Qdrant, Neo4j, BGE reranker, and configured model/provider endpoints |
 
 Use a timeout that reflects the expected operation duration. If an operation
 times out, investigate service readiness or a blocked dependency before simply
 raising the limit.
+
+## Repository structure and architectural ownership
+
+The repository layout follows the same inside-out boundaries:
+
+| Path | Architectural role |
+| --- | --- |
+| `application/` | Use-case services, persistence orchestration, reporting, and RAG application services. |
+| `automation/` | Automation support around platform workflows and operations. |
+| `config/` | Settings and configuration. |
+| `core/` | Runtime, workflow, database, storage, telemetry, plugins, policy, and governance contracts. |
+| `domain/` | Typed business models and domain contracts. |
+| `integration/` | External clients, providers, and simulated providers. |
+| `intelligence/` | Analyst, risk, strategy, portfolio, research, and execution-safety components. |
+| `interfaces/` | CLI plus non-production API scaffolding. |
+| `mcp_server/` | Implemented thin MCP transport over canonical services and workflow facade. |
+| `migrations/` | Alembic database migrations. |
+| `tests/` | Unit, integration, database, architecture, contract, and coverage tests. |
+| `web/` | Web-layer scaffolding and assets. |
+| `workflows/` | Workflow definitions and catalog/bootstrap registration. |
+| `docs/` | Accepted ADRs, current/proposed architecture documents, process documents, research, and references. |
+
+This structure is descriptive, not a license to infer authority from folders
+alone. Authority follows accepted ADRs, current architecture documents, code,
+configuration, executable checks, and relevant tests.
 
 ## Operational safety and known boundaries
 

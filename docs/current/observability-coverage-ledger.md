@@ -176,7 +176,7 @@ Detailed correlation and exception data belongs in structured logs, PostgreSQL, 
 - PostgreSQL stores every event by `event_id` and exactly one assembled trace row per `(trace_id, span_id)`.
 - OpenTelemetry exports one span per canonical operation and attaches applicable event and exception data.
 
-See `.docs/canonical_trace_lifecycle.md` for the complete lifecycle contract.
+See `.docs/current/canonical-trace-lifecycle.md` for the complete lifecycle contract.
 
 ## Regression coverage
 

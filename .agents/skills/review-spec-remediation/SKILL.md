@@ -40,7 +40,7 @@ creating or updating the tracking issue:
 
 Use these parseable headings when a parent Spec Review issue has blockers:
 
-```markdown id="b8v6sl"
+```markdown
 ## Root Blocker Ledger
 
 ### RB-1 — <short root name>

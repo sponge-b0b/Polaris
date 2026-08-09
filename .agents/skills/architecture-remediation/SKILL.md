@@ -31,7 +31,7 @@ Read the parent spec and recover its Wayfinder source provenance.
 
 Prefer the spec's explicit Wayfinder provenance marker:
 
-```html id="9r9v9u"
+```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
@@ -53,7 +53,7 @@ Use `wayfinder:grilling` unless the caller already established another Wayfinder
 
 Use this body shape, including only relationships that exist:
 
-```markdown id="ak0yth"
+```markdown
 **Parent Wayfinder:** #<wayfinder_map>
 **Parent Spec:** #<spec_issue>
 **Source Ticket:** #<source_ticket>

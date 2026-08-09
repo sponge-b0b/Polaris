@@ -37,7 +37,7 @@ Do not run it after every session.
 
 Read:
 
-```text id="g5o8uw"
+```text
 wiki/index.md
 wiki/entities/*
 ```
@@ -111,7 +111,7 @@ Do not strengthen provenance during synthesis.
 
 For example:
 
-```text id="4sqqun"
+```text
 source: agent-observed during session, unresolved
 ```
 
@@ -125,7 +125,7 @@ Recommend `$wiki-lint` when systematic source-health evaluation is required rath
 
 Use:
 
-```text id="mufd5p"
+```text
 Confidence: low | medium | high
 ```
 
@@ -160,7 +160,7 @@ Do not perform the action automatically.
 
 Use:
 
-```md id="uwmtt0"
+```md
 ## Synthesis Report — YYYY-MM-DD
 
 ### Pattern: [concise description]
@@ -184,7 +184,7 @@ Add a **Caveat** when evidence quality or source health materially limits the co
 
 If no meaningful pattern exists, report:
 
-```text id="t0z7dd"
+```text
 Synthesis: no meaningful recurring patterns found.
 ```
 

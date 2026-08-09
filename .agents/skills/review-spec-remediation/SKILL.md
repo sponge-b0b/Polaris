@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 This skill is invoked by `$review-spec` whenever its Aggregate step finds one or more Blocking findings. You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors — this skill's job is to turn Blocking findings into a tracked remediation loop, not to fix them. Once this skill halts for the Human Handoff Intercept (or, on a Recursive Pass, confirms no Blocking findings remain), return to `$review-spec`'s Exit Gate.
 
-If a Blocking Architecture finding with `Architecture decision required: Yes` reaches this skill, halt and return it to `$review-spec`. Unresolved architecture must not be synthesized into remediation tickets.
+If a Blocking Architecture finding with `Architecture decision required: Yes` reaches this skill, halt and return it to `$review-spec`, which owns delegation to `$architecture-remediation`. Unresolved architecture must not be synthesized into remediation tickets.
 
 ## Synthesizing Root Blockers
 
@@ -40,7 +40,7 @@ creating or updating the tracking issue:
 
 Use these parseable headings when a parent Spec Review issue has blockers:
 
-```markdown id="pedfa6"
+```markdown id="b8v6sl"
 ## Root Blocker Ledger
 
 ### RB-1 — <short root name>

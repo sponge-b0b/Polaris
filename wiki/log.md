@@ -7,3 +7,7 @@ Initialized the first authoritative Living Entity Wiki registry and entity pages
 ## [2026-08-09] documentation authority cleanup | historical audits moved to reference
 
 Separated historical audit inventories from current architecture documents, moved active score/data-contract semantics into current authority, and updated Domain Contracts & Data Semantics citations without changing entity boundaries or invariants.
+
+## [2026-08-09] strategy synthesis symbol alignment | canonical weighting engine name restored
+
+Updated the Strategy Synthesis entity invariant to use the ADR- and implementation-aligned `StrategyPerspectiveWeightingEngine` name for pre-synthesis perspective weighting.

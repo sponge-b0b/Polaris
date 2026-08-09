@@ -7,60 +7,62 @@ disable-model-invocation: true
 
 # To Tickets
 
-Break a plan, spec, or conversation into a set of **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
+Break a plan, spec, or conversation into **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
-The issue tracker and triage label vocabulary should have been provided to you — run `$setup-matt-pocock-skills` if not.
+The issue tracker and triage label vocabulary should have been provided — run `$setup-matt-pocock-skills` if not.
 
 ## Process
 
-### 1. Gather context
+### 1. Gather Context
 
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, issue number, or URL), fetch it and read its full body and comments.
+Work from the current conversation. If the user passes a spec path, issue number, or URL, fetch and read its full body and comments.
 
-If the source is a spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
+If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
-If the originating spec still has an unresolved material architecture question, stop and return to `$to-specs`; do not resolve architecture here.
+If the Spec still contains an unresolved material architecture question, stop and return to `$to-specs`. Do not resolve architecture here.
 
-A Blocking Architecture finding in a Spec Review issue is not by itself unresolved architecture. `$to-remediation-tickets` owns that routing.
+A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
-### 2. Explore the codebase (optional)
+### 2. Explore the Codebase
 
-If you have not already explored the codebase, do so to understand the current state.
+If needed, inspect the current codebase before slicing.
 
-Use the project's domain glossary vocabulary and respect applicable ADRs.
+Use project domain vocabulary and respect applicable ADRs.
 
-Look for opportunities to prefactor the code to make implementation easier: make the change easy, then make the easy change.
+Look for useful prefactoring: make the change easy, then make the easy change.
 
-### 3. Resolve ticket mode
+### 3. Resolve Ticket Mode
 
-Before drafting tickets, determine whether this is fresh slicing or remediation.
+Before drafting:
 
-* If the source issue title is prefixed `Spec Review: `, invoke `$to-remediation-tickets`.
-* If the source is an existing Spec that already has linked implementation tickets, invoke `$to-remediation-tickets`.
-* Otherwise continue with fresh vertical-slice drafting.
+* source title prefixed `Spec Review: ` → invoke `$to-remediation-tickets`;
+* existing Spec with linked implementation tickets → invoke `$to-remediation-tickets`;
+* otherwise → fresh vertical-slice drafting.
 
-`$to-remediation-tickets` owns delta analysis, duplicate prevention, open-ticket updates, superseded-ticket detection, and deciding which new tickets are actually required.
+`$to-remediation-tickets` owns delta analysis, duplicate prevention, open-ticket updates, superseded-ticket detection, and determining which new tickets are required.
 
-Once it returns a ticket delta, continue at Step 4.
+If it returns a delta, continue at Step 4.
 
-#### Fresh vertical slices
+If it returns an empty delta, report that the current ticket set already represents the source and direct the user to resume the applicable open/frontier ticket with `$implement-ticket`. Then stop.
 
-Break the work into **tracer bullet** tickets.
+#### Fresh Vertical Slices
+
+Break the work into **tracer-bullet** tickets.
 
 <vertical-slice-rules>
 
-* Each slice cuts a narrow but COMPLETE path through every required layer — vertical, not horizontal.
-* A completed slice is demoable or independently verifiable.
+* Each slice cuts a narrow but complete path through the required layers.
+* A completed slice is independently demoable or verifiable.
 * Each slice fits in one fresh context window.
-* Any necessary prefactoring comes first.
+* Necessary prefactoring comes first.
 
 </vertical-slice-rules>
 
-Give each ticket its **blocking edges** — the tickets that must complete before it can start.
+Give each ticket its **blocking edges**.
 
-**Wide refactors are the exception.** When one mechanical change fans across the codebase and individual vertical slices cannot stay green, use expand–contract: expand first, migrate callers in independently manageable batches, then contract after all migrations complete.
+**Wide refactors are the exception.** When one mechanical change fans across the codebase and individual vertical slices cannot stay green, use expand–contract: expand first, migrate callers in manageable batches, then contract after all migrations complete.
 
-### 4. Quiz the user
+### 4. Quiz the User
 
 Present the proposed fresh breakdown or remediation delta.
 
@@ -84,21 +86,19 @@ Ask:
 
 Iterate until approved.
 
-If the remediation delta is empty, report that the existing ticket set already represents the current source and stop.
-
-### 5. Publish to the configured tracker
+### 5. Publish to the Configured Tracker
 
 Apply only the approved changes.
 
-* **Local files** → write one file per new ticket under `.scratch/<feature-slug>/issues/`, numbered in dependency order. Update or retire existing files when the remediation delta requires it.
-* **Real issue tracker** → create new issues in dependency order and apply requested updates or closures to existing open tickets.
+* **Local files** → create new ticket files and update or retire existing ones as required.
+* **Real issue tracker** → create new issues and apply approved updates or closures to existing open tickets.
 
-For trackers supporting native parent/child and blocking relationships, use them. For GitHub, invoke `$github-issue-dependencies` for exact relationship operations rather than researching them again.
+Use native parent/child and blocking relationships where supported. For GitHub, invoke `$github-issue-dependencies` for relationship operations.
 
 New tickets must:
 
 * link to the same parent Spec;
-* use the applicable Architecture context;
+* carry applicable Architecture context;
 * use the shared **Ticket branch**;
 * receive correct blocking relationships;
 * receive `ready-for-agent` unless instructed otherwise.
@@ -111,7 +111,7 @@ Do not close or modify the parent Spec issue.
 
 # <NN> — <Ticket title>
 
-**Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the root invariant this ticket is intended to close. Omit otherwise.
+**Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the root invariant this ticket closes. Omit otherwise.
 
 **Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text.
 
@@ -119,7 +119,7 @@ Do not close or modify the parent Spec issue.
 
 **Blocked by:** ticket numbers/titles, or "None — can start immediately".
 
-**Ticket branch:** the shared branch for this spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
+**Ticket branch:** the shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
 **Status:** ready-for-agent
 
@@ -136,7 +136,7 @@ Reference the parent Spec.
 
 ## Root blocker
 
-For Spec Review remediation tickets only: `RB-<n>` and the root invariant this ticket is intended to close. Omit otherwise.
+For Spec Review remediation tickets only: `RB-<n>` and the root invariant this ticket closes. Omit otherwise.
 
 ## Architecture context
 
@@ -158,11 +158,11 @@ References to blocking tickets, or "None — can start immediately".
 
 ## Ticket branch
 
-The shared branch for this spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
+The shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
 </issue-template>
 
-Avoid specific file paths or code snippets unless a prototype produced a decision-rich snippet that is materially clearer than prose.
+Avoid specific file paths or code snippets unless a prototype produced a decision-rich snippet materially clearer than prose.
 
 Work the frontier one ticket at a time with `$implement-ticket`, clearing context between tickets.
 
@@ -174,13 +174,13 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 If the source is a `Spec Review: ` issue, recover the original Spec from its exact body line:
 
-```text
+```text id="sxtvwn"
 **Parent Spec:** #<n>
 ```
 
 Otherwise the source Spec issue is the Spec issue.
 
-```bash
+```bash id="mpczfm"
 INPUT_ISSUE_NUMBER=<input issue number>
 INPUT_ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --json title -q .title)
 
@@ -202,13 +202,13 @@ esac
 
 ### 1. Resolve Branch Identity
 
-```bash
+```bash id="rmgw7m"
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
 ### 2. Capture Baseline for First Use
 
-```bash
+```bash id="2mk4n0"
 BASELINE_COMMIT=$(git rev-parse main)
 ```
 
@@ -216,7 +216,7 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-```bash
+```bash id="qwpysq"
 if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
   git checkout "$SPEC_BRANCH"
 else
@@ -232,7 +232,7 @@ Ensure unrelated uncommitted work is not carried across the checkout.
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 
-```bash
+```bash id="8bwux8"
 ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comments[].body' \
   | grep -c "## Workspace Metadata" || true)
 

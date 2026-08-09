@@ -119,7 +119,7 @@ direction, use a formula that states that intent, for example:
 
 ```python
 directional_magnitude = abs(directional_score)
-risk_alignment = 1.0 - abs(risk_directional_score)
+directional_alignment = 1.0 - abs(directional_score)
 ```
 
 When converting risk pressure to a market-directional output, preserve the
@@ -130,18 +130,21 @@ uses defensive risk pressure as negative directional market posture:
 directional_score = composite_risk * -1.0
 ```
 
-### Known scoring conflict
+### Risk intensity and directional posture
 
-[source-conflict] Risk terminology is not yet fully normalized across current
-implementation evidence. `RiskSignalContract` documents risk fields as signed
-`-1.0` to `1.0`, where negative is risk-on/favorable and positive is defensive
-risk pressure. Several current risk builders and persistence validators instead
-use unit-interval risk values: primitive risk builders clamp component risk to
-`0.0` to `1.0`, aggregate `risk_pressure` is computed as a unit value,
-`stability_score` is computed as `1.0 - composite_risk`, and persistence
-validation treats `risk_score` as `0.0` to `1.0`. Until this is resolved, do not
-claim a single global range for every field containing `risk`; document and
-validate the exact field family at each boundary.
+Risk intensity fields are unit-interval values. `volatility_risk`,
+`drawdown_risk`, `exposure_risk`, `composite_risk`, `risk_pressure`,
+`risk_score`, and `adjusted_*risk*` fields use `0.0` to `1.0`, where higher
+means more risk, intensity, or defensive pressure. `stability_score` remains a
+unit-interval stability value where higher means more stable. Favorable or
+risk-on conditions must be represented by lower risk, higher stability,
+`risk_bias`, regime labels, recommendations, or an explicit signed directional
+field; they must not be represented by negative risk values.
+
+Signed values remain appropriate for market posture, sentiment, and attribution
+families. When a unit risk value must feed a signed market-directional consumer,
+the conversion must be explicit, for example the runtime risk adapter's
+`directional_score = composite_risk * -1.0` mapping.
 
 ## Application-service contract inventory
 

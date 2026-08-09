@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
 
+from application.persistence.diagnostics import DiagnosticsPersistenceService
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import inspect_command
 
@@ -85,13 +89,35 @@ def test_inspect_config_applies_provider_profile(
 def test_inspect_persistence_outputs_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def inspect_values() -> dict[str, object]:
-        return _persistence_health_values()
+    lifecycle: list[str] = []
+
+    class FakeDiagnosticsService:
+        async def run_diagnostics(self) -> SimpleNamespace:
+            return SimpleNamespace(
+                as_dict=_persistence_health_values,
+            )
+
+    class FakeScope:
+        def get(
+            self,
+            dependency_type: type[DiagnosticsPersistenceService],
+        ) -> FakeDiagnosticsService:
+            assert dependency_type is DiagnosticsPersistenceService
+            lifecycle.append("service_resolved")
+            return FakeDiagnosticsService()
+
+    @asynccontextmanager
+    async def fake_scope() -> AsyncIterator[FakeScope]:
+        lifecycle.append("scope_entered")
+        try:
+            yield FakeScope()
+        finally:
+            lifecycle.append("scope_closed")
 
     monkeypatch.setattr(
         inspect_command,
-        "_inspect_persistence_values",
-        inspect_values,
+        "cli_runtime_scope",
+        fake_scope,
     )
     runner = CliRunner()
 
@@ -111,6 +137,46 @@ def test_inspect_persistence_outputs_json(
     )
     assert data["status"] == "healthy"
     assert data["checks"][0]["check_name"] == "alembic_schema_drift"
+    assert lifecycle == ["scope_entered", "service_resolved", "scope_closed"]
+
+
+@pytest.mark.asyncio
+async def test_inspect_persistence_closes_scope_when_diagnostics_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lifecycle: list[str] = []
+
+    class FailingDiagnosticsService:
+        async def run_diagnostics(self) -> SimpleNamespace:
+            raise RuntimeError("diagnostics failed")
+
+    class FakeScope:
+        def get(
+            self,
+            dependency_type: type[DiagnosticsPersistenceService],
+        ) -> FailingDiagnosticsService:
+            assert dependency_type is DiagnosticsPersistenceService
+            lifecycle.append("service_resolved")
+            return FailingDiagnosticsService()
+
+    @asynccontextmanager
+    async def fake_scope() -> AsyncIterator[FakeScope]:
+        lifecycle.append("scope_entered")
+        try:
+            yield FakeScope()
+        finally:
+            lifecycle.append("scope_closed")
+
+    monkeypatch.setattr(
+        inspect_command,
+        "cli_runtime_scope",
+        fake_scope,
+    )
+
+    with pytest.raises(RuntimeError, match="diagnostics failed"):
+        await inspect_command._inspect_persistence_values()
+
+    assert lifecycle == ["scope_entered", "service_resolved", "scope_closed"]
 
 
 def test_inspect_persistence_outputs_console(

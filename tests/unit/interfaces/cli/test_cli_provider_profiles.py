@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from application.persistence.diagnostics import DiagnosticsPersistenceService
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
@@ -43,6 +44,21 @@ async def test_cli_runtime_accepts_backtest_postgres_profile_without_runtime_cha
         runtime = scope.runtime
 
         assert "morning_report" in runtime.facade.list_workflows()
+
+
+@pytest.mark.asyncio
+async def test_cli_runtime_scope_resolves_persistence_diagnostics_service() -> None:
+    async with cli_runtime_scope(
+        provider_profile="backtest_synthetic",
+    ) as scope:
+        diagnostics_service = scope.get(
+            DiagnosticsPersistenceService,
+        )
+
+    assert isinstance(
+        diagnostics_service,
+        DiagnosticsPersistenceService,
+    )
 
 
 @pytest.mark.asyncio

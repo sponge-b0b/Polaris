@@ -10,6 +10,8 @@ from application.decision_evidence.persistence import (
 from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
+from application.persistence.diagnostics import DiagnosticsPersistenceService
+from application.persistence.health import HealthPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
@@ -53,6 +55,21 @@ class ApplicationPersistenceDIProvider(Provider):
     """Request-scoped application persistence orchestration."""
 
     scope = Scope.REQUEST
+
+    @provide
+    def provide_health_persistence_service(
+        self,
+    ) -> HealthPersistenceService:
+        return HealthPersistenceService()
+
+    @provide
+    def provide_diagnostics_persistence_service(
+        self,
+        health_service: HealthPersistenceService,
+    ) -> DiagnosticsPersistenceService:
+        return DiagnosticsPersistenceService(
+            health_service=health_service,
+        )
 
     @provide
     def provide_portfolio_persistence_service(

@@ -145,7 +145,11 @@ async def _inspect_runtime_values() -> dict[str, bool | int]:
 
 
 async def _inspect_persistence_values() -> dict[str, object]:
-    report = await DiagnosticsPersistenceService().run_diagnostics()
+    async with cli_runtime_scope() as scope:
+        diagnostics_service = scope.get(
+            DiagnosticsPersistenceService,
+        )
+        report = await diagnostics_service.run_diagnostics()
     return dict(
         report.as_dict(),
     )

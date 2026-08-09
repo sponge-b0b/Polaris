@@ -17,8 +17,16 @@ The issue tracker and triage label vocabulary should have been provided to you â
    For re-entry:
 
    * preserve the existing spec identity, branch, baseline, tickets, and review lineage;
-   * incorporate only the requirements, Architecture Impact, implementation decisions, and testing decisions affected by the newly resolved work;
+   * identify the Wayfinder map that produced the spec;
+   * recover the Wayfinder decision tickets already consumed from the spec's provenance marker;
+   * compare them with the map's current resolved decisions and use only the newly resolved decisions as the delta;
+   * read the delta decision tickets and their resolutions before amending the spec;
+   * apply the delta semantically: update, replace, or remove existing content when a decision changes the same behavior, and add content only for genuinely new behavior;
+   * do not duplicate user stories, Architecture Impact entries, implementation decisions, or testing decisions;
+   * update the provenance marker after the delta is incorporated;
    * do not create a new spec unless the new work is genuinely separate scope.
+
+   If an existing spec predates Wayfinder provenance metadata, reconcile its current content against the source map once, mark decisions already represented as consumed, then apply only the remaining delta. Do not regenerate the spec merely to bootstrap provenance.
 
 3. **Architecture preflight.** For software work, identify the affected Living Entity Wiki entities and compare the distilled solution against their applicable invariants, decisions, rejections, boundaries, and current authoritative sources.
 
@@ -39,6 +47,13 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
    * **Fresh mode:** publish a new spec to the configured issue tracker and apply the `ready-for-agent` triage label.
    * **Re-entry mode:** update the existing spec in place. Do not create a second spec or reset its existing workflow lineage.
+   * When sourced from Wayfinder, record the source map and all consumed resolved decision-ticket IDs in the provenance marker.
+
+```html
+<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
+```
+
+Omit the marker when the spec has no Wayfinder source.
 
 ## Problem Statement
 
@@ -56,6 +71,8 @@ A LONG, numbered list of user stories. Each user story should be in the format o
 
 This list of user stories should be extremely extensive and cover all aspects of the feature.
 
+On re-entry, preserve existing stories unless the Wayfinder delta changes or invalidates them. Modify the existing story when the behavior is the same; add a new story only for genuinely new behavior.
+
 ## Architecture Impact
 
 For software work, record:
@@ -67,6 +84,8 @@ For software work, record:
 * Unresolved architecture questions: `none`
 
 Do not duplicate full invariants or architectural documentation into the spec.
+
+On re-entry, reconcile this section with the Wayfinder delta rather than appending another Architecture Impact block.
 
 ## Implementation Decisions
 

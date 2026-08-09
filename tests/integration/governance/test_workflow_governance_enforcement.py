@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+from application.governance import AutomatedDecisionAuditContext
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.governance.builtins.require_approval_for_live_mode_rule import (
     RequireApprovalForLiveModeRule,
@@ -14,6 +16,7 @@ from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
+from core.storage.persistence.governance_audit import AutomatedDecisionSubject
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     build_workflow_runtime,
@@ -29,6 +32,8 @@ from core.workflow.models.workflow_graph_definition import (
 from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
+from domain.authority import classify_risk_authority
+from tests.helpers.risk_authority_examples import workflow_curation_authority_input
 
 
 class GovernanceTestNode(RuntimeNode):
@@ -273,6 +278,51 @@ async def test_governance_allows_simulation_workflow_run() -> None:
 
     assert output["success"] is True
     assert output["outputs"]["ran"] is True
+
+
+@pytest.mark.asyncio
+async def test_governance_audit_rejects_malformed_persistence_result() -> None:
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = (object(),)
+    governance_engine = GovernanceEngine(
+        registry=GovernanceRegistry(
+            rules=[
+                RequireApprovalForLiveModeRule(),
+            ],
+        )
+    )
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[
+            GovernanceTestWorkflow(),
+        ],
+        governance_engine=governance_engine,
+        automated_decision_audit_service=audit_service,
+    )
+
+    with pytest.raises(RuntimeError, match="returned invalid result"):
+        await runtime.facade.run_workflow(
+            workflow_name="governance_test_workflow",
+            mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+            automated_decision_audit_context=AutomatedDecisionAuditContext(
+                subject=AutomatedDecisionSubject(
+                    "workflow",
+                    "malformed-governance-audit-result",
+                ),
+                authority=classify_risk_authority(
+                    workflow_curation_authority_input(),
+                ),
+            ),
+        )
+
+    audit_service.record_governance_evaluation.assert_awaited_once()
 
 
 def test_governance_denies_destructive_workflow_unregister() -> None:

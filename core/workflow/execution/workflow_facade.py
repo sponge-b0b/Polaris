@@ -23,16 +23,21 @@ from core.runtime.control import (
 from core.runtime.events.event_bus import EventBus
 from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.factory.runtime_node_factory import RuntimeNodeFactory
+from core.runtime.governance import GovernanceEvaluationResult
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.lifecycle.runtime_lifecycle_manager import (
     RuntimeLifecycleManager,
 )
+from core.runtime.policies import PolicyEvaluationResult
 from core.runtime.policies.policy_engine import PolicyEngine
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.state_manager import StateManager
 from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetry
 from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionAuditPersistenceResult,
+)
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
@@ -50,6 +55,7 @@ from core.workflow.execution.workflow_runner import WorkflowRunner, WorkflowRunR
 from core.workflow.execution.workflow_service import WorkflowService, WorkflowSummary
 from core.workflow.governance_audit import (
     WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY,
+    AutomatedDecisionAuditContext,
     WorkflowAutomatedDecisionAuditService,
     audit_context_from_workflow_context,
 )
@@ -462,7 +468,7 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
-        automated_decision_audit_context: Any | None = None,
+        automated_decision_audit_context: AutomatedDecisionAuditContext | None = None,
     ) -> WorkflowRunResult:
         governance_context = self._with_automated_decision_audit_context(
             {
@@ -527,7 +533,7 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
-        automated_decision_audit_context: Any | None = None,
+        automated_decision_audit_context: AutomatedDecisionAuditContext | None = None,
     ) -> WorkflowRunResult:
         governance_context = self._with_automated_decision_audit_context(
             {
@@ -875,7 +881,7 @@ class WorkflowFacade:
         self,
         *,
         context: dict[str, Any] | None,
-        evaluation: Any,
+        evaluation: PolicyEvaluationResult,
     ) -> None:
         if self.automated_decision_audit_service is None:
             return
@@ -953,7 +959,7 @@ class WorkflowFacade:
         self,
         *,
         context: dict[str, Any] | None,
-        evaluation: Any,
+        evaluation: GovernanceEvaluationResult,
     ) -> None:
         if self.automated_decision_audit_service is None:
             return
@@ -988,7 +994,7 @@ class WorkflowFacade:
     @staticmethod
     def _with_automated_decision_audit_context(
         context: dict[str, Any],
-        automated_decision_audit_context: Any | None,
+        automated_decision_audit_context: AutomatedDecisionAuditContext | None,
     ) -> dict[str, Any]:
         if automated_decision_audit_context is None:
             return context
@@ -1003,14 +1009,19 @@ class WorkflowFacade:
     def _raise_if_automated_decision_audit_failed(
         *,
         evaluation_kind: str,
-        results: Sequence[Any],
+        results: Sequence[AutomatedDecisionAuditPersistenceResult],
     ) -> None:
         errors: list[str] = []
         for result in results:
-            if getattr(result, "success", True):
+            if not isinstance(result, AutomatedDecisionAuditPersistenceResult):
+                raise RuntimeError(
+                    f"Automated {evaluation_kind} audit persistence returned "
+                    "invalid result."
+                )
+            if result.success:
                 continue
 
-            result_errors = tuple(str(error) for error in getattr(result, "errors", ()))
+            result_errors = tuple(str(error) for error in result.errors)
             errors.extend(result_errors or ("unknown persistence failure",))
 
         if errors:

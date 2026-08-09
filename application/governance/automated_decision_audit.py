@@ -33,43 +33,10 @@ from core.storage.persistence.governance_audit import (
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
+from core.workflow.governance_audit import AutomatedDecisionAuditContext
 from domain.authority import RiskAuthorityContract, RiskTier
-from domain.decision_evidence import DecisionEvidencePacket
 
 from .approval_lifecycle_observability import ApprovalLifecycleObservability
-
-
-@dataclass(frozen=True, slots=True)
-class AutomatedDecisionAuditContext:
-    """Canonical context required to audit one automated decision."""
-
-    subject: AutomatedDecisionSubject
-    authority: RiskAuthorityContract
-    evidence: AutomatedDecisionEvidenceReference | None = None
-    timestamp: datetime | None = None
-    trace_context: TraceContext | None = None
-
-    @classmethod
-    def from_packet(
-        cls,
-        *,
-        subject: AutomatedDecisionSubject,
-        packet: DecisionEvidencePacket,
-        timestamp: datetime | None = None,
-    ) -> AutomatedDecisionAuditContext:
-        return cls(
-            subject=subject,
-            authority=packet.authority,
-            evidence=AutomatedDecisionEvidenceReference(
-                packet_id=packet.packet_id,
-                packet_version=packet.schema_version,
-            ),
-            timestamp=timestamp,
-        )
-
-    @property
-    def effective_timestamp(self) -> datetime:
-        return self.timestamp or datetime.now(UTC)
 
 
 class GovernanceReviewApprovalState(StrEnum):

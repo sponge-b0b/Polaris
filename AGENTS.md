@@ -36,7 +36,9 @@ configured Ruff, formatting, typing, and verification practices.
 
 Architectural decisions and current architectural descriptions live in
 `docs/adr/` and `docs/current/`; consult the applicable source instead of using
-`AGENTS.md` as an architecture reference.
+`AGENTS.md` as an architecture reference. When changing scoring code, consult
+the score semantics in `docs/current/platform-data-contract-inventory.md` rather
+than relying on `CONTEXT.md` or inferred field names.
 
 Agent-facing coding rules:
 

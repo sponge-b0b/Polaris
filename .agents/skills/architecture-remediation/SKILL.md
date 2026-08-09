@@ -19,8 +19,9 @@ Use the caller-provided context to identify:
 * why it is material;
 * affected entities, owners, boundaries, or lifecycle responsibilities;
 * governing ADR/doc references already known;
-* source ticket or review finding;
-* parent spec and Spec Review issue when applicable.
+* source ticket or review finding when applicable;
+* parent spec;
+* Spec Review issue when applicable.
 
 Preserve the caller's evidence. Do not invent an architectural answer.
 
@@ -30,7 +31,7 @@ Read the parent spec and recover its Wayfinder source provenance.
 
 Prefer the spec's explicit Wayfinder provenance marker:
 
-```html
+```html id="9r9v9u"
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
@@ -50,9 +51,9 @@ Otherwise create one new child decision issue under the existing Wayfinder map u
 
 Use `wayfinder:grilling` unless the caller already established another Wayfinder ticket type.
 
-Use this body shape:
+Use this body shape, including only relationships that exist:
 
-```markdown
+```markdown id="ak0yth"
 **Parent Wayfinder:** #<wayfinder_map>
 **Parent Spec:** #<spec_issue>
 **Source Ticket:** #<source_ticket>
@@ -69,7 +70,9 @@ including the affected ownership, canonical path, boundary, dependency direction
 or lifecycle responsibility>
 ```
 
-Omit metadata fields that do not apply.
+`Parent Wayfinder` and `Parent Spec` are required.
+
+`Source Ticket` and `Spec Review` are optional. Omit them when no such relationship exists.
 
 Do not include a proposed architectural resolution as though it were decided.
 
@@ -79,7 +82,7 @@ After the decision ticket exists, halt the current workflow.
 
 Present:
 
-> ⚠️ **Implementation is blocked by an unresolved material architecture decision.**
+> ⚠️ **Work is blocked by an unresolved material architecture decision.**
 >
 > I created or recovered the decision ticket under the existing Wayfinder map:
 > **`<Decision Ticket Title> (<URL>)`**

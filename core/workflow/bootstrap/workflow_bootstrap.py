@@ -36,6 +36,7 @@ from core.workflow.bootstrap.workflow_runtime_components import (
     WorkflowRuntimeOverrides,
 )
 from core.workflow.execution.workflow_facade import WorkflowFacade
+from core.workflow.governance_audit import WorkflowAutomatedDecisionAuditService
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
 )
@@ -57,6 +58,7 @@ class WorkflowBootstrapResult:
     plugin_runtime_manager: PluginRuntimeManager
     policy_engine: PolicyEngine | None
     governance_engine: GovernanceEngine | None
+    automated_decision_audit_service: WorkflowAutomatedDecisionAuditService | None
     runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None
     replay_engine: ReplayEngine | None
     config: WorkflowBootstrapConfig
@@ -93,6 +95,9 @@ class WorkflowBootstrap:
         plugin_runtime_manager: PluginRuntimeManager | None = None,
         policy_engine: PolicyEngine | None = None,
         governance_engine: GovernanceEngine | None = None,
+        automated_decision_audit_service: (
+            WorkflowAutomatedDecisionAuditService | None
+        ) = None,
         runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None = None,
         opentelemetry_config: OpenTelemetryConfig | None = None,
         prometheus_metrics_exporter: PrometheusMetricsExporter | None = None,
@@ -112,6 +117,7 @@ class WorkflowBootstrap:
             plugin_runtime_manager=plugin_runtime_manager,
             policy_engine=policy_engine,
             governance_engine=governance_engine,
+            automated_decision_audit_service=automated_decision_audit_service,
             runtime_persistence_subscriber=runtime_persistence_subscriber,
             opentelemetry_config=opentelemetry_config,
             prometheus_metrics_exporter=prometheus_metrics_exporter,
@@ -212,6 +218,9 @@ class WorkflowBootstrap:
             plugin_runtime_manager=components.plugin_runtime_manager,
             policy_engine=components.policy_engine,
             governance_engine=components.governance_engine,
+            automated_decision_audit_service=(
+                components.automated_decision_audit_service
+            ),
             runtime_persistence_subscriber=components.runtime_persistence_subscriber,
             replay_engine=components.replay_engine,
             config=self.config,
@@ -274,6 +283,9 @@ def build_workflow_runtime(
     plugin_runtime_manager: PluginRuntimeManager | None = None,
     policy_engine: PolicyEngine | None = None,
     governance_engine: GovernanceEngine | None = None,
+    automated_decision_audit_service: (
+        WorkflowAutomatedDecisionAuditService | None
+    ) = None,
     runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None = None,
     opentelemetry_config: OpenTelemetryConfig | None = None,
     prometheus_metrics_exporter: PrometheusMetricsExporter | None = None,
@@ -296,6 +308,7 @@ def build_workflow_runtime(
         plugin_runtime_manager=plugin_runtime_manager,
         policy_engine=policy_engine,
         governance_engine=governance_engine,
+        automated_decision_audit_service=automated_decision_audit_service,
         runtime_persistence_subscriber=runtime_persistence_subscriber,
         opentelemetry_config=opentelemetry_config,
         prometheus_metrics_exporter=prometheus_metrics_exporter,
@@ -325,6 +338,9 @@ async def build_workflow_runtime_async(
     plugin_runtime_manager: PluginRuntimeManager | None = None,
     policy_engine: PolicyEngine | None = None,
     governance_engine: GovernanceEngine | None = None,
+    automated_decision_audit_service: (
+        WorkflowAutomatedDecisionAuditService | None
+    ) = None,
     runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None = None,
     opentelemetry_config: OpenTelemetryConfig | None = None,
     prometheus_metrics_exporter: PrometheusMetricsExporter | None = None,
@@ -347,6 +363,7 @@ async def build_workflow_runtime_async(
         plugin_runtime_manager=plugin_runtime_manager,
         policy_engine=policy_engine,
         governance_engine=governance_engine,
+        automated_decision_audit_service=automated_decision_audit_service,
         runtime_persistence_subscriber=runtime_persistence_subscriber,
         opentelemetry_config=opentelemetry_config,
         prometheus_metrics_exporter=prometheus_metrics_exporter,

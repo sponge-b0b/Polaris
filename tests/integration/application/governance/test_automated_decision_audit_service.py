@@ -28,11 +28,20 @@ from core.database.models.governance_audit import (
     GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
 )
+from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.governance import GovernanceResult
+from core.runtime.governance.builtins.require_approval_for_live_mode_rule import (
+    RequireApprovalForLiveModeRule,
+)
+from core.runtime.governance.governance_engine import GovernanceEngine
+from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.policies import PolicyResult
+from core.runtime.state.runtime_context import RuntimeContext
+from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
     AutomatedDecisionSubject,
+    AutomatedGovernanceAuditOutcome,
     AutomatedPolicyAuditOutcome,
     GovernanceReviewDecisionOutcome,
     GovernanceReviewerActorType,
@@ -42,6 +51,12 @@ from core.storage.persistence.governance_audit import (
 from core.storage.persistence.repositories import (
     PostgresAutomatedDecisionAuditRepository,
 )
+from core.workflow.bootstrap.workflow_bootstrap import (
+    WorkflowBootstrapConfig,
+    build_workflow_runtime_async,
+)
+from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
+from core.workflow.models.workflow_node_definition import WorkflowNodeDefinition
 from domain.authority import RiskTier, classify_risk_authority
 from tests.helpers.risk_authority_examples import (
     recommendation_explanation_authority_input,
@@ -49,6 +64,53 @@ from tests.helpers.risk_authority_examples import (
 
 TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 TICKET_134_PACKET_ID = "ticket-134-packet"
+TICKET_138_PACKET_ID = "ticket-138-packet"
+
+
+class GovernanceAuditRuntimeNode(RuntimeNode):
+    node_name = "governance_audit_runtime_node"
+    node_type = "test.governance_audit.node"
+    node_version = "1.0.0"
+
+    parallel_safe = True
+
+    async def _execute(
+        self,
+        context: RuntimeContext,
+    ) -> RuntimeNodeOutput:
+        return RuntimeNodeOutput.success_output(
+            outputs={
+                "ran": True,
+            },
+        )
+
+
+class GovernanceAuditWorkflow(WorkflowGraphDefinition):
+    @property
+    def workflow_name(
+        self,
+    ) -> str:
+        return "governance_audit_workflow"
+
+    @property
+    def workflow_description(
+        self,
+    ) -> str:
+        return "Workflow used to prove facade governance audit persistence."
+
+    def build_graph(
+        self,
+    ) -> list[WorkflowNodeDefinition]:
+        return [
+            WorkflowNodeDefinition(
+                name="governance_audit_node",
+                node_type=GovernanceAuditRuntimeNode,
+                dependencies=(),
+                enabled=True,
+                tags=("governance", "audit", "test"),
+            )
+        ]
+
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
@@ -257,6 +319,95 @@ async def test_application_review_queries_read_authoritative_postgres_records(
         await _delete_ticket_134_records(postgres_session_factory)
 
 
+@pytest.mark.asyncio
+async def test_workflow_facade_requires_approval_records_postgres_audit_and_review_task(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await _delete_ticket_138_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            audit_service = AutomatedDecisionAuditService(repository)
+            audit_context = AutomatedDecisionAuditContext(
+                subject=AutomatedDecisionSubject(
+                    "workflow",
+                    "ticket-138-workflow-run",
+                ),
+                authority=classify_risk_authority(
+                    recommendation_explanation_authority_input(),
+                ),
+                evidence=AutomatedDecisionEvidenceReference(
+                    TICKET_138_PACKET_ID,
+                    1,
+                ),
+                timestamp=datetime(2026, 8, 9, 12, 0, tzinfo=UTC),
+            )
+            runtime = await build_workflow_runtime_async(
+                config=WorkflowBootstrapConfig(
+                    enable_governance=True,
+                    enable_policies=False,
+                    enable_telemetry=False,
+                    enable_jsonl_telemetry=False,
+                ),
+                workflow_definitions=[
+                    GovernanceAuditWorkflow(),
+                ],
+                governance_engine=GovernanceEngine(
+                    registry=GovernanceRegistry(
+                        rules=[
+                            RequireApprovalForLiveModeRule(),
+                        ],
+                    )
+                ),
+                automated_decision_audit_service=audit_service,
+            )
+
+            with pytest.raises(RuntimeError, match="live_mode_requires_approval"):
+                await runtime.facade.run_workflow(
+                    workflow_name="governance_audit_workflow",
+                    mode="live",
+                    archive_on_completion=False,
+                    checkpoint_on_completion=False,
+                    automated_decision_audit_context=audit_context,
+                )
+
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            audit_service = AutomatedDecisionAuditService(repository)
+            governance_records = await audit_service.list_governance_audit_records(
+                AutomatedDecisionAuditQuery(
+                    subject_type="workflow",
+                    subject_id="ticket-138-workflow-run",
+                    risk_tier=RiskTier.VIGILANT,
+                    outcome=AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+                    rule_name="require_approval_for_live_mode",
+                    evidence_packet_id=TICKET_138_PACKET_ID,
+                    evidence_packet_version=1,
+                ),
+            )
+            pending_states = await audit_service.list_governance_review_states(
+                GovernanceReviewTaskQuery(
+                    subject_type="workflow",
+                    subject_id="ticket-138-workflow-run",
+                    risk_tier="vigilant",
+                    approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+                    review_scope="workflow",
+                    requested_action="live_mode_requires_approval",
+                    evidence_packet_id=TICKET_138_PACKET_ID,
+                    evidence_packet_version=1,
+                    closed=False,
+                ),
+            )
+
+        assert len(governance_records) == 1
+        assert len(pending_states) == 1
+        assert pending_states[0].task.automated_governance_audit_record_id == (
+            governance_records[0].audit_record_id
+        )
+    finally:
+        await _delete_ticket_138_records(postgres_session_factory)
+
+
 async def _delete_ticket_134_records(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -288,6 +439,42 @@ async def _delete_ticket_134_records(
             delete(AutomatedPolicyAuditRecordModel).where(
                 AutomatedPolicyAuditRecordModel.evidence_packet_id
                 == TICKET_134_PACKET_ID,
+            )
+        )
+        await session.commit()
+
+
+async def _delete_ticket_138_records(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        await session.execute(
+            delete(GovernanceReviewDecisionModel).where(
+                GovernanceReviewDecisionModel.evidence_packet_id
+                == TICKET_138_PACKET_ID,
+            )
+        )
+        await session.execute(
+            delete(GovernanceResidualRiskAcceptanceModel).where(
+                GovernanceResidualRiskAcceptanceModel.evidence_packet_id
+                == TICKET_138_PACKET_ID,
+            )
+        )
+        await session.execute(
+            delete(GovernanceReviewTaskModel).where(
+                GovernanceReviewTaskModel.evidence_packet_id == TICKET_138_PACKET_ID,
+            )
+        )
+        await session.execute(
+            delete(AutomatedGovernanceAuditRecordModel).where(
+                AutomatedGovernanceAuditRecordModel.evidence_packet_id
+                == TICKET_138_PACKET_ID,
+            )
+        )
+        await session.execute(
+            delete(AutomatedPolicyAuditRecordModel).where(
+                AutomatedPolicyAuditRecordModel.evidence_packet_id
+                == TICKET_138_PACKET_ID,
             )
         )
         await session.commit()

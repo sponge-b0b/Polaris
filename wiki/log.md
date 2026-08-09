@@ -15,3 +15,7 @@ Updated the Strategy Synthesis entity invariant to use the ADR- and implementati
 ## [2026-08-09] domain flow authority rules | distributed decision-support invariants centralized
 
 Added current architecture language for signal flow, risk-agent authority, portfolio intent, execution-risk decisioning, governance ordering, and recommendation attribution, then synchronized the affected entity invariants.
+
+## [2026-08-09] workflow governance audit seam | automated runtime outcomes bound to approval evidence
+
+Synchronized runtime and approval-lifecycle entity invariants after wiring workflow facade governance/policy preflight evaluation to the application-owned automated decision audit seam for evidence-scoped review-task creation.

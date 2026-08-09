@@ -10,6 +10,7 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapResult,
     build_workflow_runtime,
 )
+from core.workflow.governance_audit import WorkflowAutomatedDecisionAuditService
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
 )
@@ -60,6 +61,9 @@ class WorkflowModule:
         workflow_metadata: dict[str, dict[str, Any]] | None = None,
         event_bus: EventBus | None = None,
         archive: CompletedRunArchive | None = None,
+        automated_decision_audit_service: (
+            WorkflowAutomatedDecisionAuditService | None
+        ) = None,
         overwrite: bool = False,
     ) -> None:
         self.config = config or WorkflowModuleConfig()
@@ -68,6 +72,7 @@ class WorkflowModule:
         self.workflow_metadata = workflow_metadata or {}
         self.event_bus = event_bus
         self.archive = archive
+        self.automated_decision_audit_service = automated_decision_audit_service
         self.overwrite = overwrite
 
         self._bootstrap_result: WorkflowBootstrapResult | None = None
@@ -94,6 +99,7 @@ class WorkflowModule:
             ),
             event_bus=self.event_bus,
             archive=self.archive,
+            automated_decision_audit_service=self.automated_decision_audit_service,
             workflow_tags=self.workflow_tags,
             workflow_metadata=self.workflow_metadata,
             overwrite=self.overwrite,
@@ -182,6 +188,9 @@ def create_workflow_module(
     workflow_metadata: dict[str, dict[str, Any]] | None = None,
     event_bus: EventBus | None = None,
     archive: CompletedRunArchive | None = None,
+    automated_decision_audit_service: (
+        WorkflowAutomatedDecisionAuditService | None
+    ) = None,
     overwrite: bool = False,
 ) -> WorkflowModule:
     """
@@ -195,5 +204,6 @@ def create_workflow_module(
         workflow_metadata=workflow_metadata,
         event_bus=event_bus,
         archive=archive,
+        automated_decision_audit_service=automated_decision_audit_service,
         overwrite=overwrite,
     )

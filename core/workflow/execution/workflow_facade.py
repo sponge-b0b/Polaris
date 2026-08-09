@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -48,6 +48,11 @@ from core.workflow.compiler.workflow_compiler import CompiledWorkflow, WorkflowC
 from core.workflow.execution.workflow_engine import WorkflowEngine
 from core.workflow.execution.workflow_runner import WorkflowRunner, WorkflowRunResult
 from core.workflow.execution.workflow_service import WorkflowService, WorkflowSummary
+from core.workflow.governance_audit import (
+    WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY,
+    WorkflowAutomatedDecisionAuditService,
+    audit_context_from_workflow_context,
+)
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
     DestructiveWorkflowOperation,
@@ -81,6 +86,9 @@ class WorkflowFacade:
         plugin_runtime_manager: PluginRuntimeManager | None = None,
         policy_engine: PolicyEngine | None = None,
         governance_engine: GovernanceEngine | None = None,
+        automated_decision_audit_service: (
+            WorkflowAutomatedDecisionAuditService | None
+        ) = None,
     ) -> None:
         self.registry = registry
         self.compiler = compiler
@@ -104,6 +112,7 @@ class WorkflowFacade:
         self.plugin_runtime_manager = plugin_runtime_manager
         self.policy_engine = policy_engine
         self.governance_engine = governance_engine
+        self.automated_decision_audit_service = automated_decision_audit_service
 
     @classmethod
     def create(
@@ -123,6 +132,9 @@ class WorkflowFacade:
         plugin_runtime_manager: PluginRuntimeManager | None = None,
         policy_engine: PolicyEngine | None = None,
         governance_engine: GovernanceEngine | None = None,
+        automated_decision_audit_service: (
+            WorkflowAutomatedDecisionAuditService | None
+        ) = None,
         di_container: Any | None = None,
     ) -> WorkflowFacade:
         components = WorkflowRuntimeAssembler().assemble_facade(
@@ -142,6 +154,7 @@ class WorkflowFacade:
                 plugin_runtime_manager=plugin_runtime_manager,
                 policy_engine=policy_engine,
                 governance_engine=governance_engine,
+                automated_decision_audit_service=automated_decision_audit_service,
                 di_container=di_container,
             ),
         )
@@ -175,6 +188,9 @@ class WorkflowFacade:
             plugin_runtime_manager=components.plugin_runtime_manager,
             policy_engine=components.policy_engine,
             governance_engine=components.governance_engine,
+            automated_decision_audit_service=(
+                components.automated_decision_audit_service
+            ),
         )
 
     # ========================================================
@@ -446,7 +462,27 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        automated_decision_audit_context: Any | None = None,
     ) -> WorkflowRunResult:
+        governance_context = self._with_automated_decision_audit_context(
+            {
+                "governance_phase": "workflow_run_preflight",
+                "workflow_name": workflow_name,
+                "execution_id": execution_id,
+                "mode": mode,
+            },
+            automated_decision_audit_context,
+        )
+        policy_context = self._with_automated_decision_audit_context(
+            {
+                "policy_phase": "workflow_run_preflight",
+                "workflow_name": workflow_name,
+                "execution_id": execution_id,
+                "mode": mode,
+            },
+            automated_decision_audit_context,
+        )
+
         await self._require_governance_allowed_async(
             subject={
                 "operation": "run_workflow",
@@ -457,12 +493,7 @@ class WorkflowFacade:
                 "checkpoint_on_completion": checkpoint_on_completion,
                 "metadata": metadata or {},
             },
-            context={
-                "governance_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
+            context=governance_context,
         )
 
         await self._require_policy_allowed_async(
@@ -475,12 +506,7 @@ class WorkflowFacade:
                 "checkpoint_on_completion": checkpoint_on_completion,
                 "metadata": metadata or {},
             },
-            context={
-                "policy_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
+            context=policy_context,
         )
 
         return await self.service.run_workflow(
@@ -501,7 +527,27 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        automated_decision_audit_context: Any | None = None,
     ) -> WorkflowRunResult:
+        governance_context = self._with_automated_decision_audit_context(
+            {
+                "governance_phase": "workflow_run_from_context_preflight",
+                "workflow_name": workflow_name,
+                "runtime_id": context.runtime_id,
+                "execution_id": context.execution_id,
+            },
+            automated_decision_audit_context,
+        )
+        policy_context = self._with_automated_decision_audit_context(
+            {
+                "policy_phase": "workflow_run_from_context_preflight",
+                "workflow_name": workflow_name,
+                "runtime_id": context.runtime_id,
+                "execution_id": context.execution_id,
+            },
+            automated_decision_audit_context,
+        )
+
         await self._require_governance_allowed_async(
             subject={
                 "operation": "run_from_context",
@@ -512,12 +558,7 @@ class WorkflowFacade:
                 "checkpoint_on_completion": checkpoint_on_completion,
                 "metadata": metadata or {},
             },
-            context={
-                "governance_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
+            context=governance_context,
         )
 
         await self._require_policy_allowed_async(
@@ -530,12 +571,7 @@ class WorkflowFacade:
                 "checkpoint_on_completion": checkpoint_on_completion,
                 "metadata": metadata or {},
             },
-            context={
-                "policy_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
+            context=policy_context,
         )
 
         return await self.service.run_from_context(
@@ -797,10 +833,15 @@ class WorkflowFacade:
         if self.policy_engine is None:
             return
 
-        await self.policy_engine.require_allowed(
+        evaluation = await self.policy_engine.evaluate(
             subject=subject,
             context=context,
         )
+        await self._record_policy_evaluation(
+            context=context,
+            evaluation=evaluation,
+        )
+        evaluation.raise_if_denied()
 
     def _require_policy_allowed_sync(
         self,
@@ -824,10 +865,38 @@ class WorkflowFacade:
             )
 
         asyncio.run(
-            self.policy_engine.require_allowed(
+            self._require_policy_allowed_async(
                 subject=subject,
                 context=context,
             )
+        )
+
+    async def _record_policy_evaluation(
+        self,
+        *,
+        context: dict[str, Any] | None,
+        evaluation: Any,
+    ) -> None:
+        if self.automated_decision_audit_service is None:
+            return
+
+        audit_context = audit_context_from_workflow_context(context)
+        if audit_context is None:
+            if not evaluation.allowed:
+                raise RuntimeError(
+                    "Policy evaluation was denied before authoritative audit "
+                    "evidence could be recorded because no automated decision "
+                    "audit context was supplied."
+                )
+            return
+
+        results = await self.automated_decision_audit_service.record_policy_evaluation(
+            context=audit_context,
+            evaluation=evaluation,
+        )
+        self._raise_if_automated_decision_audit_failed(
+            evaluation_kind="policy",
+            results=results,
         )
 
     # ========================================================
@@ -842,10 +911,15 @@ class WorkflowFacade:
         if self.governance_engine is None:
             return
 
-        await self.governance_engine.require_allowed(
+        evaluation = await self.governance_engine.evaluate(
             subject=subject,
             context=context,
         )
+        await self._record_governance_evaluation(
+            context=context,
+            evaluation=evaluation,
+        )
+        evaluation.raise_if_blocking()
 
     def _require_governance_allowed_sync(
         self,
@@ -869,8 +943,78 @@ class WorkflowFacade:
             )
 
         asyncio.run(
-            self.governance_engine.require_allowed(
+            self._require_governance_allowed_async(
                 subject=subject,
                 context=context,
             )
         )
+
+    async def _record_governance_evaluation(
+        self,
+        *,
+        context: dict[str, Any] | None,
+        evaluation: Any,
+    ) -> None:
+        if self.automated_decision_audit_service is None:
+            return
+
+        audit_context = audit_context_from_workflow_context(context)
+        if audit_context is None:
+            if evaluation.requires_approval:
+                raise RuntimeError(
+                    "Governance evaluation required approval before "
+                    "authoritative audit evidence could be recorded because "
+                    "no automated decision audit context was supplied."
+                )
+            if not evaluation.allowed:
+                raise RuntimeError(
+                    "Governance evaluation blocked execution before "
+                    "authoritative audit evidence could be recorded because "
+                    "no automated decision audit context was supplied."
+                )
+            return
+
+        results = (
+            await self.automated_decision_audit_service.record_governance_evaluation(
+                context=audit_context,
+                evaluation=evaluation,
+            )
+        )
+        self._raise_if_automated_decision_audit_failed(
+            evaluation_kind="governance",
+            results=results,
+        )
+
+    @staticmethod
+    def _with_automated_decision_audit_context(
+        context: dict[str, Any],
+        automated_decision_audit_context: Any | None,
+    ) -> dict[str, Any]:
+        if automated_decision_audit_context is None:
+            return context
+
+        context = dict(context)
+        context[WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY] = (
+            automated_decision_audit_context
+        )
+        return context
+
+    @staticmethod
+    def _raise_if_automated_decision_audit_failed(
+        *,
+        evaluation_kind: str,
+        results: Sequence[Any],
+    ) -> None:
+        errors: list[str] = []
+        for result in results:
+            if getattr(result, "success", True):
+                continue
+
+            result_errors = tuple(str(error) for error in getattr(result, "errors", ()))
+            errors.extend(result_errors or ("unknown persistence failure",))
+
+        if errors:
+            raise RuntimeError(
+                f"Automated {evaluation_kind} audit persistence failed: "
+                f"{'; '.join(errors)}"
+            )

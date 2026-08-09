@@ -1,6 +1,6 @@
 ---
 name: coding-standards
-description: Apply the repository's Python coding standards whenever creating, modifying, refactoring, fixing, or reviewing Python source code. Enforce repository configuration, project-specific scoring, precision, async and observability requirements, modern typing, simple Pythonic design, minimum total complexity, and root-cause fixes. Use for any task that writes or changes Python files.
+description: Apply the repository's Python coding standards whenever creating, modifying, refactoring, fixing, or reviewing Python source code. Enforce repository configuration, project-specific data-contract, scoring, precision, async and observability requirements, modern typing, simple Pythonic design, minimum total complexity, and root-cause fixes. Use for any task that writes or changes Python files.
 ---
 
 # Coding Standards
@@ -29,6 +29,26 @@ A direct user requirement or documented repository rule overrides a design prefe
 
 ## Polaris Non-Negotiables
 
+### Data-Contract Boundaries
+
+When changing application-service, intelligence, runtime, persistence, or other data-contract boundaries, read:
+
+```text
+docs/current/domain-contracts-data-semantics-contract-semantics.md
+```
+
+Follow its canonical classification and boundary rules.
+
+In particular:
+
+* exchange stable internal semantics through typed objects;
+* use mappings only at approved serialization, vendor, telemetry, persistence, report, artifact, runtime, or transport boundaries;
+* do not hide stable business dimensions in generic metadata or undifferentiated mappings;
+* promote stabilized semantics from extension mappings into explicit typed fields;
+* distinguish fallback or unavailable values from canonical observations.
+
+For AI-adjacent outputs, preserve the applicable `RiskAuthorityContract` requirements defined by the same authoritative source.
+
 ### Score Semantics and Precision
 
 When creating, modifying, or reviewing scoring code, read:
@@ -40,6 +60,14 @@ docs/current/domain-contracts-data-semantics-contract-semantics.md
 That document owns canonical score semantics.
 
 Preserve those semantics exactly.
+
+New or changed scoring code must:
+
+* identify the canonical score family explicitly;
+* validate its defined range at the typed boundary;
+* convert between score families only through an explicit formula.
+
+Do not rely on naming, convention, or implicit arithmetic to establish score semantics.
 
 Do not infer score direction, range, sign, normalization, interpretation, or meaning from field names or incidental implementation.
 
@@ -431,6 +459,7 @@ Never simplify away required:
 * transaction, rollback, concurrency, or idempotency behavior;
 * domain invariants;
 * external contracts;
+* canonical data-contract semantics;
 * canonical score semantics;
 * numerical precision;
 * observability;

@@ -29,7 +29,7 @@ The ticket's `Ticket branch` is authoritative. All tickets belonging to the same
 
 For a declared branch:
 
-```bash
+```bash id="nd5u8o"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -45,7 +45,7 @@ This check MUST occur before editing, formatting, generating, deleting, or other
 
 After the branch guard succeeds and before modifying files, capture the ticket verification baseline:
 
-```bash
+```bash id="2x7rme"
 TICKET_BASELINE=$(git rev-parse HEAD)
 ```
 
@@ -62,6 +62,12 @@ Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` 
 If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
 
 If implementation exposes a new material architectural decision that the spec did not resolve, halt and return it upstream rather than deciding it locally.
+
+A newly encountered implementation choice is material architecture only when it would establish or change a durable invariant, canonical owner or path, architectural boundary, dependency direction, or lifecycle responsibility.
+
+Do not halt for ordinary local implementation choices when all viable options conform to the resolved architecture; choose the simplest conforming option.
+
+If the choice determines ownership, canonical routing, boundary placement, or lifecycle semantics that current architectural authority does not establish, halt and return it upstream.
 
 After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 
@@ -154,7 +160,7 @@ Immediately before committing, re-read **Ticket branch** and verify it again.
 
 If it is not `None`:
 
-```bash id="6zh2d2"
+```bash id="d7g9hj"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -182,7 +188,7 @@ After targeted verification succeeds and the branch invariant is confirmed:
 2. Include any substantive wiki mutation and matching `wiki/log.md` entry in that same commit.
 3. Push and establish upstream if necessary:
 
-```bash
+```bash id="c08iz3"
 git push -u origin HEAD
 ```
 

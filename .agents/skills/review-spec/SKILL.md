@@ -30,6 +30,7 @@ Classification rules:
 * Spec-axis mismatches are Blocking by default.
 * Deterministic documented-standard violations are Blocking by default.
 * Architecture findings are Blocking when `$review-architecture` identifies a violation of applicable architectural authority or an unresolved material architecture change introduced by the implementation.
+* For Blocking Architecture findings, `Architecture decision required: Yes | No` controls routing, not severity.
 * Smell-baseline findings are Advisory by default unless explicitly promoted.
 * Explicitly authorized scope creep is Owner-overridden.
 * Skip issues tooling should reliably catch unless tooling cannot reasonably detect the problem in this diff.
@@ -119,7 +120,7 @@ If the spec is missing, skip this sub-agent.
 * spec Architecture Impact;
 * affected entities and governing ADR/doc references when available;
 * Finding Taxonomy;
-* instruction to invoke `$review-architecture` and return only its review findings, labeled Blocking, Advisory, or Owner-overridden. Under 400 words. If clean, say `No findings.`
+* instruction to invoke `$review-architecture` and return only its review findings, preserving `Architecture decision required: Yes | No` and routing for every Blocking finding. Under 400 words. If clean, say `No findings.`
 
 ### 5. Aggregate
 
@@ -128,6 +129,7 @@ Lightly validate cited findings before reporting them. Validation is limited to 
 * Confirm Blocking Standards findings cite a deterministic documented rule.
 * Confirm Spec scope-creep findings were not owner-authorized.
 * Confirm Architecture findings are supported by `$review-architecture` evidence and current architectural authority.
+* Confirm every Blocking Architecture finding includes `Architecture decision required: Yes | No`.
 * Confirm Owner-overridden findings are not counted or ticketed.
 * Inspect only evidence necessary to validate an existing finding.
 * Do not run tests, static checks, graph updates, `$wiki-lint`, or duplication scans.
@@ -147,7 +149,9 @@ Within each axis, use `### Blocking` and `### Advisory` when both exist.
 
 End with one line counting Blocking and Advisory findings separately for each axis and naming the worst Blocking issue in each, if any.
 
-If any Blocking findings remain, invoke `$review-spec-remediation`; do not synthesize root blockers or create tracking issues directly here.
+If any Blocking Architecture finding has `Architecture decision required: Yes`, halt normal remediation and return the unresolved architecture upstream. Do not send unresolved architecture into `$review-spec-remediation` or `$to-tickets`.
+
+Otherwise, if any Blocking findings remain, invoke `$review-spec-remediation`; do not synthesize root blockers or create tracking issues directly here.
 
 ## Why Three Axes
 
@@ -163,7 +167,11 @@ Keeping the axes independent prevents one form of correctness from masking anoth
 
 Do not make in-flight file edits.
 
-If any **Blocking** Standards, Spec, or Architecture findings remain, invoke `$review-spec-remediation` in full.
+Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation blockers and follow the same `$review-spec-remediation` path as Blocking Standards or Spec findings.
+
+Blocking Architecture findings with `Architecture decision required: Yes` require upstream architecture resolution before remediation ticket slicing can continue.
+
+If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation` in full.
 
 That skill owns root-blocker synthesis, tracking, human handoff, recursive passes, and Owner Overrides.
 

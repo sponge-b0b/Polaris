@@ -1,6 +1,6 @@
 ---
 name: to-specs
-description: Turn the current conversation context and codebase understanding into one or more implementation specifications and publish them to the configured issue tracker.
+description: Turn the current conversation context and codebase understanding into one or more implementation specifications and publish or update them in the configured issue tracker.
 disable-model-invocation: true
 ---
 
@@ -12,7 +12,15 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec.
 
-2. **Architecture preflight.** For software work, identify the affected Living Entity Wiki entities and compare the distilled solution against their applicable invariants, decisions, rejections, boundaries, and current authoritative sources.
+2. **Resolve spec mode.** If the invocation references an existing in-progress spec, treat this as re-entry and update that spec rather than creating another one.
+
+   For re-entry:
+
+   * preserve the existing spec identity, branch, baseline, tickets, and review lineage;
+   * incorporate only the requirements, Architecture Impact, implementation decisions, and testing decisions affected by the newly resolved work;
+   * do not create a new spec unless the new work is genuinely separate scope.
+
+3. **Architecture preflight.** For software work, identify the affected Living Entity Wiki entities and compare the distilled solution against their applicable invariants, decisions, rejections, boundaries, and current authoritative sources.
 
    Confirm that:
 
@@ -23,11 +31,14 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
    If not, stop and return the issue to `$wayfinder`. Do not make material architectural decisions while writing the spec.
 
-3. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
+4. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+   Use seams already established by the resolved solution, existing spec, or current conversation. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
 
-4. Write the spec(s) using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+5. Write the spec(s) using the template below.
+
+   * **Fresh mode:** publish a new spec to the configured issue tracker and apply the `ready-for-agent` triage label.
+   * **Re-entry mode:** update the existing spec in place. Do not create a second spec or reset its existing workflow lineage.
 
 ## Problem Statement
 

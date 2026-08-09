@@ -8,22 +8,31 @@ These are the operating rules for coding agents working on Polaris.
 
 At the start of a task:
 
-1. Load `CONTEXT.md` only when domain vocabulary matters, including when:
-
-   * a domain term is ambiguous, contested, or new;
-   * writing/updating an entity page;
-   * running `$domain-modeling`.
-
-2. Match claims to the correct authority:
+1. Match claims to the correct authority:
 
    * code, configuration, executable checks, and relevant tests → implementation reality;
    * accepted ADRs → active architectural decisions;
    * `docs/current/` → current architectural description;
    * `wiki/entities/` → derived architectural knowledge.
 
-3. If applicable authorities materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the task easiest.
+2. If applicable authorities materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the task easiest.
 
-4. Merge these repository rules with narrower user instructions for the active task.
+3. Merge these repository rules with narrower user instructions for the active task.
+
+### Domain Vocabulary
+
+Do not preload `CONTEXT.md`.
+
+Read `CONTEXT.md` only when:
+
+* a domain term is ambiguous, contested, or new;
+* canonical domain vocabulary is required for the current work;
+* writing/updating an entity page where domain terminology is relevant;
+* running `$domain-modeling`.
+
+Context compaction, conversation continuation, or task-state recovery does not by itself require re-reading `CONTEXT.md`.
+
+If the required vocabulary is already established in the current task context, do not re-read `CONTEXT.md` unless it needs to be verified or refreshed.
 
 `CONTEXT.md` is canonical domain vocabulary. Avoid duplicating it here.
 
@@ -33,7 +42,7 @@ At the start of a task:
 
 When changing source code, use `$coding-standards`.
 
-Its requirements are mandatory, including project-specific rules for typing, precision, scoring, async behavior, observability, and related implementation practices.
+Its requirements are mandatory, including project-specific data-contract, scoring, precision, async, observability, and related implementation practices.
 
 When a coding rule depends on project-specific semantics or architecture, follow the authoritative ADR or `docs/current/` source referenced by `$coding-standards`. Do not infer architectural or data-contract semantics from field names, existing implementation accidents, `CONTEXT.md`, or this file.
 
@@ -164,7 +173,7 @@ Entity pages:
 
 * have no YAML frontmatter;
 * preserve causal **why**;
-* use canonical `CONTEXT.md` terminology where relevant;
+* use canonical domain terminology; consult `CONTEXT.md` only when that terminology is not already established;
 * do not store Category, Implementation, Routing Anchors, `last_updated`, `linked_docs`, file inventories, call chains, or dependency lists.
 
 Use inline `source:` citations for entity-document relationships.

@@ -11,6 +11,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from core.database.base import Base
 from core.storage.persistence.health import (
@@ -260,7 +261,7 @@ class HealthPersistenceService:
             drift_operations = tuple(
                 await self._schema_drift_loader(),
             )
-        except Exception as exc:  # pragma: no cover - default integration guard
+        except (ImportError, SQLAlchemyError) as exc:
             return PersistenceHealthCheckResult.unhealthy(
                 category=PersistenceHealthCheckCategory.MIGRATION_STATE,
                 check_name="alembic_schema_drift",

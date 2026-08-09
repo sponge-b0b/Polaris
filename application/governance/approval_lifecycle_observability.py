@@ -359,7 +359,7 @@ class ApprovalLifecycleObservability:
                     payload=dict(payload),
                 )
             )
-        except Exception:  # noqa: BLE001 - observability must not break governance.
+        except RuntimeError:
             logger.exception(
                 "governance_approval_lifecycle.telemetry_emit_failed",
                 extra=log_extra,
@@ -391,7 +391,7 @@ class ApprovalLifecycleObservability:
                     **dict(attributes),
                 },
             )
-        except Exception:  # noqa: BLE001 - observability must not break governance.
+        except RuntimeError:
             logger.exception(
                 "governance_approval_lifecycle.trace_context_failed",
                 extra=dict(attributes),
@@ -411,7 +411,7 @@ class ApprovalLifecycleObservability:
                 name,
                 attributes=dict(attributes),
             )
-        except Exception:  # noqa: BLE001 - observability must not break governance.
+        except RuntimeError:
             logger.exception(
                 "governance_approval_lifecycle.metrics_failed",
                 extra=dict(attributes),

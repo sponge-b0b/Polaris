@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from application.persistence.health import (
     HealthPersistenceFilters,
@@ -251,7 +252,7 @@ def _schema_drift(
 
 
 async def _failed_schema_drift() -> tuple[str, ...]:
-    raise RuntimeError("autogenerate unavailable")
+    raise SQLAlchemyError("autogenerate unavailable")
 
 
 def _revision(

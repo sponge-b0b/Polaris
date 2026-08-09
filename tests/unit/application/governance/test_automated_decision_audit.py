@@ -73,6 +73,11 @@ class FailingObservabilityManager(ObservabilityManager):
         raise RuntimeError("telemetry unavailable")
 
 
+class ValueErrorObservabilityManager(ObservabilityManager):
+    async def emit(self, event: TelemetryEvent) -> None:
+        raise ValueError("unexpected telemetry failure")
+
+
 @pytest.mark.asyncio
 async def test_records_policy_decision_as_separate_authoritative_audit_record() -> None:
     repository = FakeAutomatedDecisionAuditRepository()
@@ -1559,6 +1564,26 @@ async def test_observability_failure_does_not_block_domain_persistence(
     assert len(repository.review_tasks) == 1
     assert "governance_approval_lifecycle.metrics_failed" in caplog.messages
     assert "governance_approval_lifecycle.telemetry_emit_failed" in caplog.messages
+
+
+@pytest.mark.asyncio
+async def test_unexpected_observability_failure_is_not_silenced() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(
+        repository,
+        ValueErrorObservabilityManager(),
+    )
+
+    with pytest.raises(ValueError, match="unexpected telemetry failure"):
+        await service.record_governance_decision(
+            context=_context(),
+            result=GovernanceResult.require_approval(
+                rule_name="authority_metadata_governance",
+                message="vigilant output requires approval",
+                reason="vigilant_authority_requires_approval",
+                metadata={"authority_subject_family": "recommendation"},
+            ),
+        )
 
 
 def _context(

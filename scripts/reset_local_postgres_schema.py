@@ -8,8 +8,10 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.util.exc import CommandError
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from application.persistence.health import HealthPersistenceService
@@ -94,7 +96,7 @@ def main(
                     file=sys.stderr,
                 )
             return 1
-    except Exception as exc:
+    except (CommandError, SQLAlchemyError, ValueError) as exc:
         print(
             f"Local PostgreSQL reset failed: {exc}",
             file=sys.stderr,

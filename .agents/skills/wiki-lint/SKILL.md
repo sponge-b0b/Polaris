@@ -1,7 +1,7 @@
 ---
 name: wiki-lint
 description: Audit the Living Entity Wiki as a whole for structural integrity, citation validity, authoritative-source conflicts, derived-document drift, implementation contradictions, stale questions, and classification hygiene.
-compatibility: product=codex product=claude-code system=git network=none
+compatibility: product=codex product=claude-code system=git system=gh network=required
 ---
 
 # Wiki Lint
@@ -74,7 +74,7 @@ Report `[structural]` for issues such as:
 
 Allowed `Implementation` values:
 
-```text id="g8y1oy"
+```text
 present
 pending
 ```
@@ -99,7 +99,7 @@ Optional sections may be absent when empty:
 
 Report `[structural]` if obsolete entity metadata reappears, including:
 
-```text id="sgx7ow"
+```text
 category:
 last_updated:
 linked_docs:
@@ -110,7 +110,7 @@ implementation:
 
 Every entity needs a Boundary Rationale with provenance allowed by `wiki/_template.md`, such as:
 
-```text id="1kvfnh"
+```text
 source: docs/...
 source: owner-approved entity boundary determination
 source: owner-approved entity promotion
@@ -137,7 +137,7 @@ Audit citations in the context of the section they support.
 
 Report:
 
-```text id="05bnhs"
+```text
 [broken-doc-citation]
 ```
 
@@ -156,7 +156,7 @@ Do not automatically delete the claim; determine whether the source moved, was r
 
 Report:
 
-```text id="v1rz9a"
+```text
 [invalid-citation]
 ```
 
@@ -164,7 +164,7 @@ when the cited source type was never eligible for that section.
 
 Report:
 
-```text id="mtzmmf"
+```text
 [stale-citation]
 ```
 
@@ -193,7 +193,7 @@ Eligible sources:
 
 Use provenance defined by `wiki/_template.md`, including:
 
-```text id="oh7e28"
+```text
 source: docs/...
 source: owner-confirmed session decision, undocumented
 source: session experiment, undocumented
@@ -203,7 +203,7 @@ source: session experiment, undocumented
 
 Valid provenance includes:
 
-```text id="xyxvdz"
+```text
 source: docs/...
 source: owner-raised session question, undocumented
 source: agent-observed during session, unresolved
@@ -230,7 +230,7 @@ Authority is claim-specific:
 
 Report:
 
-```text id="7eqt6t"
+```text
 [source-conflict]
 ```
 
@@ -258,7 +258,7 @@ Skip ordinary drift repair for the disputed claim until the underlying conflict 
 
 Report:
 
-```text id="4x9nrb"
+```text
 [doc-drift]
 ```
 
@@ -299,7 +299,7 @@ Do not manufacture realization from weak evidence.
 
 Report:
 
-```text id="t1asap"
+```text
 [code-drift]
 ```
 
@@ -308,6 +308,31 @@ when implementation evidence materially contradicts an active Strict Invariant a
 Do not use `[code-drift]` to mean:
 
 > I could not prove this from code.
+
+## Active Implementation Work
+
+When a mechanically observable claim names implementation that cannot be found on the current branch, check relevant **open GitHub issues** before classifying the absence.
+
+Use exact or strong identifiers such as:
+
+* symbol names;
+* Entity ID or title;
+* ADR number/title;
+* canonical owner or boundary terminology.
+
+GitHub issues are **workflow-status evidence only**. They are not architectural authority or implementation proof.
+
+If a relevant open spec/ticket explicitly tracks realization of the missing claim:
+
+* treat the realization as pending rather than unexplained absence;
+* if it declares a work branch, inspect that ref read-only when useful;
+* do not switch branches;
+* implementation present only on the work branch is **in progress**, not implemented on the branch being audited;
+* do not report `[code-drift]` solely because the pending implementation is absent.
+
+If `docs/current/`, a Strict Invariant, or `Implementation: present` claims the realization already exists while active work shows it is still pending, continue normal source-conflict/structural analysis. The open issue explains the mismatch; it does not make the claim true.
+
+Do not treat a closed issue as implementation proof. Require implementation or merge evidence.
 
 ## Mechanically Observable Invariants
 
@@ -332,13 +357,13 @@ For rules that cannot be mechanically proven:
 
 If none is found, the strongest valid conclusion is:
 
-```text id="c16f20"
+```text
 no contrary implementation evidence found
 ```
 
 not:
 
-```text id="jf12gi"
+```text
 verified
 ```
 
@@ -348,7 +373,7 @@ Prefer deterministic architecture tests/static rules for mechanically enforceabl
 
 Report:
 
-```text id="n6mevy"
+```text
 [stale-question]
 ```
 
@@ -388,7 +413,7 @@ Do not auto-resolve semantic contradictions.
 
 Report:
 
-```text id="p74vci"
+```text
 [unclassified-doc]
 ```
 
@@ -410,7 +435,7 @@ Use `$classify-doc` for existing non-ADR documents.
 
 When several findings apply to the same claim, prefer the root cause:
 
-```text id="mqon3j"
+```text
 [source-conflict]
       ↓
 [broken-doc-citation]
@@ -461,7 +486,7 @@ When uncertain, report instead of fixing.
 
 Use these prefixes:
 
-```text id="3pcjrz"
+```text
 [source-conflict]
 [code-drift]
 [doc-drift]
@@ -478,6 +503,7 @@ Each finding should include enough context to act on it:
 * entity;
 * claim/section;
 * evidence or sources;
+* relevant open issue/work branch when active implementation explains the state;
 * why it is a problem;
 * required next action or owner judgment.
 
@@ -485,7 +511,7 @@ End with a count by finding type.
 
 Example:
 
-```text id="mxwxsj"
+```text
 Wiki lint: 3 issues found
 - [source-conflict]&#58; 1
 - [doc-drift]&#58; 1
@@ -494,7 +520,7 @@ Wiki lint: 3 issues found
 
 For a clean run:
 
-```text id="31j0q1"
+```text
 Wiki lint: 0 issues found
 ```
 
@@ -537,6 +563,8 @@ Use:
 * decide new entity boundaries;
 * settle source conflicts;
 * rewrite architectural decisions;
+* treat GitHub issues as architectural authority;
+* treat unmerged branch work as current implementation;
 * create ADRs merely to clear findings;
 * infer intent-level compliance from absence of evidence;
 * maintain `linked_docs`, timestamps, reciprocal dependency lists, or entity frontmatter;

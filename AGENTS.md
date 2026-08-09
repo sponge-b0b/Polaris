@@ -31,34 +31,13 @@ At the start of a task:
 
 ## Coding Conduct
 
-When changing Python source, use `$coding-standards` and follow the repository's
-configured Ruff, formatting, typing, and verification practices.
+When changing source code, use `$coding-standards`.
 
-Architectural decisions and current architectural descriptions live in
-`docs/adr/` and `docs/current/`; consult the applicable source instead of using
-`AGENTS.md` as an architecture reference. When changing scoring code, consult
-the score semantics in `docs/current/platform-data-contract-inventory.md` rather
-than relying on `CONTEXT.md` or inferred field names.
+Its requirements are mandatory, including project-specific rules for typing, precision, scoring, async behavior, observability, and related implementation practices.
 
-Agent-facing coding rules:
+When a coding rule depends on project-specific semantics or architecture, follow the authoritative ADR or `docs/current/` source referenced by `$coding-standards`. Do not infer architectural or data-contract semantics from field names, existing implementation accidents, `CONTEXT.md`, or this file.
 
-* Type public interfaces.
-* Prefer `@dataclass(frozen=True, slots=True)` for immutable internal models.
-* Do not use `round()` in application, intelligence, analysis, regime,
-  calibration, or persistence logic; preserve full precision internally and
-  round only in human-facing renderers.
-* Use async provider/client calls consistently.
-* Do not add sync/async compatibility branches without a real boundary
-  requirement and an applicable architecture source.
-
-## Observability Practice
-
-When changing an operational boundary, consult the current observability and
-platform architecture documents before implementing telemetry behavior.
-
-Verify appropriate structured logs, trace spans, metrics, trace propagation, and
-failure visibility using established repository conventions. Do not create
-parallel telemetry systems or duplicate lifecycle emission paths.
+Do not duplicate coding-standard policy in `AGENTS.md`.
 
 ## Secrets
 

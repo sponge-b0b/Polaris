@@ -97,6 +97,17 @@ Validate the completed specification branch as a unified system to catch cross-m
 * Do not wait on unnecessary unavailable services.
 * Use reasonable timeouts and diagnose incorrect estimates rather than applying excessive defaults.
 
+### 4. Diff Hygiene
+
+Do not fail specification verification for incidental whitespace or formatting findings outside the verification gates defined by this skill.
+
+If `git diff --check` is run as an additional sanity check:
+
+* unresolved merge-conflict markers are Blocking;
+* whitespace-only findings are Advisory unless an applicable repository rule explicitly makes them Blocking.
+
+Do not let optional patch-hygiene checks override the verification result.
+
 ---
 
 ## Code Quality & Suppression Guardrails

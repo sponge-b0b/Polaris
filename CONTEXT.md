@@ -1,346 +1,276 @@
-# Polaris Project Context
+# Polaris Domain Glossary
 
-## Purpose
+## Recommendation
 
-Polaris is a Python-based AI intelligence and workflow-orchestration platform for portfolio analysis, risk assessment, strategy synthesis, reporting, replay, and deterministic backtesting.
-
-The platform is **recommendation-driven**, not an autonomous trading system. It may produce portfolio intent, trade proposals, and execution-safety decisions, but broker execution remains outside the current platform boundary.
+A **Recommendation** is a Polaris decision-support output that proposes or explains a portfolio-relevant posture, action candidate, or risk response, backed by decision evidence. A Recommendation is not financial advice, human or organizational approval, broker execution intent, or a live order.
 
-Primary goals:
+Related distinctions:
 
-- replayable and resumable workflows
-- deterministic analysis and backtesting
-- strongly typed internal contracts
-- observable and attributable decisions
-- policy and governance enforcement
-- capital preservation
-- production-grade persistence and operations
+- A **Strategy Decision** is the selected typed synthesis outcome from structured strategy hypotheses.
+- A **Proposed Action** or **Action Candidate** is a concrete candidate action that may later be packaged, resized, deferred, rejected, escalated, or skipped.
+- A **Trade Package** is downstream packaging of Proposed Actions for execution-risk review.
+- An **Order** is out of scope unless a future broker-execution architecture explicitly introduces it.
 
-## Architectural Direction
+## Capital-Relevant Output
 
-Polaris follows an inside-out architecture:
-
-```text
-Runtime
-→ Replay and persistence
-→ Telemetry
-→ Plugins
-→ Policy and governance
-→ Capabilities
-→ Application services
-→ Intelligence
-→ Portfolio and strategy
-→ Trade proposals and execution safety
-→ External interfaces
-```
+A **Capital-Relevant Output** is a Polaris output that could reasonably influence allocation, position sizing, entry or exit timing, hedging, risk acceptance, or portfolio exposure if a human acted on it.
 
-Lower layers define stable contracts. Higher-level code must conform to them through dependency inversion; edge code must not distort the runtime to preserve obsolete behavior.
+Capital-Relevant Outputs include Recommendations, Proposed Actions, Action Candidates, Trade Packages, risk responses that affect exposure, Strategy Decisions when exposed as guidance, and RAG, report, or tool answers that make readiness-gating claims about portfolio action or risk.
 
-## Canonical Execution Path
+Raw market data, telemetry, observability dashboards, implementation diagnostics, contextual narrative with no action or risk implication, and internal runtime evidence not exposed as guidance are not automatically Capital-Relevant Outputs.
 
-```text
-Interface
-→ WorkflowFacade
-→ WorkflowBootstrap composition
-→ Workflow definition and compiler
-→ RuntimeEngine
-→ RuntimeNode
-→ RuntimeNodeOutput
-→ RuntimeContext
-→ PostgreSQL persistence
-```
+## Release
 
-Canonical ownership:
+**Release** is the domain decision that a governed output is allowed to cross a controlled boundary after evidence, governance, and residual-risk checks pass.
 
-- `RuntimeEngine` owns node execution.
-- `WorkflowFacade` is the application-facing workflow boundary.
-- `WorkflowBootstrap` is the workflow composition root.
-- Dishka is the dependency-injection framework.
-- `EventBus` and typed `RuntimeEvent` objects are the runtime notification path.
-- `RuntimeContext` contains execution context and accumulated node outputs.
-- Completed workflow runs and runtime evidence are persisted in PostgreSQL.
+## Publication
 
-The runtime is intentionally unaware of whether providers are live, historical, or simulated.
+**Publication** is making an output externally visible or user-facing, such as through a report, CLI response, MCP response, API response, or rendered artifact.
 
-## Current Platform Map
+## Durable Promotion
 
-### Runtime and workflows
+**Durable Promotion** is making an output authoritative for later platform use, such as persistence as a curated record, recommendation record, RAG-eligible source, graph projection source, audit-linked evidence, or downstream workflow input.
 
-Implemented runtime capabilities include:
+Persisting blocked or skipped audit state is not Durable Promotion of the output's claim; it is audit retention.
 
-- workflow graph compilation and execution
-- checkpoints, replay, resume, and completed-run retrieval
-- pause, resume, cancel, and progress notifications
-- lifecycle events and event dispatch
-- policy and governance evaluation
-- plugin loading and lifecycle management
-- runtime telemetry and trace-context propagation
-- artifact, validation, and state-management support
+## Approval
 
-Current workflow definitions:
+**Approval** is an attributable governance review outcome that allows a requested action, output, or promotion to proceed if all other required checks pass.
 
-- morning report
-- momentum strategy
-- strategy review
+Approval does not imply Residual-Risk Acceptance when residual risk remains. A model cannot grant Approval.
 
-`RuntimeContext` and `RuntimeNodeOutput` are the canonical workflow evidence contracts. The former `MarketState`, `RiskState`, `StrategyState`, and runtime `PortfolioState` aggregate has been removed; domain state belongs in typed domain records or node outputs rather than a competing runtime source of truth.
+## Residual-Risk Acceptance
 
-### Application and integration layers
+**Residual-Risk Acceptance** is an explicit, scoped, attributable acknowledgement that remaining identified risk is accepted for a specific subject, evidence version, review scope, residual-risk scope, action, and sink.
 
-External data follows this path:
+Residual-Risk Acceptance is distinct from Approval. A model cannot grant Residual-Risk Acceptance.
 
-```text
-External system
-→ vendor-specific async client
-→ provider normalization
-→ typed application request/result
-→ intelligence or workflow node
-```
+## Evidence
 
-Responsibilities:
+**Evidence** is information used to support, contradict, constrain, qualify, or reconstruct a material Polaris claim or output.
 
-- **Clients:** authentication, HTTP/SDK calls, retries, pagination, rate limits, timeouts, and raw parsing.
-- **Providers:** vendor abstraction and translation into stable platform-facing contracts.
-- **Application services:** use-case orchestration across providers, persistence, and domain operations.
-- **Intelligence components:** transform typed normalized inputs into signals, assessments, recommendations, and explanations.
+Evidence roles include:
 
-Agents and intelligence components do not call vendor SDKs directly.
+- **Runtime Evidence**: workflow execution outputs and completed-run records that explain what happened during execution.
+- **Decision Evidence**: evidence bound to claims in a decision evidence packet.
+- **Supporting Evidence**: evidence cited as support for a claim.
+- **Conflicting Evidence**: evidence that materially challenges a claim.
+- **Reconstruction Evidence**: durable references or retained snapshots used to verify where claim support came from.
+- **Contextual Evidence**: explanatory information retained for audit or narrative, but not readiness-gating by itself.
 
-### Intelligence flow
+A citation, artifact, projection, or telemetry signal is not automatically Evidence until it is used in an Evidence role.
 
-The principal analysis flow is:
+## Claim
 
-```text
-Application service results
-→ PortfolioStateBuilder and analyst agents
-→ typed fundamental, technical, news, and sentiment signals
-→ risk agents and risk aggregation
-→ regime perspectives
-→ strategy synthesis
-→ portfolio intent
-→ trade packaging
-→ execution risk guard
-```
+A **Claim** is an assertion in a Polaris output that represents or explains a state of the world, portfolio condition, risk condition, rationale, expected effect, or recommended posture or action.
 
-The exact workflow graph may use only a subset of this flow. Each component produces typed domain output and does not directly place trades.
+Claim materiality distinctions:
 
-Technical analysis is organized as a typed service pipeline covering snapshots, indicators, trend, volatility, breadth, raw regime classification, and calibration. Detailed field contracts are defined by the current request/result and domain model classes, not by duplicated documentation lists.
+- A **Material Claim** is a Claim that could affect trust in a Capital-Relevant Output.
+- A **Readiness-Gating Claim** is a Material Claim whose absence, unsupported state, conflict, or reconstruction failure must block Release, Publication, or Durable Promotion.
+- A **Contextual Claim** is explanatory or background narrative that may be audited but does not by itself block readiness.
 
-### Persistence
+For example, "the portfolio is over-concentrated in semiconductors" is a Claim. "Consider trimming NVDA exposure" is both a claim-bearing Recommendation or Proposed Action and a Capital-Relevant Output. Generation timestamps and similar operational metadata are usually not Material Claims.
 
-PostgreSQL is the platform system of record. SQLAlchemy models and Alembic migrations govern its schema.
+## Curated Record
 
-Canonical durable categories include:
+A **Curated Record** is a typed, attributable, durable platform record that has been selected and normalized for later authoritative platform use.
 
-- workflow runs, node runs, events, checkpoints, and completed-run context
-- market, macro, news, sentiment, portfolio, and intelligence records
-- reports, recommendations, attribution, lineage, audit, and retention records
-- telemetry records
-- backtest runs, metrics, and artifacts
-- curated RAG documents, chunks, and projection jobs
+A Curated Record is not automatically human-approved, true, investment advice, conflict-free, RAG-indexed, graph-projected, or publishable. A record appearing in Qdrant, Neo4j, a rendered report, or a runtime dump is not Curated unless it has an owning durable platform record. Curation does not erase source lineage, materiality, or governance requirements.
 
-Persistence access belongs in typed repositories and application persistence services. Analytical services return typed results and must not persist workflow-derived analysis unless persistence is the explicit use case.
+## Projection
 
-### Workflow-output curation
+A **Projection** is a derived representation of authoritative platform records or Runtime Evidence, optimized for a particular use such as retrieval, graph traversal, presentation, search, or inspection.
 
-Workflow outputs are runtime evidence; they do not automatically become canonical domain records or RAG content.
+A Projection is rebuildable from its source records and must not become the source of truth for the business concept it represents. A Projection may be cited or inspected, but readiness and reconstruction must point back to canonical durable records or retained snapshots where required.
 
-The canonical lifecycle is:
+Examples include Qdrant vectors, Neo4j graph nodes and relationships, report renderings, RAG chunks, read models, and search indexes.
 
-```text
-Typed node output
-→ persisted workflow evidence
-→ explicit typed projection policy
-→ canonical curated domain record
-→ RAG document and chunk creation
-→ Qdrant and Neo4j projections
-```
+## Source of Truth
 
-Only explicitly supported, eligible, attributable, and useful records are curated. This prevents every transient node field or metadata value from becoming a permanent knowledge contract.
+A **Source of Truth** is the authoritative domain source for a concept or claim.
 
-### RAG pipeline
+## System of Record
 
-The platform-native RAG pipeline includes:
+A **System of Record** is the durable storage boundary responsible for retaining authoritative records. In the current Polaris architecture, PostgreSQL is the System of Record for platform business state.
 
-- curated typed ingestion from PostgreSQL records
-- parent-child and structure-aware chunking
-- dense and sparse hybrid vector retrieval in Qdrant
-- graph projection and retrieval in Neo4j
-- retrieval fusion and cross-encoder reranking
-- adaptive routing, CRAG, Self-RAG, context selection, and answer generation
-- security validation, quality checks, lifecycle operations, and telemetry
+## Authority
 
-PostgreSQL remains authoritative. Qdrant and Neo4j are rebuildable projections and must never become independent sources of truth.
+An **Authority** is the domain or architectural owner allowed to decide, write, validate, or release a concept. An Authority can be a service, lifecycle, or contract rather than only a database.
 
-### Backtesting
+For example, PostgreSQL may be the System of Record for an approval task, while the approval lifecycle authority defines the semantics for approval, contestability, residual-risk acceptance, and release.
 
-Backtesting uses the production workflow runtime and service contracts. Only provider composition changes:
+## Strategy Hypothesis
 
-```text
-Canonical workflow
-→ canonical services
-→ deterministic historical or simulated providers
-```
+A **Strategy Hypothesis** is a typed, evidence-bound argument for one market or portfolio perspective, including supporting evidence, contradicting evidence, assumptions, invalidation conditions, strength, confidence, directional bias, and an evidence fingerprint.
 
-A deterministic scenario must be able to verify independently derived expected calculations, risk assessments, and recommendations. The runtime does not contain a special backtesting execution path.
+A Strategy Hypothesis is not a vote and is not the final strategy selection. Bull, Bear, and Sideways are perspectives that produce comparable Strategy Hypotheses from the same evidence context. The final Strategy Decision comes from comparing hypotheses under the synthesis policy.
 
-### Telemetry and operations
+## Strategy Decision
 
-The observability stack provides:
+A **Strategy Decision** is the typed synthesis outcome that selects or blends portfolio posture from competing Strategy Hypotheses under evidence, market, portfolio, and risk constraints.
 
-- structured logging
-- Prometheus metrics
-- OpenTelemetry traces exported to Jaeger
-- PostgreSQL telemetry persistence and retention
-- trace propagation across events, providers, async tasks, and storage operations
+A Strategy Decision may express posture or regime interpretation, directional bias, confidence and uncertainty, thesis or rationale, synthesis weights, constraints, and degradation reasons.
 
-Runtime notifications flow through `EventBus`; telemetry observes and maps those events at the boundary. Telemetry failures must not replace valid domain results, but they must be visible through defensive logging.
+A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Release, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
 
-Docker Compose currently defines PostgreSQL, Qdrant, Neo4j, BGE reranker, Prometheus, Jaeger, and Grafana services.
+## Execution Risk
 
-### Interfaces
+**Execution Risk** is the risk introduced by attempting to carry out a Proposed Action or Trade Package, including timing, liquidity, sizing, slippage, concentration, volatility, operational, and governance risks.
 
-The native implemented interface is the async Typer CLI exposed as:
+In current Polaris, Execution Risk assessment is decision-support and governance over candidate actions. It is not live broker execution and does not imply an Order exists.
 
-```bash
-polaris
-```
+## Portfolio Posture
 
-It supports workflow execution and control, morning reports, completed runs, inspection, backtesting, and RAG operations.
+**Portfolio Posture** is a qualitative or bounded directional stance toward exposure, risk, liquidity, concentration, hedging, or rebalance intent.
 
-The HTTP API tree currently contains empty scaffolding and is not an implemented interface. The `mcp_server/` package is also unimplemented. If MCP is added, it must be a thin external transport over canonical application services resolved through Dishka request scopes—not a second RAG, persistence, or workflow implementation.
+## Allocation
 
-## Domain Invariants
+**Allocation** is a concrete target or actual distribution of capital across assets, sectors, strategies, accounts, or risk buckets.
 
-### Typed contracts
+A Strategy Decision may express Portfolio Posture. A Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and release handling.
 
-Internal layers use strongly typed requests, results, domain objects, signals, and runtime contracts. Dictionaries are limited to external, telemetry, event, serialization, persistence, checkpoint, replay, and transport boundaries.
+## Risk
 
-### Numeric precision
+**Risk** is an identified possibility of adverse portfolio, operational, evidentiary, governance, or user-impact outcome.
 
-Application, intelligence, analysis, calibration, regime, and persistence layers retain full precision. Rounding is permitted only at human-facing presentation boundaries.
+Risk categories include:
 
-### Score semantics
+- **Portfolio Risk**: risk arising from holdings, exposures, concentration, volatility, drawdown, liquidity, correlation, or market regime.
+- **Execution Risk**: risk arising from attempting to carry out a Proposed Action or Trade Package.
+- **Evidence Risk**: risk that a Claim or output is unsupported, conflicted, stale, unreconstructable, or based on rejected Evidence.
+- **Governance Risk**: risk that an output or action crosses a boundary without required policy, review, Approval, contestability, or Residual-Risk Acceptance.
+- **Residual Risk**: identified Risk that remains after automated checks, mitigations, review, or constraints.
 
-Canonical score ranges:
+## AI-Adjacent Output
 
-- stability: `0.0` to `1.0`, where higher is better
-- risk: `0.0` to `1.0`, where higher is worse
-- confidence: `0.0` to `1.0`, where higher is more certain
+An **AI-Adjacent Output** is an output produced by, transformed by, summarized by, routed through, or materially influenced by model, agent, RAG, evaluation, or automated decision-support behavior.
 
-Convert stability to risk explicitly:
+AI-Adjacent status does not by itself determine authority, truth, readiness, or risk tier. AI-Adjacent Outputs require classification by their effect, source of truth, intended sink, evidence sufficiency, external visibility, durable authority, governance impact, and capital relevance.
 
-```python
-risk = 1.0 - stability
-```
+## Risk Authority Contract
 
-Do not mix these semantics implicitly.
+A **Risk Authority Contract** is the canonical classification of one AI-adjacent output boundary's consequence tier, allowed effect, owner, source-of-truth category, intended sink, gate profile, and evidence or governance flags.
 
-### Sources of truth
+A Risk Authority Contract describes what an output is allowed to affect after platform classification. Model output or model-provided metadata cannot self-declare authority, production readiness, governance approval, residual-risk acceptance, or a lower risk tier.
 
-For each durable business concept there must be one authoritative model, owner, and canonical writer. Keep these categories distinct:
+## Risk Tier
 
-- runtime evidence
-- canonical domain records
-- derived projections
-- telemetry
-- presentation output
+A **Risk Tier** is a consequence classification for an AI-Adjacent Output.
 
-### Risk tier and authority metadata
+Canonical Risk Tiers are:
 
-`domain.authority.RiskAuthorityContract` is the canonical typed metadata contract
-for AI-adjacent output authority. It classifies outputs into `Baseline`,
-`Enhanced`, `Vigilant`, or `Prohibited / Outside Authority` risk tiers while
-keeping authority of effect separate from content type. The contract records the
-platform owner, source-of-truth category, intended sink, and selected gate
-profile.
+- **Baseline**: low-consequence informational or runtime output that does not require enhanced evidence or governance controls.
+- **Enhanced**: output requiring stronger evidence, readiness, or authority controls because it is externally visible, durable, capital-relevant, evidence-insufficient, non-runtime-sourced, or otherwise consequential.
+- **Vigilant**: output requiring the strongest automated governance and release controls because it can affect capital, governance, execution decisions, durable authority, external visibility, or unresolved evidence sufficiency.
+- **Prohibited / Outside Authority**: output whose requested effect is outside Polaris authority and must not be treated as allowed by model text, interface behavior, or local metadata.
 
-Risk tier selection is deterministic and platform-owned. Callers provide
-platform-known attributes such as capital relevance, durable authority, external
-visibility, governance impact, evidence sufficiency, and sink type; generated
-model text or metadata may not declare itself authoritative, production-ready,
-governance-approved, residual-risk-accepted, or lower risk than the platform
-classification.
+## Policy
 
-## Policy and Governance
+**Policy** answers whether an operation, output, or boundary crossing may happen under deterministic platform rules. Policy outcomes are allow or deny style decisions and do not by themselves store human governance Approval.
 
-Policy answers **“May this happen?”** with `ALLOW` or `DENY`.
+## Governance
 
-Governance answers **“Should this happen?”** with `ALLOW`, `WARN`, `DENY`,
-`REQUIRE_APPROVAL`, or `SKIP`.
+**Governance** answers whether an operation, output, or boundary crossing should happen given consequence, evidence, review, contestability, residual risk, and release requirements.
 
-Automated policy and governance evaluations are recorded as PostgreSQL-backed
-audit evidence. `AutomatedDecisionAuditService` is the canonical application
-owner for automated governance audit records, governance review tasks, human or
-organizational review outcomes, scoped residual-risk acceptances, review-state
-queries, and governed-output release decisions. Its repository boundary writes
-the durable PostgreSQL records; logs, metrics, runtime events, reports, CLI
-output, future MCP responses, and projection stores are diagnostic or transport
-views, not approval sources of truth.
+Governance is separate from Policy. Automated Governance may allow, warn, deny, require approval, or skip. Human or organizational review is a governance lifecycle above automated governance, not a replacement policy engine and not model-declared readiness.
 
-`REQUIRE_APPROVAL` can create an evidence-scoped review task. Review outcomes
-are immutable, attributable records for approval, denial, contest, requested
-changes, or override. Vigilant approvals or overrides with residual risk still
-remaining require an explicit human or organizational residual-risk acceptance
-that records the reviewed subject, review scope, residual-risk scope, and
-evidence packet version. Model-generated text or metadata may not approve a
-review, accept residual risk, contest a decision, override governance, clear
-requested changes, declare production readiness, or lower a risk tier.
+## Governed Output
 
-Capital-relevant publication and durable promotion of Enhanced or Vigilant
-outputs are blocked until the canonical review state and, when required, scoped
-residual-risk acceptance permit release. A missing, pending, denied, contested,
-changes-requested, cancelled, stale, or unaccepted review remains blocking.
-Current external interfaces may expose these semantics only by resolving the
-canonical application/query services through Dishka request scopes; they must not
-implement interface-local approval queues, persistence, or state machines.
+A **Governed Output** is an output whose Release, Publication, Durable Promotion, or downstream use is subject to Policy, Governance, evidence readiness, review, or Residual-Risk Acceptance requirements.
 
-## Repository Layout
+Capital-Relevant Enhanced and Vigilant outputs are Governed Outputs when they are externally visible, durably authoritative, governance-impacting, or otherwise cross a controlled boundary.
 
-```text
-application/       Use cases, persistence orchestration, reporting, and RAG services
-automation/        Automation support
-config/            Settings and configuration
-core/              Runtime, workflow, database, storage, telemetry, plugins, policy, governance
-domain/            Typed business models and contracts
-integration/       External clients, providers, and simulated providers
-intelligence/      Analyst, risk, strategy, portfolio, research, and execution-safety agents
-interfaces/        CLI plus unimplemented API scaffolding
-migrations/        Alembic database migrations
-tests/             Unit, integration, database, architecture, contract, and coverage tests
-web/               Web-layer scaffolding and assets
-workflows/         Workflow definitions
-mcp_server/        Reserved package; no current implementation
-docs/              Maintained architecture and operations documentation
-.agents/plans/     Feature-specific implementation plans
-```
+## Readiness Gate
 
-## Detailed Documentation
+A **Readiness Gate** is a boundary check that determines whether a Claim, output, record, or projection is allowed to proceed to Release, Publication, Durable Promotion, retrieval eligibility, or downstream use.
 
-Use these documents for deeper, maintained detail:
+Readiness Gates fail closed when required evidence, reconstruction, correctness, governance review, residual-risk acceptance, or source authority is missing, stale, conflicted, rejected, or malformed.
 
-- `docs/platform_architecture_and_operations.md`
-- `docs/platform_architecture_ownership_ledger.md`
-- `docs/platform_data_contract_inventory.md`
-- `docs/postgres_persistence.md`
-- `docs/platform_rag_pipeline.md`
-- `docs/model_profile_policy.md`
-- `docs/model_allocation_readiness.md`
-- `docs/workflow_output_curation.md`
-- `docs/backtesting_system.md`
-- `docs/core_telemetry_observability.md`
-- `docs/canonical_trace_lifecycle.md`
-- `docs/observability_coverage_ledger.md`
-- `docs/mcp_rag_server_analysis.md`
+## Output Boundary
 
-Source code and active tests remain authoritative when generated or historical documentation is stale.
+An **Output Boundary** is a point where Polaris output leaves its current internal role and becomes visible, durable, authoritative, retrievable, or available for downstream decision use.
 
-## Development Environment
+Examples include report publication, recommendation projection, RAG answer generation, MCP/API/CLI responses, curated-record persistence, graph/vector projection, and governed-output release.
 
-- Python `>=3.12`
-- `uv` for dependency management and command execution
-- `pytest` for tests
-- Ruff for linting and formatting
-- MyPy for static type checking
-- Alembic and `pytest-alembic` for database schema management and verification
-- Graphify and Repowise for scoped architecture and code-health analysis
+## Review Task
+
+A **Review Task** is durable governance work created for a specific subject, evidence packet, evidence version, review scope, requested action, and intended sink when automated governance requires human or organizational review.
+
+A Review Task is resolved only by attributable review decisions such as approval, denial, contest, requested changes, or override. Model text cannot resolve a Review Task.
+
+## Contestability
+
+**Contestability** is the ability for an attributable reviewer or governance process to challenge, deny, request changes to, or override an automated governance outcome without deleting or rewriting the original automated audit record.
+
+Contestability preserves the history of the automated outcome, review rationale, evidence version, and resulting task status.
+
+## Completed-Run Archive
+
+A **Completed-Run Archive** is the durable runtime archive of a finished workflow execution, including runtime context and node outputs needed for replay, inspection, audit, and reconstruction.
+
+A Completed-Run Archive is broad Runtime Evidence. It is not automatically a Curated Record, RAG-eligible source, Projection, Recommendation, Approval, or Source of Truth for every business concept it contains.
+
+## Curation
+
+**Curation** is the deliberate selection and normalization of workflow or platform output into a Curated Record with typed meaning, deterministic identity, temporal meaning, lineage, quality checks, and authoritative ownership.
+
+Curation is narrower than archival and precedes selective embedding or graph projection.
+
+## Embedding Eligibility
+
+**Embedding Eligibility** is the decision that a Curated Record is useful and safe enough to become retrieval context for RAG.
+
+Embedding Eligibility does not make a record true, approved, capital-actionable, or release-ready. It only allows the record to be represented in retrieval projections under the applicable source, lineage, evidence, and governance rules.
+
+## RAG Answer
+
+A **RAG Answer** is a retrieval-grounded answer assembled from retrieved or cited context and generated claim data.
+
+A RAG Answer is presentation output. Its rendered text is not the Claim source of truth and not an authority for Approval, Residual-Risk Acceptance, or durable decision support unless the underlying claims and evidence pass the applicable decision-evidence and governance rules.
+
+## Application Service
+
+An **Application Service** is a platform boundary that owns a use-case operation, coordinates typed domain contracts, applies policy or governance where applicable, and delegates external access to providers or clients.
+
+Application Services are the preferred domain-facing surface for interfaces such as CLI, MCP, API, reports, workflows, and future transports.
+
+## Provider
+
+A **Provider** is a typed boundary that normalizes a class of external or simulated capability for Application Services. Providers hide vendor-specific transport, SDK, authentication, retry, and response-shape concerns from intelligence components and workflow nodes.
+
+## Client
+
+A **Client** is a vendor-specific or transport-specific adapter used beneath a Provider to communicate with an external system or local service.
+
+Clients do not own Polaris domain semantics. Provider normalization is required before external data becomes typed platform input.
+
+## Backtest
+
+A **Backtest** is a deterministic replay or simulation of Polaris workflow behavior under historical, fixed, or simulated inputs through the canonical runtime.
+
+A Backtest is not a separate strategy runtime and does not change live-versus-simulated behavior inside the runtime itself. Backtest outputs can become Evidence or Curated Records only through the same applicable evidence, curation, and governance rules as other workflow outputs.
+
+## Simulation
+
+A **Simulation** is a controlled substitute for live external conditions, provider responses, market data, portfolio state, or scenario inputs used to evaluate behavior deterministically.
+
+Simulation does not imply that resulting outputs are less subject to lineage, evidence, curation, or governance requirements.
+
+## Confidence
+
+**Confidence** is a unit-interval estimate of certainty, reliability, strength, completeness, readiness, alignment, or quality within its declared score family.
+
+Confidence must not be confused with probability of profit, governance Approval, truth, or Residual-Risk Acceptance.
+
+## Directional Bias
+
+**Directional Bias** is a signed market or portfolio posture signal where negative values indicate bearish, defensive, risk-off, short, or unfavorable posture and positive values indicate bullish, aggressive, risk-on, long, or favorable posture.
+
+Directional Bias is not a unit risk score and must not be interpreted as Approval, Allocation, or an Order.
+
+## Risk Score
+
+A **Risk Score** is a unit-interval risk or intensity value where higher means more risk, more intensity, or more defensive pressure unless an explicit score family says otherwise.
+
+Risk Scores are not signed directional values. Favorable or risk-on conditions should be represented by lower risk, higher stability, a separate regime label, a Recommendation, or an explicit signed Directional Bias.

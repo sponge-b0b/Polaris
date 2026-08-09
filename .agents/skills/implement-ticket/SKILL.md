@@ -9,26 +9,25 @@ disable-model-invocation: true
 
 Implement the work described by a single ticket, verify it, commit it to the ticket's declared branch, push it, and close the ticket when all required checks succeed.
 
-## 1. Read the ticket and verify its branch
+## 1. Read the Ticket and Verify Its Branch
 
-Before modifying any files, read the full ticket provided by the user and locate its **Ticket branch** field.
+Before modifying any files, read the full ticket and locate its **Ticket branch** field.
 
-If the ticket has a `Root blocker` section or says it is part of a `Spec Review`
-issue, also read the parent spec and the parent Spec Review issue before editing.
-Capture the root blocker ID, invariant, affected sibling surfaces/reference
-kinds, and acceptance-matrix cells the ticket is expected to prove. This root
-context is part of the ticket scope; do not treat it as optional background.
+If the ticket has an **Architecture context** section, capture its affected entities and governing ADR/doc references. Treat these as routing context, not duplicated architectural authority; `$wiki-sync` must still evaluate the current sources.
 
-The ticket's `Ticket branch` value is authoritative for the branch on which this ticket must be implemented. All tickets belonging to the same spec share the same branch.
+If the ticket has a `Root blocker` section or belongs to a `Spec Review` issue, also read the parent spec and parent Spec Review issue. Capture the root blocker ID, invariant, affected sibling surfaces/reference kinds, and acceptance-matrix cells the ticket is expected to prove.
 
-### Branch guard
+The ticket's `Ticket branch` is authoritative. All tickets belonging to the same spec share the same branch.
 
-* If **Ticket branch** contains a branch name, the currently checked-out Git branch MUST exactly match that value before any implementation work begins.
-* Do NOT automatically create, switch, rename, or otherwise repair the branch here. `/to-tickets` owns spec-branch creation and selection. A mismatch is a safety failure that must halt implementation.
-* If **Ticket branch** is `None`, dedicated branch enforcement was explicitly disabled for this ticket. Skip the exact branch comparison.
-* If the **Ticket branch** field is missing, halt rather than guessing the intended branch. Do not fall back to deriving a branch from the ticket number, parent issue, current branch, or naming conventions.
+### Branch Guard
 
-For a declared branch, perform an exact check equivalent to:
+* If **Ticket branch** contains a branch name, the currently checked-out branch MUST exactly match it before implementation begins.
+* Do not automatically create, switch, rename, or repair the branch. `$to-tickets` owns spec-branch creation and selection.
+* If **Ticket branch** is `None`, skip dedicated branch enforcement.
+* If the field is missing, halt rather than deriving a branch from the ticket, parent issue, current branch, or naming convention.
+* A detached `HEAD` never satisfies a declared branch.
+
+For a declared branch:
 
 ```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
@@ -42,78 +41,110 @@ if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
 fi
 ```
 
-A detached `HEAD` does not satisfy a declared ticket branch.
+This check MUST occur before editing, formatting, generating, deleting, or otherwise modifying project files.
 
-This check MUST happen before editing, formatting, generating, deleting, or otherwise modifying project files.
+## 2. Implement the Ticket
 
-## 2. Implement the ticket
+### Living Entity Wiki Guard
 
-* Implement only the work described by the provided ticket.
-* For Spec Review remediation tickets, implement the root invariant described by
-  the ticket, not merely the first cited symptom, hunk, or helper. Auditing and
-  fixing sibling surfaces/reference kinds named by the root blocker is in scope;
-  unrelated cleanup remains out of scope.
-* Use the identified standards source `CODING_STANDARDS.md` to guide implementation.
-* Respect the ticket's acceptance criteria and blocking assumptions.
-* Use the `/tdd` skill where possible, at pre-agreed seams.
-* Use the `/format-code` skill during implementation where necessary.
-* Avoid unrelated cleanup or scope expansion unless it is necessary to complete the ticket correctly.
+If the ticket includes substantive source-code changes and the Living Entity Wiki exists, invoke `$wiki-sync` before editing.
 
-### Database change guard
+Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` own entity routing, source consistency, Strict Invariant checks, Rejected Approaches, and any blocking `[source-conflict]`.
 
-If the ticket changes any database-affecting surface, invoke the
-`/database-migrations` skill before treating implementation as complete.
-Database-affecting surfaces include:
+If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
 
-* SQLAlchemy model changes.
-* Alembic migration changes.
-* New or changed PostgreSQL-backed repositories, persistence serializers, or
-  durable persistence contracts.
-* Tests whose acceptance depends on a PostgreSQL schema object.
+If implementation exposes a new material architectural decision that the spec did not resolve, halt and return it upstream rather than deciding it locally.
 
-The database migration workflow owns the schema strategy, the migration file
-selection, local database application, stale-revision remediation, and
-DB-backed migration/integration verification. Do not skip it because the code
-changes are otherwise small.
+After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 
-A DB-affecting ticket is not complete if a required targeted PostgreSQL-backed
-test skipped only because `POLARIS_TEST_DATABASE_URL` or an equivalent local
-service setting was absent. Follow `/database-migrations` and `/verify-code` to
-derive safe local env from repo-local configuration, start only the required
-authorized Docker service when needed, and rerun the exact targeted test.
+Do not update the wiki merely because code was touched or an implementation technique succeeded.
 
-## 3. Verify the implementation
+### Documentation and ADR Changes
 
-Once the implementation is complete, but before committing or closing the ticket, invoke the `/verify-code` skill to verify the implementation of the ticket.
+If the ticket also changes repository documentation:
 
-Default ticket verification must be targeted.
+* use `$to-doc` for a new non-ADR document;
+* use `$classify-doc` for classification, reclassification, or relocation of an existing non-ADR document;
+* invoke `$wiki-sync` after substantive edits to existing `docs/current/` or `docs/proposed/` documents;
+* use `$to-adr-doc` for ADR creation, proposed ADR body edits, or ADR lifecycle changes.
 
-* Run only targeted checks unless the user explicitly authorizes broad verification for the current task.
-* Do not escalate from targeted tests to full-suite tests, whole-repo type checks, whole-repo lint checks, full coverage runs, or service-dependent integration suites without explicit user authorization, even if those commands are already approved by the shell permission system.
-* Approved shell command prefixes are execution permissions only. They are not task-specific authorization to broaden scope.
-* If the Polaris command guard blocks a broad verification command, treat that refusal as final for the ticket unless the owner explicitly authorizes the exact proposed broad command in the current task. Do not bypass the guard through real executable backups, absolute virtualenv paths, or alternate Python module entrypoints.
-* If broader verification seems useful after targeted verification, stop and ask:
+Do not manually reproduce document classification, ADR lifecycle, or wiki synchronization logic inside this workflow.
 
-  `I have completed targeted verification. Do you want me to run broader verification? Proposed command: ...`
+### Wiki Commit Ownership
 
-  Do not run the proposed broad command until the user says yes.
-* If targeted verification fails, do not commit, push, or close the ticket. Fix failures that are within the ticket's scope and re-run the targeted verification.
-* For Spec Review remediation tickets, targeted verification must prove the
-  production path named by the root blocker. A unit test of a helper, validator,
-  serializer, or mapper is not sufficient by itself unless the production path is
-  also exercised or there is a documented reason that seam is the production
-  boundary.
-* For Spec Review remediation tickets, add or run at least one regression test
-  that would have failed for the root blocker or a named child symptom. Include
-  missing/stale/substituted/tampered or fail-closed cases when the root invariant
-  concerns reconstruction, provenance, readiness, persistence, or observability.
-* In the final handoff, report targeted verification separately from any broad verification. State when the full suite, whole-repo mypy, whole-repo lint, or coverage were not run.
+When `$implement-ticket` is the parent workflow, `$wiki-sync` must not create a separate commit.
 
-## 4. Re-verify the ticket branch before committing
+If a substantive wiki mutation occurs, include the affected wiki files and matching semantic `wiki/log.md` entry in the ticket commit.
 
-Immediately before creating the ticket's commit, re-read the ticket's **Ticket branch** value and verify the branch invariant again.
+If no durable wiki knowledge changed, do not modify `wiki/log.md`.
 
-If **Ticket branch** is not `None`:
+### Implementation Scope
+
+* Implement only the work described by the ticket.
+* For Spec Review remediation tickets, fix the root invariant, not merely the first cited symptom.
+* Auditing and fixing named sibling surfaces/reference kinds is in scope; unrelated cleanup is not.
+* Respect acceptance criteria and blocking assumptions.
+* Use `$coding-standards`.
+* Use `$tdd` where appropriate at pre-agreed seams.
+* Use `$format-code` where necessary.
+* Avoid unrelated cleanup or scope expansion unless required for correctness.
+
+### Database Change Guard
+
+If the ticket changes a database-affecting surface, invoke `$database-migrations` before treating implementation as complete.
+
+This includes:
+
+* SQLAlchemy models;
+* Alembic migrations;
+* PostgreSQL-backed repositories;
+* persistence serializers or durable persistence contracts;
+* tests that depend on PostgreSQL schema objects.
+
+Let `$database-migrations` own migration strategy, local database application, stale-revision handling, and DB-backed verification.
+
+A required PostgreSQL-backed test skipped solely because local environment or service setup was absent is unresolved verification, not a pass.
+
+## 3. Verify the Implementation
+
+After implementation, but before committing or closing the ticket, invoke `$verify-code`.
+
+Default ticket verification is targeted.
+
+* Run only targeted checks unless the user explicitly authorizes broader verification.
+* Do not escalate automatically to full-suite tests, whole-repo type checks, whole-repo lint, full coverage, or broad service-dependent integration suites.
+* Shell-command permission does not imply task-specific authorization to broaden verification.
+* Do not bypass repository command guards using alternate executable paths or module entrypoints.
+
+If broader verification appears useful after targeted checks, ask:
+
+> I have completed targeted verification. Do you want me to run broader verification? Proposed command: ...
+
+Do not run it without approval.
+
+If targeted verification fails:
+
+* do not commit;
+* do not push;
+* do not close the ticket;
+* fix failures within ticket scope and rerun the targeted checks.
+
+### Spec Review Verification
+
+For Spec Review remediation tickets:
+
+* targeted verification must exercise the production path named by the root blocker;
+* a helper/unit test alone is insufficient unless that seam is the actual production boundary;
+* add or run at least one regression test that would have failed for the root blocker or a named child symptom;
+* include fail-closed cases where relevant to reconstruction, provenance, readiness, persistence, or observability.
+
+In the handoff, distinguish targeted checks from any broader verification and state which broad checks were not run.
+
+## 4. Re-Verify the Branch Before Committing
+
+Immediately before committing, re-read **Ticket branch** and verify it again.
+
+If it is not `None`:
 
 ```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
@@ -127,63 +158,64 @@ if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
 fi
 ```
 
-If this check fails:
+If this fails:
 
-* Do not commit.
-* Do not push.
-* Do not close the ticket.
-* Do not automatically switch branches with uncommitted work present.
-* Report the mismatch so it can be resolved deliberately.
+* do not commit;
+* do not push;
+* do not close the ticket;
+* do not automatically switch branches with uncommitted work present;
+* report the mismatch.
 
-If **Ticket branch** is `None`, skip the exact branch comparison.
+## 5. Commit and Push
 
-## 5. Commit and push
+After targeted verification succeeds and the branch invariant is confirmed:
 
-After targeted verification succeeds and the branch invariant has been confirmed:
+1. Commit the completed ticket work using `$conventional-commits`.
+2. Include any substantive wiki mutation and matching `wiki/log.md` entry in that same commit.
+3. Push and establish upstream if necessary:
 
-1. Commit the completed ticket work to the current branch using the `/conventional-commits` skill.
-2. Push the current branch to `origin` and establish its upstream if necessary:
+```bash
+git push -u origin HEAD
+```
 
-   ```bash
-   git push -u origin HEAD
-   ```
+Do not use bare `git push` for this workflow.
 
-Do not use a bare `git push` for this workflow. A newly created spec branch may not have an upstream yet, and the first push must establish one.
+If commit or push fails, do not close the ticket.
 
-If the commit or push fails, do not close the ticket.
+## 6. Close the Ticket
 
-## 6. Close the ticket
+Close the ticket only when:
 
-Close the ticket only after all of the following are true:
+* implementation is complete;
+* required targeted verification succeeded;
+* any explicitly authorized broader verification succeeded;
+* the branch invariant is satisfied unless **Ticket branch** is `None`;
+* the commit succeeded;
+* the push succeeded.
 
-* The ticket implementation is complete.
-* Required targeted verification succeeded.
-* Any broader verification explicitly requested by the user succeeded, if applicable.
-* The ticket branch invariant is satisfied, unless **Ticket branch** is `None`.
-* The work was successfully committed.
-* The commit was successfully pushed to the remote.
-
-For a GitHub-backed ticket, use the configured GitHub tooling to close the issue only after those conditions are satisfied.
-
-Do not close the ticket merely because implementation or verification completed locally.
+For GitHub-backed tickets, use the configured GitHub tooling only after all conditions are satisfied.
 
 ## 7. Handoff
 
 Report:
 
-* What was implemented.
-* For Spec Review remediation tickets: the root blocker ID, the root invariant
-  addressed, sibling surfaces/reference kinds audited, and any root acceptance
-  cells still unproven or intentionally deferred.
-* The ticket branch used, or `None` if dedicated branch enforcement was disabled.
-* The commit created.
-* Whether the push succeeded.
-* For database-affecting tickets: the `/database-migrations` result, migration
-  file strategy, active database apply/reset status, migration-contract tests,
-  and DB-backed integration tests. State explicitly whether required DB checks
-  passed, were owner-deferred, or remain unresolved. A skip caused only by
-  missing local env/service setup is unresolved verification, not a pass.
-* The targeted verification that was run and its result.
-* Any broader verification that the user explicitly authorized and its result.
-* Which broad checks were not run, including full-suite tests, whole-repo mypy, whole-repo lint, or coverage when applicable.
-* Whether the ticket was successfully closed.
+* what was implemented;
+* architecture context used and any divergence found;
+* for Spec Review work:
+
+  * root blocker ID;
+  * root invariant addressed;
+  * sibling surfaces/reference kinds audited;
+  * acceptance cells still unproven or deliberately deferred;
+* ticket branch used;
+* `$wiki-sync` pre/post result and any wiki mutation;
+* any `$to-doc`, `$classify-doc`, or `$to-adr-doc` activity;
+* `$database-migrations` result when applicable;
+* targeted verification and result;
+* broader verification explicitly authorized, if any;
+* broad checks not run;
+* commit created;
+* push result;
+* whether the ticket was closed.
+
+Any required DB check skipped solely because local setup was missing remains unresolved verification.

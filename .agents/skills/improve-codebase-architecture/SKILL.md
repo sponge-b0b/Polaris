@@ -1,6 +1,7 @@
 ---
 name: improve-codebase-architecture
-description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.
+description: Surface architectural friction and propose module-deepening opportunities that improve locality, leverage, testability, and AI navigability.
+compatibility: product=codex product=claude-code system=git network=none
 disable-model-invocation: true
 ---
 
@@ -8,64 +9,166 @@ disable-model-invocation: true
 
 Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
 
-This command is _informed_ by the project's domain model and built on a shared design vocabulary:
+This skill is informed by the project's domain model and shared design vocabulary:
 
-- Run the `/codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
-- The domain language in `CONTEXT.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
+* Run `$codebase-design` for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles, including the deletion test, "the interface is the test surface," and "one adapter = hypothetical seam, two = real." Use those terms consistently in suggestions.
+* Use canonical domain language from `CONTEXT.md`.
+* Treat accepted ADRs and applicable current architecture as constraints, not suggestions.
+* If the Living Entity Wiki exists, consult relevant Strict Invariants, Rejected Approaches, Open Questions, and Planned entries before proposing changes.
+* If authoritative sources materially disagree, surface `[source-conflict]` rather than designing around one side.
 
-## Process
+## 1. Explore
 
-### 1. Explore
+**Scope before scanning — YAGNI.**
 
-**Scope before you scan — YAGNI.** Deepening a module pays off by making future changes to it easier, so put extra weight on the parts of the codebase that have recently changed. Decide *where* to look before you look:
+Deepening pays off when it makes recurring future changes easier, so prioritize areas that actually matter.
 
-- If the user named a direction — a module, a subsystem, a pain point — take it, and skip the inference below.
-- Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots — the files and areas that keep coming up — and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
+* If the user names a module, subsystem, or pain point, use that scope.
+* Otherwise inspect enough Git history to identify recurring hot spots. If changes are scattered, widen the search deliberately.
 
-Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first.
+Read the relevant `CONTEXT.md`, accepted ADRs, and current architecture docs first.
 
-Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+If the Living Entity Wiki exists, use `wiki/index.md` to locate the relevant entity page(s). This is a read-only consultation, not a `$wiki-sync` invocation.
 
-- Where does understanding one concept require bouncing between many small modules?
-- Where are modules **shallow** — interface nearly as complex as the implementation?
-- Where have pure functions been extracted just for testability, but the real bugs hide in how they're called (no **locality**)?
-- Where do tightly-coupled modules leak across their seams?
-- Which parts of the codebase are untested, or hard to test through their current interface?
+Then explore using the project's repository-analysis tools such as `$repowise`, `$codegraph`, `$codebase-memory-mcp`, or `$graphify`.
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
+Look organically for friction:
 
-### 2. Present candidates as an HTML report
+* Where does understanding one concept require bouncing between many modules?
+* Where are modules **shallow** — interface nearly as complex as implementation?
+* Where were functions extracted mainly for testability while the real bugs live in their composition?
+* Where is **locality** poor?
+* Where do supposedly separate modules leak knowledge across their seams?
+* Which behavior is hard to test through its real interface?
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user — `xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows — and tell them the absolute path.
+Apply the **deletion test** to serious candidates: would deleting the shallow module concentrate complexity behind a deeper interface, or merely move the same complexity elsewhere?
 
-The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for diagrams where a graph/flow/sequence reliably communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals — use Mermaid when relationships are graph-shaped (call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections, collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
+Do not recommend refactors merely to reduce file count or create speculative abstractions.
 
-For each candidate, render a card with:
+### Existing decisions
 
-- **Files** — which files/modules are involved
-- **Problem** — why the current architecture is causing friction
-- **Solution** — plain English description of what would change
-- **Benefits** — explained in terms of locality and leverage, and how tests would improve
-- **Before / After diagram** — side-by-side, custom-drawn, illustrating the shallowness and the deepening
-- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
+Do not casually re-litigate accepted ADRs.
 
-End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
+If a candidate conflicts with one, normally omit it. Surface it only when concrete changed circumstances make reconsideration genuinely warranted, and mark the conflict explicitly.
 
-**Use CONTEXT.md vocabulary for the domain, and the `/codebase-design` vocabulary for the architecture.** If `CONTEXT.md` defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
+Apply the same rule to Rejected Approaches:
 
-**ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
+* if the rejection still applies, do not recommend it;
+* if its `Reconsider when:` condition appears satisfied, it may be surfaced for reconsideration;
+* without an explicit condition, require concrete changed circumstances rather than elapsed time alone.
 
-See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
+Do not override accumulated architectural memory silently.
 
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
+## 2. Present Candidates as an HTML Report
 
-### 3. Grilling loop
+Write a self-contained HTML report to the OS temporary directory:
 
-Once the user picks a candidate, run the `/grilling` skill to walk the decision tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
+```text
+<tmpdir>/architecture-review-<timestamp>.html
+```
 
-Side effects happen inline as decisions crystallize — run the `/domain-modeling` skill to keep the domain model current as you go:
+Nothing from the review should land in the repository.
 
-- **Naming a deepened module after a concept not in `CONTEXT.md`?** Add the term to `CONTEXT.md`. Create the file lazily if it doesn't exist.
-- **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
-- **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones.
-- **Want to explore alternative interfaces for the deepened module?** Run the `/codebase-design` skill and use its design-it-twice parallel sub-agent pattern.
+Open the report for the user with the platform's normal local-file opener and report its absolute path.
+
+Follow `HTML-REPORT.md` for established report patterns.
+
+Prefer self-contained HTML/CSS/SVG. Do not make the report's core usefulness depend on network-only assets.
+
+For each candidate include:
+
+* **Files** — principal modules involved.
+* **Problem** — why the architecture creates friction.
+* **Solution** — the deepening direction, without designing the final interface yet.
+* **Benefits** — locality, leverage, testability, and AI navigability.
+* **Before / After** — visual comparison.
+* **Evidence** — concrete dependency, change, call-flow, or testing evidence.
+* **Constraints** — relevant ADRs, invariants, rejected approaches, Planned work, or `[source-conflict]`.
+* **Recommendation strength** — `Strong`, `Worth exploring`, or `Speculative`.
+
+End with a **Top recommendation** and explain which candidate is most worth exploring first.
+
+Use `CONTEXT.md` terminology for the domain and `$codebase-design` terminology for architecture.
+
+Do **not** design interfaces yet.
+
+Ask:
+
+> Which of these would you like to explore?
+
+## 3. Grilling Loop
+
+Once the user selects a candidate, run `$grilling`.
+
+Explore:
+
+* constraints and dependencies;
+* what complexity belongs behind the deeper module;
+* what should remain visible through the seam;
+* what tests should survive;
+* whether alternative interfaces should be compared.
+
+Use `$codebase-design` when exploring alternative interfaces.
+
+Use `$domain-modeling` only when the discussion actually changes or sharpens domain meaning. A new module name alone is not automatically a new domain concept.
+
+### Rejected candidate
+
+If the user rejects the candidate:
+
+* ephemeral reasons such as "not now" or "not worth it this release" are not durable architecture knowledge;
+* if the rejection warrants an ADR, use `$to-adr-doc`;
+* otherwise, if the rejection is load-bearing and the Living Entity Wiki exists, use `$wiki-sync` to record a Rejected Approach with:
+
+`source: owner-confirmed session decision, undocumented`
+
+Add `Reconsider when:` only if the owner actually establishes such a condition.
+
+If a real experiment failed for a concrete architectural reason, use:
+
+`source: session experiment, undocumented`
+
+Do not turn unsupported agent judgment into a Rejected Approach.
+
+### Accepted direction
+
+If the review produces a durable architectural outcome:
+
+* use `$to-adr-doc` for an ADR-worthy decision;
+* use `$to-doc` for durable current or proposed architecture that does not warrant an ADR;
+* use `$classify-doc` if an existing document needs reclassification.
+
+Do not edit entity pages directly. Normal `$wiki-sync` triggers own derived wiki updates.
+
+## 4. Entity Topology
+
+A review may reveal that an entity should be split, merged, renamed, added, removed, or have its Boundary Rationale changed.
+
+Do not perform topology changes during candidate discovery.
+
+If the owner approves such a change, use `$wiki-sync` according to `wiki/_schema.md`.
+
+A module, package, bounded context, or graph cluster is not automatically a wiki entity.
+
+## 5. Implementation Handoff
+
+This skill reviews and shapes architecture; it does not implement the selected refactor.
+
+Production implementation must enter the normal implementation workflow and perform its own `$wiki-sync` pre-change audit.
+
+The read-only wiki consultation performed during architecture review does not satisfy that later implementation check.
+
+## Handoff
+
+Report:
+
+* candidates considered;
+* selected candidate, if any;
+* supporting evidence;
+* relevant ADRs/invariants/rejections;
+* any `[source-conflict]`;
+* architectural decision reached;
+* any `$domain-modeling`, `$to-adr-doc`, `$to-doc`, `$classify-doc`, or `$wiki-sync` outcome;
+* whether implementation has actually occurred.
+
+Distinguish clearly between **reviewed**, **architecturally decided**, **documented**, and **implemented**.

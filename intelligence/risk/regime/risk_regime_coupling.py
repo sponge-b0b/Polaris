@@ -125,11 +125,7 @@ def apply(
     # HARD CLAMP
     # ========================================================
 
-    adjusted_risk_score = _clamp(
-        adjusted_risk_score,
-        minimum=-1.0,
-        maximum=1.0,
-    )
+    adjusted_risk_score = _clamp_01(adjusted_risk_score)
 
     # ========================================================
     # RISK INTENSITY CLASSIFICATION
@@ -319,7 +315,7 @@ def _breadth_context_payload(
 
 
 # ============================================================
-# INTENSITY CLASSIFIER (UNCHANGED)
+# UNIT RISK INTENSITY CLASSIFIER
 # ============================================================
 
 
@@ -331,13 +327,7 @@ def _classify_intensity(score: float) -> str:
     if score >= 0.25:
         return "moderate_risk"
 
-    if score <= -0.60:
-        return "risk_favorable"
-
-    if score <= -0.25:
-        return "low_risk"
-
-    return "neutral"
+    return "low_risk"
 
 
 def _clamp_01(

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Wiki Synthesize"
+  short_description: "Scans across all entity pages in wiki/entities/ for recurring or cumulative patterns in Rejected Approaches and Open Questions."
+policy:
+  allow_implicit_invocation: false

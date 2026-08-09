@@ -23,6 +23,19 @@ VOLATILITY = {
     "volatility_score": 0.55,
 }
 
+UNIT_RISK_OUTPUT_FIELDS = (
+    "adjusted_composite_risk",
+    "adjusted_risk_pressure",
+    "adjusted_risk_score",
+)
+
+
+def _assert_unit_risk_outputs(result: dict[str, object]) -> None:
+    for field_name in UNIT_RISK_OUTPUT_FIELDS:
+        value = result[field_name]
+        assert isinstance(value, float)
+        assert 0.0 <= value <= 1.0
+
 
 def test_risk_regime_coupling_keeps_missing_breadth_neutral() -> None:
     baseline = risk_regime_coupling.apply(
@@ -42,6 +55,7 @@ def test_risk_regime_coupling_keeps_missing_breadth_neutral() -> None:
     assert unavailable["modifiers"]["breadth_modifier"] == 1.0
     assert unavailable["modifiers"]["breadth_pressure_adjustment"] == 0.0
     assert unavailable["inputs"]["breadth_context"]["has_breadth_data"] is False
+    _assert_unit_risk_outputs(unavailable)
 
 
 def test_risk_regime_coupling_increases_risk_for_weak_breadth() -> None:
@@ -73,6 +87,7 @@ def test_risk_regime_coupling_increases_risk_for_weak_breadth() -> None:
     assert weak["modifiers"]["breadth_modifier"] > 1.0
     assert weak["modifiers"]["breadth_pressure_adjustment"] > 0.0
     assert weak["inputs"]["breadth_context"]["breadth_regime"] == "weak_breadth"
+    _assert_unit_risk_outputs(weak)
 
 
 def test_risk_regime_coupling_reduces_risk_for_strong_breadth() -> None:
@@ -103,3 +118,38 @@ def test_risk_regime_coupling_reduces_risk_for_strong_breadth() -> None:
     assert strong["adjusted_risk_score"] < baseline["adjusted_risk_score"]
     assert strong["modifiers"]["breadth_modifier"] < 1.0
     assert strong["modifiers"]["breadth_pressure_adjustment"] < 0.0
+    _assert_unit_risk_outputs(strong)
+
+
+def test_risk_regime_coupling_classifies_low_unit_risk_without_signed_labels() -> None:
+    low_risk = risk_regime_coupling.apply(
+        risk={
+            "composite_risk": 0.02,
+            "risk_pressure": 0.01,
+            "stability_score": 1.0,
+        },
+        technical_regime={
+            "regime": "trend",
+            "directional_technical_score": 0.90,
+            "confidence": 0.90,
+            "execution_readiness": 0.90,
+            "signal_quality": 1.0,
+        },
+        volatility={
+            "volatility_score": 0.95,
+        },
+        breadth_context=TechnicalBreadthContext(
+            has_breadth_data=True,
+            breadth_regime="strong_breadth",
+            risk_regime="stable",
+            breadth_score=0.70,
+            breadth_risk_score=0.15,
+            participation_score=0.50,
+            leadership_score=0.40,
+            mcclellan_score=0.35,
+            price_ad_divergence=False,
+        ),
+    )
+
+    assert low_risk["risk_intensity"] == "low_risk"
+    _assert_unit_risk_outputs(low_risk)

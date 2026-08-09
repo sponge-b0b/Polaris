@@ -1,6 +1,19 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from math import isfinite
+from numbers import Real
 from typing import Any
+
+_UNIT_RISK_FIELDS = (
+    "volatility_risk",
+    "drawdown_risk",
+    "exposure_risk",
+    "composite_risk",
+    "risk_pressure",
+    "stability_score",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -10,42 +23,44 @@ class RiskSignalContract:
 
     PURPOSE:
     --------
-    Unified deterministic representation of all risk signals.
+    Unified deterministic representation of risk intensity and stability signals.
 
     RANGE STANDARD:
     ---------------
-        -1.0 → risk-on / favorable
-         0.0 → neutral
-        +1.0 → extreme risk / defensive pressure
+    Risk intensity fields are unit-interval values:
+        0.0 → no risk or pressure
+        1.0 → maximum risk or defensive pressure
 
-    NOTE:
-    -----
-    This is NOT a penalty system.
-    This is a directional risk pressure field.
+    Stability is also unit interval, with opposite polarity:
+        0.0 → unstable
+        1.0 → stable
+
+    Directional market posture is not represented by negative risk values. Convert
+    risk to signed runtime direction explicitly at the adapter boundary.
     """
 
     # ============================================================
-    # CORE RISK FIELDS (NORMALIZED)
+    # CORE RISK FIELDS (UNIT INTERVAL)
     # ============================================================
 
-    volatility_risk: float = 0.0  # -1 safe → +1 unstable
-    drawdown_risk: float = 0.0  # -1 stable → +1 severe risk
-    exposure_risk: float = 0.0  # -1 underexposed → +1 overexposed
+    volatility_risk: float = 0.0  # 0 no volatility risk → 1 high volatility risk
+    drawdown_risk: float = 0.0  # 0 no drawdown risk → 1 severe drawdown risk
+    exposure_risk: float = 0.0  # 0 low exposure risk → 1 high exposure risk
 
     # ============================================================
     # AGGREGATED RISK STATE
     # ============================================================
 
-    composite_risk: float = 0.0  # -1 → +1
+    composite_risk: float = 0.0  # 0 low aggregate risk → 1 high aggregate risk
 
-    risk_regime: str = "neutral"  # safe / neutral / stressed / extreme
+    risk_regime: str = "neutral"  # low_risk / moderate_risk / high_risk / labels
 
     # ============================================================
     # SYSTEM IMPACT METRICS
     # ============================================================
 
-    risk_pressure: float = 0.0  # overall directional force
-    stability_score: float = 1.0  # 0 → unstable, 1 → stable
+    risk_pressure: float = 0.0  # 0 no defensive pressure → 1 maximum pressure
+    stability_score: float = 1.0  # 0 unstable → 1 stable
 
     # ============================================================
     # ACTION GUIDANCE (NON-BINDING)
@@ -60,6 +75,14 @@ class RiskSignalContract:
     # ============================================================
 
     features: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for field_name in _UNIT_RISK_FIELDS:
+            object.__setattr__(
+                self,
+                field_name,
+                _validate_unit_interval(getattr(self, field_name), field_name),
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,20 +99,31 @@ class RiskSignalContract:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "RiskSignalContract":
+    def from_dict(cls, payload: Mapping[str, Any]) -> RiskSignalContract:
         recommendations = payload.get("recommendations")
         features = payload.get("features")
         return cls(
-            volatility_risk=float(payload.get("volatility_risk", 0.0)),
-            drawdown_risk=float(payload.get("drawdown_risk", 0.0)),
-            exposure_risk=float(payload.get("exposure_risk", 0.0)),
-            composite_risk=float(payload.get("composite_risk", 0.0)),
+            volatility_risk=payload.get("volatility_risk", 0.0),
+            drawdown_risk=payload.get("drawdown_risk", 0.0),
+            exposure_risk=payload.get("exposure_risk", 0.0),
+            composite_risk=payload.get("composite_risk", 0.0),
             risk_regime=str(payload.get("risk_regime", "neutral")),
-            risk_pressure=float(payload.get("risk_pressure", 0.0)),
-            stability_score=float(payload.get("stability_score", 1.0)),
+            risk_pressure=payload.get("risk_pressure", 0.0),
+            stability_score=payload.get("stability_score", 1.0),
             risk_bias=str(payload.get("risk_bias", "neutral")),
             recommendations=[str(value) for value in recommendations]
             if isinstance(recommendations, list)
             else [],
             features=dict(features) if isinstance(features, Mapping) else {},
         )
+
+
+def _validate_unit_interval(value: object, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{field_name} must be a finite numeric unit-interval value")
+
+    numeric = float(value)
+    if not isfinite(numeric) or not 0.0 <= numeric <= 1.0:
+        raise ValueError(f"{field_name} must be between 0.0 and 1.0")
+
+    return numeric

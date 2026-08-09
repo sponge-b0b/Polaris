@@ -1,17 +1,17 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `/review-spec` when its Exit Gate authorizes progression (zero Blocking findings) — not a standalone command. Merges the spec branch into `main` via PR (or closes the Spec/Spec Review issues directly if no branch exists), then deletes the branch and closes the Spec Review issue if one exists.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression (zero Blocking findings) — not a standalone command. Merges the spec branch into `main` via PR (or closes the Spec/Spec Review issues directly if no branch exists), then deletes the branch and closes the Spec Review issue if one exists.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Spec Merge & Cleanup
 
-This skill is invoked by `/review-spec`'s Exit Gate once a review returns exactly zero Blocking findings (and any Root Blocker Ledger / acceptance matrix has no open or regressed cells). Execution splits into two paths depending on whether this spec actually used the standard branch pattern.
+This skill is invoked by `$review-spec`'s Exit Gate once a review returns exactly zero Blocking findings (and any Root Blocker Ledger / acceptance matrix has no open or regressed cells). Execution splits into two paths depending on whether this spec actually used the standard branch pattern.
 
 ## Step 0 — Route: Standard Path vs. Direct-Close Path
 
-The `/to-tickets` skill creates this branch directly, via `git checkout -b spec-<spec_issue_number> ...` off the captured baseline commit. If the user overrode that pattern for this spec — working directly on `main` or some other branch instead — `spec-<spec_issue_number>` never existed, which also means **there is no PR that will ever exist to auto-close the Spec issue**. On this path, closure has to happen explicitly, right here, rather than being deferred to a PR merge that isn't coming:
+The `$to-tickets` skill creates this branch directly, via `git checkout -b spec-<spec_issue_number> ...` off the captured baseline commit. If the user overrode that pattern for this spec — working directly on `main` or some other branch instead — `spec-<spec_issue_number>` never existed, which also means **there is no PR that will ever exist to auto-close the Spec issue**. On this path, closure has to happen explicitly, right here, rather than being deferred to a PR merge that isn't coming:
 
 ```bash
 if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
@@ -40,8 +40,8 @@ If the branch was found, continue to Phase A below — the standard PR-merge pat
 
 ## Phase A — Merge to Main
 
-1. **Confirm Precondition**: Do not proceed unless `/review-spec`'s Exit Gate authorized it for `spec-<spec_issue_number>` — i.e., that review's aggregate audit returned exactly zero Blocking findings. If Blocking findings remain, this skill should not have been invoked at all; return to `/review-spec` and follow its Remediation Loop instead.
-2. **Push Final State**: Explicitly checkout the spec branch rather than assuming it's still checked out (this may be running in a fresh session), then ensure everything committed on it is on the remote — defensive, since you should already be committing/pushing as you go per `/implement-ticket`, but this guards against any stragglers:
+1. **Confirm Precondition**: Do not proceed unless `$review-spec`'s Exit Gate authorized it for `spec-<spec_issue_number>` — i.e., that review's aggregate audit returned exactly zero Blocking findings. If Blocking findings remain, this skill should not have been invoked at all; return to `$review-spec` and follow its Remediation Loop instead.
+2. **Push Final State**: Explicitly checkout the spec branch rather than assuming it's still checked out (this may be running in a fresh session), then ensure everything committed on it is on the remote — defensive, since you should already be committing/pushing as you go per `$implement-ticket`, but this guards against any stragglers:
    ```bash
    git checkout spec-<spec_issue_number>
    git push origin spec-<spec_issue_number>
@@ -100,7 +100,7 @@ Only reached if Phase A confirmed a successful merge.
    ```bash
    git push origin --delete spec-<spec_issue_number>
    ```
-5. **Finalize: Close the Spec Review Issue (if one exists)**: Only reached if every step above succeeded. A "Spec Review" issue only exists if this spec required at least one remediation loop — created in the `/review-spec-remediation` skill's *First-Pass Failure* step, or reused across its *Recursive Passes* step. If the audit returned zero Blocking findings on the very first pass, no such issue was ever created, and this step should be skipped entirely — there's nothing to close. The Spec issue itself is already closed automatically via the PR's `Closes #<spec_issue_number>`; the Spec Review issue has no equivalent automatic trigger, so it must be closed explicitly when it exists. (For specs with no branch, this same closure already happened in Step 0's routing check above, and this step is never reached.):
+5. **Finalize: Close the Spec Review Issue (if one exists)**: Only reached if every step above succeeded. A "Spec Review" issue only exists if this spec required at least one remediation loop — created in the `$review-spec-remediation` skill's *First-Pass Failure* step, or reused across its *Recursive Passes* step. If the audit returned zero Blocking findings on the very first pass, no such issue was ever created, and this step should be skipped entirely — there's nothing to close. The Spec issue itself is already closed automatically via the PR's `Closes #<spec_issue_number>`; the Spec Review issue has no equivalent automatic trigger, so it must be closed explicitly when it exists. (For specs with no branch, this same closure already happened in Step 0's routing check above, and this step is never reached.):
    ```bash
    if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
      gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" --comment "Spec merged (PR #$PR_NUMBER) and branch cleaned up. Zero blocking findings on final review."

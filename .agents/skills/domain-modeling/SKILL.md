@@ -1,74 +1,163 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model. Use when the user wants to pin down domain terminology or a ubiquitous language, record an architectural decision, or when another skill needs to maintain the domain model.
+description: Actively sharpen the project's domain model by resolving terminology, stress-testing concepts, reconciling domain language with implementation, and maintaining canonical vocabulary in CONTEXT.md.
+compatibility: product=codex product=claude-code network=none
 ---
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+Actively build and sharpen the project's domain model as you design.
 
-## File structure
+This is the **active** discipline: challenge terms, invent edge-case scenarios, reconcile stated behavior with the code, and capture resolved vocabulary as it crystallizes.
 
-Most repos have a single context:
+Merely reading `CONTEXT.md` for vocabulary is not `$domain-modeling`.
 
-```
+## File Structure
+
+Most repositories use a single domain glossary:
+
+```text
 /
 ├── CONTEXT.md
 ├── docs/
 │   └── adr/
-│       ├── 0001-event-sourced-orders.md
-│       └── 0002-postgres-for-write-model.md
 └── src/
 ```
 
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
+If `CONTEXT-MAP.md` exists, use it to locate the appropriate bounded-context glossary.
 
-```
-/
-├── CONTEXT-MAP.md
-├── docs/
-│   └── adr/                          ← system-wide decisions
-├── src/
-│   ├── ordering/
-│   │   ├── CONTEXT.md
-│   │   └── docs/adr/                 ← context-specific decisions
-│   └── billing/
-│       ├── CONTEXT.md
-│       └── docs/adr/
-```
+Do not assume a bounded context, package, or wiki entity automatically maps one-to-one to another.
 
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+Create glossary files lazily — only when there is resolved vocabulary to record.
 
-## During the session
+## During the Session
 
-### Challenge against the glossary
+### Challenge Against the Glossary
 
-When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+When the user uses a term inconsistently with `CONTEXT.md`, surface the conflict immediately.
 
-### Sharpen fuzzy language
+Example:
 
-When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+> `CONTEXT.md` defines "cancellation" as X, but this discussion seems to use it as Y. Are those intended to be different concepts?
 
-### Discuss concrete scenarios
+Do not silently redefine an existing canonical term.
 
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
+### Sharpen Fuzzy Language
 
-### Cross-reference with code
+When a term is vague or overloaded, propose a more precise distinction.
 
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
+Example:
 
-### Update CONTEXT.md inline
+> You're using "account" for both the customer organization and the authenticated user. Are those actually the same domain concept?
 
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+Prefer canonical domain language over generic software terminology.
 
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
+### Discuss Concrete Scenarios
 
-### Offer ADRs sparingly
+Stress-test domain relationships with specific scenarios, especially around:
 
-Only offer to create an ADR when all three are true:
+* identity;
+* lifecycle;
+* state transitions;
+* ownership;
+* cardinality;
+* partial operations;
+* invalid states;
+* temporal behavior.
 
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
+Use scenarios to expose ambiguity, not to invent product behavior arbitrarily.
 
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+### Cross-Reference With Code
+
+When a claim describes behavior that should already exist, inspect the implementation.
+
+If code and the proposed domain model disagree, surface the discrepancy rather than silently deciding which is correct.
+
+The discrepancy may indicate:
+
+* incorrect vocabulary;
+* incomplete implementation;
+* an overloaded concept;
+* a missing architectural decision.
+
+Resolve the semantic question first.
+
+## Update `CONTEXT.md` Inline
+
+When a term or distinction is resolved, update `CONTEXT.md` immediately rather than batching glossary changes until the end.
+
+Follow `CONTEXT-FORMAT.md` when present.
+
+`CONTEXT.md` is a **domain glossary only**.
+
+It may contain:
+
+* canonical terms;
+* precise definitions;
+* meaningful distinctions;
+* domain-level relationships;
+* useful aliases or deprecated terminology.
+
+It must not contain:
+
+* implementation details;
+* class or module paths;
+* database choices;
+* architecture decisions;
+* project status;
+* roadmap items;
+* Planned work.
+
+A glossary entry explains **what a domain concept means**, not how Polaris implements it.
+
+## Keep Domain and Architecture Separate
+
+A resolved domain statement belongs in `CONTEXT.md`.
+
+An architectural decision belongs through `$to-adr-doc` when its criteria are met.
+
+Durable current or proposed architecture that does not warrant an ADR belongs through `$to-doc`.
+
+If an existing non-ADR document needs reclassification, use `$classify-doc`.
+
+Do not use `CONTEXT.md` as a substitute for architecture documentation.
+
+## Living Entity Wiki
+
+A `CONTEXT.md` vocabulary change is **not by itself a `$wiki-sync` trigger**.
+
+Do not copy glossary definitions into entity pages or create `wiki/log.md` entries merely because terminology changed.
+
+Use `$wiki-sync` only when the domain-modeling session also causes one of its normal triggers, such as:
+
+* substantive source-code changes;
+* substantive `docs/current/` or `docs/proposed/` changes;
+* ADR lifecycle activity;
+* an approved entity-topology change.
+
+Do not derive wiki entities mechanically from:
+
+* domain terms;
+* aggregates;
+* bounded contexts;
+* domain services.
+
+Entity topology remains governed by `wiki/_schema.md` and `$wiki-sync`.
+
+## Source Conflicts
+
+If domain modeling exposes material disagreement between accepted ADRs, current architecture docs, and verified implementation evidence, surface `[source-conflict]`.
+
+Do not resolve an architectural conflict by redefining terminology in `CONTEXT.md`.
+
+## Handoff
+
+Report:
+
+* canonical terms added or changed;
+* important distinctions resolved;
+* unresolved domain questions;
+* implementation/domain discrepancies discovered;
+* any `$to-adr-doc`, `$to-doc`, `$classify-doc`, or `$wiki-sync` outcome.
+
+Do not report a wiki change when only `CONTEXT.md` changed.

@@ -1,17 +1,17 @@
 ---
 name: to-remediation-tickets
-description: Invoked only by `/to-tickets` during a Spec Review remediation re-invocation — not a standalone command. Recovers or synthesizes the Root Blocker Ledger from a `/review-spec` parent issue and performs strict delta analysis against existing child tickets before any new remediation tickets are drafted.
+description: Invoked only by `$to-tickets` during a Spec Review remediation re-invocation — not a standalone command. Recovers or synthesizes the Root Blocker Ledger from a `$review-spec` parent issue and performs strict delta analysis against existing child tickets before any new remediation tickets are drafted.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Remediation Tickets
 
-This skill is invoked by `/to-tickets` partway through its Step 3 ("Draft vertical slices"), specifically when the source issue is a `/review-spec` parent issue (title prefixed `Spec Review: `) rather than a fresh spec. It replaces ordinary vertical-slice drafting for that case — the rest of `/to-tickets`'s process (Steps 1–2, and Steps 4–5 onward) still applies as normal. Once this skill hands back a ticket list, return to `/to-tickets` and continue at Step 4 (Quiz the user).
+This skill is invoked by `$to-tickets` partway through its Step 3 ("Draft vertical slices"), specifically when the source issue is a `$review-spec` parent issue (title prefixed `Spec Review: `) rather than a fresh spec. It replaces ordinary vertical-slice drafting for that case — the rest of `$to-tickets`'s process (Steps 1–2, and Steps 4–5 onward) still applies as normal. Once this skill hands back a ticket list, return to `$to-tickets` and continue at Step 4 (Quiz the user).
 
 ## Recover the Root Blocker Ledger
 
-When the source issue is a `/review-spec` parent issue (`Spec Review: ...`), do
+When the source issue is a `$review-spec` parent issue (`Spec Review: ...`), do
 not slice directly from the latest finding bullets. First recover or synthesize
 the parent issue's **Root Blocker Ledger**:
 
@@ -40,11 +40,11 @@ Do not create one issue per symptom when several symptoms share the same root.
 Do not mark a closed matching ticket as sufficient unless current source truth
 proves the root invariant across the affected production paths.
 
-Use `/to-tickets`'s `local-ticket-template` or `issue-template` to publish these tickets — the `Root blocker` field exists specifically for this case.
+Use `$to-tickets`'s `local-ticket-template` or `issue-template` to publish these tickets — the `Root blocker` field exists specifically for this case.
 
 ## Delta Slicing Rules (For Re-Review Headers)
 
-If the target input issue contains multiple dated review headers (e.g., `## Initial Findings`, `## Re-review Findings [2026-07-22]`), you must perform a strict delta analysis before generating any GitHub issues. This is exactly the case that routes execution here in the first place — the tickets drafted below still land on the *original* spec's branch, resolved by the Spec Branch Rule's Step 0 in `/to-tickets`, not a new one:
+If the target input issue contains multiple dated review headers (e.g., `## Initial Findings`, `## Re-review Findings [2026-07-22]`), you must perform a strict delta analysis before generating any GitHub issues. This is exactly the case that routes execution here in the first place — the tickets drafted below still land on the *original* spec's branch, resolved by the Spec Branch Rule's Step 0 in `$to-tickets`, not a new one:
 
 1. **Scan Linked Tree:** Pull the list of existing child issues already linked to this parent issue, including each issue's title, body, comments, state, and closing note when available.
 2. **Recover the Root Ledger:** Read the Root Blocker Ledger and acceptance matrix from the parent issue (see above). If the parent predates the ledger format, synthesize stable root IDs by grouping the initial and dated Blocking findings by shared invariant before ticketing anything.

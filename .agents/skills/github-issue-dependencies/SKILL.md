@@ -1,13 +1,13 @@
 ---
 name: github-issue-dependencies
-description: Invoked only by `/to-tickets` when publishing tickets with blocking edges to a GitHub tracker — not a standalone command. Documents the native `gh` CLI flags for sub-issue and blocked-by/blocking relationships, so this doesn't need to be re-researched on every invocation.
+description: Invoked only by `$to-tickets` when publishing tickets with blocking edges to a GitHub tracker — not a standalone command. Documents the native `gh` CLI flags for sub-issue and blocked-by/blocking relationships, so this doesn't need to be re-researched on every invocation.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # GitHub Issue Dependencies
 
-This skill is invoked by `/to-tickets` at Step 5 ("Publish the tickets to the configured tracker"), specifically when the configured tracker is GitHub and the tickets being published have blocking edges. Use the commands below rather than researching this from scratch or falling back to raw `gh api graphql` mutations — the CLI now does this natively.
+This skill is invoked by `$to-tickets` at Step 5 ("Publish the tickets to the configured tracker"), specifically when the configured tracker is GitHub and the tickets being published have blocking edges. Use the commands below rather than researching this from scratch or falling back to raw `gh api graphql` mutations — the CLI now does this natively.
 
 ## Native `gh` flags
 
@@ -37,7 +37,7 @@ Confirm the installed `gh` version actually supports these flags:
 gh --version   # needs >= 2.94.0
 ```
 
-If it's older than 2.94.0, fall back to the text-based "Blocked by" convention already described in `/to-tickets` Step 5, rather than reaching for raw `gh api graphql` mutations — those still work, but add real complexity for something the CLI now does natively on a current version.
+If it's older than 2.94.0, fall back to the text-based "Blocked by" convention already described in `$to-tickets` Step 5, rather than reaching for raw `gh api graphql` mutations — those still work, but add real complexity for something the CLI now does natively on a current version.
 
 ## Editing relationships on an already-published issue
 

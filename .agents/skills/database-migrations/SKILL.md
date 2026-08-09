@@ -1,51 +1,54 @@
 ---
 name: database-migrations
-description: Manage the entire database schema lifecycle, including script generation, version tracking, file squashing, and lifecycle testing using SQLAlchemy and Alembic. Use whenever the database schema is modified, tables are created, migrations are required, or a user asks to update the database.
-license: MIT
-compatibility: product=codex product=claude-code system=alembic system=postgresql network=none
-metadata:
-  version: 1.2.0
+description: Manage, generate, apply, and validate PostgreSQL schema migrations using SQLAlchemy and Alembic, including the pre-1.0 branch-baseline policy and targeted database verification.
+compatibility: product=codex product=claude-code system=python system=git network=none
 ---
 
-# Database Migrations Skill
+# Database Migrations
 
 ## Objective
-Manage, generate, and validate database schema migrations seamlessly while ensuring data integrity, absolute backward reversibility, and alignment with the repository's lifecycle release version.
 
-## Initial Pre-flight Check
-Before writing or executing any database schema modification:
-1. Identify the authoritative SQLAlchemy models being altered.
-2. Confirm that changes are driven purely via `alembic` migration scripts.
-3. **Constraint:** Projection rebuilds (e.g., Qdrant, Neo4j) are strictly forbidden from deleting canonical PostgreSQL source records.
+Manage and validate database schema migrations while preserving data integrity, verifying upgrade/downgrade behavior, and following the repository's release-version migration policy.
 
-## Execution Workflow
+A valid `downgrade()` proves the intended **schema transition** is reversible. Do not claim destroyed data is recoverable unless an explicit restoration mechanism exists and is verified.
 
-### Step 1: Check Project Release Version & Select Strategy
+## Pre-flight
 
-Check the current project release version before modifying or generating
-migration files. The definitive source is `pyproject.toml` under
-`[project].version`; active Git release tags are secondary context.
+Before modifying database-affecting code:
 
-Apply this lifecycle policy:
+1. Identify the authoritative SQLAlchemy models and persistence contracts being changed.
+2. Confirm schema evolution is represented through Alembic migrations rather than ad hoc runtime DDL.
+3. If the Living Entity Wiki exists, invoke `$wiki-sync` before editing. Let it resolve the affected entity and applicable architectural constraints from `wiki/index.md`; do not duplicate those invariants here.
+4. Halt on any blocking `$wiki-sync` finding such as `[source-conflict]` or violation of an active invariant.
 
-* **Before 1.0:** migrations created for an active feature are mutable until
-  that feature is merged or released. If the current feature already has an
-  unapplied/unreleased branch migration representing its schema work, modify
-  that migration instead of adding sequential corrective migrations. Do not
-  rewrite migration baselines belonging to previously merged features merely to
-  incorporate the current ticket. The squashed branch migration file must remain
-  tracked and committed so schema state syncs across environments.
-* **1.0 release preparation:** repository-wide squashing into the canonical
-  initial schema is a deliberate release operation after intended 1.0 feature
-  branches have landed. Validate a clean install and reset development/test
-  databases as necessary.
-* **After 1.0:** migration history is immutable. Never edit an applied or
-  released migration; every schema change gets a new migration.
+## 1. Select the Migration Strategy
 
-### Step 2: Identify the Target Migration File
+Read `[project].version` from `pyproject.toml`. It is authoritative for migration lifecycle; Git tags are corroborating context only.
 
-Inspect the migration history and the active branch before editing schema
-files:
+### Before 1.0
+
+Use the **branch-baseline policy**:
+
+* migrations for the current active feature remain mutable until that feature is merged or released;
+* if the feature already has an unreleased branch migration, edit it instead of adding sequential corrective migrations;
+* do not rewrite migration baselines belonging to previously merged features;
+* keep the active migration tracked and committed.
+
+### 1.0 release preparation
+
+Repository-wide squashing into the canonical initial schema is a deliberate release operation after intended 1.0 feature branches have landed.
+
+Validate a clean install and reset disposable development/test databases as necessary.
+
+### After 1.0
+
+Migration history is immutable.
+
+Never edit an applied or released migration. Every schema change receives a new migration.
+
+## 2. Select the Target Migration
+
+Inspect current history before editing:
 
 ```bash
 uv run alembic heads
@@ -54,37 +57,44 @@ git status --short migrations/versions
 git log --oneline -- migrations/versions
 ```
 
-For pre-1.0 feature work, choose the current feature's existing branch
-migration when one exists. If no active feature migration exists, create one
-with Alembic. Do not create a second corrective branch migration only because
-the first branch migration needs adjustment.
+Before 1.0:
 
-Autogenerate may be used as a scratch/diff aid, but do not blindly overwrite a
-hand-maintained baseline: preserve explicit constraints, indexes, operation
-ordering, comments, and downgrade logic. If force-overwriting is truly safer,
-pass the existing revision ID intentionally and audit the result before keeping
-it:
+* modify the current feature's existing branch migration when one exists;
+* otherwise create a new migration with Alembic.
+
+Autogenerate may be used as a diff aid, but do not blindly replace hand-maintained migration logic. Preserve intentional constraints, indexes, operation ordering, comments, and downgrade behavior.
+
+If intentionally regenerating a mutable revision with its existing revision ID:
 
 ```bash
-uv run alembic revision --autogenerate -m "initial_setup" --rev-id=<EXISTING_REVISION_ID>
+uv run alembic revision --autogenerate -m "<description>" --rev-id=<EXISTING_REVISION_ID>
 ```
 
-### Step 3: Audit the Structural Code Blocks
+audit the complete result before keeping it.
 
-Open the target migration file and verify that the syntax maps exactly to the
-expected SQLAlchemy model state:
+## 3. Audit the Migration
 
-* Explicit column types match typed model structures.
-* Foreign keys specify intended cascade behavior.
-* Check constraints enforce canonical enums and JSON object/array shapes.
-* Indexes cover expected high-churn lookups.
-* `downgrade()` removes objects in safe reverse dependency order.
+Compare the migration against the authoritative SQLAlchemy model state.
 
-### Step 4: Inspect and Apply the Target Database
+Verify:
 
-Use the standard runtime environment variables and `uv` tooling. If
-`POLARIS_DATABASE_URL` is not exported but `.env` contains the canonical
-PostgreSQL parts, load `.env` for local execution without printing secrets:
+* column types, nullability, and defaults;
+* foreign keys and cascade behavior;
+* check and unique constraints;
+* required JSON/enum constraints;
+* indexes for established high-value lookup paths;
+* safe dependency ordering in `upgrade()`;
+* safe reverse dependency ordering in `downgrade()`.
+
+Do not add speculative indexes or abstractions.
+
+For destructive operations, identify any data that cannot be reconstructed by downgrade.
+
+## 4. Apply and Inspect the Database
+
+Use repository-standard environment variables and `uv`.
+
+If `POLARIS_DATABASE_URL` is not exported but `.env` contains the canonical local PostgreSQL configuration, load it without printing secrets:
 
 ```bash
 set -a; source .env; set +a; uv run alembic heads
@@ -94,70 +104,100 @@ set -a; source .env; set +a; uv run alembic check
 set -a; source .env; set +a; uv run polaris inspect persistence
 ```
 
-`alembic current` verifies only the stored revision stamp. Always run
-`alembic check` after applying migrations so the physical database schema is
-compared against SQLAlchemy metadata. In Polaris, also run
-`polaris inspect persistence` when a local PostgreSQL database is available; its
-`alembic_schema_drift` check exposes the same drift through the canonical
-application diagnostics boundary.
+`alembic current` verifies the revision stamp only.
 
-If a DB-backed integration test needs `POLARIS_TEST_DATABASE_URL` and it is not
-pre-exported, derive it from the same `.env` PostgreSQL settings,
-`.env.example`, `docker-compose.yml`, test fixtures, or the project's
-`PostgresSettings` environment contract instead of skipping solely because the
-variable was absent. Prefer an isolated test database or schema for
-migration-contract tests. Never echo full connection strings or secrets.
+Always run `alembic check` after applying migrations to compare the physical schema with SQLAlchemy metadata.
 
-If the derived local database depends on a Docker service and repository rules
-authorize service management, start only the required service, for example
-`docker compose up -d postgres`, before rerunning the exact targeted migration
-or DB-backed integration test. If local env or services cannot be safely
-resolved, report database verification as unresolved or owner-deferred; do not
-count the skip as a pass.
+When local PostgreSQL is available, also run:
 
-### Step 5: Handle Stale or Squashed Local Revisions
+```bash
+uv run polaris inspect persistence
+```
 
-If `alembic current` fails because the database is stamped with a revision that
-no longer exists in the branch, inspect Git history to determine whether that
-revision was squashed into an active feature migration. Do not blindly run
-`alembic stamp head`; stamping can hide missing tables, constraints, indexes, or
-other operations from the edited squashed migration.
+for the application's canonical persistence diagnostics.
 
-* For disposable local development/test databases, reset or recreate the local
-  database/schema, then run `uv run alembic upgrade head` from the current repo
-  state. When the repository provides a guarded local reset helper, prefer it
-  over hand-written destructive SQL; for Polaris, use
-  `uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db`.
-  Confirm afterward with `uv run alembic check` and
-  `uv run polaris inspect persistence`.
-* For data-preserving environments, stop and create an explicit remediation plan
-  that compares actual schema state with the current migration head before any
-  stamping or manual DDL.
+### Test database
 
-### Step 6: Run the UP / DOWN Lifecycle Validation
+If a targeted test requires `POLARIS_TEST_DATABASE_URL` and it is not exported, derive safe local configuration from repository-owned sources such as:
 
-Execute a full round-trip validation matrix for migration changes:
+* `.env`;
+* `.env.example`;
+* `docker-compose.yml`;
+* test fixtures;
+* `PostgresSettings`.
 
-1. Apply upgrade: `uv run alembic upgrade head`.
-2. Verify metadata parity: `uv run alembic check`.
-3. Verify canonical diagnostics, when a local PostgreSQL database is available:
-   `uv run polaris inspect persistence`.
-4. Verify state: inspect tables, columns, constraints, and indexes relevant to
-   the change.
-5. Apply downgrade by exactly one relevant step or against an isolated migration
-   test schema: `uv run alembic downgrade -1`.
-6. Re-upgrade to the final intended state: `uv run alembic upgrade head`.
-7. Re-run `uv run alembic check` after the final upgrade.
-8. Run targeted migration-contract and PostgreSQL integration tests with a real
-   env-derived database URL; do not count a skipped DB test as passing database
-   verification.
+Prefer an isolated test database or schema.
 
-## Examples
+Never print connection strings or secrets.
 
-### Example 1: Creating a Table Modification Plan (Pre-1.0.0)
-**User:** "Add an active flag to the user accounts table."
-**Agent Action:**
-1. Checks `pyproject.toml` and detects version `0.4.2`.
-2. Inspects git status and logs to find the current unmerged branch baseline file.
-3. Appends `sa.Column('active', sa.Boolean(), default=True)` straight into the existing local migration block instead of spawning a new sequential version file.
-4. Executes `uv run alembic upgrade head` followed by `uv run alembic downgrade -1` to validate the round-trip code integrity.
+If the required local PostgreSQL service is not running and repository rules authorize service management, start only that service, for example:
+
+```bash
+docker compose up -d postgres
+```
+
+A DB-backed test skipped solely because local environment/service setup was absent is **unresolved verification**, not a pass.
+
+## 5. Handle Stale Squashed Revisions
+
+If `alembic current` references a revision no longer present on the branch, inspect Git history before changing the database stamp.
+
+Do not blindly use:
+
+```bash
+uv run alembic stamp head
+```
+
+because stamping can hide unapplied schema operations.
+
+For a disposable local development/test database, prefer resetting and rebuilding from current migrations. In Polaris:
+
+```bash
+uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+uv run alembic upgrade head
+uv run alembic check
+uv run polaris inspect persistence
+```
+
+For a data-preserving environment, stop and produce an explicit remediation plan comparing actual schema state with current migration history before stamping, resetting, or issuing manual DDL.
+
+## 6. Validate the Migration Lifecycle
+
+For migrations changed by the current work, run the relevant round trip against a disposable or isolated database/schema:
+
+1. `uv run alembic upgrade head`
+2. `uv run alembic check`
+3. `uv run polaris inspect persistence` when local PostgreSQL is available
+4. inspect affected tables, columns, constraints, and indexes
+5. `uv run alembic downgrade -1`
+6. verify the intended prior schema state
+7. `uv run alembic upgrade head`
+8. `uv run alembic check`
+9. run targeted migration-contract and PostgreSQL integration tests
+
+Do not destructively downgrade a data-preserving environment merely to satisfy this workflow.
+
+## 7. Post-change Wiki Sync
+
+If the Living Entity Wiki exists, invoke `$wiki-sync` after substantive database work.
+
+Do not decide locally whether the change is "architectural enough." `$wiki-sync` owns whether the completed change affects durable entity knowledge, including realization of an accepted decision that was previously implementation-pending.
+
+Ordinary schema details do not automatically require wiki changes.
+
+If invoked from `$implement-ticket`, stage any resulting wiki mutation and semantic `wiki/log.md` entry for the parent ticket commit rather than creating a separate wiki commit.
+
+## Completion
+
+Database migration work is not complete when any required condition remains unresolved, including:
+
+* migration upgrade failure;
+* `alembic check` drift;
+* invalid downgrade/re-upgrade behavior;
+* missing required constraints or indexes;
+* failed targeted database tests;
+* required DB tests skipped solely for missing local setup;
+* stale removed revision state;
+* unresolved blocking `$wiki-sync` finding.
+
+Report unresolved or owner-deferred database verification explicitly.

@@ -461,12 +461,34 @@ class WorkflowOutputProjectionService:
     ) -> WorkflowOutputProjectionOutcome | None:
         service = self._governed_output_release_service
         authority = decision.authority_contract
-        if service is None or authority is None:
+        if authority is None:
             return None
         if not requires_governed_output_release_review(authority):
             return None
 
         boundary_name = f"workflow_output_projection.{registration.projector_name}"
+        if service is None:
+            message = (
+                f"{boundary_name} is blocked: capital-relevant "
+                f"{authority.risk_tier.value} durable promotion requires the "
+                "canonical governed output release service."
+            )
+            logger.warning(
+                "workflow_output_projection.governance_review_blocked",
+                extra={
+                    "node_name": node_output.node_name,
+                    "projector_name": registration.projector_name,
+                    "output_contract": registration.output_contract,
+                    "reason": message,
+                },
+            )
+            return _governed_release_blocked_outcome(
+                registration=registration,
+                node_output=node_output,
+                source_fingerprint=source_fingerprint,
+                message=message,
+            )
+
         release_request = _governed_output_release_request_from_metadata(
             authority=authority,
             node_output=node_output,

@@ -12,6 +12,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -54,6 +55,7 @@ from core.storage.persistence.postgres_completed_run_archive import (
     PostgresCompletedRunArchive,
 )
 from core.storage.persistence.repositories import (
+    PostgresAutomatedDecisionAuditRepository,
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
     PostgresPersistenceLineageLinkRepository,
@@ -126,6 +128,10 @@ class PostgresWorkflowOutputProjectionCoordinator:
     ) -> CompletedRunProjectionSummary:
         """Project one completed run using a fresh PostgreSQL session."""
         async with self._session_factory() as session:
+            automated_decision_audit_service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+                observability_manager=self._observability_manager,
+            )
             service = WorkflowOutputProjectionService(
                 completed_run_archive=PostgresCompletedRunArchive(
                     session_factory=self._session_factory,
@@ -136,6 +142,7 @@ class PostgresWorkflowOutputProjectionCoordinator:
                 registry=self._registry_for_session(session),
                 eligibility_policy=self._eligibility_policy,
                 observability_manager=self._observability_manager,
+                governed_output_release_service=automated_decision_audit_service,
             )
             return await service.project_completed_run(request)
 

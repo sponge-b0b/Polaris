@@ -324,6 +324,34 @@ async def test_project_completed_run_blocks_governed_promotion() -> None:
 
 
 @pytest.mark.asyncio
+async def test_project_completed_run_fails_closed_without_release_service() -> None:
+    projector = StubProjector()
+    repository = FakeProjectionJobRepository()
+    service = _service(
+        projector=projector,
+        repository=repository,
+        governed_output_release_service=None,
+        bundle=_bundle(
+            node_outputs=(_node(metadata=_metadata_with_governance_review()),),
+        ),
+    )
+
+    summary = await service.project_completed_run(
+        WorkflowOutputProjectionRequest(
+            workflow_name="morning_report",
+            execution_id="exec-1",
+        )
+    )
+
+    assert summary.skipped_jobs == 1
+    assert repository.created == []
+    assert projector.calls == 0
+    assert "canonical governed output release service" in str(
+        summary.outcomes[0].message
+    )
+
+
+@pytest.mark.asyncio
 async def test_project_completed_run_promotes_after_governed_approval() -> None:
     projector = StubProjector()
     repository = FakeProjectionJobRepository()

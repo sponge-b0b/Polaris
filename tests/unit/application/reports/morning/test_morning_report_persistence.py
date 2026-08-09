@@ -278,8 +278,9 @@ async def test_morning_report_persistence_service_persists_full_bundle() -> None
     repository = FakeReportRepository()
     service = MorningReportPersistenceService(
         repository,
+        governed_output_release_service=_approved_release_gate(),
     )
-    document = _document_with_contextual_claim_reference()
+    document = _with_publication_review(_document_with_contextual_claim_reference())
     markdown = MorningReportMarkdownRenderer().render(
         document,
     )
@@ -329,6 +330,22 @@ async def test_morning_report_persistence_blocks_missing_publication_review_stat
     assert "requires authoritative governance review metadata" in str(result.error)
     assert repository.report is None
     assert gate.requests == []
+
+
+@pytest.mark.asyncio
+async def test_morning_report_persistence_blocks_missing_release_service() -> None:
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(repository)
+    document = _with_publication_review(_document_with_contextual_claim_reference())
+
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
+
+    assert result.success is False
+    assert "canonical governed output release service" in str(result.error)
+    assert repository.report is None
 
 
 @pytest.mark.asyncio
@@ -450,7 +467,9 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
     service = MorningReportPersistenceService(
         repository,
         claim_binding_service=binding_service,
+        governed_output_release_service=_approved_release_gate(),
     )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -483,7 +502,11 @@ async def test_morning_report_fails_closed_without_claim_audit_treatment(
 ) -> None:
     document = _document()
     repository = FakeReportRepository()
-    service = MorningReportPersistenceService(repository)
+    service = MorningReportPersistenceService(
+        repository,
+        governed_output_release_service=_approved_release_gate(),
+    )
+    document = _with_publication_review(document)
 
     with caplog.at_level(
         logging.WARNING,
@@ -514,7 +537,9 @@ async def test_morning_report_fails_closed_for_packet_validation_error() -> None
         claim_binding_service=_FailingReportClaimBindingService(
             DecisionEvidencePacketValidationError("stale packet provenance"),
         ),
+        governed_output_release_service=_approved_release_gate(),
     )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -534,7 +559,9 @@ async def test_morning_report_fails_closed_for_missing_material_binding() -> Non
     service = MorningReportPersistenceService(
         repository,
         claim_binding_service=_FakeReportClaimBindingService(()),
+        governed_output_release_service=_approved_release_gate(),
     )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -562,7 +589,9 @@ async def test_morning_report_fails_closed_for_invalid_material_binding() -> Non
                 ),
             )
         ),
+        governed_output_release_service=_approved_release_gate(),
     )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -589,7 +618,9 @@ async def test_morning_report_fails_closed_for_substituted_material_link() -> No
                 ),
             )
         ),
+        governed_output_release_service=_approved_release_gate(),
     )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -617,7 +648,11 @@ async def test_morning_report_allows_contextual_claim_without_binding() -> None:
     )
     document = _document_with_claim_reference(reference)
     repository = FakeReportRepository()
-    service = MorningReportPersistenceService(repository)
+    service = MorningReportPersistenceService(
+        repository,
+        governed_output_release_service=_approved_release_gate(),
+    )
+    document = _with_publication_review(document)
 
     result = await service.persist(
         document,
@@ -791,9 +826,33 @@ class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
         return self.links
 
 
-def _publication_review() -> ReportPublicationReview:
+def _approved_release_gate() -> _FakeGovernedOutputReleaseService:
+    return _FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=True,
+            reason="governance review permits release",
+            approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+            review_task_id="review-task-1",
+            residual_risk_acceptance_id="acceptance-1",
+        )
+    )
+
+
+def _with_publication_review(
+    document: MorningReportDocument,
+) -> MorningReportDocument:
+    return replace(
+        document,
+        publication_review=_publication_review(execution_id=document.execution_id),
+    )
+
+
+def _publication_review(
+    *,
+    execution_id: str = "exec-full",
+) -> ReportPublicationReview:
     return ReportPublicationReview(
-        subject=AutomatedDecisionSubject("report", "morning_report:exec-full"),
+        subject=AutomatedDecisionSubject("report", f"morning_report:{execution_id}"),
         evidence=AutomatedDecisionEvidenceReference("packet-1", 1),
         review_scope="morning_report",
         requested_action="report_publication",

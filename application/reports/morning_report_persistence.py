@@ -299,10 +299,13 @@ class MorningReportPersistenceService:
         document: MorningReportDocument,
     ) -> GovernedOutputReleaseDecision | None:
         service = self._governed_output_release_service
-        if service is None:
-            return None
         if not requires_governed_output_release_review(document.authority):
             return None
+        if service is None:
+            return _missing_publication_release_service_decision(
+                document.authority,
+                boundary_name="morning_report.persistence",
+            )
 
         review = document.publication_review
         if review is None:
@@ -318,6 +321,22 @@ class MorningReportPersistenceService:
                 boundary_name="morning_report.persistence",
             )
         )
+
+
+def _missing_publication_release_service_decision(
+    authority: RiskAuthorityContract,
+    *,
+    boundary_name: str,
+) -> GovernedOutputReleaseDecision:
+    return GovernedOutputReleaseDecision(
+        allowed=False,
+        approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+        reason=(
+            f"{boundary_name} is blocked: capital-relevant {authority.risk_tier.value} "
+            "report publication requires the canonical governed output release "
+            "service."
+        ),
+    )
 
 
 def _missing_publication_review_decision(

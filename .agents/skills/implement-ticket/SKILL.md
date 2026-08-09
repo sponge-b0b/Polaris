@@ -43,6 +43,14 @@ fi
 
 This check MUST occur before editing, formatting, generating, deleting, or otherwise modifying project files.
 
+After the branch guard succeeds and before modifying files, capture the ticket verification baseline:
+
+```bash
+TICKET_BASELINE=$(git rev-parse HEAD)
+```
+
+Keep this baseline for the current ticket implementation. It is a verification anchor only; do not write it to the ticket or treat it as the spec baseline.
+
 ## 2. Implement the Ticket
 
 ### Living Entity Wiki Guard
@@ -107,7 +115,7 @@ A required PostgreSQL-backed test skipped solely because local environment or se
 
 ## 3. Verify the Implementation
 
-After implementation, but before committing or closing the ticket, invoke `$verify-code`.
+After implementation, but before committing or closing the ticket, invoke `$verify-code` with `TICKET_BASELINE` as the ticket verification baseline.
 
 Default ticket verification is targeted.
 
@@ -146,7 +154,7 @@ Immediately before committing, re-read **Ticket branch** and verify it again.
 
 If it is not `None`:
 
-```bash
+```bash id="6zh2d2"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 

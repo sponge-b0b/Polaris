@@ -234,7 +234,7 @@ Projectors may reject, skip, or quarantine outputs whose schema, execution mode,
 or required fields are unsuitable for the target record family.
 
 See `docs/current/platform-architecture-ownership-ledger.md` and
-`docs/current/workflow-output-curation.md` for the ownership and curation rules.
+`docs/current/application-services-output-curation-workflow-output-curation.md` for the ownership and curation rules.
 
 ## RAG persistence and projections
 

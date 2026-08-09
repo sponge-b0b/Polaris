@@ -192,7 +192,7 @@ defaults or production aliases. `exploratory_smoke` mode may run the same style
 of checks for operator learning, but its result scope is smoke-only.
 
 For the cross-boundary readiness matrix and live-service validation prerequisites,
-see [Model Allocation Readiness Check](model-allocation-readiness.md).
+see [Model Allocation Readiness Check](../reference/model-gateway-profile-policy-model-allocation-readiness.md).
 
 ## Change checklist
 

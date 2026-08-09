@@ -2,10 +2,9 @@
 
 ## Purpose and status
 
-This ledger defines Polaris's canonical ownership rules for operational events and records the completed observability-boundary audit.
+This ledger defines Polaris's current canonical ownership rules for operational events, telemetry ownership, sink projections, metrics, traces, persistence, and direct-logging exceptions.
 
-**Audit finalized:** July 2, 2026
-**Status:** Complete for the production roots `application/`, `core/`, `integration/`, `intelligence/`, and `interfaces/`.
+Historical observability-boundary audit status is preserved in [`../reference/telemetry-observability-trace-lifecycle-observability-coverage-audit.md`](../reference/telemetry-observability-trace-lifecycle-observability-coverage-audit.md).
 
 The governing invariant is:
 
@@ -176,7 +175,7 @@ Detailed correlation and exception data belongs in structured logs, PostgreSQL, 
 - PostgreSQL stores every event by `event_id` and exactly one assembled trace row per `(trace_id, span_id)`.
 - OpenTelemetry exports one span per canonical operation and attaches applicable event and exception data.
 
-See `.docs/current/canonical-trace-lifecycle.md` for the complete lifecycle contract.
+See `telemetry-observability-trace-lifecycle-canonical-trace.md` for the complete lifecycle contract.
 
 ## Regression coverage
 
@@ -196,20 +195,3 @@ See `.docs/current/canonical-trace-lifecycle.md` for the complete lifecycle cont
 | End-to-end canonical paths | `tests/integration/telemetry/test_telemetry_coverage_audit.py` |
 
 The architecture does **not** require every Python file to define a logger. Regression coverage protects canonical owners and delivery boundaries rather than counting logger declarations.
-
-## Final audit disposition
-
-- [x] One canonical telemetry event and typed exception contract.
-- [x] Nonrecursive collector/runtime/persistence sink failure visibility.
-- [x] Structured logging with exactly-once traceback rendering.
-- [x] Service configuration, retry, degradation, failure, and cancellation coverage.
-- [x] Typed service degradation and removal of duplicate service warnings.
-- [x] Provider exception snapshots and client retry visibility.
-- [x] Runtime, EventBus, plugin, policy, and governance fan-out coverage.
-- [x] Bootstrap and configuration-failure observability.
-- [x] Canonical trace propagation, OpenTelemetry topology, and PostgreSQL span assembly.
-- [x] Stable Prometheus metrics, alert rules, dashboard mappings, and bounded labels.
-- [x] Canonical event and exception persistence in PostgreSQL.
-- [x] RAG and intelligence degradation/failure ownership.
-- [x] Duplicate completed-run repository/archive logging removed; workflow archival fallback remains the single visible owner.
-- [x] Focused architecture and boundary regression tests.

@@ -144,7 +144,7 @@ The default low-VRAM local LiteLLM profile maps fast to `qwen2.5:7b`,
 reasoning to `qwen3.5:4b`, and structured, synthesis, evaluation, and
 optimization to `qwen2.5-coder:7b`. These concrete bindings live in
 `config/litellm/config.yaml`; RAG code consumes logical aliases rather than
-backend model names. See [Polaris Model Profile Policy](model-profile-policy.md)
+backend model names. See [Polaris Model Profile Policy](model-gateway-profile-policy-model-profiles.md)
 for the full local and production policy.
 
 Generation budgets are also stage-specific. Structured routing, CRAG, and
@@ -654,7 +654,7 @@ This separation is intentional:
 - DeepEval failures do not corrupt successful RAG results;
 - Langfuse is used for AI-engineering score analysis, while PostgreSQL remains authoritative.
 
-Use `docs/current/llm-evaluation.md` for the full evaluation contract, threshold table, CLI commands, and live-test requirements.
+Use `docs/current/ai-model-operations-evaluation-llm-evaluation.md` for the full evaluation contract, threshold table, CLI commands, and live-test requirements.
 
 ## Observability
 

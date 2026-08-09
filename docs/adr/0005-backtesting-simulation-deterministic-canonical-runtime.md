@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0005. Deterministic Backtesting Through the Canonical Runtime
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

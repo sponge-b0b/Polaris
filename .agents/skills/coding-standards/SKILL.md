@@ -34,7 +34,7 @@ A direct user requirement or documented repository rule overrides a design prefe
 When creating, modifying, or reviewing scoring code, read:
 
 ```text
-docs/current/platform-data-contract-inventory.md
+docs/current/domain-contracts-data-semantics-contract-semantics.md
 ```
 
 That document owns canonical score semantics.

@@ -1,5 +1,8 @@
 # Platform Data-Contract Inventory
 
+> **Reference-only historical audit.** This document preserves the Step 5 data-contract inventory and related stabilization findings. It is structured lookup material, not current architectural authority, and must not be used to establish new Strict Invariants. Current data-contract and score semantics are owned by [`../current/domain-contracts-data-semantics-contract-semantics.md`](../current/domain-contracts-data-semantics-contract-semantics.md).
+
+
 ## Status and scope
 
 This document records the Step 5 inventory for the non-RAG platform as of
@@ -35,10 +38,9 @@ below:
   completed-run history. Runtime checkpoints remain the source for resume and
   replay; completed-run records are not replay checkpoints.
 
-The classifications and boundary rules remain valid. Tables and findings below
-that use present tense describe the 2026-06-27 audit baseline unless explicitly
-marked as resolved. Current architecture and operations are documented in
-[`platform-architecture-and-operations.md`](platform-architecture-and-operations.md).
+The classification and boundary-rule material that remains current has been
+carried into [`../current/domain-contracts-data-semantics-contract-semantics.md`](../current/domain-contracts-data-semantics-contract-semantics.md). Tables and findings below that use present tense describe the 2026-06-27 audit baseline unless explicitly marked as resolved. Current architecture and operations are documented in
+[`../current/platform-architecture-and-operations.md`](../current/platform-architecture-and-operations.md).
 
 ## Canonical classification
 

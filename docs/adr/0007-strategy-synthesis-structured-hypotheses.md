@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0007. Structured Strategy Hypotheses
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

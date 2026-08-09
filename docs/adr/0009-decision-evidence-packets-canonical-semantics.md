@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0009. Canonical Decision Evidence Packet Semantics
 
-Status: accepted
 Date: 2026-07-29
 
 ## Context and Problem Statement

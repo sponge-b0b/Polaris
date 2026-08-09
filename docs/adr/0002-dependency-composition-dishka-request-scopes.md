@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0002. Dishka Composition and Request Scopes
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0004. PostgreSQL Is the Platform System of Record
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

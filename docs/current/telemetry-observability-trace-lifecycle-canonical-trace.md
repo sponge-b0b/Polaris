@@ -51,44 +51,6 @@ operation completes, fails, or is cancelled
 Retries that represent new attempts are new operation instances and therefore
 receive new span IDs under the same parent operation.
 
-## Current data lifecycle audit
-
-```text
-TraceContext producer
-    -> RuntimeContext / TelemetryContext
-    -> RuntimeEvent or TelemetryEvent
-    -> TelemetryCollector
-    -> logging / metrics / PostgreSQL / OpenTelemetry
-    -> PostgreSQL queries, Jaeger, Grafana, and operational diagnostics
-```
-
-### Current classifications and gaps
-
-| Boundary | Current behavior | Classification | Required correction |
-| --- | --- | --- | --- |
-| Workflow | Root `TraceContext` is created for the run | Real operation span | Retain with strict lifecycle semantics |
-| Runtime node | One child context is created before the node retry loop | Over-broad scope | Create one node-attempt span per attempt |
-| ServiceRunner | Service lifecycle usually reuses the incoming node context | Distinct operation sharing parent ID | Create one child span per service attempt |
-| Provider telemetry | Provider lifecycle reuses the active service/node context | Distinct operation sharing parent ID | Create one child span per provider call |
-| Client retry | Retry event uses the surrounding provider context | Span event | Attach to the provider or attempt span; do not export a new span |
-| Datastore/HTTP/model calls | Coverage varies and often inherits the caller context | Missing or over-broad span | Create child spans for independently timed external operations |
-| Runtime progress/control | Multiple notifications share a runtime context | Span events | Keep distinct event IDs and attach to the owning span |
-| OpenTelemetry sink | One external span is retained per canonical operation; lifecycle notifications are attached as span events | Canonical external projection | Retain this one-operation/one-span contract |
-| PostgreSQL mapper | Canonical events retain their own `event_id`; lifecycle observations map to one stable `trace_id + span_id` record identity | Canonical event/span separation | Retain this contract |
-| PostgreSQL repository | Trace lifecycle observations upsert one canonical span row and choose terminal state deterministically | Canonical durable assembly | Retain this contract |
-
-## Step 10 anchor-map removal
-
-The former anchor map created separate external spans with random identifiers
-for events that shared one Polaris operation span. Step 10C removed that workaround.
-The OpenTelemetry boundary now uses Polaris's canonical trace and span identifiers
-as the actual exported identities, retains one span for the operation lifecycle,
-and attaches notifications and exception details as span events.
-
-Open lifecycles are bounded. Limit eviction and sink shutdown explicitly mark
-and end incomplete spans; `force_flush()` never closes operations that are still
-running. No compatibility alias or logical-span mapping remains.
-
 ## Persistence invariants
 
 - `telemetry_events` stores one row per canonical `event_id`.
@@ -122,11 +84,6 @@ equivalent outcomes use the latest terminal timestamp. Non-terminal observations
 may enrich lineage, attributes, and metadata, but cannot reopen or erase a
 terminal outcome. The earliest observed start time is retained.
 
-Migration `b8c9d0e1f2a3` corrects the former event-time-plus-duration terminal
-timestamps, removes duplicate historical trace/span rows, and then enforces the
-unique canonical span constraint. It also removes the obsolete non-unique
-composite index; no compatibility trace identity remains.
-
 ## Verification gates
 
 - Every operation span has one unique ID and at most one terminal outcome.
@@ -134,4 +91,4 @@ composite index; no compatibility trace identity remains.
 - Retry attempts have distinct span IDs.
 - Events do not become spans merely because they are exported.
 - Persisted and exported parent-child relationships match.
-- No bounded anchor mapping remains after the correction is complete.
+- No bounded anchor mapping remains.

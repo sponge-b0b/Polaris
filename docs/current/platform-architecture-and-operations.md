@@ -4,7 +4,7 @@ This guide is the canonical non-RAG overview of Polaris's current platform
 architecture and local operating model. It consolidates the stabilized runtime,
 composition, telemetry, persistence, integration, and backtesting boundaries.
 RAG-specific architecture and operations remain documented in
-[`platform-rag-pipeline.md`](platform-rag-pipeline.md).
+[`platform-native-rag-retrieval-pipeline.md`](platform-native-rag-retrieval-pipeline.md).
 
 ## Platform scope and goals
 
@@ -280,7 +280,7 @@ checkpoint, and persistence serialization boundaries without mutating the
 in-memory source object.
 
 Local Prometheus, Jaeger, and Grafana setup is documented in
-[`core-telemetry-observability.md`](core-telemetry-observability.md).
+[`telemetry-observability-trace-lifecycle-local-observability.md`](telemetry-observability-trace-lifecycle-local-observability.md).
 
 ## Persistence classification
 
@@ -299,10 +299,12 @@ complete nested payloads. Planned canonical fields must not be hidden in generic
 `metadata`. New first-class fields require SQLAlchemy model changes, an Alembic
 migration, and migration/metadata-divergence tests.
 
-See [`postgres-persistence.md`](postgres-persistence.md) for the schema,
-migration, retention, and completed-run conventions. The historical contract
-audit and its superseding resolutions are recorded in
-[`platform-data-contract-inventory.md`](platform-data-contract-inventory.md).
+See [`persistence-curated-records-postgresql-persistence.md`](persistence-curated-records-postgresql-persistence.md) for the schema,
+migration, retention, and completed-run conventions. Current data-contract and
+score semantics are defined in
+[`domain-contracts-data-semantics-contract-semantics.md`](domain-contracts-data-semantics-contract-semantics.md).
+The historical Step 5 contract inventory is preserved as reference material in
+[`../reference/domain-contracts-data-semantics-step-5-data-contract-inventory.md`](../reference/domain-contracts-data-semantics-step-5-data-contract-inventory.md).
 
 ## Deterministic backtesting
 
@@ -315,7 +317,7 @@ Deterministic scenarios fix their data, time, identifiers, ordering, and
 expectations. Verification compares platform results with independently derived
 expected calculations rather than merely comparing against a previous Polaris
 output. Full details and CLI examples are in
-[`backtesting-system.md`](backtesting-system.md).
+[`backtesting-simulation-system.md`](backtesting-simulation-system.md).
 
 ## Current interface and workflow surface
 
@@ -337,7 +339,7 @@ and completed-run evidence by resolving canonical application services and
 `WorkflowFacade` through Dishka request scopes. MCP must not become a second RAG,
 persistence, workflow, provider, or approval implementation. Its detailed
 transport contract is documented in
-[`platform-mcp-server.md`](platform-mcp-server.md).
+[`mcp-server-transport-boundary.md`](mcp-server-transport-boundary.md).
 
 The HTTP API tree under `interfaces/api/` remains empty non-production
 scaffolding. API, scheduler, and UI surfaces are not production interfaces until
@@ -417,7 +419,7 @@ Start only the infrastructure needed by the operation under test.
 | PostgreSQL-backed backtest history or persistence | PostgreSQL |
 | External metrics/traces validation | Prometheus and Jaeger; Grafana for dashboards; PostgreSQL when validating telemetry persistence/retention |
 | Live provider workflow | The configured vendor credentials/network plus PostgreSQL when durable runtime/report persistence is enabled |
-| RAG ingestion, retrieval, or projection rebuild | See `platform-rag-pipeline.md`; service requirements may include PostgreSQL, Qdrant, Neo4j, BGE reranker, and configured model/provider endpoints |
+| RAG ingestion, retrieval, or projection rebuild | See `platform-native-rag-retrieval-pipeline.md`; service requirements may include PostgreSQL, Qdrant, Neo4j, BGE reranker, and configured model/provider endpoints |
 
 Use a timeout that reflects the expected operation duration. If an operation
 times out, investigate service readiness or a blocked dependency before simply

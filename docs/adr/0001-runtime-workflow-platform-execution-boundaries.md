@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0001. Runtime Execution and Workflow Boundaries
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

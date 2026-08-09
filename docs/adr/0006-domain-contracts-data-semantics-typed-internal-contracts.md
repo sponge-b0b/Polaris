@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0006. Typed Internal Contracts and Boundary Serialization
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

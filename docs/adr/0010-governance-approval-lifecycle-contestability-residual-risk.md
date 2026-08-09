@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0010. Governance Approval Contestability and Residual Risk
 
-Status: accepted
 Date: 2026-08-03
 
 ## Context and Problem Statement

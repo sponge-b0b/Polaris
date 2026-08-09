@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0003. Runtime Events, Telemetry, and Trace Propagation
 
-Status: accepted
 Date: 2026-07-17
 
 ## Context and Problem Statement

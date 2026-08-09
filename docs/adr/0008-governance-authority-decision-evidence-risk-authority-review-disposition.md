@@ -1,6 +1,9 @@
+---
+status: accepted
+---
+
 # 0008. Risk Authority Spec Review Disposition
 
-Status: accepted
 Date: 2026-07-22
 
 ## Context and Problem Statement

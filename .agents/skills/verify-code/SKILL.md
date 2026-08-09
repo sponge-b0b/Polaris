@@ -1,139 +1,179 @@
 ---
 name: verify-code
-description: Performs syntax validation, format checks, static typing verification, and targeted testing on modified or newly generated files in the workspace. Use whenever work is being performed on an individual ticket (e.g., using the /implement-ticket skill) OR, on-demand anytime current working files require verification before merging or handing off to a human reviewer.
-license: MIT
+description: Performs syntax validation, format checks, static typing verification, and targeted testing on Python files modified in the workspace or active ticket. Use during individual ticket implementation or on demand before merging or handoff.
 compatibility: product=codex product=claude-code system=git system=python network=none
-metadata:
-  version: 1.0.0
 ---
 
 # Targeted Codebase Verification Standards
 
 ## Objective
-Enforce consistent formatting, catch hidden type exceptions, and maintain test coverage *strictly* for code alterations introduced in the workspace OR by the active issue ticket, ensuring stability before changes are merged or handed off.
+
+Verify Python changes introduced by the current workspace or active ticket without broadening into repository-wide verification.
+
+`$coding-standards` owns coding policy. Verify applicable requirements, but do not re-invoke or duplicate that skill.
 
 ## Guardrail Constraints
-- **Explicit Exclusions:** Never use `round()` in application, intelligence, analysis, regime, calibration, or persistence logic. Keep numeric precision full internally; rounding is permitted only inside human-facing renderers or CLI displays.
-- **Python Invariants:** Type all public interfaces. Prefer `@dataclass(frozen=True, slots=True)` for immutable models. 
-- **Isolation Principle:** Only perform verification actions on files touched in the workspace OR by the current ticket. Do not introduce refactors, delete unrelated feature modules, or modify logical variable assignments. Never run global repository-wide verification commands inside an isolated workspace OR ticket lifecycle.
-- **Scope Extraction Invariant:** Before running any verification checks, you must explicitly isolate the modified file paths using local version control records or active workspace diffs.
-- **Safety Invariant:** If targeted verification checks produce errors that cannot be solved automatically, do not attempt to guess manual overrides; log the file paths and error details clearly for the developer or next workflow block and report when completed.
-- **Authorization Invariant:** Approved shell command prefixes are execution permissions only. They are never authorization to broaden verification scope. A persisted approval rule, allowlisted command prefix, or sandbox permission does not count as task-specific authorization for broad verification.
-- **Command Guard Invariant:** When the Polaris command guard is installed, do not bypass it by invoking real executable backups, absolute virtualenv tool paths, or alternate Python module entrypoints to run broad verification. A guard refusal is a hard stop unless the owner explicitly authorizes the exact broad command for the current task.
+
+* **Isolation Principle:** Verify only files changed by the current workspace or active ticket and directly affected tests.
+* **Scope Extraction Invariant:** Resolve the target files before running verification.
+* **Safety Invariant:** Do not refactor unrelated code, weaken configuration, or guess suppressions merely to make verification pass.
+* **Authorization Invariant:** Approved shell prefixes or sandbox permissions do not authorize broad verification.
+* **Command Guard Invariant:** Do not bypass the Polaris command guard through alternate executables or entrypoints.
+* **Diff Hygiene:** Do not use `git diff --check` as a verification gate; patch whitespace hygiene is outside this skill.
 
 ## Verification Scope Authorization
 
-For an individual ticket or targeted code change, default verification is limited to:
+Default verification is limited to:
 
-1. format and lint checks on changed files only;
-2. static typing checks on changed files and directly affected tests only;
-3. targeted tests for the changed behavior and nearby affected modules only.
+1. format and lint checks on changed Python files;
+2. static typing checks on changed Python files and directly affected tests;
+3. targeted tests for changed behavior and nearby affected modules;
+4. applicable `$coding-standards` requirements.
 
-Do not run broad repository-wide commands unless the user explicitly asks for full-suite, repo-wide, integration, coverage, exhaustive, or whole-project verification in the current task. This includes, but is not limited to:
+Do not run broad repository-wide commands unless explicitly authorized for the current task, including:
 
-- `uv run pytest`
-- `uv run pytest -q`
-- `uv run mypy .`
-- `uv run ruff check .`
-- full coverage runs
-- integration suites that require external services
+* `uv run pytest`
+* `uv run pytest -q`
+* `uv run mypy .`
+* `uv run ruff check .`
+* `uv run ruff format --check .`
+* full coverage runs
+* unrelated service-backed integration suites
 
-If broad verification seems useful, stop after targeted verification and ask first, naming the exact proposed command. Do not run the proposed broad command until the user says yes.
+If broader verification seems useful, stop after targeted verification and ask first, naming the exact proposed command.
 
-When reporting verification, distinguish clearly between:
-
-- targeted verification that was actually run;
-- broad verification that was not run;
-- broad verification that is recommended but requires user approval.
-
-Never imply full repository health unless full repository verification was explicitly authorized and completed. Use wording such as:
-
-- "Targeted verification passed."
-- "Full suite was not run."
-- "Whole-repo mypy was not run."
-- "Broader verification is available if you want it."
+Never imply full repository health unless broad verification was explicitly authorized and completed.
 
 ---
 
 ## Execution Steps
 
-Execute these four validation operations sequentially to standardize your targeted code verifications:
-
 ### Step 1: Identify Targeted Changes
-Locate and isolate the precise file paths modified or created in the workspace OR as part of the current ticket scope. Use `git status` or internal session tracking to extract the explicit target list:
+
+If called from `$implement-ticket` with a ticket baseline, include committed Python changes since that baseline:
+
 ```bash
-git status --porcelain | awk '{print $2}' | grep '\.py$'
+git diff --name-only --diff-filter=ACMR <ticket-baseline>...HEAD -- '*.py'
 ```
 
-### Step 2: Verify Format
-Run `ruff` to ensure layout consistency over **only** those space-separated file targets. Do not use a trailing dot (`.`):
+Also include current unstaged, staged, and untracked Python changes:
+
 ```bash
-ruff format --check <path_to_modified_file_1> <path_to_modified_file_2>
-ruff check <path_to_modified_file_1> <path_to_modified_file_2>
+git diff --name-only --diff-filter=ACMR -- '*.py'
+git diff --cached --name-only --diff-filter=ACMR -- '*.py'
+git ls-files --others --exclude-standard -- '*.py'
 ```
+
+If no ticket baseline applies, use only the workspace commands above.
+
+Use the deduplicated union as the verification target list.
+
+Do not broaden scope because no Python targets are found.
+
+### Step 2: Verify Format and Lint
+
+Run Ruff only against the resolved targets:
+
+```bash
+uv run ruff format --check <changed_python_paths>
+uv run ruff check <changed_python_paths>
+```
+
+Do not replace the target list with `.`.
 
 ### Step 3: Targeted Static Type Verification
-Run `mypy` using explicit package base routing, checking **only** the identified target files to keep type-checking rapid and isolate scope regressions:
+
+Run Mypy only against changed Python files and directly affected tests:
+
 ```bash
-mypy --explicit-package-bases <path_to_modified_file_1> <path_to_modified_file_2>
+uv run mypy --explicit-package-bases <changed_python_paths_and_affected_tests>
 ```
 
+Do not broaden to `mypy .`.
+
 ### Step 4: Targeted Testing
-Run only the tests relevant to modified or created files in the workspace OR as part of the current ticket scope, using isolated cache directories.
 
-**Identify Required Services:** Before running integration or live-service tests, identify required services such as PostgreSQL, Qdrant, Neo4j, LiteLLM, Ollama, Langfuse, BGE reranker, Prometheus, Jaeger, or Grafana. If required Docker services are not confirmed running, either notify the user before running those tests or choose service-free targeted tests instead. If service-free tests do not meet required acceptance criteria then you are authorized to start only the required Docker services yourself and run the targeted tests.
-
-**Targeted Integration Skip Remediation:** A targeted test selected for the changed behavior is not verified if it skips only because local environment variables or local services are missing. If a selected DB-backed test skips because `POLARIS_TEST_DATABASE_URL` is unset, inspect repo-local configuration such as `.env`, `.env.example`, `docker-compose.yml`, test fixtures, or typed settings, derive a safe local test database URL when possible, and rerun the exact targeted test with the variable set inline or loaded from local env. If the required local Docker service is absent or stopped and repository instructions authorize Docker service management, start only that service, such as `docker compose up -d postgres`, then rerun the exact targeted test. Never echo full connection strings or secrets.
-
-Do not compensate for a skipped targeted test by broadening to a full suite, whole test directory, full coverage run, or service-backed integration suite outside the ticket scope. Report a targeted integration check as passed only when it actually ran and passed. If local env or services cannot be safely resolved, report the check as unresolved or owner-deferred with the exact missing dependency.
+Run only tests relevant to the changed behavior and directly affected modules:
 
 ```bash
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.py
 ```
 
-### Step 5: Trace & Observability Audit
-Verify that newly introduced boundaries implement established telemetry structures within the modified files:
-- Ensure structured logs record exceptions, retries, and caught failures with full tracebacks.
-- Confirm active trace spans accompany new data operations.
-- **Constraint:** Telemetry failures must remain non-fatal to valid domain results but must be visible in logs. Do not emit duplicate lifecycle events from multiple layers.
+Do not run the full suite by default.
+
+Before targeted integration or live-service tests, identify required local services.
+
+If a selected targeted test skips solely because required repository-local environment or services are missing:
+
+* inspect local configuration;
+* derive safe local configuration when unambiguous;
+* start only an authorized required Docker service when necessary;
+* rerun the exact targeted test.
+
+Never echo secrets or full authenticated connection strings.
+
+If required setup cannot be resolved safely, report the targeted check as unresolved or owner-deferred.
+
+Do not compensate by broadening the test scope.
+
+### Step 5: Coding-Standards Verification
+
+Inspect changed code for `$coding-standards` requirements implicated by the diff.
+
+Examples include:
+
+* data-contract and typing boundaries;
+* score semantics and precision;
+* async behavior;
+* observability;
+* resource ownership;
+* structural design rules.
+
+Do not re-invoke `$coding-standards`.
+
+Do not manufacture work for standards unrelated to the change.
 
 ---
 
-## Examples
+## Failure Handling
 
-### Example 1: Isolated Post-Implementation Verification
-**User:** "Verify ticket changes for runtime engine updates."
-**Agent Response:** *"I am invoking the verify-code skill to identify the specific files modified, check their layout with Ruff, run isolated MyPy type verification over those files, and execute targeted Pytest scripts."*
-```bash
-# 1. Agent identifies targeted changes
-git status --porcelain | awk '{print $2}' | grep '\.py$'
+When a targeted check fails:
 
-# 2. Agent runs targeted lint/format checks
-ruff format --check core/runtime/execution/runtime_engine.py
-ruff check core/runtime/execution/runtime_engine.py
+1. determine whether the active change introduced the failure;
+2. fix it at the narrowest authoritative point when within scope;
+3. rerun the affected check.
 
-# 3. Agent runs targeted type checks
-mypy --explicit-package-bases core/runtime/execution/runtime_engine.py
+Do not:
 
-# 4. Agent runs targeted tests
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/core/runtime/test_runtime_engine.py
+* use Ruff `--add-noqa`;
+* weaken repository configuration;
+* add suppressions merely to make verification pass;
+* broaden verification to compensate for failure.
+
+If a failure cannot be safely resolved within scope, report the affected file/test, failed check, concise error, and required next action.
+
+---
+
+## Reporting
+
+Distinguish clearly between:
+
+* targeted verification actually run;
+* unresolved or skipped targeted checks;
+* broader verification not run.
+
+On success, use wording such as:
+
+```text
+Targeted verification passed.
+
+- Ruff format: passed
+- Ruff lint: passed
+- Mypy: passed
+- Targeted tests: passed
+- Applicable coding standards: verified
+
+Full repository verification was not run.
 ```
 
-### Example 2: Workspace Code Verification
-**User:** "Can you verify the files I've been working on before I push my changes?"
-**Agent Response:** *"I am invoking the verify-code skill to identify the specific files you worked on, check their layout with Ruff, run isolated MyPy type verification over those files, and execute targeted Pytest scripts."*
-```bash
-# 1. Agent identifies targeted changes
-```bash
-git status --porcelain | awk '{print $2}' | grep '\.py$'
-
-# 2. Agent runs targeted lint/format checks
-ruff format --check core/auth/login.py tests/test_login.py
-ruff check core/auth/login.py tests/test_login.py
-
-# 3. Agent runs targeted type checks
-mypy --explicit-package-bases core/auth/login.py tests/test_login.py
-
-# 4. Agent runs targeted tests
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q core/auth/login.py tests/test_login.py
-```
+If any required targeted check remains unresolved, do not report targeted verification as fully passed.

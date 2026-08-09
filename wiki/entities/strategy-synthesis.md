@@ -9,7 +9,7 @@
 * Bull, bear, and sideways agents consume the same immutable evidence context and produce typed `StrategyHypothesis` outputs without communicating or voting among themselves, because each perspective must be independently auditable. (source: docs/adr/0007-strategy-synthesis-structured-hypotheses.md)
 * `StrategyPerspectiveWeightingEngine` computes pre-synthesis plausibility weights and does not consume hypothesis outputs or make the final selection, because weighting evidence and choosing strategy are separate responsibilities. (source: docs/adr/0007-strategy-synthesis-structured-hypotheses.md)
 * `StrategySynthesisAgent` is the only canonical hypothesis-comparison authority and uses deterministic candidate scoring; invalidated hypotheses score zero, because the final comparison must be reproducible. (source: docs/adr/0007-strategy-synthesis-structured-hypotheses.md)
-* Risk placement is explicit: analytical and aggregate risk are upstream inputs, while execution-risk guarding remains downstream of trade packaging, because risk semantics change across the lifecycle. (source: docs/adr/0007-strategy-synthesis-structured-hypotheses.md)
+* Risk placement is explicit: analytical and aggregate risk are upstream inputs; `PortfolioManagerAgent` creates portfolio allocation or rebalance intent rather than orders; `TradePackager` creates broker-neutral proposals; and `ExecutionRiskGuard` is the required execution-safety decision boundary, because risk semantics change across the lifecycle. (source: docs/current/platform-architecture-and-operations.md)
 
 ### Rejected Approaches
 

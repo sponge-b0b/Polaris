@@ -6,7 +6,7 @@
 ### Strict Invariants
 
 * Intelligence components consume typed domain evidence and produce typed outputs rather than redefining domain, persistence, or authority semantics, because decision support depends on shared contracts across the platform. (source: docs/adr/0006-domain-contracts-data-semantics-typed-internal-contracts.md)
-* Analytical evidence, aggregate risk, and market context are upstream inputs to strategy synthesis and governance rather than downstream execution-risk authorities, because each decision-support stage has a distinct semantic role. (source: docs/adr/0007-strategy-synthesis-structured-hypotheses.md)
+* Analytical evidence, specialized risk, aggregate risk, and market context are upstream decision-support inputs; risk agents produce risk assessments, constraints, mitigations, sizing pressure, and context rather than selecting trades, approving execution, or creating orders, because each decision-support stage has a distinct semantic role. (source: docs/current/platform-architecture-and-operations.md)
 * Intelligence outputs that become durable facts must pass through owning application or persistence services, because analysis code must not create alternate systems of record. (source: docs/current/platform-architecture-ownership-ledger.md)
 
 ### Planned

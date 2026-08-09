@@ -69,6 +69,57 @@ Canonical responsibility, data ownership, single-writer, and projection
 assignments are maintained in
 [`platform-architecture-ownership-ledger.md`](platform-architecture-ownership-ledger.md).
 
+## Domain flow and authority rules
+
+Capital-relevant decision support follows one authority sequence rather than a
+flat collection of agent outputs:
+
+```text
+typed provider/service facts
+  -> intelligence assessments and specialized risk signals
+  -> aggregate risk and strategy evidence
+  -> strategy synthesis
+  -> portfolio allocation or rebalance intent
+  -> broker-neutral trade proposal
+  -> execution-risk decision
+  -> governed release or future execution request
+```
+
+Signals, scores, and recommendations retain their typed family and authority as
+they move through this sequence. Downstream components may reference upstream
+facts, but they must not copy those facts into a competing source of truth,
+reinterpret score polarity, or collapse risk, strategy, portfolio intent, trade
+proposal, and execution decision into one record.
+
+Risk agents produce decision-support evidence: specialized risk assessments,
+aggregate risk, constraints, mitigations, sizing pressure, and risk context. They
+do not select trades, approve execution, create orders, or bypass strategy,
+portfolio-intent, trade-packaging, policy, governance, or approval boundaries.
+
+`PortfolioManagerAgent` produces portfolio allocation or rebalance intent. That
+intent is not an executable broker order and must be converted into a distinct
+broker-neutral proposal before execution-risk review. `ExecutionRiskGuard` is the
+required execution-safety decision boundary for trade proposals; interfaces,
+brokers, future execution transports, and capital-relevant publication paths
+that expose trade proposals must not bypass it.
+
+Controlled boundary crossings follow the policy, governance, approval, and
+release sequence before any future execution-capable boundary. Policy answers
+whether an operation or boundary crossing may occur. Governance answers whether
+it should proceed, warn, deny, skip, require approval, require residual-risk
+acceptance, or block release. Human or organizational approval and residual-risk
+acceptance are attributable governance lifecycle outcomes, not model text,
+report metadata, telemetry, or local interface state. Execution, if a future
+architecture introduces it, remains downstream of policy, governance, approval,
+release, and execution-risk decisioning.
+
+Material recommendation explanations require attribution through decision
+evidence: claim references, durable packet support, reconstruction references,
+and source records where the producing contract marks the claim as
+readiness-gating. Recommendation prose, RAG answers, report renderings, and tool
+responses may present those explanations only by preserving the underlying
+evidence bindings.
+
 ## Canonical runtime flow
 
 Every workflow-capable interface follows the same canonical execution path:

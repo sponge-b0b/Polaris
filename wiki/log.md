@@ -11,3 +11,7 @@ Separated historical audit inventories from current architecture documents, move
 ## [2026-08-09] strategy synthesis symbol alignment | canonical weighting engine name restored
 
 Updated the Strategy Synthesis entity invariant to use the ADR- and implementation-aligned `StrategyPerspectiveWeightingEngine` name for pre-synthesis perspective weighting.
+
+## [2026-08-09] domain flow authority rules | distributed decision-support invariants centralized
+
+Added current architecture language for signal flow, risk-agent authority, portfolio intent, execution-risk decisioning, governance ordering, and recommendation attribution, then synchronized the affected entity invariants.

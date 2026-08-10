@@ -234,6 +234,14 @@ Do not use bare `git push` for this workflow.
 
 If commit or push fails, do not close the ticket.
 
+After a successful push, capture every commit created during this ticket for the final handoff:
+
+```bash
+git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
+```
+
+Report each short SHA with its commit subject. Do not report bare SHAs when the subject is available.
+
 ## 6. Close the Ticket
 
 Close the ticket only when:
@@ -266,8 +274,9 @@ Report:
 * targeted verification and result;
 * broader verification explicitly authorized, if any;
 * broad checks not run;
-* commit created;
+* every ticket commit as `<short SHA> — <commit subject>`;
 * push result;
+* whether the worktree is clean;
 * whether the ticket was closed.
 
 Any required DB check skipped solely because local setup was missing remains unresolved verification.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -8,11 +9,18 @@ from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
+from core.storage.persistence.governance_audit import AutomatedDecisionSubject
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     build_workflow_runtime,
 )
+from core.workflow.governance_audit import (
+    AutomatedDecisionAuditContext,
+    issue_workflow_execution_audit_capability,
+)
+from domain.authority import classify_risk_authority
+from tests.helpers.risk_authority_examples import workflow_curation_authority_input
 
 
 class DenyBootstrapGovernanceTelemetryRule(BaseGovernanceRule):
@@ -66,6 +74,20 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
     runtime.observability_manager.add_sink(
         sink,
     )
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = ()
+    execution_audit_capability = issue_workflow_execution_audit_capability(
+        service=audit_service,
+        context=AutomatedDecisionAuditContext(
+            subject=AutomatedDecisionSubject(
+                "workflow",
+                "bootstrap-governance-telemetry-test",
+            ),
+            authority=classify_risk_authority(
+                workflow_curation_authority_input(),
+            ),
+        ),
+    )
 
     with pytest.raises(
         RuntimeError,
@@ -76,7 +98,10 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
             mode="simulation",
             archive_on_completion=False,
             checkpoint_on_completion=False,
+            execution_audit_capability=execution_audit_capability,
         )
+
+    audit_service.record_governance_evaluation.assert_awaited_once()
 
     event_types = [event.event_type for event in sink.events]
 

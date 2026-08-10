@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Perform explicitly authorized spec-wide verification, repository-wide static analysis, repository-wide type checking, duplicate-code analysis, strategically targeted integration testing, and architecture-integrity checks across the completed spec since its fixed baseline.
+description: Perform authorized spec-wide verification across the completed Spec branch, repair in-scope failures, and record a passing verification receipt for the exact final HEAD.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,56 +9,62 @@ disable-model-invocation: true
 
 Verify the completed Spec branch against its fixed baseline as a unified system.
 
-Unlike `$verify-code`, this workflow is explicitly authorized to run the repository-wide static checks named here. It may fix verification failures within the Spec scope, rerun the affected gates, and persist those fixes.
+Unlike `$verify-code`, this workflow is authorized to run the repository-wide checks defined here. It may repair verification failures within Spec scope, rerun affected gates, and persist those fixes.
+
+A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` may use that receipt as its verification precondition.
 
 ## 1. Pin the Fixed Point
 
-The fixed point is stored on the parent Spec issue unless explicitly overridden.
+Resolve the fixed baseline from the parent Spec issue unless explicitly overridden:
 
-1. **Extract baseline metadata** from the Spec comments:
+```bash id="r3yb0x"
+BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
+  | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
+```
 
-   ```bash
-   BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
-     | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
-   ```
+If missing and no explicit ref was supplied, ask for it.
 
-2. **Fallback:** If missing and the user supplied no explicit commit, branch, tag, or relative ref, ask for it.
+Verify the Spec branch:
 
-3. **Verify the Spec branch:**
+```bash id="t7bcpn"
+CURRENT_BRANCH=$(git branch --show-current)
 
-   ```bash
-   CURRENT_BRANCH=$(git branch --show-current)
-   if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
-     echo "❌ Expected spec-<spec_issue_number> to be checked out, but current branch is $CURRENT_BRANCH."
-     exit 1
-   fi
-   ```
+if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
+  echo "❌ Expected spec-<spec_issue_number>; current branch is $CURRENT_BRANCH."
+  exit 1
+fi
 
-4. **Validate the baseline:**
+git rev-parse "$BASELINE_COMMIT"
+```
 
-   ```bash
-   git rev-parse "$BASELINE_COMMIT"
-   ```
+Halt if the baseline does not resolve.
 
-   Halt if it does not resolve.
+Verification must start from a clean worktree because the resulting receipt attests to an exact commit:
 
-5. **Capture the aggregate change:**
+```bash id="e0tjdu"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "❌ Spec verification requires a clean worktree."
+  exit 1
+fi
+```
 
-   ```bash
-   git diff "$BASELINE_COMMIT"...HEAD
-   git log "$BASELINE_COMMIT"..HEAD --oneline
-   ```
+Capture:
 
-6. The aggregate diff must be non-empty.
+```bash id="hd66kx"
+git diff "$BASELINE_COMMIT"...HEAD
+git log "$BASELINE_COMMIT"..HEAD --oneline
+```
+
+The aggregate diff must be non-empty.
 
 ## 2. Identify the Spec
 
-Resolve the originating Spec in this order:
+Resolve the originating Spec from:
 
-1. issue references in commits;
+1. commit references;
 2. a path or issue supplied by the user;
 3. a matching Spec under `docs/`, `specs/`, or `.scratch/`;
-4. ask only if it still cannot be resolved.
+4. ask only if still unresolved.
 
 Capture its **Architecture Impact**:
 
@@ -67,199 +73,185 @@ Capture its **Architecture Impact**:
 * governing ADR/doc references;
 * unresolved architecture questions.
 
-A Spec that already declares a material unresolved architecture question is not ready for verification.
+A Spec with an unresolved material architecture question is not ready for verification.
 
-## Objective
+## 3. Execute Verification
 
-Catch Spec-wide regressions, integration failures, type drift, duplication, and architecture drift across the completed implementation.
+### Guardrails
 
-## Guardrails
+* Explicit invocation authorizes the repository-wide Ruff and Mypy commands below.
+* It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
+* Read `docs/testing_guide.md` and select tests from the Spec diff, affected boundaries, acceptance requirements, and known regression risks.
+* Do not weaken configuration, add suppressions, or refactor unrelated code merely to pass.
+* Report unrelated pre-existing failures separately.
 
-* **Authorization:** Explicit invocation authorizes the repository-wide Ruff and Mypy commands defined here. It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
-* **Command guard:** Set `POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>` for authorized repository-wide Ruff and Mypy commands.
-* **Static scope:** Repository-wide Ruff and Mypy operate on `.`.
-* **Test scope:** Read `docs/testing_guide.md`; select tests from the Spec diff, affected boundaries, acceptance requirements, and known regression risks.
-* **Safety:** Do not weaken repository configuration, create suppressions, or refactor unrelated code merely to make verification pass.
-* **Pre-existing failures:** Report unrelated pre-existing failures separately. Do not make the current Spec responsible for them.
+Set:
+
+```bash id="upb7iz"
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>
+```
 
 ### Environment and Services
 
-Identify required infrastructure before integration or live testing.
+Identify required infrastructure before integration or live tests.
 
-If a required targeted test cannot prove its acceptance criterion service-free:
+If a required targeted test cannot establish its acceptance criterion service-free:
 
 * derive safe local configuration when unambiguous;
 * start only the required authorized local service;
 * rerun the exact targeted check.
 
-A required test skipped solely because repository-local setup is missing is unresolved verification, not a pass.
+A required test skipped only because local setup is absent remains unresolved.
 
 Never expose secrets or authenticated connection strings.
 
-### Diff Hygiene
+### Ruff
 
-Do not fail Spec verification for incidental whitespace outside the defined gates.
-
-If `git diff --check` is run additionally:
-
-* unresolved merge-conflict markers are Blocking;
-* whitespace-only findings are Advisory unless an applicable repository rule explicitly makes them Blocking.
-
-Optional patch-hygiene checks do not override the verification result.
-
-## 3. Execute Verification
-
-### Step 1: Repository-Wide Ruff
-
-```bash
+```bash id="f2nqie"
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
 ```
 
 Never use Ruff `--add-noqa` to manufacture a pass.
 
-### Step 2: Repository-Wide Mypy
+### Mypy
 
-```bash
+```bash id="1ledds"
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
   uv run mypy . --explicit-package-bases
 ```
 
-### Step 3: Resolve the Testing Matrix
+### Testing Matrix
 
-```bash
+```bash id="p0gmsm"
 cat docs/testing_guide.md
 ```
 
-Select integration, pipeline, regression, or macro tests that exercise:
+Select targeted integration, pipeline, regression, or macro tests exercising:
 
 * changed behavior;
 * affected production boundaries;
 * Spec acceptance requirements;
 * known regression risks.
 
-Do not blindly run the full test suite.
+Do not blindly run the full suite.
 
-### Step 4: Targeted Integration and Regression Tests
+### Targeted Integration and Regression
 
-```bash
+```bash id="3ex3qu"
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
-A helper/unit test is not sufficient when the Spec requires proof through a higher production boundary.
+A helper/unit test is insufficient when the Spec requires proof through a higher production boundary.
 
-When architecture introduces a new required prerequisite, update affected tests or fixtures to traverse that canonical prerequisite rather than weakening the downstream behavior being tested.
+When architecture introduces a required prerequisite, update affected tests or fixtures to traverse that canonical prerequisite rather than weakening downstream expectations.
 
-### Step 5: Aggregate Architecture Integrity
+### Architecture Integrity
 
 If the Living Entity Wiki exists, invoke `$wiki-lint`.
 
-Evaluate applicable findings introduced or left unresolved by this Spec, including:
+Evaluate Spec-relevant:
 
 * `[source-conflict]`;
 * `[code-drift]`;
 * `[doc-drift]`;
-* structural or citation failures that make affected architectural knowledge unreliable.
+* structural/citation failures affecting architectural reliability.
 
-Pre-existing findings unrelated to the Spec are reported separately and do not fail this Spec.
+Unrelated pre-existing findings do not fail this Spec.
 
-Then refresh and query the architecture graph:
+Refresh and query the architecture graph:
 
-```bash
+```bash id="v5f3bc"
 graphify . --update
 graphify query "<affected entities, canonical concepts, and changed subsystems>"
 ```
 
-Using the Spec's Architecture Impact and actual implementation, determine:
+Check whether the implementation:
 
-* Did changed components connect to their expected canonical owners?
-* Did any layer bypass an established boundary?
-* Did implementation create duplicate ownership or a parallel canonical path?
-* Did dependency direction violate applicable architectural constraints?
-* Did implementation expose a material architecture decision not resolved by the Spec?
+* connects to expected canonical owners;
+* bypasses established boundaries;
+* creates duplicate ownership or parallel canonical paths;
+* violates dependency direction;
+* exposes unresolved material architecture.
 
-Route findings through **Architecture Finding Routing** below before modifying anything.
+Route architecture findings through **Architecture Finding Routing** before modifying anything.
 
-### Step 6: Duplication Verification
+### Duplication
 
-When the Spec introduces a new module, helper, utility layer, service, or canonical behavior, invoke `$duplication-checks`.
+When the Spec introduces a module, helper, utility layer, service, or canonical behavior, invoke `$duplication-checks`.
 
-A new parallel source of truth or duplicate canonical behavior is a verification failure.
+A new parallel source of truth or duplicate canonical behavior fails verification.
 
-Existing clone clusters unrelated to the Spec are reported separately.
+Unrelated existing clone clusters are reported separately.
 
 ## 4. Failure Handling
 
-For ordinary verification failures:
+For an ordinary failure:
 
-1. determine whether the Spec introduced or owns the failure;
-2. fix it at the narrowest authoritative point within Spec scope;
+1. determine whether the Spec introduced or owns it;
+2. fix the narrowest authoritative point within Spec scope;
 3. rerun the affected check;
 4. continue verification.
 
-This applies to failures from:
+This includes:
 
 * Ruff;
 * Mypy;
 * targeted tests;
-* integration or persistence checks selected by the testing blueprint;
-* duplication introduced by the Spec;
-* deterministic architecture drift described below.
+* integration/persistence checks;
+* Spec-introduced duplication;
+* deterministic architecture drift.
 
 Do not:
 
 * weaken configuration;
-* add suppressions merely to pass;
-* change expected behavior merely because a test can no longer reach it;
+* add pass-only suppressions;
+* change expected behavior merely so a test reaches it;
 * broaden testing to compensate for a failed targeted check;
 * modify unrelated pre-existing failures.
 
-If a non-architecture failure cannot be safely resolved within Spec scope, stop and report the failed gate, concise error, affected surface, and required next action.
+If a non-architecture failure cannot be safely repaired within Spec scope, stop and report it.
 
 ## 5. Architecture Finding Routing
 
-Architecture findings require classification before remediation.
-
 ### Existing Authority Determines the Fix
 
-If the correct state is already unambiguously established by current architecture, no new architecture decision is required.
+When current authority already establishes the correct state, repair the violation within Spec scope.
 
 Examples:
 
-* implementation violates an accepted ADR;
-* derived wiki knowledge is stale;
-* current documentation drifts from established authority;
-* a known canonical owner or dependency direction was bypassed.
+* accepted ADR violation;
+* stale derived wiki knowledge;
+* documentation drift;
+* bypass of a known canonical owner or dependency direction.
 
-Fix the finding at its authoritative point within Spec scope, using the owning workflow when applicable:
+Use the owning workflow where applicable:
 
-* implementation → correct the code;
-* derived entity knowledge → `$wiki-sync`;
-* new non-ADR documentation → `$to-doc`;
-* document classification or relocation → `$classify-doc`;
-* ADR lifecycle or content → `$to-adr-doc`.
+* implementation → correct code;
+* entity knowledge → `$wiki-sync`;
+* new non-ADR document → `$to-doc`;
+* document classification/relocation → `$classify-doc`;
+* ADR content/lifecycle → `$to-adr-doc`.
 
-Then rerun `$wiki-lint` and the directly affected architecture checks.
+Rerun directly affected architecture checks.
 
-Do not classify mere non-realization of an accepted decision as `[source-conflict]`.
+Do not classify non-realization of an accepted decision as `[source-conflict]`.
 
 ### Architecture Decision Required
 
-A new architecture decision is required when correction would require choosing or changing a durable:
+A new decision is required when correction requires choosing or changing a durable:
 
 * invariant;
-* canonical owner or path;
+* canonical owner/path;
 * architectural boundary;
 * dependency direction;
 * lifecycle responsibility;
 
-or when applicable architectural authorities genuinely disagree and no existing precedence resolves the conflict.
+or when applicable authorities genuinely disagree.
 
-Collect every independent architecture blocker. De-duplicate multiple symptoms of the same underlying question.
+Collect and de-duplicate every independent blocker. Do not resolve them here.
 
-Do not resolve them inside `$verify-spec`.
-
-Halt with a **Human Handoff Intercept**:
+Halt with:
 
 > ⚠️ **Spec verification is blocked by unresolved architecture.**
 >
@@ -271,22 +263,17 @@ Halt with a **Human Handoff Intercept**:
 >
 > **Architecture blockers:**
 >
-> 1. **<unresolved question or conflict>**
+> 1. **<question or conflict>**
 >
 >    * Evidence: <concise evidence>
 >    * Material consequence: <ownership/path, boundary, dependency direction, lifecycle responsibility, source conflict, or other consequence>
->    * Governing context: <affected entities / ADRs / docs when known>
-> 2. **<unresolved question or conflict>**
->
->    * ...
+>    * Governing context: <entities / ADRs / docs>
 
 Do not propose an architectural answer.
 
-`$architecture-remediation` owns Wayfinder lineage recovery and architecture re-entry.
-
 ## 6. Final Verification Pass
 
-After all verification-owned fixes are complete, rerun every applicable Spec gate needed to establish final consistency:
+After all verification-owned fixes are complete, rerun every applicable gate required to establish final consistency:
 
 * repository-wide Ruff format/lint;
 * repository-wide Mypy;
@@ -298,50 +285,92 @@ Do not report success while any required gate remains failed or unresolved.
 
 ## 7. Persist Verification Fixes
 
-If `$verify-spec` changed repository files while repairing failures:
+If verification changed repository files:
 
-1. verify `spec-<spec_issue_number>` is still checked out;
-2. stage only files changed by this verification/remediation work;
+1. verify `spec-<spec_issue_number>` remains checked out;
+2. stage only verification-owned files;
 3. invoke `$conventional-commits`;
-4. commit the fixes;
+4. commit;
 5. push:
 
-   ```bash
-   git push -u origin HEAD
-   ```
+```bash id="crn0mc"
+git push -u origin HEAD
+```
 
-When `$verify-spec` is the parent workflow, child maintenance skills such as `$wiki-sync` contribute their mutations to this commit rather than creating separate commits.
+Child maintenance workflows such as `$wiki-sync` contribute their mutations to this commit rather than committing separately.
 
-Do not use `git add .` when unrelated working-tree changes exist.
+Do not use `git add .` when unrelated changes exist.
 
-If staging, commit, or push fails, verification is not complete.
+If staging, commit, or push fails, verification is incomplete.
 
 If no repository files changed, skip commit and push.
 
-## 8. Reporting
+Require the final worktree to be clean:
+
+```bash id="oin9la"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "❌ Verification cannot attest to HEAD with an uncommitted worktree."
+  exit 1
+fi
+```
+
+## 8. Record the Verification Receipt
+
+Only after:
+
+* every required verification gate passes;
+* all verification-owned changes are committed;
+* required pushes succeed;
+* the worktree is clean;
+
+capture the exact final commit:
+
+```bash id="3f6ufc"
+FINAL_HEAD=$(git rev-parse HEAD)
+```
+
+Persist a new comment on the parent Spec issue:
+
+```bash id="cq50u8"
+gh issue comment <spec_issue_number> --body "$(printf \
+'## Spec Verification Receipt\n**Status:** passed\n**Verified HEAD:** %s\n**Verified Baseline:** %s\n**Branch:** %s\n' \
+"$FINAL_HEAD" "$BASELINE_COMMIT" "spec-<spec_issue_number>")"
+```
+
+A receipt attests only to that exact `Verified HEAD`.
+
+Do not write a passing receipt for failed or unresolved verification.
+
+Do not reuse an older receipt after `HEAD` changes.
+
+If receipt persistence fails, verification is incomplete because `$review-spec` cannot establish its precondition.
+
+## 9. Reporting
 
 Report:
 
 * baseline and final `HEAD`;
 * Spec branch;
-* Ruff format/lint result;
+* Ruff result;
 * Mypy result;
-* targeted tests run and result;
-* service-backed or persistence checks run;
+* targeted tests and result;
+* service-backed/persistence checks;
 * architecture/wiki result;
 * duplication result;
-* failures repaired during verification;
+* failures repaired;
 * architecture findings repaired under existing authority;
 * unrelated pre-existing findings;
 * optional checks not run;
 * verification-fix commit(s), if any;
 * push result, if applicable;
-* final worktree state.
+* final worktree state;
+* verification receipt result and `Verified HEAD`.
 
-On success, state explicitly:
+On success, state:
 
-```text
+```text id="62asek"
 Spec verification passed.
+Verified HEAD: <full SHA>
 ```
 
-If a required gate remains unresolved, do not report Spec verification as passed.
+If any required gate or receipt persistence remains unresolved, do not report Spec verification as passed.

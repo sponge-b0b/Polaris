@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import Result
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement, Select
@@ -33,6 +35,20 @@ from core.storage.persistence.serializers import (
 logger = logging.getLogger(__name__)
 
 
+@runtime_checkable
+class _RowCountResult(Protocol):
+    @property
+    def rowcount(self) -> int: ...
+
+
+def _records_persisted(result: Result[Any]) -> int:
+    if not isinstance(result, _RowCountResult):
+        raise ValueError("database write result does not expose a row count")
+    if result.rowcount < 1:
+        raise ValueError("database write result did not persist a record")
+    return result.rowcount
+
+
 class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
     """PostgreSQL adapter for authoritative automated decision audit records."""
 
@@ -45,8 +61,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
     ) -> AutomatedDecisionAuditPersistenceResult:
         try:
             result = await self._session.execute(_insert_policy_statement(record))
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Automated policy audit record write failed.",
@@ -58,7 +75,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             record.audit_record_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
         )
 
     async def persist_governance_audit_record(
@@ -67,8 +84,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
     ) -> AutomatedDecisionAuditPersistenceResult:
         try:
             result = await self._session.execute(_insert_governance_statement(record))
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Automated governance audit record write failed.",
@@ -80,7 +98,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             record.audit_record_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
         )
 
     async def persist_governance_review_task(
@@ -89,8 +107,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
     ) -> AutomatedDecisionAuditPersistenceResult:
         try:
             result = await self._session.execute(_upsert_review_task_statement(task))
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Governance review task write failed.",
@@ -102,7 +121,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             task.review_task_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
             review_task_id=task.review_task_id,
         )
 
@@ -151,8 +170,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
                 .where(GovernanceReviewTaskModel.review_task_id == review_task_id)
                 .values(status=status.value, updated_at=updated_at)
             )
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Governance review task status update failed.",
@@ -164,7 +184,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             review_task_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
             review_task_id=review_task_id,
         )
 
@@ -174,8 +194,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
     ) -> AutomatedDecisionAuditPersistenceResult:
         try:
             result = await self._session.execute(_insert_review_decision(decision))
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Governance review decision write failed.",
@@ -187,7 +208,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             decision.review_decision_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
         )
 
     async def get_governance_review_decision(
@@ -214,8 +235,9 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             result = await self._session.execute(
                 _insert_residual_risk_acceptance(acceptance)
             )
+            records_persisted = _records_persisted(result)
             await self._session.commit()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
             logger.exception(
                 "Governance residual-risk acceptance write failed.",
@@ -227,7 +249,7 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             )
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             acceptance.acceptance_id,
-            records_persisted=max(getattr(result, "rowcount", 1), 0),
+            records_persisted=records_persisted,
         )
 
     async def get_residual_risk_acceptance(

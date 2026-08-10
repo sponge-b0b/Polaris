@@ -55,6 +55,37 @@ async def test_persist_policy_audit_record_uses_authoritative_postgres_insert() 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("rowcount", [0, -1])
+async def test_persist_policy_audit_record_fails_closed_without_persisted_row(
+    rowcount: int,
+) -> None:
+    session = FakeAsyncSession(result=FakeExecuteResult([], rowcount=rowcount))
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    result = await repository.persist_policy_audit_record(
+        _policy_record(AutomatedPolicyAuditOutcome.DENY)
+    )
+
+    assert result.success is False
+    assert session.committed is False
+    assert session.rolled_back is True
+
+
+@pytest.mark.asyncio
+async def test_persist_policy_audit_record_fails_closed_without_rowcount() -> None:
+    session = FakeAsyncSession(result=object())
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    result = await repository.persist_policy_audit_record(
+        _policy_record(AutomatedPolicyAuditOutcome.DENY)
+    )
+
+    assert result.success is False
+    assert session.committed is False
+    assert session.rolled_back is True
+
+
+@pytest.mark.asyncio
 async def test_list_governance_audit_records_filters_queryable_states() -> None:
     model = AutomatedGovernanceAuditRecordModel(
         **AutomatedDecisionAuditPersistenceSerializer.governance_values(
@@ -285,13 +316,13 @@ async def test_list_residual_risk_acceptances_filters_by_scoped_evidence() -> No
 
 
 class FakeAsyncSession:
-    def __init__(self, result: FakeExecuteResult | None = None) -> None:
+    def __init__(self, result: Any | None = None) -> None:
         self.result = result or FakeExecuteResult([])
         self.executed: list[Any] = []
         self.committed = False
         self.rolled_back = False
 
-    async def execute(self, statement: Any) -> FakeExecuteResult:
+    async def execute(self, statement: Any) -> Any:
         self.executed.append(statement)
         return self.result
 
@@ -303,10 +334,9 @@ class FakeAsyncSession:
 
 
 class FakeExecuteResult:
-    rowcount = 1
-
-    def __init__(self, models: list[Any]) -> None:
+    def __init__(self, models: list[Any], *, rowcount: int = 1) -> None:
         self._models = models
+        self.rowcount = rowcount
 
     def scalar_one_or_none(self) -> Any | None:
         if not self._models:

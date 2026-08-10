@@ -36,6 +36,9 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -112,6 +115,7 @@ async def test_workflow_command_service_uses_governed_execution_service(
 
     class FakeFacade:
         policy_engine = object()
+        governance_engine = None
 
         def workflow_exists(self, workflow_name: str) -> bool:
             return workflow_name == "morning_report"
@@ -157,6 +161,9 @@ async def test_workflow_command_service_renders_missing_workflow_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -202,6 +209,9 @@ async def test_morning_report_command_service_builds_workflow_inputs(
     captured: dict[str, Any] = {}
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -262,6 +272,9 @@ async def test_workflow_command_service_forwards_progress_notifications(
     notifications: list[str] = []
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -352,6 +365,9 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         return None
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,

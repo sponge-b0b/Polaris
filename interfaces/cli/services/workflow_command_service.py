@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
+from core.workflow.execution.workflow_facade import WorkflowFacade
 from domain.decision_evidence import DecisionEvidencePacket
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
@@ -289,8 +290,5 @@ class WorkflowCommandService:
         }
 
 
-def _is_governed_facade(facade: object) -> bool:
-    return (
-        getattr(facade, "policy_engine", None) is not None
-        or getattr(facade, "governance_engine", None) is not None
-    )
+def _is_governed_facade(facade: WorkflowFacade) -> bool:
+    return facade.policy_engine is not None or facade.governance_engine is not None

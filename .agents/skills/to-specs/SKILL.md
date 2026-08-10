@@ -16,7 +16,7 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 2. **Resolve spec mode.** If the source Wayfinder map already has one or more derived in-progress specs recorded in its tracker metadata, invoke `$to-remediation-specs` and do not create another spec.
 
-   `$to-remediation-specs` owns recovery of the existing spec, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
+   `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
 
    If no derived in-progress spec exists, continue with normal spec creation.
 
@@ -43,7 +43,7 @@ The issue tracker and triage label vocabulary should have been provided to you â
    <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
    ```
 
-   After publishing, record the derived spec on the source Wayfinder map using additive tracker metadata:
+   After publishing, record each derived spec on the source Wayfinder map using additive tracker metadata:
 
    ```markdown
    ## Spec Handoff
@@ -51,6 +51,20 @@ The issue tracker and triage label vocabulary should have been provided to you â
    ```
 
    Record each derived spec once. Do not overwrite the Wayfinder map body or duplicate an existing linkage.
+
+6. **Human Handoff Intercept.** After all creation or remediation work for the source is complete, identify every derived in-progress Spec that is ready for ticket creation or reconciliation.
+
+   Output one copy-ready handoff line per Spec:
+
+   ```text
+   $to-tickets - <Spec Title> (<Spec URL>)
+   ```
+
+   If multiple Specs exist, output all lines together. If only one exists, output one line.
+
+   Use the actual tracker title and URL. Do not substitute issue numbers for titles.
+
+   Do not invoke `$to-tickets` implicitly. The user chooses which Spec to continue.
 
 ## Problem Statement
 

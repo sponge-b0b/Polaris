@@ -39,7 +39,7 @@ Do not create another Spec, branch, or baseline.
 Recover the latest **Root Blocker Ledger** and acceptance matrix, including later review/remediation updates.
 
 * Preserve stable `RB-*` IDs and invariants.
-* Preserve root status, affected surfaces, production-path obligations, and unproven cells.
+* Preserve current root status, affected surfaces, production-path obligations, and unproven cells.
 * Preserve `Architecture decision required` and governing authority.
 * `Architecture decision required: No` is ordinary remediation.
 * If any unresolved root has `Architecture decision required: Yes`, halt and return it to `$review-spec`.
@@ -56,34 +56,31 @@ Do not reconstruct an older revision. Existing linked tickets represent previous
 
 Read relevant open and closed tickets, including body, acceptance criteria, dependencies, and closing context when needed.
 
-For each current requirement or Root Blocker:
+For each current requirement:
 
 * matching **open** ticket still covering remaining work → skip;
 * matching **open** ticket whose pending work changed → return an update;
-* matching **closed** ticket and current obligation is actually satisfied → skip;
-* matching **closed** ticket but remediation remains → create a new ticket;
+* matching **closed** ticket whose obligation is satisfied → skip;
+* matching **closed** ticket but current state requires additional work → create a new ticket;
 * no matching ticket → create a new ticket.
 
-A closed ticket is historical work evidence, **not proof that its requirement or Root Blocker is satisfied**.
+Never reopen or rewrite closed tickets to represent new or remaining work.
 
-Never reopen or rewrite a closed ticket to represent remaining work.
-
-### Unresolved Root Rule
-
-For every Root Blocker currently `open`, `regressed`, or `unproven`, determine whether active work is still required.
-
-* **open** → remediation remains; an open ticket must cover it or a new ticket is required.
-* **regressed** → create/reuse active remediation; if prior covering work is closed, create a new `Regression:` ticket referencing it.
-* **unproven** → determine whether the missing obligation can be established by verification alone.
-
-  * verification evidence alone is sufficient → no implementation ticket; preserve the unproven verification obligation;
-  * implementation/remediation is still required, or closed work failed to establish the required behavior → create a new remediation ticket.
-
-Do not skip an unresolved root merely because one or more covering tickets are closed.
-
-Before treating any closed ticket as sufficient, reconcile it against the **current source state and current Root Blocker status**.
+Before treating a closed ticket as sufficient, verify that the current source state actually satisfies the requirement.
 
 For open tickets no longer required by an amended Spec, return them for closure as superseded.
+
+### Root Blocker Invariant
+
+For Spec Review remediation, every Root Blocker currently `open`, `regressed`, or `unproven` must be represented by an active open ticket.
+
+* matching open ticket covers the remaining root obligation → reuse/update it;
+* no matching open ticket → create a new ticket;
+* prior covering tickets are closed → create a new ticket and reference the relevant prior ticket(s).
+
+A closed ticket is historical lineage, not active coverage and not proof that the Root Blocker is resolved.
+
+Do not skip an unresolved Root Blocker because its previous tickets are closed.
 
 ## 4. Mode-Specific Delta Rules
 
@@ -94,14 +91,14 @@ Create the smallest **root-complete** remediation track.
 Each ticket must carry:
 
 * Root Blocker ID and invariant;
-* remaining affected sibling surfaces/reference kinds;
+* affected sibling surfaces/reference kinds;
 * production-path acceptance criteria;
 * required negative/regression proof;
 * remaining unproven acceptance cells when applicable.
 
-If closed work claimed to fix a root but the current review still demonstrates the violation, create a new `Regression:` ticket referencing the prior ticket.
+If closed work claimed to satisfy a root but the root remains `open` or `regressed`, create a new `Regression:` ticket referencing the prior work.
 
-If the root is merely `unproven`, create a new ticket only when implementation work is needed; otherwise preserve it as a verification obligation.
+For an `unproven` root with no active covering ticket, create a new remediation ticket whose acceptance establishes the outstanding root obligations and applies the minimum correction required if they are not met.
 
 Do not create one ticket per symptom when several symptoms share one root.
 
@@ -111,7 +108,7 @@ Reconcile semantically, not by wording alone.
 
 If an amended requirement changes pending work, update the existing open ticket when it still naturally owns that work.
 
-If a closed ticket satisfied the old requirement but the amended Spec now requires more, create an ordinary new ticket for the delta. It is a regression only when previously required behavior actually broke.
+If a closed ticket satisfied the old requirement but the amended Spec requires more, create an ordinary new ticket for the delta. It is a regression only when previously required behavior actually broke.
 
 Return dependency changes when new work must block an existing open ticket.
 
@@ -144,9 +141,6 @@ Close as superseded:
 Dependency changes:
 - ...
 
-Verification-only obligations:
-- RB-<n>: <remaining evidence>
-
 Skipped:
 - already tracked by open ticket: ...
 - already satisfied by current source: ...
@@ -154,12 +148,12 @@ Skipped:
 
 For Spec Review remediation, also report:
 
-* open/regressed Root Blocker IDs;
-* unproven Root Blockers and whether they are remediation-required or verification-only;
+* every unresolved Root Blocker;
+* the open ticket that covers it, or the new ticket required;
 * regressions and referenced closed tickets.
 
-Never report an unresolved Root Blocker as skipped merely because its covering tickets are closed.
+Never report an `open`, `regressed`, or `unproven` Root Blocker as skipped merely because its covering tickets are closed.
 
-If the delta is empty, state why every unresolved root requires no ticket delta. Do not claim closed tickets establish satisfaction unless current source evidence does.
+If the delta is empty, every unresolved Root Blocker must already have active open-ticket coverage.
 
 Return control to `$to-tickets` at its approval/publishing step.

@@ -15,7 +15,7 @@ All axes run as **parallel sub-agents** so they do not pollute each other's cont
 
 This is a **review-only** workflow, not a verification workflow. Do not run `pytest`, `ruff`, `mypy`, graph updates, duplication scans, `$wiki-lint`, or other static/test verification commands here. If spec-wide verification is needed, invoke `$verify-spec` separately.
 
-The issue tracker should have been provided to you — run `$setup-matt-pocock-skills` if `docs/agents/issue-tracker.md` is missing.
+The issue tracker should have been provided — run `$setup-matt-pocock-skills` if `docs/agents/issue-tracker.md` is missing.
 
 ## Finding Taxonomy
 
@@ -37,7 +37,7 @@ Classification rules:
 
 ## Process
 
-### 1. Pin the fixed point
+### 1. Pin the Fixed Point
 
 The fixed point is automatically stored in the parent specification issue on GitHub unless explicitly overridden.
 
@@ -75,7 +75,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 6. **Pre-Flight Check**: The diff must be non-empty.
 
-### 2. Identify the spec source
+### 2. Identify the Spec Source
 
 Look for the originating spec, in order:
 
@@ -86,13 +86,13 @@ Look for the originating spec, in order:
 
 Capture the spec's **Architecture Impact** when present.
 
-### 3. Identify review sources
+### 3. Identify Review Sources
 
 For **Standards**, use `$coding-standards` and applicable repository guidance such as `CONTRIBUTING.md`.
 
 For **Architecture**, use `$review-architecture` as the owner of the architecture audit procedure. Provide it the full aggregate diff, commit list, spec Architecture Impact, and affected architectural context. Do not duplicate its rules here.
 
-### 4. Spawn all review sub-agents in parallel
+### 4. Spawn All Review Sub-Agents in Parallel
 
 Send one message containing the parallel sub-agent calls.
 
@@ -137,7 +137,7 @@ Lightly validate cited findings before reporting them. Validation is limited to 
 
 Present:
 
-```text
+```text id="rv0ak3"
 ## Standards
 
 ## Spec
@@ -149,11 +149,42 @@ Within each axis, use `### Blocking` and `### Advisory` when both exist.
 
 End with one line counting Blocking and Advisory findings separately for each axis and naming the worst Blocking issue in each, if any.
 
-If any Blocking Architecture finding has `Architecture decision required: Yes`, invoke `$architecture-remediation` for the highest-priority unresolved architecture decision and stop. Provide the parent spec, the finding and its evidence, and any available Spec Review or source-ticket lineage.
-
-Do not send unresolved architecture into `$review-spec-remediation` or `$to-tickets`.
+If any Blocking Architecture finding has `Architecture decision required: Yes`, do not send it into `$review-spec-remediation` or `$to-tickets`. Halt with the Human Handoff Intercept below.
 
 Otherwise, if any Blocking findings remain, invoke `$review-spec-remediation`; do not synthesize root blockers or create tracking issues directly here.
+
+### Architecture Human Handoff Intercept
+
+For the highest-priority Blocking Architecture finding with `Architecture decision required: Yes`, preserve the finding context so `$architecture-remediation` does not have to rediscover it.
+
+Include:
+
+* parent Spec title and URL;
+* Spec Review issue title and URL when one already exists;
+* concise unresolved architecture question or conflict;
+* finding evidence;
+* why a new architecture decision is required;
+* affected entities and governing ADR/doc references already known.
+
+Do not propose or imply the architectural resolution.
+
+Use:
+
+> ⚠️ **Spec review is blocked by an unresolved material architecture decision.**
+>
+> Please run:
+>
+> ```
+> $architecture-remediation - <Parent Spec Title> (<Spec URL>) — <concise unresolved architecture question>
+> ```
+>
+> **Discovery context:** <concise architecture finding and supporting evidence>
+>
+> **Material architecture involved:** <canonical ownership/path, boundary, dependency direction, lifecycle responsibility, or other unresolved consequence>
+>
+> **Spec Review:** <title and URL, when applicable>
+
+Then stop. `$architecture-remediation` owns lineage recovery and Wayfinder re-entry.
 
 ## Why Three Axes
 
@@ -171,7 +202,7 @@ Do not make in-flight file edits.
 
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation blockers and follow the same `$review-spec-remediation` path as Blocking Standards or Spec findings.
 
-Blocking Architecture findings with `Architecture decision required: Yes` delegate to `$architecture-remediation`. Architecture must be resolved through the existing Wayfinder effort before review remediation can continue.
+Blocking Architecture findings with `Architecture decision required: Yes` require the Architecture Human Handoff Intercept. They must be resolved through the existing Wayfinder effort before review remediation can continue.
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation` in full.
 

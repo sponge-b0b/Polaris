@@ -43,7 +43,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 1. **Extract Baseline Metadata**: `$to-tickets` posts it as a comment:
 
-   ```bash id="26zi7k"
+   ```bash
    BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
      | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
    ```
@@ -52,7 +52,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 3. **Verify Branch Checked Out**:
 
-   ```bash id="w3yku4"
+   ```bash
    CURRENT_BRANCH=$(git branch --show-current)
    if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
      echo "❌ Expected spec-<spec_issue_number> to be checked out, but current branch is $CURRENT_BRANCH."
@@ -62,7 +62,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 4. **Validate the Ref**:
 
-   ```bash id="4k1lqa"
+   ```bash
    git rev-parse <fixed-point>
    ```
 
@@ -86,15 +86,30 @@ Look for the originating spec, in order:
 
 Capture the spec's **Architecture Impact** when present.
 
-### 3. Identify Review Sources
+### 3. Recover Existing Review State
+
+If this Spec already has a Spec Review issue, read its current Root Blocker Ledger and acceptance matrix before spawning reviewers.
+
+Preserve stable Root Blocker IDs, root invariants, acceptance obligations, affected sibling surfaces, and Owner Overrides.
+
+On re-review:
+
+* evaluate existing open-root acceptance obligations before treating findings as new;
+* map findings to an existing root when they share its underlying invariant;
+* another axis, sibling surface, or symptom of the same invariant is not a new root;
+* treat a finding as a candidate new root only when no existing root reasonably explains it.
+
+Do not synthesize, renumber, or modify Root Blockers here. `$review-spec-remediation` owns the ledger.
+
+### 4. Identify Review Sources
 
 For **Standards**, use `$coding-standards` and applicable repository guidance such as `CONTRIBUTING.md`.
 
 For **Architecture**, use `$review-architecture` as the owner of the architecture audit procedure. Provide it the full aggregate diff, commit list, spec Architecture Impact, and affected architectural context. Do not duplicate its rules here.
 
-### 4. Spawn All Review Sub-Agents in Parallel
+### 5. Spawn All Review Sub-Agents in Parallel
 
-Send one message containing the parallel sub-agent calls.
+Spawn exactly one sub-agent for each applicable axis: Standards, Spec, and Architecture. Never spawn more than one reviewer for an axis.
 
 **Main-agent orchestration boundary:** after spawning, do not independently perform any of the three reviews. Do not inspect additional hunks, run verification commands, or search for new findings while they run.
 
@@ -103,14 +118,16 @@ Send one message containing the parallel sub-agent calls.
 * full diff command and commit list;
 * standards sources and smell baseline;
 * Finding Taxonomy;
-* brief: identify documented-standard violations and relevant baseline smells, labeling each Blocking or Advisory. Skip tooling-enforced issues. Under 400 words. If clean, say `No findings.`
+* existing open Root Blockers and applicable acceptance obligations, when present;
+* brief: evaluate applicable existing obligations first, then identify documented-standard violations and relevant baseline smells. Map findings to an existing root when applicable; flag as potentially new only when unmatched. Label Blocking or Advisory. Skip tooling-enforced issues. Under 400 words. If clean, say `No findings.`
 
 **Spec sub-agent prompt** — include:
 
 * full diff command and commit list;
 * spec contents;
 * Finding Taxonomy;
-* brief: identify missing/partial requirements, unauthorized behavior, and apparently incorrect implementations. Cite the spec requirement. Label findings Blocking, Advisory, or Owner-overridden. Under 400 words. If clean, say `No findings.`
+* existing open Root Blockers and applicable acceptance obligations, when present;
+* brief: evaluate applicable existing obligations first, then identify missing/partial requirements, unauthorized behavior, and apparently incorrect implementations. Map findings to an existing root when applicable; flag as potentially new only when unmatched. Cite the spec requirement. Label Blocking, Advisory, or Owner-overridden. Under 400 words. If clean, say `No findings.`
 
 If the spec is missing, skip this sub-agent.
 
@@ -120,9 +137,10 @@ If the spec is missing, skip this sub-agent.
 * spec Architecture Impact;
 * affected entities and governing ADR/doc references when available;
 * Finding Taxonomy;
-* instruction to invoke `$review-architecture` and return only its review findings, preserving `Architecture decision required: Yes | No` and routing for every Blocking finding. Under 400 words. If clean, say `No findings.`
+* existing open Root Blockers and applicable acceptance obligations, when present;
+* instruction to invoke `$review-architecture`, evaluate applicable existing obligations first, map findings to existing roots when applicable, and preserve `Architecture decision required: Yes | No` and routing for every Blocking finding. Flag as potentially new only when unmatched. Under 400 words. If clean, say `No findings.`
 
-### 5. Aggregate
+### 6. Aggregate
 
 Lightly validate cited findings before reporting them. Validation is limited to confirming cited evidence; it is not permission for a fresh review.
 
@@ -137,7 +155,7 @@ Lightly validate cited findings before reporting them. Validation is limited to 
 
 Present:
 
-```text id="36fhgs"
+```text
 ## Standards
 
 ## Spec
@@ -147,7 +165,22 @@ Present:
 
 Within each axis, use `### Blocking` and `### Advisory` when both exist.
 
-End with one line counting Blocking and Advisory findings separately for each axis and naming the worst Blocking issue in each, if any.
+When a Root Blocker Ledger exists, also report:
+
+```text
+## Root Blocker Status
+
+RB-<n>: <open | regressed | satisfied>
+- <acceptance obligation>: <proven | still violated | regressed | unproven>
+
+Candidate new roots: <findings or None>
+```
+
+Map multiple axis findings to the same Root Blocker when they share its underlying invariant. Do not describe them as multiple underlying blockers.
+
+An acceptance obligation requiring verification evidence is not **proven** merely because the implementation looks correct.
+
+End with one line counting Blocking and Advisory findings by axis, open/regressed Root Blockers, and candidate new roots.
 
 If one or more Blocking Architecture findings have `Architecture decision required: Yes`, do not send those findings into `$review-spec-remediation` or `$to-tickets`. Halt with the Architecture Human Handoff Intercept below.
 
@@ -166,14 +199,15 @@ For each blocker include:
 * concise unresolved architecture question or conflict;
 * finding evidence;
 * why a new architecture decision is required;
-* affected entities and governing ADR/doc references already known.
+* affected entities and governing ADR/doc references already known;
+* existing Root Blocker ID when applicable.
 
 Also include:
 
 * parent Spec title and URL;
 * Spec Review issue title and URL when one already exists.
 
-Do not propose or imply an architectural resolution.
+Do not propose or imply the architectural resolution.
 
 Use:
 
@@ -192,9 +226,7 @@ Use:
 >    * Evidence: <concise finding evidence>
 >    * Material consequence: <ownership/path, boundary, dependency direction, lifecycle responsibility, source conflict, or other unresolved consequence>
 >    * Governing context: <affected entities / ADRs / docs when known>
-> 2. **<unresolved question or conflict>**
->
->    * ...
+>    * Existing root: <RB-n or None>
 >
 > **Spec Review:** <title and URL, when applicable>
 
@@ -210,7 +242,7 @@ A change may satisfy any two while failing the third:
 * Correct behavior, broken conventions → **Spec pass, Standards fail**
 * Correct behavior and clean code, wrong architectural ownership/boundary → **Spec and Standards pass, Architecture fail**
 
-Keeping the axes independent prevents one form of correctness from masking another.
+Keeping the axes independent prevents one form of correctness from masking another. Root mapping prevents multiple views of the same defect from becoming duplicate remediation work.
 
 ## Remediation Loop
 
@@ -219,6 +251,10 @@ Do not make in-flight file edits.
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation blockers and follow the same `$review-spec-remediation` path as Blocking Standards or Spec findings.
 
 Blocking Architecture findings with `Architecture decision required: Yes` require the Architecture Human Handoff Intercept. All independent unresolved architecture blockers discovered in that review pass must be preserved in the handoff and resolved through the existing Wayfinder effort before review remediation can continue.
+
+On re-review, preserve existing Root Blocker IDs and pass still-violated, regressed, or unproven acceptance obligations back to `$review-spec-remediation`. Do not restart root discovery for findings already explained by an existing root.
+
+Only unmatched findings are candidates for a new root; `$review-spec-remediation` decides whether they warrant one.
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation` in full.
 

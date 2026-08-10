@@ -62,6 +62,7 @@ class GovernedOutputReleaseRequest:
     requested_action: str
     boundary_name: str
     residual_risk_acceptance_required: bool = False
+    residual_risk_scope: str | None = None
     trace_context: TraceContext | None = None
 
 
@@ -788,6 +789,7 @@ class AutomatedDecisionAuditService:
             for acceptance in acceptances
             if acceptance.evidence.packet_version == request.evidence.packet_version
             and acceptance.review_scope == request.review_scope
+            and acceptance.residual_risk_scope == request.residual_risk_scope
         )
         if not matching_acceptances:
             return None

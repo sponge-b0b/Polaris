@@ -136,6 +136,7 @@ class ReportPublicationReview:
     review_scope: str
     requested_action: str
     residual_risk_acceptance_required: bool = False
+    residual_risk_scope: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

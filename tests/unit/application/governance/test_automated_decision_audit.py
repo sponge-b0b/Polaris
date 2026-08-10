@@ -916,6 +916,14 @@ async def test_vigilant_release_requires_scoped_residual_risk_acceptance() -> No
         _release_request(
             task=repository.review_tasks[0],
             residual_risk_acceptance_required=True,
+            residual_risk_scope="recommendation publication only",
+        ),
+    )
+    broader_scope = await service.evaluate_governed_output_release(
+        _release_request(
+            task=repository.review_tasks[0],
+            residual_risk_acceptance_required=True,
+            residual_risk_scope="all future recommendation versions",
         ),
     )
 
@@ -926,6 +934,10 @@ async def test_vigilant_release_requires_scoped_residual_risk_acceptance() -> No
     assert exact_scope.allowed is True
     assert exact_scope.residual_risk_acceptance_id == (
         repository.residual_risk_acceptances[0].acceptance_id
+    )
+    assert broader_scope.allowed is False
+    assert broader_scope.approval_state is (
+        GovernanceReviewApprovalState.RESIDUAL_RISK_ACCEPTANCE_REQUIRED
     )
 
 
@@ -2005,6 +2017,7 @@ def _release_request(
     review_scope: str | None = None,
     requested_action: str | None = None,
     residual_risk_acceptance_required: bool = False,
+    residual_risk_scope: str | None = None,
     trace_context: TraceContext | None = None,
 ) -> GovernedOutputReleaseRequest:
     return GovernedOutputReleaseRequest(
@@ -2015,6 +2028,7 @@ def _release_request(
         requested_action=requested_action or task.requested_action,
         boundary_name="recommendation.durable_promotion",
         residual_risk_acceptance_required=residual_risk_acceptance_required,
+        residual_risk_scope=residual_risk_scope,
         trace_context=trace_context,
     )
 

@@ -319,6 +319,7 @@ async def test_project_completed_run_blocks_governed_promotion() -> None:
             requested_action="vigilant_authority_requires_approval",
             boundary_name="workflow_output_projection.technical_projector",
             residual_risk_acceptance_required=True,
+            residual_risk_scope="recommendation publication only",
         )
     ]
 
@@ -1029,6 +1030,7 @@ def _metadata_with_governance_review() -> JsonObject:
         "governance_review_scope": "recommendation",
         "governance_review_requested_action": ("vigilant_authority_requires_approval"),
         "governance_residual_risk_acceptance_required": True,
+        "governance_residual_risk_scope": "recommendation publication only",
     }
 
 

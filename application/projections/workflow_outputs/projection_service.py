@@ -75,6 +75,7 @@ _REVIEW_REQUESTED_ACTION_METADATA_KEY = "governance_review_requested_action"
 _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY = (
     "governance_residual_risk_acceptance_required"
 )
+_REVIEW_RESIDUAL_RISK_SCOPE_METADATA_KEY = "governance_residual_risk_scope"
 
 
 class GovernedOutputReleaseService(Protocol):
@@ -693,6 +694,19 @@ def _governed_output_release_request_from_metadata(
         )
         or "durable_promotion"
     )
+    residual_risk_acceptance_required = _metadata_bool(
+        node_output.metadata,
+        _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY,
+    )
+    residual_risk_scope = _metadata_text(
+        node_output.metadata,
+        _REVIEW_RESIDUAL_RISK_SCOPE_METADATA_KEY,
+    )
+    if residual_risk_acceptance_required and residual_risk_scope is None:
+        return (
+            f"{boundary_name} is blocked: governed workflow output release "
+            "requires residual-risk scope metadata."
+        )
 
     return GovernedOutputReleaseRequest(
         authority=authority,
@@ -704,10 +718,8 @@ def _governed_output_release_request_from_metadata(
         review_scope=review_scope,
         requested_action=requested_action,
         boundary_name=boundary_name,
-        residual_risk_acceptance_required=_metadata_bool(
-            node_output.metadata,
-            _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY,
-        ),
+        residual_risk_acceptance_required=residual_risk_acceptance_required,
+        residual_risk_scope=residual_risk_scope,
     )
 
 

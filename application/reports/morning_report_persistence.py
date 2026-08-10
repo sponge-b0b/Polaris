@@ -368,6 +368,7 @@ def _report_publication_release_request(
         requested_action=review.requested_action,
         boundary_name=boundary_name,
         residual_risk_acceptance_required=(review.residual_risk_acceptance_required),
+        residual_risk_scope=review.residual_risk_scope,
     )
 
 

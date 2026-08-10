@@ -31,3 +31,7 @@ Aligned the ownership ledger with ADR-0010 on intended sink as a review-task ide
 ## [2026-08-09] sink-scoped governance review identity | implemented as an approval-lifecycle invariant
 
 Promoted the accepted intended-sink review-task identity decision after task IDs and PostgreSQL uniqueness/upsert behavior began preserving independent release-boundary review state.
+
+## [2026-08-09] residual-risk release scope | implemented as an approval-lifecycle invariant
+
+Recorded exact residual-risk scope matching as a release invariant after the canonical release service and governed publication/promotion consumers began carrying and enforcing the requested scope.

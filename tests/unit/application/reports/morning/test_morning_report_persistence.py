@@ -388,6 +388,7 @@ async def test_morning_report_persistence_blocks_denied_publication() -> None:
             requested_action="report_publication",
             boundary_name="morning_report.persistence",
             residual_risk_acceptance_required=True,
+            residual_risk_scope="morning report publication only",
         )
     ]
 
@@ -857,6 +858,7 @@ def _publication_review(
         review_scope="morning_report",
         requested_action="report_publication",
         residual_risk_acceptance_required=True,
+        residual_risk_scope="morning report publication only",
     )
 
 

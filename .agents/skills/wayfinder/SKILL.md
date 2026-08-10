@@ -127,7 +127,7 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
 
 ### Execution Lifecycle Guardrails
 
-1. **Pre-Flight Metadata Audit**: The exact moment you are assigned a GitHub issue number or URL, you must run an initial metadata pull before analyzing the text description:
+1. **Pre-Flight Metadata Audit**: The exact moment you are assigned a GitHub issue number or URL, run an initial metadata pull before analyzing the text description:
 
    ```bash
    gh issue view <ISSUE_NUMBER> --json labels,title,body
@@ -135,18 +135,8 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
 
 2. **Workflow Routing**:
 
-   * **IF** the output labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time. The default case.
-   * **ELSE** based on the given Ticket Type, proceed via `$research`, `$prototype`, or route to **AFK** mode and execute the task autonomously using local tools as needed.
-
-### Architecture Re-entry
-
-When an existing implementation or spec workflow returns upstream with a newly discovered material architecture question, re-enter the Wayfinder effort that produced the existing spec.
-
-Add the question to that map as a new decision ticket and resolve it through the normal Wayfinder lifecycle. Do not create a new map when the question belongs to the existing destination.
-
-Reconcile any required authoritative architecture records, record the resolution in the ticket, close it, and append its context pointer to the map's **Decisions so far**.
-
-After the route is clear again, hand the updated Wayfinder context to `$to-specs` for re-entry into the existing spec.
+   * **IF** the labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time. The default case.
+   * **ELSE** based on the Ticket Type, proceed via `$research`, `$prototype`, or route to **AFK** mode and execute the task autonomously using local tools as needed.
 
 ### Chart the map
 
@@ -161,7 +151,7 @@ User invokes with a loose idea.
 
 ### Work through the map
 
-User invokes with a map (URL or number). A ticket is **optional** — without one, you pick the next decision, not the user.
+User invokes with a map or one of its decision tickets. If given a ticket, resolve its parent Wayfinder map using the tracker's native relationship or explicit `Parent Wayfinder` metadata, then treat that ticket as the named decision.
 
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
@@ -169,6 +159,18 @@ User invokes with a map (URL or number). A ticket is **optional** — without on
 4. Record the resolution: reconcile any required authoritative architecture records, post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
 
-The route is not clear while any material architecture question remains unresolved or a resolved architectural decision still requires reconciliation with its authoritative records.
+The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, or while a resolved architectural decision still requires reconciliation with its authoritative records.
+
+When the route becomes clear and the destination is an implementation specification, halt with a Human Handoff Intercept:
+
+> ✅ **Wayfinder route is clear.**
+>
+> Please run:
+>
+> ```
+> $to-specs - <Wayfinder Map Title> (<Map URL>)
+> ```
+
+Always hand `$to-specs` the **Wayfinder map**, never an individual decision ticket or derived spec. `$to-specs` owns deciding whether this creates a new spec or delegates an existing-spec update to `$to-remediation-specs`.
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.

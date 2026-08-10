@@ -1,0 +1,5 @@
+interface:
+  display_name: "Architecture Remediation"
+  short_description: "Route a newly discovered unresolved material architecture decision back into the existing Wayfinder effort."
+policy:
+  allow_implicit_invocation: false

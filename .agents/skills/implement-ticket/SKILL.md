@@ -13,6 +13,8 @@ Implement the work described by a single ticket, verify it, commit it to the tic
 
 Before modifying any files, read the full ticket and locate its **Ticket branch** field.
 
+Capture the parent spec reference from the ticket when present.
+
 If the ticket has an **Architecture context** section, capture its affected entities and governing ADR/doc references. Treat these as routing context, not duplicated architectural authority; `$wiki-sync` must still evaluate the current sources.
 
 If the ticket has a `Root blocker` section or belongs to a `Spec Review` issue, also read the parent spec and parent Spec Review issue. Capture the root blocker ID, invariant, affected sibling surfaces/reference kinds, and acceptance-matrix cells the ticket is expected to prove.
@@ -29,7 +31,7 @@ The ticket's `Ticket branch` is authoritative. All tickets belonging to the same
 
 For a declared branch:
 
-```bash id="nd5u8o"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -45,7 +47,7 @@ This check MUST occur before editing, formatting, generating, deleting, or other
 
 After the branch guard succeeds and before modifying files, capture the ticket verification baseline:
 
-```bash id="2x7rme"
+```bash
 TICKET_BASELINE=$(git rev-parse HEAD)
 ```
 
@@ -61,13 +63,11 @@ Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` 
 
 If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
 
-If implementation exposes a new material architectural decision that the spec did not resolve, halt and return it upstream rather than deciding it locally.
+If implementation exposes an unresolved material architectural decision, invoke `$architecture-remediation` and stop. Do not resolve it or create Wayfinder re-entry artifacts here.
 
-A newly encountered implementation choice is material architecture only when it would establish or change a durable invariant, canonical owner or path, architectural boundary, dependency direction, or lifecycle responsibility.
+A decision is material when it establishes or changes a durable invariant, canonical owner or path, architectural boundary, dependency direction, or lifecycle responsibility.
 
-Do not halt for ordinary local implementation choices when all viable options conform to the resolved architecture; choose the simplest conforming option.
-
-If the choice determines ownership, canonical routing, boundary placement, or lifecycle semantics that current architectural authority does not establish, halt and return it upstream.
+Ordinary local implementation choices where the viable options conform to current architectural authority are not material. Choose the simplest conforming option and continue.
 
 After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 
@@ -98,9 +98,9 @@ If no durable wiki knowledge changed, do not modify `wiki/log.md`.
 * For Spec Review remediation tickets, fix the root invariant, not merely the first cited symptom.
 * Auditing and fixing named sibling surfaces/reference kinds is in scope; unrelated cleanup is not.
 * Respect acceptance criteria and blocking assumptions.
-* Use `$coding-standards`.
 * Use `$tdd` where appropriate at pre-agreed seams.
-* Use `$format-code` where necessary.
+* Use `$format-code`.
+* Use `$coding-standards`.
 * Avoid unrelated cleanup or scope expansion unless required for correctness.
 
 ### Database Change Guard
@@ -160,7 +160,7 @@ Immediately before committing, re-read **Ticket branch** and verify it again.
 
 If it is not `None`:
 
-```bash id="d7g9hj"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -188,7 +188,7 @@ After targeted verification succeeds and the branch invariant is confirmed:
 2. Include any substantive wiki mutation and matching `wiki/log.md` entry in that same commit.
 3. Push and establish upstream if necessary:
 
-```bash id="c08iz3"
+```bash
 git push -u origin HEAD
 ```
 

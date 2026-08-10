@@ -149,7 +149,9 @@ Within each axis, use `### Blocking` and `### Advisory` when both exist.
 
 End with one line counting Blocking and Advisory findings separately for each axis and naming the worst Blocking issue in each, if any.
 
-If any Blocking Architecture finding has `Architecture decision required: Yes`, halt normal remediation and return the unresolved architecture upstream. Do not send unresolved architecture into `$review-spec-remediation` or `$to-tickets`.
+If any Blocking Architecture finding has `Architecture decision required: Yes`, invoke `$architecture-remediation` for the highest-priority unresolved architecture decision and stop. Provide the parent spec, the finding and its evidence, and any available Spec Review or source-ticket lineage.
+
+Do not send unresolved architecture into `$review-spec-remediation` or `$to-tickets`.
 
 Otherwise, if any Blocking findings remain, invoke `$review-spec-remediation`; do not synthesize root blockers or create tracking issues directly here.
 
@@ -169,7 +171,7 @@ Do not make in-flight file edits.
 
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation blockers and follow the same `$review-spec-remediation` path as Blocking Standards or Spec findings.
 
-Blocking Architecture findings with `Architecture decision required: Yes` require upstream architecture resolution before remediation ticket slicing can continue.
+Blocking Architecture findings with `Architecture decision required: Yes` delegate to `$architecture-remediation`. Architecture must be resolved through the existing Wayfinder effort before review remediation can continue.
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation` in full.
 

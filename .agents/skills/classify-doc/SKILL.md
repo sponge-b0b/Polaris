@@ -48,7 +48,7 @@ Apply the target-class rules in `wiki/_schema.md` to the document's **current co
 
 Possible project-owned classes are:
 
-```text id="gf2lwx"
+```text
 current
 proposed
 research
@@ -60,7 +60,7 @@ An existing loose or unrecognized document may be `unclassified`.
 
 Do not use or introduce:
 
-```text id="rw6zdz"
+```text
 doc_class:
 Doc-Class:
 ```
@@ -69,7 +69,7 @@ If `current` vs `proposed` is genuinely ambiguous, follow the schema fail-safe a
 
 Record:
 
-```text id="8p8i8m"
+```text
 current: <class | unclassified>
 target:  <class>
 ```
@@ -90,7 +90,7 @@ Preserve the existing descriptive slug where reasonable.
 
 The destination is:
 
-```text id="2hmjqt"
+```text
 docs/<target-class>/<correct-filename>
 ```
 
@@ -149,13 +149,13 @@ Let `$wiki-sync` determine the semantic consequence.
 
 In particular, do not locally assume that:
 
-```text id="fh23jr"
+```text
 proposed → current
 ```
 
 automatically means:
 
-```text id="13lb23"
+```text
 Planned → Strict Invariant
 ```
 

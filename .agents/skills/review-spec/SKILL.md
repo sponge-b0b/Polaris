@@ -1,17 +1,19 @@
 ---
 name: review-spec
-description: Review a completed spec along independent Standards, Spec, and Architecture axes, reconcile findings against any existing Root Blocker Ledger, and route remaining blockers.
+description: Review a verified completed Spec along independent Standards, Spec, and Architecture axes, reconcile findings against any existing Root Blocker Ledger, and route remaining blockers.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
-Review the diff between `HEAD` and the Spec baseline along three independent axes:
+Review the verified diff between `HEAD` and the Spec baseline along three independent axes:
 
 * **Standards** — repository coding standards.
 * **Spec** — originating Spec requirements.
 * **Architecture** — resolved architecture and current authorities.
 
 This is review-only. Do not run `pytest`, Ruff, Mypy, `$wiki-lint`, graph updates, duplication scans, or other verification commands. `$verify-spec` owns verification.
+
+`$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
 
 ## Finding Taxonomy
 
@@ -33,14 +35,14 @@ Rules:
 
 Resolve the baseline from the parent Spec comment unless explicitly supplied:
 
-```bash
+```bash id="iewafb"
 BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
   | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
 ```
 
 Verify:
 
-```bash
+```bash id="6xsps6"
 CURRENT_BRANCH=$(git branch --show-current)
 
 if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
@@ -53,7 +55,7 @@ git rev-parse "$BASELINE_COMMIT"
 
 Capture:
 
-```bash
+```bash id="djpber"
 git diff "$BASELINE_COMMIT"...HEAD
 git log "$BASELINE_COMMIT"..HEAD --oneline
 ```
@@ -71,7 +73,64 @@ Find the originating Spec from:
 
 Capture its **Architecture Impact**.
 
-### 3. Recover Review State
+### 3. Require Current Spec Verification
+
+Before recovering review state or spawning reviewers, require a clean worktree:
+
+```bash id="pytpxi"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "❌ Spec review requires a clean, verified worktree."
+  exit 1
+fi
+```
+
+Capture current `HEAD`:
+
+```bash id="kczocg"
+CURRENT_HEAD=$(git rev-parse HEAD)
+```
+
+Read the parent Spec comments and recover the **latest passing Spec Verification Receipt**.
+
+The receipt must contain:
+
+```text id="9zrts2"
+## Spec Verification Receipt
+**Status:** passed
+**Verified HEAD:** <full SHA>
+**Verified Baseline:** <baseline>
+**Branch:** spec-<spec_issue_number>
+```
+
+Require:
+
+* `Status` is `passed`;
+* `Verified HEAD` exactly equals `CURRENT_HEAD`;
+* `Verified Baseline` equals the current Spec baseline;
+* `Branch` equals the current Spec branch.
+
+If no matching receipt exists, verification is missing or stale. Do not review.
+
+Halt with:
+
+> ⚠️ **Spec review requires current passing spec verification.**
+>
+> Current HEAD: `<current HEAD>`
+> Verified HEAD: `<latest verified HEAD or none>`
+>
+> Please run:
+>
+> ```
+> $verify-spec - <Spec Title> (<Spec URL>)
+> ```
+
+Then stop.
+
+Do not invoke `$verify-spec` implicitly.
+
+Any commit after a passing verification invalidates that receipt for review eligibility until `$verify-spec` passes again.
+
+### 4. Recover Review State
 
 If a Spec Review already exists, recover the **latest persisted Root Blocker state**, considering its body and subsequent remediation/review updates.
 
@@ -94,7 +153,7 @@ On re-review:
 
 An unmatched finding is only a **Candidate new root**. `$review-spec-remediation` owns root synthesis and IDs.
 
-### 4. Spawn Reviewers
+### 5. Spawn Reviewers
 
 Spawn exactly three parallel sub-agents when all axes apply:
 
@@ -139,13 +198,13 @@ Invoke `$review-architecture`.
 
 Preserve `Architecture decision required: Yes | No` and routing for every Blocking finding.
 
-## 5. Aggregate
+## 6. Aggregate
 
 Lightly validate cited evidence only. Do not perform another review.
 
 Present:
 
-```text
+```text id="44d6jf"
 ## Standards
 
 ## Spec
@@ -157,7 +216,7 @@ Keep axis findings independent even when multiple findings map to one root.
 
 If a Root Blocker Ledger exists, also present:
 
-```text
+```text id="2n41xu"
 ## Root Blocker Status
 
 RB-1: <satisfied | open | regressed | unproven>
@@ -169,16 +228,16 @@ Candidate new roots:
 - or None
 ```
 
-Every previously open/regressed root must appear.
+Every previously open or regressed root must appear.
 
 Use:
 
-* **satisfied** — all obligations supported by required evidence;
+* **satisfied** — all required obligations are established by available evidence;
 * **open** — one or more obligations remain violated;
 * **regressed** — previously satisfied behavior is now broken;
-* **unproven** — required evidence is insufficient.
+* **unproven** — available review evidence is insufficient.
 
-Do not mark verification-owned obligations satisfied merely because code looks correct.
+Do not infer satisfaction merely because source code appears plausible.
 
 If multiple findings map to one root, say so explicitly.
 
@@ -209,7 +268,7 @@ Do not propose the architectural answer.
 
 Blocking Architecture findings with `Architecture decision required: No` remain ordinary remediation findings.
 
-## 6. Remediation
+## 7. Remediation
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation`.
 
@@ -237,6 +296,7 @@ Advisory-only findings do not trigger remediation.
 
 Proceed to `$spec-merge-cleanup` only when:
 
+* the current `HEAD` still matches the passing Spec Verification Receipt;
 * all three axes have zero Blocking findings;
 * every existing Root Blocker is satisfied or Owner-overridden;
 * no Candidate new root remains unresolved.

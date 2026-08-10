@@ -27,7 +27,9 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     build_workflow_runtime,
     build_workflow_runtime_async,
 )
-from core.workflow.governance_audit import issue_workflow_execution_audit_capability
+from core.workflow.governance_audit import (
+    WorkflowExecutionAuditCapability,
+)
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
     DestructiveWorkflowOperation,
@@ -148,6 +150,25 @@ class DenyWorkflowRunGovernanceRule(BaseGovernanceRule):
 
         return GovernanceResult.allow(
             rule_name=self.rule_name,
+        )
+
+
+def test_execution_audit_capability_rejects_direct_construction() -> None:
+    with pytest.raises(
+        TypeError,
+        match="governed workflow execution service",
+    ):
+        WorkflowExecutionAuditCapability(
+            _service=AsyncMock(),
+            _context=AutomatedDecisionAuditContext(
+                subject=AutomatedDecisionSubject(
+                    "workflow",
+                    "direct-construction-test",
+                ),
+                authority=classify_risk_authority(
+                    workflow_curation_authority_input(),
+                ),
+            ),
         )
 
 
@@ -310,7 +331,7 @@ async def test_governance_requires_approval_for_live_mode() -> None:
             mode="live",
             archive_on_completion=False,
             checkpoint_on_completion=False,
-            execution_audit_capability=_audit_capability(),
+            execution_audit_capability=await _audit_capability(runtime),
         )
 
 
@@ -342,7 +363,7 @@ async def test_governance_allows_simulation_workflow_run() -> None:
         mode="simulation",
         archive_on_completion=False,
         checkpoint_on_completion=False,
-        execution_audit_capability=_audit_capability(),
+        execution_audit_capability=await _audit_capability(runtime),
     )
 
     assert result.success is True
@@ -351,6 +372,45 @@ async def test_governance_allows_simulation_workflow_run() -> None:
 
     assert output["success"] is True
     assert output["outputs"]["ran"] is True
+
+
+@pytest.mark.asyncio
+async def test_governed_facade_rejects_reused_execution_audit_capability() -> None:
+    governance_engine = GovernanceEngine(
+        registry=GovernanceRegistry(
+            rules=[
+                RequireApprovalForLiveModeRule(),
+            ],
+        )
+    )
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+        governance_engine=governance_engine,
+    )
+    capability = await _audit_capability(runtime)
+
+    await runtime.facade.run_workflow(
+        workflow_name="governance_test_workflow",
+        mode="simulation",
+        archive_on_completion=False,
+        checkpoint_on_completion=False,
+        execution_audit_capability=capability,
+    )
+
+    with pytest.raises(RuntimeError, match="already been used"):
+        await runtime.facade.run_workflow(
+            workflow_name="governance_test_workflow",
+            mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+            execution_audit_capability=capability,
+        )
 
 
 @pytest.mark.asyncio
@@ -384,29 +444,41 @@ async def test_governance_audit_rejects_malformed_persistence_result() -> None:
             mode="simulation",
             archive_on_completion=False,
             checkpoint_on_completion=False,
-            execution_audit_capability=_audit_capability(audit_service),
+            execution_audit_capability=await _audit_capability(runtime, audit_service),
         )
 
     audit_service.record_governance_evaluation.assert_awaited_once()
 
 
-def _audit_capability(audit_service: AsyncMock | None = None):
+async def _audit_capability(
+    runtime: Any,
+    audit_service: AsyncMock | None = None,
+) -> WorkflowExecutionAuditCapability:
     service = audit_service or AsyncMock()
     if audit_service is None:
         service.record_governance_evaluation.return_value = ()
         service.record_policy_evaluation.return_value = ()
-    return issue_workflow_execution_audit_capability(
-        service=service,
-        context=AutomatedDecisionAuditContext(
-            subject=AutomatedDecisionSubject(
-                "workflow",
-                "governance-enforcement-test",
-            ),
-            authority=classify_risk_authority(
-                workflow_curation_authority_input(),
-            ),
-        ),
+    authority = classify_risk_authority(workflow_curation_authority_input())
+    packet = Mock(spec=DecisionEvidencePacket)
+    packet.packet_id = "governance-enforcement-test-packet"
+    verified_packet = Mock(spec=DecisionEvidencePacket)
+    verified_packet.packet_id = packet.packet_id
+    verified_packet.output_id = "governance-enforcement-test"
+    verified_packet.schema_version = 1
+    verified_packet.authority = authority
+    packet_persistence_service = AsyncMock()
+    packet_persistence_service.reconstruct_packet.return_value = verified_packet
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=service,
+        decision_evidence_packet_persistence_service=packet_persistence_service,
     )
+    capability = await execution_service._audit_capability_for_run(
+        execution_id="governance-enforcement-test",
+        packet=packet,
+    )
+    assert capability is not None
+    return capability
 
 
 def test_governance_denies_destructive_workflow_unregister() -> None:

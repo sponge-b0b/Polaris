@@ -68,12 +68,32 @@ class WorkflowAutomatedDecisionAuditService(Protocol):
     ) -> Sequence[AutomatedDecisionAuditPersistenceResult]: ...
 
 
-@dataclass(frozen=True, slots=True)
+_CAPABILITY_ISSUANCE_TOKEN = object()
+
+
+@dataclass(init=False, slots=True)
 class WorkflowExecutionAuditCapability:
     """Opaque audit composition passed from the application boundary to the facade."""
 
     _service: WorkflowAutomatedDecisionAuditService
     _context: AutomatedDecisionAuditContext
+    _consumed: bool
+
+    def __init__(
+        self,
+        *,
+        _service: WorkflowAutomatedDecisionAuditService,
+        _context: AutomatedDecisionAuditContext,
+        _issuance_token: object | None = None,
+    ) -> None:
+        if _issuance_token is not _CAPABILITY_ISSUANCE_TOKEN:
+            raise TypeError(
+                "Workflow execution audit capabilities may be issued only by the "
+                "governed workflow execution service."
+            )
+        self._service = _service
+        self._context = _context
+        self._consumed = False
 
     @property
     def service(self) -> WorkflowAutomatedDecisionAuditService:
@@ -83,8 +103,17 @@ class WorkflowExecutionAuditCapability:
     def context(self) -> AutomatedDecisionAuditContext:
         return self._context
 
+    def consume(self) -> None:
+        """Prevent one verified audit composition from authorizing another run."""
 
-def issue_workflow_execution_audit_capability(
+        if self._consumed:
+            raise RuntimeError(
+                "Workflow execution audit capability has already been used."
+            )
+        self._consumed = True
+
+
+def _issue_workflow_execution_audit_capability(
     *,
     service: WorkflowAutomatedDecisionAuditService,
     context: AutomatedDecisionAuditContext,
@@ -99,4 +128,5 @@ def issue_workflow_execution_audit_capability(
     return WorkflowExecutionAuditCapability(
         _service=service,
         _context=context,
+        _issuance_token=_CAPABILITY_ISSUANCE_TOKEN,
     )

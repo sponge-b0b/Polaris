@@ -12,7 +12,7 @@ from core.workflow.execution.workflow_runner import WorkflowRunResult
 from core.workflow.governance_audit import (
     AutomatedDecisionAuditContext,
     WorkflowExecutionAuditCapability,
-    issue_workflow_execution_audit_capability,
+    _issue_workflow_execution_audit_capability,
 )
 from domain.decision_evidence import DecisionEvidencePacket
 
@@ -118,7 +118,7 @@ class GovernedWorkflowExecutionService:
             ),
             packet=verified_packet,
         )
-        return issue_workflow_execution_audit_capability(
+        return _issue_workflow_execution_audit_capability(
             service=self._automated_decision_audit_service,
             context=audit_context,
         )

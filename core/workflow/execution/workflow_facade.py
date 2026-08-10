@@ -979,6 +979,7 @@ class WorkflowFacade:
             raise RuntimeError(
                 "Governed workflow execution requires an execution audit capability."
             )
+        capability.consume()
         return capability
 
     @staticmethod

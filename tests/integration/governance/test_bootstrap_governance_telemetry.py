@@ -1,25 +1,22 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from application.governance import GovernedWorkflowExecutionService
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
-from core.storage.persistence.governance_audit import AutomatedDecisionSubject
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     build_workflow_runtime,
 )
-from core.workflow.governance_audit import (
-    AutomatedDecisionAuditContext,
-    issue_workflow_execution_audit_capability,
-)
 from domain.authority import classify_risk_authority
+from domain.decision_evidence import DecisionEvidencePacket
 from tests.helpers.risk_authority_examples import workflow_curation_authority_input
 
 
@@ -76,18 +73,26 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
     )
     audit_service = AsyncMock()
     audit_service.record_governance_evaluation.return_value = ()
-    execution_audit_capability = issue_workflow_execution_audit_capability(
-        service=audit_service,
-        context=AutomatedDecisionAuditContext(
-            subject=AutomatedDecisionSubject(
-                "workflow",
-                "bootstrap-governance-telemetry-test",
-            ),
-            authority=classify_risk_authority(
-                workflow_curation_authority_input(),
-            ),
-        ),
+    authority = classify_risk_authority(workflow_curation_authority_input())
+    packet = Mock(spec=DecisionEvidencePacket)
+    packet.packet_id = "bootstrap-governance-telemetry-test-packet"
+    verified_packet = Mock(spec=DecisionEvidencePacket)
+    verified_packet.packet_id = packet.packet_id
+    verified_packet.output_id = "bootstrap-governance-telemetry-test"
+    verified_packet.schema_version = 1
+    verified_packet.authority = authority
+    packet_persistence_service = AsyncMock()
+    packet_persistence_service.reconstruct_packet.return_value = verified_packet
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=audit_service,
+        decision_evidence_packet_persistence_service=packet_persistence_service,
     )
+    execution_audit_capability = await execution_service._audit_capability_for_run(
+        execution_id="bootstrap-governance-telemetry-test",
+        packet=packet,
+    )
+    assert execution_audit_capability is not None
 
     with pytest.raises(
         RuntimeError,

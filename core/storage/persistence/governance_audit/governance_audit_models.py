@@ -612,6 +612,10 @@ class AutomatedDecisionAuditPersistenceResult:
             raise ValueError("records_persisted must be non-negative.")
         if self.success and self.audit_record_id is None:
             raise ValueError("audit_record_id is required when success is true.")
+        if self.success and self.records_persisted < 1:
+            raise ValueError(
+                "successful audit persistence requires a persisted record."
+            )
         if not self.success and not self.errors:
             raise ValueError("errors are required when success is false.")
 

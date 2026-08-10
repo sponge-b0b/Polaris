@@ -21,7 +21,10 @@ from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
-from core.storage.persistence.governance_audit import AutomatedDecisionSubject
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionAuditPersistenceResult,
+    AutomatedDecisionSubject,
+)
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     build_workflow_runtime,
@@ -448,6 +451,61 @@ async def test_governance_audit_rejects_malformed_persistence_result() -> None:
         )
 
     audit_service.record_governance_evaluation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_governance_audit_rejects_success_without_durable_write_evidence() -> (
+    None
+):
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = (
+        _successful_audit_result_without_durable_write_evidence(),
+    )
+    governance_engine = GovernanceEngine(
+        registry=GovernanceRegistry(
+            rules=[
+                RequireApprovalForLiveModeRule(),
+            ],
+        )
+    )
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[
+            GovernanceTestWorkflow(),
+        ],
+        governance_engine=governance_engine,
+        automated_decision_audit_service=audit_service,
+    )
+
+    with pytest.raises(RuntimeError, match="did not persist a record"):
+        await runtime.facade.run_workflow(
+            workflow_name="governance_test_workflow",
+            mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+            execution_audit_capability=await _audit_capability(runtime, audit_service),
+        )
+
+    audit_service.record_governance_evaluation.assert_awaited_once()
+
+
+def _successful_audit_result_without_durable_write_evidence() -> (
+    AutomatedDecisionAuditPersistenceResult
+):
+    """Build a malformed boundary result to verify the facade fails closed."""
+
+    result = object.__new__(AutomatedDecisionAuditPersistenceResult)
+    object.__setattr__(result, "success", True)
+    object.__setattr__(result, "audit_record_id", "governance-audit-1")
+    object.__setattr__(result, "records_persisted", 0)
+    object.__setattr__(result, "errors", ())
+    object.__setattr__(result, "review_task_id", None)
+    return result
 
 
 async def _audit_capability(

@@ -14,6 +14,7 @@ from core.database.models.governance_audit import (
     GovernanceReviewTaskModel,
 )
 from core.storage.persistence.governance_audit import (
+    AutomatedDecisionAuditPersistenceResult,
     AutomatedDecisionEvidenceReference,
     AutomatedDecisionSubject,
     AutomatedGovernanceAuditOutcome,
@@ -36,6 +37,24 @@ from core.storage.persistence.serializers import (
 )
 from domain.authority import RiskTier
 from tests.helpers.risk_authority_examples import authority_metadata_for_tier
+
+
+@pytest.mark.parametrize(
+    ("records_persisted", "error"),
+    [
+        (0, "successful audit persistence"),
+        (-1, "records_persisted"),
+    ],
+)
+def test_successful_audit_persistence_result_requires_positive_durable_evidence(
+    records_persisted: int,
+    error: str,
+) -> None:
+    with pytest.raises(ValueError, match=error):
+        AutomatedDecisionAuditPersistenceResult.succeeded(
+            "policy-audit-1",
+            records_persisted=records_persisted,
+        )
 
 
 @pytest.mark.asyncio

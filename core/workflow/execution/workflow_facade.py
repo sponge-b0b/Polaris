@@ -1006,7 +1006,11 @@ class WorkflowFacade:
                     f"Automated {evaluation_kind} audit persistence returned "
                     "invalid result."
                 )
+            if result.success and result.records_persisted > 0:
+                continue
+
             if result.success:
+                errors.append("durable audit write did not persist a record")
                 continue
 
             result_errors = tuple(str(error) for error in result.errors)

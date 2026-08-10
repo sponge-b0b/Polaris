@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
 from unittest.mock import AsyncMock, Mock
@@ -21,6 +22,7 @@ from application.governance import (
     GovernanceReviewDecisionQuery,
     GovernanceReviewResolutionRequest,
     GovernanceReviewTaskQuery,
+    GovernedOutputReleaseRequest,
     GovernedWorkflowExecutionService,
 )
 from core.database.models.governance_audit import (
@@ -60,7 +62,7 @@ from core.workflow.bootstrap.workflow_bootstrap import (
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.models.workflow_node_definition import WorkflowNodeDefinition
-from domain.authority import RiskTier, classify_risk_authority
+from domain.authority import IntendedSink, RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     DecisionEvidencePacket,
@@ -80,6 +82,7 @@ TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 TICKET_134_PACKET_ID = "ticket-134-packet"
 TICKET_138_PACKET_ID = "ticket-138-packet"
 TICKET_143_PACKET_ID = "ticket-143-packet"
+TICKET_153_PACKET_ID = "ticket-153-packet"
 
 
 class GovernanceAuditRuntimeNode(RuntimeNode):
@@ -444,6 +447,141 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
 
 
 @pytest.mark.asyncio
+async def test_sink_scoped_review_tasks_isolate_approval_and_release_state(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    publication_authority = classify_risk_authority(
+        recommendation_explanation_authority_input(),
+    )
+    promotion_authority = replace(
+        publication_authority,
+        intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+    )
+    subject = AutomatedDecisionSubject("recommendation", "ticket-153-rec")
+    evidence = AutomatedDecisionEvidenceReference(TICKET_153_PACKET_ID, 1)
+    governance_result = GovernanceResult.require_approval(
+        rule_name="ticket_153_governance_rule",
+        message="Each release sink requires independent human review.",
+        reason="ticket_153_requires_approval",
+        metadata={"authority_subject_family": "recommendation"},
+    )
+
+    await _delete_ticket_153_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            publication_result = await service.record_governance_decision(
+                context=AutomatedDecisionAuditContext(
+                    subject=subject,
+                    authority=publication_authority,
+                    evidence=evidence,
+                ),
+                result=governance_result,
+            )
+            promotion_result = await service.record_governance_decision(
+                context=AutomatedDecisionAuditContext(
+                    subject=subject,
+                    authority=promotion_authority,
+                    evidence=evidence,
+                ),
+                result=governance_result,
+            )
+            publication_upsert_result = await service.record_governance_decision(
+                context=AutomatedDecisionAuditContext(
+                    subject=subject,
+                    authority=publication_authority,
+                    evidence=evidence,
+                ),
+                result=governance_result,
+            )
+
+            assert publication_result.review_task_id is not None
+            assert promotion_result.review_task_id is not None
+            assert publication_result.review_task_id != promotion_result.review_task_id
+            assert publication_upsert_result.review_task_id == (
+                publication_result.review_task_id
+            )
+
+        async with postgres_session_factory() as session:
+            service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            publication_states = await service.list_governance_review_states(
+                GovernanceReviewTaskQuery(
+                    subject_type=subject.subject_type,
+                    subject_id=subject.subject_id,
+                    intended_sink=publication_authority.intended_sink.value,
+                    evidence_packet_id=evidence.packet_id,
+                    evidence_packet_version=evidence.packet_version,
+                ),
+            )
+            promotion_states = await service.list_governance_review_states(
+                GovernanceReviewTaskQuery(
+                    subject_type=subject.subject_type,
+                    subject_id=subject.subject_id,
+                    intended_sink=promotion_authority.intended_sink.value,
+                    evidence_packet_id=evidence.packet_id,
+                    evidence_packet_version=evidence.packet_version,
+                ),
+            )
+
+            assert len(publication_states) == 1
+            assert len(promotion_states) == 1
+            publication_task = publication_states[0].task
+            promotion_task = promotion_states[0].task
+            assert publication_task.review_task_id == publication_result.review_task_id
+            assert promotion_task.review_task_id == promotion_result.review_task_id
+            assert publication_task.intended_sink == IntendedSink.RECOMMENDATION.value
+            assert (
+                promotion_task.intended_sink == IntendedSink.DURABLE_DOMAIN_RECORD.value
+            )
+
+            await service.resolve_governance_review_task(
+                GovernanceReviewResolutionRequest(
+                    review_task_id=publication_task.review_task_id,
+                    outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    reviewer=_reviewer(),
+                    rationale="Approve only the recommendation publication sink.",
+                    reviewed_evidence=publication_task.evidence,
+                    review_scope=publication_task.review_scope,
+                ),
+            )
+
+            publication_release = await service.evaluate_governed_output_release(
+                GovernedOutputReleaseRequest(
+                    authority=publication_authority,
+                    subject=subject,
+                    evidence=evidence,
+                    review_scope=publication_task.review_scope,
+                    requested_action=publication_task.requested_action,
+                    boundary_name="ticket-153 recommendation publication",
+                ),
+            )
+            promotion_release = await service.evaluate_governed_output_release(
+                GovernedOutputReleaseRequest(
+                    authority=promotion_authority,
+                    subject=subject,
+                    evidence=evidence,
+                    review_scope=promotion_task.review_scope,
+                    requested_action=promotion_task.requested_action,
+                    boundary_name="ticket-153 durable promotion",
+                ),
+            )
+
+        assert publication_release.allowed is True
+        assert publication_release.review_task_id == publication_task.review_task_id
+        assert promotion_release.allowed is False
+        assert promotion_release.review_task_id == promotion_task.review_task_id
+        assert promotion_release.approval_state is (
+            GovernanceReviewApprovalState.PENDING_REVIEW
+        )
+    finally:
+        await _delete_ticket_153_records(postgres_session_factory)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("result", "outcome", "blocks_execution"),
     (
@@ -632,6 +770,24 @@ async def _delete_ticket_143_records(
                 == TICKET_143_PACKET_ID,
             )
         )
+        await session.commit()
+
+
+async def _delete_ticket_153_records(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        for model in (
+            GovernanceReviewDecisionModel,
+            GovernanceResidualRiskAcceptanceModel,
+            GovernanceReviewTaskModel,
+            AutomatedGovernanceAuditRecordModel,
+        ):
+            await session.execute(
+                delete(model).where(
+                    model.evidence_packet_id == TICKET_153_PACKET_ID,
+                )
+            )
         await session.commit()
 
 

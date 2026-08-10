@@ -32,6 +32,7 @@ class DeterministicGoldenWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
+        decision_evidence_packet: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -73,7 +74,7 @@ class DeterministicGoldenWorkflowFacade:
 async def test_golden_backtest_verifies_full_decision_chain_and_is_repeatable() -> None:
     scenario = _golden_scenario()
     service = BacktestApplicationService(
-        workflow_facade=DeterministicGoldenWorkflowFacade(),
+        governed_workflow_execution_service=DeterministicGoldenWorkflowFacade(),
         clock=lambda: _FIXED_TIME,
         run_id_factory=lambda: "backtest-golden",
     )
@@ -143,7 +144,7 @@ async def test_strategy_hypothesis_scenarios_are_deterministically_verified(
         )
     )
     service = BacktestApplicationService(
-        workflow_facade=DeterministicGoldenWorkflowFacade(
+        governed_workflow_execution_service=DeterministicGoldenWorkflowFacade(
             node_outputs=_golden_node_outputs(
                 strategy_output=_strategy_output_for_case(case_name)
             )
@@ -183,7 +184,7 @@ async def test_failed_expected_outcome_fails_run_with_attributable_evidence() ->
         )
     )
     service = BacktestApplicationService(
-        workflow_facade=DeterministicGoldenWorkflowFacade(),
+        governed_workflow_execution_service=DeterministicGoldenWorkflowFacade(),
         clock=lambda: _FIXED_TIME,
         run_id_factory=lambda: "backtest-failed-verification",
     )

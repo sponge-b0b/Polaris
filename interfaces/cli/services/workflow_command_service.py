@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
+from domain.decision_evidence import DecisionEvidencePacket
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
     WorkflowRenderEnvelope,
@@ -39,6 +41,7 @@ class WorkflowRunCommandRequest:
         default_factory=dict,
     )
     workflow_inputs: Mapping[str, Any] | None = None
+    decision_evidence_packet: DecisionEvidencePacket | None = None
     plugin_dirs: tuple[Path, ...] = ()
     error_summary: Mapping[str, Any] = field(
         default_factory=dict,
@@ -152,6 +155,11 @@ class WorkflowCommandService:
             return await self._execute_with_runtime(
                 request,
                 runtime=scope.runtime,
+                governed_execution_service=(
+                    scope.get(GovernedWorkflowExecutionService)
+                    if _is_governed_facade(scope.runtime.facade)
+                    else None
+                ),
             )
 
     async def _execute_with_runtime(
@@ -159,6 +167,7 @@ class WorkflowCommandService:
         request: WorkflowRunCommandRequest,
         *,
         runtime: WorkflowBootstrapResult,
+        governed_execution_service: GovernedWorkflowExecutionService | None,
     ) -> Any:
 
         subscription: WorkflowProgressSubscription | None = None
@@ -195,7 +204,9 @@ class WorkflowCommandService:
                 )
 
             workflow_task = asyncio.create_task(
-                runtime.facade.run_workflow(
+                self._run_workflow(
+                    runtime=runtime,
+                    governed_execution_service=governed_execution_service,
                     workflow_name=request.workflow_name,
                     execution_id=request.execution_id,
                     mode=request.mode,
@@ -203,6 +214,7 @@ class WorkflowCommandService:
                     metadata=dict(
                         request.metadata,
                     ),
+                    decision_evidence_packet=request.decision_evidence_packet,
                 )
             )
             if control_session is not None:
@@ -216,6 +228,35 @@ class WorkflowCommandService:
         finally:
             if subscription is not None:
                 subscription.stop()
+
+    async def _run_workflow(
+        self,
+        *,
+        runtime: WorkflowBootstrapResult,
+        governed_execution_service: GovernedWorkflowExecutionService | None,
+        workflow_name: str,
+        execution_id: str | None,
+        mode: str,
+        workflow_inputs: Mapping[str, Any] | None,
+        metadata: dict[str, Any],
+        decision_evidence_packet: DecisionEvidencePacket | None,
+    ) -> Any:
+        if governed_execution_service is not None:
+            return await governed_execution_service.run_workflow(
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                mode=mode,
+                workflow_inputs=workflow_inputs,
+                metadata=metadata,
+                decision_evidence_packet=decision_evidence_packet,
+            )
+        return await runtime.facade.run_workflow(
+            workflow_name=workflow_name,
+            execution_id=execution_id,
+            mode=mode,
+            workflow_inputs=workflow_inputs,
+            metadata=metadata,
+        )
 
     def _with_execution_id(
         self,
@@ -246,3 +287,10 @@ class WorkflowCommandService:
             "interface": "cli",
             "command": "workflow run",
         }
+
+
+def _is_governed_facade(facade: object) -> bool:
+    return (
+        getattr(facade, "policy_engine", None) is not None
+        or getattr(facade, "governance_engine", None) is not None
+    )

@@ -34,6 +34,7 @@ class FakeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
+        decision_evidence_packet: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -104,7 +105,9 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
     class FakeScope:
         def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
-                return BacktestApplicationService(facade)
+                return BacktestApplicationService(
+                    governed_workflow_execution_service=facade
+                )
             if dependency_type is ServiceRunner:
                 return DirectServiceRunner()
             raise AssertionError(f"Unexpected dependency: {dependency_type}")

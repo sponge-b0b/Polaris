@@ -22,8 +22,10 @@ def _runtime_scope_from_builder(
 ) -> Callable[..., Any]:
     @asynccontextmanager
     async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
+        runtime = await builder(**kwargs)
         yield SimpleNamespace(
-            runtime=await builder(**kwargs),
+            runtime=runtime,
+            get=lambda _: runtime.governed_execution_service,
         )
 
     return scope
@@ -100,6 +102,54 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
         ]["directional_score"]
         == 0.42
     )
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_uses_governed_execution_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    class FakeFacade:
+        policy_engine = object()
+
+        def workflow_exists(self, workflow_name: str) -> bool:
+            return workflow_name == "morning_report"
+
+    class FakeGovernedExecutionService:
+        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+            captured.update(kwargs)
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": kwargs["execution_id"],
+                "execution_result": {"success": True, "final_context": {}},
+            }
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        governed_execution_service = FakeGovernedExecutionService()
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            execution_id="exec-governed",
+            decision_evidence_packet=None,
+        )
+    )
+
+    assert envelope.success is True
+    assert captured["execution_id"] == "exec-governed"
+    assert captured["decision_evidence_packet"] is None
 
 
 @pytest.mark.asyncio

@@ -28,6 +28,7 @@ from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
+from domain.decision_evidence import DecisionEvidencePacket
 
 
 def _system_clock() -> datetime:
@@ -38,14 +39,16 @@ def _new_backtest_run_id() -> str:
     return f"backtest-{uuid4().hex}"
 
 
-class BacktestWorkflowFacade(Protocol):
+class BacktestGovernedWorkflowExecutionService(Protocol):
     """
     Minimal WorkflowFacade contract required by backtesting orchestration.
     """
 
     async def run_workflow(
         self,
+        *,
         workflow_name: str,
+        decision_evidence_packet: DecisionEvidencePacket | None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -64,18 +67,21 @@ class BacktestApplicationService(
     Canonical application boundary for platform backtesting.
 
     Backtest execution is runtime-native: each simulation timestamp delegates to
-    WorkflowFacade.run_workflow with mode="backtest" and simulation_time set.
+    the governed workflow execution service with mode="backtest" and simulation
+    time.
     """
 
     service_name = "backtest_application_service"
 
     def __init__(
         self,
-        workflow_facade: BacktestWorkflowFacade | None = None,
+        governed_workflow_execution_service: (
+            BacktestGovernedWorkflowExecutionService | None
+        ) = None,
         clock: Callable[[], datetime] = _system_clock,
         run_id_factory: Callable[[], str] = _new_backtest_run_id,
     ) -> None:
-        self.workflow_facade = workflow_facade
+        self.governed_workflow_execution_service = governed_workflow_execution_service
         self.clock = clock
         self.run_id_factory = run_id_factory
 
@@ -123,7 +129,7 @@ class BacktestApplicationService(
     ) -> BacktestResult:
         backtest_run_id = self.run_id_factory()
 
-        if self.workflow_facade is None:
+        if self.governed_workflow_execution_service is None:
             return BacktestResult.validated(
                 backtest_run_id=backtest_run_id,
                 scenario=request.scenario,
@@ -141,8 +147,8 @@ class BacktestApplicationService(
         backtest_run_id: str,
         request: BacktestRunRequest,
     ) -> BacktestResult:
-        if self.workflow_facade is None:
-            raise RuntimeError("WorkflowFacade is required for backtest execution.")
+        if self.governed_workflow_execution_service is None:
+            raise RuntimeError("Governed workflow execution service is required.")
 
         started_at = _utc_timestamp(self.clock())
         steps: list[BacktestStepResult] = []
@@ -162,7 +168,10 @@ class BacktestApplicationService(
                 persist_results=request.persist_results,
                 checkpoint_workflow_runs=request.checkpoint_workflow_runs,
             )
-            workflow_result = await self._run_workflow_step(step_request)
+            workflow_result = await self._run_workflow_step(
+                step_request,
+                decision_evidence_packet=request.decision_evidence_packet,
+            )
             step_result = _step_result_from_workflow_result(
                 scenario=request.scenario,
                 simulation_time=simulation_time,
@@ -224,11 +233,14 @@ class BacktestApplicationService(
     async def _run_workflow_step(
         self,
         request: BacktestWorkflowStepRequest,
+        *,
+        decision_evidence_packet: DecisionEvidencePacket | None,
     ) -> Any:
-        if self.workflow_facade is None:
-            raise RuntimeError("WorkflowFacade is required for backtest execution.")
-        return await self.workflow_facade.run_workflow(
+        if self.governed_workflow_execution_service is None:
+            raise RuntimeError("Governed workflow execution service is required.")
+        return await self.governed_workflow_execution_service.run_workflow(
             workflow_name=request.workflow_name,
+            decision_evidence_packet=decision_evidence_packet,
             execution_id=request.execution_id,
             mode="backtest",
             workflow_inputs=request.workflow_inputs(),

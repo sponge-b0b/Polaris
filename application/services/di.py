@@ -1,5 +1,6 @@
 from dishka import Provider, Scope, provide
 
+from application.governance import GovernedWorkflowExecutionService
 from application.services.backtesting import BacktestApplicationService
 from application.services.base import ServiceRunner
 from application.services.macro.macro_service import MacroService
@@ -18,7 +19,6 @@ from core.telemetry.emitters.application_service_telemetry import (
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
-from core.workflow.execution.workflow_facade import WorkflowFacade
 from integration.providers.macro.macro_provider import MacroProvider
 from integration.providers.market_data.market_data_provider import MarketDataProvider
 from integration.providers.market_events.market_events_provider import (
@@ -66,13 +66,13 @@ class AppServicesDIProvider(Provider):
             policy_engine=policy_engine,
         )
 
-    @provide
+    @provide(scope=Scope.REQUEST)
     def provide_backtest_application_service(
         self,
-        workflow_facade: WorkflowFacade,
+        governed_workflow_execution_service: GovernedWorkflowExecutionService,
     ) -> BacktestApplicationService:
         return BacktestApplicationService(
-            workflow_facade=workflow_facade,
+            governed_workflow_execution_service=governed_workflow_execution_service,
         )
 
     # ====================================================

@@ -11,8 +11,8 @@
 * `RuntimeContext` is the canonical workflow execution snapshot and not a business aggregate, because runtime state must support execution/replay without becoming the durable domain record owner. (source: docs/current/platform-architecture-ownership-ledger.md)
 * `EventBus` and typed `RuntimeEvent` notifications are the canonical runtime notification path, because telemetry and observers should project runtime facts without taking over execution ownership. (source: docs/adr/0003-platform-runtime-events-telemetry-trace-propagation.md)
 * Workflow facade governance and policy preflight evaluations must stay on the canonical runtime/application seam, including handoff to application-owned automated decision audit when evidence-scoped audit context is supplied, because runtime execution cannot bypass approval-lifecycle evidence. (source: docs/adr/0001-runtime-workflow-platform-execution-boundaries.md; docs/adr/0010-governance-approval-lifecycle-contestability-residual-risk.md)
+* Governed facade execution requires the opaque audit capability issued by the request-scoped governed execution service, while runtime-only facades remain usable when neither enforcement engine is configured, because enforced outcomes must not lose their authoritative audit composition. (source: docs/adr/0011-dependency-composition-governed-workflow-audit-composition.md)
 
 ### Planned
 
-* **Mandatory governed facade audit capability** — accepted, implementation pending. Facade execution with policy or governance enforcement must require the execution-audit capability issued by the request-scoped governed execution service and fail closed otherwise, because ordinary facade execution cannot silently omit automated decision audit. (source: docs/adr/0011-dependency-composition-governed-workflow-audit-composition.md)
 * **Runtime approvals and scheduling expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

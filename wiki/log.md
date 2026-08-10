@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-10] governed workflow audit composition | implemented as active execution invariants
+
+Promoted ADR-0011's request-scoped governed workflow audit composition after CLI and backtest production paths migrated to the governed execution service.
+
 ## [2026-08-09] bootstrap | 18 entities initialized, 4 cross-cutting documents indexed
 
 Initialized the first authoritative Living Entity Wiki registry and entity pages from the owner-approved entity boundary determination and normalized documentation set.

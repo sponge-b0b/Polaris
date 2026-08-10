@@ -63,11 +63,35 @@ Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` 
 
 If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
 
-If implementation exposes an unresolved material architectural decision, invoke `$architecture-remediation` and stop. Do not resolve it or create Wayfinder re-entry artifacts here.
-
 A decision is material when it establishes or changes a durable invariant, canonical owner or path, architectural boundary, dependency direction, or lifecycle responsibility.
 
 Ordinary local implementation choices where the viable options conform to current architectural authority are not material. Choose the simplest conforming option and continue.
+
+If implementation exposes an unresolved material architectural decision, do not resolve it locally. Halt with a **Human Handoff Intercept** instructing the user to invoke `$architecture-remediation`.
+
+Preserve the discovery context that caused the halt so the next workflow does not have to rediscover it. Include:
+
+* current ticket title and URL;
+* concise unresolved architecture question or conflict;
+* evidence/discovery context establishing the problem;
+* why the decision is material;
+* affected entities and governing ADR/doc references already known.
+
+Do not propose or imply the architectural resolution.
+
+Use:
+
+> ⚠️ **Implementation is blocked by an unresolved material architecture decision.**
+>
+> Please run:
+>
+> ```
+> $architecture-remediation - <Current Ticket Title> (<Ticket URL>) — <concise unresolved architecture question>
+> ```
+>
+> **Discovery context:** <concise evidence explaining why implementation cannot proceed>
+>
+> **Material architecture involved:** <canonical ownership/path, boundary, dependency direction, lifecycle responsibility, or other material consequence>
 
 After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 

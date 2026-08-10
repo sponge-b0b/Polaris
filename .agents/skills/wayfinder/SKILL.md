@@ -1,6 +1,7 @@
 ---
 name: wayfinder
 description: Plan a huge chunk of work — more than one agent session can hold — as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear.
+compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
 
@@ -32,6 +33,40 @@ Treat unresolved material architecture questions as decision tickets. Before the
 * invoke `$wiki-sync` when the resulting authoritative change requires derived wiki maintenance.
 
 Do not duplicate those skills' lifecycle rules here. Reconciling architectural decision records is part of resolving the map, not implementing the destination.
+
+## Repository Persistence
+
+This invariant applies whenever `$wayfinder` creates or modifies repository files, whether during initial Wayfinding or later decision/re-entry work.
+
+Before repository mutation, note any pre-existing working-tree changes so they are not absorbed into Wayfinder's commit.
+
+When `$wayfinder` is the parent workflow, repository-writing child skills contribute their changes to the Wayfinder commit rather than creating separate commits.
+
+If the current Wayfinder session creates or modifies repository files:
+
+1. stage only files created or modified by the current Wayfinder work;
+2. invoke `$conventional-commits`;
+3. commit the Wayfinder-owned changes;
+4. push and establish upstream if necessary:
+
+   ```bash
+   git push -u origin HEAD
+   ```
+
+Do not use `git add .` or otherwise stage unrelated working-tree changes.
+
+Tracker-only changes do not require a repository commit.
+
+If no repository files changed, skip commit and push.
+
+If staging, commit, or push fails:
+
+* do not mark the affected Wayfinder decision or map complete;
+* do not close a decision whose repository-side architecture record has not been persisted;
+* do not present a downstream Human Handoff;
+* report the failure.
+
+A Wayfinder decision that changes repository-side architectural records is not complete until those records are committed and pushed.
 
 ## Refer by name
 
@@ -93,33 +128,33 @@ The answer isn't part of the body — it's recorded on resolution (see [Work thr
 
 ## Ticket Types
 
-Every ticket is either **HITL** — human in the loop, worked *with* a human who speaks for themselves — or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
+Every ticket is either **HITL** — human in the loop, worked *with* a human who speaks for themselves — or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it.
 
 * **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a `$research` **subagent**. Use when knowledge outside the current working directory is required.
 * **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to — an outline, a rough take, a stub, or UI/logic code via `$prototype`. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
 * **Grilling** (HITL): Conversation via `$grilling` and `$domain-modeling`, one question at a time. The default case.
-* **Task** (HITL or AFK): Manual work that must happen before a *decision* can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that *does* rather than decides — and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
+* **Task** (HITL or AFK): Manual work that must happen before a *decision* can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. The agent drives it alone where it can; otherwise it hands the human a precise checklist. Resolved when the work is done.
 
 ## Fog of war
 
 The map is *deliberately* incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
 
-The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier *toward* the destination — everything here is in scope, just not sharp enough to ticket. Write as loosely or as fully as the view allows; it doubles as a signpost for collaborators reading where the effort is headed.
+The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier *toward* the destination — everything here is in scope, just not sharp enough to ticket.
 
 **Fog or ticket?** The test is whether you can state the question precisely now — *not* whether you can answer it now.
 
 * **Ticket when** the question is already sharp — even if it's blocked and you can't act on it yet.
-* **Not yet specified when** you can't yet phrase it that sharply. Don't pre-slice the fog into ticket-sized pieces: it's coarser than a ticket, and one patch may graduate into several tickets, or none, once the frontier reaches it.
+* **Not yet specified when** you can't yet phrase it that sharply.
 
-**Not yet specified** excludes what's already decided (Decisions so far), what's already a live ticket, and what's out of scope (the next section).
+**Not yet specified** excludes what's already decided, what's already a live ticket, and what's out of scope.
 
 ## Out of scope
 
-Fog only ever gathers *toward* the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**. It gets its own **Out of scope** section on the map: work you've consciously ruled out of *this* effort. Scope, not sharpness, lands it here.
+Fog only ever gathers *toward* the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**.
 
 Out-of-scope work never graduates — the frontier stops at the destination — so it returns only if the destination is redrawn, and then as a fresh effort, not a resumption.
 
-Ruling something out of scope is a scoping act, not a step on the route. When a ticket that already exists turns out to sit past the destination — mis-scoped in while charting, or exposed by a resolution — **close it** (a closed ticket is unambiguously off the frontier) and leave one line in the **Out of scope** section: the gist plus why it's out of scope, linking the closed ticket. It stays out of **Decisions so far**, which records the route actually walked — a scope boundary isn't a step on it.
+Ruling something out of scope is a scoping act, not a step on the route. When an existing ticket turns out to sit past the destination, close it and leave one line in **Out of scope** linking the closed ticket. It stays out of **Decisions so far**.
 
 ## Invocation
 
@@ -135,19 +170,22 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
 
 2. **Workflow Routing**:
 
-   * **IF** the labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time. The default case.
+   * **IF** the labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time.
    * **ELSE** based on the Ticket Type, proceed via `$research`, `$prototype`, or route to **AFK** mode and execute the task autonomously using local tools as needed.
 
 ### Chart the map
 
 User invokes with a loose idea.
 
-1. **Name the destination.** Run a `$grilling` and `$domain-modeling` session to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
-2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. For software architecture, include unresolved architectural consequences in that frontier. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Continue the grilling session to completion instead: the whole effort collapses into a single `$grill-with-docs` session, ending with the destination reached (the spec or decision written down), not a map.
-3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
-5. **Fire the research subagents.** For each `research` ticket you just created, spin up a `$research` subagent to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket.
-6. Stop — charting is one session's work; it hand-resolves nothing.
+1. **Name the destination.** Run a `$grilling` and `$domain-modeling` session to pin down what this map is finding its way to.
+2. **Map the frontier.** Grill again, breadth-first, surfacing the open decisions and first steps takeable now. For software architecture, include unresolved architectural consequences. If this surfaces no fog, continue the grilling session to completion instead; the effort collapses into a single `$grill-with-docs` session ending with the destination reached rather than a map.
+3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, fog sketched into **Not yet specified**.
+4. **Create the tickets you can specify now** as child issues of the map, then wire blocking edges in a second pass.
+5. **Fire the research subagents.** For each `research` ticket created, spin up a `$research` subagent to resolve it in parallel, capturing findings on a throwaway `research/<name>` branch with a context pointer from the ticket.
+6. **Persist repository artifacts.** If this Wayfinder session created or modified repository files, complete **Repository Persistence** before declaring the session complete.
+7. Stop — charting is one session's work; it hand-resolves nothing.
+
+The same persistence rule applies when charting collapses into a single `$grill-with-docs` session: repository artifacts must be committed and pushed before that session is considered complete.
 
 ### Work through the map
 
@@ -156,10 +194,14 @@ User invokes with a map or one of its decision tickets. If given a ticket, resol
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
 3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `$grilling` and `$domain-modeling`. For architectural decisions, apply **Resolve architecture before handoff**.
-4. Record the resolution: reconcile any required authoritative architecture records, post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
-5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+4. **Persist the resolution.**
 
-The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, or while a resolved architectural decision still requires reconciliation with its authoritative records.
+   * reconcile any required authoritative architecture records;
+   * if repository files changed, complete **Repository Persistence**;
+   * only after required repository persistence succeeds, post the answer as a resolution comment, close the issue, and append its context pointer to the map's **Decisions so far**.
+5. Add newly surfaced tickets and wire dependencies; graduate newly specifiable fog; move newly out-of-scope work out of the frontier. If the decision invalidates other parts of the map, update or delete those tickets.
+
+The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, while a resolved architectural decision still requires reconciliation with its authoritative records, or while Wayfinder-owned repository changes remain uncommitted or unpushed.
 
 When the route becomes clear and the destination is an implementation specification, halt with a Human Handoff Intercept:
 

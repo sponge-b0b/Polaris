@@ -12,12 +12,14 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestResult,
     BacktestScenario,
 )
 from application.services.base import ServiceRunner
+from application.services.base.service_result import ServiceResult
 from interfaces.cli.app import create_app
 from interfaces.cli.services.backtest_command_service import (
     BacktestCommandService,
@@ -139,6 +141,64 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
     assert facade.calls[0]["mode"] == "backtest"
     assert facade.calls[0]["archive_on_completion"] is False
     assert facade.calls[0]["checkpoint_on_completion"] is False
+
+
+@pytest.mark.asyncio
+async def test_backtest_command_preserves_typed_evidence_required_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    scenario_file = tmp_path / "scenario.json"
+    scenario_file.write_text(
+        json.dumps(
+            {
+                "scenario_id": "evidence-required",
+                "name": "Evidence required",
+                "workflow_name": "morning_report",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-01",
+                "symbols": ["SPY"],
+                "benchmark_symbol": "SPY",
+                "initial_cash": "100000",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FailingServiceRunner:
+        async def run(self, service: Any, request: Any) -> ServiceResult[Any]:
+            return ServiceResult.failed(
+                request_id="backtest-evidence-required",
+                request_name="backtest run",
+                error=GovernedWorkflowExecutionEvidenceRequiredError(
+                    "canonical decision evidence is required"
+                ),
+            )
+
+    class FakeScope:
+        def get(self, dependency_type: type[Any]) -> Any:
+            if dependency_type is BacktestApplicationService:
+                return object()
+            if dependency_type is ServiceRunner:
+                return FailingServiceRunner()
+            raise AssertionError(f"Unexpected dependency: {dependency_type}")
+
+    @asynccontextmanager
+    async def fake_cli_runtime_scope(**kwargs: object) -> AsyncIterator[FakeScope]:
+        yield FakeScope()
+
+    monkeypatch.setattr(
+        "interfaces.cli.services.backtest_command_service.cli_runtime_scope",
+        fake_cli_runtime_scope,
+    )
+
+    with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
+        await BacktestCommandService().run_backtest(
+            BacktestRunCommandRequest(
+                scenario_path=scenario_file,
+                persist_results=False,
+            )
+        )
 
 
 def test_backtest_help_lists_runtime_native_commands() -> None:

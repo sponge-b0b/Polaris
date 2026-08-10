@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from application.decision_evidence import DecisionEvidencePacketNotFoundError
 from application.governance import (
     AutomatedDecisionAuditContext,
     GovernedWorkflowExecutionEvidenceRequiredError,
@@ -38,6 +39,7 @@ from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
 from domain.authority import classify_risk_authority
+from domain.decision_evidence import DecisionEvidencePacket
 from tests.helpers.risk_authority_examples import workflow_curation_authority_input
 
 
@@ -228,6 +230,7 @@ async def test_governed_execution_requires_canonical_evidence_before_evaluation(
     execution_service = GovernedWorkflowExecutionService(
         workflow_facade=runtime.facade,
         automated_decision_audit_service=AsyncMock(),
+        decision_evidence_packet_persistence_service=AsyncMock(),
     )
 
     with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
@@ -237,6 +240,42 @@ async def test_governed_execution_requires_canonical_evidence_before_evaluation(
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
+
+
+@pytest.mark.asyncio
+async def test_governed_execution_fails_closed_when_packet_is_not_durable() -> None:
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+    )
+    packet = Mock(spec=DecisionEvidencePacket)
+    packet.packet_id = "missing-packet"
+    packet_persistence_service = AsyncMock()
+    packet_persistence_service.reconstruct_packet.side_effect = (
+        DecisionEvidencePacketNotFoundError("missing-packet")
+    )
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=AsyncMock(),
+        decision_evidence_packet_persistence_service=packet_persistence_service,
+    )
+
+    with pytest.raises(DecisionEvidencePacketNotFoundError):
+        await execution_service.run_workflow(
+            workflow_name="governance_test_workflow",
+            decision_evidence_packet=packet,
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+        )
+
+    packet_persistence_service.reconstruct_packet.assert_awaited_once_with(
+        "missing-packet"
+    )
 
 
 @pytest.mark.asyncio

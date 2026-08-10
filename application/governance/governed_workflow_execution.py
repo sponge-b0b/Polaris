@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from core.runtime.state.runtime_context import RuntimeContext
 from core.storage.persistence.governance_audit import AutomatedDecisionSubject
 from core.workflow.execution.workflow_facade import WorkflowFacade
@@ -30,9 +31,15 @@ class GovernedWorkflowExecutionService:
         *,
         workflow_facade: WorkflowFacade,
         automated_decision_audit_service: AutomatedDecisionAuditService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
     ) -> None:
         self._workflow_facade = workflow_facade
         self._automated_decision_audit_service = automated_decision_audit_service
+        self._decision_evidence_packet_persistence_service = (
+            decision_evidence_packet_persistence_service
+        )
 
     async def run_workflow(
         self,
@@ -47,7 +54,7 @@ class GovernedWorkflowExecutionService:
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> WorkflowRunResult:
-        capability = self._audit_capability_for_run(
+        capability = await self._audit_capability_for_run(
             execution_id=execution_id,
             packet=decision_evidence_packet,
         )
@@ -73,7 +80,7 @@ class GovernedWorkflowExecutionService:
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> WorkflowRunResult:
-        capability = self._audit_capability_for_run(
+        capability = await self._audit_capability_for_run(
             execution_id=context.execution_id,
             packet=decision_evidence_packet,
         )
@@ -86,7 +93,7 @@ class GovernedWorkflowExecutionService:
             execution_audit_capability=capability,
         )
 
-    def _audit_capability_for_run(
+    async def _audit_capability_for_run(
         self,
         *,
         execution_id: str | None,
@@ -99,12 +106,17 @@ class GovernedWorkflowExecutionService:
                 "Governed workflow execution requires a canonical decision evidence "
                 "packet."
             )
+        verified_packet = (
+            await self._decision_evidence_packet_persistence_service.reconstruct_packet(
+                packet.packet_id,
+            )
+        )
         audit_context = AutomatedDecisionAuditContext.from_packet(
             subject=AutomatedDecisionSubject(
                 subject_type="workflow",
-                subject_id=execution_id or packet.output_id,
+                subject_id=execution_id or verified_packet.output_id,
             ),
-            packet=packet,
+            packet=verified_packet,
         )
         return issue_workflow_execution_audit_capability(
             service=self._automated_decision_audit_service,

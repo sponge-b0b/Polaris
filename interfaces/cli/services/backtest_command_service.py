@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.persistence.backtesting import (
     BacktestPersistenceService,
     BacktestRunPersistenceFilters,
@@ -117,6 +118,10 @@ class BacktestCommandService:
                         "scenario_path": str(request.scenario_path),
                     },
                 ),
+            )
+        if result.error_type == GovernedWorkflowExecutionEvidenceRequiredError.__name__:
+            raise GovernedWorkflowExecutionEvidenceRequiredError(
+                result.error_message or "Canonical decision evidence is required."
             )
         result.raise_if_failed()
         if result.result is None:

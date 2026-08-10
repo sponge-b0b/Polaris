@@ -290,10 +290,16 @@ class ApplicationPersistenceDIProvider(Provider):
         self,
         workflow_facade: WorkflowFacade,
         automated_decision_audit_service: AutomatedDecisionAuditService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
     ) -> GovernedWorkflowExecutionService:
         return GovernedWorkflowExecutionService(
             workflow_facade=workflow_facade,
             automated_decision_audit_service=automated_decision_audit_service,
+            decision_evidence_packet_persistence_service=(
+                decision_evidence_packet_persistence_service
+            ),
         )
 
     @provide

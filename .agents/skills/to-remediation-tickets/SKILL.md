@@ -1,34 +1,34 @@
 ---
 name: to-remediation-tickets
-description: Invoked only by `$to-tickets` during a remediation re-invocation — not a standalone command. Reconciles a Spec Review or an existing Spec against already-linked tickets and returns only the actionable ticket delta.
+description: Invoked only by `$to-tickets` during remediation re-invocation — reconcile a Spec Review or existing Spec against linked tickets and return only the actionable ticket delta.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Remediation Tickets
 
-This skill is invoked by `$to-tickets` when:
+Invoked by `$to-tickets` when:
 
-* the source is a `$review-spec` parent issue titled `Spec Review: ...`; or
-* the source is an existing Spec that already has linked implementation tickets.
+* the source is a `Spec Review: ...` issue; or
+* an existing Spec already has linked implementation tickets.
 
-It replaces ordinary vertical-slice drafting for that invocation. Return the resulting ticket delta to `$to-tickets`; do not publish tickets here.
+Replace ordinary vertical slicing for this invocation. Return the delta to `$to-tickets`; do not publish here.
 
 ## 1. Resolve the Source
 
 ### Spec Review
 
-Recover the original Spec from the exact body line:
+Recover the original Spec from:
 
 ```markdown
 **Parent Spec:** #<spec_issue_number>
 ```
 
-The Spec Review issue remains the remediation source. The original Spec remains the branch owner.
+The Spec Review remains the remediation source. The original Spec remains the branch owner.
 
 ### Existing Spec
 
-Use the supplied Spec as the source and parent for any new implementation tickets.
+Use the supplied Spec as source and parent.
 
 Do not create another Spec, branch, or baseline.
 
@@ -36,54 +36,72 @@ Do not create another Spec, branch, or baseline.
 
 ### Spec Review
 
-Recover or synthesize the **Root Blocker Ledger** and acceptance matrix.
+Recover the latest **Root Blocker Ledger** and acceptance matrix, including later review/remediation updates.
 
-* Preserve stable root IDs (`RB-1`, `RB-2`, ...).
-* Group findings by durable invariant, not symptom.
-* Preserve affected surfaces/reference kinds and production-path obligations.
-* Preserve `Architecture decision required` and `Governing authority` for Architecture roots.
+* Preserve stable `RB-*` IDs and invariants.
+* Preserve root status, affected surfaces, production-path obligations, and unproven cells.
+* Preserve `Architecture decision required` and governing authority.
 * `Architecture decision required: No` is ordinary remediation.
-* If any root has `Architecture decision required: Yes`, halt and return it to `$review-spec`. Do not ticket unresolved architecture here.
+* If any unresolved root has `Architecture decision required: Yes`, halt and return it to `$review-spec`.
+
+Do not synthesize new roots here.
 
 ### Existing Spec
 
-Treat the current Spec as the required state.
+Treat the current Spec as required state.
 
-Do not reconstruct an older Spec revision. Existing linked tickets represent the work previously sliced from it.
+Do not reconstruct an older revision. Existing linked tickets represent previously sliced work.
 
 ## 3. Reconcile Against Existing Tickets
 
-Read the relevant existing linked tickets, including open and closed state, body, acceptance criteria, dependencies, and closing context when needed.
+Read relevant open and closed tickets, including body, acceptance criteria, dependencies, and closing context when needed.
 
-For each current requirement or root:
+For each current requirement or Root Blocker:
 
-* matching **open** ticket that still covers it → skip;
-* matching **open** ticket whose pending work must change → return an update;
-* matching **closed** ticket whose obligation is satisfied → skip;
-* matching **closed** ticket but current state requires additional work → create a new ticket;
+* matching **open** ticket still covering remaining work → skip;
+* matching **open** ticket whose pending work changed → return an update;
+* matching **closed** ticket and current obligation is actually satisfied → skip;
+* matching **closed** ticket but remediation remains → create a new ticket;
 * no matching ticket → create a new ticket.
 
-For existing open tickets whose work is no longer required by an amended Spec, return them for closure as superseded.
+A closed ticket is historical work evidence, **not proof that its requirement or Root Blocker is satisfied**.
 
-Before treating a closed ticket as sufficient, verify current source truth when the requirement or root can still be violated.
+Never reopen or rewrite a closed ticket to represent remaining work.
 
-Do not reopen or rewrite closed tickets to represent newly required work.
+### Unresolved Root Rule
+
+For every Root Blocker currently `open`, `regressed`, or `unproven`, determine whether active work is still required.
+
+* **open** → remediation remains; an open ticket must cover it or a new ticket is required.
+* **regressed** → create/reuse active remediation; if prior covering work is closed, create a new `Regression:` ticket referencing it.
+* **unproven** → determine whether the missing obligation can be established by verification alone.
+
+  * verification evidence alone is sufficient → no implementation ticket; preserve the unproven verification obligation;
+  * implementation/remediation is still required, or closed work failed to establish the required behavior → create a new remediation ticket.
+
+Do not skip an unresolved root merely because one or more covering tickets are closed.
+
+Before treating any closed ticket as sufficient, reconcile it against the **current source state and current Root Blocker status**.
+
+For open tickets no longer required by an amended Spec, return them for closure as superseded.
 
 ## 4. Mode-Specific Delta Rules
 
 ### Spec Review
 
-Create the smallest root-complete remediation track.
+Create the smallest **root-complete** remediation track.
 
 Each ticket must carry:
 
-* root blocker ID and invariant;
-* affected sibling surfaces/reference kinds;
+* Root Blocker ID and invariant;
+* remaining affected sibling surfaces/reference kinds;
 * production-path acceptance criteria;
 * required negative/regression proof;
-* remaining unproven acceptance-matrix cells when applicable.
+* remaining unproven acceptance cells when applicable.
 
-If a closed ticket claimed to fix the root but current evidence still violates it, create a new `Regression:` ticket referencing the prior ticket.
+If closed work claimed to fix a root but the current review still demonstrates the violation, create a new `Regression:` ticket referencing the prior ticket.
+
+If the root is merely `unproven`, create a new ticket only when implementation work is needed; otherwise preserve it as a verification obligation.
 
 Do not create one ticket per symptom when several symptoms share one root.
 
@@ -91,23 +109,23 @@ Do not create one ticket per symptom when several symptoms share one root.
 
 Reconcile semantically, not by wording alone.
 
-If an amended requirement changes pending work, prefer updating the existing open ticket when it still naturally owns that work.
+If an amended requirement changes pending work, update the existing open ticket when it still naturally owns that work.
 
-If a closed ticket correctly satisfied the old requirement but the amended Spec now requires more, create an ordinary new ticket for the delta. This is not a regression unless previously required behavior actually broke.
+If a closed ticket satisfied the old requirement but the amended Spec now requires more, create an ordinary new ticket for the delta. It is a regression only when previously required behavior actually broke.
 
 Return dependency changes when new work must block an existing open ticket.
 
 ## 5. Preserve Normal Ticket Semantics
 
-Every new or updated ticket must use `$to-tickets`'s normal rules and templates, including:
+Every new or updated ticket must follow `$to-tickets` rules, including:
 
 * tracer-bullet scope unless a wide-refactor exception applies;
 * applicable Architecture context;
 * correct blocking edges;
 * the existing Spec's shared `Ticket branch`;
-* acceptance criteria proving the required production behavior.
+* acceptance criteria proving required production behavior.
 
-`$to-tickets` owns approval, publishing, parent-child linking, dependency wiring, labels, and branch metadata.
+`$to-tickets` owns approval, publishing, parent-child linking, dependencies, labels, and branch metadata.
 
 ## 6. Return the Delta
 
@@ -126,13 +144,22 @@ Close as superseded:
 Dependency changes:
 - ...
 
+Verification-only obligations:
+- RB-<n>: <remaining evidence>
+
 Skipped:
-- already tracked: ...
-- already satisfied: ...
+- already tracked by open ticket: ...
+- already satisfied by current source: ...
 ```
 
-For Spec Review remediation, also report any regressions, open root blocker IDs, and unproven acceptance-matrix cells.
+For Spec Review remediation, also report:
 
-If the delta is empty, report that the existing tickets already represent the current source.
+* open/regressed Root Blocker IDs;
+* unproven Root Blockers and whether they are remediation-required or verification-only;
+* regressions and referenced closed tickets.
 
-Then return control to `$to-tickets` at its approval/publishing step.
+Never report an unresolved Root Blocker as skipped merely because its covering tickets are closed.
+
+If the delta is empty, state why every unresolved root requires no ticket delta. Do not claim closed tickets establish satisfaction unless current source evidence does.
+
+Return control to `$to-tickets` at its approval/publishing step.

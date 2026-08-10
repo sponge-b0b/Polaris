@@ -83,6 +83,7 @@ TICKET_134_PACKET_ID = "ticket-134-packet"
 TICKET_138_PACKET_ID = "ticket-138-packet"
 TICKET_143_PACKET_ID = "ticket-143-packet"
 TICKET_153_PACKET_ID = "ticket-153-packet"
+TICKET_154_PACKET_ID = "ticket-154-packet"
 
 
 class GovernanceAuditRuntimeNode(RuntimeNode):
@@ -582,6 +583,107 @@ async def test_sink_scoped_review_tasks_isolate_approval_and_release_state(
 
 
 @pytest.mark.asyncio
+async def test_governed_release_requires_exact_postgres_residual_risk_scope(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    authority = classify_risk_authority(
+        recommendation_explanation_authority_input(),
+    )
+    subject = AutomatedDecisionSubject("recommendation", "ticket-154-rec")
+    evidence = AutomatedDecisionEvidenceReference(TICKET_154_PACKET_ID, 1)
+    narrow_scope = "recommendation publication only"
+    broader_scope = "recommendation publication and durable promotion"
+
+    await _delete_ticket_154_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            service = AutomatedDecisionAuditService(
+                repository,
+            )
+            governance_result = await service.record_governance_decision(
+                context=AutomatedDecisionAuditContext(
+                    subject=subject,
+                    authority=authority,
+                    evidence=evidence,
+                ),
+                result=GovernanceResult.require_approval(
+                    rule_name="ticket_154_governance_rule",
+                    message="Scoped residual-risk acceptance is required.",
+                    reason="ticket_154_requires_approval",
+                    metadata={"authority_subject_family": "recommendation"},
+                ),
+            )
+
+            assert governance_result.review_task_id is not None
+            review_task = await repository.get_governance_review_task(
+                governance_result.review_task_id,
+            )
+            assert review_task is not None
+            resolution = await service.resolve_governance_review_task(
+                GovernanceReviewResolutionRequest(
+                    review_task_id=review_task.review_task_id,
+                    outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    reviewer=_reviewer(),
+                    rationale="Approve this narrow residual-risk scope only.",
+                    reviewed_evidence=evidence,
+                    review_scope=review_task.review_scope,
+                    residual_risk_remaining=True,
+                    residual_risk_acceptance=GovernanceResidualRiskAcceptanceRequest(
+                        reviewer=_reviewer(),
+                        rationale=(
+                            "Accept residual risk for recommendation publication only."
+                        ),
+                        residual_risk_scope=narrow_scope,
+                    ),
+                ),
+            )
+
+        async with postgres_session_factory() as session:
+            service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            broader_release = await service.evaluate_governed_output_release(
+                GovernedOutputReleaseRequest(
+                    authority=authority,
+                    subject=subject,
+                    evidence=evidence,
+                    review_scope=review_task.review_scope,
+                    requested_action=review_task.requested_action,
+                    boundary_name="ticket-154 broader governed release",
+                    residual_risk_acceptance_required=True,
+                    residual_risk_scope=broader_scope,
+                ),
+            )
+            exact_release = await service.evaluate_governed_output_release(
+                GovernedOutputReleaseRequest(
+                    authority=authority,
+                    subject=subject,
+                    evidence=evidence,
+                    review_scope=review_task.review_scope,
+                    requested_action=review_task.requested_action,
+                    boundary_name="ticket-154 exact governed release",
+                    residual_risk_acceptance_required=True,
+                    residual_risk_scope=narrow_scope,
+                ),
+            )
+
+        assert broader_release.allowed is False
+        assert broader_release.approval_state is (
+            GovernanceReviewApprovalState.RESIDUAL_RISK_ACCEPTANCE_REQUIRED
+        )
+        assert broader_release.residual_risk_acceptance_id is None
+        assert exact_release.allowed is True
+        assert exact_release.review_task_id == review_task.review_task_id
+        assert resolution.residual_risk_acceptance is not None
+        assert exact_release.residual_risk_acceptance_id == (
+            resolution.residual_risk_acceptance.acceptance_id
+        )
+    finally:
+        await _delete_ticket_154_records(postgres_session_factory)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("result", "outcome", "blocks_execution"),
     (
@@ -786,6 +888,24 @@ async def _delete_ticket_153_records(
             await session.execute(
                 delete(model).where(
                     model.evidence_packet_id == TICKET_153_PACKET_ID,
+                )
+            )
+        await session.commit()
+
+
+async def _delete_ticket_154_records(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        for model in (
+            GovernanceReviewDecisionModel,
+            GovernanceResidualRiskAcceptanceModel,
+            GovernanceReviewTaskModel,
+            AutomatedGovernanceAuditRecordModel,
+        ):
+            await session.execute(
+                delete(model).where(
+                    model.evidence_packet_id == TICKET_154_PACKET_ID,
                 )
             )
         await session.commit()

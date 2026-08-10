@@ -61,37 +61,51 @@ If the ticket includes substantive source-code changes and the Living Entity Wik
 
 Use any ticket **Architecture context** as a routing hint, but let `$wiki-sync` own entity routing, source consistency, Strict Invariant checks, Rejected Approaches, and any blocking `[source-conflict]`.
 
-If `$wiki-sync` surfaces a blocking conflict, or current architectural authority invalidates the ticket's resolved architecture, halt before editing and report it. Do not redesign the architecture during ticket implementation.
-
 A decision is material when it establishes or changes a durable invariant, canonical owner or path, architectural boundary, dependency direction, or lifecycle responsibility.
 
 Ordinary local implementation choices where the viable options conform to current architectural authority are not material. Choose the simplest conforming option and continue.
 
-If implementation exposes an unresolved material architectural decision, do not resolve it locally. Halt with a **Human Handoff Intercept** instructing the user to invoke `$architecture-remediation`.
+If `$wiki-sync` or implementation exposes one or more unresolved architecture blockers, do not resolve them locally.
 
-Preserve the discovery context that caused the halt so the next workflow does not have to rediscover it. Include:
+This includes:
 
-* current ticket title and URL;
-* concise unresolved architecture question or conflict;
-* evidence/discovery context establishing the problem;
-* why the decision is material;
+* an unresolved material architectural decision;
+* a blocking `[source-conflict]` among applicable authorities;
+* current architectural authority invalidating architecture the ticket depends on.
+
+Collect every independent blocker discovered at the stopping point. Preserve distinct questions/conflicts rather than collapsing them into one, but do not split multiple evidence examples of the same underlying blocker.
+
+Halt with a **Human Handoff Intercept** instructing the user to invoke `$architecture-remediation`.
+
+Preserve the discovery context so the next workflow does not have to rediscover it. For each blocker include:
+
+* concise unresolved question or conflict;
+* evidence establishing it;
+* why it blocks architecture or implementation;
 * affected entities and governing ADR/doc references already known.
 
-Do not propose or imply the architectural resolution.
+Do not propose or imply an architectural resolution.
 
 Use:
 
-> ⚠️ **Implementation is blocked by an unresolved material architecture decision.**
+> ⚠️ **Implementation is blocked by unresolved architecture.**
 >
 > Please run:
 >
 > ```
-> $architecture-remediation - <Current Ticket Title> (<Ticket URL>) — <concise unresolved architecture question>
+> $architecture-remediation - <Current Ticket Title> (<Ticket URL>) — <concise blocker-set summary>
 > ```
 >
-> **Discovery context:** <concise evidence explaining why implementation cannot proceed>
+> **Architecture blockers:**
 >
-> **Material architecture involved:** <canonical ownership/path, boundary, dependency direction, lifecycle responsibility, or other material consequence>
+> 1. **<question or conflict>**
+>
+>    * Evidence: <concise discovery context>
+>    * Material consequence: <ownership/path, boundary, dependency direction, lifecycle responsibility, source conflict, or other blocking consequence>
+>    * Governing context: <affected entities / ADRs / docs when known>
+> 2. **<question or conflict>**
+>
+>    * ...
 
 After substantive implementation, invoke `$wiki-sync` again and let it determine whether any durable entity knowledge changed.
 

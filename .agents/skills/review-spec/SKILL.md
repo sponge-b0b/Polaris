@@ -43,7 +43,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 1. **Extract Baseline Metadata**: `$to-tickets` posts it as a comment:
 
-   ```bash
+   ```bash id="26zi7k"
    BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
      | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
    ```
@@ -52,7 +52,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 3. **Verify Branch Checked Out**:
 
-   ```bash
+   ```bash id="w3yku4"
    CURRENT_BRANCH=$(git branch --show-current)
    if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
      echo "❌ Expected spec-<spec_issue_number> to be checked out, but current branch is $CURRENT_BRANCH."
@@ -62,7 +62,7 @@ The fixed point is automatically stored in the parent specification issue on Git
 
 4. **Validate the Ref**:
 
-   ```bash
+   ```bash id="4k1lqa"
    git rev-parse <fixed-point>
    ```
 
@@ -137,7 +137,7 @@ Lightly validate cited findings before reporting them. Validation is limited to 
 
 Present:
 
-```text id="rv0ak3"
+```text id="36fhgs"
 ## Standards
 
 ## Spec
@@ -149,42 +149,58 @@ Within each axis, use `### Blocking` and `### Advisory` when both exist.
 
 End with one line counting Blocking and Advisory findings separately for each axis and naming the worst Blocking issue in each, if any.
 
-If any Blocking Architecture finding has `Architecture decision required: Yes`, do not send it into `$review-spec-remediation` or `$to-tickets`. Halt with the Human Handoff Intercept below.
+If one or more Blocking Architecture findings have `Architecture decision required: Yes`, do not send those findings into `$review-spec-remediation` or `$to-tickets`. Halt with the Architecture Human Handoff Intercept below.
 
 Otherwise, if any Blocking findings remain, invoke `$review-spec-remediation`; do not synthesize root blockers or create tracking issues directly here.
 
 ### Architecture Human Handoff Intercept
 
-For the highest-priority Blocking Architecture finding with `Architecture decision required: Yes`, preserve the finding context so `$architecture-remediation` does not have to rediscover it.
+Collect every independent Blocking Architecture finding with `Architecture decision required: Yes`.
 
-Include:
+De-duplicate by underlying architectural question. Multiple findings or evidence examples of the same unresolved issue produce one blocker; independent unresolved questions remain separate.
 
-* parent Spec title and URL;
-* Spec Review issue title and URL when one already exists;
+Preserve the finding context so `$architecture-remediation` does not have to rediscover it.
+
+For each blocker include:
+
 * concise unresolved architecture question or conflict;
 * finding evidence;
 * why a new architecture decision is required;
 * affected entities and governing ADR/doc references already known.
 
-Do not propose or imply the architectural resolution.
+Also include:
+
+* parent Spec title and URL;
+* Spec Review issue title and URL when one already exists.
+
+Do not propose or imply an architectural resolution.
 
 Use:
 
-> ⚠️ **Spec review is blocked by an unresolved material architecture decision.**
+> ⚠️ **Spec review is blocked by unresolved architecture.**
 >
 > Please run:
 >
 > ```
-> $architecture-remediation - <Parent Spec Title> (<Spec URL>) — <concise unresolved architecture question>
+> $architecture-remediation - <Parent Spec Title> (<Spec URL>) — <concise blocker-set summary>
 > ```
 >
-> **Discovery context:** <concise architecture finding and supporting evidence>
+> **Architecture blockers:**
 >
-> **Material architecture involved:** <canonical ownership/path, boundary, dependency direction, lifecycle responsibility, or other unresolved consequence>
+> 1. **<unresolved question or conflict>**
+>
+>    * Evidence: <concise finding evidence>
+>    * Material consequence: <ownership/path, boundary, dependency direction, lifecycle responsibility, source conflict, or other unresolved consequence>
+>    * Governing context: <affected entities / ADRs / docs when known>
+> 2. **<unresolved question or conflict>**
+>
+>    * ...
 >
 > **Spec Review:** <title and URL, when applicable>
 
-Then stop. `$architecture-remediation` owns lineage recovery and Wayfinder re-entry.
+Then stop. `$architecture-remediation` owns lineage recovery, blocker de-duplication against existing Wayfinder children, and Wayfinder re-entry.
+
+Blocking Architecture findings with `Architecture decision required: No` remain review-remediation findings. Preserve them for `$review-spec-remediation` after architecture resolution; do not convert them into Wayfinder decisions.
 
 ## Why Three Axes
 
@@ -202,7 +218,7 @@ Do not make in-flight file edits.
 
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation blockers and follow the same `$review-spec-remediation` path as Blocking Standards or Spec findings.
 
-Blocking Architecture findings with `Architecture decision required: Yes` require the Architecture Human Handoff Intercept. They must be resolved through the existing Wayfinder effort before review remediation can continue.
+Blocking Architecture findings with `Architecture decision required: Yes` require the Architecture Human Handoff Intercept. All independent unresolved architecture blockers discovered in that review pass must be preserved in the handoff and resolved through the existing Wayfinder effort before review remediation can continue.
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation` in full.
 

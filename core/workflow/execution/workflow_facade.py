@@ -54,10 +54,7 @@ from core.workflow.execution.workflow_engine import WorkflowEngine
 from core.workflow.execution.workflow_runner import WorkflowRunner, WorkflowRunResult
 from core.workflow.execution.workflow_service import WorkflowService, WorkflowSummary
 from core.workflow.governance_audit import (
-    WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY,
-    AutomatedDecisionAuditContext,
-    WorkflowAutomatedDecisionAuditService,
-    audit_context_from_workflow_context,
+    WorkflowExecutionAuditCapability,
 )
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
@@ -92,9 +89,6 @@ class WorkflowFacade:
         plugin_runtime_manager: PluginRuntimeManager | None = None,
         policy_engine: PolicyEngine | None = None,
         governance_engine: GovernanceEngine | None = None,
-        automated_decision_audit_service: (
-            WorkflowAutomatedDecisionAuditService | None
-        ) = None,
     ) -> None:
         self.registry = registry
         self.compiler = compiler
@@ -118,7 +112,6 @@ class WorkflowFacade:
         self.plugin_runtime_manager = plugin_runtime_manager
         self.policy_engine = policy_engine
         self.governance_engine = governance_engine
-        self.automated_decision_audit_service = automated_decision_audit_service
 
     @classmethod
     def create(
@@ -138,9 +131,6 @@ class WorkflowFacade:
         plugin_runtime_manager: PluginRuntimeManager | None = None,
         policy_engine: PolicyEngine | None = None,
         governance_engine: GovernanceEngine | None = None,
-        automated_decision_audit_service: (
-            WorkflowAutomatedDecisionAuditService | None
-        ) = None,
         di_container: Any | None = None,
     ) -> WorkflowFacade:
         components = WorkflowRuntimeAssembler().assemble_facade(
@@ -160,7 +150,6 @@ class WorkflowFacade:
                 plugin_runtime_manager=plugin_runtime_manager,
                 policy_engine=policy_engine,
                 governance_engine=governance_engine,
-                automated_decision_audit_service=automated_decision_audit_service,
                 di_container=di_container,
             ),
         )
@@ -194,9 +183,6 @@ class WorkflowFacade:
             plugin_runtime_manager=components.plugin_runtime_manager,
             policy_engine=components.policy_engine,
             governance_engine=components.governance_engine,
-            automated_decision_audit_service=(
-                components.automated_decision_audit_service
-            ),
         )
 
     # ========================================================
@@ -468,25 +454,28 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
-        automated_decision_audit_context: AutomatedDecisionAuditContext | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> WorkflowRunResult:
-        governance_context = self._with_automated_decision_audit_context(
+        audit_capability = self._require_execution_audit_capability(
+            execution_audit_capability,
+        )
+        governance_context = self._with_execution_audit_capability(
             {
                 "governance_phase": "workflow_run_preflight",
                 "workflow_name": workflow_name,
                 "execution_id": execution_id,
                 "mode": mode,
             },
-            automated_decision_audit_context,
+            audit_capability,
         )
-        policy_context = self._with_automated_decision_audit_context(
+        policy_context = self._with_execution_audit_capability(
             {
                 "policy_phase": "workflow_run_preflight",
                 "workflow_name": workflow_name,
                 "execution_id": execution_id,
                 "mode": mode,
             },
-            automated_decision_audit_context,
+            audit_capability,
         )
 
         await self._require_governance_allowed_async(
@@ -533,25 +522,28 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
-        automated_decision_audit_context: AutomatedDecisionAuditContext | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> WorkflowRunResult:
-        governance_context = self._with_automated_decision_audit_context(
+        audit_capability = self._require_execution_audit_capability(
+            execution_audit_capability,
+        )
+        governance_context = self._with_execution_audit_capability(
             {
                 "governance_phase": "workflow_run_from_context_preflight",
                 "workflow_name": workflow_name,
                 "runtime_id": context.runtime_id,
                 "execution_id": context.execution_id,
             },
-            automated_decision_audit_context,
+            audit_capability,
         )
-        policy_context = self._with_automated_decision_audit_context(
+        policy_context = self._with_execution_audit_capability(
             {
                 "policy_phase": "workflow_run_from_context_preflight",
                 "workflow_name": workflow_name,
                 "runtime_id": context.runtime_id,
                 "execution_id": context.execution_id,
             },
-            automated_decision_audit_context,
+            audit_capability,
         )
 
         await self._require_governance_allowed_async(
@@ -883,21 +875,12 @@ class WorkflowFacade:
         context: dict[str, Any] | None,
         evaluation: PolicyEvaluationResult,
     ) -> None:
-        if self.automated_decision_audit_service is None:
+        audit_capability = self._audit_capability_from_context(context)
+        if audit_capability is None:
             return
 
-        audit_context = audit_context_from_workflow_context(context)
-        if audit_context is None:
-            if not evaluation.allowed:
-                raise RuntimeError(
-                    "Policy evaluation was denied before authoritative audit "
-                    "evidence could be recorded because no automated decision "
-                    "audit context was supplied."
-                )
-            return
-
-        results = await self.automated_decision_audit_service.record_policy_evaluation(
-            context=audit_context,
+        results = await audit_capability.service.record_policy_evaluation(
+            context=audit_capability.context,
             evaluation=evaluation,
         )
         self._raise_if_automated_decision_audit_failed(
@@ -961,30 +944,13 @@ class WorkflowFacade:
         context: dict[str, Any] | None,
         evaluation: GovernanceEvaluationResult,
     ) -> None:
-        if self.automated_decision_audit_service is None:
+        audit_capability = self._audit_capability_from_context(context)
+        if audit_capability is None:
             return
 
-        audit_context = audit_context_from_workflow_context(context)
-        if audit_context is None:
-            if evaluation.requires_approval:
-                raise RuntimeError(
-                    "Governance evaluation required approval before "
-                    "authoritative audit evidence could be recorded because "
-                    "no automated decision audit context was supplied."
-                )
-            if not evaluation.allowed:
-                raise RuntimeError(
-                    "Governance evaluation blocked execution before "
-                    "authoritative audit evidence could be recorded because "
-                    "no automated decision audit context was supplied."
-                )
-            return
-
-        results = (
-            await self.automated_decision_audit_service.record_governance_evaluation(
-                context=audit_context,
-                evaluation=evaluation,
-            )
+        results = await audit_capability.service.record_governance_evaluation(
+            context=audit_capability.context,
+            evaluation=evaluation,
         )
         self._raise_if_automated_decision_audit_failed(
             evaluation_kind="governance",
@@ -992,18 +958,39 @@ class WorkflowFacade:
         )
 
     @staticmethod
-    def _with_automated_decision_audit_context(
+    def _with_execution_audit_capability(
         context: dict[str, Any],
-        automated_decision_audit_context: AutomatedDecisionAuditContext | None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None,
     ) -> dict[str, Any]:
-        if automated_decision_audit_context is None:
+        if execution_audit_capability is None:
             return context
 
         context = dict(context)
-        context[WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY] = (
-            automated_decision_audit_context
-        )
+        context["workflow_execution_audit_capability"] = execution_audit_capability
         return context
+
+    def _require_execution_audit_capability(
+        self,
+        capability: WorkflowExecutionAuditCapability | None,
+    ) -> WorkflowExecutionAuditCapability | None:
+        if self.policy_engine is None and self.governance_engine is None:
+            return None
+        if capability is None:
+            raise RuntimeError(
+                "Governed workflow execution requires an execution audit capability."
+            )
+        return capability
+
+    @staticmethod
+    def _audit_capability_from_context(
+        context: Mapping[str, Any] | None,
+    ) -> WorkflowExecutionAuditCapability | None:
+        if context is None:
+            return None
+        capability = context.get("workflow_execution_audit_capability")
+        if isinstance(capability, WorkflowExecutionAuditCapability):
+            return capability
+        return None
 
     @staticmethod
     def _raise_if_automated_decision_audit_failed(

@@ -21,6 +21,10 @@ from application.governance.automated_decision_audit import (
     GovernedOutputReleaseRequest,
     requires_governed_output_release_review,
 )
+from application.governance.governed_workflow_execution import (
+    GovernedWorkflowExecutionEvidenceRequiredError,
+    GovernedWorkflowExecutionService,
+)
 
 __all__ = [
     "AUTHORITY_GOVERNANCE_RULE_NAME",
@@ -31,6 +35,8 @@ __all__ = [
     "AutomatedDecisionAuditContext",
     "AutomatedDecisionAuditQuery",
     "AutomatedDecisionAuditService",
+    "GovernedWorkflowExecutionEvidenceRequiredError",
+    "GovernedWorkflowExecutionService",
     "GovernedOutputReleaseDecision",
     "GovernedOutputReleaseRequest",
     "GovernanceResidualRiskAcceptanceQuery",

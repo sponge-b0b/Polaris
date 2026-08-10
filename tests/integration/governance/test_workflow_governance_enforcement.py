@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from application.governance import AutomatedDecisionAuditContext
+from application.governance import (
+    AutomatedDecisionAuditContext,
+    GovernedWorkflowExecutionEvidenceRequiredError,
+    GovernedWorkflowExecutionService,
+)
 from core.runtime.contracts.runtime_node import RuntimeNode
 from core.runtime.governance.builtins.require_approval_for_live_mode_rule import (
     RequireApprovalForLiveModeRule,
@@ -22,6 +26,7 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     build_workflow_runtime,
     build_workflow_runtime_async,
 )
+from core.workflow.governance_audit import issue_workflow_execution_audit_capability
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
     DestructiveWorkflowOperation,
@@ -197,11 +202,38 @@ async def test_governance_denies_workflow_run_preflight() -> None:
 
     with pytest.raises(
         RuntimeError,
-        match="governance_run_blocked",
+        match="execution audit capability",
     ):
         await runtime.facade.run_workflow(
             workflow_name="governance_test_workflow",
             mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_governed_execution_requires_canonical_evidence_before_evaluation() -> (
+    None
+):
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+    )
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=AsyncMock(),
+    )
+
+    with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
+        await execution_service.run_workflow(
+            workflow_name="governance_test_workflow",
+            decision_evidence_packet=None,
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
@@ -239,6 +271,7 @@ async def test_governance_requires_approval_for_live_mode() -> None:
             mode="live",
             archive_on_completion=False,
             checkpoint_on_completion=False,
+            execution_audit_capability=_audit_capability(),
         )
 
 
@@ -270,6 +303,7 @@ async def test_governance_allows_simulation_workflow_run() -> None:
         mode="simulation",
         archive_on_completion=False,
         checkpoint_on_completion=False,
+        execution_audit_capability=_audit_capability(),
     )
 
     assert result.success is True
@@ -311,18 +345,29 @@ async def test_governance_audit_rejects_malformed_persistence_result() -> None:
             mode="simulation",
             archive_on_completion=False,
             checkpoint_on_completion=False,
-            automated_decision_audit_context=AutomatedDecisionAuditContext(
-                subject=AutomatedDecisionSubject(
-                    "workflow",
-                    "malformed-governance-audit-result",
-                ),
-                authority=classify_risk_authority(
-                    workflow_curation_authority_input(),
-                ),
-            ),
+            execution_audit_capability=_audit_capability(audit_service),
         )
 
     audit_service.record_governance_evaluation.assert_awaited_once()
+
+
+def _audit_capability(audit_service: AsyncMock | None = None):
+    service = audit_service or AsyncMock()
+    if audit_service is None:
+        service.record_governance_evaluation.return_value = ()
+        service.record_policy_evaluation.return_value = ()
+    return issue_workflow_execution_audit_capability(
+        service=service,
+        context=AutomatedDecisionAuditContext(
+            subject=AutomatedDecisionSubject(
+                "workflow",
+                "governance-enforcement-test",
+            ),
+            authority=classify_risk_authority(
+                workflow_curation_authority_input(),
+            ),
+        ),
+    )
 
 
 def test_governance_denies_destructive_workflow_unregister() -> None:

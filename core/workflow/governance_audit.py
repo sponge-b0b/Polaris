@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Protocol
 
 from core.runtime.governance import GovernanceEvaluationResult
 from core.runtime.policies import PolicyEvaluationResult
@@ -15,8 +15,6 @@ from core.storage.persistence.governance_audit import (
 from core.telemetry.tracing import TraceContext
 from domain.authority import RiskAuthorityContract
 from domain.decision_evidence import DecisionEvidencePacket
-
-WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY = "automated_decision_audit_context"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,14 +68,35 @@ class WorkflowAutomatedDecisionAuditService(Protocol):
     ) -> Sequence[AutomatedDecisionAuditPersistenceResult]: ...
 
 
-def audit_context_from_workflow_context(
-    context: Mapping[str, Any] | None,
-) -> AutomatedDecisionAuditContext | None:
-    """Extract the application-owned audit context from workflow evaluation context."""
+@dataclass(frozen=True, slots=True)
+class WorkflowExecutionAuditCapability:
+    """Opaque audit composition passed from the application boundary to the facade."""
 
-    if context is None:
-        return None
-    audit_context = context.get(WORKFLOW_AUTOMATED_DECISION_AUDIT_CONTEXT_KEY)
-    if isinstance(audit_context, AutomatedDecisionAuditContext):
-        return audit_context
-    return None
+    _service: WorkflowAutomatedDecisionAuditService
+    _context: AutomatedDecisionAuditContext
+
+    @property
+    def service(self) -> WorkflowAutomatedDecisionAuditService:
+        return self._service
+
+    @property
+    def context(self) -> AutomatedDecisionAuditContext:
+        return self._context
+
+
+def issue_workflow_execution_audit_capability(
+    *,
+    service: WorkflowAutomatedDecisionAuditService,
+    context: AutomatedDecisionAuditContext,
+) -> WorkflowExecutionAuditCapability:
+    """Create the capability used for one governed facade invocation.
+
+    The request-scoped application service is the only production caller of this
+    factory; the facade accepts the resulting capability rather than a database
+    service or mutable evidence metadata.
+    """
+
+    return WorkflowExecutionAuditCapability(
+        _service=service,
+        _context=context,
+    )

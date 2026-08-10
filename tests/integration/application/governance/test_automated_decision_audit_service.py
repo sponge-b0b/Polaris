@@ -20,6 +20,7 @@ from application.governance import (
     GovernanceReviewDecisionQuery,
     GovernanceReviewResolutionRequest,
     GovernanceReviewTaskQuery,
+    GovernedWorkflowExecutionService,
 )
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
@@ -58,6 +59,17 @@ from core.workflow.bootstrap.workflow_bootstrap import (
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.models.workflow_node_definition import WorkflowNodeDefinition
 from domain.authority import RiskTier, classify_risk_authority
+from domain.decision_evidence import (
+    ClaimEvidenceBinding,
+    DecisionEvidencePacket,
+    EvidenceReference,
+    EvidenceReferenceKind,
+    EvidenceRetentionRequirement,
+    MaterialClaim,
+    ReconstructionReference,
+    ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
+)
 from tests.helpers.risk_authority_examples import (
     recommendation_explanation_authority_input,
 )
@@ -328,20 +340,6 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
         async with postgres_session_factory() as session:
             repository = PostgresAutomatedDecisionAuditRepository(session)
             audit_service = AutomatedDecisionAuditService(repository)
-            audit_context = AutomatedDecisionAuditContext(
-                subject=AutomatedDecisionSubject(
-                    "workflow",
-                    "ticket-138-workflow-run",
-                ),
-                authority=classify_risk_authority(
-                    recommendation_explanation_authority_input(),
-                ),
-                evidence=AutomatedDecisionEvidenceReference(
-                    TICKET_138_PACKET_ID,
-                    1,
-                ),
-                timestamp=datetime(2026, 8, 9, 12, 0, tzinfo=UTC),
-            )
             runtime = await build_workflow_runtime_async(
                 config=WorkflowBootstrapConfig(
                     enable_governance=True,
@@ -359,16 +357,20 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
                         ],
                     )
                 ),
+            )
+            execution_service = GovernedWorkflowExecutionService(
+                workflow_facade=runtime.facade,
                 automated_decision_audit_service=audit_service,
             )
 
             with pytest.raises(RuntimeError, match="live_mode_requires_approval"):
-                await runtime.facade.run_workflow(
+                await execution_service.run_workflow(
                     workflow_name="governance_audit_workflow",
+                    execution_id="ticket-138-workflow-run",
                     mode="live",
                     archive_on_completion=False,
                     checkpoint_on_completion=False,
-                    automated_decision_audit_context=audit_context,
+                    decision_evidence_packet=_ticket_138_packet(),
                 )
 
         async with postgres_session_factory() as session:
@@ -478,6 +480,50 @@ async def _delete_ticket_138_records(
             )
         )
         await session.commit()
+
+
+def _ticket_138_packet() -> DecisionEvidencePacket:
+    return DecisionEvidencePacket(
+        packet_id=TICKET_138_PACKET_ID,
+        output_id="ticket-138-workflow-output",
+        authority=classify_risk_authority(
+            recommendation_explanation_authority_input(),
+        ),
+        claims=(
+            MaterialClaim(
+                claim_id="ticket-138-claim",
+                text="Governed workflow evidence supports review.",
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=("ticket-138-evidence",),
+                ),
+            ),
+        ),
+        evidence=(
+            EvidenceReference(
+                evidence_id="ticket-138-evidence",
+                kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
+                reconstruction_reference_ids=("ticket-138-workflow-node",),
+                summary="Workflow output retained for governance review.",
+                support_snapshot=SupportingEvidenceSnapshot(
+                    snapshot_id="ticket-138-snapshot",
+                    summary="Redacted workflow evidence.",
+                    redacted_content="governed workflow evidence",
+                    source_label="workflow_node_output:ticket-138",
+                ),
+            ),
+        ),
+        reconstruction_references=(
+            ReconstructionReference(
+                reference_id="ticket-138-workflow-node",
+                kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+                record_id="ticket-138-workflow-run:governance-audit-node",
+            ),
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-08-09T00:00:00Z",
+            policy_id="ticket-138-retention",
+        ),
+    )
 
 
 def _reviewer() -> GovernanceReviewerIdentity:

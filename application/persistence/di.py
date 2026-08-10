@@ -7,7 +7,10 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
-from application.governance import AutomatedDecisionAuditService
+from application.governance import (
+    AutomatedDecisionAuditService,
+    GovernedWorkflowExecutionService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
 from application.persistence.diagnostics import DiagnosticsPersistenceService
@@ -49,6 +52,7 @@ from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
 from core.telemetry.observability import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
 
 
 class ApplicationPersistenceDIProvider(Provider):
@@ -279,6 +283,17 @@ class ApplicationPersistenceDIProvider(Provider):
         return AutomatedDecisionAuditService(
             repository,
             observability_manager=observability_manager,
+        )
+
+    @provide
+    def provide_governed_workflow_execution_service(
+        self,
+        workflow_facade: WorkflowFacade,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
+    ) -> GovernedWorkflowExecutionService:
+        return GovernedWorkflowExecutionService(
+            workflow_facade=workflow_facade,
+            automated_decision_audit_service=automated_decision_audit_service,
         )
 
     @provide

@@ -359,6 +359,25 @@ async def test_distinct_sinks_create_independent_review_tasks() -> None:
         "durable_domain_record",
     }
 
+    approvals = [
+        await service.resolve_governance_review_task(
+            GovernanceReviewResolutionRequest(
+                review_task_id=task.review_task_id,
+                outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                reviewer=_reviewer(),
+                rationale="Reviewer approved this release sink.",
+                reviewed_evidence=task.evidence,
+                review_scope=task.review_scope,
+            ),
+        )
+        for task in tuple(repository.review_tasks)
+    ]
+
+    assert all(approval.review_approved for approval in approvals)
+    assert {task.status for task in repository.review_tasks} == {
+        GovernanceReviewTaskStatus.APPROVED,
+    }
+
 
 @pytest.mark.asyncio
 async def test_human_reviewer_approves_task_with_immutable_audit_entry() -> None:

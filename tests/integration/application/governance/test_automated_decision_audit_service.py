@@ -36,6 +36,7 @@ from core.runtime.governance.builtins.require_approval_for_live_mode_rule import
 )
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
+from core.runtime.governance.governance_rule import BaseGovernanceRule
 from core.runtime.policies import PolicyResult
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
@@ -77,6 +78,7 @@ from tests.helpers.risk_authority_examples import (
 TEST_DATABASE_URL = os.environ.get("POLARIS_TEST_DATABASE_URL")
 TICKET_134_PACKET_ID = "ticket-134-packet"
 TICKET_138_PACKET_ID = "ticket-138-packet"
+TICKET_143_PACKET_ID = "ticket-143-packet"
 
 
 class GovernanceAuditRuntimeNode(RuntimeNode):
@@ -122,6 +124,25 @@ class GovernanceAuditWorkflow(WorkflowGraphDefinition):
                 tags=("governance", "audit", "test"),
             )
         ]
+
+
+class StaticGovernanceResultRule(BaseGovernanceRule):
+    """Return one controlled outcome through the production facade path."""
+
+    rule_name = "static_governance_result"
+
+    def __init__(self, result: GovernanceResult) -> None:
+        self._result = result
+        self.rule_name = result.rule_name
+
+    async def evaluate(
+        self,
+        subject: object,
+        context: dict[str, object] | None = None,
+    ) -> GovernanceResult:
+        if (context or {}).get("governance_phase") == "workflow_registration":
+            return GovernanceResult.allow(self.rule_name)
+        return self._result
 
 
 pytestmark = pytest.mark.skipif(
@@ -410,6 +431,107 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
         await _delete_ticket_138_records(postgres_session_factory)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("result", "outcome", "blocks_execution"),
+    (
+        (
+            GovernanceResult.allow("ticket_143_allow"),
+            AutomatedGovernanceAuditOutcome.ALLOW,
+            False,
+        ),
+        (
+            GovernanceResult.warn(
+                "ticket_143_warn",
+                message="Governance warning recorded.",
+            ),
+            AutomatedGovernanceAuditOutcome.WARN,
+            False,
+        ),
+        (
+            GovernanceResult.deny(
+                "ticket_143_deny",
+                message="Governance denial recorded.",
+                reason="ticket_143_denied",
+            ),
+            AutomatedGovernanceAuditOutcome.DENY,
+            True,
+        ),
+        (
+            GovernanceResult.skip(
+                "ticket_143_skip",
+                message="Governance check skipped.",
+            ),
+            AutomatedGovernanceAuditOutcome.SKIP,
+            False,
+        ),
+    ),
+)
+async def test_governed_execution_persists_nonapproval_outcomes(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+    result: GovernanceResult,
+    outcome: AutomatedGovernanceAuditOutcome,
+    blocks_execution: bool,
+) -> None:
+    await _delete_ticket_143_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            audit_service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            runtime = await build_workflow_runtime_async(
+                config=WorkflowBootstrapConfig(
+                    enable_governance=True,
+                    enable_policies=False,
+                    enable_telemetry=False,
+                    enable_jsonl_telemetry=False,
+                ),
+                workflow_definitions=[GovernanceAuditWorkflow()],
+                governance_engine=GovernanceEngine(
+                    registry=GovernanceRegistry(
+                        rules=[StaticGovernanceResultRule(result)],
+                    ),
+                ),
+            )
+            execution_service = GovernedWorkflowExecutionService(
+                workflow_facade=runtime.facade,
+                automated_decision_audit_service=audit_service,
+            )
+            run = execution_service.run_workflow(
+                workflow_name="governance_audit_workflow",
+                execution_id="ticket-143-workflow-run",
+                mode="live",
+                archive_on_completion=False,
+                checkpoint_on_completion=False,
+                decision_evidence_packet=_ticket_143_packet(),
+            )
+            if blocks_execution:
+                with pytest.raises(RuntimeError, match="ticket_143_denied"):
+                    await run
+            else:
+                assert (await run).success is True
+
+        async with postgres_session_factory() as session:
+            audit_service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            records = await audit_service.list_governance_audit_records(
+                AutomatedDecisionAuditQuery(
+                    subject_type="workflow",
+                    subject_id="ticket-143-workflow-run",
+                    risk_tier=RiskTier.VIGILANT,
+                    outcome=outcome,
+                    rule_name=result.rule_name,
+                    evidence_packet_id=TICKET_143_PACKET_ID,
+                    evidence_packet_version=1,
+                ),
+            )
+
+        assert len(records) == 1
+    finally:
+        await _delete_ticket_143_records(postgres_session_factory)
+
+
 async def _delete_ticket_134_records(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -482,10 +604,41 @@ async def _delete_ticket_138_records(
         await session.commit()
 
 
+async def _delete_ticket_143_records(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        await session.execute(
+            delete(AutomatedGovernanceAuditRecordModel).where(
+                AutomatedGovernanceAuditRecordModel.evidence_packet_id
+                == TICKET_143_PACKET_ID,
+            )
+        )
+        await session.commit()
+
+
 def _ticket_138_packet() -> DecisionEvidencePacket:
-    return DecisionEvidencePacket(
+    return _ticket_packet(
         packet_id=TICKET_138_PACKET_ID,
         output_id="ticket-138-workflow-output",
+    )
+
+
+def _ticket_143_packet() -> DecisionEvidencePacket:
+    return _ticket_packet(
+        packet_id=TICKET_143_PACKET_ID,
+        output_id="ticket-143-workflow-output",
+    )
+
+
+def _ticket_packet(
+    *,
+    packet_id: str,
+    output_id: str,
+) -> DecisionEvidencePacket:
+    return DecisionEvidencePacket(
+        packet_id=packet_id,
+        output_id=output_id,
         authority=classify_risk_authority(
             recommendation_explanation_authority_input(),
         ),

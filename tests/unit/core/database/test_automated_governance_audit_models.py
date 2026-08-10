@@ -57,12 +57,13 @@ def test_governance_review_task_model_captures_scoped_review_work_queue() -> Non
 
     assert "ck_governance_review_tasks_status" in constraints
     assert "ck_governance_review_tasks_risk_tier" in constraints
-    assert "uq_governance_review_tasks_scoped_evidence_action" in constraints
+    assert "uq_governance_review_tasks_scoped_evidence_sink_action" in constraints
     assert (
         "automated_governance_audit_record_id"
         in GovernanceReviewTaskModel.__table__.columns
     )
     assert "evidence_packet_version" in GovernanceReviewTaskModel.__table__.columns
+    assert "intended_sink" in GovernanceReviewTaskModel.__table__.columns
     assert "ix_governance_review_tasks_status" in indexes
     assert "idx_governance_review_tasks_subject_status" in indexes
     assert "idx_governance_review_tasks_evidence_status" in indexes

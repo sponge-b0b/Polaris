@@ -577,6 +577,7 @@ def governance_review_task_id(
     subject: AutomatedDecisionSubject,
     evidence: AutomatedDecisionEvidenceReference,
     review_scope: str,
+    intended_sink: str,
     requested_action: str,
 ) -> str:
     """Build a stable idempotency key for one scoped evidence review."""
@@ -588,6 +589,7 @@ def governance_review_task_id(
             evidence.packet_id,
             str(evidence.packet_version),
             _clean_identifier(review_scope, "review_scope"),
+            _clean_identifier(intended_sink, "intended_sink"),
             _clean_identifier(requested_action, "requested_action"),
         )
     )

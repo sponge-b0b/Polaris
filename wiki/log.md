@@ -27,3 +27,7 @@ Recorded the accepted request-scoped governed workflow execution boundary and it
 ## [2026-08-09] sink-scoped governance review identity | authority reconciled, implementation pending
 
 Aligned the ownership ledger with ADR-0010 on intended sink as a review-task identity dimension and recorded the remaining persistence realization work.
+
+## [2026-08-09] sink-scoped governance review identity | implemented as an approval-lifecycle invariant
+
+Promoted the accepted intended-sink review-task identity decision after task IDs and PostgreSQL uniqueness/upsert behavior began preserving independent release-boundary review state.

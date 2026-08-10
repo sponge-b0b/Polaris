@@ -978,6 +978,7 @@ def _review_task_from_record(
             subject=record.subject,
             evidence=record.evidence,
             review_scope=review_scope,
+            intended_sink=intended_sink,
             requested_action=requested_action,
         ),
         automated_governance_audit_record_id=record.audit_record_id,

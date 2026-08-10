@@ -189,8 +189,9 @@ class GovernanceReviewTaskModel(Base):
             "evidence_packet_id",
             "evidence_packet_version",
             "review_scope",
+            "intended_sink",
             "requested_action",
-            name="uq_governance_review_tasks_scoped_evidence_action",
+            name="uq_governance_review_tasks_scoped_evidence_sink_action",
         ),
     )
 

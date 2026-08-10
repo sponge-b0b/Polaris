@@ -46,6 +46,7 @@ from tests.helpers.risk_authority_examples import (
     rag_answer_authority_input,
     recommendation_explanation_authority_input,
     runtime_evidence_authority_input,
+    workflow_curation_authority_input,
 )
 
 
@@ -326,6 +327,37 @@ async def test_duplicate_scoped_evidence_version_reuses_open_review_task() -> No
     assert repository.review_tasks[0].automated_governance_audit_record_id == (
         repository.governance_records[1].audit_record_id
     )
+
+
+@pytest.mark.asyncio
+async def test_distinct_sinks_create_independent_review_tasks() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    governance_result = GovernanceResult.require_approval(
+        rule_name="authority_metadata_governance",
+        message="vigilant output requires approval",
+        reason="vigilant_authority_requires_approval",
+        metadata={"authority_subject_family": "recommendation"},
+    )
+
+    publication = await service.record_governance_decision(
+        context=_context(),
+        result=governance_result,
+    )
+    promotion = await service.record_governance_decision(
+        context=_context(
+            authority=classify_risk_authority(workflow_curation_authority_input()),
+        ),
+        result=governance_result,
+    )
+
+    assert publication.success is True
+    assert promotion.success is True
+    assert publication.review_task_id != promotion.review_task_id
+    assert {task.intended_sink for task in repository.review_tasks} == {
+        "recommendation",
+        "durable_domain_record",
+    }
 
 
 @pytest.mark.asyncio

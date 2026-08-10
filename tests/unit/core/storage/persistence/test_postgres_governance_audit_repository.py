@@ -101,7 +101,7 @@ async def test_list_governance_audit_records_filters_queryable_states() -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_review_task_uses_scoped_evidence_upsert() -> None:
+async def test_persist_review_task_uses_sink_scoped_evidence_upsert() -> None:
     session = FakeAsyncSession()
     repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
     task = _review_task_record()
@@ -113,7 +113,7 @@ async def test_persist_review_task_uses_scoped_evidence_upsert() -> None:
     assert session.committed is True
     compiled = str(session.executed[0].compile(dialect=postgresql.dialect()))
     assert "INSERT INTO governance_review_tasks" in compiled
-    assert "uq_governance_review_tasks_scoped_evidence_action" in compiled
+    assert "uq_governance_review_tasks_scoped_evidence_sink_action" in compiled
 
 
 @pytest.mark.asyncio

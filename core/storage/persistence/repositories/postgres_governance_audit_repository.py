@@ -404,7 +404,7 @@ def _upsert_review_task_statement(task: GovernanceReviewTaskRecord):
     values = AutomatedDecisionAuditPersistenceSerializer.review_task_values(task)
     statement = insert(GovernanceReviewTaskModel).values(**values)
     return statement.on_conflict_do_update(
-        constraint="uq_governance_review_tasks_scoped_evidence_action",
+        constraint="uq_governance_review_tasks_scoped_evidence_sink_action",
         set_={
             "automated_governance_audit_record_id": (
                 statement.excluded.automated_governance_audit_record_id

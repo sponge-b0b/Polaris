@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
 
@@ -206,6 +207,52 @@ async def test_postgres_governance_audit_records_survive_round_trip(
         assert persisted_decision == decision
         assert queried_decisions == (decision,)
         assert queried_acceptances == (acceptance,)
+    finally:
+        await _delete_test_records(postgres_session_factory)
+
+
+@pytest.mark.asyncio
+async def test_postgres_review_tasks_with_distinct_sinks_do_not_collide(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    governance_record = _governance_record(
+        AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+    )
+    publication_task = _review_task_record(governance_record)
+    promotion_task = replace(
+        publication_task,
+        review_task_id="ticket-129-governance-review-task-promotion",
+        intended_sink="durable_domain_record",
+    )
+
+    await _delete_test_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            await repository.persist_governance_audit_record(governance_record)
+
+            publication_result = await repository.persist_governance_review_task(
+                publication_task,
+            )
+            promotion_result = await repository.persist_governance_review_task(
+                promotion_task,
+            )
+            persisted_tasks = await repository.list_governance_review_tasks(
+                subject_type=governance_record.subject_type,
+                subject_id=governance_record.subject_id,
+                evidence_packet_id=governance_record.evidence_packet_id,
+            )
+
+        assert publication_result.success is True
+        assert promotion_result.success is True
+        assert {task.review_task_id for task in persisted_tasks} == {
+            publication_task.review_task_id,
+            promotion_task.review_task_id,
+        }
+        assert {task.intended_sink for task in persisted_tasks} == {
+            publication_task.intended_sink,
+            promotion_task.intended_sink,
+        }
     finally:
         await _delete_test_records(postgres_session_factory)
 

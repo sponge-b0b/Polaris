@@ -19,3 +19,7 @@ Added current architecture language for signal flow, risk-agent authority, portf
 ## [2026-08-09] workflow governance audit seam | automated runtime outcomes bound to approval evidence
 
 Synchronized runtime and approval-lifecycle entity invariants after wiring workflow facade governance/policy preflight evaluation to the application-owned automated decision audit seam for evidence-scoped review-task creation.
+
+## [2026-08-09] governed workflow audit composition | accepted request-scoped execution boundary pending realization
+
+Recorded the accepted request-scoped governed workflow execution boundary and its pending runtime, composition, and interface consequences; governed facade execution must no longer bypass canonical evidence and audit composition.

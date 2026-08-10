@@ -11,4 +11,5 @@
 
 ### Planned
 
+* **Governed workflow execution transport migration** — accepted, implementation pending. CLI, backtest, and future interface entrypoints must call the request-scoped governed workflow execution service with canonical decision evidence and fail closed when it is unavailable, because transports cannot synthesize authority/evidence or retain a direct-facade bypass. (source: docs/adr/0011-dependency-composition-governed-workflow-audit-composition.md)
 * **API, web UI, customer-facing AI agent, and expanded external transport surfaces** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

@@ -14,4 +14,5 @@
 
 ### Planned
 
+* **Mandatory governed facade audit capability** — accepted, implementation pending. Facade execution with policy or governance enforcement must require the execution-audit capability issued by the request-scoped governed execution service and fail closed otherwise, because ordinary facade execution cannot silently omit automated decision audit. (source: docs/adr/0011-dependency-composition-governed-workflow-audit-composition.md)
 * **Runtime approvals and scheduling expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

@@ -13,4 +13,5 @@
 
 ### Planned
 
+* **Sink-scoped governance review-task identity** — accepted, implementation pending. Review-task ID, persistence uniqueness, and upsert semantics must distinguish intended sink alongside subject, evidence packet/version, review scope, and requested action, because approval for one controlled boundary cannot authorize another. (source: docs/adr/0010-governance-approval-lifecycle-contestability-residual-risk.md; docs/current/platform-architecture-ownership-ledger.md)
 * **Runtime-integrated approval engine expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

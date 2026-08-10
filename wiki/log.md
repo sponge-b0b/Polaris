@@ -23,3 +23,7 @@ Synchronized runtime and approval-lifecycle entity invariants after wiring workf
 ## [2026-08-09] governed workflow audit composition | accepted request-scoped execution boundary pending realization
 
 Recorded the accepted request-scoped governed workflow execution boundary and its pending runtime, composition, and interface consequences; governed facade execution must no longer bypass canonical evidence and audit composition.
+
+## [2026-08-09] sink-scoped governance review identity | authority reconciled, implementation pending
+
+Aligned the ownership ledger with ADR-0010 on intended sink as a review-task identity dimension and recorded the remaining persistence realization work.

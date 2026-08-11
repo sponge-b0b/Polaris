@@ -5,6 +5,8 @@ compatibility: product=codex product=claude-code system=git system=gh network=re
 disable-model-invocation: true
 ---
 
+# Wayfinder
+
 A loose idea has arrived — too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's issue tracker, then works its **decision tickets** — questions whose resolution is a decision, not slices of a build to execute — one at a time until the route is clear.
 
 The destination varies per effort, and naming it is the first act of charting — it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic — engineering work, course content, whatever fits the shape.
@@ -58,6 +60,23 @@ Check, where applicable:
 * dependency direction and boundary ownership;
 * authoritative consumers;
 * fail-closed or failure semantics.
+
+#### Concrete Contract Validation
+
+When an architectural decision requires an **existing domain type, interface, durable record, authority object, or lifecycle component** to be produced or consumed, inspect that concrete contract far enough to verify the decision is realizable.
+
+Where applicable, confirm:
+
+* required inputs can exist at the lifecycle point where the architecture requires the artifact;
+* the designated producer has an authoritative source for those inputs;
+* required classifications or authority facts are determined or deterministically derivable from accepted authority;
+* satisfying the existing contract does not require inventing a new durable meaning, input, authority source, classification, or lifecycle rule.
+
+Do not require missing implementation wiring to already exist.
+
+A missing factory, method, registration call, repository operation, or DI binding is implementation work when accepted architecture already determines the required semantics.
+
+If the required artifact **cannot be validly produced or consumed at the specified boundary without inventing durable semantics**, architecture remains unresolved.
 
 These are architectural questions only when their answers establish durable ownership, contracts, paths, boundaries, dependency direction, or lifecycle semantics.
 

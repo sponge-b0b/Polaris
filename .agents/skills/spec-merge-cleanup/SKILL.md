@@ -21,7 +21,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
 ## Review Exit Authorization
 
-Before closing or merging anything, recover the latest **Spec Review Exit Receipt** for the current Spec from its Spec Review issue.
+Before closing or merging anything, recover the latest **Spec Review Exit Receipt** from the parent Spec issue.
 
 The receipt must have been persisted by `$review-spec` only after its Exit Gate passed:
 
@@ -29,18 +29,20 @@ The receipt must have been persisted by `$review-spec` only after its Exit Gate 
 ## Spec Review Exit Receipt
 
 **Status:** passed
-**Spec:** #<spec_issue_number>
 **Reviewed HEAD:** <full SHA>
+**Reviewed Baseline:** <full Spec baseline SHA>
 **Branch:** spec-<spec_issue_number>
 **Blocking findings:** 0
 **Root blockers:** satisfied-or-owner-overridden
 **Candidate new roots:** 0
 ```
 
+Recover the current Spec baseline from its durable workspace metadata.
+
 Require:
 
 * `Status` is `passed`;
-* `Spec` identifies the current Spec;
+* `Reviewed Baseline` equals the current Spec baseline;
 * `Blocking findings` is `0`;
 * `Root blockers` is `satisfied-or-owner-overridden`;
 * `Candidate new roots` is `0`;
@@ -238,7 +240,7 @@ Do not continue to cleanup unless the merge succeeded.
 
 Cleanup is complete only when the applicable path has:
 
-* validated a current passing Spec Review Exit Receipt;
+* validated a current passing Spec Review Exit Receipt from the parent Spec;
 * successfully closed the Spec;
 * closed its Spec Review issue when one exists;
 * merged and deleted the Spec branch when applicable;

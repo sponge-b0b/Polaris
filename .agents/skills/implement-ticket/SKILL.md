@@ -35,7 +35,7 @@ The ticket's **Ticket branch** is authoritative.
 * A missing field halts.
 * Detached `HEAD` never satisfies a declared branch.
 
-```bash
+```bash id="c98bvy"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -51,7 +51,7 @@ Run this before any file mutation.
 
 Then capture:
 
-```bash
+```bash id="6jcf4z"
 TICKET_BASELINE=$(git rev-parse HEAD)
 ```
 
@@ -156,6 +156,7 @@ Default verification is targeted.
 * Do not automatically run full-suite tests, repository-wide typing/lint, full coverage, or unrelated integration suites.
 * Shell permission does not authorize broader verification.
 * Do not bypass repository command guards.
+* Do not claim an acceptance criterion is proven unless the concrete source/test evidence supporting it can be identified.
 
 If optional broader verification appears useful after required targeted checks, ask the user first.
 
@@ -254,11 +255,29 @@ If any carried cell is `unproven`, any known manifestation remains violated, or 
 
 If proof cannot be completed because of an external/environmental blocker, report it and leave the ticket open.
 
+### Root Closure Evidence
+
+For a Spec Review remediation ticket, assemble concrete closure evidence before committing.
+
+Record:
+
+* Root Blocker ID and invariant;
+* production path exercised;
+* Root Invariant Sweep surfaces inspected and result;
+* every carried acceptance cell and its concrete proof;
+* every protected root checked and its proof/result;
+* regression/production tests used as proof;
+* required database/integration verification when applicable.
+
+A generic test count, “targeted verification passed,” mocked lower-level seam, or unsupported assertion that the invariant was swept is not sufficient.
+
+If any required proof cannot be stated concretely, treat that obligation as `unproven` and keep the ticket open.
+
 ## 4. Re-Verify the Branch Before Committing
 
 Immediately before committing, verify **Ticket branch** again.
 
-```bash
+```bash id="f68ej9"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -283,7 +302,7 @@ After required verification and any Spec Review closure gates succeed:
 3. include owned wiki changes in the same commit;
 4. push:
 
-```bash
+```bash id="fqck17"
 git push -u origin HEAD
 ```
 
@@ -291,7 +310,7 @@ If commit or push fails, do not close the ticket.
 
 After push, capture ticket commits:
 
-```bash
+```bash id="5rsqhg"
 git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
 ```
 
@@ -302,18 +321,53 @@ Report short SHA and subject.
 Close only when:
 
 * implementation is complete;
+* every required acceptance criterion has identifiable supporting evidence;
 * required targeted verification succeeded;
 * for Spec Review remediation:
 
   * every carried Root Blocker acceptance cell is proven;
   * the Root Invariant Sweep found no remaining known in-scope violation;
   * every protected previously satisfied root remains preserved;
+  * concrete Root Closure Evidence has been assembled;
 * any explicitly authorized broader verification succeeded;
 * the branch invariant holds;
 * commit succeeded;
 * push succeeded.
 
-Never close a Spec Review remediation ticket with an `unproven` carried cell, known root violation, or regressed protected root.
+### Persist Root Closure Evidence
+
+Before closing a Spec Review remediation ticket, persist the assembled Root Closure Evidence as a ticket comment.
+
+Use a concise structure:
+
+```markdown id="pnmj1z"
+## Root Closure Evidence
+
+**Root:** RB-<n> — <invariant>
+**Production path:** <production boundary exercised>
+**Invariant sweep:** <surfaces inspected and result>
+
+### Acceptance proof
+- <cell>: proven — <concrete source/test evidence>
+
+### Protected roots
+- RB-<n>: preserved — <proof>
+- or None
+
+### Verification
+- <targeted regression/production/DB checks and result>
+
+### Commits
+- <short SHA> — <subject>
+```
+
+Include only applicable sections.
+
+Do not close the ticket if this comment cannot be persisted.
+
+Never close a Spec Review remediation ticket with an `unproven` carried cell, known root violation, regressed protected root, or missing durable closure evidence.
+
+For ordinary tickets, do not require a formal Root Closure Evidence comment. Identifiable acceptance/verification evidence in the normal implementation report is sufficient.
 
 For GitHub tickets, close only after all gates pass.
 
@@ -323,6 +377,7 @@ Report:
 
 * implementation completed;
 * Architecture context and any divergence;
+* acceptance criteria and supporting evidence;
 * for Spec Review remediation:
 
   * current Root Blocker ID and invariant;
@@ -331,6 +386,7 @@ Report:
   * Root Invariant Sweep scope/result;
   * proof status for every carried acceptance cell;
   * protected roots identified and preservation result;
+  * Root Closure Evidence comment persisted;
 * ticket branch;
 * `$wiki-sync` pre/post result and wiki changes;
 * documentation/ADR activity;
@@ -343,4 +399,4 @@ Report:
 * worktree state;
 * ticket closure state.
 
-Any required verification, acceptance cell, invariant sweep, or protected-root preservation result that remains unresolved keeps the ticket open.
+Any required verification, acceptance criterion, acceptance cell, invariant sweep, protected-root preservation result, or required closure-evidence persistence that remains unresolved keeps the ticket open.

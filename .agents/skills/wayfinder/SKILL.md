@@ -11,9 +11,13 @@ The destination varies per effort, and naming it is the first act of charting �
 
 ## Plan, don't do
 
-Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes** — carrying execution into the map itself — but absent that, produce decisions, not deliverables.
+Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing.
 
-## Resolve architecture before handoff
+The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off.
+
+An effort can override this in its **Notes** by carrying execution into the map itself, but absent that, produce decisions, not deliverables.
+
+## Resolve Architecture Before Handoff
 
 For software work that materially affects architecture, use the Living Entity Wiki and its authoritative sources during distillation rather than leaving architectural questions for specification or implementation.
 
@@ -23,7 +27,9 @@ Classify the impact as:
 none | conforming | extending | changing | retiring
 ```
 
-Treat unresolved material architecture questions as decision tickets. Before the route is considered clear:
+Treat unresolved material architecture questions as decision tickets.
+
+Before the route is considered clear:
 
 * identify affected entities and applicable invariants, decisions, rejections, and boundaries;
 * resolve conflicts or intended architecture changes with the owner;
@@ -32,7 +38,47 @@ Treat unresolved material architecture questions as decision tickets. Before the
 * route reclassification of existing non-ADR documentation through `$classify-doc`;
 * invoke `$wiki-sync` when the resulting authoritative change requires derived wiki maintenance.
 
-Do not duplicate those skills' lifecycle rules here. Reconciling architectural decision records is part of resolving the map, not implementing the destination.
+Do not duplicate those skills' lifecycle rules here.
+
+Reconciling architectural decision records is part of resolving the map, not implementing the destination.
+
+### Architecture Implementability Closure
+
+Architectural consistency alone does not make the route clear.
+
+For every materially affected canonical contract, authority path, dependency boundary, or lifecycle, confirm that accepted architecture determines enough durable semantics to implement it without inventing another architectural choice.
+
+Check, where applicable:
+
+* canonical owner;
+* required typed authority/input source;
+* identity, version, or correlation key semantics;
+* lifecycle ordering;
+* persistence and retrieval responsibility;
+* dependency direction and boundary ownership;
+* authoritative consumers;
+* fail-closed or failure semantics.
+
+These are architectural questions only when their answers establish durable ownership, contracts, paths, boundaries, dependency direction, or lifecycle semantics.
+
+Do **not** require Wayfinder to decide implementation details such as:
+
+* class or method names;
+* private helper structure;
+* repository API shape when authority already determines its responsibility;
+* SQL/query mechanics;
+* local algorithms;
+* ordinary code organization.
+
+Ask:
+
+> Could implementation proceed without inventing a durable architectural choice?
+
+If **No**, architecture remains unresolved.
+
+Create or retain the required Wayfinder decision/fog under the same map. When several missing questions jointly define one contract or lifecycle and materially constrain one another, treat them as one coupled decision rather than artificial separate decisions.
+
+The route is not clear merely because every previously stated question has an answer.
 
 ## Repository Persistence
 
@@ -68,49 +114,55 @@ If staging, commit, or push fails:
 
 A Wayfinder decision that changes repository-side architectural records is not complete until those records are committed and pushed.
 
-## Refer by name
+## Refer by Name
 
-Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride *inside* the name, never stand in for it.
+Every map and ticket is an issue, so it has a **name** — its title.
+
+In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, number, or slug.
+
+The id and URL still travel inside the named link.
 
 ## The Map
 
 The map is a single issue on this repo's issue tracker, labelled `wayfinder:map` — the canonical artifact. Its tickets are child issues of the map.
 
-The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
+The map is an **index**, not a store. It lists decisions made and points at the tickets that hold their detail; a decision lives in exactly one place.
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided to you — run `$setup-matt-pocock-skills` if not. Consult the tracker doc's "Wayfinding operations" section for how *this* repo expresses them. If no tracker has been provided, default to the local-markdown tracker.
+**Where the map, child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided — run `$setup-matt-pocock-skills` if not.
 
-### The map body
+Consult the tracker doc's "Wayfinding operations" section. If no tracker has been provided, default to the local-markdown tracker.
 
-The whole map at low resolution, loaded once per session. Open tickets are **not** listed — they are open child issues, found by query.
+### The Map Body
+
+The map is the low-resolution view loaded once per session. Open tickets are found by query.
 
 ```markdown
 ## Destination
 
-<what reaching the end of this map looks like — the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
+<what reaching the end of this map looks like>
 
 ## Notes
 
-<domain; skills every session should consult; standing preferences for this effort>
+<domain; skills every session should consult; standing preferences>
 
 ## Decisions so far
 
-<!-- the index — one line per closed ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
-
-- [<closed ticket title>](link) — <one-line gist of the answer>
+- [<closed ticket title>](link) — <one-line gist>
 
 ## Not yet specified
 
-<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
+<in-scope fog not yet sharp enough to ticket>
 
 ## Out of scope
 
-<!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
+<work ruled beyond the destination>
 ```
 
 ### Tickets
 
-Each ticket is a **child issue** of the map; the tracker's issue id is its identity. Its body is the question, sized to one 100K token agent session:
+Each ticket is a **child issue** of the map; the tracker's issue id is its identity.
+
+Its body contains the question, sized to one agent session:
 
 ```markdown
 ## Question
@@ -118,88 +170,96 @@ Each ticket is a **child issue** of the map; the tracker's issue id is its ident
 <the decision or investigation this ticket resolves>
 ```
 
-Each ticket carries a `wayfinder:<type>` label — one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
+Each ticket carries a `wayfinder:<type>` label — one of `research`, `prototype`, `grilling`, `task`.
 
-A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee *is* the claim: an open, unassigned ticket is unclaimed.
+A session **claims** a ticket by assigning it to the dev driving the map before any work. An open, unassigned ticket is unclaimed.
 
-Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier *visually* in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children — the edge of the known.
+Blocking uses the tracker's native dependency relationship. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children.
 
-The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
+The answer is recorded on resolution, not in the question body.
 
 ## Ticket Types
 
-Every ticket is either **HITL** — human in the loop, worked *with* a human who speaks for themselves — or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it.
+Every ticket is either **HITL** — human in the loop — or **AFK**, driven by the agent alone.
 
-* **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a `$research` **subagent**. Use when knowledge outside the current working directory is required.
-* **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to — an outline, a rough take, a stub, or UI/logic code via `$prototype`. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
-* **Grilling** (HITL): Conversation via `$grilling` and `$domain-modeling`, one question at a time. The default case.
-* **Task** (HITL or AFK): Manual work that must happen before a *decision* can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. The agent drives it alone where it can; otherwise it hands the human a precise checklist. Resolved when the work is done.
+* **Research** (AFK): read documentation, third-party APIs, or local resources to surface a fact a decision waits on. Resolve through a `$research` subagent.
+* **Prototype** (HITL): create a cheap concrete artifact via `$prototype` when reaction to behavior or shape will improve the decision.
+* **Grilling** (HITL): use `$grilling` and `$domain-modeling`, one question at a time. Default case.
+* **Task** (HITL or AFK): prerequisite work that must happen before a decision can be made.
 
-## Fog of war
+## Fog of War
 
-The map is *deliberately* incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
+The map is deliberately incomplete.
 
-The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier *toward* the destination — everything here is in scope, just not sharp enough to ticket.
+Beyond live tickets lies **fog of war** — decisions or investigations that are visibly coming but cannot yet be stated precisely because they depend on unresolved questions.
 
-**Fog or ticket?** The test is whether you can state the question precisely now — *not* whether you can answer it now.
+Record this in **Not yet specified**.
 
-* **Ticket when** the question is already sharp — even if it's blocked and you can't act on it yet.
-* **Not yet specified when** you can't yet phrase it that sharply.
+**Fog or ticket?**
 
-**Not yet specified** excludes what's already decided, what's already a live ticket, and what's out of scope.
+* **Ticket** when the question can already be stated precisely.
+* **Not yet specified** when it cannot.
 
-## Out of scope
+**Not yet specified** excludes what is already decided, already ticketed, or out of scope.
 
-Fog only ever gathers *toward* the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**.
+## Out of Scope
 
-Out-of-scope work never graduates — the frontier stops at the destination — so it returns only if the destination is redrawn, and then as a fresh effort, not a resumption.
+Fog gathers only toward the destination.
 
-Ruling something out of scope is a scoping act, not a step on the route. When an existing ticket turns out to sit past the destination, close it and leave one line in **Out of scope** linking the closed ticket. It stays out of **Decisions so far**.
+Work beyond the destination is **out of scope**, not fog.
+
+When an existing ticket proves to sit beyond the destination, close it and leave one linked line in **Out of scope**. Do not place it in **Decisions so far**.
 
 ## Invocation
 
-Two modes. Either way, **never resolve more than one ticket per session** — with the exception of research tickets.
+Two modes.
+
+Either way, **never resolve more than one ticket per session**, except research tickets.
 
 ### Execution Lifecycle Guardrails
 
-1. **Pre-Flight Metadata Audit**: The exact moment you are assigned a GitHub issue number or URL, run an initial metadata pull before analyzing the text description:
+1. **Pre-Flight Metadata Audit**
+
+   The moment a GitHub issue number or URL is supplied:
 
    ```bash
    gh issue view <ISSUE_NUMBER> --json labels,title,body
    ```
 
-2. **Workflow Routing**:
+2. **Workflow Routing**
 
-   * **IF** the labels contain `"wayfinder:grilling"`, proceed via `$grilling` and `$domain-modeling`, one question at a time.
-   * **ELSE** based on the Ticket Type, proceed via `$research`, `$prototype`, or route to **AFK** mode and execute the task autonomously using local tools as needed.
+   * label `wayfinder:grilling` → `$grilling` and `$domain-modeling`;
+   * otherwise route by Ticket Type through `$research`, `$prototype`, or AFK execution.
 
-### Chart the map
+### Chart the Map
 
 User invokes with a loose idea.
 
-1. **Name the destination.** Run a `$grilling` and `$domain-modeling` session to pin down what this map is finding its way to.
-2. **Map the frontier.** Grill again, breadth-first, surfacing the open decisions and first steps takeable now. For software architecture, include unresolved architectural consequences. If this surfaces no fog, continue the grilling session to completion instead; the effort collapses into a single `$grill-with-docs` session ending with the destination reached rather than a map.
-3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map, then wire blocking edges in a second pass.
-5. **Fire the research subagents.** For each `research` ticket created, spin up a `$research` subagent to resolve it in parallel, capturing findings on a throwaway `research/<name>` branch with a context pointer from the ticket.
-6. **Persist repository artifacts.** If this Wayfinder session created or modified repository files, complete **Repository Persistence** before declaring the session complete.
-7. Stop — charting is one session's work; it hand-resolves nothing.
+1. **Name the destination.** Run `$grilling` and `$domain-modeling`.
+2. **Map the frontier.** Surface open decisions breadth-first. For software architecture, include unresolved architectural consequences and apply **Architecture Implementability Closure** before treating the route as clear. If no fog remains, continue the grilling session to completion instead of creating a map.
+3. **Create the map** with `wayfinder:map`.
+4. **Create currently specifiable tickets**, then wire blocking edges.
+5. **Fire research subagents** for research tickets.
+6. **Persist repository artifacts** through **Repository Persistence** when applicable.
+7. Stop. Charting does not hand-resolve tickets.
 
-The same persistence rule applies when charting collapses into a single `$grill-with-docs` session: repository artifacts must be committed and pushed before that session is considered complete.
+The same persistence rule applies when charting collapses into a single `$grill-with-docs` session.
 
-### Work through the map
+### Work Through the Map
 
-User invokes with a map or one of its decision tickets. If given a ticket, resolve its parent Wayfinder map using the tracker's native relationship or explicit `Parent Wayfinder` metadata, then treat that ticket as the named decision.
+User invokes with a map or decision ticket.
 
-1. Load the **map** — the low-res view, not every ticket body.
-2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
-3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `$grilling` and `$domain-modeling`. For architectural decisions, apply **Resolve architecture before handoff**.
-4. **Persist the resolution.**
+If given a ticket, resolve its parent Wayfinder map using the tracker's native relationship or explicit `Parent Wayfinder` metadata, then treat that ticket as the named decision.
 
-   * reconcile any required authoritative architecture records;
+1. Load the **map**, not every ticket body.
+2. Choose the named ticket or first frontier ticket and **claim it** before work.
+3. Resolve it. Fetch related ticket detail only as needed. Use `$grilling` and `$domain-modeling` when appropriate. For architectural decisions, apply **Resolve Architecture Before Handoff** and **Architecture Implementability Closure**.
+4. **Persist the resolution**:
+
+   * reconcile required authoritative architecture records;
    * if repository files changed, complete **Repository Persistence**;
-   * only after required repository persistence succeeds, post the answer as a resolution comment, close the issue, and append its context pointer to the map's **Decisions so far**.
-5. Add newly surfaced tickets and wire dependencies; graduate newly specifiable fog; move newly out-of-scope work out of the frontier. If the decision invalidates other parts of the map, update or delete those tickets.
+   * only after persistence succeeds, post the resolution comment, close the ticket, and append its context pointer to **Decisions so far**.
+5. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
 
 ### Post-Resolution Gate
 
@@ -210,17 +270,25 @@ Confirm:
 * no open decision tickets remain;
 * **Not yet specified** contains no unresolved in-scope fog;
 * no material architecture question remains unresolved;
+* **Architecture Implementability Closure passes for materially affected architecture**;
 * required authoritative architecture records are reconciled;
 * the new decision has not left stale or contradictory map state or affected prior decisions unreconciled;
 * all Wayfinder-owned repository changes are committed and pushed.
 
-When a new decision supersedes or invalidates an earlier decision, preserve the historical resolution but update the affected map/ticket state enough to make the supersession explicit. Do not leave stale guidance looking current.
+When a new decision supersedes or invalidates an earlier decision, preserve the historical resolution but update affected map/ticket state enough to make the supersession explicit. Do not leave stale guidance looking current.
 
 A closed map or existing derived Spec does **not** waive this gate.
 
-If another unresolved decision or newly specifiable fog remains, continue routing through the map rather than presenting a downstream handoff.
+If another unresolved decision, missing implementability choice, or newly specifiable fog remains, continue routing through the map rather than presenting a downstream handoff.
 
-The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, while a resolved architectural decision still requires reconciliation with its authoritative records, while affected prior map state remains contradictory or stale, or while Wayfinder-owned repository changes remain uncommitted or unpushed.
+The route is not clear while:
+
+* decision tickets or in-scope fog remain;
+* a material architecture question remains unresolved;
+* implementation of an affected canonical contract/path/lifecycle would still require inventing a durable architectural choice;
+* authoritative records remain unreconciled;
+* affected prior map state remains contradictory or stale;
+* Wayfinder-owned repository changes remain uncommitted or unpushed.
 
 When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept:
 
@@ -232,6 +300,8 @@ When the Post-Resolution Gate passes and the destination is an implementation sp
 > $to-specs - <Wayfinder Map Title> (<Map URL>)
 > ```
 
-Always hand `$to-specs` the **Wayfinder map**, never an individual decision ticket or derived spec. `$to-specs` owns deciding whether this creates a new spec or delegates an existing-spec update to `$to-remediation-specs`.
+Always hand `$to-specs` the **Wayfinder map**, never an individual decision ticket or derived spec.
 
-The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
+`$to-specs` owns deciding whether this creates a new spec or delegates an existing-spec update to `$to-remediation-specs`.
+
+The user may run unblocked tickets in parallel, so expect other sessions to edit the tracker concurrently.

@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] Baseline runtime-evidence production lifecycle | accepted, implementation pending
+
+Recorded the canonical orchestration-owned producer for durable Baseline provenance; request-scoped governed execution and transports remain reconstruction/consumption boundaries.
+
 ## [2026-08-11] tier-specific governed execution evidence | implemented as active execution invariants
 
 Promoted ADR-0012 after Baseline runtime provenance and Enhanced/Vigilant packets were reconstructed at the canonical governed-execution service, with explicit façade audit composition for CLI and backtest paths.

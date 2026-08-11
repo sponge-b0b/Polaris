@@ -11,3 +11,5 @@
 * Production code must not introduce a hidden global mutable service locator, because service location would bypass explicit scopes and make dependencies invisible to tests and governance. (source: docs/adr/0002-dependency-composition-dishka-request-scopes.md)
 * The request-scoped governed execution service reconstructs Baseline runtime provenance or Enhanced/Vigilant decision evidence before deriving audit context and issuing the facade capability, because caller-supplied evidence cannot authorize governed execution. (source: docs/adr/0012-dependency-composition-governed-execution-evidence-contract.md)
 ### Planned
+
+* **Canonical Baseline runtime-evidence production lifecycle** — accepted, implementation pending. The canonical runtime/workflow orchestration boundary must use one application lifecycle service to create and persist Baseline authority and provenance; persistence adapters reconstruct/store and transports only identify/consume the durable record. (source: docs/adr/0013-dependency-composition-baseline-runtime-evidence-production-lifecycle.md)

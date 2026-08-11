@@ -1,21 +1,31 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into tracer-bullet tickets, each declaring its blocking edges, and publish them to the configured tracker.
+description: Break an explicit plan, spec, review, or other invocation source into tracer-bullet tickets, each declaring its blocking edges, and publish them to the configured tracker.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-Break a plan, spec, or conversation into **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
+Break an explicit plan, spec, review, or other invocation source into **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
 The issue tracker and triage label vocabulary should have been provided — run `$setup-matt-pocock-skills` if not.
+
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
 ## Process
 
 ### 1. Gather Context
 
-Work from the current conversation. If the user passes a spec path, issue number, or URL, fetch and read its full body and comments.
+Work from the explicit invocation source and recover its durable tracker/repository state.
+
+If the user passes a spec path, issue number, or URL, fetch and read its full body and comments.
 
 If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
@@ -100,6 +110,7 @@ New tickets must:
 * link to the same parent Spec;
 * carry applicable Architecture context;
 * use the shared **Ticket branch**;
+* declare **Ticket baseline** as `Pending`;
 * receive correct blocking relationships;
 * receive `ready-for-agent` unless instructed otherwise.
 
@@ -142,6 +153,8 @@ More generally, state only what the workflow has established. Do not turn curren
 
 **Ticket branch:** the shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
+**Ticket baseline:** Pending
+
 **Status:** ready-for-agent
 
 * [ ] Acceptance criterion 1
@@ -181,27 +194,39 @@ References to blocking tickets, or "None — can start immediately".
 
 The shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
+## Ticket baseline
+
+Pending
+
 </issue-template>
 
 Avoid specific file paths or code snippets unless a prototype produced a decision-rich snippet materially clearer than prose.
+
+### Ticket Baseline
+
+`Ticket baseline` is a per-ticket verification anchor, not the Spec baseline.
+
+Publish every new ticket with `Ticket baseline: Pending`. `$implement-ticket` replaces `Pending` exactly once with the full current `HEAD` before the ticket's first file mutation, then reuses that persisted SHA across resumed sessions.
+
+Never initialize a ticket baseline from the fixed Spec baseline or another ticket's baseline.
 
 Work the frontier one ticket at a time with `$implement-ticket`, clearing context between tickets.
 
 ## Spec Branch Rule
 
-All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and baseline.
+All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline. Each ticket has its own `Ticket baseline`.
 
 ### 0. Resolve the Spec Issue Number
 
 If the source is a `Spec Review: ` issue, recover the original Spec from its exact body line:
 
-```text
+```text id="939o06"
 **Parent Spec:** #<n>
 ```
 
 Otherwise the source Spec issue is the Spec issue.
 
-```bash
+```bash id="lcyvp9"
 INPUT_ISSUE_NUMBER=<input issue number>
 INPUT_ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --json title -q .title)
 
@@ -223,13 +248,13 @@ esac
 
 ### 1. Resolve Branch Identity
 
-```bash
+```bash id="j4bif7"
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
-### 2. Capture Baseline for First Use
+### 2. Capture Spec Baseline for First Use
 
-```bash
+```bash id="493h19"
 BASELINE_COMMIT=$(git rev-parse main)
 ```
 
@@ -237,7 +262,7 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-```bash
+```bash id="w21mjv"
 if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
   git checkout "$SPEC_BRANCH"
 else
@@ -249,11 +274,11 @@ Do not create another branch for remediation or amended-Spec ticket deltas.
 
 Ensure unrelated uncommitted work is not carried across the checkout.
 
-### 4. Record Baseline Metadata Once
+### 4. Record Spec Baseline Metadata Once
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 
-```bash
+```bash id="v1hlrx"
 ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comments[].body' \
   | grep -c "## Workspace Metadata" || true)
 

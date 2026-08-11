@@ -15,6 +15,14 @@ This is review-only. Do not run `pytest`, Ruff, Mypy, `$wiki-lint`, graph update
 
 `$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## Finding Taxonomy
 
 * **Blocking** — must be remediated before review closes.
@@ -318,7 +326,7 @@ Advisory-only findings do not trigger remediation.
 
 ## Exit Gate
 
-Proceed to `$spec-merge-cleanup` only when:
+The review passes only when:
 
 * current `HEAD` still matches the passing Spec Verification Receipt;
 * all three axes have zero Blocking findings;
@@ -327,4 +335,55 @@ Proceed to `$spec-merge-cleanup` only when:
 
 Advisory findings may remain.
 
-Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns closure.
+### Persist Exit Receipt
+
+Only after the Exit Gate passes, persist a **Spec Review Exit Receipt** on the parent Spec issue:
+
+```markdown
+## Spec Review Exit Receipt
+
+**Status:** passed
+**Reviewed HEAD:** <full SHA>
+**Reviewed Baseline:** <full Spec baseline SHA>
+**Branch:** spec-<spec_issue_number>
+**Blocking findings:** 0
+**Root blockers:** satisfied-or-owner-overridden
+**Candidate new roots:** 0
+```
+
+Immediately before persistence:
+
+```bash
+REVIEWED_HEAD=$(git rev-parse HEAD)
+
+if [ "$REVIEWED_HEAD" != "$CURRENT_HEAD" ]; then
+  echo "❌ HEAD changed during Spec review."
+  exit 1
+fi
+```
+
+`REVIEWED_HEAD` must also equal the `Verified HEAD` from the current passing Spec Verification Receipt.
+
+If receipt persistence fails, review is incomplete.
+
+The receipt authorizes cleanup only for that exact `HEAD`. Any later commit makes it stale.
+
+### Spec Merge Cleanup Human Handoff
+
+`$spec-merge-cleanup` has `allow_implicit_invocation: false`. Do not invoke it implicitly.
+
+After the Exit Receipt is successfully persisted, halt with:
+
+> ✅ **Spec review passed.**
+>
+> The verified and reviewed `HEAD` is ready for merge and cleanup.
+>
+> Please run:
+>
+> ```
+> $spec-merge-cleanup - <Spec Title> (<Spec URL>)
+> ```
+
+Then stop.
+
+Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns merge, closure, branch cleanup, and Wayfinder completion reconciliation.

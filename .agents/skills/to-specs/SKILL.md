@@ -1,12 +1,20 @@
 ---
 name: to-specs
-description: Turn the current conversation context and codebase understanding into one or more implementation specifications and publish or update them in the configured issue tracker.
+description: Turn an explicit planning source and current codebase understanding into one or more implementation specifications and publish or update them in the configured issue tracker.
 disable-model-invocation: true
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec or specs depending on complexity and scope. Do NOT interview the user — just synthesize what you already know.
+This skill takes an explicit planning source and current codebase understanding and produces a spec or specs depending on complexity and scope. Do NOT interview the user — recover and synthesize the required context from the invocation, repository, and durable tracker artifacts.
 
 The issue tracker and triage label vocabulary should have been provided to you — run `$setup-matt-pocock-skills` if not.
+
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
 ## Process
 
@@ -33,7 +41,7 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
 
-   Use seams already established by the resolved solution, Wayfinder decisions, or current conversation. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
+   Use seams already established by the resolved solution, durable Wayfinder decisions, or current repository state. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
 
 5. **Write and publish the spec(s)** using the template below. Apply the `ready-for-agent` triage label.
 

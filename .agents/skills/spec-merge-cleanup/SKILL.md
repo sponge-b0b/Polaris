@@ -11,6 +11,57 @@ Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking finding
 
 Execution splits depending on whether the Spec used `spec-<spec_issue_number>`.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
+## Review Exit Authorization
+
+Before closing or merging anything, recover the latest **Spec Review Exit Receipt** from the parent Spec issue.
+
+The receipt must have been persisted by `$review-spec` only after its Exit Gate passed:
+
+```markdown
+## Spec Review Exit Receipt
+
+**Status:** passed
+**Reviewed HEAD:** <full SHA>
+**Reviewed Baseline:** <full Spec baseline SHA>
+**Branch:** spec-<spec_issue_number>
+**Blocking findings:** 0
+**Root blockers:** satisfied-or-owner-overridden
+**Candidate new roots:** 0
+```
+
+Recover the current Spec baseline from its durable workspace metadata.
+
+Require:
+
+* `Status` is `passed`;
+* `Reviewed Baseline` equals the current Spec baseline;
+* `Blocking findings` is `0`;
+* `Root blockers` is `satisfied-or-owner-overridden`;
+* `Candidate new roots` is `0`;
+* when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`.
+
+Any commit after the receipt makes the authorization stale.
+
+If the receipt is missing, malformed, or stale, halt:
+
+> ⚠️ **Spec cleanup requires durable review authorization.**
+>
+> Please run:
+>
+> ```
+> $review-spec - <Spec Title> (<Spec URL>)
+> ```
+
+Do not invoke `$review-spec` implicitly.
+
 ## Wayfinder Completion Reconciliation
 
 After the current Spec is successfully closed, recover its originating Wayfinder map from the Spec provenance marker when present:
@@ -41,6 +92,8 @@ Failure to determine Wayfinder provenance is not a merge failure; report it and 
 
 ## Step 0 — Route: Standard vs. Direct Close
 
+Require a current passing **Spec Review Exit Receipt** before selecting either path.
+
 If `spec-<spec_issue_number>` does not exist locally or remotely, no PR will auto-close the Spec:
 
 ```bash
@@ -69,7 +122,7 @@ If the branch exists, continue with the standard merge path.
 
 1. **Confirm Precondition**
 
-   Do not proceed unless `$review-spec`'s Exit Gate authorized cleanup.
+   Do not proceed unless the current **Spec Review Exit Receipt** passes **Review Exit Authorization**.
 
 2. **Push Final State**
 
@@ -187,6 +240,7 @@ Do not continue to cleanup unless the merge succeeded.
 
 Cleanup is complete only when the applicable path has:
 
+* validated a current passing Spec Review Exit Receipt from the parent Spec;
 * successfully closed the Spec;
 * closed its Spec Review issue when one exists;
 * merged and deleted the Spec branch when applicable;

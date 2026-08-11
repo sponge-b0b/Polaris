@@ -11,6 +11,14 @@ Use when `$implement-ticket`, `$review-spec`, `$to-remediation-specs`, or anothe
 
 This is a **routing workflow**. Do not resolve architecture, modify implementation, amend a Spec, or create a new Wayfinder map here.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Capture the Blocker Set
 
 Use the caller-provided context to capture every unresolved architecture blocker at the stopping point.
@@ -62,7 +70,7 @@ Read the parent Spec and recover its Wayfinder provenance.
 
 Prefer:
 
-```html id="d3qv8a"
+```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
@@ -108,7 +116,7 @@ Use `wayfinder:grilling` unless the caller established another appropriate Wayfi
 
 Use:
 
-```markdown id="5m8hxd"
+```markdown
 **Parent Wayfinder:** #<wayfinder_map>
 **Parent Spec:** #<spec_issue>
 **Source Ticket:** #<source_ticket>
@@ -195,7 +203,7 @@ Otherwise report that the blocker set is already architecturally resolved and re
 
 After new architectural decisions are resolved, or existing accepted authority requires Spec reconciliation:
 
-```text id="43wdho"
+```text
 $wayfinder
 → $to-specs
 → $to-remediation-specs when an existing Spec is affected

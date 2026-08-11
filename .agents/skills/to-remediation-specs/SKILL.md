@@ -11,6 +11,14 @@ Invoked by `$to-specs` when its source Wayfinder map already has a derived in-pr
 
 Replace fresh spec creation for that case. The Wayfinder map remains the source input.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Recover the Existing Spec
 
 From the source Wayfinder map, resolve the existing derived spec using explicit tracker metadata.
@@ -30,7 +38,7 @@ If the relationship is ambiguous, halt rather than guessing which spec to amend.
 
 Read the existing spec's Wayfinder provenance marker:
 
-```html id="uwpk9a"
+```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
@@ -71,7 +79,7 @@ Do not introduce architectural decisions absent from resolved Wayfinder history.
 
 ## 4. Architecture Completeness Preflight
 
-Before applying a materially changed implementation obligation, verify that accepted architecture determines enough to implement it without inventing another durable architectural choice.
+Before applying a materially changed architecture-dependent implementation obligation, verify that accepted architecture determines enough to implement it without inventing another durable architectural choice.
 
 Where applicable, check:
 
@@ -83,16 +91,39 @@ Where applicable, check:
 * dependency boundaries;
 * failure semantics.
 
+### Concrete Implementability Check
+
+For each materially changed obligation, identify the existing concrete contract and production seam expected to realize it.
+
+Inspect only enough existing source to determine whether the accepted architecture is realizable.
+
+Where applicable, verify:
+
+* required domain/type inputs can exist at the lifecycle point where the obligation requires them;
+* the designated producer has authoritative inputs sufficient to construct the required artifact;
+* required classifications or authority facts are determined or deterministically derivable from accepted authority;
+* production composition can supply required dependencies without inventing new durable semantics;
+* canonical consumers can obtain required typed inputs from the authoritative path.
+
+Search before reading. Locate the affected type, producer, consumer, or composition seam and read only the surrounding code needed to answer these questions.
+
+Do not require implementation wiring to already exist.
+
+Missing factories, methods, configuration objects, registration calls, repository operations, DI bindings, bootstrap wiring, or similar mechanisms are implementation work when accepted architecture already determines their semantics.
+
+If satisfying the concrete contract requires inventing a new durable input, meaning, authority source, classification, owner, key/path, boundary, dependency direction, or lifecycle rule, architecture remains incomplete.
+
 Ordinary implementation details are not architecture.
 
-If satisfying the candidate obligation would require inventing an unresolved durable owner, contract, key, path, boundary, dependency direction, lifecycle rule, or authority semantic:
+If satisfying the candidate obligation would require inventing unresolved architecture:
 
 * do not amend the Spec;
 * do not consume the decision delta;
 * do not create or modify implementation tickets;
 * collect every independent architecture blocker;
 * preserve coupled questions as one blocker when they jointly define the same contract or lifecycle;
-* halt with a Human Handoff:
+
+Halt with a Human Handoff:
 
 > ⚠️ **Spec remediation is blocked by incomplete architecture.**
 >
@@ -102,7 +133,7 @@ If satisfying the candidate obligation would require inventing an unresolved dur
 > $architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
 > ```
 >
-> Pass the blocked obligation, evidence, material consequence, governing authority, and source Wayfinder decisions.
+> Pass the blocked obligation, concrete contract/production-seam evidence, material consequence, governing authority, and source Wayfinder decisions.
 
 Do not propose the architectural resolution.
 
@@ -110,7 +141,7 @@ Do not propose the architectural resolution.
 
 After the candidate amendment passes the Architecture Completeness Preflight, update the existing provenance marker to include every resolved Wayfinder decision now represented by the spec:
 
-```html id="vcbzt9"
+```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision>,#<new-decision> -->
 ```
 
@@ -141,6 +172,7 @@ Report:
 * newly consumed decision tickets;
 * spec sections changed;
 * Architecture Completeness Preflight result;
+* concrete contracts/production seams checked when applicable;
 * whether provenance was bootstrapped;
 * whether any ambiguity or architecture blocker prevented amendment.
 

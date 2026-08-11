@@ -41,13 +41,17 @@ An obligation is **architecture-blocked** if satisfying it would require:
 
 Do not persist an architecture-blocked obligation as ordinary remediation work and do not hand it to `$to-tickets`.
 
-Collect every independent architecture blocker and halt with the standard Human Handoff to:
+Collect every independent architecture blocker and halt with a Human Handoff:
 
-```text
-$architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
-```
-
-Pass the exact blocked acceptance obligation, evidence, material consequence, governing authority, Root Blocker ID when known, parent Spec, and Spec Review issue.
+> ⚠️ **Spec remediation is blocked by incomplete architecture.**
+>
+> Please run:
+>
+> ```
+> $architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
+> ```
+>
+> Pass the exact blocked acceptance obligation, evidence, material consequence, governing authority, Root Blocker ID when known, parent Spec, and Spec Review issue.
 
 Do not propose the architectural resolution.
 

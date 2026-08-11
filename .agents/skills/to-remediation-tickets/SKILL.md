@@ -14,6 +14,14 @@ Invoked by `$to-tickets` when:
 
 Replace ordinary vertical slicing for this invocation. Return the delta to `$to-tickets`; do not publish here.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Resolve the Source
 
 ### Spec Review
@@ -30,7 +38,7 @@ The Spec Review remains the remediation source. The original Spec remains the br
 
 Use the supplied Spec as source and parent.
 
-Do not create another Spec, branch, or baseline.
+Do not create another Spec, branch, or Spec baseline.
 
 ## 2. Recover Required State
 
@@ -142,9 +150,14 @@ Every new or updated ticket must follow `$to-tickets` rules, including:
 * scoped Architecture Readiness Language;
 * correct blocking edges;
 * the existing Spec's shared `Ticket branch`;
+* a durable `Ticket baseline`;
 * acceptance criteria proving required production behavior.
 
-`$to-tickets` owns approval, publishing, parent-child linking, dependencies, labels, and branch metadata.
+For new tickets, return `Ticket baseline: Pending`.
+
+For existing open tickets, preserve an already pinned full-SHA `Ticket baseline`; never reset it to `Pending`. If the field is missing, report the metadata gap rather than inventing a SHA.
+
+`$to-tickets` owns approval, publishing, parent-child linking, dependencies, labels, and ticket metadata. `$implement-ticket` owns pinning `Pending` to the implementation-start `HEAD`.
 
 ## 6. Return the Delta
 

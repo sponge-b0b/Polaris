@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] execution-scoped governed-evidence resolution lifecycle | accepted, implementation pending
+
+Recorded registry-bound workflow authority facts, a platform-created execution correlation, and canonical production followed by request-scoped durable re-acquisition as the remaining governed-evidence lifecycle contract.
+
 ## [2026-08-11] governed execution evidence acquisition | accepted, implementation pending
 
 Assigned tier selection and durable evidence acquisition to the request-scoped governed-execution resolver, leaving CLI and backtest as thin typed-request transports.

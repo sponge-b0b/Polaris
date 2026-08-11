@@ -12,4 +12,5 @@
 
 ### Planned
 
+* **Registry-bound workflow authority facts** — accepted, implementation pending. A registered workflow's immutable identity and Risk Authority Contract must form one platform-owned source for governed tier/evidence selection; caller metadata and transport references cannot establish those facts. (source: docs/adr/0016-dependency-composition-governed-execution-evidence-resolution-lifecycle.md)
 * **Broader runtime approval and capital-allocation governance capabilities** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

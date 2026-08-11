@@ -15,5 +15,6 @@
 ### Planned
 
 * **Registry-owned governed Workflow Identity** — accepted, implementation pending. The registry must resolve the workflow name and deterministic definition fingerprint used to bind every governed evidence variant before evaluation and audit-capability issuance. (source: docs/adr/0014-runtime-workflow-platform-governed-workflow-identity.md)
+* **Execution-scoped governed-evidence correlation** — accepted, implementation pending. Canonical orchestration must create the platform-owned execution correlation and persist the corresponding tier-specific evidence before a request-scoped resolver may authorize evaluation. (source: docs/adr/0016-dependency-composition-governed-execution-evidence-resolution-lifecycle.md)
 
 * **Runtime approvals and scheduling expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

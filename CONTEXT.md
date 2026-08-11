@@ -1,5 +1,16 @@
 # Polaris Domain Glossary
 
+## Workflow Identity
+
+A **Workflow Identity** is the immutable identity of a registered workflow
+definition: its canonical workflow name plus the deterministic fingerprint of
+that definition. The fingerprint is the workflow version; it identifies a
+definition revision, not an individual execution or caller-supplied label.
+
+Workflow Identity is distinct from an execution identifier. One Workflow
+Identity may have many executions, while a definition change creates a new
+Workflow Identity version.
+
 ## Recommendation
 
 A **Recommendation** is a Polaris decision-support output that proposes or explains a portfolio-relevant posture, action candidate, or risk response, backed by decision evidence. A Recommendation is not financial advice, human or organizational approval, broker execution intent, or a live order.

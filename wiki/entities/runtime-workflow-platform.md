@@ -14,4 +14,6 @@
 * Enforced facade execution consumes a one-use capability derived from reconstructed canonical evidence—Baseline runtime provenance or an Enhanced/Vigilant decision-evidence packet—and receives it through an explicit typed seam rather than context metadata, because the same verified authority must govern and audit the invocation. (source: docs/adr/0012-dependency-composition-governed-execution-evidence-contract.md)
 ### Planned
 
+* **Registry-owned governed Workflow Identity** — accepted, implementation pending. The registry must resolve the workflow name and deterministic definition fingerprint used to bind every governed evidence variant before evaluation and audit-capability issuance. (source: docs/adr/0014-runtime-workflow-platform-governed-workflow-identity.md)
+
 * **Runtime approvals and scheduling expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

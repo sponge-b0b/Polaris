@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] governed workflow identity | accepted, implementation pending
+
+Recorded registry-owned immutable workflow identity and version fingerprint as the common evidence-binding authority for Baseline provenance and reconstructed decision packets.
+
 ## [2026-08-11] Baseline runtime-evidence production lifecycle | accepted, implementation pending
 
 Recorded the canonical orchestration-owned producer for durable Baseline provenance; request-scoped governed execution and transports remain reconstruction/consumption boundaries.

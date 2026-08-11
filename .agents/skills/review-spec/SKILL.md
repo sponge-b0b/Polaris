@@ -335,4 +335,39 @@ Proceed to `$spec-merge-cleanup` only when:
 
 Advisory findings may remain.
 
+### Persist Exit Receipt
+
+Only after the Exit Gate passes, persist a **Spec Review Exit Receipt** on the parent Spec issue:
+
+```markdown
+## Spec Review Exit Receipt
+
+**Status:** passed
+**Reviewed HEAD:** <full SHA>
+**Reviewed Baseline:** <full Spec baseline SHA>
+**Branch:** spec-<spec_issue_number>
+**Blocking findings:** 0
+**Root blockers:** satisfied-or-owner-overridden
+**Candidate new roots:** 0
+```
+
+Immediately before persistence, require:
+
+```bash
+REVIEWED_HEAD=$(git rev-parse HEAD)
+
+if [ "$REVIEWED_HEAD" != "$CURRENT_HEAD" ]; then
+  echo "❌ HEAD changed during Spec review."
+  exit 1
+fi
+```
+
+`REVIEWED_HEAD` must still equal the `Verified HEAD` from the current passing Spec Verification Receipt.
+
+Persist the receipt with the full `REVIEWED_HEAD` and `BASELINE_COMMIT`.
+
+If receipt persistence fails, do not authorize `$spec-merge-cleanup`.
+
+The receipt authorizes cleanup only for that exact reviewed `HEAD`. Any later commit makes it stale.
+
 Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns closure.

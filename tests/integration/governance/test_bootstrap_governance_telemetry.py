@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from application.governance import GovernedWorkflowExecutionService
+from application.governance import (
+    CanonicalGovernedExecutionEvidenceLifecycle,
+    GovernedExecutionEvidenceResolver,
+    GovernedWorkflowExecutionService,
+)
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import GovernanceResult
@@ -74,23 +78,24 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
     audit_service = AsyncMock()
     audit_service.record_governance_evaluation.return_value = ()
     authority = classify_risk_authority(workflow_curation_authority_input())
-    packet = Mock(spec=DecisionEvidencePacket)
-    packet.packet_id = "bootstrap-governance-telemetry-test-packet"
     verified_packet = Mock(spec=DecisionEvidencePacket)
-    verified_packet.packet_id = packet.packet_id
+    verified_packet.packet_id = "bootstrap-governance-telemetry-test-packet"
     verified_packet.output_id = "bootstrap-governance-telemetry-test"
     verified_packet.schema_version = 1
     verified_packet.authority = authority
-    packet_persistence_service = AsyncMock()
-    packet_persistence_service.reconstruct_packet.return_value = verified_packet
+    evidence_lifecycle = AsyncMock(spec=CanonicalGovernedExecutionEvidenceLifecycle)
+    evidence_resolver = AsyncMock(spec=GovernedExecutionEvidenceResolver)
+    evidence_resolver.resolve.return_value = verified_packet
     execution_service = GovernedWorkflowExecutionService(
         workflow_facade=runtime.facade,
         automated_decision_audit_service=audit_service,
-        decision_evidence_packet_persistence_service=packet_persistence_service,
+        decision_evidence_packet_persistence_service=AsyncMock(),
+        evidence_lifecycle=evidence_lifecycle,
+        evidence_resolver=evidence_resolver,
     )
     execution_audit_capability = await execution_service._audit_capability_for_run(
+        workflow_name="bootstrap-governance-telemetry-workflow",
         execution_id="bootstrap-governance-telemetry-test",
-        evidence=packet,
     )
     assert execution_audit_capability is not None
 

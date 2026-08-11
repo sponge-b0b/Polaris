@@ -311,7 +311,7 @@ def test_workflow_run_help_describes_default_control_and_file_formats() -> None:
     assert "workflow control" in result.output
     assert "--format writes" in result.output
     assert "additional output" in result.output
-    assert "html, json, markdown, or pdf" in result.output
+    assert "Optional additional workflow file format" in result.output
     assert "--progress" not in result.output
     assert "--interactive-control" not in result.output
     assert "format: console" not in result.output.lower()

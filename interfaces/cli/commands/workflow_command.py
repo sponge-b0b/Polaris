@@ -7,9 +7,7 @@ import typer
 
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.commands.workflow_command_boundary import (
-    build_interactive_input_reader,
     build_progress_renderer,
-    emit_control_notification,
     emit_rendered_workflow_output,
     render_workflow_output_with_fallback,
     validate_workflow_artifact_format,
@@ -182,13 +180,6 @@ def run_workflow(
             help="Runtime mode.",
         ),
     ] = "live",
-    execution_id: Annotated[
-        str | None,
-        typer.Option(
-            "--execution-id",
-            help="Optional execution id.",
-        ),
-    ] = None,
     metadata: Annotated[
         list[str],
         typer.Option(
@@ -229,7 +220,6 @@ def run_workflow(
                 WorkflowRunCommandRequest(
                     workflow_name=workflow_name,
                     mode=mode,
-                    execution_id=execution_id,
                     metadata=parsed_metadata,
                     plugin_dirs=tuple(
                         plugin_dirs,
@@ -243,9 +233,7 @@ def run_workflow(
                         "command": "workflow run",
                     },
                     progress_handler=progress_renderer.handle,
-                    interactive_control=True,
-                    interactive_input=build_interactive_input_reader(),
-                    control_handler=emit_control_notification,
+                    interactive_control=False,
                 )
             )
         )
@@ -253,7 +241,7 @@ def run_workflow(
         envelope = workflow_exception_to_render_envelope(
             exc,
             workflow_name=workflow_name,
-            execution_id=execution_id,
+            execution_id=None,
             summary={
                 "mode": mode,
                 "metadata": list(

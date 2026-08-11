@@ -11,13 +11,13 @@ Verify the completed Spec branch against its fixed baseline as a unified system.
 
 Unlike `$verify-code`, this workflow is authorized to run the repository-wide checks defined here. It may repair verification failures within Spec scope, rerun affected gates, and persist those fixes.
 
-A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` may use that receipt as its verification precondition.
+A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` requires that receipt.
 
 ## 1. Pin the Fixed Point
 
 Resolve the fixed baseline from the parent Spec issue unless explicitly overridden:
 
-```bash id="r3yb0x"
+```bash
 BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
   | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
 ```
@@ -26,7 +26,7 @@ If missing and no explicit ref was supplied, ask for it.
 
 Verify the Spec branch:
 
-```bash id="t7bcpn"
+```bash
 CURRENT_BRANCH=$(git branch --show-current)
 
 if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
@@ -39,9 +39,9 @@ git rev-parse "$BASELINE_COMMIT"
 
 Halt if the baseline does not resolve.
 
-Verification must start from a clean worktree because the resulting receipt attests to an exact commit:
+Verification must begin from a clean worktree:
 
-```bash id="e0tjdu"
+```bash
 if [ -n "$(git status --porcelain)" ]; then
   echo "❌ Spec verification requires a clean worktree."
   exit 1
@@ -50,7 +50,7 @@ fi
 
 Capture:
 
-```bash id="hd66kx"
+```bash
 git diff "$BASELINE_COMMIT"...HEAD
 git log "$BASELINE_COMMIT"..HEAD --oneline
 ```
@@ -62,9 +62,9 @@ The aggregate diff must be non-empty.
 Resolve the originating Spec from:
 
 1. commit references;
-2. a path or issue supplied by the user;
-3. a matching Spec under `docs/`, `specs/`, or `.scratch/`;
-4. ask only if still unresolved.
+2. a user-supplied path or issue;
+3. a matching repository Spec;
+4. the user only if still unresolved.
 
 Capture its **Architecture Impact**:
 
@@ -73,7 +73,7 @@ Capture its **Architecture Impact**:
 * governing ADR/doc references;
 * unresolved architecture questions.
 
-A Spec with an unresolved material architecture question is not ready for verification.
+A Spec containing an unresolved material architecture question is not ready for verification.
 
 ## 3. Execute Verification
 
@@ -81,19 +81,12 @@ A Spec with an unresolved material architecture question is not ready for verifi
 
 * Explicit invocation authorizes the repository-wide Ruff and Mypy commands below.
 * It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
-* Read `docs/process/testing-guide.md` and select tests from the Spec diff, affected boundaries, acceptance requirements, and known regression risks.
-* Do not weaken configuration, add suppressions, or refactor unrelated code merely to pass.
+* Read `docs/process/testing-guide.md`.
+* Select tests from the Spec diff, affected boundaries, acceptance requirements, and regression risks.
+* Do not weaken configuration, add pass-only suppressions, or refactor unrelated code merely to pass.
 * Report unrelated pre-existing failures separately.
 
-Set:
-
-```bash id="upb7iz"
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>
-```
-
 ### Environment and Services
-
-Identify required infrastructure before integration or live tests.
 
 If a required targeted test cannot establish its acceptance criterion service-free:
 
@@ -107,7 +100,7 @@ Never expose secrets or authenticated connection strings.
 
 ### Ruff
 
-```bash id="f2nqie"
+```bash
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
 ```
@@ -116,14 +109,14 @@ Never use Ruff `--add-noqa` to manufacture a pass.
 
 ### Mypy
 
-```bash id="1ledds"
+```bash
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
   uv run mypy . --explicit-package-bases
 ```
 
 ### Testing Matrix
 
-```bash id="p0gmsm"
+```bash
 cat docs/process/testing-guide.md
 ```
 
@@ -138,7 +131,7 @@ Do not blindly run the full suite.
 
 ### Targeted Integration and Regression
 
-```bash id="3ex3qu"
+```bash
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
@@ -161,12 +154,12 @@ Unrelated pre-existing findings do not fail this Spec.
 
 Refresh and query the architecture graph:
 
-```bash id="v5f3bc"
+```bash
 graphify . --update
 graphify query "<affected entities, canonical concepts, and changed subsystems>"
 ```
 
-Check whether the implementation:
+Check whether implementation:
 
 * connects to expected canonical owners;
 * bypasses established boundaries;
@@ -174,7 +167,7 @@ Check whether the implementation:
 * violates dependency direction;
 * exposes unresolved material architecture.
 
-Route architecture findings through **Architecture Finding Routing** before modifying anything.
+Before routing any `[source-conflict]`, apply the **Realization-Status Defensive Rule** below.
 
 ### Duplication
 
@@ -186,7 +179,7 @@ Unrelated existing clone clusters are reported separately.
 
 ## 4. Failure Handling
 
-For an ordinary failure:
+For an ordinary verification failure:
 
 1. determine whether the Spec introduced or owns it;
 2. fix the narrowest authoritative point within Spec scope;
@@ -200,7 +193,7 @@ This includes:
 * targeted tests;
 * integration/persistence checks;
 * Spec-introduced duplication;
-* deterministic architecture drift.
+* deterministic architecture/documentation drift.
 
 Do not:
 
@@ -210,9 +203,29 @@ Do not:
 * broaden testing to compensate for a failed targeted check;
 * modify unrelated pre-existing failures.
 
-If a non-architecture failure cannot be safely repaired within Spec scope, stop and report it.
+If a non-architecture failure cannot be safely resolved within Spec scope, stop and report it.
 
 ## 5. Architecture Finding Routing
+
+### Realization-Status Defensive Rule
+
+Do not accept `[source-conflict]` classification merely because an accepted ADR still describes its implementation as `pending`, `not yet realized`, or equivalent.
+
+When all are true:
+
+1. the ADR remains accepted;
+2. its normative architectural decision is unambiguous;
+3. current implementation conforms to that decision;
+4. implementation clearly realizes the described capability; and
+5. the only disagreement is stale realization/lifecycle wording;
+
+then this is deterministic **ADR documentation drift**, not unresolved architecture.
+
+Route it through `$to-adr-doc`, then rerun `$wiki-lint` and the affected architecture checks.
+
+Do not invoke `$architecture-remediation` for this condition.
+
+This rule applies only to stale realization/lifecycle description. If implementation contradicts the ADR's normative decision, or applicable authorities genuinely disagree about architecture, continue normal architecture routing.
 
 ### Existing Authority Determines the Fix
 
@@ -220,26 +233,29 @@ When current authority already establishes the correct state, repair the violati
 
 Examples:
 
-* accepted ADR violation;
-* stale derived wiki knowledge;
-* documentation drift;
-* bypass of a known canonical owner or dependency direction.
+* implementation violates an accepted ADR;
+* derived wiki knowledge is stale;
+* documentation or ADR realization status is stale;
+* a known canonical owner or dependency direction was bypassed.
 
-Use the owning workflow where applicable:
+Use the owning workflow:
 
 * implementation → correct code;
-* entity knowledge → `$wiki-sync`;
-* new non-ADR document → `$to-doc`;
+* derived entity knowledge → `$wiki-sync`;
+* new non-ADR documentation → `$to-doc`;
 * document classification/relocation → `$classify-doc`;
-* ADR content/lifecycle → `$to-adr-doc`.
+* ADR content/lifecycle/realization status → `$to-adr-doc`.
 
 Rerun directly affected architecture checks.
 
-Do not classify non-realization of an accepted decision as `[source-conflict]`.
+Do not classify either of these as `[source-conflict]`:
+
+* implementation has not yet realized an accepted decision and active work clearly tracks that realization;
+* implementation has now realized an accepted decision but the ADR's descriptive realization status is stale.
 
 ### Architecture Decision Required
 
-A new decision is required when correction requires choosing or changing a durable:
+A new decision is required only when correction requires choosing or changing a durable:
 
 * invariant;
 * canonical owner/path;
@@ -247,9 +263,11 @@ A new decision is required when correction requires choosing or changing a durab
 * dependency direction;
 * lifecycle responsibility;
 
-or when applicable authorities genuinely disagree.
+or when applicable architectural authorities genuinely disagree and existing precedence cannot resolve them.
 
-Collect and de-duplicate every independent blocker. Do not resolve them here.
+Collect and de-duplicate every independent blocker.
+
+Do not resolve architecture inside `$verify-spec`.
 
 Halt with:
 
@@ -293,11 +311,11 @@ If verification changed repository files:
 4. commit;
 5. push:
 
-```bash id="crn0mc"
+```bash
 git push -u origin HEAD
 ```
 
-Child maintenance workflows such as `$wiki-sync` contribute their mutations to this commit rather than committing separately.
+Child maintenance workflows such as `$wiki-sync` and `$to-adr-doc` contribute their mutations to this verification commit rather than creating separate commits when their workflow permits parent commit ownership.
 
 Do not use `git add .` when unrelated changes exist.
 
@@ -305,9 +323,9 @@ If staging, commit, or push fails, verification is incomplete.
 
 If no repository files changed, skip commit and push.
 
-Require the final worktree to be clean:
+Require a clean final worktree:
 
-```bash id="oin9la"
+```bash
 if [ -n "$(git status --porcelain)" ]; then
   echo "❌ Verification cannot attest to HEAD with an uncommitted worktree."
   exit 1
@@ -323,25 +341,26 @@ Only after:
 * required pushes succeed;
 * the worktree is clean;
 
-capture the exact final commit:
+capture:
 
-```bash id="3f6ufc"
+```bash
 FINAL_HEAD=$(git rev-parse HEAD)
 ```
 
-Persist a new comment on the parent Spec issue:
+Persist a comment on the parent Spec:
 
-```bash id="cq50u8"
+```bash
 gh issue comment <spec_issue_number> --body "$(printf \
 '## Spec Verification Receipt\n**Status:** passed\n**Verified HEAD:** %s\n**Verified Baseline:** %s\n**Branch:** %s\n' \
 "$FINAL_HEAD" "$BASELINE_COMMIT" "spec-<spec_issue_number>")"
 ```
 
-A receipt attests only to that exact `Verified HEAD`.
+The receipt attests only to that exact `Verified HEAD`.
 
-Do not write a passing receipt for failed or unresolved verification.
+Do not:
 
-Do not reuse an older receipt after `HEAD` changes.
+* write a passing receipt for failed or unresolved verification;
+* reuse an older receipt after `HEAD` changes.
 
 If receipt persistence fails, verification is incomplete because `$review-spec` cannot establish its precondition.
 
@@ -358,7 +377,7 @@ Report:
 * architecture/wiki result;
 * duplication result;
 * failures repaired;
-* architecture findings repaired under existing authority;
+* architecture/documentation drift repaired under existing authority;
 * unrelated pre-existing findings;
 * optional checks not run;
 * verification-fix commit(s), if any;
@@ -366,9 +385,9 @@ Report:
 * final worktree state;
 * verification receipt result and `Verified HEAD`.
 
-On success, state:
+On success:
 
-```text id="62asek"
+```text
 Spec verification passed.
 Verified HEAD: <full SHA>
 ```

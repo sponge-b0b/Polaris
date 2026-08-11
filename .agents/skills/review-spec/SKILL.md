@@ -15,6 +15,14 @@ This is review-only. Do not run `pytest`, Ruff, Mypy, `$wiki-lint`, graph update
 
 `$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## Finding Taxonomy
 
 * **Blocking** — must be remediated before review closes.

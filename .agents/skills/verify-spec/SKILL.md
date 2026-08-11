@@ -13,6 +13,14 @@ Unlike `$verify-code`, this workflow is authorized to run the repository-wide ch
 
 A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` requires that receipt.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Pin the Fixed Point
 
 Resolve the baseline from the parent Spec unless explicitly overridden:

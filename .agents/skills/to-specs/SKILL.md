@@ -8,6 +8,14 @@ This skill takes the current conversation context and codebase understanding and
 
 The issue tracker and triage label vocabulary should have been provided to you — run `$setup-matt-pocock-skills` if not.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## Process
 
 1. **Gather context.** Work from the provided source and explore the repo as needed to understand the current codebase. Use the project's domain glossary vocabulary throughout the spec.

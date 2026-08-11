@@ -11,6 +11,14 @@ Invoked by `$to-specs` when its source Wayfinder map already has a derived in-pr
 
 Replace fresh spec creation for that case. The Wayfinder map remains the source input.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Recover the Existing Spec
 
 From the source Wayfinder map, resolve the existing derived spec using explicit tracker metadata.

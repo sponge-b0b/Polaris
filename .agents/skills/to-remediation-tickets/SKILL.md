@@ -14,6 +14,14 @@ Invoked by `$to-tickets` when:
 
 Replace ordinary vertical slicing for this invocation. Return the delta to `$to-tickets`; do not publish here.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## 1. Resolve the Source
 
 ### Spec Review

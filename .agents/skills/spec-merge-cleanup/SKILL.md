@@ -11,6 +11,14 @@ Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking finding
 
 Execution splits depending on whether the Spec used `spec-<spec_issue_number>`.
 
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+
 ## Wayfinder Completion Reconciliation
 
 After the current Spec is successfully closed, recover its originating Wayfinder map from the Spec provenance marker when present:

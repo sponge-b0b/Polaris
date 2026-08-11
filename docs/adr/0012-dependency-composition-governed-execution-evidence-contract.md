@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0018
 ---
 
 # 0012. Governed Execution Evidence Contract

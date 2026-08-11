@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] governed invocation and output evidence boundaries | accepted, implementation pending
+
+Superseded the generic packet-before-invocation lifecycle: catalog-owned facts and Baseline provenance govern workflow invocation, while claim-bearing output materializers own provenance-bound Enhanced/Vigilant packet production and re-acquisition.
+
 ## [2026-08-11] canonical governed-execution evidence lifecycle | implemented as active execution invariants
 
 Promoted ADR-0013 through ADR-0016 after registry-bound authority facts, platform-created execution correlation, durable tier-specific selection, and request-scoped re-acquisition were implemented and exercised for Baseline and packet-backed governed execution.

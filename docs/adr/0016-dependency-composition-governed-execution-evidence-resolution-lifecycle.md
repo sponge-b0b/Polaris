@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0018
 ---
 
 # 0016. Governed Execution Evidence Resolution Lifecycle

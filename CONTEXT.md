@@ -21,6 +21,14 @@ evidence-selection correlation. It is also distinct from caller-supplied
 evidence or an evidence identifier, neither of which may select or authorize
 a governed execution.
 
+## Workflow Invocation
+
+A **Workflow Invocation** is the platform-created execution of a registered
+workflow definition. It is not automatically a claim-bearing Output Boundary:
+its runtime provenance may be governed as Baseline evidence before execution,
+while any resulting output is classified and governed independently at its
+actual Output Boundary.
+
 ## Workflow Authority Facts
 
 **Workflow Authority Facts** are the platform-owned, typed association of a

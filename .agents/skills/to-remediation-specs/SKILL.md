@@ -122,7 +122,8 @@ If satisfying the candidate obligation would require inventing unresolved archit
 * do not create or modify implementation tickets;
 * collect every independent architecture blocker;
 * preserve coupled questions as one blocker when they jointly define the same contract or lifecycle;
-* halt with a Human Handoff:
+
+Halt with a Human Handoff:
 
 > ⚠️ **Spec remediation is blocked by incomplete architecture.**
 >

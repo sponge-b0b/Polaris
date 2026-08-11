@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0012
 ---
 
 # 0011. Request-Scoped Governed Workflow Audit Composition

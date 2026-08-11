@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-10] tier-specific governed execution evidence | accepted, implementation pending
+
+Superseded the universal decision-evidence-packet rule with a typed governed-execution evidence boundary: Baseline uses reconstructable runtime provenance while Enhanced and Vigilant retain claim-level decision evidence.
+
 ## [2026-08-10] governed workflow audit composition | implemented as active execution invariants
 
 Promoted ADR-0011's request-scoped governed workflow audit composition after CLI and backtest production paths migrated to the governed execution service.

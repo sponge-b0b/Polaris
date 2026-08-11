@@ -9,6 +9,6 @@
 * Long-lived infrastructure lives in application scope, while every command, request, or tool execution opens a request scope that the owning boundary closes, because request-scoped state must not leak across invocations. (source: docs/adr/0002-dependency-composition-dishka-request-scopes.md)
 * `get_async_di_container()` and registered providers are the supported composition entry points; interfaces must not recreate the object graph by hand, because manual wiring creates divergent runtime behavior. (source: docs/adr/0002-dependency-composition-dishka-request-scopes.md)
 * Production code must not introduce a hidden global mutable service locator, because service location would bypass explicit scopes and make dependencies invisible to tests and governance. (source: docs/adr/0002-dependency-composition-dishka-request-scopes.md)
-* Governed workflow execution resolves audit persistence and validates canonical decision evidence in a request-scoped application service before calling the application-scoped facade, because interfaces and simulation must not reconstruct authority or database lifecycle. (source: docs/adr/0011-dependency-composition-governed-workflow-audit-composition.md)
-
 ### Planned
+
+* **Tier-specific governed-execution evidence composition** — accepted, implementation pending. The request-scoped governed execution service will reconstruct typed Baseline runtime provenance or Enhanced/Vigilant decision evidence before it derives the audit context and issues the facade capability. (source: docs/adr/0012-dependency-composition-governed-execution-evidence-contract.md)

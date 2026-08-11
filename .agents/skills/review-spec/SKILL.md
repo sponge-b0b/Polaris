@@ -114,7 +114,9 @@ Any commit after verification makes the receipt stale.
 
 ### 4. Recover Review State
 
-If a Spec Review already exists, recover its **latest persisted Root Blocker state**, including later review/remediation updates.
+Before any reviewer is spawned, determine whether a Spec Review already exists for this Spec.
+
+If one exists, recover its **latest persisted Root Blocker state**, including body and later review/remediation updates.
 
 Capture:
 
@@ -136,9 +138,24 @@ On re-review:
 
 An unmatched finding is only a **Candidate new root**. `$review-spec-remediation` owns root synthesis and IDs.
 
+### Reviewer Dispatch Invariant
+
+**Review-state recovery is a hard precondition for reviewer dispatch.**
+
+Do not spawn any review sub-agent until:
+
+1. the search for an existing Spec Review is complete; and
+2. when one exists, its latest Root Blocker state has been recovered.
+
+Each reviewer's **initial prompt** must contain the applicable recovered root invariants, statuses, acceptance obligations, and sibling surfaces.
+
+Do not intentionally dispatch reviewers without known review state and reconcile it afterward.
+
+If existing review state is discovered only after reviewers were spawned, their incomplete-context results are invalid. Discard those results and restart the affected reviewers with the recovered state rather than layering a second reconciliation pass onto the first.
+
 ### 5. Spawn Reviewers
 
-Spawn exactly three parallel sub-agents when all axes apply:
+Only after Step 4 and the Reviewer Dispatch Invariant are satisfied, spawn exactly three parallel sub-agents when all axes apply:
 
 * one Standards;
 * one Spec;
@@ -148,12 +165,14 @@ Never spawn more than one reviewer per axis.
 
 After spawning, the main agent only aggregates and lightly validates returned evidence.
 
-Give each reviewer:
+Give each reviewer in its initial prompt:
 
 * aggregate diff and commits;
 * its authoritative review sources;
 * Finding Taxonomy;
-* existing roots and applicable acceptance obligations.
+* existing roots and applicable acceptance obligations;
+* affected sibling surfaces;
+* current root status when applicable.
 
 Tell each reviewer:
 
@@ -238,13 +257,13 @@ If multiple findings map to one root, say so explicitly.
 
 When a previous reviewed `HEAD` is available, determine whether each Candidate new root's implicated defect:
 
-* existed materially unchanged at the previous reviewed `HEAD` → label **Missed prior finding**;
-* was introduced or materially changed after that review → label **New/regressed finding**;
-* cannot be determined confidently → label **Origin uncertain**.
+* existed materially unchanged at the previous reviewed `HEAD` → **Missed prior finding**;
+* was introduced or materially changed afterward → **New/regressed finding**;
+* cannot be determined confidently → **Origin uncertain**.
 
 This classification is diagnostic only. It does not change Blocking severity or root ownership.
 
-Do not perform broad new discovery solely for this comparison; inspect only the implicated evidence.
+Do not perform broad discovery solely for this comparison; inspect only implicated evidence.
 
 ### Architecture Human Handoff
 

@@ -35,7 +35,7 @@ The ticket's **Ticket branch** is authoritative.
 * A missing field halts.
 * Detached `HEAD` never satisfies a declared branch.
 
-```bash id="u4j8rz"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -51,7 +51,7 @@ Run this before any file mutation.
 
 Then capture:
 
-```bash id="u18h2e"
+```bash
 TICKET_BASELINE=$(git rev-parse HEAD)
 ```
 
@@ -67,7 +67,7 @@ Substantial remaining work, elapsed time, perceived context/token pressure, or a
 
 Do not voluntarily return partial work merely because the task is long. If work remains and no defined blocker exists, continue.
 
-If execution is externally interrupted, preserve the current work and leave the ticket open for continuation; do not present the partial state as completed work.
+If execution is externally interrupted, preserve the current work and leave the ticket open for continuation; do not present partial state as completed work.
 
 ### Living Entity Wiki Guard
 
@@ -98,7 +98,7 @@ Missing classes, methods, configuration objects, registration APIs, producers, r
 
 Route to `$architecture-remediation` only when proceeding would require inventing or changing a durable owner, authority source, canonical key/path, boundary, dependency direction, lifecycle rule, or equivalent architectural semantic.
 
-The absence of code implementing an accepted architectural responsibility is evidence of unfinished implementation, not unresolved architecture.
+The absence of code implementing an accepted architectural responsibility is unfinished implementation, not unresolved architecture.
 
 If `$wiki-sync` or implementation exposes genuinely unresolved architecture after this test, do not resolve it locally.
 
@@ -188,7 +188,7 @@ Default verification is targeted.
 * Do not automatically run full-suite tests, repository-wide typing/lint, full coverage, or unrelated integration suites.
 * Shell permission does not authorize broader verification.
 * Do not bypass repository command guards.
-* Do not claim an acceptance criterion is proven unless the concrete source/test evidence supporting it can be identified.
+* Do not claim an acceptance criterion is proven unless concrete source/test evidence supporting it can be identified.
 
 If optional broader verification appears useful after required targeted checks, ask the user first.
 
@@ -222,6 +222,7 @@ Inspect relevant:
 * producers and persistence/result boundaries;
 * adapters/facades;
 * callers and consumers;
+* DI/bootstrap/composition;
 * named sibling surfaces;
 * tests representing those paths.
 
@@ -242,7 +243,7 @@ The Root Blocker invariant is authoritative over the current acceptance-cell enu
 
 A Spec Review remediation ticket must not regress a previously satisfied Root Blocker.
 
-Before closure, compare the ticket's modified production paths/contracts against previously satisfied roots from the same Spec Review.
+Before closure, compare modified production paths/contracts against previously satisfied roots from the same Spec Review.
 
 A satisfied root becomes a **protected root** when the ticket changes a surface it governs, including the same:
 
@@ -253,12 +254,14 @@ A satisfied root becomes a **protected root** when the ticket changes a surface 
 * canonical owner;
 * explicitly named sibling surface.
 
+Protected roots are identified by **Root Blocker ID**, not prior remediation-ticket number.
+
 Do not protect unrelated roots merely because they belong to the same Spec Review.
 
 For every protected root:
 
 1. identify its applicable existing regression/acceptance proof;
-2. rerun only the proof affected by the current change;
+2. rerun only proof affected by the current change;
 3. confirm the root still satisfies its invariant.
 
 Protected-root checks are targeted ticket verification, not optional broad verification.
@@ -267,8 +270,8 @@ If the current ticket regresses a protected root:
 
 * keep the current ticket open;
 * fix the regression within this ticket;
-* rerun the current-root and affected protected-root proof;
-* do not defer the regression into a new remediation ticket.
+* rerun current-root and affected protected-root proof;
+* do not defer the regression into another remediation ticket.
 
 ### Closure Reconciliation
 
@@ -287,9 +290,9 @@ If any carried cell is `unproven`, any known manifestation remains violated, or 
 
 If proof cannot be completed because of an external/environmental blocker, report it and leave the ticket open.
 
-### Root Closure Evidence
+### Proposed Root Closure Evidence
 
-For a Spec Review remediation ticket, assemble concrete closure evidence before committing.
+For a Spec Review remediation ticket, assemble concrete proposed closure evidence before independent verification.
 
 Record:
 
@@ -301,15 +304,60 @@ Record:
 * regression/production tests used as proof;
 * required database/integration verification when applicable.
 
-A generic test count, “targeted verification passed,” mocked lower-level seam, or unsupported assertion that the invariant was swept is not sufficient.
+A generic test count, “targeted verification passed,” mocked lower-level seam, or unsupported assertion that the invariant was swept is insufficient.
 
 If any required proof cannot be stated concretely, treat that obligation as `unproven` and keep the ticket open.
 
-## 4. Re-Verify the Branch Before Committing
+### Independent Root Closure Verification
+
+For every Spec Review remediation ticket, `$implement-ticket` must invoke `$verify-root-closure` in a **fresh read-only subagent** after targeted verification and proposed closure evidence are complete, but before commit, push, closure-evidence persistence, or ticket closure.
+
+Do not perform the independent certification yourself.
+
+Pass enough context for the verifier to recover:
+
+* current ticket and parent Spec;
+* latest Spec Review / Root Blocker Ledger;
+* `TICKET_BASELINE`;
+* current uncommitted implementation state;
+* proposed Root Closure Evidence;
+* applicable Architecture context.
+
+The verifier independently derives the required Root Invariant Sweep and protected roots. Do not constrain it to the implementer's claimed coverage.
+
+#### FAIL
+
+`ROOT CLOSURE: FAIL` is blocking.
+
+* keep the ticket open;
+* fix every implementation/proof failure within ticket scope;
+* apply **Architecture vs. Implementation Test** to any architecture-blocker candidate;
+* rerun affected targeted checks;
+* reconcile proposed closure evidence;
+* invoke a **fresh** `$verify-root-closure` subagent again.
+
+The parent may not override or downgrade a verifier failure.
+
+#### PASS
+
+Only `ROOT CLOSURE: PASS` permits a Spec Review remediation ticket to proceed toward commit.
+
+Capture the verifier's:
+
+* `TICKET_BASELINE`;
+* `ROOT_CLOSURE_STATE`;
+* acceptance proof;
+* invariant-sweep result;
+* protected-root result;
+* targeted verification result.
+
+Any implementation change after `PASS` makes the verdict stale and requires a fresh `$verify-root-closure`.
+
+## 4. Re-Verify Before Committing
 
 Immediately before committing, verify **Ticket branch** again.
 
-```bash id="488tj5"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -321,20 +369,46 @@ if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
 fi
 ```
 
-Skip when **Ticket branch** is `None`.
+Skip branch enforcement when **Ticket branch** is `None`.
 
 On failure, do not commit, push, close, or automatically switch branches with uncommitted work.
 
+### Root Closure State Guard
+
+For Spec Review remediation, recompute the verifier's worktree fingerprint immediately before commit:
+
+```bash
+CURRENT_ROOT_CLOSURE_STATE=$(
+  {
+    git diff --binary "$TICKET_BASELINE" --
+    git ls-files --others --exclude-standard -z \
+      | sort -z \
+      | xargs -0 -r sha256sum
+  } | sha256sum | awk '{print $1}'
+)
+```
+
+Require:
+
+```bash
+test "$CURRENT_ROOT_CLOSURE_STATE" = "$ROOT_CLOSURE_STATE"
+```
+
+If it differs, the independent verdict is stale.
+
+Do not commit. Rerun `$verify-root-closure` in a fresh read-only subagent against the new state.
+
 ## 5. Commit and Push
 
-After required verification and any Spec Review closure gates succeed:
+After all required verification and closure gates succeed:
 
 1. verify the branch;
-2. commit with `$conventional-commits`;
-3. include owned wiki changes in the same commit;
-4. push:
+2. for Spec Review remediation, verify `ROOT_CLOSURE_STATE`;
+3. commit with `$conventional-commits`;
+4. include owned wiki changes in the same commit;
+5. push:
 
-```bash id="ppvc2d"
+```bash
 git push -u origin HEAD
 ```
 
@@ -342,7 +416,7 @@ If commit or push fails, do not close the ticket.
 
 After push, capture ticket commits:
 
-```bash id="gk836y"
+```bash
 git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
 ```
 
@@ -360,7 +434,8 @@ Close only when:
   * every carried Root Blocker acceptance cell is proven;
   * the Root Invariant Sweep found no remaining known in-scope violation;
   * every protected previously satisfied root remains preserved;
-  * concrete Root Closure Evidence has been assembled;
+  * `$verify-root-closure` returned `ROOT CLOSURE: PASS`;
+  * the verified `ROOT_CLOSURE_STATE` remained unchanged through commit;
 * any explicitly authorized broader verification succeeded;
 * the branch invariant holds;
 * commit succeeded;
@@ -368,19 +443,22 @@ Close only when:
 
 ### Persist Root Closure Evidence
 
-Before closing a Spec Review remediation ticket, persist the assembled Root Closure Evidence as a ticket comment.
+Before closing a Spec Review remediation ticket, persist the independently verified Root Closure Evidence as a ticket comment.
 
 Use a concise structure:
 
-```markdown id="n1y0lx"
+```markdown
 ## Root Closure Evidence
 
 **Root:** RB-<n> — <invariant>
 **Production path:** <production boundary exercised>
-**Invariant sweep:** <surfaces inspected and result>
+**Independent verification:** PASS
 
 ### Acceptance proof
 - <cell>: proven — <concrete source/test evidence>
+
+### Invariant sweep
+- <surface>: clean/proven — <evidence>
 
 ### Protected roots
 - RB-<n>: preserved — <proof>
@@ -393,13 +471,21 @@ Use a concise structure:
 - <short SHA> — <subject>
 ```
 
+Use the independently verified results. Do not strengthen or replace them with unsupported parent-agent claims.
+
 Include only applicable sections.
 
 Do not close the ticket if this comment cannot be persisted.
 
-Never close a Spec Review remediation ticket with an `unproven` carried cell, known root violation, regressed protected root, or missing durable closure evidence.
+Never close a Spec Review remediation ticket with:
 
-For ordinary tickets, do not require a formal Root Closure Evidence comment. Identifiable acceptance/verification evidence in the normal implementation report is sufficient.
+* an `unproven` carried cell;
+* known root violation;
+* regressed or unproven protected root;
+* missing or stale independent closure `PASS`;
+* missing durable closure evidence.
+
+For ordinary tickets, do not invoke `$verify-root-closure` or require a formal Root Closure Evidence comment. Identifiable acceptance/verification evidence in the normal implementation report is sufficient.
 
 For GitHub tickets, close only after all gates pass.
 
@@ -417,8 +503,9 @@ Report:
   * production path exercised;
   * Root Invariant Sweep scope/result;
   * proof status for every carried acceptance cell;
-  * protected roots identified and preservation result;
-  * Root Closure Evidence comment persisted;
+  * protected roots and preservation result;
+  * `$verify-root-closure` verdict;
+  * verified Root Closure Evidence comment persisted;
 * ticket branch;
 * `$wiki-sync` pre/post result and wiki changes;
 * documentation/ADR activity;
@@ -431,4 +518,4 @@ Report:
 * worktree state;
 * ticket closure state.
 
-Any required verification, acceptance criterion, acceptance cell, invariant sweep, protected-root preservation result, or required closure-evidence persistence that remains unresolved keeps the ticket open.
+Any required verification, acceptance criterion, acceptance cell, invariant sweep, protected-root preservation, independent root-closure verification, or closure-evidence persistence that remains unresolved keeps the ticket open.

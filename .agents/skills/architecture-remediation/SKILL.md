@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Architecture Remediation
 
-Use when `$implement-ticket`, `$review-spec`, or another workflow cannot continue because of unresolved architecture.
+Use when `$implement-ticket`, `$review-spec`, `$to-remediation-specs`, or another workflow cannot continue because of unresolved or incomplete architecture.
 
 This is a **routing workflow**. Do not resolve architecture, modify implementation, amend a Spec, or create a new Wayfinder map here.
 
@@ -20,7 +20,8 @@ A blocker includes:
 * an unresolved material architecture decision;
 * a blocking `[source-conflict]` among applicable authorities;
 * current authority invalidating architecture required by the work;
-* a required Spec, review, or remediation obligation that cannot be implemented without violating or changing current architectural authority.
+* a required obligation that cannot be implemented without violating or changing current authority;
+* a required obligation that cannot be implemented without inventing a durable architectural owner, contract, key, path, boundary, dependency direction, lifecycle rule, or authority semantic.
 
 For each blocker capture:
 
@@ -43,26 +44,17 @@ Preserve caller evidence and terminology. Do not invent a resolution.
 
 De-duplicate by **independent architectural decision**, not by caller bullet or symptom.
 
-Multiple questions belong to the **same blocker/decision ticket** when they jointly define the same durable contract, lifecycle, ownership model, or canonical path and answering one materially constrains the others.
+Questions belong to the same decision when they jointly define the same durable contract, lifecycle, ownership model, or canonical path and answering one materially constrains the others.
 
 Ask:
 
 > Can each question be resolved independently without materially changing the decision space of the others?
 
-If **No**, combine them into one Wayfinder decision ticket with multiple explicit questions.
+If **No**, combine them into one decision with multiple explicit questions.
 
-If **Yes**, keep them as independent blockers.
+If **Yes**, keep them independent.
 
-Examples of coupled dimensions include:
-
-* producer ownership + required producer inputs;
-* contract identity/version semantics + validation semantics;
-* lifecycle ownership + persistence/reconstruction responsibility;
-* authority selection + the canonical evidence path that selection controls.
-
-Do not create separate Wayfinder decisions merely because the caller presented several numbered architecture blockers.
-
-Multiple symptoms of one architectural decision produce one ticket. Genuinely independent durable choices remain separate.
+Do not create separate decisions merely because the caller reported several numbered blockers.
 
 ## 2. Recover the Existing Wayfinder Effort
 
@@ -70,7 +62,7 @@ Read the parent Spec and recover its Wayfinder provenance.
 
 Prefer:
 
-```html id="tcrl50"
+```html id="d3qv8a"
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
@@ -78,13 +70,37 @@ If absent, use another explicit and unambiguous tracker relationship.
 
 If the originating Wayfinder map cannot be determined reliably, halt. Do not guess or create a replacement map.
 
-Blockers remain under that map unless one is genuinely outside its destination. Report such a blocker separately rather than silently creating another map.
+Blockers remain under that map unless one is genuinely outside its destination.
 
-## 3. Create or Reuse Decision Tickets
+## 3. Test Existing Architecture Coverage
 
-For each independent architectural decision produced by the coupling step, inspect the map's open child decisions.
+Before creating or reusing a decision ticket, inspect relevant accepted authority and resolved Wayfinder decisions.
 
-If an open child already represents the same underlying decision, reuse it.
+A prior decision resolves the blocker only when current accepted authority **directly determines the exact durable choice the caller says is missing**.
+
+For each blocker ask:
+
+> Can the blocked work proceed from current authority without inventing another durable architectural choice?
+
+If **Yes**:
+
+* record the exact accepted decision/authority that determines the missing choice;
+* explain concisely how it resolves that specific blocker;
+* do not create a duplicate decision.
+
+If **No**, the blocker remains unresolved.
+
+**Related subject matter is not coverage.** Do not treat a closed decision or ADR as resolving a blocker merely because it concerns the same subsystem, owner, contract, or lifecycle.
+
+For example, deciding **who owns** a lifecycle does not automatically determine its required inputs, durable selection key, or ordering.
+
+If existing authority resolves only part of a blocker, preserve only the unresolved dimensions and re-apply **Decision Coupling** to them.
+
+## 4. Create or Reuse Decision Tickets
+
+For every blocker still unresolved after the coverage test, inspect the map's open child decisions.
+
+Reuse an open child only when it represents the same underlying unresolved decision.
 
 Otherwise create exactly one child decision under the existing map using repository Wayfinding operations.
 
@@ -92,7 +108,7 @@ Use `wayfinder:grilling` unless the caller established another appropriate Wayfi
 
 Use:
 
-```markdown id="4j0r47"
+```markdown id="5m8hxd"
 **Parent Wayfinder:** #<wayfinder_map>
 **Parent Spec:** #<spec_issue>
 **Source Ticket:** #<source_ticket>
@@ -102,11 +118,10 @@ Use:
 
 <single architectural decision to resolve>
 
-When the decision has coupled dimensions:
+When coupled:
 
 1. <question/dimension>
 2. <question/dimension>
-3. <question/dimension>
 
 ## Discovery Context
 
@@ -114,12 +129,11 @@ When the decision has coupled dimensions:
 
 ## Blocked Obligation
 
-<exact Spec/review/remediation requirement that cannot currently be satisfied,
-when applicable>
+<exact requirement that cannot currently be satisfied, when applicable>
 
 ## Governing Authority
 
-<applicable ADRs/docs/contracts and the relevant incompatibility>
+<applicable ADRs/docs/contracts and what they determine or leave unresolved>
 ```
 
 `Parent Wayfinder` and `Parent Spec` are required.
@@ -128,16 +142,18 @@ Omit optional relationships or sections when they do not apply.
 
 Do not:
 
-* propose a preferred architectural resolution;
+* propose a preferred resolution;
 * rewrite the blocked obligation into a solution;
-* create duplicate decisions because the same blocker surfaced at multiple workflow stages;
-* split one coupled architectural lifecycle/contract into separate decision tickets merely because it contains multiple questions.
+* duplicate a decision because the same blocker surfaced at multiple workflow stages;
+* split one coupled contract/lifecycle into artificial separate decisions.
 
-The decision ticket must preserve enough context for `$wayfinder` to determine whether authority must change, the blocked obligation must change, or both must be reconciled.
+The ticket must preserve enough context for `$wayfinder` to determine whether authority must change, the blocked obligation must change, existing authority must be completed, or both must be reconciled.
 
-## 4. Human Handoff Intercept
+## 5. Human Handoff Intercept
 
-After every independent architectural decision has one corresponding open Wayfinder ticket, halt the current workflow.
+### Unresolved Decisions Remain
+
+When any blocker remains unresolved, halt the current workflow after every independent decision has one corresponding open Wayfinder ticket.
 
 Present all decisions and identify the next one:
 
@@ -145,8 +161,7 @@ Present all decisions and identify the next one:
 >
 > The following Wayfinder decision tickets represent the unresolved blockers:
 >
-> * **`<Decision Ticket 1 Title> (<URL>)`**
-> * **`<Decision Ticket 2 Title> (<URL>)`**
+> * **`<Decision Ticket Title> (<URL>)`**
 >
 > Please continue with:
 >
@@ -158,13 +173,29 @@ When only one exists, present only that ticket.
 
 Do not resume implementation, review remediation, or Spec amendment until the applicable decisions are resolved and the map route is clear.
 
-`$wayfinder` owns decision sequencing and resolves one decision ticket per session. A single decision ticket may contain several tightly coupled questions that must be resolved together.
+`$wayfinder` owns decision sequencing and resolves one decision ticket per session. One ticket may contain several tightly coupled questions.
 
-## 5. Return Path
+### Existing Authority Fully Resolves the Blocker Set
 
-After the required decisions are resolved:
+If every reported blocker is directly resolved by current accepted authority, create no Wayfinder decision.
 
-```text id="uqgmuf"
+Report for each blocker:
+
+* exact governing decision/authority;
+* the durable choice it determines;
+* why no architectural invention remains necessary.
+
+Do not infer resolution from topic overlap.
+
+If current authority invalidates or materially changes the existing Spec/remediation obligation, continue through the normal Wayfinder-to-Spec reconciliation path rather than returning directly to implementation.
+
+Otherwise report that the blocker set is already architecturally resolved and return control to the calling workflow.
+
+## 6. Return Path
+
+After new architectural decisions are resolved, or existing accepted authority requires Spec reconciliation:
+
+```text id="43wdho"
 $wayfinder
 → $to-specs
 → $to-remediation-specs when an existing Spec is affected
@@ -172,21 +203,22 @@ $wayfinder
 → $implement-ticket
 ```
 
-Do not hand directly back to the blocked implementation ticket when an architectural decision changes or invalidates its Spec/remediation obligation.
+Do not hand directly back to a blocked implementation ticket when architecture changes or invalidates its Spec/remediation obligation.
 
-`$to-remediation-specs` owns reconciling existing Spec requirements, acceptance obligations, and downstream ticket intent against newly resolved architecture.
+`$to-remediation-specs` owns reconciling existing Spec requirements and downstream ticket intent against newly resolved architecture.
 
 ## Completion
 
 This skill is complete when:
 
 * the existing Wayfinder map is recovered;
-* caller blockers are consolidated into the minimum set of genuinely independent architectural decisions;
-* every independent decision is represented by exactly one open Wayfinder ticket;
-* blocked requirements/acceptance obligations are preserved when applicable;
-* no duplicate or artificially split decision tickets were introduced;
-* the Human Handoff Intercept is presented.
+* caller blockers are reduced to the minimum set of genuinely independent decisions;
+* existing accepted authority is tested against the exact missing durable choices;
+* every unresolved decision is represented by exactly one open Wayfinder ticket;
+* blocked obligations are preserved when applicable;
+* no duplicate or artificially split decisions were introduced;
+* the appropriate Human Handoff or resolved-authority return is presented.
 
 `$wayfinder` owns architectural resolution and authority reconciliation.
 
-`$to-specs` / `$to-remediation-specs` own propagating the resulting architecture back into the existing Spec before implementation resumes.
+`$to-specs` / `$to-remediation-specs` own propagating changed architecture back into an existing Spec before implementation resumes.

@@ -481,7 +481,10 @@ def _policy_query_statement(
             AutomatedPolicyAuditRecordModel.evidence_packet_id == evidence_packet_id
         )
     return _timestamp_window(
-        stmt, AutomatedPolicyAuditRecordModel, start, end
+        stmt,
+        AutomatedPolicyAuditRecordModel.timestamp,
+        start,
+        end,
     ).order_by(
         AutomatedPolicyAuditRecordModel.timestamp.desc(),
         AutomatedPolicyAuditRecordModel.audit_record_id.asc(),

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database.models.governance_audit import (
     AutomatedGovernanceAuditRecordModel,
+    AutomatedPolicyAuditRecordModel,
     GovernanceResidualRiskAcceptanceModel,
     GovernanceReviewDecisionModel,
     GovernanceReviewTaskModel,
@@ -142,6 +143,50 @@ async def test_list_governance_audit_records_filters_queryable_states() -> None:
         "risk_tier",
         "outcome",
         "rule_name",
+        "evidence_packet_id",
+        "timestamp >=",
+        "timestamp <=",
+        "ORDER BY",
+    ):
+        assert expected_fragment in compiled
+
+
+@pytest.mark.asyncio
+async def test_list_policy_audit_records_filters_queryable_states() -> None:
+    policy_record = _policy_record(AutomatedPolicyAuditOutcome.DENY)
+    model = AutomatedPolicyAuditRecordModel(
+        **AutomatedDecisionAuditPersistenceSerializer.policy_values(policy_record),
+    )
+    session = FakeAsyncSession(result=FakeExecuteResult([model]))
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+    start = datetime(2026, 8, 2, 11, 0, tzinfo=UTC)
+    end = datetime(2026, 8, 2, 13, 0, tzinfo=UTC)
+
+    records = await repository.list_policy_audit_records(
+        subject_type="recommendation",
+        subject_id="rec-1",
+        risk_tier="enhanced",
+        outcome="deny",
+        policy_name="capital_policy",
+        evidence_packet_id="packet-1",
+        start=start,
+        end=end,
+    )
+
+    assert records == (policy_record,)
+    compiled = str(
+        session.executed[0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    for expected_fragment in (
+        "automated_policy_audit_records",
+        "subject_type",
+        "subject_id",
+        "risk_tier",
+        "outcome",
+        "policy_name",
         "evidence_packet_id",
         "timestamp >=",
         "timestamp <=",

@@ -171,6 +171,12 @@ async def test_postgres_governance_audit_records_survive_round_trip(
             persisted_governance = await repository.get_governance_audit_record(
                 governance_record.audit_record_id,
             )
+            queried_policy = await repository.list_policy_audit_records(
+                outcome="skip",
+                evidence_packet_id="ticket-129-packet",
+                start=policy_record.timestamp,
+                end=policy_record.timestamp,
+            )
             queried_governance = await repository.list_governance_audit_records(
                 outcome="require_approval",
                 evidence_packet_id="ticket-129-packet",
@@ -198,6 +204,7 @@ async def test_postgres_governance_audit_records_survive_round_trip(
 
         assert persisted_policy == policy_record
         assert persisted_governance == governance_record
+        assert queried_policy == (policy_record,)
         assert queried_governance == (governance_record,)
         assert persisted_review_task is not None
         assert persisted_review_task.status is GovernanceReviewTaskStatus.APPROVED

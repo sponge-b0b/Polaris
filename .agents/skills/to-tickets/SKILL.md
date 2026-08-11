@@ -76,6 +76,8 @@ Give each ticket its **blocking edges**.
 
 Present the proposed fresh breakdown or remediation delta.
 
+If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5.
+
 For new tickets, show:
 
 * **Title**
@@ -88,7 +90,7 @@ For remediation, also show any:
 * open tickets to close as superseded;
 * dependency changes.
 
-Ask:
+For any delta that is not metadata-only deterministic normalization, ask:
 
 * Does the granularity feel right?
 * Are the blocking edges correct?
@@ -98,7 +100,7 @@ Iterate until approved.
 
 ### 5. Publish to the Configured Tracker
 
-Apply only the approved changes.
+Apply only the approved changes, or deterministic metadata-only normalization authorized by Step 4.
 
 * **Local files** → create new ticket files and update or retire existing ones as required.
 * **Real issue tracker** → create new issues and apply approved updates or closures to existing open tickets.
@@ -113,6 +115,8 @@ New tickets must:
 * declare **Ticket baseline** as `Pending`;
 * receive correct blocking relationships;
 * receive `ready-for-agent` unless instructed otherwise.
+
+When updating an existing open ticket, preserve valid execution metadata and add `Ticket baseline: Pending` when the field is missing. Never replace an existing pinned baseline SHA.
 
 Do not reopen or rewrite closed tickets to represent newly required work.
 
@@ -220,13 +224,13 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 If the source is a `Spec Review: ` issue, recover the original Spec from its exact body line:
 
-```text id="939o06"
+```text
 **Parent Spec:** #<n>
 ```
 
 Otherwise the source Spec issue is the Spec issue.
 
-```bash id="lcyvp9"
+```bash
 INPUT_ISSUE_NUMBER=<input issue number>
 INPUT_ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --json title -q .title)
 
@@ -248,13 +252,13 @@ esac
 
 ### 1. Resolve Branch Identity
 
-```bash id="j4bif7"
+```bash
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
 ### 2. Capture Spec Baseline for First Use
 
-```bash id="493h19"
+```bash
 BASELINE_COMMIT=$(git rev-parse main)
 ```
 
@@ -262,7 +266,7 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-```bash id="w21mjv"
+```bash
 if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
   git checkout "$SPEC_BRANCH"
 else
@@ -278,7 +282,7 @@ Ensure unrelated uncommitted work is not carried across the checkout.
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 
-```bash id="v1hlrx"
+```bash
 ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comments[].body' \
   | grep -c "## Workspace Metadata" || true)
 

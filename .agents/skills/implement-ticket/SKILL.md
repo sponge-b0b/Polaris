@@ -35,7 +35,7 @@ The ticket's **Ticket branch** is authoritative.
 * A missing field halts.
 * Detached `HEAD` never satisfies a declared branch.
 
-```bash id="c98bvy"
+```bash id="u4j8rz"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -51,13 +51,23 @@ Run this before any file mutation.
 
 Then capture:
 
-```bash id="6jcf4z"
+```bash id="u18h2e"
 TICKET_BASELINE=$(git rev-parse HEAD)
 ```
 
 This is the ticket verification anchor only, not the Spec baseline.
 
 ## 2. Implement the Ticket
+
+### Completion Persistence
+
+Continue until the ticket completes all required gates or a genuine blocking condition defined by this skill prevents further progress.
+
+Substantial remaining work, elapsed time, perceived context/token pressure, or a desire to end the current turn are **not valid stopping conditions**.
+
+Do not voluntarily return partial work merely because the task is long. If work remains and no defined blocker exists, continue.
+
+If execution is externally interrupted, preserve the current work and leave the ticket open for continuation; do not present the partial state as completed work.
 
 ### Living Entity Wiki Guard
 
@@ -69,13 +79,35 @@ A material decision establishes or changes a durable invariant, canonical owner/
 
 Choose the simplest conforming implementation for ordinary local choices.
 
-If `$wiki-sync` or implementation exposes unresolved architecture, do not resolve it locally.
+### Architecture vs. Implementation Test
+
+Missing implementation of accepted architecture is not an architecture blocker.
+
+Before routing to `$architecture-remediation`, determine whether applicable accepted authority already establishes enough durable semantics to implement the requirement, including where relevant:
+
+* canonical ownership;
+* typed authority/input sources;
+* identity/key semantics;
+* lifecycle ordering;
+* boundaries and dependency direction;
+* failure behavior.
+
+If those durable choices are already established, continue implementation.
+
+Missing classes, methods, configuration objects, registration APIs, producers, repository methods, bootstrap wiring, or similar concrete mechanisms are implementation work unless choosing them would establish or change a durable architectural semantic.
+
+Route to `$architecture-remediation` only when proceeding would require inventing or changing a durable owner, authority source, canonical key/path, boundary, dependency direction, lifecycle rule, or equivalent architectural semantic.
+
+The absence of code implementing an accepted architectural responsibility is evidence of unfinished implementation, not unresolved architecture.
+
+If `$wiki-sync` or implementation exposes genuinely unresolved architecture after this test, do not resolve it locally.
 
 Architecture blockers include:
 
 * unresolved material architecture decisions;
 * blocking `[source-conflict]` among applicable authorities;
-* current authority invalidating architecture required by the ticket.
+* current authority invalidating architecture required by the ticket;
+* implementation requiring a durable architectural choice not determined by accepted authority.
 
 Collect every independent blocker at the stopping point. De-duplicate symptoms of the same underlying question.
 
@@ -277,7 +309,7 @@ If any required proof cannot be stated concretely, treat that obligation as `unp
 
 Immediately before committing, verify **Ticket branch** again.
 
-```bash id="f68ej9"
+```bash id="488tj5"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -302,7 +334,7 @@ After required verification and any Spec Review closure gates succeed:
 3. include owned wiki changes in the same commit;
 4. push:
 
-```bash id="fqck17"
+```bash id="ppvc2d"
 git push -u origin HEAD
 ```
 
@@ -310,7 +342,7 @@ If commit or push fails, do not close the ticket.
 
 After push, capture ticket commits:
 
-```bash id="5rsqhg"
+```bash id="gk836y"
 git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
 ```
 
@@ -340,7 +372,7 @@ Before closing a Spec Review remediation ticket, persist the assembled Root Clos
 
 Use a concise structure:
 
-```markdown id="pnmj1z"
+```markdown id="n1y0lx"
 ## Root Closure Evidence
 
 **Root:** RB-<n> — <invariant>

@@ -150,21 +150,6 @@ exclude = [
     '\.md$',
 ]
 
-[tool.pylint.master]
-ignore-paths = [
-    '^venv/',
-    '^\.venv/',
-    '^\.repowise/',
-    '^\.git/',
-    '__pycache__/',
-    '\.jscpd_report/',
-    '\.mypy_cache/',
-    '\.pytest_cache/',
-    '\.ruff_cache/',
-    '^graphify-out/',
-    '^build/',
-]
-
 [tool.coverage.run]
 source = [
     "application",

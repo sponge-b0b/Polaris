@@ -291,4 +291,7 @@ class WorkflowCommandService:
 
 
 def _is_governed_facade(facade: WorkflowFacade) -> bool:
-    return facade.policy_engine is not None or facade.governance_engine is not None
+    return (
+        getattr(facade, "policy_engine", None) is not None
+        or getattr(facade, "governance_engine", None) is not None
+    )

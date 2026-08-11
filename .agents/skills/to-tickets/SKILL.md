@@ -1,13 +1,13 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into tracer-bullet tickets, each declaring its blocking edges, and publish them to the configured tracker.
+description: Break an explicit plan, spec, review, or other invocation source into tracer-bullet tickets, each declaring its blocking edges, and publish them to the configured tracker.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-Break a plan, spec, or conversation into **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
+Break an explicit plan, spec, review, or other invocation source into **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
 The issue tracker and triage label vocabulary should have been provided — run `$setup-matt-pocock-skills` if not.
 
@@ -23,7 +23,9 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
 ### 1. Gather Context
 
-Work from the current conversation. If the user passes a spec path, issue number, or URL, fetch and read its full body and comments.
+Work from the explicit invocation source and recover its durable tracker/repository state.
+
+If the user passes a spec path, issue number, or URL, fetch and read its full body and comments.
 
 If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
@@ -218,13 +220,13 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 If the source is a `Spec Review: ` issue, recover the original Spec from its exact body line:
 
-```text
+```text id="939o06"
 **Parent Spec:** #<n>
 ```
 
 Otherwise the source Spec issue is the Spec issue.
 
-```bash
+```bash id="lcyvp9"
 INPUT_ISSUE_NUMBER=<input issue number>
 INPUT_ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --json title -q .title)
 
@@ -246,13 +248,13 @@ esac
 
 ### 1. Resolve Branch Identity
 
-```bash
+```bash id="j4bif7"
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
 ### 2. Capture Spec Baseline for First Use
 
-```bash
+```bash id="493h19"
 BASELINE_COMMIT=$(git rev-parse main)
 ```
 
@@ -260,7 +262,7 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-```bash
+```bash id="w21mjv"
 if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
   git checkout "$SPEC_BRANCH"
 else
@@ -276,7 +278,7 @@ Ensure unrelated uncommitted work is not carried across the checkout.
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 
-```bash
+```bash id="v1hlrx"
 ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comments[].body' \
   | grep -c "## Workspace Metadata" || true)
 

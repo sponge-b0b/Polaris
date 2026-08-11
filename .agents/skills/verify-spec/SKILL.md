@@ -158,7 +158,7 @@ When architecture introduces a required prerequisite, update tests/fixtures to t
 
 ### Architecture Integrity
 
-If the Living Entity Wiki exists, invoke `$wiki-lint`.
+If the Living Entity Wiki exists, invoke the `$wiki-lint` skill.
 
 Evaluate Spec-relevant:
 
@@ -241,7 +241,7 @@ When:
 
 treat this as deterministic ADR documentation drift.
 
-Route through `$to-adr-doc`, then rerun `$wiki-lint` and affected architecture checks.
+Route through `$to-adr-doc`, then rerun the `$wiki-lint` skill and affected architecture checks.
 
 Do not invoke `$architecture-remediation`.
 
@@ -312,8 +312,8 @@ After all verification-owned fixes, rerun every applicable gate needed for final
 * repository-wide Ruff;
 * repository-wide Mypy;
 * targeted integration/regression tests;
-* `$wiki-lint` and affected architecture queries;
-* `$duplication-checks` when applicable.
+* invoke the `$wiki-lint` skill and affected architecture queries;
+* invoke the `$duplication-checks` skill when applicable.
 
 If final `git diff --check` finds a deterministic Spec-owned whitespace defect, fix it mechanically and rerun the affected final gates as needed.
 

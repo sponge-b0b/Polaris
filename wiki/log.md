@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] governed execution evidence acquisition | accepted, implementation pending
+
+Assigned tier selection and durable evidence acquisition to the request-scoped governed-execution resolver, leaving CLI and backtest as thin typed-request transports.
+
 ## [2026-08-11] governed workflow identity | accepted, implementation pending
 
 Recorded registry-owned immutable workflow identity and version fingerprint as the common evidence-binding authority for Baseline provenance and reconstructed decision packets.

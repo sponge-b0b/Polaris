@@ -13,3 +13,4 @@
 ### Planned
 
 * **Canonical Baseline runtime-evidence production lifecycle** — accepted, implementation pending. The canonical runtime/workflow orchestration boundary must use one application lifecycle service to create and persist Baseline authority and provenance; persistence adapters reconstruct/store and transports only identify/consume the durable record. (source: docs/adr/0013-dependency-composition-baseline-runtime-evidence-production-lifecycle.md)
+* **Request-scoped governed-execution evidence acquisition** — accepted, implementation pending. The governed execution service must resolve workflow identity, platform-owned authority tier, and the durable evidence variant through one application resolver before enforcement; transports only submit execution requests and render typed failures. (source: docs/adr/0015-dependency-composition-governed-execution-evidence-acquisition.md)

@@ -35,14 +35,14 @@ Rules:
 
 Resolve the baseline from the parent Spec comment unless explicitly supplied:
 
-```bash id="iewafb"
+```bash
 BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
   | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
 ```
 
 Verify:
 
-```bash id="6xsps6"
+```bash
 CURRENT_BRANCH=$(git branch --show-current)
 
 if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
@@ -55,7 +55,7 @@ git rev-parse "$BASELINE_COMMIT"
 
 Capture:
 
-```bash id="djpber"
+```bash
 git diff "$BASELINE_COMMIT"...HEAD
 git log "$BASELINE_COMMIT"..HEAD --oneline
 ```
@@ -75,43 +75,27 @@ Capture its **Architecture Impact**.
 
 ### 3. Require Current Spec Verification
 
-Before recovering review state or spawning reviewers, require a clean worktree:
+Require a clean worktree:
 
-```bash id="pytpxi"
+```bash
 if [ -n "$(git status --porcelain)" ]; then
   echo "❌ Spec review requires a clean, verified worktree."
   exit 1
 fi
-```
 
-Capture current `HEAD`:
-
-```bash id="kczocg"
 CURRENT_HEAD=$(git rev-parse HEAD)
 ```
 
-Read the parent Spec comments and recover the **latest passing Spec Verification Receipt**.
-
-The receipt must contain:
-
-```text id="9zrts2"
-## Spec Verification Receipt
-**Status:** passed
-**Verified HEAD:** <full SHA>
-**Verified Baseline:** <baseline>
-**Branch:** spec-<spec_issue_number>
-```
+Recover the latest passing **Spec Verification Receipt** from the parent Spec.
 
 Require:
 
-* `Status` is `passed`;
+* `Status: passed`;
 * `Verified HEAD` exactly equals `CURRENT_HEAD`;
 * `Verified Baseline` equals the current Spec baseline;
 * `Branch` equals the current Spec branch.
 
-If no matching receipt exists, verification is missing or stale. Do not review.
-
-Halt with:
+If no matching receipt exists, halt:
 
 > ⚠️ **Spec review requires current passing spec verification.**
 >
@@ -124,15 +108,13 @@ Halt with:
 > $verify-spec - <Spec Title> (<Spec URL>)
 > ```
 
-Then stop.
-
 Do not invoke `$verify-spec` implicitly.
 
-Any commit after a passing verification invalidates that receipt for review eligibility until `$verify-spec` passes again.
+Any commit after verification makes the receipt stale.
 
 ### 4. Recover Review State
 
-If a Spec Review already exists, recover the **latest persisted Root Blocker state**, considering its body and subsequent remediation/review updates.
+If a Spec Review already exists, recover its **latest persisted Root Blocker state**, including later review/remediation updates.
 
 Capture:
 
@@ -140,12 +122,13 @@ Capture:
 * current root status;
 * acceptance obligations/matrix;
 * affected sibling surfaces;
-* Owner Overrides.
+* Owner Overrides;
+* previous reviewed `HEAD` when available.
 
 On re-review:
 
-* every existing open or regressed root MUST receive a status this pass;
-* evaluate its acceptance obligations before looking for new roots;
+* every existing open or regressed root MUST receive a status;
+* evaluate existing acceptance obligations first;
 * map findings to an existing root when they share its invariant;
 * another axis, sibling surface, or symptom does not create another root.
 
@@ -175,28 +158,38 @@ Give each reviewer:
 Tell each reviewer:
 
 1. evaluate applicable existing-root obligations first;
-2. perform its independent axis review;
-3. map findings to existing roots where applicable;
-4. mark unmatched findings `Candidate new root`;
-5. never invent an `RB-*` ID.
+2. then complete the **entire independent axis review** across the aggregate Spec change;
+3. do not stop after finding a blocker or after evaluating existing roots;
+4. return every independent Blocking finding discovered in this pass;
+5. map findings to existing roots where applicable;
+6. mark unmatched findings `Candidate new root`;
+7. never invent an `RB-*` ID.
 
 #### Standards
 
 Use `$coding-standards` and applicable repository standards.
 
-Return Blocking/Advisory findings only. Skip issues reliably owned by tooling.
+Review the full aggregate change for deterministic standards violations and relevant non-tooling smells.
+
+Return all Blocking/Advisory findings. Skip issues reliably owned by tooling.
 
 #### Spec
 
 Use the originating Spec.
 
-Find missing, partial, incorrect, or unauthorized behavior and cite the requirement.
+Review the full aggregate implementation for missing, partial, incorrect, or unauthorized behavior and cite the requirement.
+
+Return all findings, not only those related to existing roots.
 
 #### Architecture
 
 Invoke `$review-architecture`.
 
+Review the full aggregate implementation against applicable architectural authority.
+
 Preserve `Architecture decision required: Yes | No` and routing for every Blocking finding.
+
+Return all findings, not only those related to existing roots.
 
 ## 6. Aggregate
 
@@ -204,7 +197,7 @@ Lightly validate cited evidence only. Do not perform another review.
 
 Present:
 
-```text id="44d6jf"
+```text
 ## Standards
 
 ## Spec
@@ -212,11 +205,11 @@ Present:
 ## Architecture
 ```
 
-Keep axis findings independent even when multiple findings map to one root.
+Keep axis findings independent even when several map to one root.
 
 If a Root Blocker Ledger exists, also present:
 
-```text id="2n41xu"
+```text
 ## Root Blocker Status
 
 RB-1: <satisfied | open | regressed | unproven>
@@ -232,7 +225,7 @@ Every previously open or regressed root must appear.
 
 Use:
 
-* **satisfied** — all required obligations are established by available evidence;
+* **satisfied** — required obligations are established by available evidence;
 * **open** — one or more obligations remain violated;
 * **regressed** — previously satisfied behavior is now broken;
 * **unproven** — available review evidence is insufficient.
@@ -240,6 +233,18 @@ Use:
 Do not infer satisfaction merely because source code appears plausible.
 
 If multiple findings map to one root, say so explicitly.
+
+### Candidate New Root History
+
+When a previous reviewed `HEAD` is available, determine whether each Candidate new root's implicated defect:
+
+* existed materially unchanged at the previous reviewed `HEAD` → label **Missed prior finding**;
+* was introduced or materially changed after that review → label **New/regressed finding**;
+* cannot be determined confidently → label **Origin uncertain**.
+
+This classification is diagnostic only. It does not change Blocking severity or root ownership.
+
+Do not perform broad new discovery solely for this comparison; inspect only the implicated evidence.
 
 ### Architecture Human Handoff
 
@@ -277,7 +282,7 @@ On re-review, pass:
 * existing root statuses;
 * still-violated/regressed/unproven obligations;
 * axis findings mapped to those roots;
-* unmatched Candidate new roots.
+* unmatched Candidate new roots and their history classification.
 
 Do not restart root discovery for findings already explained by an existing root.
 
@@ -296,7 +301,7 @@ Advisory-only findings do not trigger remediation.
 
 Proceed to `$spec-merge-cleanup` only when:
 
-* the current `HEAD` still matches the passing Spec Verification Receipt;
+* current `HEAD` still matches the passing Spec Verification Receipt;
 * all three axes have zero Blocking findings;
 * every existing Root Blocker is satisfied or Owner-overridden;
 * no Candidate new root remains unresolved.

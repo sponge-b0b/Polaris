@@ -15,7 +15,7 @@ Before modifying files, read the full ticket and locate its **Ticket branch**.
 
 Capture the parent Spec when present.
 
-If the ticket has **Architecture context**, capture the affected entities and governing ADR/doc references as routing context. `$wiki-sync` still owns current source consistency.
+If the ticket has **Architecture context**, capture affected entities and governing ADR/doc references as routing context. `$wiki-sync` still owns current source consistency.
 
 If the ticket has a **Root blocker** or belongs to a `Spec Review`, also read the parent Spec and latest Spec Review state. Capture:
 
@@ -28,7 +28,7 @@ The ticket's **Ticket branch** is authoritative.
 
 ### Branch Guard
 
-* A declared branch must exactly match the currently checked-out branch.
+* A declared branch must exactly match the current branch.
 * Do not create, switch, rename, or repair it.
 * `None` skips branch enforcement.
 * A missing field halts.
@@ -124,7 +124,7 @@ Do not modify `wiki/log.md` when no durable knowledge changed.
 * Implement only the ticket.
 * For Spec Review remediation, implement the **root invariant**, not merely cited symptoms.
 * Named sibling surfaces/reference kinds and production paths are in scope.
-* Any additional manifestation discovered during implementation that violates the same Root Blocker invariant on an in-scope surface is part of this ticket; fix it here rather than deferring it to another remediation pass.
+* Any additional manifestation of the same Root Blocker invariant discovered on an in-scope surface belongs to this ticket; fix it here.
 * Respect acceptance criteria and blocking assumptions.
 * Use `$tdd` at applicable pre-agreed seams.
 * Use `$format-code`.
@@ -160,12 +160,12 @@ If optional broader verification appears useful after required targeted checks, 
 If required verification fails:
 
 * fix failures within ticket scope;
-* rerun the affected checks;
+* rerun affected checks;
 * do not commit, push, or close while required verification remains unresolved.
 
 ### Spec Review Root Closure Gate
 
-For a Spec Review remediation ticket, targeted verification must prove the **entire Root Blocker obligation carried by the ticket**, not just the changed seam.
+For a Spec Review remediation ticket, targeted verification must prove the **entire Root Blocker obligation**, not just the changed seam or enumerated symptoms.
 
 Required proof includes:
 
@@ -175,18 +175,43 @@ Required proof includes:
 * at least one regression test that would fail for the root or a named symptom;
 * fail-closed cases where relevant to reconstruction, provenance, readiness, persistence, or observability.
 
-Tests spanning the root's named production path or sibling surfaces are **targeted ticket verification**, not optional broad verification.
+Tests spanning the root's production path or sibling surfaces are **targeted ticket verification**, not optional broad verification.
 
-After verification, explicitly reconcile every carried acceptance cell as `proven` or `unproven`.
+### Root Invariant Sweep
 
-A passing local/helper test is insufficient when it does not prove the root invariant at the required production boundary.
+Before declaring the Root Blocker proven, search the contract surface governed by its invariant for other ways the same violation can occur.
 
-If any carried cell remains `unproven`, or any in-scope manifestation of the same root remains violated:
+Inspect relevant:
+
+* constructors/factories and defaults;
+* producers and persistence/result boundaries;
+* adapters/facades;
+* callers and consumers;
+* named sibling surfaces;
+* tests representing those paths.
+
+Use repository search first, then read only the relevant surrounding code.
+
+The sweep is bounded by the Root Blocker invariant and affected contract surface; it is not permission for unrelated repository cleanup.
+
+If the sweep finds another in-scope manifestation of the same root:
+
+* fix it within this ticket;
+* extend targeted regression proof as needed;
+* rerun affected checks;
+* do not create or defer to another remediation ticket.
+
+The Root Blocker invariant is authoritative over the current acceptance-cell enumeration. Passing every listed cell does not close the root while a known in-scope path still violates the invariant.
+
+After verification and the invariant sweep, reconcile every carried acceptance cell as `proven` or `unproven`.
+
+A passing local/helper test is insufficient when it does not prove the root at the required production boundary.
+
+If any carried cell remains `unproven`, or any known in-scope manifestation remains violated:
 
 * keep the ticket open;
 * continue fixing within this ticket when possible;
-* do not defer the manifestation merely because it was not named in the original symptom list;
-* do not commit/push/close as completed work until the obligation is proven.
+* do not commit/push/close as completed work.
 
 If proof cannot be completed because of an external/environmental blocker, report it and leave the ticket open.
 
@@ -239,13 +264,16 @@ Close only when:
 
 * implementation is complete;
 * required targeted verification succeeded;
-* for Spec Review remediation, **every carried Root Blocker acceptance cell is proven and no known in-scope manifestation remains violated**;
+* for Spec Review remediation:
+
+  * every carried Root Blocker acceptance cell is proven;
+  * the Root Invariant Sweep found no remaining known in-scope violation;
 * any explicitly authorized broader verification succeeded;
 * the branch invariant holds;
 * commit succeeded;
 * push succeeded.
 
-Never close a Spec Review remediation ticket with a carried acceptance cell still `unproven`.
+Never close a Spec Review remediation ticket with a carried cell still `unproven` or a known root manifestation still unresolved.
 
 For GitHub tickets, close only after all gates pass.
 
@@ -260,6 +288,7 @@ Report:
   * Root Blocker ID and invariant;
   * sibling surfaces/reference kinds audited;
   * production path exercised;
+  * Root Invariant Sweep scope and result;
   * proof status for every carried acceptance cell;
 * ticket branch;
 * `$wiki-sync` pre/post result and wiki changes;
@@ -273,4 +302,4 @@ Report:
 * worktree state;
 * ticket closure state.
 
-Any required verification that remains skipped or unproven keeps the ticket open.
+Any required verification, acceptance cell, or invariant-sweep result that remains unresolved keeps the ticket open.

@@ -76,6 +76,9 @@ from core.storage.persistence.repositories.postgres_workflow_output_projection_j
     PostgresWorkflowOutputProjectionJobRepository,
 )
 
+from .postgres_baseline_runtime_evidence_repository import (
+    PostgresBaselineRuntimeEvidenceRepository,
+)
 from .postgres_decision_evidence_persistence_repository import (
     PostgresDecisionEvidencePacketRepository,
 )
@@ -90,6 +93,7 @@ __all__ = [
     "PostgresAgentSignalPersistenceRepository",
     "PostgresAttributionPersistenceRepository",
     "PostgresBacktestPersistenceRepository",
+    "PostgresBaselineRuntimeEvidenceRepository",
     "PostgresCompletedRunRepository",
     "PostgresDecisionEvidencePacketRepository",
     "PostgresMacroPersistenceRepository",

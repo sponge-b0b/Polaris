@@ -43,9 +43,13 @@ from core.workflow.models.workflow_graph_definition import (
 from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
-from domain.authority import classify_risk_authority
+from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import DecisionEvidencePacket
-from tests.helpers.risk_authority_examples import workflow_curation_authority_input
+from domain.governed_execution_evidence import BaselineRuntimeEvidence
+from tests.helpers.risk_authority_examples import (
+    authority_input_for_tier,
+    workflow_curation_authority_input,
+)
 
 
 class GovernanceTestNode(RuntimeNode):
@@ -260,7 +264,7 @@ async def test_governed_execution_requires_canonical_evidence_before_evaluation(
     with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
         await execution_service.run_workflow(
             workflow_name="governance_test_workflow",
-            decision_evidence_packet=None,
+            governed_execution_evidence=None,
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
@@ -292,7 +296,7 @@ async def test_governed_execution_fails_closed_when_packet_is_not_durable() -> N
     with pytest.raises(DecisionEvidencePacketNotFoundError):
         await execution_service.run_workflow(
             workflow_name="governance_test_workflow",
-            decision_evidence_packet=packet,
+            governed_execution_evidence=packet,
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
@@ -300,6 +304,56 @@ async def test_governed_execution_fails_closed_when_packet_is_not_durable() -> N
     packet_persistence_service.reconstruct_packet.assert_awaited_once_with(
         "missing-packet"
     )
+
+
+@pytest.mark.asyncio
+async def test_governed_execution_reconstructs_baseline_runtime_evidence() -> None:
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+    )
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.BASELINE))
+    evidence = BaselineRuntimeEvidence(
+        evidence_id="baseline-governance-evidence",
+        authority=authority,
+        workflow_name="governance_test_workflow",
+        workflow_version="1.0.0",
+        provenance_digest=BaselineRuntimeEvidence.calculate_provenance_digest(
+            authority=authority,
+            workflow_name="governance_test_workflow",
+            workflow_version="1.0.0",
+        ),
+    )
+    baseline_service = AsyncMock()
+    baseline_service.reconstruct.return_value = evidence
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = ()
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=audit_service,
+        decision_evidence_packet_persistence_service=AsyncMock(),
+        baseline_runtime_evidence_persistence_service=baseline_service,
+    )
+
+    await execution_service.run_workflow(
+        workflow_name="governance_test_workflow",
+        governed_execution_evidence=evidence,
+        archive_on_completion=False,
+        checkpoint_on_completion=False,
+    )
+
+    baseline_service.reconstruct.assert_awaited_once_with(evidence.evidence_id)
+    audit_context = audit_service.record_governance_evaluation.await_args.kwargs[
+        "context"
+    ]
+    assert audit_context.authority is authority
+    assert audit_context.evidence is not None
+    assert audit_context.evidence.packet_id == evidence.evidence_id
 
 
 @pytest.mark.asyncio
@@ -533,7 +587,7 @@ async def _audit_capability(
     )
     capability = await execution_service._audit_capability_for_run(
         execution_id="governance-enforcement-test",
-        packet=packet,
+        evidence=packet,
     )
     assert capability is not None
     return capability

@@ -404,7 +404,7 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
                     mode="live",
                     archive_on_completion=False,
                     checkpoint_on_completion=False,
-                    decision_evidence_packet=supplied_packet,
+                    governed_execution_evidence=supplied_packet,
                 )
             packet_persistence_service.reconstruct_packet.assert_awaited_once_with(
                 "untrusted-ticket-138-packet"
@@ -761,7 +761,7 @@ async def test_governed_execution_persists_nonapproval_outcomes(
                 mode="live",
                 archive_on_completion=False,
                 checkpoint_on_completion=False,
-                decision_evidence_packet=packet,
+                governed_execution_evidence=packet,
             )
             if blocks_execution:
                 with pytest.raises(RuntimeError, match="ticket_143_denied"):

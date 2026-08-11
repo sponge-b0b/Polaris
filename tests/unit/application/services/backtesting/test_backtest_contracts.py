@@ -181,7 +181,7 @@ class FakeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
-        decision_evidence_packet: object | None = None,
+        governed_execution_evidence: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -321,7 +321,7 @@ class FakeTradeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
-        decision_evidence_packet: object | None = None,
+        governed_execution_evidence: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,

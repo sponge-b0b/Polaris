@@ -90,7 +90,7 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
     )
     execution_audit_capability = await execution_service._audit_capability_for_run(
         execution_id="bootstrap-governance-telemetry-test",
-        packet=packet,
+        evidence=packet,
     )
     assert execution_audit_capability is not None
 

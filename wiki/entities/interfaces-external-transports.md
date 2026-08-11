@@ -8,7 +8,7 @@
 * Interfaces remain thin transports over canonical application services and `WorkflowFacade`, because user entrypoints should adapt requests without owning domain, runtime, persistence, or governance authority. (source: docs/current/platform-architecture-and-operations.md)
 * Transport serialization belongs at interface edges, while internal semantics remain typed contracts, because interface-specific payload shapes must not become internal platform data models. (source: docs/adr/0006-domain-contracts-data-semantics-typed-internal-contracts.md)
 * Interface governance or release behavior must delegate into canonical services rather than storing local approval state, because approval authority belongs to governance lifecycle records. (source: docs/adr/0010-governance-approval-lifecycle-contestability-residual-risk.md)
+* Governed CLI and backtest execution pass typed governed-execution evidence to the request-scoped service, rather than authority or evidence metadata, because only reconstructed durable evidence may authorize evaluation and audit. (source: docs/adr/0012-dependency-composition-governed-execution-evidence-contract.md)
 ### Planned
 
 * **API, web UI, customer-facing AI agent, and expanded external transport surfaces** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)
-* **Tier-specific evidence at governed entrypoints** — accepted, implementation pending. CLI and backtest callers will provide typed governed-execution evidence for reconstruction rather than authority or evidence metadata, using Baseline runtime provenance or an Enhanced/Vigilant decision-evidence packet as applicable. (source: docs/adr/0012-dependency-composition-governed-execution-evidence-contract.md)

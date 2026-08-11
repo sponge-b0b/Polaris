@@ -1056,8 +1056,44 @@ def upgrade() -> None:
         unique=False,
     )
 
+    op.create_table(
+        "baseline_runtime_evidence",
+        sa.Column("evidence_id", sa.String(), nullable=False),
+        sa.Column("schema_version", sa.Integer(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_version", sa.String(), nullable=False),
+        sa.Column("provenance_digest", sa.String(length=64), nullable=False),
+        sa.Column(
+            "authority_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(authority_metadata) = 'object'",
+            name="ck_baseline_runtime_evidence_authority_metadata_object",
+        ),
+        sa.PrimaryKeyConstraint("evidence_id"),
+    )
+    op.create_index(
+        "idx_baseline_runtime_evidence_workflow",
+        "baseline_runtime_evidence",
+        ["workflow_name"],
+        unique=False,
+    )
+
 
 def downgrade() -> None:
+    op.drop_index(
+        "idx_baseline_runtime_evidence_workflow",
+        table_name="baseline_runtime_evidence",
+    )
+    op.drop_table("baseline_runtime_evidence")
 
     op.drop_index(
         "idx_governance_review_decisions_evidence_outcome",

@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] tier-specific governed execution evidence | implemented as active execution invariants
+
+Promoted ADR-0012 after Baseline runtime provenance and Enhanced/Vigilant packets were reconstructed at the canonical governed-execution service, with explicit façade audit composition for CLI and backtest paths.
+
 ## [2026-08-10] tier-specific governed execution evidence | accepted, implementation pending
 
 Superseded the universal decision-evidence-packet rule with a typed governed-execution evidence boundary: Baseline uses reconstructable runtime provenance while Enhanced and Vigilant retain claim-level decision evidence.

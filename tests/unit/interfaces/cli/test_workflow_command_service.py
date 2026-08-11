@@ -147,13 +147,13 @@ async def test_workflow_command_service_uses_governed_execution_service(
         WorkflowRunCommandRequest(
             workflow_name="morning_report",
             execution_id="exec-governed",
-            decision_evidence_packet=None,
+            governed_execution_evidence=None,
         )
     )
 
     assert envelope.success is True
     assert captured["execution_id"] == "exec-governed"
-    assert captured["decision_evidence_packet"] is None
+    assert captured["governed_execution_evidence"] is None
 
 
 @pytest.mark.asyncio

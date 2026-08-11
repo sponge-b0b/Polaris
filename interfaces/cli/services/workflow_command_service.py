@@ -10,7 +10,7 @@ from uuid import uuid4
 from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
 from core.workflow.execution.workflow_facade import WorkflowFacade
-from domain.decision_evidence import DecisionEvidencePacket
+from domain.governed_execution_evidence import GovernedExecutionEvidence
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
     WorkflowRenderEnvelope,
@@ -42,7 +42,7 @@ class WorkflowRunCommandRequest:
         default_factory=dict,
     )
     workflow_inputs: Mapping[str, Any] | None = None
-    decision_evidence_packet: DecisionEvidencePacket | None = None
+    governed_execution_evidence: GovernedExecutionEvidence | None = None
     plugin_dirs: tuple[Path, ...] = ()
     error_summary: Mapping[str, Any] = field(
         default_factory=dict,
@@ -215,7 +215,7 @@ class WorkflowCommandService:
                     metadata=dict(
                         request.metadata,
                     ),
-                    decision_evidence_packet=request.decision_evidence_packet,
+                    governed_execution_evidence=request.governed_execution_evidence,
                 )
             )
             if control_session is not None:
@@ -240,7 +240,7 @@ class WorkflowCommandService:
         mode: str,
         workflow_inputs: Mapping[str, Any] | None,
         metadata: dict[str, Any],
-        decision_evidence_packet: DecisionEvidencePacket | None,
+        governed_execution_evidence: GovernedExecutionEvidence | None,
     ) -> Any:
         if governed_execution_service is not None:
             return await governed_execution_service.run_workflow(
@@ -249,7 +249,7 @@ class WorkflowCommandService:
                 mode=mode,
                 workflow_inputs=workflow_inputs,
                 metadata=metadata,
-                decision_evidence_packet=decision_evidence_packet,
+                governed_execution_evidence=governed_execution_evidence,
             )
         return await runtime.facade.run_workflow(
             workflow_name=workflow_name,

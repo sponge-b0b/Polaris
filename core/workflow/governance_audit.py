@@ -15,6 +15,7 @@ from core.storage.persistence.governance_audit import (
 from core.telemetry.tracing import TraceContext
 from domain.authority import RiskAuthorityContract
 from domain.decision_evidence import DecisionEvidencePacket
+from domain.governed_execution_evidence import BaselineRuntimeEvidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,26 @@ class AutomatedDecisionAuditContext:
             evidence=AutomatedDecisionEvidenceReference(
                 packet_id=packet.packet_id,
                 packet_version=packet.schema_version,
+            ),
+            timestamp=timestamp,
+        )
+
+    @classmethod
+    def from_baseline_runtime_evidence(
+        cls,
+        *,
+        subject: AutomatedDecisionSubject,
+        evidence: BaselineRuntimeEvidence,
+        timestamp: datetime | None = None,
+    ) -> AutomatedDecisionAuditContext:
+        """Bind a Baseline audit to its durable runtime provenance record."""
+
+        return cls(
+            subject=subject,
+            authority=evidence.authority,
+            evidence=AutomatedDecisionEvidenceReference(
+                packet_id=evidence.evidence_id,
+                packet_version=evidence.schema_version,
             ),
             timestamp=timestamp,
         )

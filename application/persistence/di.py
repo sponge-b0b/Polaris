@@ -11,6 +11,9 @@ from application.governance import (
     AutomatedDecisionAuditService,
     GovernedWorkflowExecutionService,
 )
+from application.governance.baseline_runtime_evidence import (
+    BaselineRuntimeEvidencePersistenceService,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
 from application.persistence.diagnostics import DiagnosticsPersistenceService
@@ -35,6 +38,7 @@ from core.storage.persistence.repositories import (
     PostgresAgentSignalPersistenceRepository,
     PostgresAutomatedDecisionAuditRepository,
     PostgresBacktestPersistenceRepository,
+    PostgresBaselineRuntimeEvidenceRepository,
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
     PostgresMacroPersistenceRepository,
@@ -182,6 +186,20 @@ class ApplicationPersistenceDIProvider(Provider):
         )
 
     @provide
+    def provide_baseline_runtime_evidence_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresBaselineRuntimeEvidenceRepository:
+        return PostgresBaselineRuntimeEvidenceRepository(session)
+
+    @provide
+    def provide_baseline_runtime_evidence_persistence_service(
+        self,
+        repository: PostgresBaselineRuntimeEvidenceRepository,
+    ) -> BaselineRuntimeEvidencePersistenceService:
+        return BaselineRuntimeEvidencePersistenceService(repository)
+
+    @provide
     def provide_decision_evidence_rag_repository(
         self,
         session: AsyncSession,
@@ -293,12 +311,18 @@ class ApplicationPersistenceDIProvider(Provider):
         decision_evidence_packet_persistence_service: (
             DecisionEvidencePacketPersistenceService
         ),
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
     ) -> GovernedWorkflowExecutionService:
         return GovernedWorkflowExecutionService(
             workflow_facade=workflow_facade,
             automated_decision_audit_service=automated_decision_audit_service,
             decision_evidence_packet_persistence_service=(
                 decision_evidence_packet_persistence_service
+            ),
+            baseline_runtime_evidence_persistence_service=(
+                baseline_runtime_evidence_persistence_service
             ),
         )
 

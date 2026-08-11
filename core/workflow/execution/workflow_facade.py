@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -62,6 +62,25 @@ from core.workflow.models.destructive_operation_confirmation import (
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry
+
+
+class _GovernedWorkflowSubject(Mapping[str, Any]):
+    """Mapping-compatible operation subject carrying verified authority by type."""
+
+    __slots__ = ("_values", "authority")
+
+    def __init__(self, *, values: Mapping[str, Any], authority: Any) -> None:
+        self._values = values
+        self.authority = authority
+
+    def __getitem__(self, key: str) -> Any:
+        return self._values[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
 
 
 class WorkflowFacade:
@@ -459,49 +478,51 @@ class WorkflowFacade:
         audit_capability = self._require_execution_audit_capability(
             execution_audit_capability,
         )
-        governance_context = self._with_execution_audit_capability(
-            {
-                "governance_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
-            audit_capability,
-        )
-        policy_context = self._with_execution_audit_capability(
-            {
-                "policy_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
-            audit_capability,
-        )
+        governance_context = {
+            "governance_phase": "workflow_run_preflight",
+            "workflow_name": workflow_name,
+            "execution_id": execution_id,
+            "mode": mode,
+        }
+        policy_context = {
+            "policy_phase": "workflow_run_preflight",
+            "workflow_name": workflow_name,
+            "execution_id": execution_id,
+            "mode": mode,
+        }
 
         await self._require_governance_allowed_async(
-            subject={
-                "operation": "run_workflow",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_workflow",
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                    "mode": mode,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
             context=governance_context,
+            execution_audit_capability=audit_capability,
         )
 
         await self._require_policy_allowed_async(
-            subject={
-                "operation": "run_workflow",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_workflow",
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                    "mode": mode,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
             context=policy_context,
+            execution_audit_capability=audit_capability,
         )
 
         return await self.service.run_workflow(
@@ -527,49 +548,51 @@ class WorkflowFacade:
         audit_capability = self._require_execution_audit_capability(
             execution_audit_capability,
         )
-        governance_context = self._with_execution_audit_capability(
-            {
-                "governance_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
-            audit_capability,
-        )
-        policy_context = self._with_execution_audit_capability(
-            {
-                "policy_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
-            audit_capability,
-        )
+        governance_context = {
+            "governance_phase": "workflow_run_from_context_preflight",
+            "workflow_name": workflow_name,
+            "runtime_id": context.runtime_id,
+            "execution_id": context.execution_id,
+        }
+        policy_context = {
+            "policy_phase": "workflow_run_from_context_preflight",
+            "workflow_name": workflow_name,
+            "runtime_id": context.runtime_id,
+            "execution_id": context.execution_id,
+        }
 
         await self._require_governance_allowed_async(
-            subject={
-                "operation": "run_from_context",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_from_context",
+                    "workflow_name": workflow_name,
+                    "runtime_id": context.runtime_id,
+                    "execution_id": context.execution_id,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
             context=governance_context,
+            execution_audit_capability=audit_capability,
         )
 
         await self._require_policy_allowed_async(
-            subject={
-                "operation": "run_from_context",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_from_context",
+                    "workflow_name": workflow_name,
+                    "runtime_id": context.runtime_id,
+                    "execution_id": context.execution_id,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
             context=policy_context,
+            execution_audit_capability=audit_capability,
         )
 
         return await self.service.run_from_context(
@@ -827,6 +850,7 @@ class WorkflowFacade:
         self,
         subject: Any,
         context: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> None:
         if self.policy_engine is None:
             return
@@ -836,7 +860,7 @@ class WorkflowFacade:
             context=context,
         )
         await self._record_policy_evaluation(
-            context=context,
+            execution_audit_capability=execution_audit_capability,
             evaluation=evaluation,
         )
         evaluation.raise_if_denied()
@@ -872,15 +896,14 @@ class WorkflowFacade:
     async def _record_policy_evaluation(
         self,
         *,
-        context: dict[str, Any] | None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None,
         evaluation: PolicyEvaluationResult,
     ) -> None:
-        audit_capability = self._audit_capability_from_context(context)
-        if audit_capability is None:
+        if execution_audit_capability is None:
             return
 
-        results = await audit_capability.service.record_policy_evaluation(
-            context=audit_capability.context,
+        results = await execution_audit_capability.service.record_policy_evaluation(
+            context=execution_audit_capability.context,
             evaluation=evaluation,
         )
         self._raise_if_automated_decision_audit_failed(
@@ -896,6 +919,7 @@ class WorkflowFacade:
         self,
         subject: Any,
         context: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> None:
         if self.governance_engine is None:
             return
@@ -905,7 +929,7 @@ class WorkflowFacade:
             context=context,
         )
         await self._record_governance_evaluation(
-            context=context,
+            execution_audit_capability=execution_audit_capability,
             evaluation=evaluation,
         )
         evaluation.raise_if_blocking()
@@ -941,15 +965,14 @@ class WorkflowFacade:
     async def _record_governance_evaluation(
         self,
         *,
-        context: dict[str, Any] | None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None,
         evaluation: GovernanceEvaluationResult,
     ) -> None:
-        audit_capability = self._audit_capability_from_context(context)
-        if audit_capability is None:
+        if execution_audit_capability is None:
             return
 
-        results = await audit_capability.service.record_governance_evaluation(
-            context=audit_capability.context,
+        results = await execution_audit_capability.service.record_governance_evaluation(
+            context=execution_audit_capability.context,
             evaluation=evaluation,
         )
         self._raise_if_automated_decision_audit_failed(
@@ -958,16 +981,16 @@ class WorkflowFacade:
         )
 
     @staticmethod
-    def _with_execution_audit_capability(
-        context: dict[str, Any],
-        execution_audit_capability: WorkflowExecutionAuditCapability | None,
-    ) -> dict[str, Any]:
-        if execution_audit_capability is None:
-            return context
-
-        context = dict(context)
-        context["workflow_execution_audit_capability"] = execution_audit_capability
-        return context
+    def _governed_subject(
+        values: Mapping[str, Any],
+        capability: WorkflowExecutionAuditCapability | None,
+    ) -> Mapping[str, Any]:
+        if capability is None:
+            return values
+        return _GovernedWorkflowSubject(
+            values=values,
+            authority=capability.context.authority,
+        )
 
     def _require_execution_audit_capability(
         self,
@@ -981,17 +1004,6 @@ class WorkflowFacade:
             )
         capability.consume()
         return capability
-
-    @staticmethod
-    def _audit_capability_from_context(
-        context: Mapping[str, Any] | None,
-    ) -> WorkflowExecutionAuditCapability | None:
-        if context is None:
-            return None
-        capability = context.get("workflow_execution_audit_capability")
-        if isinstance(capability, WorkflowExecutionAuditCapability):
-            return capability
-        return None
 
     @staticmethod
     def _raise_if_automated_decision_audit_failed(

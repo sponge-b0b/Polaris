@@ -23,6 +23,7 @@ from core.database.models.backtesting import (
     BacktestScenarioModel,
     BacktestStepModel,
 )
+from core.database.models.baseline_runtime_evidence import BaselineRuntimeEvidenceModel
 from core.database.models.completed_runs import (
     CompletedRunArtifactModel,
     CompletedWorkflowNodeOutputModel,
@@ -139,6 +140,7 @@ __all__ = [
     "GovernanceReviewDecisionModel",
     "GovernanceReviewTaskModel",
     "PersistenceAuditEventModel",
+    "BaselineRuntimeEvidenceModel",
     "DecisionEvidencePacketModel",
     "CompletedWorkflowRunModel",
     "CompletedWorkflowNodeOutputModel",

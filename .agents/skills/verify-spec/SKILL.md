@@ -15,7 +15,7 @@ A successful run records a **Spec Verification Receipt** for the exact final com
 
 ## 1. Pin the Fixed Point
 
-Resolve the fixed baseline from the parent Spec issue unless explicitly overridden:
+Resolve the baseline from the parent Spec unless explicitly overridden:
 
 ```bash
 BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
@@ -36,8 +36,6 @@ fi
 
 git rev-parse "$BASELINE_COMMIT"
 ```
-
-Halt if the baseline does not resolve.
 
 Verification must begin from a clean worktree:
 
@@ -62,9 +60,9 @@ The aggregate diff must be non-empty.
 Resolve the originating Spec from:
 
 1. commit references;
-2. a user-supplied path or issue;
-3. a matching repository Spec;
-4. the user only if still unresolved.
+2. user-supplied path or issue;
+3. matching repository Spec;
+4. user only if still unresolved.
 
 Capture its **Architecture Impact**:
 
@@ -73,28 +71,47 @@ Capture its **Architecture Impact**:
 * governing ADR/doc references;
 * unresolved architecture questions.
 
-A Spec containing an unresolved material architecture question is not ready for verification.
+A Spec containing unresolved material architecture is not ready for verification.
 
 ## 3. Execute Verification
 
 ### Guardrails
 
-* Explicit invocation authorizes the repository-wide Ruff and Mypy commands below.
+* Invocation authorizes the repository-wide Ruff and Mypy commands below.
 * It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
 * Read `docs/process/testing-guide.md`.
 * Select tests from the Spec diff, affected boundaries, acceptance requirements, and regression risks.
 * Do not weaken configuration, add pass-only suppressions, or refactor unrelated code merely to pass.
 * Report unrelated pre-existing failures separately.
 
+### Diff Hygiene
+
+Check the complete Spec change against its baseline:
+
+```bash
+git diff --check "$BASELINE_COMMIT"
+```
+
+For findings introduced or carried by this Spec:
+
+* deterministic whitespace-only defects → fix mechanically, rerun `git diff --check`, and continue;
+* unresolved conflict markers → Blocking; investigate rather than treating them as whitespace cleanup.
+
+Do not ask for confirmation for whitespace-only fixes.
+
+Do not alter document/code meaning while fixing whitespace.
+
+Unrelated pre-existing whitespace outside the Spec remains report-only.
+
 ### Environment and Services
 
-If a required targeted test cannot establish its acceptance criterion service-free:
+If a required targeted test cannot establish its criterion service-free:
 
 * derive safe local configuration when unambiguous;
 * start only the required authorized local service;
 * rerun the exact targeted check.
 
-A required test skipped only because local setup is absent remains unresolved.
+A required test skipped solely because local setup is absent remains unresolved.
 
 Never expose secrets or authenticated connection strings.
 
@@ -105,7 +122,7 @@ POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff form
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
 ```
 
-Never use Ruff `--add-noqa` to manufacture a pass.
+Never use Ruff `--add-noqa`.
 
 ### Mypy
 
@@ -137,7 +154,7 @@ UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
 
 A helper/unit test is insufficient when the Spec requires proof through a higher production boundary.
 
-When architecture introduces a required prerequisite, update affected tests or fixtures to traverse that canonical prerequisite rather than weakening downstream expectations.
+When architecture introduces a required prerequisite, update tests/fixtures to traverse that canonical prerequisite rather than weakening downstream expectations.
 
 ### Architecture Integrity
 
@@ -150,9 +167,9 @@ Evaluate Spec-relevant:
 * `[doc-drift]`;
 * structural/citation failures affecting architectural reliability.
 
-Unrelated pre-existing findings do not fail this Spec.
+Unrelated pre-existing findings do not fail the Spec.
 
-Refresh and query the architecture graph:
+Refresh/query architecture:
 
 ```bash
 graphify . --update
@@ -161,21 +178,21 @@ graphify query "<affected entities, canonical concepts, and changed subsystems>"
 
 Check whether implementation:
 
-* connects to expected canonical owners;
-* bypasses established boundaries;
-* creates duplicate ownership or parallel canonical paths;
+* connects to canonical owners;
+* bypasses boundaries;
+* creates duplicate ownership/canonical paths;
 * violates dependency direction;
 * exposes unresolved material architecture.
 
-Before routing any `[source-conflict]`, apply the **Realization-Status Defensive Rule** below.
+Apply the **Realization-Status Defensive Rule** before routing `[source-conflict]`.
 
 ### Duplication
 
 When the Spec introduces a module, helper, utility layer, service, or canonical behavior, invoke `$duplication-checks`.
 
-A new parallel source of truth or duplicate canonical behavior fails verification.
+New duplicate canonical behavior fails verification.
 
-Unrelated existing clone clusters are reported separately.
+Unrelated existing clone clusters are report-only.
 
 ## 4. Failure Handling
 
@@ -188,6 +205,7 @@ For an ordinary verification failure:
 
 This includes:
 
+* deterministic whitespace defects;
 * Ruff;
 * Mypy;
 * targeted tests;
@@ -200,62 +218,59 @@ Do not:
 * weaken configuration;
 * add pass-only suppressions;
 * change expected behavior merely so a test reaches it;
-* broaden testing to compensate for a failed targeted check;
+* broaden testing to compensate for failure;
 * modify unrelated pre-existing failures.
 
-If a non-architecture failure cannot be safely resolved within Spec scope, stop and report it.
+Deterministic whitespace-only fixes require no owner confirmation.
+
+If a non-architecture failure cannot be safely repaired within Spec scope, stop and report it.
 
 ## 5. Architecture Finding Routing
 
 ### Realization-Status Defensive Rule
 
-Do not accept `[source-conflict]` classification merely because an accepted ADR still describes its implementation as `pending`, `not yet realized`, or equivalent.
+Do not accept `[source-conflict]` merely because an accepted ADR still says implementation is `pending`, `not yet realized`, or equivalent.
 
-When all are true:
+When:
 
 1. the ADR remains accepted;
-2. its normative architectural decision is unambiguous;
-3. current implementation conforms to that decision;
-4. implementation clearly realizes the described capability; and
-5. the only disagreement is stale realization/lifecycle wording;
+2. its normative decision is unambiguous;
+3. implementation conforms to that decision;
+4. implementation clearly realizes it; and
+5. only realization/lifecycle wording is stale;
 
-then this is deterministic **ADR documentation drift**, not unresolved architecture.
+treat this as deterministic ADR documentation drift.
 
-Route it through `$to-adr-doc`, then rerun `$wiki-lint` and the affected architecture checks.
+Route through `$to-adr-doc`, then rerun `$wiki-lint` and affected architecture checks.
 
-Do not invoke `$architecture-remediation` for this condition.
+Do not invoke `$architecture-remediation`.
 
-This rule applies only to stale realization/lifecycle description. If implementation contradicts the ADR's normative decision, or applicable authorities genuinely disagree about architecture, continue normal architecture routing.
+If implementation contradicts the normative decision or authorities genuinely disagree, use normal architecture routing.
 
 ### Existing Authority Determines the Fix
 
-When current authority already establishes the correct state, repair the violation within Spec scope.
+When current authority establishes the correct state, repair within Spec scope.
 
 Examples:
 
-* implementation violates an accepted ADR;
-* derived wiki knowledge is stale;
-* documentation or ADR realization status is stale;
-* a known canonical owner or dependency direction was bypassed.
+* accepted ADR violation;
+* stale derived wiki knowledge;
+* stale documentation/ADR realization state;
+* bypassed canonical owner/dependency direction.
 
-Use the owning workflow:
+Use the owner:
 
 * implementation → correct code;
-* derived entity knowledge → `$wiki-sync`;
+* entity knowledge → `$wiki-sync`;
 * new non-ADR documentation → `$to-doc`;
-* document classification/relocation → `$classify-doc`;
-* ADR content/lifecycle/realization status → `$to-adr-doc`.
+* classification/relocation → `$classify-doc`;
+* ADR lifecycle/realization → `$to-adr-doc`.
 
-Rerun directly affected architecture checks.
-
-Do not classify either of these as `[source-conflict]`:
-
-* implementation has not yet realized an accepted decision and active work clearly tracks that realization;
-* implementation has now realized an accepted decision but the ADR's descriptive realization status is stale.
+Rerun affected architecture checks.
 
 ### Architecture Decision Required
 
-A new decision is required only when correction requires choosing or changing a durable:
+A new decision is required only when correction requires choosing/changing a durable:
 
 * invariant;
 * canonical owner/path;
@@ -263,11 +278,11 @@ A new decision is required only when correction requires choosing or changing a 
 * dependency direction;
 * lifecycle responsibility;
 
-or when applicable architectural authorities genuinely disagree and existing precedence cannot resolve them.
+or applicable authorities genuinely disagree.
 
-Collect and de-duplicate every independent blocker.
+Collect/de-duplicate all independent blockers.
 
-Do not resolve architecture inside `$verify-spec`.
+Do not resolve architecture here.
 
 Halt with:
 
@@ -281,29 +296,32 @@ Halt with:
 >
 > **Architecture blockers:**
 >
-> 1. **<question or conflict>**
+> 1. **<question/conflict>**
 >
->    * Evidence: <concise evidence>
->    * Material consequence: <ownership/path, boundary, dependency direction, lifecycle responsibility, source conflict, or other consequence>
+>    * Evidence: <evidence>
+>    * Material consequence: <ownership/path/boundary/dependency/lifecycle/conflict>
 >    * Governing context: <entities / ADRs / docs>
 
 Do not propose an architectural answer.
 
 ## 6. Final Verification Pass
 
-After all verification-owned fixes are complete, rerun every applicable gate required to establish final consistency:
+After all verification-owned fixes, rerun every applicable gate needed for final consistency:
 
-* repository-wide Ruff format/lint;
+* `git diff --check "$BASELINE_COMMIT"`;
+* repository-wide Ruff;
 * repository-wide Mypy;
 * targeted integration/regression tests;
 * `$wiki-lint` and affected architecture queries;
 * `$duplication-checks` when applicable.
 
+If final `git diff --check` finds a deterministic Spec-owned whitespace defect, fix it mechanically and rerun the affected final gates as needed.
+
 Do not report success while any required gate remains failed or unresolved.
 
 ## 7. Persist Verification Fixes
 
-If verification changed repository files:
+If verification changed files:
 
 1. verify `spec-<spec_issue_number>` remains checked out;
 2. stage only verification-owned files;
@@ -315,13 +333,13 @@ If verification changed repository files:
 git push -u origin HEAD
 ```
 
-Child maintenance workflows such as `$wiki-sync` and `$to-adr-doc` contribute their mutations to this verification commit rather than creating separate commits when their workflow permits parent commit ownership.
+Child workflows such as `$wiki-sync` and `$to-adr-doc` contribute their mutations to this verification commit when parent commit ownership applies.
 
-Do not use `git add .` when unrelated changes exist.
+Do not use `git add .` with unrelated changes.
 
 If staging, commit, or push fails, verification is incomplete.
 
-If no repository files changed, skip commit and push.
+If no files changed, skip commit/push.
 
 Require a clean final worktree:
 
@@ -334,20 +352,13 @@ fi
 
 ## 8. Record the Verification Receipt
 
-Only after:
-
-* every required verification gate passes;
-* all verification-owned changes are committed;
-* required pushes succeed;
-* the worktree is clean;
-
-capture:
+Only after all required gates pass, fixes are committed/pushed, and the worktree is clean:
 
 ```bash
 FINAL_HEAD=$(git rev-parse HEAD)
 ```
 
-Persist a comment on the parent Spec:
+Persist:
 
 ```bash
 gh issue comment <spec_issue_number> --body "$(printf \
@@ -355,14 +366,11 @@ gh issue comment <spec_issue_number> --body "$(printf \
 "$FINAL_HEAD" "$BASELINE_COMMIT" "spec-<spec_issue_number>")"
 ```
 
-The receipt attests only to that exact `Verified HEAD`.
+The receipt attests only to that exact `HEAD`.
 
-Do not:
+Do not write a passing receipt for failed/unresolved verification or reuse a stale receipt.
 
-* write a passing receipt for failed or unresolved verification;
-* reuse an older receipt after `HEAD` changes.
-
-If receipt persistence fails, verification is incomplete because `$review-spec` cannot establish its precondition.
+Receipt persistence failure means verification is incomplete.
 
 ## 9. Reporting
 
@@ -370,20 +378,20 @@ Report:
 
 * baseline and final `HEAD`;
 * Spec branch;
+* diff hygiene result and any mechanical fixes;
 * Ruff result;
 * Mypy result;
-* targeted tests and result;
+* targeted tests;
 * service-backed/persistence checks;
 * architecture/wiki result;
 * duplication result;
 * failures repaired;
-* architecture/documentation drift repaired under existing authority;
 * unrelated pre-existing findings;
 * optional checks not run;
-* verification-fix commit(s), if any;
-* push result, if applicable;
+* verification-fix commits;
+* push result;
 * final worktree state;
-* verification receipt result and `Verified HEAD`.
+* verification receipt and `Verified HEAD`.
 
 On success:
 
@@ -392,4 +400,4 @@ Spec verification passed.
 Verified HEAD: <full SHA>
 ```
 
-If any required gate or receipt persistence remains unresolved, do not report Spec verification as passed.
+If any required gate or receipt remains unresolved, do not report a pass.

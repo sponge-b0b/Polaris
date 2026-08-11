@@ -1,6 +1,6 @@
 ---
 name: verify-code
-description: Performs syntax validation, format checks, static typing verification, and targeted testing on Python files modified in the workspace or active ticket. Use during individual ticket implementation or on demand before merging or handoff.
+description: Performs diff hygiene, syntax/format/static typing verification, and targeted testing on Python files modified in the workspace or active ticket.
 compatibility: product=codex product=claude-code system=git system=python network=none
 ---
 
@@ -8,55 +8,30 @@ compatibility: product=codex product=claude-code system=git system=python networ
 
 ## Objective
 
-Verify Python changes introduced by the current workspace or active ticket without broadening into repository-wide verification.
+Verify changes introduced by the current workspace or active ticket without broadening into repository-wide verification.
 
-`$coding-standards` owns coding policy. Verify applicable requirements, but do not re-invoke or duplicate that skill.
+`$coding-standards` owns coding policy. Verify applicable requirements without duplicating that skill.
 
-## Guardrail Constraints
+## Guardrails
 
-* **Isolation Principle:** Verify only files changed by the current workspace or active ticket and directly affected tests.
-* **Scope Extraction Invariant:** Resolve the target files before running verification.
-* **Safety Invariant:** Do not refactor unrelated code, weaken configuration, or guess suppressions merely to make verification pass.
-* **Authorization Invariant:** Approved shell prefixes or sandbox permissions do not authorize broad verification.
-* **Command Guard Invariant:** Do not bypass the Polaris command guard through alternate executables or entrypoints.
-* **Diff Hygiene:** Do not use `git diff --check` as a verification gate; patch whitespace hygiene is outside this skill.
+* Verify only the active change and directly affected tests.
+* Resolve target files before verification.
+* Do not refactor unrelated code, weaken configuration, or add pass-only suppressions.
+* Shell permissions do not authorize broader verification.
+* Do not bypass repository command guards.
+* Deterministic whitespace defects owned by the active change are mechanical fixes: fix them, rerun the check, and continue without asking.
+* Do not modify semantic content while fixing whitespace.
+* Unrelated pre-existing whitespace remains report-only.
 
-## Verification Scope Authorization
+## 1. Identify Targets
 
-Default verification is limited to:
-
-1. format and lint checks on changed Python files;
-2. static typing checks on changed Python files and directly affected tests;
-3. targeted tests for changed behavior and nearby affected modules;
-4. applicable `$coding-standards` requirements.
-
-Do not run broad repository-wide commands unless explicitly authorized for the current task, including:
-
-* `uv run pytest`
-* `uv run pytest -q`
-* `uv run mypy .`
-* `uv run ruff check .`
-* `uv run ruff format --check .`
-* full coverage runs
-* unrelated service-backed integration suites
-
-If broader verification seems useful, stop after targeted verification and ask first, naming the exact proposed command.
-
-Never imply full repository health unless broad verification was explicitly authorized and completed.
-
----
-
-## Execution Steps
-
-### Step 1: Identify Targeted Changes
-
-If called from `$implement-ticket` with a ticket baseline, include committed Python changes since that baseline:
+If called by `$implement-ticket` with a ticket baseline, include committed Python changes since that baseline:
 
 ```bash
 git diff --name-only --diff-filter=ACMR <ticket-baseline>...HEAD -- '*.py'
 ```
 
-Also include current unstaged, staged, and untracked Python changes:
+Also include unstaged, staged, and untracked Python changes:
 
 ```bash
 git diff --name-only --diff-filter=ACMR -- '*.py'
@@ -64,26 +39,50 @@ git diff --cached --name-only --diff-filter=ACMR -- '*.py'
 git ls-files --others --exclude-standard -- '*.py'
 ```
 
-If no ticket baseline applies, use only the workspace commands above.
+Use the deduplicated union as Python verification targets.
 
-Use the deduplicated union as the verification target list.
+If no ticket baseline applies, use workspace changes only.
 
-Do not broaden scope because no Python targets are found.
+Do not broaden scope because no Python targets exist.
 
-### Step 2: Verify Format and Lint
+## 2. Diff Hygiene
 
-Run Ruff only against the resolved targets:
+When a ticket baseline exists, check the complete active ticket patch including current working-tree fixes:
+
+```bash
+git diff --check <ticket-baseline>
+```
+
+Without a ticket baseline:
+
+```bash
+git diff --check
+git diff --cached --check
+```
+
+For findings owned by the active change:
+
+* trailing whitespace, space-before-tab, or whitespace-only line defects → fix mechanically and rerun `git diff --check`;
+* unresolved conflict markers → Blocking; investigate rather than treating them as whitespace cleanup.
+
+Do not ask for confirmation for deterministic whitespace-only fixes.
+
+Do not alter unrelated pre-existing files merely to make this check clean.
+
+## 3. Ruff
+
+Run only against resolved Python targets:
 
 ```bash
 uv run ruff format --check <changed_python_paths>
 uv run ruff check <changed_python_paths>
 ```
 
-Do not replace the target list with `.`.
+Do not replace targets with `.`.
 
-### Step 3: Targeted Static Type Verification
+## 4. Mypy
 
-Run Mypy only against changed Python files and directly affected tests:
+Run only against changed Python files and directly affected tests:
 
 ```bash
 uv run mypy --explicit-package-bases <changed_python_paths_and_affected_tests>
@@ -91,9 +90,9 @@ uv run mypy --explicit-package-bases <changed_python_paths_and_affected_tests>
 
 Do not broaden to `mypy .`.
 
-### Step 4: Targeted Testing
+## 5. Targeted Tests
 
-Run only tests relevant to the changed behavior and directly affected modules:
+Run tests relevant to the changed behavior and directly affected modules:
 
 ```bash
 UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.py
@@ -101,26 +100,24 @@ UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.p
 
 Do not run the full suite by default.
 
-Before targeted integration or live-service tests, identify required local services.
+Before targeted integration/live-service tests, identify required local services.
 
-If a selected targeted test skips solely because required repository-local environment or services are missing:
+If a required targeted test skips solely because repository-local setup is absent:
 
-* inspect local configuration;
+* inspect repository configuration;
 * derive safe local configuration when unambiguous;
-* start only an authorized required Docker service when necessary;
-* rerun the exact targeted test.
+* start only an authorized required service;
+* rerun the exact test.
 
-Never echo secrets or full authenticated connection strings.
+Never print secrets or authenticated connection strings.
 
-If required setup cannot be resolved safely, report the targeted check as unresolved or owner-deferred.
+If setup cannot be safely resolved, report the check as unresolved.
 
-Do not compensate by broadening the test scope.
+Do not broaden testing to compensate.
 
-### Step 5: Coding-Standards Verification
+## 6. Coding Standards
 
-Inspect changed code for `$coding-standards` requirements implicated by the diff.
-
-Examples include:
+Inspect changed code for `$coding-standards` requirements implicated by the diff, such as:
 
 * data-contract and typing boundaries;
 * score semantics and precision;
@@ -129,44 +126,42 @@ Examples include:
 * resource ownership;
 * structural design rules.
 
-Do not re-invoke `$coding-standards`.
-
-Do not manufacture work for standards unrelated to the change.
-
----
+Do not manufacture work for unrelated standards.
 
 ## Failure Handling
 
 When a targeted check fails:
 
-1. determine whether the active change introduced the failure;
-2. fix it at the narrowest authoritative point when within scope;
+1. determine whether the active change owns it;
+2. fix the narrowest authoritative point within scope;
 3. rerun the affected check.
+
+For deterministic whitespace-only failures, fix mechanically without confirmation.
 
 Do not:
 
 * use Ruff `--add-noqa`;
 * weaken repository configuration;
-* add suppressions merely to make verification pass;
+* add pass-only suppressions;
 * broaden verification to compensate for failure.
 
 If a failure cannot be safely resolved within scope, report the affected file/test, failed check, concise error, and required next action.
 
----
-
 ## Reporting
 
-Distinguish clearly between:
+Distinguish:
 
 * targeted verification actually run;
-* unresolved or skipped targeted checks;
+* whitespace defects mechanically fixed;
+* unresolved/skipped targeted checks;
 * broader verification not run.
 
-On success, use wording such as:
+On success:
 
 ```text
 Targeted verification passed.
 
+- Diff hygiene: passed
 - Ruff format: passed
 - Ruff lint: passed
 - Mypy: passed
@@ -176,4 +171,4 @@ Targeted verification passed.
 Full repository verification was not run.
 ```
 
-If any required targeted check remains unresolved, do not report targeted verification as fully passed.
+If any required targeted check remains unresolved, do not report targeted verification as passed.

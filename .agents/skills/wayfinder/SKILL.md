@@ -201,9 +201,28 @@ User invokes with a map or one of its decision tickets. If given a ticket, resol
    * only after required repository persistence succeeds, post the answer as a resolution comment, close the issue, and append its context pointer to the map's **Decisions so far**.
 5. Add newly surfaced tickets and wire dependencies; graduate newly specifiable fog; move newly out-of-scope work out of the frontier. If the decision invalidates other parts of the map, update or delete those tickets.
 
-The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, while a resolved architectural decision still requires reconciliation with its authoritative records, or while Wayfinder-owned repository changes remain uncommitted or unpushed.
+### Post-Resolution Gate
 
-When the route becomes clear and the destination is an implementation specification, halt with a Human Handoff Intercept:
+After every resolved decision, **re-evaluate the parent map before ending the session**, including re-entry into an already-closed map.
+
+Confirm:
+
+* no open decision tickets remain;
+* **Not yet specified** contains no unresolved in-scope fog;
+* no material architecture question remains unresolved;
+* required authoritative architecture records are reconciled;
+* the new decision has not left stale or contradictory map state or affected prior decisions unreconciled;
+* all Wayfinder-owned repository changes are committed and pushed.
+
+When a new decision supersedes or invalidates an earlier decision, preserve the historical resolution but update the affected map/ticket state enough to make the supersession explicit. Do not leave stale guidance looking current.
+
+A closed map or existing derived Spec does **not** waive this gate.
+
+If another unresolved decision or newly specifiable fog remains, continue routing through the map rather than presenting a downstream handoff.
+
+The route is not clear while decision tickets or in-scope fog remain, while any material architecture question remains unresolved, while a resolved architectural decision still requires reconciliation with its authoritative records, while affected prior map state remains contradictory or stale, or while Wayfinder-owned repository changes remain uncommitted or unpushed.
+
+When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept:
 
 > ✅ **Wayfinder route is clear.**
 >

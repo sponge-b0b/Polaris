@@ -1,57 +1,95 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression (zero Blocking findings) — not a standalone command. Merges the spec branch into `main` via PR (or closes the Spec/Spec Review issues directly if no branch exists), then deletes the branch and closes the Spec Review issue if one exists.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, cleans up the branch and Spec Review, and reconciles completion with the originating Wayfinder map.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Spec Merge & Cleanup
 
-This skill is invoked by `$review-spec`'s Exit Gate once a review returns exactly zero Blocking findings (and any Root Blocker Ledger / acceptance matrix has no open or regressed cells). Execution splits into two paths depending on whether this spec actually used the standard branch pattern.
+Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking findings, every Root Blocker satisfied or Owner-overridden, and no unresolved Candidate new root.
 
-## Step 0 — Route: Standard Path vs. Direct-Close Path
+Execution splits depending on whether the Spec used `spec-<spec_issue_number>`.
 
-The `$to-tickets` skill creates this branch directly, via `git checkout -b spec-<spec_issue_number> ...` off the captured baseline commit. If the user overrode that pattern for this spec — working directly on `main` or some other branch instead — `spec-<spec_issue_number>` never existed, which also means **there is no PR that will ever exist to auto-close the Spec issue**. On this path, closure has to happen explicitly, right here, rather than being deferred to a PR merge that isn't coming:
+## Wayfinder Completion Reconciliation
+
+After the current Spec is successfully closed, recover its originating Wayfinder map from the Spec provenance marker when present:
+
+```html
+<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
+```
+
+Determine every Spec derived from that map using explicit Wayfinder/Spec handoff metadata or the same provenance marker.
+
+If any derived Spec remains open, make no Wayfinder lifecycle change.
+
+If all derived Specs are closed:
+
+* post one concise completion comment on the Wayfinder map identifying the completed derived Specs;
+* if the map is still open, close it;
+* if it is already closed, leave it closed.
+
+Do not reopen a closed Wayfinder map merely to close it again.
+
+Example completion comment:
+
+```text
+All implementation Specs derived from this Wayfinder effort are complete and closed: #<spec>, #<spec>.
+```
+
+Failure to determine Wayfinder provenance is not a merge failure; report it and skip Wayfinder reconciliation rather than guessing.
+
+## Step 0 — Route: Standard vs. Direct Close
+
+If `spec-<spec_issue_number>` does not exist locally or remotely, no PR will auto-close the Spec:
 
 ```bash
 if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
    ! git ls-remote --exit-code --heads origin "spec-<spec_issue_number>" >/dev/null 2>&1; then
 
-  echo "No spec-<spec_issue_number> branch found locally or on origin — this spec didn't use the standard branch pattern (likely overridden). No PR will ever exist for it, so close both issues explicitly rather than relying on auto-close."
+  gh issue close <spec_issue_number> \
+    --comment "Spec work completed and reviewed directly (no dedicated branch was used). Zero blocking findings on final review."
 
-  # No PR exists or ever will for this spec, so the Spec issue must be closed
-  # explicitly here rather than relying on a PR's "Closes #<n>" trigger.
-  gh issue close <spec_issue_number> --comment "Spec work completed and reviewed directly (no dedicated branch was used for this spec). Zero blocking findings on final review."
-
-  # Same conditional as Phase B Step 5 below — a Spec Review issue only exists if
-  # this spec required at least one remediation loop (see the /review-spec-remediation skill's,
-  # First-Pass Failure step).
   if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-    gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" --comment "Spec #<spec_issue_number> closed directly (no dedicated branch was used for this spec). Zero blocking findings on final review."
+    gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
+      --comment "Spec #<spec_issue_number> closed directly. Zero blocking findings on final review."
   else
-    echo "No Spec Review issue was created for this spec (passed on the first review) — nothing to close."
+    echo "No Spec Review issue exists — nothing to close."
   fi
+
+  # Perform Wayfinder Completion Reconciliation here.
 
   exit 0
 fi
 ```
 
-If the branch was found, continue to Phase A below — the standard PR-merge path closes both issues at their respective points instead: the Spec issue via the PR's `Closes #<spec_issue_number>` in Phase A, and the Spec Review issue explicitly in Phase B's Finalize step.
+If the branch exists, continue with the standard merge path.
 
 ## Phase A — Merge to Main
 
-1. **Confirm Precondition**: Do not proceed unless `$review-spec`'s Exit Gate authorized it for `spec-<spec_issue_number>` — i.e., that review's aggregate audit returned exactly zero Blocking findings. If Blocking findings remain, this skill should not have been invoked at all; return to `$review-spec` and follow its Remediation Loop instead.
-2. **Push Final State**: Explicitly checkout the spec branch rather than assuming it's still checked out (this may be running in a fresh session), then ensure everything committed on it is on the remote — defensive, since you should already be committing/pushing as you go per `$implement-ticket`, but this guards against any stragglers:
+1. **Confirm Precondition**
+
+   Do not proceed unless `$review-spec`'s Exit Gate authorized cleanup.
+
+2. **Push Final State**
+
    ```bash
    git checkout spec-<spec_issue_number>
    git push origin spec-<spec_issue_number>
    ```
-3. **Create the PR (idempotent)**: Check for an existing open PR before creating a new one, so this step is safe to re-run:
+
+3. **Create the PR Idempotently**
+
    ```bash
-   EXISTING_PR=$(gh pr list --head spec-<spec_issue_number> --state open --json number -q '.[0].number')
+   EXISTING_PR=$(gh pr list \
+     --head spec-<spec_issue_number> \
+     --state open \
+     --json number \
+     -q '.[0].number')
 
    if [ -z "$EXISTING_PR" ]; then
      SPEC_TITLE=$(gh issue view <spec_issue_number> --json title -q .title)
+
      gh pr create \
        --base main \
        --head spec-<spec_issue_number> \
@@ -59,52 +97,99 @@ If the branch was found, continue to Phase A below — the standard PR-merge pat
        --body "Closes #<spec_issue_number>"
    fi
    ```
-   The `Closes #<spec_issue_number>` line auto-closes the parent spec issue the moment this PR merges.
-4. **Merge the PR**: Use a regular merge commit — **not squash** — so commit ancestry is preserved. This matters because Phase B's `git branch -d` (Step 3 below) relies on ancestry to verify the branch is safely mergeable before deleting it; a squash merge would break that check permanently.
+
+   `Closes #<spec_issue_number>` closes the Spec when the PR merges.
+
+4. **Merge**
+
+   Use a regular merge commit, not squash, so ancestry remains available for safe local branch deletion.
+
    ```bash
-   PR_NUMBER=$(gh pr list --head spec-<spec_issue_number> --state open --json number -q '.[0].number')
+   PR_NUMBER=$(gh pr list \
+     --head spec-<spec_issue_number> \
+     --state open \
+     --json number \
+     -q '.[0].number')
+
    gh pr merge "$PR_NUMBER" --merge
    ```
-   Deliberately **not** using `--delete-branch` here — you're still sitting on `spec-<spec_issue_number>` at this point (per Step 2 above), and Git won't let you delete the branch you're currently checked out on. Local branch deletion is handled explicitly in Phase B instead, right after switching to `main`.
-5. **Verify Merge Succeeded**: Do not proceed to cleanup on a failed or unmerged PR:
+
+   Do not use `--delete-branch`; cleanup happens below.
+
+5. **Verify Merge**
+
    ```bash
    MERGED_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
+
    if [ "$MERGED_STATE" != "MERGED" ]; then
-     echo "❌ PR #$PR_NUMBER did not merge (state: $MERGED_STATE). Halting before cleanup — resolve manually."
+     echo "❌ PR #$PR_NUMBER did not merge (state: $MERGED_STATE)."
      exit 1
    fi
    ```
 
-## Phase B — Branch Cleanup
+Do not continue to cleanup unless the merge succeeded.
 
-Only reached if Phase A confirmed a successful merge.
+## Phase B — Cleanup and Finalize
 
-1. **Confirm Current Branch**: Non-fatal sanity check before switching away from the spec branch — if something switched branches mid-session, worth knowing about, but Step 0 already confirmed the branch itself exists, so this doesn't block cleanup either way:
+1. **Check Current Branch**
+
    ```bash
    CURRENT_BRANCH=$(git branch --show-current)
+
    if [ "$CURRENT_BRANCH" != "spec-<spec_issue_number>" ]; then
-     echo "⚠️ Expected to be on spec-<spec_issue_number> but current branch is $CURRENT_BRANCH. Continuing cleanup anyway."
+     echo "⚠️ Expected spec-<spec_issue_number>; current branch is $CURRENT_BRANCH. Continuing cleanup."
    fi
    ```
-2. **Sync Local Main**: Make sure `main` is actually checked out before pulling — don't assume the current branch — then pull down the merge you just made so it's reflected before branch deletion is evaluated against it:
+
+2. **Sync Main**
+
    ```bash
    git checkout main
    git pull origin main
    ```
-3. **Delete Local Branch**: This should now succeed cleanly — the merge commit in Step 4 of Phase A preserved ancestry, so Git can verify it:
+
+3. **Delete Local Branch**
+
    ```bash
    git branch -d spec-<spec_issue_number>
    ```
-   If this fails, treat it as a signal to stop and investigate — do not force it with `-D`.
-4. **Delete Remote Branch**: Safe to do unconditionally here, since Phase A already confirmed the PR merged:
+
+   If this fails, stop and investigate. Do not force-delete with `-D`.
+
+4. **Delete Remote Branch**
+
    ```bash
    git push origin --delete spec-<spec_issue_number>
    ```
-5. **Finalize: Close the Spec Review Issue (if one exists)**: Only reached if every step above succeeded. A "Spec Review" issue only exists if this spec required at least one remediation loop — created in the `$review-spec-remediation` skill's *First-Pass Failure* step, or reused across its *Recursive Passes* step. If the audit returned zero Blocking findings on the very first pass, no such issue was ever created, and this step should be skipped entirely — there's nothing to close. The Spec issue itself is already closed automatically via the PR's `Closes #<spec_issue_number>`; the Spec Review issue has no equivalent automatic trigger, so it must be closed explicitly when it exists. (For specs with no branch, this same closure already happened in Step 0's routing check above, and this step is never reached.):
+
+5. **Close Spec Review**
+
+   The Spec itself was closed by the merged PR.
+
    ```bash
    if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-     gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" --comment "Spec merged (PR #$PR_NUMBER) and branch cleaned up. Zero blocking findings on final review."
+     gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
+       --comment "Spec merged (PR #$PR_NUMBER) and branch cleaned up. Zero blocking findings on final review."
    else
-     echo "No Spec Review issue was created for this spec (passed on the first review) — nothing to close."
+     echo "No Spec Review issue exists — nothing to close."
    fi
    ```
+
+6. **Reconcile Wayfinder Completion**
+
+   Perform **Wayfinder Completion Reconciliation** only after the Spec is confirmed closed and all required cleanup above succeeded.
+
+   If another derived Spec remains open, leave the Wayfinder map unchanged.
+
+   If this was the final derived Spec, comment on the map and close it only if it is still open.
+
+## Completion
+
+Cleanup is complete only when the applicable path has:
+
+* successfully closed the Spec;
+* closed its Spec Review issue when one exists;
+* merged and deleted the Spec branch when applicable;
+* reconciled the originating Wayfinder map when provenance is available.
+
+Wayfinder reconciliation must never guess missing lineage or block an otherwise successful Spec merge solely because provenance cannot be recovered.

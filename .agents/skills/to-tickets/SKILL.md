@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker — edges as text in one file per ticket locally, or native blocking links on a real tracker.
+description: Break a plan, spec, or the current conversation into tracer-bullet tickets, each declaring its blocking edges, and publish them to the configured tracker.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -107,13 +107,34 @@ Do not reopen or rewrite closed tickets to represent newly required work.
 
 Do not close or modify the parent Spec issue.
 
+### Architecture Readiness Language
+
+Scope ticket readiness claims to what the current Spec, review state, and accepted decisions actually establish.
+
+When architecture dependencies for a ticket are resolved, prefer language such as:
+
+> All architecture decisions currently required by this ticket are accepted; no known architecture blocker remains unresolved.
+
+Do not write absolute claims such as:
+
+* `no architecture decision remains unresolved`;
+* `architecture is fully resolved`;
+* `all architecture is settled`;
+* equivalent language implying implementation cannot expose another material blocker.
+
+Ticket readiness means **no known architecture blocker currently prevents this ticket from starting**.
+
+It does not waive `$implement-ticket`'s obligation to halt on a newly discovered material architecture blocker.
+
+More generally, state only what the workflow has established. Do not turn current evidence into broader or final claims.
+
 <local-ticket-template>
 
 # <NN> — <Ticket title>
 
 **Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the root invariant this ticket closes. Omit otherwise.
 
-**Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text.
+**Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture Readiness Language**.
 
 **What to build:** the end-to-end behaviour this ticket makes work.
 
@@ -140,7 +161,7 @@ For Spec Review remediation tickets only: `RB-<n>` and the root invariant this t
 
 ## Architecture context
 
-Affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text.
+Affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture Readiness Language**.
 
 ## What to build
 
@@ -174,13 +195,13 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 If the source is a `Spec Review: ` issue, recover the original Spec from its exact body line:
 
-```text id="sxtvwn"
+```text
 **Parent Spec:** #<n>
 ```
 
 Otherwise the source Spec issue is the Spec issue.
 
-```bash id="mpczfm"
+```bash
 INPUT_ISSUE_NUMBER=<input issue number>
 INPUT_ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --json title -q .title)
 
@@ -202,13 +223,13 @@ esac
 
 ### 1. Resolve Branch Identity
 
-```bash id="rmgw7m"
+```bash
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
 ### 2. Capture Baseline for First Use
 
-```bash id="2mk4n0"
+```bash
 BASELINE_COMMIT=$(git rev-parse main)
 ```
 
@@ -216,7 +237,7 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-```bash id="qwpysq"
+```bash
 if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
   git checkout "$SPEC_BRANCH"
 else
@@ -232,7 +253,7 @@ Ensure unrelated uncommitted work is not carried across the checkout.
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 
-```bash id="8bwux8"
+```bash
 ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comments[].body' \
   | grep -c "## Workspace Metadata" || true)
 

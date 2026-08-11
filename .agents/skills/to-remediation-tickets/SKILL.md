@@ -112,12 +112,34 @@ If a closed ticket satisfied the old requirement but the amended Spec requires m
 
 Return dependency changes when new work must block an existing open ticket.
 
+### Architecture Readiness Language
+
+When creating or updating ticket architecture context, scope readiness claims to current established knowledge.
+
+If the applicable architectural decisions are accepted, use language such as:
+
+> All architecture decisions currently required by this ticket are accepted; no known architecture blocker remains unresolved.
+
+Do not state or imply that architecture is globally or finally resolved.
+
+In particular, avoid:
+
+* `no architecture decision remains unresolved`;
+* `architecture is fully resolved`;
+* `all architecture is settled`;
+* equivalent absolute claims.
+
+An accepted remediation architecture means the ticket has **no known architecture blocker preventing current implementation**. `$implement-ticket` still owns halting on newly discovered material architecture.
+
+When an amended Spec or accepted decision changes an open ticket, replace stale absolute readiness language during that ticket update.
+
 ## 5. Preserve Normal Ticket Semantics
 
 Every new or updated ticket must follow `$to-tickets` rules, including:
 
 * tracer-bullet scope unless a wide-refactor exception applies;
 * applicable Architecture context;
+* scoped Architecture Readiness Language;
 * correct blocking edges;
 * the existing Spec's shared `Ticket branch`;
 * acceptance criteria proving required production behavior.

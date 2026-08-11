@@ -1,78 +1,50 @@
 ---
 name: wiki-lint
-description: Audit the Living Entity Wiki as a whole for structural integrity, citation validity, authoritative-source conflicts, derived-document drift, implementation contradictions, stale questions, and classification hygiene.
+description: Audit the Living Entity Wiki for structural integrity, citations, source conflicts, drift, stale questions, and classification hygiene.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 ---
 
 # Wiki Lint
 
-`$wiki-lint` performs an independent whole-wiki audit.
+`$wiki-lint` independently audits accumulated Living Entity Wiki state.
 
-It is the backstop for:
+`$wiki-sync` maintains one change. `$wiki-lint` audits the whole.
 
-* missed `$wiki-sync` runs;
-* stale derived claims;
-* source disagreements;
-* broken citations;
-* structural corruption;
-* missed lifecycle transitions.
-
-`$wiki-sync` maintains one change.
-
-`$wiki-lint` audits accumulated state.
-
-A clean run reports only. It does not mutate the wiki, append `wiki/log.md`, or create a commit.
-
-## When to Run
-
-Run `$wiki-lint`:
-
-* on demand;
-* after work spanning multiple entities;
-* after large architecture/document changes;
-* when wiki drift is suspected;
-* before relying heavily on the wiki after extended ad hoc work.
-
-Do not run automatically for trivial edits.
+A clean run reports only. Do not mutate the wiki, append `wiki/log.md`, or commit unless applying an explicitly allowed mechanical fix.
 
 ## Audit Order
 
-Run checks in this order:
+Run in order:
 
 1. structural integrity;
 2. citation resolution and eligibility;
 3. authoritative-source consistency;
-4. derived-document drift;
+4. document/wiki drift;
 5. implementation drift;
-6. Open Question review;
+6. Open Questions;
 7. cross-entity contradictions;
-8. document classification hygiene.
+8. document classification.
 
-Order matters.
+Do not classify downstream drift until authoritative-source consistency is understood.
 
-Do not repair or classify downstream drift before determining whether the authoritative sources themselves conflict.
+## 1. Structural Integrity
 
-# 1. Structural Integrity
+`wiki/index.md` is the active-entity registry.
 
-`wiki/index.md` is the authoritative active-entity registry.
+Report `[structural]` for:
 
-Report `[structural]` for issues such as:
-
-* entity page missing from the index;
-* index entry with no entity page;
-* duplicate Entity IDs;
-* duplicate active scope;
-* invalid `Implementation` value;
-* more than two Routing Anchors;
-* broken or meaningless Routing Anchors;
+* entity/index mismatches;
+* duplicate Entity IDs or active scopes;
+* invalid `Implementation` values;
+* invalid/missing Routing Anchors;
 * `pending` when implementation clearly exists;
-* `present` when implementation cannot reasonably be located;
+* `present` when implementation cannot reasonably be found;
 * retired/tombstone pages under `wiki/entities/`;
-* registry metadata duplicated into entity pages;
-* YAML frontmatter reintroduced;
-* structural dependency lists reintroduced.
+* obsolete metadata/frontmatter;
+* invalid entity-page structure;
+* missing or invalid Boundary Rationale.
 
-Allowed `Implementation` values:
+Allowed implementation states:
 
 ```text
 present
@@ -81,343 +53,199 @@ pending
 
 A `pending` entity normally has no implementation Routing Anchor.
 
-## Entity Page Structure
+Entity pages must follow `wiki/_template.md`.
 
-Each page must conform to `wiki/_template.md`.
+Do not invent missing rationale or topology.
 
-Required where applicable:
-
-* heading with stable Entity ID;
-* Boundary Rationale with valid provenance;
-* Strict Invariants section when invariants exist.
-
-Optional sections may be absent when empty:
-
-* Rejected Approaches;
-* Open Questions;
-* Planned.
-
-Report `[structural]` if obsolete entity metadata reappears, including:
-
-```text
-category:
-last_updated:
-linked_docs:
-implementation:
-```
-
-## Boundary Rationale
-
-Every entity needs a Boundary Rationale with provenance allowed by `wiki/_template.md`, such as:
-
-```text
-source: docs/...
-source: owner-approved entity boundary determination
-source: owner-approved entity promotion
-```
-
-Report `[structural]` when rationale is:
-
-* missing;
-* missing provenance;
-* merely a directory description;
-* apparently rewritten to follow ordinary code movement rather than an explicit topology decision.
-
-Do not invent missing rationale.
-
-# 2. Citation Resolution and Eligibility
+## 2. Citation Resolution and Eligibility
 
 Entity-document relationships exist only through inline `source:` citations.
 
-Do not reconstruct `linked_docs`.
-
-Audit citations in the context of the section they support.
-
-## Broken Citation
+Use `wiki/_schema.md` and `wiki/_template.md`.
 
 Report:
 
-```text
-[broken-doc-citation]
-```
+* `[broken-doc-citation]` — cited `docs/...` path no longer resolves;
+* `[invalid-citation]` — source type was never valid for that section;
+* `[stale-citation]` — source was valid but its lifecycle/classification changed.
 
-when a cited `docs/...` path no longer resolves.
-
-Include:
-
-* entity;
-* section;
-* claim;
-* missing path.
-
-Do not automatically delete the claim; determine whether the source moved, was removed, or was replaced.
-
-## Invalid or Stale Citation
-
-Report:
-
-```text
-[invalid-citation]
-```
-
-when the cited source type was never eligible for that section.
-
-Report:
-
-```text
-[stale-citation]
-```
-
-when it was once eligible but lifecycle/classification changed.
-
-Use the eligibility rules in `wiki/_schema.md` and `wiki/_template.md`.
-
-Core rules:
+Core eligibility:
 
 ### Strict Invariants
-
-Eligible sources:
 
 * accepted ADR;
 * `docs/current/`.
 
 ### Planned
 
-Eligible sources:
-
 * proposed ADR;
 * `docs/proposed/`;
-* accepted ADR with implementation still pending.
+* accepted ADR whose realization is still pending.
 
-### Rejected Approaches
+### Rejected Approaches, Open Questions, Boundary Rationale
 
-Use provenance defined by `wiki/_template.md`, including:
+Use provenance allowed by `wiki/_template.md`.
 
-```text
-source: docs/...
-source: owner-confirmed session decision, undocumented
-source: session experiment, undocumented
-```
+Do not delete claims merely because a citation is broken or stale.
 
-### Open Questions
-
-Valid provenance includes:
-
-```text
-source: docs/...
-source: owner-raised session question, undocumented
-source: agent-observed during session, unresolved
-```
-
-### Boundary Rationale
-
-Use `wiki/_template.md`.
-
-`[stale-citation]` is about authority lifecycle.
-
-`[doc-drift]` is about changed meaning.
-
-# 3. Authoritative-Source Consistency
-
-Before ordinary drift checks, compare materially relevant authorities.
+## 3. Authoritative-Source Consistency
 
 Authority is claim-specific:
 
-* implementation evidence → what currently exists or behaves;
-* accepted ADRs → active architectural decisions;
+* implementation → what currently exists/behaves;
+* accepted ADR → active architectural decision;
 * `docs/current/` → current architectural description;
-* entity pages → derived knowledge only.
+* entity pages → derived knowledge, never authority.
 
-Report:
+Report `[source-conflict]` only when applicable authorities **normatively disagree** about architecture or when competing authoritative claims about current behavior cannot be reconciled without judgment.
 
-```text
-[source-conflict]
-```
+Examples:
 
-when those authorities materially disagree about architecture, ownership, constraints, or current behavior.
+* incompatible architectural invariants;
+* conflicting canonical owners/paths;
+* incompatible boundary or dependency rules;
+* one authority requires behavior another forbids;
+* authoritative current-state descriptions materially disagree and no deterministic lifecycle update explains the difference.
 
-For each finding include:
+For each `[source-conflict]`, include:
 
-* affected entity/claim;
+* entity/claim;
 * conflicting sources;
-* what each source says;
-* relevant implementation evidence;
+* what each says;
+* implementation evidence;
 * why the disagreement matters.
 
-Do not:
+Do not select a winner or repair the disputed claim.
 
-* select a winner;
-* rewrite the entity to one source;
-* edit current docs automatically;
-* change ADR lifecycle;
-* infer which authority is wrong.
+### Realization-Status Rule
 
-Skip ordinary drift repair for the disputed claim until the underlying conflict is resolved.
+Do **not** report `[source-conflict]` merely because an accepted ADR still says implementation is `pending`, `not yet realized`, or equivalent while current implementation clearly realizes its accepted normative decision.
 
-# 4. Derived Document Drift
+When:
+
+1. the ADR remains accepted;
+2. its normative decision agrees with the implementation;
+3. implementation evidence clearly realizes that decision; and
+4. only the ADR's descriptive realization/status statement is stale;
+
+then classify the condition as deterministic **`[doc-drift]`**, not `[source-conflict]`.
 
 Report:
 
-```text
-[doc-drift]
-```
+* the accepted decision;
+* evidence that implementation realizes it;
+* the stale realization/status statement;
+* required owner: `$to-adr-doc`.
 
-when a valid source still has appropriate authority but the derived entity claim no longer reflects its current meaning.
+The derived wiki may already reflect the realized invariant without creating a source conflict when its claim agrees with both the ADR's normative decision and current implementation.
 
-Do not report drift merely because a document changed.
+Do not use this rule when implementation contradicts the ADR's actual decision.
 
-The meaning must actually have diverged.
+## 4. Document and Wiki Drift
 
-## Strict Invariants
+Report `[doc-drift]` when meaning or lifecycle state has become stale while underlying architectural authority remains unambiguous.
 
-For claims sourced from `docs/current/`:
+Examples:
 
-* confirm the source is still current;
+* entity claim no longer reflects its valid source;
+* accepted ADR realization status remains pending after clear realization;
+* current documentation describes an obsolete state while authority and implementation agree on the replacement.
+
+For entity claims sourced from `docs/current/`:
+
+* confirm the source remains current;
 * ensure no `[source-conflict]`;
-* compare the invariant with the document's present meaning.
+* compare the claim with current source meaning.
 
-## Planned
-
-For claims sourced from `docs/proposed/` or proposed ADRs:
+For Planned entries sourced from proposed material:
 
 * compare against the current proposal;
-* report drift when the proposal changed, disappeared, or was substantively rewritten while the wiki retained the old direction.
+* report drift when it changed, disappeared, or was substantively rewritten.
 
-## Accepted Implementation-Pending Decisions
+### Accepted Implementation-Pending Decisions
 
-For Planned entries backed by accepted ADRs, check whether:
+For accepted ADR-backed Planned entries:
 
-* the ADR remains accepted;
-* `accepted, implementation pending` is still accurate;
-* implementation has already realized the decision.
+1. confirm the ADR remains accepted;
+2. determine whether realization is still pending;
+3. inspect strong implementation evidence;
+4. if clearly realized:
 
-If realization is clear and the wiki did not transition, report the appropriate structural/drift finding.
+   * stale ADR realization statement → `[doc-drift]`, owner `$to-adr-doc`;
+   * stale wiki `Planned`/`Implementation: pending` state → `[doc-drift]` or `[structural]` as applicable.
 
-Do not manufacture realization from weak evidence.
+Do not infer realization from weak or merely suggestive evidence.
 
-# 5. Implementation Drift
+## 5. Implementation Drift
 
-Report:
+Report `[code-drift]` when implementation materially contradicts an active architectural invariant whose authorities otherwise agree.
 
-```text
-[code-drift]
-```
+Do not use `[code-drift]` for inability to prove a claim.
 
-when implementation evidence materially contradicts an active Strict Invariant and the authoritative sources behind that invariant are otherwise consistent.
+### Active Implementation Work
 
-Do not use `[code-drift]` to mean:
+When expected implementation cannot be found on the current branch, inspect relevant open GitHub work when useful.
 
-> I could not prove this from code.
+Issues are workflow-status evidence only, never architectural authority or implementation proof.
 
-## Active Implementation Work
+If an open Spec/ticket explicitly tracks missing realization:
 
-When a mechanically observable claim names implementation that cannot be found on the current branch, check relevant **open GitHub issues** before classifying the absence.
-
-Use exact or strong identifiers such as:
-
-* symbol names;
-* Entity ID or title;
-* ADR number/title;
-* canonical owner or boundary terminology.
-
-GitHub issues are **workflow-status evidence only**. They are not architectural authority or implementation proof.
-
-If a relevant open spec/ticket explicitly tracks realization of the missing claim:
-
-* treat the realization as pending rather than unexplained absence;
-* if it declares a work branch, inspect that ref read-only when useful;
+* treat it as pending rather than unexplained;
+* inspect its declared work branch read-only when useful;
 * do not switch branches;
-* implementation present only on the work branch is **in progress**, not implemented on the branch being audited;
-* do not report `[code-drift]` solely because the pending implementation is absent.
+* unmerged implementation remains in progress, not current implementation.
 
-If `docs/current/`, a Strict Invariant, or `Implementation: present` claims the realization already exists while active work shows it is still pending, continue normal source-conflict/structural analysis. The open issue explains the mismatch; it does not make the claim true.
+Closed issues are not implementation proof.
 
-Do not treat a closed issue as implementation proof. Require implementation or merge evidence.
+### Evidence
 
-## Mechanically Observable Invariants
+For mechanically observable invariants, use:
 
-Use appropriate evidence such as:
-
-* source inspection;
+* source;
 * tests;
 * executable architecture checks;
 * `$codegraph`;
 * `$codebase-memory-mcp`;
 * configuration.
 
-If evidence directly proves or disproves the rule, a positive or negative conclusion is valid.
+For intent-level invariants, report `[code-drift]` only when contradictory evidence exists.
 
-## Architectural / Intent-Level Invariants
-
-For rules that cannot be mechanically proven:
-
-1. identify plausible concrete violations;
-2. inspect relevant implementation surfaces;
-3. report `[code-drift]` only when contradictory evidence exists.
-
-If none is found, the strongest valid conclusion is:
+Otherwise report:
 
 ```text
 no contrary implementation evidence found
 ```
 
-not:
+not `verified`.
 
-```text
-verified
-```
+## 6. Open Questions
 
-Prefer deterministic architecture tests/static rules for mechanically enforceable subsets.
+Report `[stale-question]` when an Open Question deserves deliberate review because of age, changed context, or apparent later resolution.
 
-# 6. Open Question Review
-
-Report:
-
-```text
-[stale-question]
-```
-
-when an Open Question has remained unresolved long enough to deserve deliberate review.
-
-Approximately 60 days is a useful default, not an expiry rule.
-
-Consider:
-
-* entity activity;
-* related architecture changes;
-* continued relevance;
-* whether later evidence appears to have answered it.
+Approximately 60 days is a heuristic, not an expiry rule.
 
 A stale question may be:
 
 * resolved;
-* confirmed still open;
+* confirmed open;
 * converted into another durable section;
-* removed as no longer meaningful.
+* removed because it is no longer meaningful.
 
-Do not fabricate a resolution to clear lint.
+Do not fabricate resolution.
 
-# 7. Cross-Entity Contradictions
+## 7. Cross-Entity Contradictions
 
-Scan active entity claims for material architectural contradictions.
+Scan active entity claims for material contradictions.
 
-Report the conflicting claims and their sources.
+If underlying authorities disagree, use `[source-conflict]`.
 
-If the contradiction comes from underlying authoritative sources, classify the root issue as `[source-conflict]`.
+If authorities agree and only derived wiki state is stale, use the appropriate drift finding.
 
-If authorities agree and one entity is stale, use the appropriate drift finding.
+Avoid duplicate findings for the same root cause.
 
-Do not auto-resolve semantic contradictions.
+## 8. Document Classification
 
-# 8. Document Classification Hygiene
-
-Report:
-
-```text
-[unclassified-doc]
-```
-
-for project-owned files under `docs/` whose classification cannot be derived from:
+Report `[unclassified-doc]` for project-owned files under `docs/` whose classification cannot be derived from:
 
 * `docs/adr/` plus ADR status;
 * `docs/current/`;
@@ -425,66 +253,62 @@ for project-owned files under `docs/` whose classification cannot be derived fro
 * `docs/research/`;
 * `docs/reference/`;
 * `docs/process/`;
-* the External Scaffold Directories registry in `wiki/_schema.md`.
-
-Do not assume unfamiliar folders are externally owned.
+* registered external scaffold directories.
 
 Use `$classify-doc` for existing non-ADR documents.
 
-# Finding Priority
+## Finding Priority
 
-When several findings apply to the same claim, prefer the root cause:
+Prefer the root cause:
 
 ```text
 [source-conflict]
-      ↓
+    ↓
 [broken-doc-citation]
-      ↓
+    ↓
 [stale-citation] / [invalid-citation]
-      ↓
+    ↓
 [doc-drift]
-      ↓
+    ↓
 [code-drift]
 ```
 
-This is root-cause ordering, not a universal severity ranking.
+Exception: stale realization metadata that satisfies the **Realization-Status Rule** is `[doc-drift]`, not `[source-conflict]`.
 
-Avoid duplicate downstream findings when an upstream issue already explains them.
+Do not emit duplicate downstream findings when one finding explains them.
 
-# Resolution Rules
+## Resolution Rules
 
-`$wiki-lint` reports judgment-bearing issues; it does not silently decide architecture.
+`$wiki-lint` reports judgment-bearing findings. It does not decide architecture.
 
-Never auto-resolve:
+Never automatically resolve:
 
-* `[source-conflict]`;
+* genuine `[source-conflict]`;
 * `[code-drift]`;
-* `[doc-drift]`;
-* ambiguous `[stale-citation]`;
-* judgment-bearing `[invalid-citation]`;
-* `[stale-question]`;
+* semantic `[doc-drift]`;
+* ambiguous citation findings;
+* stale questions;
 * cross-entity semantic contradictions;
-* entity topology;
-* Boundary Rationale.
+* topology or Boundary Rationale.
 
-## Mechanical Fixes
+### Mechanical Fixes
 
-A fix may be applied only when exactly one correction is unambiguous and no architectural judgment is required.
+Apply a fix only when exactly one correction is unambiguous and no architectural judgment is required.
 
 Examples:
 
-* stale link after a known rename;
+* stale link after known rename;
 * formatting damage;
 * duplicate registry row;
-* Routing Anchor affected only by an established path rename.
+* Routing Anchor changed only by established path rename.
 
-Do not treat claim removal, promotion, source selection, or topology changes as mechanical merely because the edit is small.
+Do not treat architectural claim changes, source selection, realization/lifecycle transitions, or topology changes as mechanical.
 
-When uncertain, report instead of fixing.
+For stale accepted-ADR realization status, **report `$to-adr-doc` as owner rather than editing the ADR directly**.
 
-# Reporting
+## Reporting
 
-Use these prefixes:
+Use:
 
 ```text
 [source-conflict]
@@ -498,77 +322,60 @@ Use these prefixes:
 [structural]
 ```
 
-Each finding should include enough context to act on it:
+Each finding includes:
 
-* entity;
-* claim/section;
-* evidence or sources;
-* relevant open issue/work branch when active implementation explains the state;
-* why it is a problem;
-* required next action or owner judgment.
+* entity/claim;
+* evidence/sources;
+* relevant implementation evidence;
+* relevant open work when applicable;
+* why it matters;
+* required next action/owner.
 
-End with a count by finding type.
+End with counts by finding type.
 
-Example:
-
-```text
-Wiki lint: 3 issues found
-- [source-conflict]&#58; 1
-- [doc-drift]&#58; 1
-- [structural]&#58; 1
-```
-
-For a clean run:
+Clean result:
 
 ```text
 Wiki lint: 0 issues found
 ```
 
-Omit zero-count categories.
+## Logging and Commits
 
-# Logging and Commits
+A report-only or clean run:
 
-`wiki/log.md` records semantic wiki mutations, not lint executions.
+* does not edit `wiki/log.md`;
+* does not create a commit.
 
-If `$wiki-lint` only reports findings or finds nothing:
+For an allowed mechanical fix:
 
-* do not edit `wiki/log.md`;
-* do not create a lint-only commit.
+* append one semantic `wiki/log.md` entry;
+* land fix and log atomically;
+* defer commit ownership to the calling workflow when one exists.
 
-If it applies an allowed mechanical fix:
+Do not log lint runs or issue counts.
 
-* append one semantic log entry describing the actual mutation;
-* land the fix and log atomically;
-* defer commit ownership to a calling workflow when one exists.
-
-Do not log issue counts or clean lint runs.
-
-# Relationship to Other Skills
-
-Use:
+## Related Skills
 
 * `$wiki-sync` — per-change synchronization;
-* `$to-adr-doc` — ADR lifecycle;
+* `$to-adr-doc` — ADR lifecycle and realization-status updates;
 * `$to-doc` — new non-ADR documents;
 * `$classify-doc` — existing non-ADR classification;
-* `$wiki-synthesize` — higher-inference cross-entity synthesis.
+* `$wiki-synthesize` — higher-inference synthesis.
 
-`$wiki-lint` is for direct integrity/conflict/drift auditing, not synthesis.
-
-# Out of Scope
+## Out of Scope
 
 `$wiki-lint` does not:
 
 * bootstrap the wiki;
-* decide new entity boundaries;
-* settle source conflicts;
+* decide entity boundaries;
+* settle genuine source conflicts;
 * rewrite architectural decisions;
+* directly update ADR realization/lifecycle state;
 * treat GitHub issues as architectural authority;
-* treat unmerged branch work as current implementation;
-* create ADRs merely to clear findings;
+* treat unmerged work as current implementation;
 * infer intent-level compliance from absence of evidence;
-* maintain `linked_docs`, timestamps, reciprocal dependency lists, or entity frontmatter;
+* maintain obsolete entity metadata;
 * log clean runs;
 * perform cross-entity synthesis.
 
-Its job is to determine whether the Living Entity Wiki can still be trusted, why not when it cannot, and where normal lifecycle or owner judgment is required.
+Its job is to determine whether the Living Entity Wiki can be trusted, distinguish genuine authority conflicts from ordinary lifecycle drift, and route correction to the proper owner.

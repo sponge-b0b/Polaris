@@ -326,7 +326,7 @@ Advisory-only findings do not trigger remediation.
 
 ## Exit Gate
 
-Proceed to `$spec-merge-cleanup` only when:
+The review passes only when:
 
 * current `HEAD` still matches the passing Spec Verification Receipt;
 * all three axes have zero Blocking findings;
@@ -351,7 +351,7 @@ Only after the Exit Gate passes, persist a **Spec Review Exit Receipt** on the p
 **Candidate new roots:** 0
 ```
 
-Immediately before persistence, require:
+Immediately before persistence:
 
 ```bash
 REVIEWED_HEAD=$(git rev-parse HEAD)
@@ -362,12 +362,28 @@ if [ "$REVIEWED_HEAD" != "$CURRENT_HEAD" ]; then
 fi
 ```
 
-`REVIEWED_HEAD` must still equal the `Verified HEAD` from the current passing Spec Verification Receipt.
+`REVIEWED_HEAD` must also equal the `Verified HEAD` from the current passing Spec Verification Receipt.
 
-Persist the receipt with the full `REVIEWED_HEAD` and `BASELINE_COMMIT`.
+If receipt persistence fails, review is incomplete.
 
-If receipt persistence fails, do not authorize `$spec-merge-cleanup`.
+The receipt authorizes cleanup only for that exact `HEAD`. Any later commit makes it stale.
 
-The receipt authorizes cleanup only for that exact reviewed `HEAD`. Any later commit makes it stale.
+### Spec Merge Cleanup Human Handoff
 
-Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns closure.
+`$spec-merge-cleanup` has `allow_implicit_invocation: false`. Do not invoke it implicitly.
+
+After the Exit Receipt is successfully persisted, halt with:
+
+> ✅ **Spec review passed.**
+>
+> The verified and reviewed `HEAD` is ready for merge and cleanup.
+>
+> Please run:
+>
+> ```
+> $spec-merge-cleanup - <Spec Title> (<Spec URL>)
+> ```
+
+Then stop.
+
+Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns merge, closure, branch cleanup, and Wayfinder completion reconciliation.

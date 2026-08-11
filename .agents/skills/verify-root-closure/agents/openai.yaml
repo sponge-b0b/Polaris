@@ -1,0 +1,5 @@
+interface:
+  display_name: "Verify Root Closure"
+  short_description: "Verify that all root blockers for a spec are closed"
+policy:
+  allow_implicit_invocation: false

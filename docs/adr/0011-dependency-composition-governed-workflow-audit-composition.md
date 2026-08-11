@@ -52,5 +52,4 @@ authority classification.
 Existing interface and backtest callers require migration to the service and
 must provide provenance-bearing evidence. Direct governed façade callers and
 tests must use the service-issued capability or explicitly configure an
-unenforced runtime. This is a realization-required decision; implementation is
-pending.
+unenforced runtime. This realization-required decision is implemented.

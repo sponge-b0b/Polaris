@@ -19,7 +19,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
 ## 1. Read the Ticket and Verify Its Branch
 
-Before modifying files, read the full ticket and locate its **Ticket branch**.
+Before modifying files, read the full ticket and locate its **Ticket branch** and **Ticket baseline**.
 
 Capture the parent Spec when present.
 
@@ -40,7 +40,7 @@ The ticket's **Ticket branch** is authoritative.
 * A declared branch must exactly match the current branch.
 * Do not create, switch, rename, or repair it.
 * `None` skips branch enforcement.
-* A missing field halts.
+* A missing **Ticket branch** field halts.
 * Detached `HEAD` never satisfies a declared branch.
 
 ```bash
@@ -57,13 +57,33 @@ fi
 
 Run this before any file mutation.
 
-Then capture:
+### Ticket Baseline Guard
+
+**Ticket baseline** is the durable per-ticket verification anchor. It is distinct from the fixed Spec baseline.
+
+The field must contain either `Pending` or a full commit SHA. A missing or other value halts.
+
+If it is `Pending`:
+
+1. require a clean worktree;
+2. capture `git rev-parse HEAD`;
+3. replace only the ticket's `Ticket baseline` value with that full SHA;
+4. re-read the ticket and require the persisted value to match;
+5. set `TICKET_BASELINE` to that SHA.
+
+Persist this **before any file mutation**.
+
+If the field already contains a full SHA:
+
+* set `TICKET_BASELINE` to that exact value;
+* verify it resolves as a commit;
+* never recompute or overwrite it from current `HEAD`.
 
 ```bash
-TICKET_BASELINE=$(git rev-parse HEAD)
+git rev-parse "$TICKET_BASELINE^{commit}"
 ```
 
-This is the ticket verification anchor only, not the Spec baseline.
+This lets a resumed session recover the original ticket verification anchor from durable tracker state.
 
 ## 2. Implement the Ticket
 
@@ -515,6 +535,7 @@ Report:
   * `$verify-root-closure` verdict;
   * verified Root Closure Evidence comment persisted;
 * ticket branch;
+* ticket baseline;
 * `$wiki-sync` pre/post result and wiki changes;
 * documentation/ADR activity;
 * `$database-migrations` result when applicable;

@@ -108,6 +108,7 @@ New tickets must:
 * link to the same parent Spec;
 * carry applicable Architecture context;
 * use the shared **Ticket branch**;
+* declare **Ticket baseline** as `Pending`;
 * receive correct blocking relationships;
 * receive `ready-for-agent` unless instructed otherwise.
 
@@ -150,6 +151,8 @@ More generally, state only what the workflow has established. Do not turn curren
 
 **Ticket branch:** the shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
+**Ticket baseline:** Pending
+
 **Status:** ready-for-agent
 
 * [ ] Acceptance criterion 1
@@ -189,15 +192,27 @@ References to blocking tickets, or "None — can start immediately".
 
 The shared branch for this Spec, normally `spec-<spec_issue_number>`, an explicitly overridden shared branch, or "None".
 
+## Ticket baseline
+
+Pending
+
 </issue-template>
 
 Avoid specific file paths or code snippets unless a prototype produced a decision-rich snippet materially clearer than prose.
+
+### Ticket Baseline
+
+`Ticket baseline` is a per-ticket verification anchor, not the Spec baseline.
+
+Publish every new ticket with `Ticket baseline: Pending`. `$implement-ticket` replaces `Pending` exactly once with the full current `HEAD` before the ticket's first file mutation, then reuses that persisted SHA across resumed sessions.
+
+Never initialize a ticket baseline from the fixed Spec baseline or another ticket's baseline.
 
 Work the frontier one ticket at a time with `$implement-ticket`, clearing context between tickets.
 
 ## Spec Branch Rule
 
-All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and baseline.
+All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline. Each ticket has its own `Ticket baseline`.
 
 ### 0. Resolve the Spec Issue Number
 
@@ -235,7 +250,7 @@ esac
 SPEC_BRANCH="spec-$spec_issue_number"
 ```
 
-### 2. Capture Baseline for First Use
+### 2. Capture Spec Baseline for First Use
 
 ```bash
 BASELINE_COMMIT=$(git rev-parse main)
@@ -257,7 +272,7 @@ Do not create another branch for remediation or amended-Spec ticket deltas.
 
 Ensure unrelated uncommitted work is not carried across the checkout.
 
-### 4. Record Baseline Metadata Once
+### 4. Record Spec Baseline Metadata Once
 
 Record the baseline on the parent Spec issue only if it has not already been recorded:
 

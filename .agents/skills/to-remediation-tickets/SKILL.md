@@ -38,7 +38,7 @@ The Spec Review remains the remediation source. The original Spec remains the br
 
 Use the supplied Spec as source and parent.
 
-Do not create another Spec, branch, or baseline.
+Do not create another Spec, branch, or Spec baseline.
 
 ## 2. Recover Required State
 
@@ -150,9 +150,14 @@ Every new or updated ticket must follow `$to-tickets` rules, including:
 * scoped Architecture Readiness Language;
 * correct blocking edges;
 * the existing Spec's shared `Ticket branch`;
+* a durable `Ticket baseline`;
 * acceptance criteria proving required production behavior.
 
-`$to-tickets` owns approval, publishing, parent-child linking, dependencies, labels, and branch metadata.
+For new tickets, return `Ticket baseline: Pending`.
+
+For existing open tickets, preserve an already pinned full-SHA `Ticket baseline`; never reset it to `Pending`. If the field is missing, report the metadata gap rather than inventing a SHA.
+
+`$to-tickets` owns approval, publishing, parent-child linking, dependencies, labels, and ticket metadata. `$implement-ticket` owns pinning `Pending` to the implementation-start `HEAD`.
 
 ## 6. Return the Delta
 

@@ -1,12 +1,12 @@
 ---
 name: review-architecture
-description: Audit an aggregate implementation diff against its resolved architecture and the repository's current architectural authorities. Report architecture drift, unresolved architectural changes, and boundary violations without modifying code, docs, ADRs, or the Living Entity Wiki.
+description: Audit an aggregate implementation diff or proposed remediation obligation against resolved architecture and current architectural authorities. Report architecture drift, unresolved architectural changes, and boundary violations without modifying code, docs, ADRs, or the Living Entity Wiki.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 ---
 
 # Review Architecture
 
-Audit whether an implemented change preserves or correctly realizes the architecture that was resolved before implementation.
+Audit whether an implemented change or proposed remediation obligation preserves or correctly realizes resolved architecture.
 
 This is a **read-only review**. It reports architecture findings; it does not redesign or repair the system.
 
@@ -14,11 +14,13 @@ This is a **read-only review**. It reports architecture findings; it does not re
 
 Use the caller-provided:
 
-* aggregate diff and commit list;
+* aggregate diff and commit list, when reviewing implementation;
 * originating spec;
 * spec **Architecture Impact**, when present;
 * affected entities and governing ADR/doc references, when known;
-* owner overrides, when applicable.
+* owner overrides, when applicable;
+* proposed remediation or Root Blocker acceptance obligation, when evaluating its architecture conformance;
+* affected production paths/contracts for that obligation, when known.
 
 ## 1. Establish the Intended Architecture
 
@@ -29,7 +31,7 @@ Read the spec's **Architecture Impact** and identify:
 * governing architectural decisions or constraints;
 * ADRs/docs that resolved intentional architecture changes.
 
-If the implementation materially changes architecture but the spec contains no resolved architectural basis for that change, report a **Blocking** finding.
+If implementation materially changes architecture but the spec contains no resolved architectural basis for that change, report a **Blocking** finding.
 
 Do not invent the missing decision here.
 
@@ -39,7 +41,7 @@ If the Living Entity Wiki exists:
 
 1. Read `wiki/index.md`.
 2. Load the affected entity pages.
-3. Follow relevant inline citations to their authoritative sources.
+3. Follow relevant inline citations to authoritative sources.
 4. Read `wiki/_schema.md` when authority or conflict semantics are needed.
 
 Consult applicable:
@@ -57,7 +59,7 @@ Do not update indexes or regenerate graphs.
 
 ## 3. Review the Aggregate Implementation
 
-Inspect the complete spec diff for architecture consequences that may not be visible in any individual ticket.
+When reviewing implementation, inspect the complete spec diff for architecture consequences that may not be visible in any individual ticket.
 
 Look for:
 
@@ -74,7 +76,24 @@ Look for:
 
 Evaluate the implementation as a system, not as isolated hunks.
 
-## 4. Handle Evidence Correctly
+## 4. Review Proposed Remediation Obligations
+
+When the caller provides a proposed remediation or Root Blocker acceptance obligation, evaluate whether that obligation is implementable under current architectural authority.
+
+Do not decide whether the obligation is desirable and do not design its solution.
+
+Report **Blocking** with `Architecture decision required: Yes` when satisfying the obligation would require:
+
+* violating or changing an accepted architectural decision;
+* introducing a new canonical contract, owner, path, or boundary;
+* choosing a new dependency direction or lifecycle responsibility; or
+* reconciling materially conflicting architectural authorities.
+
+Use `Architecture decision required: No` when current authority already permits and determines the required behavior.
+
+If the obligation conforms to current architecture, report no architecture finding for it.
+
+## 5. Handle Evidence Correctly
 
 Follow the repository's claim-specific authority rules.
 
@@ -106,13 +125,13 @@ Implementation present only on another branch is **in progress**, not implemente
 
 Active work does not make the audited branch pass, and a closed issue does not prove implementation.
 
-## 5. Classify Findings
+## 6. Classify Findings
 
 Use the caller's Finding Taxonomy when provided.
 
 Otherwise:
 
-* **Blocking** — implementation violates applicable architectural authority, introduces an unresolved material architecture change, or cannot be judged because of a material `[source-conflict]`.
+* **Blocking** — implementation or a proposed remediation obligation violates applicable architectural authority, introduces/requires an unresolved material architecture change, or cannot be judged because of a material `[source-conflict]`.
 * **Advisory** — architecture concern worth review but not supported strongly enough to establish a violation.
 * **Owner-overridden** — explicitly accepted by the owner; report only when useful for context.
 
@@ -137,11 +156,11 @@ For each finding report:
 ```markdown
 ### <Blocking | Advisory | Owner-overridden> — <short title>
 
-**Issue:** <what the aggregate implementation did>
+**Issue:** <what the implementation or proposed obligation does/requires>
 
-**Evidence:** <diff/source evidence>
+**Evidence:** <diff/source/obligation evidence>
 
-**Architecture:** <affected entity, ADR, document, or invariant>
+**Architecture:** <affected entity, ADR, document, contract, or invariant>
 
 **Why it matters:** <specific architectural consequence>
 
@@ -153,6 +172,8 @@ For each finding report:
 For `Architecture decision required: No`, identify the governing authority when known.
 
 For `Architecture decision required: Yes`, identify the specific unresolved architectural question.
+
+If reviewing a proposed remediation obligation, identify the exact blocked obligation when applicable.
 
 If no findings exist:
 
@@ -169,6 +190,7 @@ Keep the report concise and evidence-based.
 * run tests, Ruff, Mypy, coverage, duplication scans, or `$wiki-lint`;
 * update repository graphs;
 * perform the Standards or Spec review axes;
+* invent or modify Root Blocker acceptance obligations;
 * modify source code;
 * create or edit ADRs or non-ADR documents;
 * mutate the Living Entity Wiki;

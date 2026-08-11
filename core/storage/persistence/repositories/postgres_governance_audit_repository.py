@@ -188,6 +188,143 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             review_task_id=review_task_id,
         )
 
+    async def resolve_governance_review_task(
+        self,
+        *,
+        decision: GovernanceReviewDecisionRecord,
+        acceptance: GovernanceResidualRiskAcceptanceRecord | None,
+        expected_task_updated_at: datetime,
+        resolution_fingerprint: str,
+    ) -> tuple[
+        GovernanceReviewDecisionRecord,
+        GovernanceResidualRiskAcceptanceRecord | None,
+    ]:
+        """Atomically append one review decision and update its task state."""
+        try:
+            if self._session.in_transaction():
+                await self._session.rollback()
+            async with self._session.begin():
+                task_result = await self._session.execute(
+                    select(GovernanceReviewTaskModel)
+                    .where(
+                        GovernanceReviewTaskModel.review_task_id
+                        == decision.review_task_id
+                    )
+                    .with_for_update()
+                )
+                task = task_result.scalar_one_or_none()
+                if task is None:
+                    raise ValueError("governance review task was not found.")
+
+                existing_result = await self._session.execute(
+                    select(GovernanceReviewDecisionModel).where(
+                        GovernanceReviewDecisionModel.review_task_id
+                        == decision.review_task_id,
+                        GovernanceReviewDecisionModel.resolution_fingerprint
+                        == resolution_fingerprint,
+                    )
+                )
+                existing = existing_result.scalar_one_or_none()
+                if existing is not None:
+                    persisted_acceptance = await self._acceptance_for_decision(existing)
+                    return (
+                        AutomatedDecisionAuditPersistenceSerializer.review_decision_from_model(
+                            existing
+                        ),
+                        persisted_acceptance,
+                    )
+
+                if task.updated_at != expected_task_updated_at:
+                    raise ValueError(
+                        "governance review task changed before this resolution could "
+                        "be applied."
+                    )
+
+                if acceptance is not None:
+                    acceptance_result = await self._session.execute(
+                        _insert_residual_risk_acceptance(acceptance)
+                    )
+                    _records_persisted(acceptance_result)
+
+                decision_result = await self._session.execute(
+                    _insert_review_decision(
+                        decision,
+                        resolution_fingerprint=resolution_fingerprint,
+                    )
+                )
+                _records_persisted(decision_result)
+                status_result = await self._session.execute(
+                    update(GovernanceReviewTaskModel)
+                    .where(
+                        GovernanceReviewTaskModel.review_task_id
+                        == decision.review_task_id
+                    )
+                    .values(
+                        status=decision.resulting_task_status.value,
+                        updated_at=decision.decided_at,
+                    )
+                )
+                _records_persisted(status_result)
+        except (SQLAlchemyError, ValueError):
+            await self._session.rollback()
+            logger.exception(
+                "Atomic governance review resolution failed.",
+                extra={"review_task_id": decision.review_task_id},
+            )
+            raise
+        return decision, acceptance
+
+    async def get_governance_review_resolution(
+        self,
+        *,
+        review_task_id: str,
+        resolution_fingerprint: str,
+    ) -> (
+        tuple[
+            GovernanceReviewDecisionRecord,
+            GovernanceResidualRiskAcceptanceRecord | None,
+        ]
+        | None
+    ):
+        result = await self._session.execute(
+            select(GovernanceReviewDecisionModel).where(
+                GovernanceReviewDecisionModel.review_task_id == review_task_id,
+                GovernanceReviewDecisionModel.resolution_fingerprint
+                == resolution_fingerprint,
+            )
+        )
+        decision = result.scalar_one_or_none()
+        if decision is None:
+            return None
+        return (
+            AutomatedDecisionAuditPersistenceSerializer.review_decision_from_model(
+                decision
+            ),
+            await self._acceptance_for_decision(decision),
+        )
+
+    async def _acceptance_for_decision(
+        self,
+        decision: GovernanceReviewDecisionModel,
+    ) -> GovernanceResidualRiskAcceptanceRecord | None:
+        if decision.residual_risk_acceptance_id is None:
+            return None
+        result = await self._session.execute(
+            select(GovernanceResidualRiskAcceptanceModel).where(
+                GovernanceResidualRiskAcceptanceModel.acceptance_id
+                == decision.residual_risk_acceptance_id
+            )
+        )
+        acceptance = result.scalar_one_or_none()
+        if acceptance is None:
+            raise ValueError(
+                "resolved review decision has no residual-risk acceptance."
+            )
+        serializer = AutomatedDecisionAuditPersistenceSerializer
+        return serializer.residual_risk_acceptance_from_model(
+            acceptance,
+        )
+
     async def persist_governance_review_decision(
         self,
         decision: GovernanceReviewDecisionRecord,
@@ -438,9 +575,18 @@ def _upsert_review_task_statement(task: GovernanceReviewTaskRecord):
     )
 
 
-def _insert_review_decision(decision: GovernanceReviewDecisionRecord):
+def _insert_review_decision(
+    decision: GovernanceReviewDecisionRecord,
+    *,
+    resolution_fingerprint: str | None = None,
+):
+    serializer = AutomatedDecisionAuditPersistenceSerializer
+    values = serializer.review_decision_values(decision)
+    values["resolution_fingerprint"] = (
+        resolution_fingerprint or decision.review_decision_id
+    )
     return insert(GovernanceReviewDecisionModel).values(
-        **AutomatedDecisionAuditPersistenceSerializer.review_decision_values(decision),
+        **values,
     )
 
 

@@ -51,6 +51,31 @@ class AutomatedDecisionAuditRepository(Protocol):
         updated_at: datetime,
     ) -> AutomatedDecisionAuditPersistenceResult: ...
 
+    async def resolve_governance_review_task(
+        self,
+        *,
+        decision: GovernanceReviewDecisionRecord,
+        acceptance: GovernanceResidualRiskAcceptanceRecord | None,
+        expected_task_updated_at: datetime,
+        resolution_fingerprint: str,
+    ) -> tuple[
+        GovernanceReviewDecisionRecord,
+        GovernanceResidualRiskAcceptanceRecord | None,
+    ]: ...
+
+    async def get_governance_review_resolution(
+        self,
+        *,
+        review_task_id: str,
+        resolution_fingerprint: str,
+    ) -> (
+        tuple[
+            GovernanceReviewDecisionRecord,
+            GovernanceResidualRiskAcceptanceRecord | None,
+        ]
+        | None
+    ): ...
+
     async def persist_governance_review_decision(
         self,
         decision: GovernanceReviewDecisionRecord,

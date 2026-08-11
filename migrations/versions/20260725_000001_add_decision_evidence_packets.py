@@ -624,6 +624,7 @@ def upgrade() -> None:
         "governance_review_decisions",
         sa.Column("review_decision_id", sa.String(), nullable=False),
         sa.Column("review_task_id", sa.String(), nullable=False),
+        sa.Column("resolution_fingerprint", sa.String(length=64), nullable=False),
         sa.Column("automated_governance_audit_record_id", sa.String(), nullable=False),
         sa.Column("subject_type", sa.String(), nullable=False),
         sa.Column("subject_id", sa.String(), nullable=False),
@@ -688,6 +689,11 @@ def upgrade() -> None:
             ["governance_review_tasks.review_task_id"],
         ),
         sa.PrimaryKeyConstraint("review_decision_id"),
+        sa.UniqueConstraint(
+            "review_task_id",
+            "resolution_fingerprint",
+            name="uq_governance_review_decisions_task_resolution_fingerprint",
+        ),
     )
     op.create_index(
         "ix_governance_review_decisions_review_task_id",

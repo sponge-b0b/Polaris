@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+from hashlib import sha256
 
 from core.runtime.governance import GovernanceEvaluationResult, GovernanceResult
 from core.runtime.policies import PolicyEvaluationResult, PolicyResult
@@ -549,6 +551,21 @@ class AutomatedDecisionAuditService:
                 review_task_id=request.review_task_id,
             )
             raise error
+        resolution_fingerprint = _resolution_fingerprint(request)
+        existing_resolution = await self._repository.get_governance_review_resolution(
+            review_task_id=task.review_task_id,
+            resolution_fingerprint=resolution_fingerprint,
+        )
+        if existing_resolution is not None:
+            decision, acceptance = existing_resolution
+            return GovernanceReviewResolution(
+                review_task_id=task.review_task_id,
+                approval_state=_approval_state_for_task_status(
+                    decision.resulting_task_status
+                ),
+                decision_record=decision,
+                residual_risk_acceptance=acceptance,
+            )
         try:
             _validate_review_matches_task(task=task, request=request)
         except ValueError as error:
@@ -593,26 +610,6 @@ class AutomatedDecisionAuditService:
                 task=task,
                 request=request,
             )
-            acceptance_result = await self._repository.persist_residual_risk_acceptance(
-                acceptance,
-            )
-            if not acceptance_result.success:
-                persistence_error = ValueError(
-                    "residual-risk acceptance could not be persisted.",
-                )
-                await self._approval_observability.review_failure(
-                    operation="resolve_governance_review_task",
-                    reason="residual_risk_acceptance_persistence_failed",
-                    error=persistence_error,
-                    trace_context=request.trace_context,
-                    task=task,
-                    metadata={
-                        "review_outcome": request.outcome.value,
-                        "repository_errors": tuple(acceptance_result.errors),
-                    },
-                )
-                raise persistence_error
-
         decision = _review_decision_record_from_request(
             task=task,
             request=request,
@@ -622,9 +619,14 @@ class AutomatedDecisionAuditService:
         )
         status = _resulting_task_status_for_outcome(request.outcome)
         try:
-            await self._persist_review_decision_and_status(
+            (
+                decision,
+                acceptance,
+            ) = await self._repository.resolve_governance_review_task(
                 decision=decision,
-                status=status,
+                acceptance=acceptance,
+                expected_task_updated_at=task.updated_at,
+                resolution_fingerprint=resolution_fingerprint,
             )
         except ValueError as error:
             await self._approval_observability.review_failure(
@@ -804,25 +806,6 @@ class AutomatedDecisionAuditService:
             raise ValueError("governance review task was not found.")
         return _approval_state_for_task_status(task.status)
 
-    async def _persist_review_decision_and_status(
-        self,
-        *,
-        decision: GovernanceReviewDecisionRecord,
-        status: GovernanceReviewTaskStatus,
-    ) -> None:
-        decision_result = await self._repository.persist_governance_review_decision(
-            decision,
-        )
-        if not decision_result.success:
-            raise ValueError("governance review decision could not be persisted.")
-        status_result = await self._repository.update_governance_review_task_status(
-            review_task_id=decision.review_task_id,
-            status=status,
-            updated_at=decision.decided_at,
-        )
-        if not status_result.success:
-            raise ValueError("governance review task status could not be updated.")
-
 
 def requires_governed_output_release_review(
     authority: RiskAuthorityContract,
@@ -836,6 +819,45 @@ def requires_governed_output_release_review(
             or authority.governance_impact
         )
     )
+
+
+def _resolution_fingerprint(request: GovernanceReviewResolutionRequest) -> str:
+    """Derive a stable retry key from the reviewer action, excluding clock values."""
+    acceptance = request.residual_risk_acceptance
+    payload = {
+        "review_task_id": request.review_task_id,
+        "outcome": request.outcome.value,
+        "reviewer_id": request.reviewer.reviewer_id,
+        "reviewer_actor_type": request.reviewer.actor_type.value,
+        "rationale": request.rationale,
+        "reviewed_evidence": {
+            "packet_id": request.reviewed_evidence.packet_id,
+            "packet_version": request.reviewed_evidence.packet_version,
+        },
+        "review_scope": request.review_scope,
+        "requested_remediation": request.requested_remediation,
+        "residual_risk_remaining": request.residual_risk_remaining,
+        "residual_risk_acceptance": (
+            {
+                "reviewer_id": acceptance.reviewer.reviewer_id,
+                "reviewer_actor_type": acceptance.reviewer.actor_type.value,
+                "rationale": acceptance.rationale,
+                "residual_risk_scope": acceptance.residual_risk_scope,
+                "accepted_at": (
+                    acceptance.accepted_at.isoformat()
+                    if acceptance.accepted_at is not None
+                    else None
+                ),
+                "metadata": acceptance.metadata or {},
+            }
+            if acceptance is not None
+            else None
+        ),
+        "metadata": request.metadata or {},
+    }
+    return sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _filter_value(value: StrEnum | str | None) -> str | None:

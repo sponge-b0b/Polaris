@@ -272,6 +272,11 @@ class GovernanceReviewDecisionModel(Base):
             "jsonb_typeof(metadata) = 'object'",
             name="ck_governance_review_decisions_metadata_object",
         ),
+        UniqueConstraint(
+            "review_task_id",
+            "resolution_fingerprint",
+            name="uq_governance_review_decisions_task_resolution_fingerprint",
+        ),
     )
 
     review_decision_id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -281,6 +286,7 @@ class GovernanceReviewDecisionModel(Base):
         nullable=False,
         index=True,
     )
+    resolution_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     automated_governance_audit_record_id: Mapped[str] = mapped_column(
         String,
         ForeignKey("automated_governance_audit_records.audit_record_id"),

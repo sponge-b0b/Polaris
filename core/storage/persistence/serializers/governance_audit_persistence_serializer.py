@@ -96,6 +96,7 @@ class AutomatedDecisionAuditPersistenceSerializer:
         return {
             "review_decision_id": decision.review_decision_id,
             "review_task_id": decision.review_task_id,
+            "resolution_fingerprint": decision.review_decision_id,
             "automated_governance_audit_record_id": (
                 decision.automated_governance_audit_record_id
             ),

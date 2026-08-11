@@ -1132,6 +1132,29 @@ async def test_application_query_filters_review_decisions_by_actor_and_version()
 
 
 @pytest.mark.asyncio
+async def test_review_resolution_retry_reuses_the_immutable_decision() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    await _create_vigilant_review_task(service)
+    task = repository.review_tasks[0]
+    request = GovernanceReviewResolutionRequest(
+        review_task_id=task.review_task_id,
+        outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        reviewer=_reviewer(),
+        rationale="The scoped evidence supports approval.",
+        reviewed_evidence=task.evidence,
+        review_scope=task.review_scope,
+    )
+
+    first = await service.resolve_governance_review_task(request)
+    second = await service.resolve_governance_review_task(request)
+
+    assert second.decision_record == first.decision_record
+    assert len(repository.review_decisions) == 1
+    assert repository.review_tasks[0].status is GovernanceReviewTaskStatus.APPROVED
+
+
+@pytest.mark.asyncio
 async def test_application_query_filters_residual_risk_acceptance_state() -> None:
     repository = FakeAutomatedDecisionAuditRepository()
     service = AutomatedDecisionAuditService(repository)
@@ -1675,6 +1698,13 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
         self.residual_risk_acceptances: list[
             GovernanceResidualRiskAcceptanceRecord
         ] = []
+        self._resolution_records: dict[
+            tuple[str, str],
+            tuple[
+                GovernanceReviewDecisionRecord,
+                GovernanceResidualRiskAcceptanceRecord | None,
+            ],
+        ] = {}
         self.generated_report_projection: dict[str, str] | None = None
 
     async def persist_policy_audit_record(
@@ -1767,6 +1797,57 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
             "review_task_not_found",
             audit_record_id=review_task_id,
         )
+
+    async def resolve_governance_review_task(
+        self,
+        *,
+        decision: GovernanceReviewDecisionRecord,
+        acceptance: GovernanceResidualRiskAcceptanceRecord | None,
+        expected_task_updated_at: datetime,
+        resolution_fingerprint: str,
+    ) -> tuple[
+        GovernanceReviewDecisionRecord,
+        GovernanceResidualRiskAcceptanceRecord | None,
+    ]:
+        task = await self.get_governance_review_task(decision.review_task_id)
+        if task is None:
+            raise ValueError("governance review task was not found.")
+        existing = self._resolution_records.get(
+            (decision.review_task_id, resolution_fingerprint)
+        )
+        if existing is not None:
+            return existing
+        if task.updated_at != expected_task_updated_at:
+            raise ValueError("governance review task changed before resolution.")
+        if acceptance is not None:
+            self.residual_risk_acceptances.append(acceptance)
+        self.review_decisions.append(decision)
+        status_result = await self.update_governance_review_task_status(
+            review_task_id=decision.review_task_id,
+            status=decision.resulting_task_status,
+            updated_at=decision.decided_at,
+        )
+        if not status_result.success:
+            raise ValueError("governance review task status could not be updated.")
+        result = (decision, acceptance)
+        self._resolution_records[(decision.review_task_id, resolution_fingerprint)] = (
+            result
+        )
+        return result
+
+    async def get_governance_review_resolution(
+        self,
+        *,
+        review_task_id: str,
+        resolution_fingerprint: str,
+    ) -> (
+        tuple[
+            GovernanceReviewDecisionRecord,
+            GovernanceResidualRiskAcceptanceRecord | None,
+        ]
+        | None
+    ):
+        return self._resolution_records.get((review_task_id, resolution_fingerprint))
 
     async def persist_governance_review_decision(
         self,

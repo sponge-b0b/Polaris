@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from dataclasses import replace
@@ -9,6 +10,7 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from sqlalchemy import Table, delete
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.database.models.governance_audit import (
@@ -264,6 +266,137 @@ async def test_postgres_review_tasks_with_distinct_sinks_do_not_collide(
         await _delete_test_records(postgres_session_factory)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed_write_index", [3, 4, 5])
+async def test_atomic_resolution_rolls_back_each_write_stage(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+    failed_write_index: int,
+) -> None:
+    governance_record = _governance_record(
+        AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+    )
+    review_task = _review_task_record(governance_record)
+    acceptance = _residual_risk_acceptance_record(review_task)
+    decision = _review_decision_record(
+        review_task,
+        residual_risk_acceptance_id=acceptance.acceptance_id,
+    )
+
+    await _delete_test_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            await repository.persist_governance_audit_record(governance_record)
+            await repository.persist_governance_review_task(review_task)
+            execute = session.execute
+            execute_count = 0
+
+            async def fail_at_selected_write(*args: object, **kwargs: object) -> object:
+                nonlocal execute_count
+                execute_count += 1
+                if execute_count == failed_write_index:
+                    raise SQLAlchemyError("injected resolution write failure")
+                return await execute(*args, **kwargs)
+
+            monkeypatch.setattr(session, "execute", fail_at_selected_write)
+            with pytest.raises(
+                SQLAlchemyError, match="injected resolution write failure"
+            ):
+                await repository.resolve_governance_review_task(
+                    decision=decision,
+                    acceptance=acceptance,
+                    expected_task_updated_at=review_task.updated_at,
+                    resolution_fingerprint=f"failure-{failed_write_index}",
+                )
+
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            persisted_task = await repository.get_governance_review_task(
+                review_task.review_task_id
+            )
+            decisions = await repository.list_governance_review_decisions(
+                review_task_id=review_task.review_task_id,
+            )
+            acceptances = await repository.list_residual_risk_acceptances(
+                review_task_id=review_task.review_task_id,
+            )
+
+        assert persisted_task is not None
+        assert persisted_task.status is GovernanceReviewTaskStatus.PENDING
+        assert decisions == ()
+        assert acceptances == ()
+    finally:
+        await _delete_test_records(postgres_session_factory)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_review_resolutions_fail_closed_for_stale_task_state(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    governance_record = _governance_record(
+        AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+    )
+    review_task = _review_task_record(governance_record)
+
+    async def resolve_once(
+        review_decision_id: str,
+    ) -> GovernanceReviewDecisionRecord | BaseException:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            observed_task = await repository.get_governance_review_task(
+                review_task.review_task_id
+            )
+            assert observed_task is not None
+            decision = replace(
+                _review_decision_record(
+                    observed_task,
+                    residual_risk_acceptance_id=None,
+                ),
+                review_decision_id=review_decision_id,
+            )
+            try:
+                persisted_decision, _ = await repository.resolve_governance_review_task(
+                    decision=decision,
+                    acceptance=None,
+                    expected_task_updated_at=observed_task.updated_at,
+                    resolution_fingerprint=review_decision_id,
+                )
+            except ValueError as error:
+                return error
+            return persisted_decision
+
+    await _delete_test_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            await repository.persist_governance_audit_record(governance_record)
+            await repository.persist_governance_review_task(review_task)
+
+        first, second = await asyncio.gather(
+            resolve_once("ticket-129-concurrent-decision-a"),
+            resolve_once("ticket-129-concurrent-decision-b"),
+        )
+
+        assert (
+            sum(
+                isinstance(result, GovernanceReviewDecisionRecord)
+                for result in (first, second)
+            )
+            == 1
+        )
+        assert sum(isinstance(result, ValueError) for result in (first, second)) == 1
+        async with postgres_session_factory() as session:
+            repository = PostgresAutomatedDecisionAuditRepository(session)
+            decisions = await repository.list_governance_review_decisions(
+                review_task_id=review_task.review_task_id,
+            )
+
+        assert len(decisions) == 1
+    finally:
+        await _delete_test_records(postgres_session_factory)
+
+
 async def _delete_test_records(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -368,7 +501,7 @@ def _review_task_record(
 def _review_decision_record(
     review_task: GovernanceReviewTaskRecord,
     *,
-    residual_risk_acceptance_id: str,
+    residual_risk_acceptance_id: str | None,
 ) -> GovernanceReviewDecisionRecord:
     return GovernanceReviewDecisionRecord(
         review_decision_id="ticket-129-review-decision",
@@ -384,7 +517,7 @@ def _review_decision_record(
         review_scope=review_task.review_scope,
         evidence=review_task.evidence,
         decided_at=datetime(2026, 8, 2, 13, 0, tzinfo=UTC),
-        residual_risk_acceptance_required=True,
+        residual_risk_acceptance_required=residual_risk_acceptance_id is not None,
         residual_risk_acceptance_id=residual_risk_acceptance_id,
     )
 

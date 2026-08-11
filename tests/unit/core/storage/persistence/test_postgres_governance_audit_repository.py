@@ -309,6 +309,79 @@ async def test_update_review_task_status_updates_visible_state() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resolve_review_task_writes_decision_and_status_in_one_transaction() -> (
+    None
+):
+    task = _review_task_record()
+    decision = _review_decision_record()
+    task_model = GovernanceReviewTaskModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_task_values(task)
+    )
+    session = FakeAsyncSession(
+        results=[
+            FakeExecuteResult([task_model]),
+            FakeExecuteResult([]),
+            FakeExecuteResult([]),
+            FakeExecuteResult([]),
+        ]
+    )
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    (
+        persisted_decision,
+        persisted_acceptance,
+    ) = await repository.resolve_governance_review_task(
+        decision=decision,
+        acceptance=None,
+        expected_task_updated_at=task.updated_at,
+        resolution_fingerprint="a" * 64,
+    )
+
+    assert persisted_decision == decision
+    assert persisted_acceptance is None
+    assert session.transaction_committed is True
+    compiled = [
+        str(statement.compile(dialect=postgresql.dialect()))
+        for statement in session.executed
+    ]
+    assert "FOR UPDATE" in compiled[0]
+    assert "INSERT INTO governance_review_decisions" in compiled[2]
+    assert "UPDATE governance_review_tasks" in compiled[3]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed_write_index", [2, 3, 4])
+async def test_resolve_review_task_rolls_back_each_write_failure(
+    failed_write_index: int,
+) -> None:
+    task = _review_task_record()
+    decision = _review_decision_record()
+    task_model = GovernanceReviewTaskModel(
+        **AutomatedDecisionAuditPersistenceSerializer.review_task_values(task)
+    )
+    results = [
+        FakeExecuteResult([task_model]),
+        FakeExecuteResult([]),
+        FakeExecuteResult([]),
+        FakeExecuteResult([]),
+        FakeExecuteResult([]),
+    ]
+    results[failed_write_index] = FakeExecuteResult([], rowcount=0)
+    session = FakeAsyncSession(results=results)
+    repository = PostgresAutomatedDecisionAuditRepository(cast(AsyncSession, session))
+
+    with pytest.raises(ValueError, match="did not persist"):
+        await repository.resolve_governance_review_task(
+            decision=decision,
+            acceptance=_residual_risk_acceptance_record(),
+            expected_task_updated_at=task.updated_at,
+            resolution_fingerprint="b" * 64,
+        )
+
+    assert session.rolled_back is True
+
+
+@pytest.mark.asyncio
 async def test_list_review_decisions_filters_by_scoped_evidence() -> None:
     decision = _review_decision_record(
         outcome=GovernanceReviewDecisionOutcome.CONTESTED,
@@ -387,21 +460,51 @@ async def test_list_residual_risk_acceptances_filters_by_scoped_evidence() -> No
 
 
 class FakeAsyncSession:
-    def __init__(self, result: Any | None = None) -> None:
+    def __init__(
+        self,
+        result: Any | None = None,
+        results: list[Any] | None = None,
+    ) -> None:
         self.result = result or FakeExecuteResult([])
+        self._results = iter(results or ())
         self.executed: list[Any] = []
         self.committed = False
         self.rolled_back = False
+        self.transaction_committed = False
 
     async def execute(self, statement: Any) -> Any:
         self.executed.append(statement)
-        return self.result
+        return next(self._results, self.result)
+
+    def begin(self) -> FakeTransaction:
+        return FakeTransaction(self)
+
+    def in_transaction(self) -> bool:
+        return False
 
     async def commit(self) -> None:
         self.committed = True
 
     async def rollback(self) -> None:
         self.rolled_back = True
+
+
+class FakeTransaction:
+    def __init__(self, session: FakeAsyncSession) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> FakeTransaction:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: object,
+        exc: object,
+        traceback: object,
+    ) -> bool:
+        if exc_type is None:
+            self._session.transaction_committed = True
+        return False
 
 
 class FakeExecuteResult:

@@ -12,6 +12,8 @@ class BaselineRuntimeEvidenceNotFoundError(LookupError):
 class BaselineRuntimeEvidenceRepository(Protocol):
     async def get(self, evidence_id: str) -> BaselineRuntimeEvidence | None: ...
 
+    async def persist(self, evidence: BaselineRuntimeEvidence) -> None: ...
+
 
 class BaselineRuntimeEvidencePersistenceService:
     """Reconstructs the sole accepted Baseline execution-evidence variant."""
@@ -26,3 +28,8 @@ class BaselineRuntimeEvidencePersistenceService:
                 f"Baseline runtime evidence was not found: {evidence_id}"
             )
         return evidence
+
+    async def persist(self, evidence: BaselineRuntimeEvidence) -> None:
+        """Persist canonical orchestration-produced Baseline provenance."""
+
+        await self._repository.persist(evidence)

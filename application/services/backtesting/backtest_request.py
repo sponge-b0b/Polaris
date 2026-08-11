@@ -7,8 +7,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from domain.governed_execution_evidence import GovernedExecutionEvidence
-
 OutputFormat = Literal["console", "json", "markdown"]
 BacktestExpectationType = Literal[
     "equals",
@@ -247,7 +245,6 @@ class BacktestRunRequest:
     persist_results: bool = True
     checkpoint_workflow_runs: bool = True
     output_format: OutputFormat = "console"
-    governed_execution_evidence: GovernedExecutionEvidence | None = None
 
     def validate(
         self,

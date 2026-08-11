@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
 from core.workflow.execution.workflow_facade import WorkflowFacade
-from domain.governed_execution_evidence import GovernedExecutionEvidence
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
     WorkflowRenderEnvelope,
@@ -20,7 +18,6 @@ from interfaces.cli.rendering.workflow_rendering import (
 from interfaces.cli.services.workflow_control_input_service import (
     AsyncLineReader,
     WorkflowControlNotificationHandler,
-    WorkflowInteractiveControlRequest,
     WorkflowInteractiveControlSession,
 )
 from interfaces.cli.services.workflow_progress_service import (
@@ -37,12 +34,10 @@ class WorkflowRunCommandRequest:
 
     workflow_name: str
     mode: str = "live"
-    execution_id: str | None = None
     metadata: Mapping[str, Any] = field(
         default_factory=dict,
     )
     workflow_inputs: Mapping[str, Any] | None = None
-    governed_execution_evidence: GovernedExecutionEvidence | None = None
     plugin_dirs: tuple[Path, ...] = ()
     error_summary: Mapping[str, Any] = field(
         default_factory=dict,
@@ -95,25 +90,22 @@ class WorkflowCommandService:
         self,
         request: WorkflowRunCommandRequest,
     ) -> WorkflowRenderEnvelope:
-        resolved_request = self._with_execution_id(
-            request,
-        )
         try:
             result = await self._run_workflow_result(
-                resolved_request,
+                request,
             )
             return workflow_result_to_render_envelope(
                 result,
-                workflow_name=resolved_request.workflow_name,
-                execution_id=resolved_request.execution_id,
+                workflow_name=request.workflow_name,
+                execution_id=None,
             )
         except Exception as exc:
             return workflow_exception_to_render_envelope(
                 exc,
-                workflow_name=resolved_request.workflow_name,
-                execution_id=resolved_request.execution_id,
+                workflow_name=request.workflow_name,
+                execution_id=None,
                 summary=self._error_summary(
-                    resolved_request,
+                    request,
                 ),
             )
 
@@ -191,17 +183,9 @@ class WorkflowCommandService:
 
             control_session: WorkflowInteractiveControlSession | None = None
             if request.interactive_control:
-                if request.execution_id is None:
-                    raise WorkflowCommandServiceError(
-                        "interactive control requires an execution id"
-                    )
-                control_session = WorkflowInteractiveControlSession(
-                    facade=runtime.facade,
-                    request=WorkflowInteractiveControlRequest(
-                        execution_id=request.execution_id,
-                    ),
-                    input_reader=request.interactive_input,
-                    notification_handler=request.control_handler,
+                raise WorkflowCommandServiceError(
+                    "interactive control is unavailable without a "
+                    "platform-issued correlation"
                 )
 
             workflow_task = asyncio.create_task(
@@ -209,13 +193,11 @@ class WorkflowCommandService:
                     runtime=runtime,
                     governed_execution_service=governed_execution_service,
                     workflow_name=request.workflow_name,
-                    execution_id=request.execution_id,
                     mode=request.mode,
                     workflow_inputs=request.workflow_inputs,
                     metadata=dict(
                         request.metadata,
                     ),
-                    governed_execution_evidence=request.governed_execution_evidence,
                 )
             )
             if control_session is not None:
@@ -236,39 +218,24 @@ class WorkflowCommandService:
         runtime: WorkflowBootstrapResult,
         governed_execution_service: GovernedWorkflowExecutionService | None,
         workflow_name: str,
-        execution_id: str | None,
         mode: str,
         workflow_inputs: Mapping[str, Any] | None,
         metadata: dict[str, Any],
-        governed_execution_evidence: GovernedExecutionEvidence | None,
     ) -> Any:
         if governed_execution_service is not None:
             return await governed_execution_service.run_workflow(
                 workflow_name=workflow_name,
-                execution_id=execution_id,
+                execution_id=None,
                 mode=mode,
                 workflow_inputs=workflow_inputs,
                 metadata=metadata,
-                governed_execution_evidence=governed_execution_evidence,
             )
         return await runtime.facade.run_workflow(
             workflow_name=workflow_name,
-            execution_id=execution_id,
+            execution_id=None,
             mode=mode,
             workflow_inputs=workflow_inputs,
             metadata=metadata,
-        )
-
-    def _with_execution_id(
-        self,
-        request: WorkflowRunCommandRequest,
-    ) -> WorkflowRunCommandRequest:
-        if request.execution_id is not None:
-            return request
-
-        return replace(
-            request,
-            execution_id=uuid4().hex,
         )
 
     def _error_summary(

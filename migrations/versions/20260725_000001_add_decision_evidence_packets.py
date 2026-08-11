@@ -1086,9 +1086,33 @@ def upgrade() -> None:
         ["workflow_name"],
         unique=False,
     )
+    op.create_table(
+        "governed_execution_evidence_selections",
+        sa.Column("execution_id", sa.String(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_version", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column("evidence_id", sa.String(), nullable=False),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant')",
+            name="ck_governed_execution_evidence_selection_risk_tier",
+        ),
+        sa.PrimaryKeyConstraint("execution_id", "workflow_name", "workflow_version"),
+    )
+    op.create_index(
+        "idx_governed_execution_evidence_selection_evidence",
+        "governed_execution_evidence_selections",
+        ["evidence_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
+    op.drop_index(
+        "idx_governed_execution_evidence_selection_evidence",
+        table_name="governed_execution_evidence_selections",
+    )
+    op.drop_table("governed_execution_evidence_selections")
     op.drop_index(
         "idx_baseline_runtime_evidence_workflow",
         table_name="baseline_runtime_evidence",

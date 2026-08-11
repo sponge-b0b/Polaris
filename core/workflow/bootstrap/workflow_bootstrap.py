@@ -40,6 +40,7 @@ from core.workflow.governance_audit import WorkflowAutomatedDecisionAuditService
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
 )
+from domain.authority import RiskAuthorityContract
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,7 @@ class WorkflowBootstrap:
             workflow_definitions=None,
             workflow_tags=None,
             workflow_metadata=None,
+            workflow_authority_contracts=None,
             overwrite=False,
         )
 
@@ -138,12 +140,14 @@ class WorkflowBootstrap:
         workflow_definitions: list[WorkflowGraphDefinition] | None = None,
         workflow_tags: dict[str, tuple[str, ...]] | None = None,
         workflow_metadata: dict[str, dict[str, Any]] | None = None,
+        workflow_authority_contracts: dict[str, RiskAuthorityContract] | None = None,
         overwrite: bool = False,
     ) -> WorkflowBootstrapResult:
         result = self._build_runtime(
             workflow_definitions=workflow_definitions,
             workflow_tags=workflow_tags,
             workflow_metadata=workflow_metadata,
+            workflow_authority_contracts=workflow_authority_contracts,
             overwrite=overwrite,
         )
 
@@ -157,12 +161,14 @@ class WorkflowBootstrap:
         workflow_definitions: list[WorkflowGraphDefinition] | None = None,
         workflow_tags: dict[str, tuple[str, ...]] | None = None,
         workflow_metadata: dict[str, dict[str, Any]] | None = None,
+        workflow_authority_contracts: dict[str, RiskAuthorityContract] | None = None,
         overwrite: bool = False,
     ) -> WorkflowBootstrapResult:
         result = self._build_runtime(
             workflow_definitions=None,
             workflow_tags=workflow_tags,
             workflow_metadata=workflow_metadata,
+            workflow_authority_contracts=workflow_authority_contracts,
             overwrite=overwrite,
         )
 
@@ -173,6 +179,9 @@ class WorkflowBootstrap:
                 workflow_definition=workflow_definition,
                 tags=(workflow_tags or {}).get(workflow_name, ()),
                 metadata=(workflow_metadata or {}).get(workflow_name, {}),
+                risk_authority_contract=(workflow_authority_contracts or {}).get(
+                    workflow_name
+                ),
                 overwrite=overwrite,
             )
 
@@ -186,6 +195,7 @@ class WorkflowBootstrap:
         workflow_definitions: list[WorkflowGraphDefinition] | None,
         workflow_tags: dict[str, tuple[str, ...]] | None,
         workflow_metadata: dict[str, dict[str, Any]] | None,
+        workflow_authority_contracts: dict[str, RiskAuthorityContract] | None,
         overwrite: bool,
     ) -> WorkflowBootstrapResult:
         components = WorkflowRuntimeAssembler().assemble_bootstrap(
@@ -200,6 +210,9 @@ class WorkflowBootstrap:
                 workflow_definition=workflow_definition,
                 tags=(workflow_tags or {}).get(workflow_name, ()),
                 metadata=(workflow_metadata or {}).get(workflow_name, {}),
+                risk_authority_contract=(workflow_authority_contracts or {}).get(
+                    workflow_name
+                ),
                 overwrite=overwrite,
             )
 
@@ -292,6 +305,7 @@ def build_workflow_runtime(
     di_container: Any | None = None,
     workflow_tags: dict[str, tuple[str, ...]] | None = None,
     workflow_metadata: dict[str, dict[str, Any]] | None = None,
+    workflow_authority_contracts: dict[str, RiskAuthorityContract] | None = None,
     overwrite: bool = False,
 ) -> WorkflowBootstrapResult:
     bootstrap = WorkflowBootstrap(
@@ -319,6 +333,7 @@ def build_workflow_runtime(
         workflow_definitions=workflow_definitions,
         workflow_tags=workflow_tags,
         workflow_metadata=workflow_metadata,
+        workflow_authority_contracts=workflow_authority_contracts,
         overwrite=overwrite,
     )
 
@@ -347,6 +362,7 @@ async def build_workflow_runtime_async(
     di_container: Any | None = None,
     workflow_tags: dict[str, tuple[str, ...]] | None = None,
     workflow_metadata: dict[str, dict[str, Any]] | None = None,
+    workflow_authority_contracts: dict[str, RiskAuthorityContract] | None = None,
     overwrite: bool = False,
 ) -> WorkflowBootstrapResult:
     bootstrap = WorkflowBootstrap(
@@ -374,5 +390,6 @@ async def build_workflow_runtime_async(
         workflow_definitions=workflow_definitions,
         workflow_tags=workflow_tags,
         workflow_metadata=workflow_metadata,
+        workflow_authority_contracts=workflow_authority_contracts,
         overwrite=overwrite,
     )

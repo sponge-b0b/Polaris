@@ -264,7 +264,6 @@ async def test_governed_execution_requires_canonical_evidence_before_evaluation(
     with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
         await execution_service.run_workflow(
             workflow_name="governance_test_workflow",
-            governed_execution_evidence=None,
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
@@ -291,19 +290,18 @@ async def test_governed_execution_fails_closed_when_packet_is_not_durable() -> N
         workflow_facade=runtime.facade,
         automated_decision_audit_service=AsyncMock(),
         decision_evidence_packet_persistence_service=packet_persistence_service,
+        evidence_lifecycle=AsyncMock(),
+        evidence_resolver=_resolver_raising(
+            DecisionEvidencePacketNotFoundError("missing-packet")
+        ),
     )
 
     with pytest.raises(DecisionEvidencePacketNotFoundError):
         await execution_service.run_workflow(
             workflow_name="governance_test_workflow",
-            governed_execution_evidence=packet,
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
-
-    packet_persistence_service.reconstruct_packet.assert_awaited_once_with(
-        "missing-packet"
-    )
 
 
 @pytest.mark.asyncio
@@ -338,16 +336,16 @@ async def test_governed_execution_reconstructs_baseline_runtime_evidence() -> No
         automated_decision_audit_service=audit_service,
         decision_evidence_packet_persistence_service=AsyncMock(),
         baseline_runtime_evidence_persistence_service=baseline_service,
+        evidence_lifecycle=AsyncMock(),
+        evidence_resolver=_resolver_returning(evidence),
     )
 
     await execution_service.run_workflow(
         workflow_name="governance_test_workflow",
-        governed_execution_evidence=evidence,
         archive_on_completion=False,
         checkpoint_on_completion=False,
     )
 
-    baseline_service.reconstruct.assert_awaited_once_with(evidence.evidence_id)
     audit_context = audit_service.record_governance_evaluation.await_args.kwargs[
         "context"
     ]
@@ -584,13 +582,27 @@ async def _audit_capability(
         workflow_facade=runtime.facade,
         automated_decision_audit_service=service,
         decision_evidence_packet_persistence_service=packet_persistence_service,
+        evidence_lifecycle=AsyncMock(),
+        evidence_resolver=_resolver_returning(verified_packet),
     )
     capability = await execution_service._audit_capability_for_run(
+        workflow_name="governance_test_workflow",
         execution_id="governance-enforcement-test",
-        evidence=packet,
     )
     assert capability is not None
     return capability
+
+
+def _resolver_returning(evidence: object) -> AsyncMock:
+    resolver = AsyncMock()
+    resolver.resolve.return_value = evidence
+    return resolver
+
+
+def _resolver_raising(error: Exception) -> AsyncMock:
+    resolver = AsyncMock()
+    resolver.resolve.side_effect = error
+    return resolver
 
 
 def test_governance_denies_destructive_workflow_unregister() -> None:

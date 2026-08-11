@@ -21,6 +21,11 @@ from application.governance.automated_decision_audit import (
     GovernedOutputReleaseRequest,
     requires_governed_output_release_review,
 )
+from application.governance.governed_execution_evidence_resolver import (
+    CanonicalGovernedExecutionEvidenceLifecycle,
+    GovernedExecutionEvidenceResolutionError,
+    GovernedExecutionEvidenceResolver,
+)
 from application.governance.governed_workflow_execution import (
     GovernedWorkflowExecutionEvidenceRequiredError,
     GovernedWorkflowExecutionService,
@@ -37,6 +42,9 @@ __all__ = [
     "AutomatedDecisionAuditService",
     "GovernedWorkflowExecutionEvidenceRequiredError",
     "GovernedWorkflowExecutionService",
+    "CanonicalGovernedExecutionEvidenceLifecycle",
+    "GovernedExecutionEvidenceResolutionError",
+    "GovernedExecutionEvidenceResolver",
     "GovernedOutputReleaseDecision",
     "GovernedOutputReleaseRequest",
     "GovernanceResidualRiskAcceptanceQuery",

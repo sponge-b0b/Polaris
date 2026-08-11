@@ -14,6 +14,10 @@ from application.governance import (
 from application.governance.baseline_runtime_evidence import (
     BaselineRuntimeEvidencePersistenceService,
 )
+from application.governance.governed_execution_evidence_resolver import (
+    CanonicalGovernedExecutionEvidenceLifecycle,
+    GovernedExecutionEvidenceResolver,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
 from application.persistence.diagnostics import DiagnosticsPersistenceService
@@ -41,6 +45,7 @@ from core.storage.persistence.repositories import (
     PostgresBaselineRuntimeEvidenceRepository,
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
+    PostgresGovernedExecutionEvidenceSelectionRepository,
     PostgresMacroPersistenceRepository,
     PostgresMarketPersistenceRepository,
     PostgresNewsPersistenceRepository,
@@ -200,6 +205,51 @@ class ApplicationPersistenceDIProvider(Provider):
         return BaselineRuntimeEvidencePersistenceService(repository)
 
     @provide
+    def provide_governed_execution_evidence_selection_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresGovernedExecutionEvidenceSelectionRepository:
+        return PostgresGovernedExecutionEvidenceSelectionRepository(session)
+
+    @provide
+    def provide_canonical_governed_execution_evidence_lifecycle(
+        self,
+        workflow_facade: WorkflowFacade,
+        selection_repository: PostgresGovernedExecutionEvidenceSelectionRepository,
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+    ) -> CanonicalGovernedExecutionEvidenceLifecycle:
+        return CanonicalGovernedExecutionEvidenceLifecycle(
+            workflow_registry=workflow_facade.registry,
+            selection_repository=selection_repository,
+            baseline_evidence_service=baseline_runtime_evidence_persistence_service,
+            packet_persistence_service=decision_evidence_packet_persistence_service,
+        )
+
+    @provide
+    def provide_governed_execution_evidence_resolver(
+        self,
+        workflow_facade: WorkflowFacade,
+        selection_repository: PostgresGovernedExecutionEvidenceSelectionRepository,
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+    ) -> GovernedExecutionEvidenceResolver:
+        return GovernedExecutionEvidenceResolver(
+            workflow_registry=workflow_facade.registry,
+            selection_repository=selection_repository,
+            baseline_evidence_service=baseline_runtime_evidence_persistence_service,
+            packet_persistence_service=decision_evidence_packet_persistence_service,
+        )
+
+    @provide
     def provide_decision_evidence_rag_repository(
         self,
         session: AsyncSession,
@@ -314,6 +364,8 @@ class ApplicationPersistenceDIProvider(Provider):
         baseline_runtime_evidence_persistence_service: (
             BaselineRuntimeEvidencePersistenceService
         ),
+        evidence_lifecycle: CanonicalGovernedExecutionEvidenceLifecycle,
+        evidence_resolver: GovernedExecutionEvidenceResolver,
     ) -> GovernedWorkflowExecutionService:
         return GovernedWorkflowExecutionService(
             workflow_facade=workflow_facade,
@@ -324,6 +376,8 @@ class ApplicationPersistenceDIProvider(Provider):
             baseline_runtime_evidence_persistence_service=(
                 baseline_runtime_evidence_persistence_service
             ),
+            evidence_lifecycle=evidence_lifecycle,
+            evidence_resolver=evidence_resolver,
         )
 
     @provide

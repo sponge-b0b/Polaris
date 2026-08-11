@@ -82,6 +82,9 @@ from .postgres_baseline_runtime_evidence_repository import (
 from .postgres_decision_evidence_persistence_repository import (
     PostgresDecisionEvidencePacketRepository,
 )
+from .postgres_governed_execution_evidence_selection_repository import (
+    PostgresGovernedExecutionEvidenceSelectionRepository,
+)
 
 __all__ = [
     "PostgresAiObservabilityExportJobRepository",
@@ -96,6 +99,7 @@ __all__ = [
     "PostgresBaselineRuntimeEvidenceRepository",
     "PostgresCompletedRunRepository",
     "PostgresDecisionEvidencePacketRepository",
+    "PostgresGovernedExecutionEvidenceSelectionRepository",
     "PostgresMacroPersistenceRepository",
     "PostgresMarketPersistenceRepository",
     "PostgresNewsPersistenceRepository",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,6 +9,23 @@ from typing import Any
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
 )
+from domain.authority import RiskAuthorityContract
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowIdentity:
+    """Immutable identity of one registered workflow definition."""
+
+    workflow_name: str
+    definition_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowAuthorityFacts:
+    """Registry-owned authority binding used for governed execution."""
+
+    identity: WorkflowIdentity
+    authority: RiskAuthorityContract
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +45,7 @@ class WorkflowRegistryEntry:
     metadata: dict[str, Any] = field(
         default_factory=dict,
     )
+    authority_facts: WorkflowAuthorityFacts | None = None
 
     def to_dict(
         self,
@@ -59,6 +79,7 @@ class WorkflowRegistry:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
+        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         workflow_definition.validate()
@@ -77,6 +98,19 @@ class WorkflowRegistry:
             description=workflow_definition.workflow_description,
             tags=tuple(tags),
             metadata=deepcopy(metadata or {}),
+            authority_facts=(
+                WorkflowAuthorityFacts(
+                    identity=WorkflowIdentity(
+                        workflow_name=workflow_name,
+                        definition_fingerprint=_definition_fingerprint(
+                            workflow_definition
+                        ),
+                    ),
+                    authority=risk_authority_contract,
+                )
+                if risk_authority_contract is not None
+                else None
+            ),
         )
 
     # ========================================================
@@ -105,6 +139,16 @@ class WorkflowRegistry:
             raise KeyError(f"Workflow not registered: {workflow_name}")
 
         return entry
+
+    def get_authority_facts(self, workflow_name: str) -> WorkflowAuthorityFacts:
+        """Resolve the only authority facts accepted for a governed invocation."""
+
+        facts = self.get_entry(workflow_name).authority_facts
+        if facts is None:
+            raise KeyError(
+                f"Workflow has no registered governed authority facts: {workflow_name}"
+            )
+        return facts
 
     def exists(
         self,
@@ -184,3 +228,12 @@ class WorkflowRegistry:
                 )
             },
         }
+
+
+def _definition_fingerprint(workflow_definition: WorkflowGraphDefinition) -> str:
+    serialized = json.dumps(
+        workflow_definition.to_dict(),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

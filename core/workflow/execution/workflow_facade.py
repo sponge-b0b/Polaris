@@ -62,6 +62,7 @@ from core.workflow.models.destructive_operation_confirmation import (
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.authority import RiskAuthorityContract
 
 
 class _GovernedWorkflowSubject(Mapping[str, Any]):
@@ -314,6 +315,7 @@ class WorkflowFacade:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
+        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         self._require_governance_allowed_sync(
@@ -342,6 +344,7 @@ class WorkflowFacade:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
+            risk_authority_contract=risk_authority_contract,
             overwrite=overwrite,
         )
 
@@ -350,6 +353,7 @@ class WorkflowFacade:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
+        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         await self._require_governance_allowed_async(
@@ -378,6 +382,7 @@ class WorkflowFacade:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
+            risk_authority_contract=risk_authority_contract,
             overwrite=overwrite,
         )
 

@@ -50,6 +50,27 @@ class BaselineRuntimeEvidence:
                 "Baseline runtime evidence provenance digest does not match."
             )
 
+    @classmethod
+    def create(
+        cls,
+        *,
+        evidence_id: str,
+        authority: RiskAuthorityContract,
+        workflow_name: str,
+        workflow_version: str,
+    ) -> BaselineRuntimeEvidence:
+        return cls(
+            evidence_id=evidence_id,
+            authority=authority,
+            workflow_name=workflow_name,
+            workflow_version=workflow_version,
+            provenance_digest=cls.calculate_provenance_digest(
+                authority=authority,
+                workflow_name=workflow_name,
+                workflow_version=workflow_version,
+            ),
+        )
+
     @staticmethod
     def calculate_provenance_digest(
         *,

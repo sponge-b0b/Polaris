@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] canonical governed-execution evidence lifecycle | implemented as active execution invariants
+
+Promoted ADR-0013 through ADR-0016 after registry-bound authority facts, platform-created execution correlation, durable tier-specific selection, and request-scoped re-acquisition were implemented and exercised for Baseline and packet-backed governed execution.
+
 ## [2026-08-11] execution-scoped governed-evidence resolution lifecycle | accepted, implementation pending
 
 Recorded registry-bound workflow authority facts, a platform-created execution correlation, and canonical production followed by request-scoped durable re-acquisition as the remaining governed-evidence lifecycle contract.

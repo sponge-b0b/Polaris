@@ -132,6 +132,50 @@ def test_governance_review_decisions_schema_exposes_approval_state(
     assert "ck_governance_review_decisions_resulting_status" in constraint_names
 
 
+def test_governed_execution_evidence_selection_schema_is_execution_scoped(
+    alembic_runner: MigrationContext,
+    alembic_engine: object,
+) -> None:
+    from sqlalchemy import Engine, inspect
+
+    engine = alembic_engine
+    assert isinstance(engine, Engine)
+    alembic_runner.migrate_up_to("heads")
+
+    inspector = inspect(engine)
+    selection_columns = {
+        column["name"]: column
+        for column in inspector.get_columns("governed_execution_evidence_selections")
+    }
+    assert {
+        "execution_id",
+        "workflow_name",
+        "workflow_version",
+        "risk_tier",
+        "evidence_id",
+    } == set(selection_columns)
+    assert all(column["nullable"] is False for column in selection_columns.values())
+
+    primary_key = inspector.get_pk_constraint("governed_execution_evidence_selections")
+    assert primary_key["constrained_columns"] == [
+        "execution_id",
+        "workflow_name",
+        "workflow_version",
+    ]
+    constraint_names = {
+        constraint["name"]
+        for constraint in inspector.get_check_constraints(
+            "governed_execution_evidence_selections"
+        )
+    }
+    assert "ck_governed_execution_evidence_selection_risk_tier" in constraint_names
+    index_names = {
+        index["name"]
+        for index in inspector.get_indexes("governed_execution_evidence_selections")
+    }
+    assert "idx_governed_execution_evidence_selection_evidence" in index_names
+
+
 def test_strategy_persistence_migration_creates_canonical_schema(
     alembic_runner: MigrationContext,
     alembic_engine: object,

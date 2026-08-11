@@ -31,3 +31,18 @@ class PostgresBaselineRuntimeEvidenceRepository:
             provenance_digest=model.provenance_digest,
             schema_version=model.schema_version,
         )
+
+    async def persist(self, evidence: BaselineRuntimeEvidence) -> None:
+        """Store evidence supplied only by canonical orchestration."""
+
+        self._session.add(
+            BaselineRuntimeEvidenceModel(
+                evidence_id=evidence.evidence_id,
+                schema_version=evidence.schema_version,
+                workflow_name=evidence.workflow_name,
+                workflow_version=evidence.workflow_version,
+                provenance_digest=evidence.provenance_digest,
+                authority_metadata=evidence.authority.to_metadata(),
+            )
+        )
+        await self._session.commit()

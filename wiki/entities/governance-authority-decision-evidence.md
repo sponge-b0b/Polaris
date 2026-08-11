@@ -9,8 +9,8 @@
 * Governed outputs require canonical governance and evidence semantics rather than local approval metadata in reports, interfaces, RAG, or telemetry, because publication authority must be auditable. (source: docs/adr/0010-governance-approval-lifecycle-contestability-residual-risk.md)
 * Decision evidence, reviewability, contestability, residual-risk acceptance, and release disposition constrain what the system may recommend or publish, because high-impact outputs need traceable authority rather than model confidence alone. (source: docs/adr/0009-decision-evidence-packets-canonical-semantics.md)
 * ADR 0008’s accepted disposition does not authorize broad unrelated core changes; future remediation touching core areas requires a clear approval trail, because risk-authority review is scoped rather than blanket permission. (source: docs/adr/0008-governance-authority-decision-evidence-risk-authority-review-disposition.md)
+* Registry-owned workflow authority facts are the sole source of governed tier and evidence-variant selection; the durable execution-and-identity selection binds one Baseline provenance record or matching Enhanced/Vigilant packet before audit-capability issuance, because caller metadata and transport references cannot establish authority. (source: docs/adr/0016-dependency-composition-governed-execution-evidence-resolution-lifecycle.md)
 
 ### Planned
 
-* **Registry-bound workflow authority facts** — accepted, implementation pending. A registered workflow's immutable identity and Risk Authority Contract must form one platform-owned source for governed tier/evidence selection; caller metadata and transport references cannot establish those facts. (source: docs/adr/0016-dependency-composition-governed-execution-evidence-resolution-lifecycle.md)
 * **Broader runtime approval and capital-allocation governance capabilities** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -385,8 +385,6 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
                 ),
             )
             packet = _ticket_138_packet()
-            supplied_packet = Mock(spec=DecisionEvidencePacket)
-            supplied_packet.packet_id = "untrusted-ticket-138-packet"
             packet_persistence_service = AsyncMock()
             packet_persistence_service.reconstruct_packet.return_value = packet
             execution_service = GovernedWorkflowExecutionService(
@@ -395,6 +393,8 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
                 decision_evidence_packet_persistence_service=(
                     packet_persistence_service
                 ),
+                evidence_lifecycle=AsyncMock(),
+                evidence_resolver=_resolver_returning(packet),
             )
 
             with pytest.raises(RuntimeError, match="live_mode_requires_approval"):
@@ -404,11 +404,7 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
                     mode="live",
                     archive_on_completion=False,
                     checkpoint_on_completion=False,
-                    governed_execution_evidence=supplied_packet,
                 )
-            packet_persistence_service.reconstruct_packet.assert_awaited_once_with(
-                "untrusted-ticket-138-packet"
-            )
 
         async with postgres_session_factory() as session:
             repository = PostgresAutomatedDecisionAuditRepository(session)
@@ -754,6 +750,8 @@ async def test_governed_execution_persists_nonapproval_outcomes(
                 decision_evidence_packet_persistence_service=(
                     packet_persistence_service
                 ),
+                evidence_lifecycle=AsyncMock(),
+                evidence_resolver=_resolver_returning(packet),
             )
             run = execution_service.run_workflow(
                 workflow_name="governance_audit_workflow",
@@ -761,7 +759,6 @@ async def test_governed_execution_persists_nonapproval_outcomes(
                 mode="live",
                 archive_on_completion=False,
                 checkpoint_on_completion=False,
-                governed_execution_evidence=packet,
             )
             if blocks_execution:
                 with pytest.raises(RuntimeError, match="ticket_143_denied"):
@@ -979,3 +976,9 @@ def _reviewer() -> GovernanceReviewerIdentity:
         actor_type=GovernanceReviewerActorType.HUMAN_REVIEWER,
         display_name="Jane Reviewer",
     )
+
+
+def _resolver_returning(evidence: DecisionEvidencePacket) -> AsyncMock:
+    resolver = AsyncMock()
+    resolver.resolve.return_value = evidence
+    return resolver

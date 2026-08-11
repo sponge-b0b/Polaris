@@ -28,7 +28,6 @@ from application.services.base.application_service import (
     ApplicationService,
     ValidatingApplicationService,
 )
-from domain.governed_execution_evidence import GovernedExecutionEvidence
 
 
 def _system_clock() -> datetime:
@@ -48,7 +47,6 @@ class BacktestGovernedWorkflowExecutionService(Protocol):
         self,
         *,
         workflow_name: str,
-        governed_execution_evidence: GovernedExecutionEvidence | None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -170,7 +168,6 @@ class BacktestApplicationService(
             )
             workflow_result = await self._run_workflow_step(
                 step_request,
-                governed_execution_evidence=request.governed_execution_evidence,
             )
             step_result = _step_result_from_workflow_result(
                 scenario=request.scenario,
@@ -233,14 +230,11 @@ class BacktestApplicationService(
     async def _run_workflow_step(
         self,
         request: BacktestWorkflowStepRequest,
-        *,
-        governed_execution_evidence: GovernedExecutionEvidence | None,
     ) -> Any:
         if self.governed_workflow_execution_service is None:
             raise RuntimeError("Governed workflow execution service is required.")
         return await self.governed_workflow_execution_service.run_workflow(
             workflow_name=request.workflow_name,
-            governed_execution_evidence=governed_execution_evidence,
             execution_id=request.execution_id,
             mode="backtest",
             workflow_inputs=request.workflow_inputs(),

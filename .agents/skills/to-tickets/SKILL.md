@@ -76,6 +76,8 @@ Give each ticket its **blocking edges**.
 
 Present the proposed fresh breakdown or remediation delta.
 
+If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5.
+
 For new tickets, show:
 
 * **Title**
@@ -88,7 +90,7 @@ For remediation, also show any:
 * open tickets to close as superseded;
 * dependency changes.
 
-Ask:
+For any delta that is not metadata-only deterministic normalization, ask:
 
 * Does the granularity feel right?
 * Are the blocking edges correct?
@@ -98,7 +100,7 @@ Iterate until approved.
 
 ### 5. Publish to the Configured Tracker
 
-Apply only the approved changes.
+Apply only the approved changes, or deterministic metadata-only normalization authorized by Step 4.
 
 * **Local files** → create new ticket files and update or retire existing ones as required.
 * **Real issue tracker** → create new issues and apply approved updates or closures to existing open tickets.

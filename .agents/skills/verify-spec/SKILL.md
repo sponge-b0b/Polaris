@@ -81,7 +81,7 @@ A Spec with an unresolved material architecture question is not ready for verifi
 
 * Explicit invocation authorizes the repository-wide Ruff and Mypy commands below.
 * It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
-* Read `docs/testing_guide.md` and select tests from the Spec diff, affected boundaries, acceptance requirements, and known regression risks.
+* Read `docs/process/testing-guide.md` and select tests from the Spec diff, affected boundaries, acceptance requirements, and known regression risks.
 * Do not weaken configuration, add suppressions, or refactor unrelated code merely to pass.
 * Report unrelated pre-existing failures separately.
 
@@ -124,7 +124,7 @@ POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
 ### Testing Matrix
 
 ```bash id="p0gmsm"
-cat docs/testing_guide.md
+cat docs/process/testing-guide.md
 ```
 
 Select targeted integration, pipeline, regression, or macro tests exercising:

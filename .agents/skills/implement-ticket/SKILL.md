@@ -83,7 +83,11 @@ Use that exact value. Never recompute or overwrite it.
 
 Continue until the ticket completes all required gates or reaches a defined blocker.
 
-Elapsed time, remaining work, context pressure, or task size are not valid stopping conditions.
+Elapsed time, remaining work, context pressure, task size, or partial progress are not valid stopping conditions.
+
+**A partial implementation is not a defined blocker. If actionable in-scope work remains, continue the ticket in the current invocation.**
+
+Whenever halting before completion, explicitly name the blocker and the workflow rule that requires or permits the halt.
 
 ### Living Entity Wiki Guard
 
@@ -252,8 +256,35 @@ Reconcile:
 If any carried cell is unproven, known root violation remains, or protected root is regressed:
 
 * keep the ticket open;
-* continue fixing when possible;
-* do not proceed to root-closure verification.
+* continue fixing all actionable in-scope failures in the current invocation;
+* do not return control merely to report partial remediation;
+* do not proceed to Proposed Root Closure Evidence or root-closure verification.
+
+### No Partial Root Stop
+
+For a Spec Review remediation ticket, discovering additional in-scope root work during implementation, verification, reconciliation, or the Root Invariant Sweep means **continue the ticket**.
+
+Remaining in-scope implementation or proof work is not itself a blocker.
+
+Do not halt merely because:
+
+* some root obligations are already proven;
+* targeted tests pass for the implemented subset;
+* substantial progress has been made;
+* remaining root work is larger than expected;
+* another in-scope manifestation was discovered;
+* the ticket would remain open.
+
+Halt before root completion only when further progress is actually prevented by:
+
+* a required Human Handoff defined by this skill;
+* unresolved material architecture requiring the Architecture Human Handoff;
+* an external/environmental dependency that cannot be safely resolved here;
+* a branch, baseline, permission, tool, or persistence failure that makes further work unsafe or impossible.
+
+When halting for such a blocker, name the **exact blocker**, the remaining affected obligation, and why it prevents further in-scope work.
+
+Absent such a blocker, continue until every carried root obligation is proven and Proposed Root Closure Evidence can be assembled.
 
 ### Proposed Root Closure Evidence
 
@@ -268,7 +299,9 @@ Before independent verification, assemble concrete evidence:
 
 Generic test counts, mocked lower-level seams, or unsupported assertions are insufficient.
 
-If required proof cannot be stated concretely, keep the ticket open.
+If required proof cannot be stated concretely because implementation or proof work remains actionable, continue the ticket under **No Partial Root Stop**.
+
+If proof cannot be completed because of a permitted blocker, keep the ticket open and report that blocker explicitly.
 
 ### Root Closure Human Handoff Intercept
 
@@ -326,6 +359,8 @@ The `$implement-ticket` main agent only consumes the verifier result; it must no
 * rerun affected targeted checks;
 * rebuild Proposed Root Closure Evidence;
 * halt at the **Root Closure Human Handoff Intercept** again.
+
+Do not stop after a verifier `FAIL` merely to report the failures while actionable in-scope remediation remains.
 
 Each new verification attempt requires fresh human authorization and a fresh read-only subagent.
 
@@ -499,4 +534,4 @@ For Spec Review remediation also report:
 * `$verify-root-closure` verdict;
 * Root Closure Evidence persistence.
 
-Any unresolved required gate keeps the ticket open.
+An unresolved required gate keeps the ticket open, but **does not by itself authorize stopping**. If actionable in-scope work remains, continue. A pre-completion handoff must identify the concrete blocker that requires the halt.

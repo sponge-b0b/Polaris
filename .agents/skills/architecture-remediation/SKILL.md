@@ -1,73 +1,75 @@
 ---
 name: architecture-remediation
-description: Route newly discovered unresolved architecture blockers back into the existing Wayfinder effort. Recover workflow lineage, create or reuse one linked Wayfinder decision ticket per independent blocker, and halt for a Human Handoff Intercept to `$wayfinder`.
+description: Route unresolved architecture blockers back into the existing Wayfinder effort, creating or reusing one decision ticket per independent blocker and handing resolution to `$wayfinder`.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # Architecture Remediation
 
-This skill is explicitly invoked when a workflow such as `$implement-ticket` or `$review-spec` cannot continue because of one or more unresolved architecture blockers.
+Use when `$implement-ticket`, `$review-spec`, or another workflow cannot continue because of unresolved architecture.
 
-This is a **routing workflow**. Do not resolve architecture, modify implementation, amend the spec, or create a new Wayfinder map here.
+This is a **routing workflow**. Do not resolve architecture, modify implementation, amend a Spec, or create a new Wayfinder map here.
 
-## 1. Capture the Architecture Blockers
+## 1. Capture the Blocker Set
 
-Use the caller-provided context to identify every independent unresolved architecture blocker discovered at the stopping point.
+Use the caller-provided context to capture every independent unresolved architecture blocker at the stopping point.
 
-A blocker may be:
+A blocker includes:
 
 * an unresolved material architecture decision;
-* a blocking `[source-conflict]` among applicable architectural authorities;
-* current architectural authority invalidating architecture the blocked work depends on.
+* a blocking `[source-conflict]` among applicable authorities;
+* current authority invalidating architecture required by the work;
+* a required Spec, review, or remediation obligation that cannot be implemented without violating or changing current architectural authority.
 
 For each blocker capture:
 
-* the specific unresolved question or conflict;
-* evidence establishing it;
-* why it is material or blocking;
-* affected entities, owners, boundaries, canonical paths, dependency directions, or lifecycle responsibilities;
+* unresolved question/conflict;
+* caller evidence;
+* material consequence;
+* affected owners, contracts, canonical paths, boundaries, dependencies, or lifecycle responsibilities;
 * governing ADR/doc references already known;
-* source ticket or review finding when applicable.
+* the exact blocked requirement/acceptance obligation when applicable;
+* source ticket or review finding.
 
 Also capture:
 
-* parent spec;
+* parent Spec;
 * Spec Review issue when applicable.
 
-Preserve the caller's evidence. Do not invent an architectural answer.
+Preserve caller evidence and terminology. Do not invent a resolution.
 
-De-duplicate by underlying architectural question. Multiple symptoms or evidence examples of the same unresolved issue produce one blocker; independent unresolved questions remain separate.
+De-duplicate by underlying architectural question. Multiple symptoms of one question produce one blocker; independent questions remain separate.
 
-## 2. Resolve the Existing Wayfinder Effort
+## 2. Recover the Existing Wayfinder Effort
 
-Read the parent spec and recover its Wayfinder source provenance.
+Read the parent Spec and recover its Wayfinder provenance.
 
-Prefer the spec's explicit Wayfinder provenance marker:
+Prefer:
 
-```html
+```html id="ojdiv7"
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
 ```
 
-If the marker is absent, use another explicit, unambiguous tracker relationship when available.
+If absent, use another explicit and unambiguous tracker relationship.
 
-If the originating Wayfinder map cannot be determined reliably, halt and report that its provenance must be recovered. Do not guess or create a replacement map.
+If the originating Wayfinder map cannot be determined reliably, halt. Do not guess or create a replacement map.
 
-The blockers belong to the existing Wayfinder map unless one is genuinely outside that map's destination. If so, report it separately rather than silently creating another map.
+Blockers remain under that map unless one is genuinely outside its destination. Report such a blocker separately rather than silently creating another map.
 
 ## 3. Create or Reuse Decision Tickets
 
-For each independent blocker, inspect the existing Wayfinder map's open child issues before creating anything.
+For each independent blocker, inspect the map's open child decisions.
 
-If an open child already represents the same unresolved architecture question, reuse it.
+If an open child already represents the same underlying architectural question, reuse it.
 
-Otherwise create exactly one new child decision issue for that blocker under the existing Wayfinder map using the repository's configured Wayfinding operations.
+Otherwise create exactly one child decision under the existing map using repository Wayfinding operations.
 
-Use `wayfinder:grilling` unless the caller already established another Wayfinder ticket type.
+Use `wayfinder:grilling` unless the caller established another appropriate Wayfinder ticket type.
 
-Use this body shape, including only relationships that exist:
+Use:
 
-```markdown
+```markdown id="v8t7uw"
 **Parent Wayfinder:** #<wayfinder_map>
 **Parent Spec:** #<spec_issue>
 **Source Ticket:** #<source_ticket>
@@ -75,34 +77,43 @@ Use this body shape, including only relationships that exist:
 
 ## Question
 
-<specific unresolved architecture question or authority conflict>
+<specific unresolved architectural question or authority conflict>
 
 ## Discovery Context
 
-<caller-provided evidence and why the blocked work cannot proceed, including
-affected ownership, canonical path, boundary, dependency direction, lifecycle
-responsibility, or conflicting architectural authorities>
+<caller evidence and why current work cannot proceed>
+
+## Blocked Obligation
+
+<exact Spec/review/remediation requirement that cannot currently be satisfied,
+when applicable>
+
+## Governing Authority
+
+<applicable ADRs/docs/contracts and the relevant incompatibility>
 ```
 
 `Parent Wayfinder` and `Parent Spec` are required.
 
-`Source Ticket` and `Spec Review` are optional. Omit them when no such relationship exists.
+Omit optional relationships or sections when they do not apply.
 
-Do not include a proposed architectural resolution as though it were decided.
+Do not:
 
-Do not create duplicate decision tickets merely because the same blocker was surfaced by multiple callers or at multiple workflow stages.
+* propose a preferred architectural resolution;
+* rewrite the blocked obligation into a solution;
+* create duplicate decisions because the same blocker surfaced at multiple workflow stages.
+
+The decision ticket must preserve enough context for `$wayfinder` to determine whether authority must change, the blocked obligation must change, or both must be reconciled.
 
 ## 4. Human Handoff Intercept
 
-After every blocker has a corresponding open Wayfinder decision ticket, halt the current workflow.
+After every independent blocker has one corresponding open Wayfinder decision, halt the current workflow.
 
-Present all unresolved decision tickets, then identify the next one to work.
-
-Use:
+Present all decisions and identify the next one:
 
 > ⚠️ **Work is blocked by unresolved architecture.**
 >
-> The following decision tickets now represent the unresolved blockers under the existing Wayfinder map:
+> The following Wayfinder decision tickets represent the unresolved blockers:
 >
 > * **`<Decision Ticket 1 Title> (<URL>)`**
 > * **`<Decision Ticket 2 Title> (<URL>)`**
@@ -113,21 +124,38 @@ Use:
 > $wayfinder - <Next Decision Ticket Title> (<URL>)
 > ```
 
-When only one decision ticket exists, present only that ticket.
+When only one exists, present only that ticket.
 
-Do not continue implementation, review remediation, or spec amendment until the applicable Wayfinder decisions are resolved and the map's route is clear.
+Do not resume implementation, review remediation, or Spec amendment until the applicable decisions are resolved and the map route is clear.
 
-`$wayfinder` owns decision sequencing. Resolve one decision ticket at a time; after each resolution, the map determines whether another open decision remains or the route can continue to `$to-specs`.
+`$wayfinder` owns decision sequencing and resolves one decision at a time.
+
+## 5. Return Path
+
+After the required decisions are resolved:
+
+```text id="ofssib"
+$wayfinder
+→ $to-specs
+→ $to-remediation-specs when an existing Spec is affected
+→ $to-tickets
+→ $implement-ticket
+```
+
+Do not hand directly back to the blocked implementation ticket when the architectural decision changes or invalidates its Spec/remediation obligation.
+
+`$to-remediation-specs` owns reconciling existing Spec requirements, acceptance obligations, and downstream ticket intent against the newly resolved architecture.
 
 ## Completion
 
 This skill is complete when:
 
-* the existing Wayfinder map has been resolved;
-* every independent caller-provided architecture blocker is represented by exactly one open decision ticket, either reused or created;
-* no duplicate decision tickets were introduced; and
-* the Human Handoff Intercept has been presented.
+* the existing Wayfinder map is recovered;
+* every independent blocker is represented by exactly one open decision ticket;
+* blocked requirements/acceptance obligations are preserved when applicable;
+* no duplicate decision tickets were introduced;
+* the Human Handoff Intercept is presented.
 
-`$wayfinder` owns resolution of those decisions and reconciliation of authoritative architecture records.
+`$wayfinder` owns architectural resolution and authority reconciliation.
 
-After the required decisions are resolved and the route is clear, `$wayfinder` hands the updated map to `$to-specs`; `$to-specs` determines whether normal creation or `$to-remediation-specs` applies.
+`$to-specs` / `$to-remediation-specs` own propagating the resulting architecture back into the existing Spec before implementation resumes.

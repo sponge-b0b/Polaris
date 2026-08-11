@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from inspect import Parameter, signature
 from typing import Any, cast
 
 import pytest
@@ -56,6 +57,12 @@ def test_successful_audit_persistence_result_requires_positive_durable_evidence(
             "policy-audit-1",
             records_persisted=records_persisted,
         )
+
+
+def test_successful_audit_persistence_result_requires_an_observed_write_count() -> None:
+    parameters = signature(AutomatedDecisionAuditPersistenceResult.succeeded).parameters
+
+    assert parameters["records_persisted"].default is Parameter.empty
 
 
 @pytest.mark.asyncio

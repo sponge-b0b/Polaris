@@ -1682,14 +1682,20 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
         record: AutomatedPolicyAuditRecord,
     ) -> AutomatedDecisionAuditPersistenceResult:
         self.policy_records.append(record)
-        return AutomatedDecisionAuditPersistenceResult.succeeded(record.audit_record_id)
+        return AutomatedDecisionAuditPersistenceResult.succeeded(
+            record.audit_record_id,
+            records_persisted=1,
+        )
 
     async def persist_governance_audit_record(
         self,
         record: AutomatedGovernanceAuditRecord,
     ) -> AutomatedDecisionAuditPersistenceResult:
         self.governance_records.append(record)
-        return AutomatedDecisionAuditPersistenceResult.succeeded(record.audit_record_id)
+        return AutomatedDecisionAuditPersistenceResult.succeeded(
+            record.audit_record_id,
+            records_persisted=1,
+        )
 
     async def persist_governance_review_task(
         self,
@@ -1709,6 +1715,7 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
             self.review_tasks[existing_index] = task
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             task.review_task_id,
+            records_persisted=1,
             review_task_id=task.review_task_id,
         )
 
@@ -1753,6 +1760,7 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
                 )
                 return AutomatedDecisionAuditPersistenceResult.succeeded(
                     review_task_id,
+                    records_persisted=1,
                     review_task_id=review_task_id,
                 )
         return AutomatedDecisionAuditPersistenceResult.failed(
@@ -1767,6 +1775,7 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
         self.review_decisions.append(decision)
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             decision.review_decision_id,
+            records_persisted=1,
         )
 
     async def get_governance_review_decision(
@@ -1789,6 +1798,7 @@ class FakeAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository):
         self.residual_risk_acceptances.append(acceptance)
         return AutomatedDecisionAuditPersistenceResult.succeeded(
             acceptance.acceptance_id,
+            records_persisted=1,
         )
 
     async def get_residual_risk_acceptance(

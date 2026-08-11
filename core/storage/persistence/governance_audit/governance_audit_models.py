@@ -624,7 +624,7 @@ class AutomatedDecisionAuditPersistenceResult:
         cls,
         audit_record_id: str,
         *,
-        records_persisted: int = 1,
+        records_persisted: int,
         review_task_id: str | None = None,
     ) -> AutomatedDecisionAuditPersistenceResult:
         return cls(

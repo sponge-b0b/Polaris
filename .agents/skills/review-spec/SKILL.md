@@ -5,6 +5,8 @@ compatibility: product=codex product=claude-code system=git system=python system
 disable-model-invocation: true
 ---
 
+# Review Spec
+
 Review the verified diff between `HEAD` and the Spec baseline along three independent axes:
 
 * **Standards** — repository coding standards.
@@ -12,8 +14,11 @@ Review the verified diff between `HEAD` and the Spec baseline along three indepe
 * **Architecture** — resolved architecture and current authorities.
 
 This is review-only.
+
 Do not run `pytest`, Ruff, Mypy, graph updates, duplication scans, or other verification commands.
+
 Do not invoke the `$wiki-lint` skill.
+
 `$verify-spec` owns verification.
 
 `$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
@@ -127,7 +132,7 @@ Any commit after verification makes the receipt stale.
 
 Before any reviewer is spawned, determine whether a Spec Review already exists for this Spec.
 
-If one exists, recover its **latest persisted Root Blocker state**, including body and later review/remediation updates.
+If one exists, recover its **durable Root Blocker state** from the body and subsequent review/remediation updates.
 
 Capture:
 
@@ -136,18 +141,41 @@ Capture:
 * acceptance obligations/matrix;
 * affected sibling surfaces;
 * Owner Overrides;
-* previous reviewed `HEAD` when available.
+* previous reviewed and satisfied/closed `HEAD` values when available.
 
-On re-review:
+#### Cumulative Acceptance State
 
-* every existing open or regressed root MUST receive a status;
-* evaluate existing acceptance obligations first;
-* map findings to an existing root when they share its invariant;
-* another axis, sibling surface, or symptom does not create another root.
+Acceptance obligations are cumulative for the lifetime of an active root.
 
-**Never create, renumber, or assign a new `RB-*` ID here.**
+A later review update may change an obligation's status or evidence, but omission alone does not retire it.
 
-An unmatched finding is only a **Candidate new root**. `$review-spec-remediation` owns root synthesis and IDs.
+Carry forward every previously established obligation unless durable review state explicitly records that it was:
+
+* superseded by a materially equivalent obligation;
+* retired because current Spec/architecture no longer requires it; or
+* Owner-overridden.
+
+If a later ledger update silently dropped an active obligation, continue carrying it and pass that ledger drift to `$review-spec-remediation`.
+
+Do not silently shrink a root's closure domain to only the latest failing symptoms.
+
+#### Root Identity
+
+An existing `RB-*` ID denotes one durable invariant.
+
+Map a finding to an existing root only when the finding is derivable from that recorded invariant without materially expanding what the root means.
+
+A shared subsystem, theme, architectural area, or historical association is insufficient.
+
+If a finding appears related to an existing root but would require materially expanding its invariant or closure domain, mark it:
+
+```text
+Candidate new root — related to RB-<n>; possible root-definition gap
+```
+
+`$review-spec-remediation` owns deciding whether the durable root definition was incomplete or a genuinely distinct root exists.
+
+Never rewrite, broaden, renumber, or assign `RB-*` IDs here.
 
 ### Reviewer Dispatch Invariant
 
@@ -156,17 +184,19 @@ An unmatched finding is only a **Candidate new root**. `$review-spec-remediation
 Do not spawn any review sub-agent until:
 
 1. the search for an existing Spec Review is complete; and
-2. when one exists, its latest Root Blocker state has been recovered.
+2. when one exists, its durable cumulative Root Blocker state has been recovered.
 
-Each reviewer's **initial prompt** must contain the applicable recovered root invariants, statuses, acceptance obligations, and sibling surfaces.
+Each reviewer's initial prompt must contain enough recovered root state to map findings and report applicable status.
 
-Do not intentionally dispatch reviewers without known review state and reconcile it afterward.
+Root Blocker state is **continuity and mapping context only**. It is not review authority.
 
-If existing review state is discovered only after reviewers were spawned, their incomplete-context results are invalid. Discard those results and restart the affected reviewers with the recovered state rather than layering a second reconciliation pass onto the first.
+A reviewer must never derive an axis finding merely because an RB invariant, acceptance obligation, prior finding, or sibling surface says the behavior is required.
+
+If existing review state is discovered only after reviewers were spawned, discard the affected results and restart those reviewers with the recovered state.
 
 ### 5. Spawn Reviewers
 
-Only after Step 4 and the Reviewer Dispatch Invariant are satisfied, spawn exactly three parallel sub-agents when all axes apply:
+Only after Step 4 is satisfied, spawn exactly three parallel sub-agents when all axes apply:
 
 * one Standards;
 * one Spec;
@@ -176,42 +206,63 @@ Never spawn more than one reviewer per axis.
 
 After spawning, the main agent only aggregates and lightly validates returned evidence.
 
-Give each reviewer in its initial prompt:
+Give each reviewer:
 
 * aggregate diff and commits;
-* its authoritative review sources;
+* **only its axis authority as review authority**;
 * Finding Taxonomy;
-* existing roots and applicable acceptance obligations;
-* affected sibling surfaces;
-* current root status when applicable.
+* recovered root state for later mapping/status reconciliation.
 
-Tell each reviewer:
+Tell every reviewer:
 
-1. evaluate applicable existing-root obligations first;
-2. then complete the **entire independent axis review** across the aggregate Spec change;
-3. do not stop after finding a blocker or after evaluating existing roots;
-4. return every independent Blocking finding discovered in this pass;
-5. map findings to existing roots where applicable;
-6. mark unmatched findings `Candidate new root`;
+1. review the complete aggregate change using only its axis authority;
+2. do not use the Root Blocker Ledger, another axis's authority, or previous findings to establish a violation;
+3. do not stop after finding a blocker;
+4. return every independent Blocking finding discovered by its axis;
+5. only after finding an issue, map it to an existing root when the recorded invariant already explains it;
+6. mark unmatched or materially root-expanding findings `Candidate new root`;
 7. never invent an `RB-*` ID.
+
+For an existing open or regressed root, report status only for obligations independently governed by that reviewer's axis.
 
 #### Standards
 
-Use `$coding-standards` and applicable repository standards.
+Authoritative sources:
+
+* `$coding-standards`;
+* applicable repository coding/process standards.
 
 Review the full aggregate change for deterministic standards violations and relevant non-tooling smells.
 
-Return all Blocking/Advisory findings. Skip issues reliably owned by tooling.
+Every **Blocking Standards** finding must cite the exact documented deterministic standard it violates.
+
+An RB obligation, Spec requirement, ADR, architecture document, or preferred design is not by itself a Standards rule.
+
+When a finding depends on determining canonical architectural ownership, authority source, lifecycle, boundary, or dependency direction rather than a documented coding rule, leave it to the Architecture axis.
+
+Return Blocking/Advisory findings only.
+
+Skip issues reliably owned by tooling.
 
 #### Spec
 
-Use the originating Spec.
+Authority:
 
-Review the full aggregate implementation for missing, partial, incorrect, or unauthorized behavior and cite the requirement.
+* the originating Spec.
+
+Review the full aggregate implementation for missing, partial, incorrect, or unauthorized behavior.
+
+Every Blocking Spec finding must cite the applicable Spec requirement.
+
+An RB obligation or architectural rule not independently required by the Spec does not establish a Spec finding.
 
 Return all findings, not only those related to existing roots.
 
 #### Architecture
+
+Authority:
+
+* current applicable architecture evaluated through `$review-architecture`.
 
 Invoke `$review-architecture`.
 
@@ -225,6 +276,14 @@ Return all findings, not only those related to existing roots.
 
 Lightly validate cited evidence only. Do not perform another review.
 
+Validate axis ownership before accepting a finding:
+
+* Blocking Standards → exact deterministic coding/repository standard cited;
+* Blocking Spec → originating Spec requirement cited;
+* Blocking Architecture → `$review-architecture` evidence/current authority cited.
+
+If a finding is valid but returned under the wrong axis, place it under the axis whose authority actually establishes it. Do not duplicate it merely because another reviewer noticed it.
+
 Present:
 
 ```text
@@ -235,7 +294,7 @@ Present:
 ## Architecture
 ```
 
-Keep axis findings independent even when several map to one root.
+Keep genuinely independent axis findings separate even when several map to one root.
 
 If a Root Blocker Ledger exists, also present:
 
@@ -255,26 +314,40 @@ Every previously open or regressed root must appear.
 
 Use:
 
-* **satisfied** — required obligations are established by available evidence;
-* **open** — one or more obligations remain violated;
-* **regressed** — previously satisfied behavior is now broken;
-* **unproven** — available review evidence is insufficient.
+* **satisfied** — all carried obligations are established by available evidence;
+* **open** — one or more carried/current obligations are violated;
+* **regressed** — behavior previously established as satisfied was broken by a later change;
+* **unproven** — available review evidence is insufficient to establish required status.
 
 Do not infer satisfaction merely because source code appears plausible.
 
-If multiple findings map to one root, say so explicitly.
+Do not call a root `regressed` merely because a new violation was discovered after it was previously satisfied.
+
+### Existing Root Provenance
+
+When a new violation maps to a previously satisfied/closed root and a prior satisfied/closed `HEAD` is available, inspect only the implicated evidence at that prior `HEAD`.
+
+Classify:
+
+* defect existed materially unchanged at the prior satisfied/closed `HEAD` → **Missed prior finding**; current root status is `open`, not `regressed`;
+* defect was introduced or materially changed after that `HEAD` → **Regression**; root may be `regressed`;
+* origin cannot be determined confidently → **Origin uncertain**; do not claim regression.
+
+This provenance classification does not change Blocking severity.
+
+Do not perform broad historical discovery solely for provenance.
 
 ### Candidate New Root History
 
-When a previous reviewed `HEAD` is available, determine whether each Candidate new root's implicated defect:
+When a previous reviewed `HEAD` is available, classify each Candidate new root's implicated defect as:
 
-* existed materially unchanged at the previous reviewed `HEAD` → **Missed prior finding**;
-* was introduced or materially changed afterward → **New/regressed finding**;
-* cannot be determined confidently → **Origin uncertain**.
+* **Missed prior finding**;
+* **New/regressed finding**;
+* **Origin uncertain**.
 
-This classification is diagnostic only. It does not change Blocking severity or root ownership.
+This classification is diagnostic only. It does not assign a root ID or change Blocking severity.
 
-Do not perform broad discovery solely for this comparison; inspect only implicated evidence.
+Inspect only the implicated evidence.
 
 ### Architecture Human Handoff
 
@@ -307,21 +380,27 @@ Blocking Architecture findings with `Architecture decision required: No` remain 
 
 If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation`.
 
-On re-review, pass:
+Pass:
 
-* existing root statuses;
+* durable existing root invariants and statuses;
+* the cumulative carried acceptance matrix;
 * still-violated/regressed/unproven obligations;
-* axis findings mapped to those roots;
-* unmatched Candidate new roots and their history classification.
+* satisfied obligations that must remain carried;
+* axis findings mapped to existing roots;
+* Existing Root Provenance classifications;
+* unmatched Candidate new roots and their history classifications;
+* any possible root-definition gaps;
+* any detected acceptance-matrix ledger drift.
 
-Do not restart root discovery for findings already explained by an existing root.
+Do not restart root discovery for findings already explained by an unchanged existing invariant.
 
 `$review-spec-remediation` owns:
 
 * root synthesis;
+* root-definition completeness/expansion decisions;
 * new `RB-*` IDs;
 * ledger updates;
-* acceptance matrix updates;
+* cumulative acceptance matrix updates;
 * remediation tracking;
 * Owner Overrides.
 
@@ -373,7 +452,9 @@ The receipt authorizes cleanup only for that exact `HEAD`. Any later commit make
 
 ### Spec Merge Cleanup Human Handoff
 
-`$spec-merge-cleanup` has `allow_implicit_invocation: false`. Do not invoke it implicitly.
+`$spec-merge-cleanup` has `allow_implicit_invocation: false`.
+
+Do not invoke it implicitly.
 
 After the Exit Receipt is successfully persisted, halt with:
 

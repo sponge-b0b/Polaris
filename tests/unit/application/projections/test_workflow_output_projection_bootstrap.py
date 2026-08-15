@@ -22,16 +22,26 @@ from application.projections.workflow_outputs.bootstrap import (
     PostgresWorkflowOutputProjectionCoordinator,
     ProjectionSessionFactory,
 )
+from application.projections.workflow_outputs.projectors.strategy import (
+    StrategySynthesisWorkflowOutputProjector,
+)
 from core.runtime.events.event_bus import EventBus
 from core.runtime.events.runtime_events import RuntimeEventType
+from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.workflow_outputs import (
+    STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+    WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+)
 
 
 def test_default_projection_subscription_is_idempotent_per_event_bus() -> None:
     event_bus = EventBus()
+    workflow_registry = WorkflowRegistry()
 
     assert (
         subscribe_default_workflow_output_projection(
             event_bus=event_bus,
+            workflow_registry=workflow_registry,
             session_factory=_fake_session_factory,
         )
         is True
@@ -39,6 +49,7 @@ def test_default_projection_subscription_is_idempotent_per_event_bus() -> None:
     assert (
         subscribe_default_workflow_output_projection(
             event_bus=event_bus,
+            workflow_registry=workflow_registry,
             session_factory=_fake_session_factory,
         )
         is False
@@ -50,10 +61,13 @@ def test_default_projection_subscription_is_idempotent_per_event_bus() -> None:
 
 def test_explicit_projection_subscription_is_idempotent_per_event_bus() -> None:
     event_bus = EventBus()
+    workflow_registry = WorkflowRegistry()
     first_subscriber = build_default_workflow_output_projection_subscriber(
+        workflow_registry=workflow_registry,
         session_factory=_fake_session_factory,
     )
     second_subscriber = build_default_workflow_output_projection_subscriber(
+        workflow_registry=workflow_registry,
         session_factory=_fake_session_factory,
     )
 
@@ -90,6 +104,7 @@ async def test_postgres_projection_coordinator_wires_canonical_release_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured_kwargs: dict[str, object] = {}
+    workflow_registry = WorkflowRegistry()
 
     class CapturingWorkflowOutputProjectionService:
         def __init__(self, **kwargs: object) -> None:
@@ -111,7 +126,7 @@ async def test_postgres_projection_coordinator_wires_canonical_release_service(
     )
     coordinator = PostgresWorkflowOutputProjectionCoordinator(
         session_factory=_fake_session_factory,
-        registry=WorkflowOutputProjectionRegistry(()),
+        workflow_registry=workflow_registry,
     )
 
     summary = await coordinator.project_completed_run(
@@ -126,6 +141,15 @@ async def test_postgres_projection_coordinator_wires_canonical_release_service(
         captured_kwargs["governed_output_release_service"],
         AutomatedDecisionAuditService,
     )
+    registry = cast(WorkflowOutputProjectionRegistry, captured_kwargs["registry"])
+    resolution = registry.resolve(
+        output_contract=STRATEGY_SYNTHESIS_OUTPUT_CONTRACT,
+        output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
+    )
+    assert resolution.registration is not None
+    projector = resolution.registration.projector
+    assert isinstance(projector, StrategySynthesisWorkflowOutputProjector)
+    assert projector._workflow_registry is workflow_registry
 
 
 @asynccontextmanager

@@ -6,6 +6,7 @@ from application.persistence.diagnostics import DiagnosticsPersistenceService
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from workflows.catalog import get_builtin_workflows
 
@@ -73,6 +74,8 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     lifecycle: list[str] = []
 
     class FakeFacade:
+        registry = WorkflowRegistry()
+
         async def register_workflow_async(self, **_: object) -> None:
             return None
 

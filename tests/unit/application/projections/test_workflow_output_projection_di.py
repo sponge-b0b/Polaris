@@ -137,6 +137,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         lineage_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,
+        cast(AutomatedDecisionAuditService, object()),
         cast(WorkflowFacade, SimpleNamespace(registry=WorkflowRegistry())),
     )
     policy = provider.provide_workflow_output_projection_policy()

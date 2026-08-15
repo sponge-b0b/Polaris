@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -8,6 +9,11 @@ from typing import cast
 import pytest
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
@@ -101,11 +107,19 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     packet_repository = _FakeDecisionEvidencePacketRepository()
     run = _run()
     bull_node = _bull_node()
-    synthesis_node = _synthesis_node()
+    synthesis_node = replace(
+        _synthesis_node(),
+        metadata={
+            "quality_status": "degraded",
+            "governance_evidence_packet_id": "metadata-forged-packet",
+            "governance_evidence_packet_version": 99,
+        },
+    )
     bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
     lineage_service = LineagePersistenceService(
         cast(PersistenceLineageLinkRepository, lineage_repository),
     )
+    release_service = _allowing_release_service()
     packet_service = DecisionEvidencePacketPersistenceService(
         repository=cast(
             DecisionEvidencePacketPersistenceRepository,
@@ -125,6 +139,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=release_service,
     )
 
     outcome = await projector.project(
@@ -137,10 +152,17 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
 
     assert outcome.status is WorkflowOutputProjectionStatus.SUCCEEDED
     assert outcome.records_written == 9
-    assert set(packet_repository.records) == {"strategy-packet-1"}
-    packet = await packet_service.reconstruct_packet("strategy-packet-1")
-    assert packet.packet_id == "strategy-packet-1"
+    packet_id = next(iter(packet_repository.records))
+    assert packet_id.startswith("strategy_synthesis:")
+    assert packet_id != "strategy-packet-1"
+    packet = await packet_service.reconstruct_packet(packet_id)
+    assert packet.packet_id == packet_id
     assert packet.output_id == "node-output-synthesis"
+    assert len(release_service.requests) == 1
+    assert release_service.requests[0].evidence.packet_id == packet_id
+    assert release_service.requests[0].evidence.packet_id != "metadata-forged-packet"
+    assert release_service.requests[0].evidence.packet_version == packet.schema_version
+    assert release_service.requests[0].subject.subject_id == "node-output-synthesis"
     assert {constraint.constraint_id for constraint in packet.constraints} == {
         "bull:assumption:bull-liquidity"
     }
@@ -158,7 +180,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     assert strategy_bundle.decision.symbol == "SPY"
     assert strategy_bundle.decision.selected_perspective == "bull"
     assert "evidence_packet_ids" not in strategy_bundle.decision.metadata
-    assert "strategy-packet-1" not in str(strategy_bundle.decision.metadata)
+    assert packet_id not in str(strategy_bundle.decision.metadata)
     assert len(strategy_bundle.hypotheses) == 1
     assert strategy_bundle.hypotheses[0].perspective == "bull"
     assert len(strategy_bundle.evaluations) == 1
@@ -168,9 +190,9 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
     assert recommendation_bundle.recommendation.status == "strategy_recommendation"
     assert recommendation_bundle.recommendation.metadata["strategy_decision_id"]
     assert "evidence_packet_ids" not in recommendation_bundle.recommendation.metadata
-    assert "strategy-packet-1" not in str(recommendation_bundle.recommendation.metadata)
+    assert packet_id not in str(recommendation_bundle.recommendation.metadata)
     assert "evidence_packet_ids" not in recommendation_bundle.rationales[0].metadata
-    assert "strategy-packet-1" not in str(recommendation_bundle.rationales[0].metadata)
+    assert packet_id not in str(recommendation_bundle.rationales[0].metadata)
     assert recommendation_bundle.rationales[0].rationale_type == "strategy_synthesis"
 
     decision_authority = _authority_metadata(strategy_bundle.decision.metadata)
@@ -196,7 +218,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
 
     packet_identity = PersistenceRecordIdentity(
         record_type="decision_evidence_packet",
-        record_id="strategy-packet-1",
+        record_id=packet_id,
     )
     lineage_links = await lineage_service.list_links_for_target(packet_identity)
     assert lineage_links
@@ -233,6 +255,104 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
 
 
 @pytest.mark.asyncio
+async def test_strategy_synthesis_projector_rejects_payload_packet_id_selection() -> (
+    None
+):
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
+    run = _run()
+    bull_node = _bull_node()
+    synthesis_node = _synthesis_node_with_payload_packet_id("forged-packet")
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    release_service = _allowing_release_service()
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
+    )
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        decision_evidence_packet_persistence_service=packet_service,
+        lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
+        governed_output_release_service=release_service,
+    )
+
+    outcome = await projector.project(
+        _projector_request(synthesis_node, run=run, bundle=bundle)
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_message is not None
+    assert "cannot select decision evidence packet ids" in outcome.error_message
+    assert packet_repository.records == {}
+    assert strategy_repository.bundles == []
+    assert recommendation_repository.bundles == []
+    assert release_service.requests == []
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_fails_closed_without_release_service() -> (
+    None
+):
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository()
+    run = _run()
+    bull_node = _bull_node()
+    synthesis_node = _synthesis_node()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
+    )
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        decision_evidence_packet_persistence_service=packet_service,
+        lineage_persistence_service=LineagePersistenceService(
+            cast(PersistenceLineageLinkRepository, lineage_repository),
+        ),
+        workflow_registry=_workflow_registry(),
+    )
+
+    outcome = await projector.project(
+        _projector_request(synthesis_node, run=run, bundle=bundle)
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.SKIPPED
+    assert "canonical governed output release service" in outcome.message
+    assert len(packet_repository.records) == 1
+    assert strategy_repository.bundles == []
+    assert recommendation_repository.bundles == []
+    assert lineage_repository.links == []
+
+
+@pytest.mark.asyncio
 async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> None:
     strategy_repository = _FakeStrategyRepository()
     recommendation_repository = _FakeRecommendationRepository()
@@ -264,6 +384,7 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=_allowing_release_service(),
     )
 
     outcome = await projector.project(
@@ -340,6 +461,7 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=_allowing_release_service(),
     )
 
     outcome = await projector.project(
@@ -393,6 +515,7 @@ async def test_strategy_synthesis_projector_fails_closed_without_support_evidenc
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=_allowing_release_service(),
     )
 
     outcome = await projector.project(
@@ -442,6 +565,7 @@ async def test_strategy_synthesis_projector_fails_closed_for_non_durable_packet(
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=_allowing_release_service(),
     )
 
     outcome = await projector.project(
@@ -485,6 +609,7 @@ async def test_strategy_synthesis_projector_fails_closed_without_snapshots() -> 
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=_allowing_release_service(),
     )
 
     outcome = await projector.project(_projector_request(synthesis_node, run=run))
@@ -609,6 +734,19 @@ class _FakeDecisionEvidencePacketRepository:
         return self.records.get(packet_id)
 
 
+class _FakeGovernedOutputReleaseService:
+    def __init__(self, decision: GovernedOutputReleaseDecision) -> None:
+        self.decision = decision
+        self.requests: list[GovernedOutputReleaseRequest] = []
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        self.requests.append(request)
+        return self.decision
+
+
 class _FakeCompletedRunArchive:
     def __init__(self, bundle: CompletedRunBundle | None) -> None:
         self._bundle = bundle
@@ -672,6 +810,17 @@ def _workflow_registry() -> WorkflowRegistry:
                 )
             )
         ),
+    )
+
+
+def _allowing_release_service() -> _FakeGovernedOutputReleaseService:
+    return _FakeGovernedOutputReleaseService(
+        GovernedOutputReleaseDecision(
+            allowed=True,
+            reason="governance review permits release",
+            approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+            review_task_id="review-task-1",
+        )
     )
 
 
@@ -741,8 +890,6 @@ def _bull_node() -> CompletedNodeOutputRecord:
 
 
 def _bull_node_without_support_evidence() -> CompletedNodeOutputRecord:
-    from dataclasses import replace
-
     node = _bull_node()
     payload = _bull_hypothesis_payload()
     payload["supporting_evidence"] = []
@@ -874,13 +1021,23 @@ def _decision_payload() -> dict[str, object]:
         "signals": ["technical confirmation"],
         "risks": ["headline risk"],
         "recommendations": ["Maintain constructive allocation."],
-        "evidence_packet_ids": ["strategy-packet-1"],
     }
 
 
-def _synthesis_node_with_model_claims() -> CompletedNodeOutputRecord:
-    from dataclasses import replace
+def _synthesis_node_with_payload_packet_id(packet_id: str) -> CompletedNodeOutputRecord:
+    node = _synthesis_node()
+    outputs = dict(node.outputs)
+    features = dict(cast(Mapping[str, JsonValue], outputs["features"]))
+    decision_payload = dict(
+        cast(Mapping[str, JsonValue], features["strategy_synthesis_decision"])
+    )
+    decision_payload["evidence_packet_ids"] = [packet_id]
+    features["strategy_synthesis_decision"] = cast(JsonValue, decision_payload)
+    outputs["features"] = cast(JsonValue, features)
+    return replace(node, outputs=cast(JsonObject, outputs))
 
+
+def _synthesis_node_with_model_claims() -> CompletedNodeOutputRecord:
     node = _synthesis_node()
     outputs = dict(node.outputs)
     features = dict(cast(Mapping[str, JsonValue], outputs["features"]))

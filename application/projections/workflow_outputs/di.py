@@ -67,6 +67,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         lineage_persistence_service: LineagePersistenceService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
         workflow_facade: WorkflowFacade,
     ) -> WorkflowOutputProjectionRegistry:
         """Return the request-scoped registry for domain projectors."""
@@ -100,6 +101,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
                     ),
                     lineage_persistence_service=lineage_persistence_service,
                     workflow_registry=workflow_facade.registry,
+                    governed_output_release_service=(automated_decision_audit_service),
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,

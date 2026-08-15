@@ -330,6 +330,22 @@ def _risk_metadata_for_externally_visible_rag_answer() -> dict[str, object]:
     )
 
 
+def _risk_metadata_for_baseline_runtime_evidence() -> dict[str, object]:
+    return (
+        RiskAuthorityClassifier()
+        .classify(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.RUNTIME_EVIDENCE,
+                authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+                canonical_owner=CanonicalOwner.RUNTIME,
+                source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+                intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
+            )
+        )
+        .to_metadata()
+    )
+
+
 def _risk_gate_evidence_for_rag_answer(
     *,
     run_id: str = "run-1",
@@ -460,6 +476,47 @@ async def test_run_service_fails_closed_on_missing_non_baseline_metadata() -> No
     assert failed_event.payload["authority_gate"]["selected_profile"] == (
         "enhanced_provenance"
     )
+
+
+@pytest.mark.asyncio
+async def test_run_service_rejects_caller_authority_metadata_downgrade() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    projection_service = FakeProjectionService([])
+    service = EvaluationRunService(
+        FakeProvider(),
+        repository,
+        projection_service=projection_service,
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-caller-downgrade",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_canonical_evidence_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+            authority_metadata=_risk_metadata_for_baseline_runtime_evidence(),
+            authority_gate_evidence=RiskAuthorityGateEvidence(
+                provenance_record_ids=("rag-document-1",),
+            ),
+        )
+    )
+
+    assert result.run.status is EvaluationStatus.ERRORED
+    assert result.authority_gate_decision is not None
+    assert (
+        result.authority_gate_decision.failure_mode
+        is RiskAuthorityGateFailureMode.METADATA_INCONSISTENT
+    )
+    assert result.authority_gate_decision.risk_tier is RiskTier.ENHANCED
+    assert (
+        result.authority_gate_decision.gate_profile is GateProfile.ENHANCED_PROVENANCE
+    )
+    assert repository.metric_results == []
+    assert projection_service.requests == []
 
 
 @pytest.mark.asyncio

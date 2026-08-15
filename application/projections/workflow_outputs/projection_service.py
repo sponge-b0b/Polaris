@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from time import perf_counter
-from typing import Protocol, cast
+from typing import Final, Protocol, cast
 
 from application.governance import (
     GovernedOutputReleaseDecision,
@@ -76,6 +76,9 @@ _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY = (
     "governance_residual_risk_acceptance_required"
 )
 _REVIEW_RESIDUAL_RISK_SCOPE_METADATA_KEY = "governance_residual_risk_scope"
+_MATERIALIZER_OWNED_RELEASE_EVIDENCE_PROJECTORS: Final[frozenset[str]] = frozenset(
+    {"strategy_synthesis_projector"}
+)
 
 
 class GovernedOutputReleaseService(Protocol):
@@ -465,6 +468,11 @@ class WorkflowOutputProjectionService:
         if authority is None:
             return None
         if not requires_governed_output_release_review(authority):
+            return None
+        if (
+            registration.projector_name
+            in _MATERIALIZER_OWNED_RELEASE_EVIDENCE_PROJECTORS
+        ):
             return None
 
         boundary_name = f"workflow_output_projection.{registration.projector_name}"

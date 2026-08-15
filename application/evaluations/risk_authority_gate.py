@@ -9,6 +9,7 @@ from domain.authority import (
     IntendedSink,
     RiskAuthorityContract,
     RiskTier,
+    risk_authority_decision_profile_for_tier,
     validate_risk_authority_metadata,
 )
 from domain.decision_evidence import (
@@ -192,42 +193,48 @@ def select_risk_authority_gate(
             else expected_contract.gate_profile,
         )
 
-    contract = validation.contract
-    selected_metadata = contract.to_metadata()
-    expected_contract = validation.expected_contract
-    if not validation.platform_consistent:
+    supplied_contract = validation.contract
+    supplied_metadata = supplied_contract.to_metadata()
+    platform_expected_contract = validation.expected_contract
+    authoritative_contract = expected_contract or platform_expected_contract
+    if not validation.platform_consistent or not _same_authority_contract(
+        supplied_contract,
+        authoritative_contract,
+    ):
         return RiskAuthorityGateDecision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.METADATA_INCONSISTENT,
             message=(
-                "Risk authority metadata attempted to select a lower or inconsistent "
-                "gate profile than the platform classification allows."
+                "Risk authority metadata attempted to select a lower or "
+                "inconsistent gate profile than the platform target allows."
             ),
-            risk_tier=contract.risk_tier,
-            gate_profile=contract.gate_profile,
-            authority_metadata=selected_metadata,
+            risk_tier=authoritative_contract.risk_tier,
+            gate_profile=authoritative_contract.gate_profile,
+            authority_metadata=supplied_metadata,
             evidence=gate_evidence,
-            expected_risk_tier=expected_contract.risk_tier,
-            expected_gate_profile=expected_contract.gate_profile,
+            expected_risk_tier=authoritative_contract.risk_tier,
+            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
-    decision_profile = validation.selected_profile
+    decision_profile = risk_authority_decision_profile_for_tier(
+        authoritative_contract.risk_tier,
+    )
     if decision_profile.prohibits_boundary:
         return RiskAuthorityGateDecision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.PROHIBITED_BOUNDARY,
             message="The output boundary is outside platform authority.",
-            risk_tier=contract.risk_tier,
-            gate_profile=contract.gate_profile,
-            authority_metadata=selected_metadata,
+            risk_tier=authoritative_contract.risk_tier,
+            gate_profile=authoritative_contract.gate_profile,
+            authority_metadata=authoritative_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=expected_contract.risk_tier,
-            expected_gate_profile=expected_contract.gate_profile,
+            expected_risk_tier=authoritative_contract.risk_tier,
+            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
-    if contract.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+    if authoritative_contract.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
         packet_readiness = gate_evidence.packet_readiness(
-            required_risk_tier=contract.risk_tier,
+            required_risk_tier=authoritative_contract.risk_tier,
         )
         if not packet_readiness.passed:
             return RiskAuthorityGateDecision(
@@ -237,12 +244,12 @@ def select_risk_authority_gate(
                     "Selected authority gate profile requires complete decision "
                     f"evidence packet support: {packet_readiness.message}"
                 ),
-                risk_tier=contract.risk_tier,
-                gate_profile=contract.gate_profile,
-                authority_metadata=selected_metadata,
+                risk_tier=authoritative_contract.risk_tier,
+                gate_profile=authoritative_contract.gate_profile,
+                authority_metadata=authoritative_contract.to_metadata(),
                 evidence=gate_evidence,
-                expected_risk_tier=expected_contract.risk_tier,
-                expected_gate_profile=expected_contract.gate_profile,
+                expected_risk_tier=authoritative_contract.risk_tier,
+                expected_gate_profile=authoritative_contract.gate_profile,
             )
 
     if decision_profile.requires_decision_evidence and not (
@@ -252,12 +259,12 @@ def select_risk_authority_gate(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED,
             message="Selected authority gate profile requires decision evidence.",
-            risk_tier=contract.risk_tier,
-            gate_profile=contract.gate_profile,
-            authority_metadata=selected_metadata,
+            risk_tier=authoritative_contract.risk_tier,
+            gate_profile=authoritative_contract.gate_profile,
+            authority_metadata=authoritative_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=expected_contract.risk_tier,
-            expected_gate_profile=expected_contract.gate_profile,
+            expected_risk_tier=authoritative_contract.risk_tier,
+            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
     if decision_profile.requires_provenance_evidence and not (
@@ -267,24 +274,24 @@ def select_risk_authority_gate(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED,
             message="Selected authority gate profile requires provenance evidence.",
-            risk_tier=contract.risk_tier,
-            gate_profile=contract.gate_profile,
-            authority_metadata=selected_metadata,
+            risk_tier=authoritative_contract.risk_tier,
+            gate_profile=authoritative_contract.gate_profile,
+            authority_metadata=authoritative_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=expected_contract.risk_tier,
-            expected_gate_profile=expected_contract.gate_profile,
+            expected_risk_tier=authoritative_contract.risk_tier,
+            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
     return RiskAuthorityGateDecision(
         status=RiskAuthorityGateDecisionStatus.PASSED,
         failure_mode=RiskAuthorityGateFailureMode.NONE,
         message="Risk authority gate profile selected from canonical metadata.",
-        risk_tier=contract.risk_tier,
-        gate_profile=contract.gate_profile,
-        authority_metadata=selected_metadata,
+        risk_tier=authoritative_contract.risk_tier,
+        gate_profile=authoritative_contract.gate_profile,
+        authority_metadata=authoritative_contract.to_metadata(),
         evidence=gate_evidence,
-        expected_risk_tier=expected_contract.risk_tier,
-        expected_gate_profile=expected_contract.gate_profile,
+        expected_risk_tier=authoritative_contract.risk_tier,
+        expected_gate_profile=authoritative_contract.gate_profile,
     )
 
 
@@ -348,6 +355,27 @@ def _metadata_copy(
     if isinstance(authority_metadata, RiskAuthorityContract):
         return authority_metadata.to_metadata()
     return dict(authority_metadata)
+
+
+def _same_authority_contract(
+    supplied_contract: RiskAuthorityContract,
+    expected_contract: RiskAuthorityContract,
+) -> bool:
+    return (
+        supplied_contract.risk_tier is expected_contract.risk_tier
+        and supplied_contract.gate_profile is expected_contract.gate_profile
+        and supplied_contract.authority_effect is expected_contract.authority_effect
+        and supplied_contract.content_type is expected_contract.content_type
+        and supplied_contract.canonical_owner is expected_contract.canonical_owner
+        and supplied_contract.source_of_truth is expected_contract.source_of_truth
+        and supplied_contract.intended_sink is expected_contract.intended_sink
+        and supplied_contract.capital_relevant == expected_contract.capital_relevant
+        and supplied_contract.durable_authority == expected_contract.durable_authority
+        and supplied_contract.externally_visible == expected_contract.externally_visible
+        and supplied_contract.governance_impact == expected_contract.governance_impact
+        and supplied_contract.evidence_sufficient
+        == expected_contract.evidence_sufficient
+    )
 
 
 def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:

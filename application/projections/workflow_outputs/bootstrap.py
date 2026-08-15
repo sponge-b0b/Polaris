@@ -95,6 +95,7 @@ from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 
 ProjectionSessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
@@ -109,12 +110,14 @@ class PostgresWorkflowOutputProjectionCoordinator:
         *,
         session_factory: ProjectionSessionFactory,
         registry: WorkflowOutputProjectionRegistry | None = None,
+        workflow_registry: WorkflowRegistry | None = None,
         projector_registrations: Iterable[WorkflowOutputProjectorRegistration] = (),
         eligibility_policy: WorkflowOutputProjectionEligibilityPolicy | None = None,
         observability_manager: ObservabilityManager | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._registry = registry
+        self._workflow_registry = workflow_registry
         self._projector_registrations = tuple(projector_registrations)
         self._eligibility_policy = (
             eligibility_policy or WorkflowOutputProjectionEligibilityPolicy()
@@ -202,6 +205,10 @@ class PostgresWorkflowOutputProjectionCoordinator:
         strategy_persistence_service = StrategyPersistenceService(
             PostgresStrategyPersistenceRepository(session),
         )
+        automated_decision_audit_service = AutomatedDecisionAuditService(
+            PostgresAutomatedDecisionAuditRepository(session),
+            observability_manager=self._observability_manager,
+        )
         return WorkflowOutputProjectionRegistry(
             (
                 *self._projector_registrations,
@@ -232,6 +239,8 @@ class PostgresWorkflowOutputProjectionCoordinator:
                         decision_evidence_packet_persistence_service
                     ),
                     lineage_persistence_service=lineage_persistence_service,
+                    workflow_registry=self._workflow_registry,
+                    governed_output_release_service=(automated_decision_audit_service),
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,
@@ -243,6 +252,7 @@ class PostgresWorkflowOutputProjectionCoordinator:
 
 def build_default_workflow_output_projection_subscriber(
     *,
+    workflow_registry: WorkflowRegistry,
     session_factory: ProjectionSessionFactory | None = None,
     observability_manager: ObservabilityManager | None = None,
     config: WorkflowOutputProjectionEventSubscriberConfig | None = None,
@@ -256,6 +266,7 @@ def build_default_workflow_output_projection_subscriber(
     return WorkflowOutputProjectionEventSubscriber(
         PostgresWorkflowOutputProjectionCoordinator(
             session_factory=session_factory,
+            workflow_registry=workflow_registry,
             observability_manager=observability_manager,
         ),
         config=config,
@@ -278,6 +289,7 @@ def subscribe_workflow_output_projection_event_subscriber(
 def subscribe_default_workflow_output_projection(
     *,
     event_bus: EventBus,
+    workflow_registry: WorkflowRegistry,
     session_factory: ProjectionSessionFactory | None = None,
     observability_manager: ObservabilityManager | None = None,
     config: WorkflowOutputProjectionEventSubscriberConfig | None = None,
@@ -286,6 +298,7 @@ def subscribe_default_workflow_output_projection(
     return subscribe_workflow_output_projection_event_subscriber(
         event_bus=event_bus,
         subscriber=build_default_workflow_output_projection_subscriber(
+            workflow_registry=workflow_registry,
             session_factory=session_factory,
             observability_manager=observability_manager,
             config=config,

@@ -8,6 +8,7 @@ import pytest
 
 import mcp_server.lifespan as lifespan_module
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from mcp_server.lifespan import McpApplicationContext, mcp_application_lifespan
 from mcp_server.server import server
 from mcp_server.settings import McpServerSettings
@@ -26,6 +27,8 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
     )
 
     class FakeFacade:
+        registry = WorkflowRegistry()
+
         async def register_workflow_async(
             self,
             *,
@@ -88,9 +91,11 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
     def fake_subscribe_default_workflow_output_projection(
         *,
         event_bus: object,
+        workflow_registry: object,
         observability_manager: ObservabilityManager | None = None,
     ) -> bool:
         assert event_bus is runtime.event_bus
+        assert workflow_registry is runtime.facade.registry
         assert observability_manager is runtime.observability_manager
         lifecycle.append("projection_subscribed")
         return True

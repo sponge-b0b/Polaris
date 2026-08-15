@@ -52,6 +52,7 @@ async def mcp_application_lifespan(
         runtime = await container.get(WorkflowBootstrapResult)
         subscribe_default_workflow_output_projection(
             event_bus=runtime.event_bus,
+            workflow_registry=runtime.facade.registry,
             observability_manager=runtime.observability_manager,
         )
         for registration in _get_builtin_workflow_registrations():

@@ -43,7 +43,7 @@ A declared **Ticket branch** must exactly match the current branch before any fi
 * Missing field halts.
 * Detached `HEAD` does not satisfy a declared branch.
 
-```bash
+```bash id="deh7wz"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -73,7 +73,7 @@ Do this before file mutation.
 
 If already a SHA:
 
-```bash
+```bash id="lfx3va"
 git rev-parse "$TICKET_BASELINE^{commit}"
 ```
 
@@ -88,6 +88,20 @@ Elapsed time, remaining work, context pressure, task size, or partial progress a
 **A partial implementation is not a defined blocker. If actionable in-scope work remains, continue the ticket in the current invocation.**
 
 Whenever halting before completion, explicitly name the blocker and the workflow rule that requires or permits the halt.
+
+### Invocation Termination
+
+Do not emit a final response unless one of these states applies:
+
+* **Completed** — all required commit, push, evidence, and closure gates completed;
+* **Human Handoff** — this skill explicitly requires human authorization;
+* **Hard Blocker** — a concrete external/environmental, branch, baseline, permission, required-tool, or persistence failure prevents further safe work.
+
+Everything else is non-terminal.
+
+In particular, partial progress, verification failure, `ROOT CLOSURE: FAIL`, corrective edits making a verdict stale, remaining actionable in-scope work, an open ticket, and `ROOT CLOSURE: PASS` before final lifecycle completion do not authorize stopping.
+
+If none applies, continue the workflow.
 
 ### Living Entity Wiki Guard
 
@@ -351,7 +365,11 @@ The `$implement-ticket` main agent only consumes the verifier result; it must no
 
 #### FAIL
 
-`ROOT CLOSURE: FAIL` is blocking.
+`ROOT CLOSURE: FAIL` is non-terminal.
+
+Resume implementation immediately and complete every actionable verifier finding before returning to the Root Closure Human Handoff Intercept.
+
+Corrective edits making the failed verdict stale are expected and are not a stopping condition.
 
 * keep the ticket open;
 * fix every implementation/proof failure within ticket scope;
@@ -368,7 +386,9 @@ The parent may not override or downgrade a verifier failure.
 
 #### PASS
 
-Only `ROOT CLOSURE: PASS` permits progress toward commit.
+`ROOT CLOSURE: PASS` is non-terminal. Proceed directly to Section 4.
+
+Do not report `PASS` as completion; the ticket is not complete until commit, push, Root Closure Evidence persistence, and closure succeed.
 
 Capture the verifier's:
 
@@ -385,7 +405,7 @@ Any implementation change after `PASS` makes the verdict stale and requires anot
 
 Re-check **Ticket branch** immediately before commit.
 
-```bash
+```bash id="647p8h"
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -401,7 +421,7 @@ Skip when **Ticket branch** is `None`.
 
 For Spec Review remediation, recompute:
 
-```bash
+```bash id="7pzhxg"
 CURRENT_ROOT_CLOSURE_STATE=$(
   {
     git diff --binary "$TICKET_BASELINE" --
@@ -414,7 +434,7 @@ CURRENT_ROOT_CLOSURE_STATE=$(
 
 Require:
 
-```bash
+```bash id="gbgd27"
 test "$CURRENT_ROOT_CLOSURE_STATE" = "$ROOT_CLOSURE_STATE"
 ```
 
@@ -432,7 +452,7 @@ After all required verification and closure gates succeed:
 4. include owned wiki changes in the same commit;
 5. push:
 
-```bash
+```bash id="a1f3bo"
 git push -u origin HEAD
 ```
 
@@ -440,7 +460,7 @@ If commit or push fails, do not close the ticket.
 
 Capture ticket commits:
 
-```bash
+```bash id="8vjil4"
 git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
 ```
 
@@ -467,7 +487,7 @@ For Spec Review remediation additionally require:
 
 Before closing a Spec Review remediation ticket, persist the independently verified closure evidence as a ticket comment:
 
-```markdown
+```markdown id="55ixgh"
 ## Root Closure Evidence
 
 **Root:** RB-<n> — <invariant>
@@ -506,6 +526,10 @@ Never close a Spec Review remediation ticket with:
 Ordinary tickets do not use `$verify-root-closure` or formal Root Closure Evidence.
 
 ## 7. Handoff
+
+Enter this section only when **Invocation Termination** permits returning control.
+
+Do not use a progress report as a substitute for continuing actionable work.
 
 Report:
 

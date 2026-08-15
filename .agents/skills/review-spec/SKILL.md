@@ -11,7 +11,10 @@ Review the verified diff between `HEAD` and the Spec baseline along three indepe
 * **Spec** — originating Spec requirements.
 * **Architecture** — resolved architecture and current authorities.
 
-This is review-only. Do not run `pytest`, Ruff, Mypy, `$wiki-lint`, graph updates, duplication scans, or other verification commands. `$verify-spec` owns verification.
+This is review-only.
+Do not run `pytest`, Ruff, Mypy, graph updates, duplication scans, or other verification commands.
+Do not invoke the `$wiki-lint` skill.
+`$verify-spec` owns verification.
 
 `$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
 

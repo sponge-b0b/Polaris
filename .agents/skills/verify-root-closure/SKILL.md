@@ -1,19 +1,46 @@
 ---
 name: verify-root-closure
-description: Invoked only by `$implement-ticket` for Spec Review remediation — independently verify that the current Root Blocker is closed and affected satisfied roots remain preserved before commit and closure.
+description: Independently verify Root Blocker closure for a Spec Review remediation ticket in the fresh non-mutating verifier subagent dispatched by `$implement-ticket` after explicit human authorization.
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # Verify Root Closure
 
-Invoked only by `$implement-ticket` for a **Spec Review remediation ticket**. Do not invoke as a standalone workflow.
+Independently certify or reject closure of one Root Blocker for a **Spec Review remediation ticket**.
 
-`$implement-ticket` invokes this in a **fresh read-only subagent** after implementation, targeted verification, and proposed Root Closure Evidence are complete, but before commit, push, Root Closure Evidence persistence, or ticket closure.
+## Invocation Semantics
 
-Independently certify or reject closure of one Root Blocker.
+When the human explicitly invokes `$verify-root-closure` in response to the Root Closure Human Handoff from `$implement-ticket`, that invocation is an **authorization event**, not authorization for the `$implement-ticket` main agent to perform certification.
 
-Do not modify source, tests, docs, wiki, tracker state, commits, or architecture.
+The main agent must resume `$implement-ticket` at its verifier-dispatch checkpoint and spawn exactly one fresh verifier subagent.
+
+Only that fresh verifier subagent executes the certification procedure below.
+
+If this skill is being executed directly by the `$implement-ticket` main agent instead of the dispatched verifier, do not perform certification or emit a root-closure verdict.
+
+## Non-Mutating Leaf Verifier
+
+`$verify-root-closure` is a **non-mutating leaf workflow**.
+
+It may:
+
+* read and search repository/tracker evidence;
+* inspect Git state and history;
+* run targeted checks required to establish closure or protected-root preservation.
+
+It must not:
+
+* edit, create, delete, move, format, or generate repository files;
+* modify Git, branch, commit, or tracker state;
+* run fixers or other repository-mutating commands;
+* perform implementation or remediation;
+* invoke implementation/remediation workflows;
+* delegate or spawn another agent or subagent.
+
+**A discovered defect is evidence for `ROOT CLOSURE: FAIL`, never authorization to repair it.**
+
+A verifier that mutates or delegates has not performed valid root-closure verification. `$implement-ticket` owns detection/invalidation of such a run and any subsequent recovery.
 
 The implementer's proposed Root Closure Evidence is a set of claims to verify, not authority.
 
@@ -103,7 +130,9 @@ When fail-closed behavior is required, verify applicable absence, mismatch, subs
 
 If accepted architecture already determines a responsibility but its implementation is missing or incorrect, classify it as an **implementation violation**, not unresolved architecture.
 
-If proceeding would genuinely require a new durable architectural choice, report an `architecture-blocker candidate`. Do not resolve or route it here.
+If proceeding would genuinely require a new durable architectural choice, report an `architecture-blocker candidate`.
+
+Do not resolve, route, or remediate it here.
 
 ## 4. Verify Protected Roots
 
@@ -133,9 +162,11 @@ Do not run unrelated:
 
 Do not fix failures.
 
+If a targeted check fails because of an implementation/proof defect, record the failure and continue only as needed to determine the complete verdict.
+
 ## 6. Worktree Fingerprint
 
-On `PASS`, record the exact verified implementation state:
+Record the exact verified implementation state:
 
 ```bash
 ROOT_CLOSURE_STATE=$(
@@ -153,7 +184,11 @@ Return both:
 * `TICKET_BASELINE`;
 * `ROOT_CLOSURE_STATE`.
 
-Any implementation change after `PASS` makes the verdict stale and requires `$implement-ticket` to invoke a **fresh** `$verify-root-closure`.
+The caller-provided candidate state and returned `ROOT_CLOSURE_STATE` must describe the same state.
+
+Do not attempt to reconcile a mismatch. `$implement-ticket` owns candidate-state integrity and verdict invalidation.
+
+Any implementation change after a valid `PASS` makes the verdict stale.
 
 ## 7. Verdict
 
@@ -221,9 +256,11 @@ Required correction:
 
 Do not downgrade required failures to advisory findings.
 
+Do not repair any failure before returning the verdict.
+
 ## Completion
 
-This skill completes with exactly one independent verdict:
+A valid verifier execution completes with exactly one independent verdict:
 
 * `ROOT CLOSURE: PASS`; or
 * `ROOT CLOSURE: FAIL`.
@@ -233,9 +270,11 @@ This skill completes with exactly one independent verdict:
 `$implement-ticket` alone owns:
 
 * correcting failures;
-* applying its Architecture vs. Implementation Test to architecture-blocker candidates;
+* applying its Architecture vs. Implementation rule to architecture-blocker candidates;
 * rerunning affected verification;
-* invoking a fresh `$verify-root-closure`;
+* rebuilding Proposed Root Closure Evidence;
+* requesting fresh human authorization;
+* dispatching a fresh `$verify-root-closure` verifier;
 * committing and pushing;
 * persisting final Root Closure Evidence;
 * closing the ticket.

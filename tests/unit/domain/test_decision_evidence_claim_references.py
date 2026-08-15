@@ -116,6 +116,9 @@ def test_claim_reference_metadata_exposes_resolved_contrary_evidence() -> None:
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
     references = evidence_claim_references_from_packet(packet)
@@ -211,4 +214,7 @@ def _packet() -> DecisionEvidencePacket:
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )

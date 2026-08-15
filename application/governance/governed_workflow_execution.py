@@ -155,6 +155,7 @@ class GovernedWorkflowExecutionService:
         return _issue_workflow_execution_audit_capability(
             service=self._automated_decision_audit_service,
             context=audit_context,
+            evidence=evidence,
         )
 
     def _is_governed(self) -> bool:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -55,6 +56,7 @@ from core.storage.persistence.strategy import (
     StrategyPersistenceRepository,
     StrategyPersistenceResult,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.authority import GateProfile, RiskTier
 from domain.workflow_outputs import (
     STRATEGY_BULL_HYPOTHESIS_OUTPUT_CONTRACT,
@@ -122,6 +124,7 @@ async def test_strategy_synthesis_projector_persists_decision_and_recommendation
         ),
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
     )
 
     outcome = await projector.project(
@@ -260,6 +263,7 @@ async def test_strategy_synthesis_projector_ignores_model_authority_claims() -> 
         ),
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
     )
 
     outcome = await projector.project(
@@ -335,6 +339,7 @@ async def test_strategy_synthesis_projector_fails_when_lineage_persistence_fails
         ),
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
     )
 
     outcome = await projector.project(
@@ -387,6 +392,7 @@ async def test_strategy_synthesis_projector_fails_closed_without_support_evidenc
         ),
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
     )
 
     outcome = await projector.project(
@@ -399,6 +405,55 @@ async def test_strategy_synthesis_projector_fails_closed_without_support_evidenc
     assert strategy_repository.bundles == []
     assert recommendation_repository.bundles == []
     assert packet_repository.records == {}
+    assert lineage_repository.links == []
+
+
+@pytest.mark.asyncio
+async def test_strategy_synthesis_projector_fails_closed_for_non_durable_packet() -> (
+    None
+):
+    strategy_repository = _FakeStrategyRepository()
+    recommendation_repository = _FakeRecommendationRepository()
+    lineage_repository = _FakeLineageRepository()
+    packet_repository = _FakeDecisionEvidencePacketRepository(records_persisted=0)
+    run = _run()
+    bull_node = _bull_node()
+    synthesis_node = _synthesis_node()
+    bundle = CompletedRunBundle(run=run, node_outputs=(bull_node, synthesis_node))
+    lineage_service = LineagePersistenceService(
+        cast(PersistenceLineageLinkRepository, lineage_repository),
+    )
+    packet_service = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(
+            CompletedRunArchive, _FakeCompletedRunArchive(bundle)
+        ),
+    )
+    projector = StrategySynthesisWorkflowOutputProjector(
+        strategy_persistence_service=StrategyPersistenceService(
+            cast(StrategyPersistenceRepository, strategy_repository),
+        ),
+        recommendation_persistence_service=RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, recommendation_repository),
+        ),
+        decision_evidence_packet_persistence_service=packet_service,
+        lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
+    )
+
+    outcome = await projector.project(
+        _projector_request(synthesis_node, run=run, bundle=bundle)
+    )
+
+    assert outcome.status is WorkflowOutputProjectionStatus.FAILED
+    assert outcome.error_message == (
+        "Strategy decision evidence packet persistence failed."
+    )
+    assert strategy_repository.bundles == []
+    assert recommendation_repository.bundles == []
     assert lineage_repository.links == []
 
 
@@ -429,6 +484,7 @@ async def test_strategy_synthesis_projector_fails_closed_without_snapshots() -> 
         ),
         decision_evidence_packet_persistence_service=packet_service,
         lineage_persistence_service=lineage_service,
+        workflow_registry=_workflow_registry(),
     )
 
     outcome = await projector.project(_projector_request(synthesis_node, run=run))
@@ -526,8 +582,15 @@ class _FakeLineageRepository:
 
 
 class _FakeDecisionEvidencePacketRepository:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        records_persisted: int = 1,
+        packet_id: str | None = None,
+    ) -> None:
         self.records: dict[str, DecisionEvidencePacketRecord] = {}
+        self._records_persisted = records_persisted
+        self._packet_id = packet_id
 
     async def persist_packet_record(
         self,
@@ -535,7 +598,8 @@ class _FakeDecisionEvidencePacketRepository:
     ) -> DecisionEvidencePacketPersistenceResult:
         self.records[record.packet_id] = record
         return DecisionEvidencePacketPersistenceResult.succeeded(
-            record.packet_id,
+            self._packet_id or record.packet_id,
+            records_persisted=self._records_persisted,
         )
 
     async def get_packet_record(
@@ -595,6 +659,20 @@ class _FakeCompletedRunArchive:
         max_count: int | None = None,
     ) -> int:
         return 0
+
+
+def _workflow_registry() -> WorkflowRegistry:
+    return cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: SimpleNamespace(
+                identity=SimpleNamespace(
+                    workflow_name=workflow_name,
+                    definition_fingerprint="test-definition-fingerprint",
+                )
+            )
+        ),
+    )
 
 
 def _projector_request(

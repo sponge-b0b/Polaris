@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations import (
     EvaluationDatasetRegistrationRequest,
     EvaluationDatasetSeedRequest,
@@ -23,6 +26,9 @@ from application.evaluations import (
     canonical_evaluation_dataset_slice_definition_by_name,
     select_risk_authority_gate,
 )
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceResult,
+)
 from core.storage.persistence.evaluation import (
     EvaluationArtifactRecord,
     EvaluationCaseRecord,
@@ -34,6 +40,7 @@ from core.storage.persistence.evaluation import (
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.authority import (
     AiOutputContentType,
     AuthorityEffect,
@@ -45,7 +52,10 @@ from domain.authority import (
     RiskTier,
     SourceOfTruthCategory,
 )
-from domain.decision_evidence import evidence_claim_references_from_packet
+from domain.decision_evidence import (
+    DecisionEvidencePacket,
+    evidence_claim_references_from_packet,
+)
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -61,6 +71,9 @@ from integration.providers.llm_evaluation import (
     EvaluationProviderRequest,
     EvaluationProviderResult,
 )
+
+_EVALUATION_GATE_WORKFLOW_NAME = "evaluation_gate"
+_EVALUATION_GATE_DEFINITION_FINGERPRINT = "test-evaluation-gate-fingerprint"
 
 
 @dataclass(slots=True)
@@ -235,8 +248,44 @@ class FakeProjectionService:
         )
 
 
+class FakeDecisionEvidencePacketPersistenceService:
+    def __init__(self) -> None:
+        self.packets: dict[str, DecisionEvidencePacket] = {}
+
+    async def persist_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.packets[packet.packet_id] = packet
+        return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
+
+    async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        return self.packets[packet_id]
+
+
 def _repository() -> FakeEvaluationRepository:
     return FakeEvaluationRepository({}, {}, {}, [], [])
+
+
+def _packet_persistence() -> DecisionEvidencePacketPersistenceService:
+    return cast(
+        DecisionEvidencePacketPersistenceService,
+        FakeDecisionEvidencePacketPersistenceService(),
+    )
+
+
+def _workflow_registry() -> WorkflowRegistry:
+    return cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: SimpleNamespace(
+                identity=SimpleNamespace(
+                    workflow_name=workflow_name,
+                    definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
+                )
+            )
+        ),
+    )
 
 
 def _case(dataset: EvaluationDatasetReference) -> EvaluationCase:
@@ -290,6 +339,8 @@ def _risk_gate_evidence_for_rag_answer(
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id=run_id,
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
 
 
@@ -328,14 +379,18 @@ async def test_run_service_persists_cases_running_run_and_results() -> None:
     repository = _repository()
     dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
     service = EvaluationRunService(
-        FakeProvider(), repository, FakeProjectionService([])
+        FakeProvider(),
+        repository,
+        FakeProjectionService([]),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-1",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -374,7 +429,7 @@ async def test_run_service_fails_closed_on_missing_non_baseline_metadata() -> No
         EvaluationRunServiceRequest(
             run_id="run-missing-authority",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -412,7 +467,11 @@ async def test_run_service_accepts_missing_metadata_for_baseline_target() -> Non
     repository = _repository()
     dataset = EvaluationDatasetReference("dataset-1", "retrieval", "v1")
     service = EvaluationRunService(
-        FakeProvider(), repository, FakeProjectionService([])
+        FakeProvider(),
+        repository,
+        FakeProjectionService([]),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
     case = EvaluationCase(
         case_id="case-1",
@@ -461,7 +520,7 @@ async def test_run_service_fails_closed_when_gate_evidence_is_missing() -> None:
         EvaluationRunServiceRequest(
             run_id="run-risk-gate",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -490,22 +549,23 @@ async def test_run_service_records_selected_authority_gate_profile() -> None:
     repository = _repository()
     dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
     service = EvaluationRunService(
-        FakeProvider(), repository, FakeProjectionService([])
+        FakeProvider(),
+        repository,
+        FakeProjectionService([]),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-risk-gate",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
             dataset=dataset,
             authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
-            authority_gate_evidence=_risk_gate_evidence_for_rag_answer(
-                run_id="run-risk-gate",
-            ),
         )
     )
 
@@ -518,12 +578,56 @@ async def test_run_service_records_selected_authority_gate_profile() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_run_service_uses_registry_identity_over_supplied_gate_packet() -> None:
+    repository = _repository()
+    dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
+    supplied_evidence = authority_gate_evidence_for_evaluation_cases(
+        EvaluationTargetType.RAG_ANSWER,
+        (_canonical_evidence_case(dataset),),
+        run_id="run-risk-gate",
+        workflow_name="caller_supplied_gate",
+        workflow_definition_fingerprint="caller-supplied-fingerprint",
+    )
+    service = EvaluationRunService(
+        FakeProvider(),
+        repository,
+        FakeProjectionService([]),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
+    )
+
+    result = await service.run_evaluation(
+        EvaluationRunServiceRequest(
+            run_id="run-risk-gate",
+            target_type=EvaluationTargetType.RAG_ANSWER,
+            cases=(_canonical_evidence_case(dataset),),
+            metrics=(_metric(),),
+            evaluator_provider="deepeval",
+            evaluator_model="qwen3.5:4b",
+            dataset=dataset,
+            authority_metadata=_risk_metadata_for_externally_visible_rag_answer(),
+            authority_gate_evidence=supplied_evidence,
+        )
+    )
+
+    assert result.authority_gate_decision is not None
+    packet = result.authority_gate_decision.evidence.decision_evidence_packets[0]
+    assert packet.workflow_name == _EVALUATION_GATE_WORKFLOW_NAME
+    assert (
+        packet.workflow_definition_fingerprint
+        == _EVALUATION_GATE_DEFINITION_FINGERPRINT
+    )
+
+
 def test_authority_gate_evidence_uses_canonical_packet_not_case_ids() -> None:
     dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
     evidence = authority_gate_evidence_for_evaluation_cases(
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id="run-packet-backed",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
 
     readiness = evidence.packet_readiness(required_risk_tier=RiskTier.ENHANCED)
@@ -549,6 +653,8 @@ def test_authority_gate_evidence_retains_reconstructable_support_snapshots() -> 
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id="run-packet-backed",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
 
     packet = evidence.decision_evidence_packets[0]
@@ -582,6 +688,8 @@ def test_authority_gate_fails_closed_when_evaluation_snapshot_is_missing() -> No
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id="run-missing-snapshot",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
     packet = evidence.decision_evidence_packets[0]
     unsupported_evidence = replace(packet.evidence[0], support_snapshot=None)
@@ -613,6 +721,8 @@ def test_authority_gate_fails_closed_when_evaluation_snapshot_is_stale() -> None
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id="run-stale-snapshot",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
     snapshot = evidence.decision_evidence_packets[0].evidence[0].support_snapshot
     assert snapshot is not None
@@ -642,6 +752,8 @@ def test_authority_gate_fails_closed_for_substituted_evaluation_claim_reference(
         EvaluationTargetType.RAG_ANSWER,
         (_canonical_evidence_case(dataset),),
         run_id="run-substituted-reference",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
     packet = evidence.decision_evidence_packets[0]
     reference = evidence_claim_references_from_packet(packet).claim_references[0]
@@ -676,6 +788,8 @@ def test_authority_gate_evidence_fails_closed_when_only_case_provenance_exists()
         EvaluationTargetType.RAG_ANSWER,
         (_case(dataset),),
         run_id="run-case-only",
+        workflow_name=_EVALUATION_GATE_WORKFLOW_NAME,
+        workflow_definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
     )
 
     decision = select_risk_authority_gate(
@@ -705,13 +819,15 @@ async def test_run_service_records_evaluation_observability() -> None:
         repository,
         FakeProjectionService([]),
         telemetry=EvaluationTelemetry(observability),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-1",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -749,7 +865,7 @@ async def test_run_service_observes_authority_gate_failure_once() -> None:
         EvaluationRunServiceRequest(
             run_id="run-risk-gate",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -795,14 +911,18 @@ async def test_run_service_persists_errored_run_when_provider_fails() -> None:
     repository = _repository()
     dataset = EvaluationDatasetReference("dataset-1", "golden", "v1")
     service = EvaluationRunService(
-        FakeProvider(fail=True), repository, FakeProjectionService([])
+        FakeProvider(fail=True),
+        repository,
+        FakeProjectionService([]),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-1",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -848,13 +968,15 @@ async def test_run_service_projects_persisted_results_to_langfuse() -> None:
         FakeProvider(),
         repository,
         projection_service=projection_service,
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-1",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",
@@ -887,13 +1009,15 @@ async def test_run_service_preserves_persistence_when_langfuse_projection_fails(
         FakeProvider(),
         repository,
         projection_service=projection_service,
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
     )
 
     result = await service.run_evaluation(
         EvaluationRunServiceRequest(
             run_id="run-1",
             target_type=EvaluationTargetType.RAG_ANSWER,
-            cases=(_case(dataset),),
+            cases=(_canonical_evidence_case(dataset),),
             metrics=(_metric(),),
             evaluator_provider="deepeval",
             evaluator_model="qwen3.5:4b",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dishka import Provider, Scope, provide
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations.evaluation_dataset_service import EvaluationDatasetService
 from application.evaluations.evaluation_jobs import EvaluationJobProcessor
 from application.evaluations.evaluation_langfuse_projection_service import (
@@ -18,6 +19,7 @@ from config.settings import Settings
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
 from core.telemetry.emitters.integration_telemetry import IntegrationTelemetry
 from core.telemetry.observability import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
 from integration.providers.llm_evaluation import (
     DeepEvalEvaluationProvider,
     EvaluationProvider,
@@ -83,8 +85,19 @@ class ApplicationEvaluationsDIProvider(Provider):
         repository: EvaluationPersistenceRepository,
         projection_service: EvaluationLangfuseProjectionService,
         telemetry: EvaluationTelemetry,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+        workflow_facade: WorkflowFacade,
     ) -> EvaluationRunService:
-        return EvaluationRunService(provider, repository, projection_service, telemetry)
+        return EvaluationRunService(
+            provider,
+            repository,
+            projection_service,
+            telemetry,
+            decision_evidence_packet_persistence_service,
+            workflow_facade.registry,
+        )
 
     @provide
     def provide_model_replacement_validation_gate(
@@ -92,11 +105,19 @@ class ApplicationEvaluationsDIProvider(Provider):
         result_service: EvaluationResultService,
         run_service: EvaluationRunService,
         settings: Settings,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+        workflow_facade: WorkflowFacade,
     ) -> ModelReplacementValidationGate:
         return ModelReplacementValidationGate(
             result_service=result_service,
             run_service=run_service,
             settings=settings,
+            decision_evidence_packet_persistence_service=(
+                decision_evidence_packet_persistence_service
+            ),
+            workflow_registry=workflow_facade.registry,
         )
 
     @provide

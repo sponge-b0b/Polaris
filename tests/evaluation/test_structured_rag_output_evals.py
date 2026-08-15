@@ -11,7 +11,6 @@ from pydantic import ValidationError
 from application.evaluations import (
     EvaluationRunService,
     EvaluationRunServiceRequest,
-    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
     expected_authority_metadata_for_evaluation_target,
     rag_evaluation_metric_specs,
@@ -31,6 +30,8 @@ from tests.evaluation._helpers import (
     PassingEvaluationProvider,
     RecordingProjectionService,
     evaluation_case_from_row,
+    evaluation_gate_workflow_registry,
+    packet_persistence_service,
 )
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
@@ -152,6 +153,8 @@ async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persiste
         provider=PassingEvaluationProvider(score=0.95),
         repository=repository,
         projection_service=projection_service,
+        decision_evidence_packet_persistence_service=packet_persistence_service(),
+        workflow_registry=evaluation_gate_workflow_registry(),
     )
 
     result = await service.run_evaluation(
@@ -166,11 +169,6 @@ async def test_selected_golden_rag_dataset_runs_full_metric_set_through_persiste
             timeout_seconds=5.0,
             authority_metadata=expected_authority_metadata_for_evaluation_target(
                 EvaluationTargetType.RAG_ANSWER,
-            ),
-            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                EvaluationTargetType.RAG_ANSWER,
-                cases,
-                run_id="structured-rag-regression-golden-001",
             ),
         )
     )
@@ -215,6 +213,8 @@ async def test_structured_rag_regression_run_excludes_detached_cases_by_default(
         provider=provider,
         repository=InMemoryEvaluationRepository(),
         projection_service=RecordingProjectionService(),
+        decision_evidence_packet_persistence_service=packet_persistence_service(),
+        workflow_registry=evaluation_gate_workflow_registry(),
     )
 
     await service.run_evaluation(
@@ -229,11 +229,6 @@ async def test_structured_rag_regression_run_excludes_detached_cases_by_default(
             timeout_seconds=5.0,
             authority_metadata=expected_authority_metadata_for_evaluation_target(
                 EvaluationTargetType.RAG_ANSWER,
-            ),
-            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                EvaluationTargetType.RAG_ANSWER,
-                active_cases,
-                run_id="structured-rag-regression-active-only-001",
             ),
         )
     )

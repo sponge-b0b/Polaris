@@ -25,6 +25,7 @@ class BaselineRuntimeEvidenceModel(Base):
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     workflow_name: Mapped[str] = mapped_column(String, nullable=False)
     workflow_version: Mapped[str] = mapped_column(String, nullable=False)
+    execution_id: Mapped[str] = mapped_column(String, nullable=False)
     provenance_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     authority_metadata: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
@@ -41,4 +42,8 @@ class BaselineRuntimeEvidenceModel(Base):
 Index(
     "idx_baseline_runtime_evidence_workflow",
     BaselineRuntimeEvidenceModel.workflow_name,
+)
+Index(
+    "idx_baseline_runtime_evidence_execution",
+    BaselineRuntimeEvidenceModel.execution_id,
 )

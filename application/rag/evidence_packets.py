@@ -60,6 +60,9 @@ def attach_rag_answer_evidence_packet(
     *,
     request: RagRequest,
     result: RagResult,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
+    execution_id: str,
 ) -> RagResult:
     """Attach a canonical decision evidence packet to supported RAG answers.
 
@@ -75,6 +78,9 @@ def attach_rag_answer_evidence_packet(
     try:
         packet = assemble_rag_answer_evidence_packet(
             result=result,
+            workflow_name=workflow_name,
+            workflow_definition_fingerprint=workflow_definition_fingerprint,
+            execution_id=execution_id,
         )
     except DecisionEvidencePacketValidationError as exc:
         return classify_rag_result_authority(
@@ -105,6 +111,9 @@ def attach_rag_answer_evidence_packet(
 def assemble_rag_answer_evidence_packet(
     *,
     result: RagResult,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
+    execution_id: str,
 ) -> DecisionEvidencePacket:
     """Build the canonical evidence packet for an already-classified RAG answer."""
 
@@ -217,6 +226,9 @@ def assemble_rag_answer_evidence_packet(
         evidence=tuple(evidence),
         reconstruction_references=tuple(reconstruction_references),
         retention=_retention_requirement(result.generated_at, authority.risk_tier),
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=execution_id,
         limitations=tuple(limitations),
     )
 

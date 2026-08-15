@@ -315,6 +315,9 @@ class DecisionEvidencePacket:
     evidence: tuple[EvidenceReference, ...]
     reconstruction_references: tuple[ReconstructionReference, ...]
     retention: EvidenceRetentionRequirement
+    workflow_name: str
+    workflow_definition_fingerprint: str
+    execution_id: str
     constraints: tuple[EvidenceConstraint, ...] = ()
     uncertainties: tuple[EvidenceUncertainty, ...] = ()
     limitations: tuple[EvidenceLimitation, ...] = ()
@@ -325,6 +328,14 @@ class DecisionEvidencePacket:
         _set_clean_string(self, "output_id")
         _validate_authority(self.authority)
         _validate_retention(self.retention)
+        _validate_workflow_execution_provenance(
+            workflow_name=self.workflow_name,
+            workflow_definition_fingerprint=self.workflow_definition_fingerprint,
+            execution_id=self.execution_id,
+        )
+        _set_clean_string(self, "workflow_name")
+        _set_clean_string(self, "workflow_definition_fingerprint")
+        _set_clean_string(self, "execution_id")
         _set_tuple(self, "claims")
         _set_tuple(self, "evidence")
         _set_tuple(self, "reconstruction_references")
@@ -571,6 +582,29 @@ def _validate_retention(retention: object) -> None:
         raise DecisionEvidencePacketValidationError(
             "retention must be an EvidenceRetentionRequirement."
         )
+
+
+def _validate_workflow_execution_provenance(
+    *,
+    workflow_name: str | None,
+    workflow_definition_fingerprint: str | None,
+    execution_id: str | None,
+) -> None:
+    values = (workflow_name, workflow_definition_fingerprint, execution_id)
+    if any(value is not None for value in values) and any(
+        value is None for value in values
+    ):
+        raise DecisionEvidencePacketValidationError(
+            "workflow execution provenance must include workflow_name, "
+            "workflow_definition_fingerprint, and execution_id together."
+        )
+    for label, value in zip(
+        ("workflow_name", "workflow_definition_fingerprint", "execution_id"),
+        values,
+        strict=True,
+    ):
+        if value is not None:
+            _clean_identifier(value, label)
 
 
 def _coerce_claim_materiality_tier(

@@ -21,6 +21,7 @@ from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.evidence_packets import attach_rag_answer_evidence_packet
 from application.rag.generation import RagAnswerGenerator, SecureRagPromptBuilder
 from core.storage.persistence.ai_artifacts import AiArtifactType
 from core.storage.persistence.completed_run_archive import (
@@ -154,6 +155,7 @@ async def test_answer_generator_attaches_platform_owned_authority_metadata() -> 
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     assert result.status == "answered"
     assert result.metadata["rag_authority_failure_mode"] == "none"
@@ -219,6 +221,7 @@ async def test_answer_generator_attaches_decision_evidence_packet() -> None:
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     packet = result.evidence_packet
     assert result.status == "answered"
@@ -340,6 +343,7 @@ async def test_answer_generator_fails_closed_on_unsupported_material_claim() -> 
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     assert result.status == "no_results"
     assert "sufficiently grounded" in result.answer_text
@@ -375,6 +379,7 @@ async def test_answer_generator_fails_closed_on_missing_citation_context() -> No
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     assert result.status == "no_results"
     assert result.citations == ()
@@ -412,6 +417,7 @@ async def test_answer_generator_fails_closed_on_missing_claim_citation() -> None
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     assert result.status == "no_results"
     assert result.evidence_packet is None
@@ -442,6 +448,7 @@ async def test_answer_generator_packet_audits_sanitized_context() -> None:
         request=request,
         contexts=(_context(text=MALICIOUS_TEXT),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     packet = result.evidence_packet
     assert result.status == "answered"
@@ -487,6 +494,7 @@ async def test_answer_generator_packet_audits_rejected_context() -> None:
             ),
         ),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     packet = result.evidence_packet
     assert result.status == "answered"
@@ -893,11 +901,26 @@ async def _material_rag_answer_packet() -> DecisionEvidencePacket:
         request=request,
         contexts=(_context(text="Market breadth improved."),),
     )
+    result = _attach_test_packet(request=request, result=result)
 
     assert result.status == "answered"
     packet = result.evidence_packet
     assert packet is not None
     return packet
+
+
+def _attach_test_packet(
+    *,
+    request: RagRequest,
+    result: RagResult,
+) -> RagResult:
+    return attach_rag_answer_evidence_packet(
+        request=request,
+        result=result,
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
+    )
 
 
 class FakePromptArtifactResolver:

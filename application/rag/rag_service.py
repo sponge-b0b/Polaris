@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Any, Protocol, cast
 
-from application.rag.authority import classify_rag_result_authority
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
+from application.rag.authority import (
+    RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY,
+    RagAuthorityFailureMode,
+    classify_rag_result_authority,
+)
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from application.rag.evidence_packets import (
+    DECISION_EVIDENCE_PACKET_FAILURE_METADATA_KEY,
+    attach_rag_answer_evidence_packet,
+)
 from application.rag.observability import (
     RagAiObservabilityProjectorPort,
     RagAiObservabilityRecorder,
@@ -26,6 +35,15 @@ from core.storage.persistence.rag import (
     new_rag_answer_log_id,
 )
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
+from core.workflow.registry.workflow_registry import (
+    WorkflowAuthorityFacts,
+    WorkflowRegistry,
+)
+from domain.authority import (
+    RiskAuthorityContract,
+    RiskTier,
+    coerce_risk_authority_contract,
+)
 
 
 class RagPipelinePort(Protocol):
@@ -67,12 +85,20 @@ class RagService:
         *,
         pipeline: RagPipelinePort,
         repository: RagPersistenceRepository,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+        workflow_registry: WorkflowRegistry | None = None,
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagServiceConfig | None = None,
         ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._repository = repository
+        self._decision_evidence_packet_persistence_service = (
+            decision_evidence_packet_persistence_service
+        )
+        self._workflow_registry = workflow_registry
         self._telemetry = telemetry
         self._config = config or RagServiceConfig()
         self._ai_observability = RagAiObservabilityRecorder(ai_observability_projector)
@@ -121,6 +147,10 @@ class RagService:
                 duration_seconds=duration_seconds,
             )
         )
+        result = await self._reacquire_claim_evidence_packet(
+            request=request,
+            result=result,
+        )
         await self._persist_answer_log(
             _answer_log_from_result(
                 result=result,
@@ -140,6 +170,92 @@ class RagService:
             duration_seconds=duration_seconds,
         )
         return result
+
+    async def _reacquire_claim_evidence_packet(
+        self,
+        *,
+        request: RagRequest,
+        result: RagResult,
+    ) -> RagResult:
+        """Persist and verify a claim packet before releasing a RAG answer."""
+
+        if result.status != "answered":
+            return result
+        try:
+            authority = coerce_risk_authority_contract(
+                result.metadata.get("risk_authority")
+            )
+            if authority.risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
+                return result
+            facts, execution_id = self._workflow_facts(result=result)
+            result = attach_rag_answer_evidence_packet(
+                request=request,
+                result=result,
+                workflow_name=facts.identity.workflow_name,
+                workflow_definition_fingerprint=facts.identity.definition_fingerprint,
+                execution_id=execution_id,
+            )
+            packet = result.evidence_packet
+            if packet is None:
+                return result
+            persistence_service = self._decision_evidence_packet_persistence_service
+            persistence = await persistence_service.persist_packet(packet)
+            if (
+                not persistence.success
+                or persistence.records_persisted < 1
+                or persistence.packet_id != packet.packet_id
+            ):
+                raise ValueError("RAG claim evidence packet was not durably persisted.")
+            reconstructed = await persistence_service.reconstruct_packet(
+                packet.packet_id
+            )
+            if reconstructed != packet:
+                raise ValueError(
+                    "RAG claim evidence packet changed during reconstruction."
+                )
+        except Exception as exc:
+            return classify_rag_result_authority(
+                request=request,
+                result=replace(
+                    result,
+                    evidence_packet=None,
+                    metadata={
+                        **result.metadata,
+                        RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY: (
+                            RagAuthorityFailureMode.UNSUPPORTED_EVIDENCE.value
+                        ),
+                        DECISION_EVIDENCE_PACKET_FAILURE_METADATA_KEY: str(exc),
+                    },
+                ),
+            )
+        return replace(result, evidence_packet=reconstructed)
+
+    def _workflow_facts(
+        self,
+        *,
+        result: RagResult,
+    ) -> tuple[WorkflowAuthorityFacts, str]:
+        """Bind a claim packet to durable context provenance before release."""
+
+        registry = self._workflow_registry
+        workflow_names = {
+            _clean_required(context.source.workflow_name, "workflow_name")
+            for context in result.contexts
+        }
+        execution_ids = {
+            _clean_required(context.source.execution_id, "execution_id")
+            for context in result.contexts
+        }
+        if registry is None or len(workflow_names) != 1 or len(execution_ids) != 1:
+            raise ValueError("RAG claim evidence lacks governed workflow provenance.")
+        workflow_name = next(iter(workflow_names))
+        execution_id = next(iter(execution_ids))
+        facts = registry.get_authority_facts(workflow_name)
+        if not isinstance(facts.authority, RiskAuthorityContract):
+            raise ValueError(
+                "RAG claim evidence lacks typed workflow registry authority facts."
+            )
+        return facts, execution_id
 
     async def _persist_query_log(
         self,
@@ -543,3 +659,12 @@ def _json_object(
         JsonObject,
         value,
     )
+
+
+def _clean_required(value: str | None, field_name: str) -> str:
+    if value is None:
+        raise ValueError(f"{field_name} cannot be empty.")
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{field_name} cannot be empty.")
+    return cleaned

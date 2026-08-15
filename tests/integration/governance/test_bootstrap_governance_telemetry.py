@@ -14,6 +14,9 @@ from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionAuditPersistenceResult,
+)
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
@@ -76,7 +79,12 @@ async def test_bootstrap_wires_governance_telemetry() -> None:
         sink,
     )
     audit_service = AsyncMock()
-    audit_service.record_governance_evaluation.return_value = ()
+    audit_service.record_governance_evaluation.return_value = (
+        AutomatedDecisionAuditPersistenceResult.succeeded(
+            "audit-1",
+            records_persisted=1,
+        ),
+    )
     authority = classify_risk_authority(workflow_curation_authority_input())
     verified_packet = Mock(spec=DecisionEvidencePacket)
     verified_packet.packet_id = "bootstrap-governance-telemetry-test-packet"

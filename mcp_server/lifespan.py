@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from core.bootstrap.workflow_providers import WorkflowInfrastructureProvider
     from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-    from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
+    from workflows.catalog import BuiltinWorkflowRegistration
 
 
 @dataclass(
@@ -54,11 +54,12 @@ async def mcp_application_lifespan(
             event_bus=runtime.event_bus,
             observability_manager=runtime.observability_manager,
         )
-        for workflow in _get_builtin_workflows():
+        for registration in _get_builtin_workflow_registrations():
             await runtime.facade.register_workflow_async(
-                workflow_definition=workflow,
+                workflow_definition=registration.definition,
                 tags=("builtin",),
                 metadata={"source": "workflows.catalog"},
+                risk_authority_contract=registration.authority,
                 overwrite=True,
             )
         if runtime.observability_manager is None:
@@ -88,9 +89,9 @@ def _build_application_container() -> tuple[
     return workflow_provider, container
 
 
-def _get_builtin_workflows() -> list[WorkflowGraphDefinition]:
+def _get_builtin_workflow_registrations() -> tuple[BuiltinWorkflowRegistration, ...]:
     """Load canonical built-in workflows only when the application starts."""
 
-    from workflows.catalog import get_builtin_workflows
+    from workflows.catalog import get_builtin_workflow_registrations
 
-    return get_builtin_workflows()
+    return get_builtin_workflow_registrations()

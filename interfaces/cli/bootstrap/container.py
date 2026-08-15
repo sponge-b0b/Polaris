@@ -23,7 +23,7 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapResult,
 )
 from interfaces.cli.bootstrap.settings import CliSettings
-from workflows.catalog import get_builtin_workflows
+from workflows.catalog import get_builtin_workflow_registrations
 
 DependencyT = TypeVar("DependencyT")
 
@@ -94,11 +94,12 @@ async def cli_runtime_scope(
             event_bus=runtime.event_bus,
             observability_manager=runtime.observability_manager,
         )
-        for workflow in get_builtin_workflows():
+        for registration in get_builtin_workflow_registrations():
             await runtime.facade.register_workflow_async(
-                workflow_definition=workflow,
+                workflow_definition=registration.definition,
                 tags=("builtin",),
                 metadata={"source": "workflows.catalog"},
+                risk_authority_contract=registration.authority,
                 overwrite=True,
             )
         await _autoload_cli_plugins(runtime)

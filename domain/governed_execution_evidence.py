@@ -24,6 +24,7 @@ class BaselineRuntimeEvidence:
     authority: RiskAuthorityContract
     workflow_name: str
     workflow_version: str
+    execution_id: str
     provenance_digest: str
     schema_version: int = BASELINE_RUNTIME_EVIDENCE_SCHEMA_VERSION
 
@@ -31,6 +32,7 @@ class BaselineRuntimeEvidence:
         _validate_identifier(self.evidence_id, "evidence_id")
         _validate_identifier(self.workflow_name, "workflow_name")
         _validate_identifier(self.workflow_version, "workflow_version")
+        _validate_identifier(self.execution_id, "execution_id")
         if self.authority.risk_tier is not RiskTier.BASELINE:
             raise BaselineRuntimeEvidenceValidationError(
                 "Baseline runtime evidence requires Baseline authority."
@@ -43,6 +45,7 @@ class BaselineRuntimeEvidence:
             authority=self.authority,
             workflow_name=self.workflow_name,
             workflow_version=self.workflow_version,
+            execution_id=self.execution_id,
             schema_version=self.schema_version,
         )
         if self.provenance_digest != expected_digest:
@@ -58,16 +61,19 @@ class BaselineRuntimeEvidence:
         authority: RiskAuthorityContract,
         workflow_name: str,
         workflow_version: str,
+        execution_id: str,
     ) -> BaselineRuntimeEvidence:
         return cls(
             evidence_id=evidence_id,
             authority=authority,
             workflow_name=workflow_name,
             workflow_version=workflow_version,
+            execution_id=execution_id,
             provenance_digest=cls.calculate_provenance_digest(
                 authority=authority,
                 workflow_name=workflow_name,
                 workflow_version=workflow_version,
+                execution_id=execution_id,
             ),
         )
 
@@ -77,12 +83,14 @@ class BaselineRuntimeEvidence:
         authority: RiskAuthorityContract,
         workflow_name: str,
         workflow_version: str,
+        execution_id: str,
         schema_version: int = BASELINE_RUNTIME_EVIDENCE_SCHEMA_VERSION,
     ) -> str:
         payload = {
             "authority": authority.to_metadata(),
             "workflow_name": workflow_name,
             "workflow_version": workflow_version,
+            "execution_id": execution_id,
             "schema_version": schema_version,
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))

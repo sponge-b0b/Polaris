@@ -24,6 +24,9 @@ def upgrade() -> None:
         "decision_evidence_packets",
         sa.Column("packet_id", sa.String(), nullable=False),
         sa.Column("output_id", sa.String(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_definition_fingerprint", sa.String(), nullable=False),
+        sa.Column("execution_id", sa.String(), nullable=False),
         sa.Column("schema_version", sa.Integer(), nullable=False),
         sa.Column("risk_tier", sa.String(), nullable=False),
         sa.Column(
@@ -1062,6 +1065,7 @@ def upgrade() -> None:
         sa.Column("schema_version", sa.Integer(), nullable=False),
         sa.Column("workflow_name", sa.String(), nullable=False),
         sa.Column("workflow_version", sa.String(), nullable=False),
+        sa.Column("execution_id", sa.String(), nullable=False),
         sa.Column("provenance_digest", sa.String(length=64), nullable=False),
         sa.Column(
             "authority_metadata",
@@ -1084,6 +1088,12 @@ def upgrade() -> None:
         "idx_baseline_runtime_evidence_workflow",
         "baseline_runtime_evidence",
         ["workflow_name"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_baseline_runtime_evidence_execution",
+        "baseline_runtime_evidence",
+        ["execution_id"],
         unique=False,
     )
     op.create_table(
@@ -1113,6 +1123,10 @@ def downgrade() -> None:
         table_name="governed_execution_evidence_selections",
     )
     op.drop_table("governed_execution_evidence_selections")
+    op.drop_index(
+        "idx_baseline_runtime_evidence_execution",
+        table_name="baseline_runtime_evidence",
+    )
     op.drop_index(
         "idx_baseline_runtime_evidence_workflow",
         table_name="baseline_runtime_evidence",

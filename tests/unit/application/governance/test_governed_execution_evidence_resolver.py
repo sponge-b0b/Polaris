@@ -19,7 +19,6 @@ from core.storage.persistence.governed_execution_evidence import (
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowIdentity, WorkflowRegistry
 from domain.authority import RiskTier, classify_risk_authority
-from domain.decision_evidence import DecisionEvidencePacket
 from domain.governed_execution_evidence import BaselineRuntimeEvidence
 from tests.helpers.risk_authority_examples import authority_input_for_tier
 
@@ -31,15 +30,33 @@ class _BaselineRepository:
     async def get(self, evidence_id: str) -> BaselineRuntimeEvidence | None:
         return self.records.get(evidence_id)
 
-    async def persist(self, evidence: BaselineRuntimeEvidence) -> None:
+    async def persist(
+        self,
+        evidence: BaselineRuntimeEvidence,
+        *,
+        commit: bool = True,
+    ) -> None:
+        del commit
         self.records[evidence.evidence_id] = evidence
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
 
 
 class _SelectionRepository:
     def __init__(self) -> None:
         self.selections: list[GovernedExecutionEvidenceSelection] = []
 
-    async def create(self, selection: GovernedExecutionEvidenceSelection) -> None:
+    async def create(
+        self,
+        selection: GovernedExecutionEvidenceSelection,
+        *,
+        commit: bool = True,
+    ) -> None:
+        del commit
         self.selections.append(selection)
 
     async def get(
@@ -51,6 +68,27 @@ class _SelectionRepository:
             for selection in self.selections
             if selection.execution_id == execution_id
         )
+
+
+class _FailingSelectionRepository(_SelectionRepository):
+    async def create(
+        self,
+        selection: GovernedExecutionEvidenceSelection,
+        *,
+        commit: bool = True,
+    ) -> None:
+        del selection, commit
+        raise RuntimeError("selection write unavailable")
+
+
+class _RollbackTrackingBaselineRepository(_BaselineRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.rollback_count = 0
+
+    async def rollback(self) -> None:
+        self.rollback_count += 1
+        self.records.clear()
 
 
 def _registry_with_facts(
@@ -148,46 +186,31 @@ async def test_resolver_fails_closed_for_non_unique_execution_selection() -> Non
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("risk_tier", [RiskTier.ENHANCED, RiskTier.VIGILANT])
-async def test_packet_is_constructed_persisted_and_reacquired(
+async def test_invocation_rejects_output_evidence_tiers_before_claims_exist(
     risk_tier: RiskTier,
 ) -> None:
     registry, workflow_name = _registry_with_facts(risk_tier)
     baseline_repository = _BaselineRepository()
     selection_repository = _SelectionRepository()
     baseline_service = BaselineRuntimeEvidencePersistenceService(baseline_repository)
-    facts = registry.get_authority_facts(workflow_name)
-    packet = Mock(spec=DecisionEvidencePacket)
-    packet.packet_id = "packet:execution-one"
-    packet.authority = facts.authority
     packets = Mock()
-    packets.persist_packet = AsyncMock(return_value=Mock(success=True))
-    packets.reconstruct_packet = AsyncMock(return_value=packet)
-    factory = AsyncMock(return_value=packet)
     lifecycle = CanonicalGovernedExecutionEvidenceLifecycle(
         workflow_registry=registry,
         selection_repository=selection_repository,
         baseline_evidence_service=baseline_service,
         packet_persistence_service=packets,
-        packet_factory=factory,
-    )
-    resolver = GovernedExecutionEvidenceResolver(
-        workflow_registry=registry,
-        selection_repository=selection_repository,
-        baseline_evidence_service=baseline_service,
-        packet_persistence_service=packets,
     )
 
-    await lifecycle.prepare(workflow_name=workflow_name, execution_id="execution-one")
-    evidence = await resolver.resolve(
-        workflow_name=workflow_name,
-        execution_id="execution-one",
-    )
+    with pytest.raises(
+        GovernedExecutionEvidenceResolutionError,
+        match="output boundary",
+    ):
+        await lifecycle.prepare(
+            workflow_name=workflow_name,
+            execution_id="execution-one",
+        )
 
-    factory.assert_awaited_once_with(facts, "execution-one")
-    packets.persist_packet.assert_awaited_once_with(packet)
-    packets.reconstruct_packet.assert_awaited_once_with("packet:execution-one")
-    assert evidence is packet
-    assert selection_repository.selections[0].identity == facts.identity
+    assert selection_repository.selections == []
 
 
 @pytest.mark.asyncio
@@ -218,3 +241,69 @@ async def test_resolver_rejects_substituted_selection_identity() -> None:
             workflow_name=workflow_name,
             execution_id="execution-one",
         )
+
+
+@pytest.mark.asyncio
+async def test_resolver_rejects_baseline_evidence_from_another_execution() -> None:
+    registry, workflow_name = _registry_with_facts()
+    baseline_repository = _BaselineRepository()
+    selection_repository = _SelectionRepository()
+    baseline_service = BaselineRuntimeEvidencePersistenceService(baseline_repository)
+    packets = AsyncMock()
+    lifecycle = CanonicalGovernedExecutionEvidenceLifecycle(
+        workflow_registry=registry,
+        selection_repository=selection_repository,
+        baseline_evidence_service=baseline_service,
+        packet_persistence_service=packets,
+    )
+    resolver = GovernedExecutionEvidenceResolver(
+        workflow_registry=registry,
+        selection_repository=selection_repository,
+        baseline_evidence_service=baseline_service,
+        packet_persistence_service=packets,
+    )
+
+    await lifecycle.prepare(workflow_name=workflow_name, execution_id="execution-one")
+    facts = registry.get_authority_facts(workflow_name)
+    baseline_repository.records["baseline:execution-one"] = (
+        BaselineRuntimeEvidence.create(
+            evidence_id="baseline:execution-one",
+            authority=facts.authority,
+            workflow_name=facts.identity.workflow_name,
+            workflow_version=facts.identity.definition_fingerprint,
+            execution_id="execution-two",
+        )
+    )
+
+    with pytest.raises(GovernedExecutionEvidenceResolutionError, match="Baseline"):
+        await resolver.resolve(
+            workflow_name=workflow_name,
+            execution_id="execution-one",
+        )
+
+
+@pytest.mark.asyncio
+async def test_invocation_rolls_back_baseline_evidence_when_selection_write_fails() -> (
+    None
+):
+    registry, workflow_name = _registry_with_facts()
+    baseline_repository = _RollbackTrackingBaselineRepository()
+    baseline_service = BaselineRuntimeEvidencePersistenceService(baseline_repository)
+    lifecycle = CanonicalGovernedExecutionEvidenceLifecycle(
+        workflow_registry=registry,
+        selection_repository=_FailingSelectionRepository(),
+        baseline_evidence_service=baseline_service,
+        packet_persistence_service=AsyncMock(),
+    )
+
+    with pytest.raises(
+        GovernedExecutionEvidenceResolutionError,
+        match="persistence did not complete",
+    ):
+        await lifecycle.prepare(
+            workflow_name=workflow_name,
+            execution_id="execution-one",
+        )
+
+    assert baseline_repository.rollback_count == 1
+    assert baseline_repository.records == {}

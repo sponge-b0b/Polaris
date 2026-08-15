@@ -20,6 +20,10 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
 ) -> None:
     lifecycle: list[str] = []
     workflows = (object(), object())
+    registrations = tuple(
+        SimpleNamespace(definition=workflow, authority=object())
+        for workflow in workflows
+    )
 
     class FakeFacade:
         async def register_workflow_async(
@@ -28,6 +32,7 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
             workflow_definition: object,
             tags: tuple[str, ...],
             metadata: dict[str, str],
+            risk_authority_contract: object,
             overwrite: bool,
         ) -> None:
             workflow_index = workflows.index(workflow_definition)
@@ -76,8 +81,8 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
     )
     monkeypatch.setattr(
         lifespan_module,
-        "_get_builtin_workflows",
-        lambda: list(workflows),
+        "_get_builtin_workflow_registrations",
+        lambda: registrations,
     )
 
     def fake_subscribe_default_workflow_output_projection(

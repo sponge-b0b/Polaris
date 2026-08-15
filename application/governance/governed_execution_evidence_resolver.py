@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
@@ -19,7 +18,6 @@ from core.workflow.registry.workflow_registry import (
     WorkflowRegistry,
 )
 from domain.authority import RiskTier
-from domain.decision_evidence import DecisionEvidencePacket
 from domain.governed_execution_evidence import (
     BaselineRuntimeEvidence,
     GovernedExecutionEvidence,
@@ -30,11 +28,6 @@ class GovernedExecutionEvidenceResolutionError(RuntimeError):
     """Raised when the canonical governed-evidence lifecycle cannot be proven."""
 
 
-type DecisionEvidencePacketFactory = Callable[
-    [WorkflowAuthorityFacts, str], Awaitable[DecisionEvidencePacket]
-]
-
-
 @dataclass(frozen=True, slots=True)
 class CanonicalGovernedExecutionEvidenceLifecycle:
     """Only production owner for tier-specific evidence and its selection."""
@@ -43,7 +36,6 @@ class CanonicalGovernedExecutionEvidenceLifecycle:
     selection_repository: GovernedExecutionEvidenceSelectionRepository
     baseline_evidence_service: BaselineRuntimeEvidencePersistenceService
     packet_persistence_service: DecisionEvidencePacketPersistenceService
-    packet_factory: DecisionEvidencePacketFactory | None = None
 
     async def prepare(
         self, *, workflow_name: str, execution_id: str
@@ -54,26 +46,37 @@ class CanonicalGovernedExecutionEvidenceLifecycle:
             raise GovernedExecutionEvidenceResolutionError(
                 "Workflow has no registered governed authority facts."
             ) from exc
-        evidence_id = await self._persist_tier_evidence(
-            facts=facts,
-            execution_id=execution_id,
-        )
         try:
+            evidence_id = await self._persist_baseline_evidence(
+                facts=facts,
+                execution_id=execution_id,
+            )
             await self.selection_repository.create(
                 GovernedExecutionEvidenceSelection(
                     execution_id=execution_id,
                     identity=facts.identity,
                     risk_tier=facts.authority.risk_tier,
                     evidence_id=evidence_id,
-                )
+                ),
+                commit=False,
             )
+            await self.baseline_evidence_service.commit()
         except GovernedExecutionEvidenceSelectionConflictError as exc:
+            await self.baseline_evidence_service.rollback()
             raise GovernedExecutionEvidenceResolutionError(
                 "Durable governed-evidence selection is not unique."
             ) from exc
+        except GovernedExecutionEvidenceResolutionError:
+            await self.baseline_evidence_service.rollback()
+            raise
+        except Exception as exc:
+            await self.baseline_evidence_service.rollback()
+            raise GovernedExecutionEvidenceResolutionError(
+                "Durable governed-evidence persistence did not complete."
+            ) from exc
         return facts
 
-    async def _persist_tier_evidence(
+    async def _persist_baseline_evidence(
         self, *, facts: WorkflowAuthorityFacts, execution_id: str
     ) -> str:
         if facts.authority.risk_tier is RiskTier.BASELINE:
@@ -82,33 +85,15 @@ class CanonicalGovernedExecutionEvidenceLifecycle:
                 authority=facts.authority,
                 workflow_name=facts.identity.workflow_name,
                 workflow_version=facts.identity.definition_fingerprint,
+                execution_id=execution_id,
             )
-            await self.baseline_evidence_service.persist(evidence)
+            await self.baseline_evidence_service.persist(evidence, commit=False)
             return evidence.evidence_id
 
-        if facts.authority.risk_tier not in {
-            RiskTier.ENHANCED,
-            RiskTier.VIGILANT,
-        }:
-            raise GovernedExecutionEvidenceResolutionError(
-                "Prohibited workflows cannot acquire governed-execution evidence."
-            )
-
-        if self.packet_factory is None:
-            raise GovernedExecutionEvidenceResolutionError(
-                "No canonical decision-evidence packet factory is configured."
-            )
-        packet = await self.packet_factory(facts, execution_id)
-        if packet.authority != facts.authority:
-            raise GovernedExecutionEvidenceResolutionError(
-                "Canonical packet authority does not match registry authority facts."
-            )
-        result = await self.packet_persistence_service.persist_packet(packet)
-        if not result.success:
-            raise GovernedExecutionEvidenceResolutionError(
-                "Canonical decision-evidence packet was not durably persisted."
-            )
-        return packet.packet_id
+        raise GovernedExecutionEvidenceResolutionError(
+            "Only Baseline workflows acquire invocation evidence; Enhanced and "
+            "Vigilant packets belong to their claim-bearing output boundary."
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +137,7 @@ class GovernedExecutionEvidenceResolver:
             evidence = await self.baseline_evidence_service.reconstruct(
                 selection.evidence_id
             )
-            self._validate_baseline(evidence, facts)
+            self._validate_baseline(evidence, facts, execution_id)
             return evidence
         if selection.risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
             raise GovernedExecutionEvidenceResolutionError(
@@ -170,12 +155,15 @@ class GovernedExecutionEvidenceResolver:
 
     @staticmethod
     def _validate_baseline(
-        evidence: BaselineRuntimeEvidence, facts: WorkflowAuthorityFacts
+        evidence: BaselineRuntimeEvidence,
+        facts: WorkflowAuthorityFacts,
+        execution_id: str,
     ) -> None:
         if (
             evidence.authority != facts.authority
             or evidence.workflow_name != facts.identity.workflow_name
             or evidence.workflow_version != facts.identity.definition_fingerprint
+            or evidence.execution_id != execution_id
         ):
             raise GovernedExecutionEvidenceResolutionError(
                 "Reconstructed Baseline evidence does not match registry "

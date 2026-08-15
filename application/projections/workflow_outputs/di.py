@@ -43,6 +43,7 @@ from application.projections.workflow_outputs.projectors import (
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
 
 
 class WorkflowOutputProjectionDIProvider(Provider):
@@ -66,6 +67,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         lineage_persistence_service: LineagePersistenceService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
+        workflow_facade: WorkflowFacade,
     ) -> WorkflowOutputProjectionRegistry:
         """Return the request-scoped registry for domain projectors."""
         return WorkflowOutputProjectionRegistry(
@@ -97,6 +99,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
                         decision_evidence_packet_persistence_service
                     ),
                     lineage_persistence_service=lineage_persistence_service,
+                    workflow_registry=workflow_facade.registry,
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,

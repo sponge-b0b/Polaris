@@ -1528,6 +1528,7 @@ def _assembly_request(
             authority_input_for_tier(RiskTier.ENHANCED),
         ),
         workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
         execution_id="exec-1",
         claims=(
             MaterialClaim(
@@ -1640,6 +1641,9 @@ def _canonical_domain_packet(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
 
@@ -1806,6 +1810,9 @@ def _packet_with_every_reconstruction_kind(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
 

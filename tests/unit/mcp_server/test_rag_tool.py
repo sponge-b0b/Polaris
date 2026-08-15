@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -158,14 +157,9 @@ async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> No
     assert rag_request.request_id == "mcp-request-1"
     assert rag_request.route == "hybrid"
     assert rag_request.requester == "polaris_mcp"
-    authority_request = cast(
-        Mapping[str, object],
-        rag_request.metadata["rag_authority"],
-    )
-    assert authority_request["intended_sink"] == "mcp_tool_response"
-    assert authority_request["authority_effect"] == ("non_authoritative_information")
-    assert authority_request["source_of_truth"] == "presentation_output"
-    assert authority_request["tool_response_external"] is True
+    assert "rag_authority" not in rag_request.metadata
+    assert rag_request.workflow_name is None
+    assert rag_request.execution_id is None
     assert rag_request.top_k == 12
     assert rag_request.filters.source_tables == ("morning_reports",)
     assert rag_request.filters.source_types == ("report",)
@@ -240,11 +234,11 @@ async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
         "content_type": "rag_answer",
         "canonical_owner": "rag_service",
         "source_of_truth": "presentation_output",
-        "intended_sink": "mcp_tool_response",
+        "intended_sink": "rag_answer",
         "gate_profile": "enhanced_provenance",
         "capital_relevant": False,
         "durable_authority": False,
-        "externally_visible": True,
+        "externally_visible": False,
         "governance_impact": False,
         "evidence_sufficient": True,
         "ignored_model_authority_claims": [
@@ -253,7 +247,7 @@ async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
         ],
     }
     serialized = json.loads(response.model_dump_json())
-    assert serialized["authority_metadata"]["intended_sink"] == ("mcp_tool_response")
+    assert serialized["authority_metadata"]["intended_sink"] == "rag_answer"
     assert serialized["authority_metadata"]["risk_tier"] == "enhanced"
 
 

@@ -63,16 +63,24 @@ from core.workflow.models.destructive_operation_confirmation import (
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.authority import RiskAuthorityContract
+from domain.governed_execution_evidence import GovernedExecutionEvidence
 
 
 class _GovernedWorkflowSubject(Mapping[str, Any]):
-    """Mapping-compatible operation subject carrying verified authority by type."""
+    """Typed evaluation subject bound to reconstructed execution evidence."""
 
-    __slots__ = ("_values", "authority")
+    __slots__ = ("_values", "authority", "evidence")
 
-    def __init__(self, *, values: Mapping[str, Any], authority: Any) -> None:
+    def __init__(
+        self,
+        *,
+        values: Mapping[str, Any],
+        authority: RiskAuthorityContract,
+        evidence: GovernedExecutionEvidence,
+    ) -> None:
         self._values = values
         self.authority = authority
+        self.evidence = evidence
 
     def __getitem__(self, key: str) -> Any:
         return self._values[key]
@@ -994,7 +1002,8 @@ class WorkflowFacade:
             return values
         return _GovernedWorkflowSubject(
             values=values,
-            authority=capability.context.authority,
+            authority=capability.evidence.authority,
+            evidence=capability.evidence,
         )
 
     def _require_execution_audit_capability(
@@ -1016,6 +1025,11 @@ class WorkflowFacade:
         evaluation_kind: str,
         results: Sequence[AutomatedDecisionAuditPersistenceResult],
     ) -> None:
+        if not results:
+            raise RuntimeError(
+                f"Automated {evaluation_kind} audit persistence returned no "
+                "durable write result."
+            )
         errors: list[str] = []
         for result in results:
             if not isinstance(result, AutomatedDecisionAuditPersistenceResult):

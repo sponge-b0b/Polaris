@@ -28,11 +28,17 @@ class PostgresBaselineRuntimeEvidenceRepository:
             authority=risk_authority_contract_from_metadata(model.authority_metadata),
             workflow_name=model.workflow_name,
             workflow_version=model.workflow_version,
+            execution_id=model.execution_id,
             provenance_digest=model.provenance_digest,
             schema_version=model.schema_version,
         )
 
-    async def persist(self, evidence: BaselineRuntimeEvidence) -> None:
+    async def persist(
+        self,
+        evidence: BaselineRuntimeEvidence,
+        *,
+        commit: bool = True,
+    ) -> None:
         """Store evidence supplied only by canonical orchestration."""
 
         self._session.add(
@@ -41,8 +47,17 @@ class PostgresBaselineRuntimeEvidenceRepository:
                 schema_version=evidence.schema_version,
                 workflow_name=evidence.workflow_name,
                 workflow_version=evidence.workflow_version,
+                execution_id=evidence.execution_id,
                 provenance_digest=evidence.provenance_digest,
                 authority_metadata=evidence.authority.to_metadata(),
             )
         )
+        await self._session.flush()
+        if commit:
+            await self._session.commit()
+
+    async def commit(self) -> None:
         await self._session.commit()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()

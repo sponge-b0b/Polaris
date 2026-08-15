@@ -197,6 +197,7 @@ class CompletedWorkflowEvidencePacketAssemblyRequest:
     output_id: str
     authority: RiskAuthorityContract
     workflow_name: str
+    workflow_definition_fingerprint: str
     execution_id: str
     claims: tuple[MaterialClaim, ...]
     required_node_evidence: tuple[CompletedWorkflowNodeEvidenceRequirement, ...]
@@ -221,6 +222,14 @@ class CompletedWorkflowEvidencePacketAssemblyRequest:
             self,
             "workflow_name",
             _clean_required_string(self.workflow_name, "workflow_name"),
+        )
+        object.__setattr__(
+            self,
+            "workflow_definition_fingerprint",
+            _clean_required_string(
+                self.workflow_definition_fingerprint,
+                "workflow_definition_fingerprint",
+            ),
         )
         object.__setattr__(
             self,
@@ -426,6 +435,9 @@ def assemble_decision_evidence_packet_from_completed_run(
         evidence=tuple(evidence_references),
         reconstruction_references=tuple(reconstruction_references),
         retention=request.retention,
+        workflow_name=request.workflow_name,
+        workflow_definition_fingerprint=request.workflow_definition_fingerprint,
+        execution_id=request.execution_id,
         constraints=request.constraints,
         uncertainties=request.uncertainties,
         limitations=request.limitations,

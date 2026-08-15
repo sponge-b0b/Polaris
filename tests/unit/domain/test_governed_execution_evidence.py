@@ -15,10 +15,12 @@ def test_baseline_runtime_evidence_binds_baseline_authority_and_provenance() -> 
         authority=authority,
         workflow_name="governance-test-workflow",
         workflow_version="1",
+        execution_id="execution-one",
         provenance_digest=BaselineRuntimeEvidence.calculate_provenance_digest(
             authority=authority,
             workflow_name="governance-test-workflow",
             workflow_version="1",
+            execution_id="execution-one",
         ),
     )
 
@@ -34,9 +36,11 @@ def test_baseline_runtime_evidence_rejects_non_baseline_authority() -> None:
             authority=authority,
             workflow_name="governance-test-workflow",
             workflow_version="1",
+            execution_id="execution-one",
             provenance_digest=BaselineRuntimeEvidence.calculate_provenance_digest(
                 authority=authority,
                 workflow_name="governance-test-workflow",
                 workflow_version="1",
+                execution_id="execution-one",
             ),
         )

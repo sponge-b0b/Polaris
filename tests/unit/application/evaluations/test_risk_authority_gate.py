@@ -84,6 +84,9 @@ def _packet(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
 

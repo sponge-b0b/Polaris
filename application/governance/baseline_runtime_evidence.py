@@ -12,7 +12,16 @@ class BaselineRuntimeEvidenceNotFoundError(LookupError):
 class BaselineRuntimeEvidenceRepository(Protocol):
     async def get(self, evidence_id: str) -> BaselineRuntimeEvidence | None: ...
 
-    async def persist(self, evidence: BaselineRuntimeEvidence) -> None: ...
+    async def persist(
+        self,
+        evidence: BaselineRuntimeEvidence,
+        *,
+        commit: bool = True,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
 
 
 class BaselineRuntimeEvidencePersistenceService:
@@ -29,7 +38,18 @@ class BaselineRuntimeEvidencePersistenceService:
             )
         return evidence
 
-    async def persist(self, evidence: BaselineRuntimeEvidence) -> None:
+    async def persist(
+        self,
+        evidence: BaselineRuntimeEvidence,
+        *,
+        commit: bool = True,
+    ) -> None:
         """Persist canonical orchestration-produced Baseline provenance."""
 
-        await self._repository.persist(evidence)
+        await self._repository.persist(evidence, commit=commit)
+
+    async def commit(self) -> None:
+        await self._repository.commit()
+
+    async def rollback(self) -> None:
+        await self._repository.rollback()

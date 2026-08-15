@@ -967,6 +967,9 @@ def _ticket_packet(
             retain_until="2031-08-09T00:00:00Z",
             policy_id="ticket-138-retention",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
 

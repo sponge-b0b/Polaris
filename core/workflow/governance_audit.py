@@ -98,6 +98,7 @@ class WorkflowExecutionAuditCapability:
 
     _service: WorkflowAutomatedDecisionAuditService
     _context: AutomatedDecisionAuditContext
+    _evidence: BaselineRuntimeEvidence | DecisionEvidencePacket
     _consumed: bool
 
     def __init__(
@@ -105,6 +106,7 @@ class WorkflowExecutionAuditCapability:
         *,
         _service: WorkflowAutomatedDecisionAuditService,
         _context: AutomatedDecisionAuditContext,
+        _evidence: BaselineRuntimeEvidence | DecisionEvidencePacket,
         _issuance_token: object | None = None,
     ) -> None:
         if _issuance_token is not _CAPABILITY_ISSUANCE_TOKEN:
@@ -114,6 +116,7 @@ class WorkflowExecutionAuditCapability:
             )
         self._service = _service
         self._context = _context
+        self._evidence = _evidence
         self._consumed = False
 
     @property
@@ -123,6 +126,12 @@ class WorkflowExecutionAuditCapability:
     @property
     def context(self) -> AutomatedDecisionAuditContext:
         return self._context
+
+    @property
+    def evidence(self) -> BaselineRuntimeEvidence | DecisionEvidencePacket:
+        """Verified reconstruction that controls this single invocation."""
+
+        return self._evidence
 
     def consume(self) -> None:
         """Prevent one verified audit composition from authorizing another run."""
@@ -138,6 +147,7 @@ def _issue_workflow_execution_audit_capability(
     *,
     service: WorkflowAutomatedDecisionAuditService,
     context: AutomatedDecisionAuditContext,
+    evidence: BaselineRuntimeEvidence | DecisionEvidencePacket,
 ) -> WorkflowExecutionAuditCapability:
     """Create the capability used for one governed facade invocation.
 
@@ -149,5 +159,6 @@ def _issue_workflow_execution_audit_capability(
     return WorkflowExecutionAuditCapability(
         _service=service,
         _context=context,
+        _evidence=evidence,
         _issuance_token=_CAPABILITY_ISSUANCE_TOKEN,
     )

@@ -65,6 +65,12 @@ class DecisionEvidencePacketModel(Base):
         String,
         nullable=False,
     )
+    workflow_name: Mapped[str] = mapped_column(String, nullable=False)
+    workflow_definition_fingerprint: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+    )
+    execution_id: Mapped[str] = mapped_column(String, nullable=False)
     schema_version: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

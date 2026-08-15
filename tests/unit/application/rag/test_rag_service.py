@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -53,6 +54,17 @@ from core.storage.persistence.rag import (
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
+from domain.decision_evidence import DecisionEvidencePacket
 from integration.providers.rag.answer_generation_provider import (
     RagAnswerGenerationRequest,
     RagAnswerGenerationResult,
@@ -96,6 +108,8 @@ async def test_rag_service_run_persists_success_query_and_answer_logs() -> None:
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
     result = await service.run(
@@ -146,6 +160,15 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
         documents=(_document_from_context(context),),
         chunks=(_chunk_from_context(context),),
     )
+    packet_repository = FakeDecisionEvidencePacketRepository()
+    packet_persistence = DecisionEvidencePacketPersistenceService(
+        repository=cast(
+            DecisionEvidencePacketPersistenceRepository,
+            packet_repository,
+        ),
+        completed_run_archive=cast(CompletedRunArchive, FakeCompletedRunArchive()),
+        rag_repository=cast(RagPersistenceRepository, repository),
+    )
     answer_provider = FakeAnswerProvider(
         result=RagAnswerGenerationResult(
             answer_text="SPY breadth improved with broad participation [C1].",
@@ -163,6 +186,8 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=packet_persistence,
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
     result = await service.run(request)
@@ -174,22 +199,94 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
         final_query_log.metadata["retrieved_contexts"],
     )
     assert retrieved_contexts == (context.to_dict(),)
-    packet_repository = FakeDecisionEvidencePacketRepository()
-    packet_persistence = DecisionEvidencePacketPersistenceService(
-        repository=cast(
-            DecisionEvidencePacketPersistenceRepository,
-            packet_repository,
+    assert packet_repository.records[result.evidence_packet.packet_id]
+    assert result.evidence_packet.workflow_name == "morning_report"
+    assert result.evidence_packet.execution_id == "exec-1"
+
+
+@pytest.mark.asyncio
+async def test_rag_service_ignores_request_provenance_for_packet_binding() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        workflow_name="attacker_selected_workflow",
+        execution_id="attacker-selected-execution",
+        request_id="rag_query:request-provenance-substitution",
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    service = RagService(
+        pipeline=FakePipeline(
+            retriever=FakeRetriever(contexts=(context,)),
+            answer_generator=RagAnswerGenerator(
+                answer_provider=FakeAnswerProvider(
+                    result=RagAnswerGenerationResult(
+                        answer_text=(
+                            "SPY breadth improved with broad participation [C1]."
+                        ),
+                        model="unit-test-model",
+                        provider_name="unit-test-provider",
+                        generated_claims=(_generated_claim(),),
+                    )
+                ),
+            ),
         ),
-        completed_run_archive=cast(CompletedRunArchive, FakeCompletedRunArchive()),
-        rag_repository=cast(RagPersistenceRepository, repository),
-    )
-    await packet_persistence.persist_packet(result.evidence_packet)
-
-    reconstructed = await packet_persistence.reconstruct_packet(
-        result.evidence_packet.packet_id,
+        repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    assert reconstructed == result.evidence_packet
+    result = await service.run(request)
+
+    assert result.status == "answered"
+    assert result.evidence_packet is not None
+    assert result.evidence_packet.workflow_name == "morning_report"
+    assert result.evidence_packet.execution_id == "exec-1"
+
+
+@pytest.mark.asyncio
+async def test_rag_service_fails_closed_when_claim_packet_cannot_be_persisted() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        request_id="rag_query:packet-persistence-failure",
+        metadata={
+            "rag_authority": {
+                "audience": "external",
+                "capital_relevant": True,
+            }
+        },
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    repository = FakeRagRepository()
+    service = RagService(
+        pipeline=FakePipeline(
+            retriever=FakeRetriever(contexts=(context,)),
+            answer_generator=RagAnswerGenerator(
+                answer_provider=FakeAnswerProvider(
+                    result=RagAnswerGenerationResult(
+                        answer_text="SPY breadth improved [C1].",
+                        generated_claims=(_generated_claim(),),
+                    )
+                )
+            ),
+        ),
+        repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=cast(
+            DecisionEvidencePacketPersistenceService,
+            _PacketPersistenceDouble(fail_persistence=True),
+        ),
+    )
+
+    result = await service.run(request)
+
+    assert result.status == "no_results"
+    assert result.evidence_packet is None
+    assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
+    assert repository.answer_logs[-1].status == "no_results"
 
 
 @pytest.mark.asyncio
@@ -228,6 +325,7 @@ async def test_rag_service_does_not_persist_raw_transient_web_context_payload() 
     service = RagService(
         pipeline=StaticResultPipeline(result),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     await service.run(request)
@@ -272,6 +370,7 @@ async def test_rag_service_persists_query_model_execution_metadata() -> None:
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     await service.run(request)
@@ -298,6 +397,8 @@ async def test_rag_service_emits_observability_for_generation_and_log_persistenc
     request = RagRequest(
         query="Summarize SPY breadth.",
         request_id="rag_query:service-observability",
+        workflow_name="morning_report",
+        execution_id="exec-observability",
     )
     repository = FakeRagRepository()
     context = _context(
@@ -324,7 +425,9 @@ async def test_rag_service_emits_observability_for_generation_and_log_persistenc
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
         telemetry=telemetry,
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
     result = await service.run(
@@ -382,7 +485,9 @@ async def test_rag_service_projects_sanitized_ai_query_observation() -> None:
             ),
         ),
         repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
         ai_observability_projector=projector,
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
     result = await service.run(request)
@@ -419,6 +524,7 @@ async def test_rag_service_run_persists_no_results_when_retrieval_is_empty() -> 
             answer_generator=RagAnswerGenerator(answer_provider=answer_provider),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     result = await service.run(
@@ -457,6 +563,7 @@ async def test_rag_service_run_persists_failed_generation_result() -> None:
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     result = await service.run(
@@ -494,6 +601,7 @@ async def test_rag_service_run_persists_failed_retrieval_result() -> None:
             ),
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     result = await service.run(
@@ -805,6 +913,55 @@ class FakeDecisionEvidencePacketRepository:
         return self.records.get(packet_id)
 
 
+def _packet_persistence() -> DecisionEvidencePacketPersistenceService:
+    return cast(DecisionEvidencePacketPersistenceService, _PacketPersistenceDouble())
+
+
+def _workflow_registry() -> object:
+    authority = classify_risk_authority(
+        RiskAuthorityClassificationInput(
+            content_type=AiOutputContentType.RUNTIME_EVIDENCE,
+            authority_effect=AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+            canonical_owner=CanonicalOwner.RUNTIME,
+            source_of_truth=SourceOfTruthCategory.RUNTIME_EVIDENCE,
+            intended_sink=IntendedSink.INTERNAL_RUNTIME_EVIDENCE,
+        )
+    )
+    return SimpleNamespace(
+        get_authority_facts=lambda workflow_name: SimpleNamespace(
+            identity=SimpleNamespace(
+                workflow_name=workflow_name,
+                definition_fingerprint="test-workflow-fingerprint",
+            ),
+            authority=authority,
+        )
+    )
+
+
+class _PacketPersistenceDouble:
+    def __init__(self, *, fail_persistence: bool = False) -> None:
+        self._packets: dict[str, DecisionEvidencePacket] = {}
+        self._fail_persistence = fail_persistence
+
+    async def persist_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        if self._fail_persistence:
+            return DecisionEvidencePacketPersistenceResult.failed(
+                "packet repository unavailable",
+                packet_id=packet.packet_id,
+            )
+        self._packets[packet.packet_id] = packet
+        return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
+
+    async def reconstruct_packet(
+        self,
+        packet_id: str,
+    ) -> DecisionEvidencePacket:
+        return self._packets[packet_id]
+
+
 def _document_from_context(context: RagRetrievedContext) -> RagDocumentRecord:
     return RagDocumentRecord(
         document_id=context.source.document_id,
@@ -882,6 +1039,7 @@ async def test_rag_service_persists_quality_metadata() -> None:
     service = RagService(
         pipeline=StaticResultPipeline(result),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     await service.run(request)
@@ -928,19 +1086,20 @@ async def test_rag_service_classifies_external_capital_relevant_answers() -> Non
             )
         ),
         repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     result = await service.run(request)
 
-    assert result.status == "answered"
-    assert result.metadata["rag_authority_failure_mode"] == "none"
+    assert result.status == "no_results"
+    assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
     risk_authority = _risk_authority_metadata(result)
-    assert risk_authority["risk_tier"] == "vigilant"
+    assert risk_authority["risk_tier"] == "enhanced"
     assert risk_authority["authority_effect"] == "non_authoritative_information"
-    assert risk_authority["intended_sink"] == "mcp_tool_response"
-    assert risk_authority["capital_relevant"] is True
-    assert risk_authority["externally_visible"] is True
-    assert risk_authority["evidence_sufficient"] is True
+    assert risk_authority["intended_sink"] == "rag_answer"
+    assert risk_authority["capital_relevant"] is False
+    assert risk_authority["externally_visible"] is False
+    assert risk_authority["evidence_sufficient"] is False
 
 
 @pytest.mark.asyncio
@@ -972,6 +1131,7 @@ async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> No
             )
         ),
         repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
     result = await service.run(request)
@@ -983,7 +1143,7 @@ async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> No
     )
     assert result.metadata["rag_authority_fail_closed"] is True
     risk_authority = _risk_authority_metadata(result)
-    assert risk_authority["risk_tier"] == "vigilant"
+    assert risk_authority["risk_tier"] == "enhanced"
     assert risk_authority["evidence_sufficient"] is False
     assert repository.query_logs[-1].status == "no_results"
     persisted_result_metadata = cast(
@@ -1026,6 +1186,7 @@ async def test_rag_service_pipeline_exception_is_owned_by_canonical_telemetry() 
     service = RagService(
         pipeline=ExplodingPipeline(),
         repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
         telemetry=telemetry,
     )
 

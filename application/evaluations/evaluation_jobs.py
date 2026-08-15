@@ -14,7 +14,6 @@ from application.evaluations.evaluation_result_service import EvaluationResultSe
 from application.evaluations.evaluation_run_service import (
     EvaluationRunScoreProjectionService,
     EvaluationRunService,
-    authority_gate_evidence_for_evaluation_cases,
     expected_authority_metadata_for_evaluation_target,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
@@ -223,11 +222,6 @@ class EvaluationJobProcessor:
                 timeout_seconds=request.timeout_seconds,
                 authority_metadata=expected_authority_metadata_for_evaluation_target(
                     case.target_type,
-                ),
-                authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                    case.target_type,
-                    cases,
-                    run_id=run_id,
                 ),
             )
         )

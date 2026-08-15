@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-11] governed invocation and output evidence boundaries | implemented as active execution invariants
+
+Promoted ADR-0018 after catalog-owned Baseline authority, atomic durable invocation selection, request-scoped reconstruction, mandatory packet provenance, provenance-bound strategy/RAG output packets, transport-independent RAG authority/provenance classification, and registry-backed evaluation authority-gate packet re-acquisition were implemented and tested.
+
 ## [2026-08-11] governed invocation and output evidence boundaries | accepted, implementation pending
 
 Superseded the generic packet-before-invocation lifecycle: catalog-owned facts and Baseline provenance govern workflow invocation, while claim-bearing output materializers own provenance-bound Enhanced/Vigilant packet production and re-acquisition.

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Sequence
+from dataclasses import replace
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
+from application.evaluations.risk_authority_gate import RiskAuthorityGateEvidence
 from domain.authority import RiskAuthorityContract, RiskTier, SourceOfTruthCategory
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -20,6 +24,7 @@ from domain.evaluation import EvaluationCase
 
 _EVALUATION_READINESS_RETENTION_UNTIL = "2031-07-29T00:00:00Z"
 _EVALUATION_READINESS_RETENTION_POLICY_ID = "evaluation-readiness-5y"
+logger = logging.getLogger(__name__)
 
 
 def canonical_evaluation_readiness_packet(
@@ -29,6 +34,9 @@ def canonical_evaluation_readiness_packet(
     output_id: str,
     claim_id: str,
     claim_text: str,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
+    execution_id: str,
     cases: Sequence[EvaluationCase],
 ) -> DecisionEvidencePacket | None:
     """Build canonical packet evidence from reconstructable evaluation inputs.
@@ -64,6 +72,80 @@ def canonical_evaluation_readiness_packet(
         retention=EvidenceRetentionRequirement(
             retain_until=_EVALUATION_READINESS_RETENTION_UNTIL,
             policy_id=_EVALUATION_READINESS_RETENTION_POLICY_ID,
+        ),
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=execution_id,
+    )
+
+
+async def reacquire_authority_gate_decision_evidence(
+    *,
+    evidence: RiskAuthorityGateEvidence | None,
+    persistence_service: DecisionEvidencePacketPersistenceService | None,
+) -> RiskAuthorityGateEvidence | None:
+    """Persist and reconstruct authority-gate packets before gate evaluation."""
+
+    if evidence is None or not evidence.decision_evidence_packets:
+        return evidence
+    if persistence_service is None:
+        logger.warning(
+            "Authority gate decision evidence persistence is not configured.",
+            extra={"decision_evidence_ids": evidence.decision_evidence_ids},
+        )
+        return _reject_decision_evidence_packets(evidence)
+
+    reconstructed_packets = []
+    try:
+        for packet in evidence.decision_evidence_packets:
+            persistence = await persistence_service.persist_packet(packet)
+            if (
+                not persistence.success
+                or persistence.records_persisted < 1
+                or persistence.packet_id != packet.packet_id
+            ):
+                raise ValueError(
+                    "authority gate decision evidence packet was not persisted."
+                )
+            reconstructed = await persistence_service.reconstruct_packet(
+                packet.packet_id
+            )
+            if reconstructed != packet:
+                raise ValueError(
+                    "authority gate decision evidence changed during reconstruction."
+                )
+            reconstructed_packets.append(reconstructed)
+    except Exception as exc:
+        logger.warning(
+            "Authority gate decision evidence reconstruction failed closed.",
+            extra={
+                "decision_evidence_ids": evidence.decision_evidence_ids,
+                "error_type": type(exc).__name__,
+            },
+            exc_info=True,
+        )
+        return _reject_decision_evidence_packets(evidence)
+
+    return replace(
+        evidence,
+        decision_evidence_packets=tuple(reconstructed_packets),
+        decision_evidence_ids=tuple(
+            packet.packet_id for packet in reconstructed_packets
+        ),
+    )
+
+
+def _reject_decision_evidence_packets(
+    evidence: RiskAuthorityGateEvidence,
+) -> RiskAuthorityGateEvidence:
+    return replace(
+        evidence,
+        decision_evidence_packets=(),
+        decision_evidence_ids=(),
+        rejected_evidence_ids=tuple(
+            dict.fromkeys(
+                (*evidence.rejected_evidence_ids, *evidence.decision_evidence_ids)
+            )
         ),
     )
 

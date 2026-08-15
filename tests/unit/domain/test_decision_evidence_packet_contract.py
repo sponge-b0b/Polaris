@@ -9,7 +9,6 @@ from domain.authority import RiskTier, SourceOfTruthCategory, classify_risk_auth
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     ClaimMaterialityTier,
-    DecisionEvidencePacket,
     DecisionEvidencePacketReadinessFailureMode,
     DecisionEvidencePacketValidationError,
     EvidenceClaimReference,
@@ -27,10 +26,22 @@ from domain.decision_evidence import (
     assess_decision_evidence_packet_readiness,
     evidence_claim_references_from_packet,
 )
+from domain.decision_evidence import (
+    DecisionEvidencePacket as DomainDecisionEvidencePacket,
+)
 from tests.helpers.risk_authority_examples import (
     authority_input_for_tier,
     runtime_evidence_authority_input,
 )
+
+
+def DecisionEvidencePacket(**kwargs: object) -> DomainDecisionEvidencePacket:
+    return DomainDecisionEvidencePacket(
+        workflow_name="test-workflow",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="test-execution",
+        **kwargs,  # type: ignore[arg-type]
+    )
 
 
 def test_enhanced_packet_models_claim_relationships_and_reconstruction_refs() -> None:

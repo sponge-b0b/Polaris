@@ -19,7 +19,12 @@ class PostgresGovernedExecutionEvidenceSelectionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, selection: GovernedExecutionEvidenceSelection) -> None:
+    async def create(
+        self,
+        selection: GovernedExecutionEvidenceSelection,
+        *,
+        commit: bool = True,
+    ) -> None:
         self._session.add(
             GovernedExecutionEvidenceSelectionModel(
                 execution_id=selection.execution_id,
@@ -30,7 +35,9 @@ class PostgresGovernedExecutionEvidenceSelectionRepository:
             )
         )
         try:
-            await self._session.commit()
+            await self._session.flush()
+            if commit:
+                await self._session.commit()
         except IntegrityError as exc:
             await self._session.rollback()
             raise GovernedExecutionEvidenceSelectionConflictError(

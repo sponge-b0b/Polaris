@@ -287,6 +287,9 @@ def _evidence_packet_to_payload(
     return {
         "packet_id": packet.packet_id,
         "output_id": packet.output_id,
+        "workflow_name": packet.workflow_name,
+        "workflow_definition_fingerprint": packet.workflow_definition_fingerprint,
+        "execution_id": packet.execution_id,
         "schema_version": packet.schema_version,
         "authority": packet.authority.to_metadata(),
         "claims": [_claim_to_payload(claim) for claim in packet.claims],
@@ -325,6 +328,12 @@ def _evidence_packet_from_payload(
     return DecisionEvidencePacket(
         packet_id=_required_str(payload, "packet_id"),
         output_id=_required_str(payload, "output_id"),
+        workflow_name=_required_str(payload, "workflow_name"),
+        workflow_definition_fingerprint=_required_str(
+            payload,
+            "workflow_definition_fingerprint",
+        ),
+        execution_id=_required_str(payload, "execution_id"),
         authority=risk_authority_contract_from_metadata(authority_payload),
         claims=tuple(
             _claim_from_payload(item)

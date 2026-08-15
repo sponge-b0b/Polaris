@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Protocol, cast
 from uuid import uuid4
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations.contracts import (
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
@@ -18,6 +19,7 @@ from application.evaluations.evaluation_datasets import (
 )
 from application.evaluations.evaluation_gate_evidence import (
     canonical_evaluation_readiness_packet,
+    reacquire_authority_gate_decision_evidence,
 )
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
@@ -36,6 +38,10 @@ from core.storage.persistence.evaluation import (
     EvaluationCaseRecord,
     JsonObject,
     JsonValue,
+)
+from core.workflow.registry.workflow_registry import (
+    WorkflowAuthorityFacts,
+    WorkflowRegistry,
 )
 from domain.authority import (
     AiOutputContentType,
@@ -314,6 +320,10 @@ class ModelReplacementValidationGate:
     result_service: ModelReplacementResultServicePort
     run_service: ModelReplacementRunServicePort
     settings: Settings
+    decision_evidence_packet_persistence_service: (
+        DecisionEvidencePacketPersistenceService | None
+    ) = None
+    workflow_registry: WorkflowRegistry | None = None
 
     async def validate(
         self,
@@ -421,7 +431,26 @@ class ModelReplacementValidationGate:
         persistence_runs_written = 0
         persistence_metric_results_written = 0
         authority_contract = _authority_contract_for_section(section)
-        authority_evidence = _authority_gate_evidence(gate_id, section, loaded_cases)
+        try:
+            workflow_facts = _evaluation_gate_workflow_facts(self.workflow_registry)
+        except ValueError:
+            authority_evidence = RiskAuthorityGateEvidence(
+                provenance_record_ids=_case_ids(loaded_cases),
+                model_replacement_gate_ids=(gate_id,),
+            )
+        else:
+            authority_evidence = await reacquire_authority_gate_decision_evidence(
+                evidence=_authority_gate_evidence(
+                    gate_id,
+                    section,
+                    loaded_cases,
+                    workflow_name=workflow_facts.identity.workflow_name,
+                    workflow_definition_fingerprint=(
+                        workflow_facts.identity.definition_fingerprint
+                    ),
+                ),
+                persistence_service=self.decision_evidence_packet_persistence_service,
+            )
         authority_gate_decision = select_risk_authority_gate(
             authority_contract,
             evidence=authority_evidence,
@@ -724,6 +753,9 @@ def _authority_gate_evidence(
     gate_id: str,
     section: ModelReplacementGateSection,
     loaded_cases: tuple[_LoadedCase, ...],
+    *,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
 ) -> RiskAuthorityGateEvidence:
     authority_contract = _authority_contract_for_section(section)
     packet = canonical_evaluation_readiness_packet(
@@ -735,6 +767,9 @@ def _authority_gate_evidence(
             f"Model replacement gate section {section.value!r} is backed by "
             "canonical evaluation source and reconstruction records."
         ),
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=gate_id,
         cases=tuple(
             _case_record_to_domain(loaded_case.record, loaded_case.dataset)
             for loaded_case in loaded_cases
@@ -747,6 +782,19 @@ def _authority_gate_evidence(
         model_replacement_gate_ids=(gate_id,),
         decision_evidence_packets=decision_packets,
     )
+
+
+def _evaluation_gate_workflow_facts(
+    registry: WorkflowRegistry | None,
+) -> WorkflowAuthorityFacts:
+    if registry is None:
+        raise ValueError("evaluation gate workflow registry is not configured.")
+    try:
+        return registry.get_authority_facts("evaluation_gate")
+    except KeyError as exc:
+        raise ValueError(
+            "evaluation gate workflow registry facts are not configured."
+        ) from exc
 
 
 def _authority_gate_details(

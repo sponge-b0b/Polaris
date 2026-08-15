@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import cast
 
 from application.decision_evidence.claim_binding import (
@@ -37,6 +38,8 @@ from core.storage.persistence.recommendations import RecommendationPersistenceRe
 from core.storage.persistence.sentiment import SentimentPersistenceRepository
 from core.storage.persistence.strategy import StrategyPersistenceRepository
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 
 
 class _FakeCompletedRunArchive:
@@ -134,6 +137,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         lineage_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,
+        cast(WorkflowFacade, SimpleNamespace(registry=WorkflowRegistry())),
     )
     policy = provider.provide_workflow_output_projection_policy()
     observability = ObservabilityManager()

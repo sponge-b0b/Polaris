@@ -59,6 +59,7 @@ async def test_assembles_packet_from_completed_workflow_node_evidence() -> None:
                 authority_input_for_tier(RiskTier.ENHANCED),
             ),
             workflow_name="morning_report",
+            workflow_definition_fingerprint="test-definition-fingerprint",
             execution_id="exec-1",
             claims=(
                 MaterialClaim(
@@ -386,6 +387,7 @@ def _request(
         output_id="strategy-decision-1",
         authority=classify_risk_authority(authority_input_for_tier(tier)),
         workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
         execution_id="exec-1",
         claims=(
             MaterialClaim(

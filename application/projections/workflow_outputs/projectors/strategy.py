@@ -46,6 +46,10 @@ from core.storage.persistence.strategy import (
     new_strategy_evaluation_id,
     new_strategy_hypothesis_id,
 )
+from core.workflow.registry.workflow_registry import (
+    WorkflowAuthorityFacts,
+    WorkflowRegistry,
+)
 from domain.authority import (
     RiskAuthorityContract,
     SourceOfTruthCategory,
@@ -171,6 +175,7 @@ class StrategySynthesisWorkflowOutputProjector:
             DecisionEvidencePacketPersistenceService
         ),
         lineage_persistence_service: LineagePersistenceService,
+        workflow_registry: WorkflowRegistry | None = None,
     ) -> None:
         self._strategy_persistence_service = strategy_persistence_service
         self._recommendation_persistence_service = recommendation_persistence_service
@@ -178,6 +183,7 @@ class StrategySynthesisWorkflowOutputProjector:
             decision_evidence_packet_persistence_service
         )
         self._lineage_persistence_service = lineage_persistence_service
+        self._workflow_registry = workflow_registry
 
     @property
     def projector_name(self) -> str:
@@ -211,6 +217,10 @@ class StrategySynthesisWorkflowOutputProjector:
             request=request,
         )
         try:
+            workflow_facts = _strategy_workflow_authority_facts(
+                registry=self._workflow_registry,
+                workflow_name=request.run.workflow_name,
+            )
             evidence_packet = assemble_strategy_synthesis_decision_evidence_packet(
                 decision=decision,
                 hypotheses=tuple(item.hypothesis for item in hypothesis_evidence),
@@ -227,6 +237,11 @@ class StrategySynthesisWorkflowOutputProjector:
                 ),
                 retention=_strategy_evidence_retention_requirement(request),
                 support_snapshots=_strategy_support_snapshots(hypothesis_evidence),
+                workflow_name=workflow_facts.identity.workflow_name,
+                workflow_definition_fingerprint=(
+                    workflow_facts.identity.definition_fingerprint
+                ),
+                execution_id=request.run.execution_id,
             )
         except StrategySynthesisEvidencePacketAssemblyError as exc:
             return _failed(
@@ -240,11 +255,26 @@ class StrategySynthesisWorkflowOutputProjector:
                 evidence_packet
             )
         )
-        if not packet_result.success:
+        if (
+            not packet_result.success
+            or packet_result.records_persisted < 1
+            or packet_result.packet_id != evidence_packet.packet_id
+        ):
             error = "; ".join(packet_result.errors) or (
                 "Strategy decision evidence packet persistence failed."
             )
             return _failed(request, self.projector_name, error)
+        reconstructed_packet = (
+            await self._decision_evidence_packet_persistence_service.reconstruct_packet(
+                evidence_packet.packet_id
+            )
+        )
+        if reconstructed_packet != evidence_packet:
+            return _failed(
+                request,
+                self.projector_name,
+                "Strategy decision evidence packet reconstruction was substituted.",
+            )
         evidence_packet_ids = (evidence_packet.packet_id,)
 
         decision_record = _decision_record(
@@ -334,6 +364,7 @@ def build_strategy_projector_registrations(
         DecisionEvidencePacketPersistenceService
     ),
     lineage_persistence_service: LineagePersistenceService,
+    workflow_registry: WorkflowRegistry | None = None,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical strategy projector registrations."""
     hypothesis_specs = (
@@ -373,6 +404,7 @@ def build_strategy_projector_registrations(
             decision_evidence_packet_persistence_service
         ),
         lineage_persistence_service=lineage_persistence_service,
+        workflow_registry=workflow_registry,
     )
     registrations.append(
         WorkflowOutputProjectorRegistration(
@@ -385,6 +417,24 @@ def build_strategy_projector_registrations(
         )
     )
     return tuple(registrations)
+
+
+def _strategy_workflow_authority_facts(
+    *,
+    registry: WorkflowRegistry | None,
+    workflow_name: str,
+) -> WorkflowAuthorityFacts:
+    if registry is None:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis evidence packet requires workflow registry facts."
+        )
+    try:
+        return registry.get_authority_facts(workflow_name)
+    except KeyError as exc:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis evidence packet requires registered workflow "
+            f"authority facts for {workflow_name!r}."
+        ) from exc
 
 
 def _hypothesis_from_node_output(

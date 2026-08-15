@@ -107,7 +107,7 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     )
     monkeypatch.setattr(
         cli_container,
-        "get_builtin_workflows",
+        "get_builtin_workflow_registrations",
         lambda: (),
     )
     monkeypatch.setattr(

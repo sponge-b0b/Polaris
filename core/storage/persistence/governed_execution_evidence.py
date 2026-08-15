@@ -24,7 +24,12 @@ class GovernedExecutionEvidenceSelection:
 
 
 class GovernedExecutionEvidenceSelectionRepository(Protocol):
-    async def create(self, selection: GovernedExecutionEvidenceSelection) -> None: ...
+    async def create(
+        self,
+        selection: GovernedExecutionEvidenceSelection,
+        *,
+        commit: bool = True,
+    ) -> None: ...
 
     async def get(
         self, *, execution_id: str, identity: WorkflowIdentity

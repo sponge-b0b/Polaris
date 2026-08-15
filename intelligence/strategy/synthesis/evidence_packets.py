@@ -40,6 +40,9 @@ def assemble_strategy_synthesis_decision_evidence_packet(
     reconstruction_references: tuple[ReconstructionReference, ...],
     retention: EvidenceRetentionRequirement,
     support_snapshots: Mapping[str, SupportingEvidenceSnapshot],
+    workflow_name: str | None = None,
+    workflow_definition_fingerprint: str | None = None,
+    execution_id: str | None = None,
 ) -> DecisionEvidencePacket:
     """Build the canonical evidence packet for a strategy synthesis decision.
 
@@ -129,6 +132,9 @@ def assemble_strategy_synthesis_decision_evidence_packet(
         uncertainties=(uncertainty,),
         limitations=limitations,
         retention=retention,
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=execution_id,
     )
 
 

@@ -176,6 +176,7 @@ def test_execution_audit_capability_rejects_direct_construction() -> None:
                     workflow_curation_authority_input(),
                 ),
             ),
+            _evidence=Mock(spec=BaselineRuntimeEvidence),
         )
 
 
@@ -321,16 +322,23 @@ async def test_governed_execution_reconstructs_baseline_runtime_evidence() -> No
         authority=authority,
         workflow_name="governance_test_workflow",
         workflow_version="1.0.0",
+        execution_id="execution-one",
         provenance_digest=BaselineRuntimeEvidence.calculate_provenance_digest(
             authority=authority,
             workflow_name="governance_test_workflow",
             workflow_version="1.0.0",
+            execution_id="execution-one",
         ),
     )
     baseline_service = AsyncMock()
     baseline_service.reconstruct.return_value = evidence
     audit_service = AsyncMock()
-    audit_service.record_governance_evaluation.return_value = ()
+    audit_service.record_governance_evaluation.return_value = (
+        AutomatedDecisionAuditPersistenceResult.succeeded(
+            "baseline-governance-audit",
+            records_persisted=1,
+        ),
+    )
     execution_service = GovernedWorkflowExecutionService(
         workflow_facade=runtime.facade,
         automated_decision_audit_service=audit_service,
@@ -566,8 +574,12 @@ async def _audit_capability(
 ) -> WorkflowExecutionAuditCapability:
     service = audit_service or AsyncMock()
     if audit_service is None:
-        service.record_governance_evaluation.return_value = ()
-        service.record_policy_evaluation.return_value = ()
+        persisted = AutomatedDecisionAuditPersistenceResult.succeeded(
+            "governance-enforcement-audit",
+            records_persisted=1,
+        )
+        service.record_governance_evaluation.return_value = (persisted,)
+        service.record_policy_evaluation.return_value = (persisted,)
     authority = classify_risk_authority(workflow_curation_authority_input())
     packet = Mock(spec=DecisionEvidencePacket)
     packet.packet_id = "governance-enforcement-test-packet"

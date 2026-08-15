@@ -15,7 +15,6 @@ from application.ai_optimization.contracts import (
 from application.evaluations import (
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
-    authority_gate_evidence_for_evaluation_cases,
     expected_authority_metadata_for_evaluation_target,
 )
 from core.storage.persistence.ai_artifacts import (
@@ -111,11 +110,6 @@ class AiOptimizationService:
                 timeout_seconds=request.timeout_seconds,
                 authority_metadata=expected_authority_metadata_for_evaluation_target(
                     evaluation_target_type,
-                ),
-                authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                    evaluation_target_type,
-                    evaluation_cases,
-                    run_id=evaluation_run_id,
                 ),
             )
         )

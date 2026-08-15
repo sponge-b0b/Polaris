@@ -22,6 +22,7 @@ from core.storage.persistence.governance_audit.governance_audit_models import (
     new_automated_policy_audit_record_id,
     new_governance_residual_risk_acceptance_id,
     new_governance_review_decision_id,
+    review_task_status_for_decision_outcome,
 )
 from core.storage.persistence.governance_audit.governance_audit_repository import (
     AutomatedDecisionAuditRepository,
@@ -50,4 +51,5 @@ __all__ = [
     "new_automated_policy_audit_record_id",
     "new_governance_residual_risk_acceptance_id",
     "new_governance_review_decision_id",
+    "review_task_status_for_decision_outcome",
 ]

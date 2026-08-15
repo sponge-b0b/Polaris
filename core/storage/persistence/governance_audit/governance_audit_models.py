@@ -423,7 +423,7 @@ class GovernanceReviewDecisionRecord:
             "review_scope",
             _clean_identifier(self.review_scope, "review_scope"),
         )
-        expected_status = _review_task_status_for_decision_outcome(self.outcome)
+        expected_status = review_task_status_for_decision_outcome(self.outcome)
         resulting_status = _coerce_review_task_status(
             self.resulting_task_status or expected_status,
         )
@@ -664,7 +664,7 @@ def new_governance_residual_risk_acceptance_id() -> str:
     return f"governance_residual_risk_acceptance:{uuid4().hex}"
 
 
-def _review_task_status_for_decision_outcome(
+def review_task_status_for_decision_outcome(
     outcome: GovernanceReviewDecisionOutcome,
 ) -> GovernanceReviewTaskStatus:
     return {

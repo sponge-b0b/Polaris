@@ -32,6 +32,7 @@ from core.storage.persistence.governance_audit import (
     new_automated_policy_audit_record_id,
     new_governance_residual_risk_acceptance_id,
     new_governance_review_decision_id,
+    review_task_status_for_decision_outcome,
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
@@ -617,7 +618,7 @@ class AutomatedDecisionAuditService:
                 acceptance.acceptance_id if acceptance is not None else None
             ),
         )
-        status = _resulting_task_status_for_outcome(request.outcome)
+        status = review_task_status_for_decision_outcome(request.outcome)
         try:
             (
                 decision,
@@ -1068,22 +1069,6 @@ def _requires_residual_risk_acceptance(
     )
 
 
-def _resulting_task_status_for_outcome(
-    outcome: GovernanceReviewDecisionOutcome,
-) -> GovernanceReviewTaskStatus:
-    return {
-        GovernanceReviewDecisionOutcome.APPROVED: GovernanceReviewTaskStatus.APPROVED,
-        GovernanceReviewDecisionOutcome.DENIED: GovernanceReviewTaskStatus.DENIED,
-        GovernanceReviewDecisionOutcome.CONTESTED: GovernanceReviewTaskStatus.CONTESTED,
-        GovernanceReviewDecisionOutcome.CHANGES_REQUESTED: (
-            GovernanceReviewTaskStatus.CHANGES_REQUESTED
-        ),
-        GovernanceReviewDecisionOutcome.OVERRIDDEN: (
-            GovernanceReviewTaskStatus.OVERRIDDEN
-        ),
-    }[outcome]
-
-
 def _approval_state_for_task_status(
     status: GovernanceReviewTaskStatus,
 ) -> GovernanceReviewApprovalState:
@@ -1158,7 +1143,7 @@ def _review_decision_record_from_request(
         review_scope=task.review_scope,
         evidence=task.evidence,
         decided_at=request.decided_at or datetime.now(UTC),
-        resulting_task_status=_resulting_task_status_for_outcome(request.outcome),
+        resulting_task_status=review_task_status_for_decision_outcome(request.outcome),
         requested_remediation=request.requested_remediation,
         residual_risk_acceptance_required=residual_risk_acceptance_required,
         residual_risk_acceptance_id=residual_risk_acceptance_id,

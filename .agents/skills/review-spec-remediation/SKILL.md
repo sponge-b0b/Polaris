@@ -1,73 +1,143 @@
 ---
 name: review-spec-remediation
-description: Invoked only by `$review-spec` when a review returns one or more Blocking findings — not a standalone command. Synthesizes findings into a Root Blocker Ledger, creates or updates the tracking issue, and halts for the Human Handoff Intercept so `$to-tickets` can slice the blockers into tickets.
+description: Invoked only by `$review-spec` when a review returns Blocking findings. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec Remediation
 
-This skill is invoked by `$review-spec` whenever its Aggregate step finds one or more Blocking findings. You are strictly prohibited from performing immediate, "in-flight" file edits to fix code-review errors — this skill's job is to turn Blocking findings into a tracked remediation loop, not to fix them. Once this skill halts for the Human Handoff Intercept (or, on a Recursive Pass, confirms no Blocking findings remain), return to `$review-spec`'s Exit Gate.
+`$review-spec-remediation` converts Blocking `$review-spec` findings into durable remediation state.
 
-If a Blocking Architecture finding with `Architecture decision required: Yes` reaches this skill, halt and return it to `$review-spec`, which owns delegation to `$architecture-remediation`. Unresolved architecture must not be synthesized into remediation tickets.
+It does not fix source code.
 
-## Synthesizing Root Blockers
+If a Blocking Architecture finding has `Architecture decision required: Yes`, return it to `$review-spec`. Unresolved architecture must not become ordinary remediation work.
 
-When any Blocking findings remain, synthesize them into root blockers before creating or updating the tracking issue:
+## Root Blocker Model
 
-* Group related findings by the durable invariant they violate, not by the file, hunk, subsystem, or sub-agent that noticed them.
-* Assign stable root IDs (`RB-1`, `RB-2`, ...). Keep existing IDs on later passes; never renumber merely because the evidence examples changed.
-* For each root, record the invariant, affected surfaces/reference kinds, concrete evidence examples, exit checks, owner overrides, and current status.
-* For Architecture roots, preserve `Architecture decision required: No`, the governing architectural authority, and the remediation routing supplied by `$review-architecture`. Do not reinterpret that architecture decision here.
-* Classify every new Blocking finding as one of:
+Group findings by the **durable invariant** they violate, not by file, subsystem, symptom, or reviewing axis.
 
-  * `new root` — a distinct invariant not already represented;
-  * `child symptom` — another manifestation of an existing root; or
-  * `regression` — a previously ticketed/closed root or symptom that current source truth still violates.
-* For cross-cutting specs, maintain a compact acceptance matrix in the parent issue. Rows should be the relevant output/evidence families; columns should be the obligations that prove the spec through production paths (for example: assembly, canonical persistence, reconstruction validation, fail-closed readiness, observability, negative tests). Use the spec's own vocabulary rather than inventing generic rows.
+An `RB-*` ID denotes one stable invariant.
 
-### Architecture-Conformance Gate
+Preserve existing IDs. Do not broaden an existing invariant merely to keep a new finding under the same root.
 
-Before persisting any new or materially changed Root Blocker acceptance obligation, verify that the required behavior conforms to current architectural authority.
+For each root maintain:
 
-Use the Spec Architecture Impact, applicable accepted ADRs/current docs, and `$review-architecture` when architectural evaluation is required.
+* invariant;
+* status;
+* affected surface/reference families;
+* governing architecture when applicable;
+* exit checks;
+* current evidence;
+* cumulative acceptance obligations;
+* Owner Overrides.
 
-An obligation is **architecture-blocked** if satisfying it would require:
+For Architecture roots preserve:
 
-* violating or changing an accepted architectural decision;
-* inventing a new canonical contract, owner, path, or boundary;
+```text
+Architecture decision required: No
+Governing authority: <ADR/doc/invariant>
+Routing: <existing-authority remediation>
+```
+
+Do not reinterpret `$review-architecture`.
+
+### Finding Reconciliation
+
+Classify each Blocking finding as exactly one of:
+
+* **child symptom** — already derivable from the existing root invariant and closure domain;
+* **root-definition gap** — same durable invariant, but the recorded affected surfaces, exit checks, or acceptance matrix were incomplete;
+* **regression** — previously satisfied behavior was introduced or broken after the last satisfied `HEAD`;
+* **missed prior finding** — the violation already existed at the last satisfied `HEAD`;
+* **new root** — a genuinely distinct durable invariant.
+
+Use the provenance classification supplied by `$review-spec`.
+
+Do not label a newly discovered violation `regression` merely because its root was previously satisfied.
+
+### Root Definition Integrity
+
+A root-definition gap may expand:
+
+* affected surface/reference families;
+* exit checks;
+* acceptance obligations.
+
+It must not materially change what the invariant means.
+
+If accommodating a finding requires broadening the invariant itself, create a new root instead.
+
+Do not allow an existing root to become an ever-expanding container for related architectural concerns.
+
+## Cumulative Acceptance Matrix
+
+Acceptance obligations are cumulative for the lifetime of an active root.
+
+Carry forward every established cell, including:
+
+```text
+satisfied
+open
+regressed
+unproven
+owner-overridden
+```
+
+A later review may update a cell's status or evidence, but omission from a newer review does not remove it.
+
+Remove or replace an obligation only when durable state explicitly establishes that it is:
+
+* superseded by an equivalent obligation;
+* no longer required by current Spec/architecture; or
+* Owner-overridden.
+
+When replacing or retiring a cell, record why.
+
+For a root-definition gap, add the missing surface/obligation cells before remediation is ticketed.
+
+Do not shrink the matrix to only currently failing symptoms.
+
+For cross-cutting roots, use semantic surface/reference families and production-path obligations rather than enumerating individual files.
+
+A root is satisfied only when every active required cell is satisfied or Owner-overridden.
+
+## Architecture-Conformance Gate
+
+Before persisting a new or materially changed root or acceptance obligation, confirm it conforms to current architecture.
+
+Use the Spec Architecture Impact, applicable accepted ADRs/current docs, and the Architecture finding supplied by `$review-spec`.
+
+An obligation is architecture-blocked when satisfying it would require:
+
+* changing or violating an accepted architectural decision;
+* inventing a new canonical owner, contract, path, or boundary;
 * choosing a new dependency direction or lifecycle responsibility; or
-* reconciling materially conflicting architectural authorities.
+* resolving materially conflicting authorities.
 
-Do not persist an architecture-blocked obligation as ordinary remediation work and do not hand it to `$to-tickets`.
+Do not persist architecture-blocked behavior as ordinary remediation.
 
-Collect every independent architecture blocker and halt with a Human Handoff:
+Return all independent architecture blockers to `$review-spec` for its `$architecture-remediation` Human Handoff.
 
-> ⚠️ **Spec remediation is blocked by incomplete architecture.**
->
-> Please run:
->
-> ```
-> $architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
-> ```
->
-> Pass the exact blocked acceptance obligation, evidence, material consequence, governing authority, Root Blocker ID when known, parent Spec, and Spec Review issue.
+Do not propose the architectural answer.
 
-Do not propose the architectural resolution.
+## Durable Ledger Format
 
-Use these parseable headings when a parent Spec Review issue has blockers:
+Use:
 
 ```markdown
 ## Root Blocker Ledger
 
-### RB-1 — <short root name>
-Status: open | closed | regressed | owner-overridden
-Invariant: <durable invariant being violated>
+### RB-1 — <short stable root name>
+Status: open | satisfied | regressed | unproven | owner-overridden
+Invariant: <stable durable invariant>
 Architecture decision required: No
 Governing authority: <ADR/doc/invariant>
-Affected surfaces/reference kinds: <comma-separated list>
-Exit checks: <production-path checks/tests required to close the root>
-Current evidence: <short bullets or dated finding references>
+Routing: <existing-authority remediation>
+Affected surfaces/reference kinds: <semantic surface/reference families>
+Exit checks: <root-complete production-path proof>
+Current evidence:
+- <dated evidence>
 
 ## Spec Acceptance Matrix
 
@@ -75,67 +145,147 @@ Current evidence: <short bullets or dated finding references>
 | --- | --- | --- | --- | --- |
 ```
 
-Omit `Architecture decision required` and `Governing authority` for non-Architecture roots.
+Omit Architecture fields for non-Architecture roots.
 
-Do not let a helper, validator, serializer, or test seam count as root-complete unless the production path named by the spec is proven by source and tests.
+Treat legacy `Status: closed` as `satisfied` when recovering existing state. New updates use `satisfied`.
 
-## 1. First-Pass Failure: Parent Issue Creation
+Do not let helper-, validator-, serializer-, mock-, or isolated unit-level proof establish root completion when the obligation requires a production path.
 
-* Create a single, dedicated parent GitHub issue titled:
-  `Spec Review: <Feature Name>`.
-* Populate the description field with the aggregated breakdown of Blocking and Advisory findings, clearly separated. Blocking findings must be presented as a **Root Blocker Ledger** first, followed by concrete evidence examples. Treat individual bullets as evidence for roots, not as an ever-growing independent blocker list.
-* Link this new tracking issue back to the original project Specification issue using a **fixed, parseable format** — the first line of the body must be:
-  `**Parent Spec:** #<spec_issue_number>`. This isn't just a human-readable cross-reference: `$to-tickets` parses this exact line when it's later handed this Spec Review issue during a remediation re-invocation, to resolve which spec's branch to reuse rather than accidentally branching a new one off `main`. Do not substitute a differently-worded reference, a GitHub "Tracked by" relationship, or a plain `#<n>` mention elsewhere in the body — none of those are what the parser looks for.
+## 1. First-Pass Failure
 
-  ```bash
-  gh issue create \
-    --title "Spec Review: <Feature Name>" \
-    --body "$(printf '**Parent Spec:** #%s\n\n%s' "<spec_issue_number>" "$AGGREGATED_FINDINGS_BODY")"
-  ```
+When no Spec Review tracking issue exists:
 
-## 2. The Human Handoff Intercept
+1. synthesize Blocking findings into stable roots;
+2. build the initial cumulative acceptance matrix;
+3. apply the Architecture-Conformance Gate;
+4. create one parent issue titled:
 
-Because the `$to-tickets` skill is explicitly locked to `allow_implicit_invocation: false`, you cannot execute the slicing step yourself. You MUST halt operations and present a clear **Human Action Block** instructing the user to run the tool manually.
+```text
+Spec Review: <Feature Name>
+```
 
-Only architecture-conforming Blocking obligations may proceed to `$to-tickets`.
+The first body line must be:
 
-The handoff must say that `$to-tickets` should slice **Blocking findings only** unless the user explicitly wants Advisory findings ticketed.
+```markdown
+**Parent Spec:** #<spec_issue_number>
+```
 
-* **Required Terminal Output Template:**
+Then include:
 
-  > ⚠️ **Spec Review Failed with [X] Blocking Findings.**
-  > I have created or updated the parent tracking issue:
-  > **`Spec Review: <Feature Name> #<Issue_ID>`**.
-  >
-  > Please run the following command to slice the Blocking findings into tracked
-  > child tickets:
-  >
-  > ```
-  > $to-tickets Spec Review: <Feature Name> #<Issue_ID>
-  > ```
+1. Root Blocker Ledger;
+2. Spec Acceptance Matrix;
+3. aggregated Standards / Spec / Architecture findings;
+4. useful Advisory findings.
 
-## 3. Handling Recursive Passes & Secondary Findings
+Treat individual findings as evidence for roots, not as an independent permanent blocker list.
 
-When the user re-runs this `$review-spec` skill after completing child remediation tickets, perform a bounded re-review:
+## 2. Recursive Remediation Pass
 
-* **DO NOT** create a brand-new parent issue.
-* Verify whether previously recorded Blocking findings are fixed.
-* Include regressions introduced by the remediation diff.
-* Include newly exposed spec failures only when they are directly connected to a prior fix or the remediated behavior.
-* Reconcile every finding against the existing Root Blocker Ledger before ticketing: update the existing root status/evidence when it is a child symptom, mark it as a regression when a closed ticket did not actually satisfy the root, and create a new root only when the invariant is genuinely distinct.
-* Preserve Architecture routing metadata for existing Architecture roots unless `$review-architecture` explicitly changes it on the new review pass.
-* Update the acceptance matrix with proven, unproven, or regressed cells. A root is not fixed while any required production-path cell for that root remains unproven.
-* Apply the Architecture-Conformance Gate to every new or materially changed acceptance obligation before persisting it or sending it to `$to-tickets`.
-* Do not re-mine the full original diff for new Advisory smells.
-* Do not add new Blocking Standards findings unless they are deterministic, cite a documented standard, and were introduced by the remediation work or missed because a previous blocker hid the code path.
-* Open the existing parent "Spec Review" issue and append new Blocking or useful Advisory findings to the bottom of the body under a fresh, dated header:
-  `## Re-review Findings [YYYY-MM-DD HH:MM]`. Read the current body and write back the original content plus the new section and any Root Blocker Ledger / acceptance-matrix updates — do not replace it with only the new section, or the `**Parent Spec:** #<n>` line from Step 1 above is lost, and `$to-tickets` will no longer be able to resolve which branch to reuse on the next remediation pass.
-* Re-trigger the **Human Handoff Intercept** block only when Blocking findings remain.
+When the Spec Review already exists:
 
-## 4. Owner Overrides
+1. recover the complete durable Root Blocker Ledger and cumulative acceptance matrix;
+2. preserve every active prior obligation;
+3. reconcile each new Blocking finding through **Finding Reconciliation**;
+4. apply any root-definition gaps before ticketing;
+5. update root status and evidence;
+6. apply the Architecture-Conformance Gate to every new or materially changed obligation;
+7. persist the updated cumulative ledger/matrix.
 
-If the user/owner explicitly authorizes or rejects a finding:
+Do not create a new parent issue.
 
-* Update the parent issue to record the override and remove the finding from the Blocking count.
-* Suppress the same finding in future review passes unless the implementation materially changes.
-* Treat authorized scope creep as Owner-overridden, not as a Spec failure.
+### Root Status
+
+Use:
+
+* **open** — one or more active obligations are violated;
+* **regressed** — previously satisfied behavior was proven to have been broken later;
+* **unproven** — no known violation remains, but required proof is insufficient;
+* **satisfied** — every active obligation is proven satisfied;
+* **owner-overridden** — owner explicitly removed the root from blocking status.
+
+A **missed prior finding** makes the root `open`, not `regressed`.
+
+A **root-definition gap** makes the root `open` or `unproven` according to the resulting obligations; it is not automatically a regression.
+
+Do not declare a root satisfied from source plausibility alone when its closure requires verification evidence.
+
+### Re-review History
+
+Append a concise dated section:
+
+```markdown
+## Re-review Findings [YYYY-MM-DD HH:MM]
+
+HEAD reviewed: `<sha>`
+
+## Root Blocker Ledger Updates
+
+...
+
+## Spec Acceptance Matrix Updates
+
+...
+
+## Aggregated Review Findings
+
+...
+```
+
+Preserve the original issue body and `**Parent Spec:**` line.
+
+Do not re-mine the original diff for unrelated Advisory findings.
+
+## 3. Remediation Delta
+
+After the durable root model is current, determine the Blocking remediation delta.
+
+Only architecture-conforming roots proceed.
+
+For each actionable root pass `$to-tickets`:
+
+* stable root ID and invariant;
+* current status;
+* affected semantic surface/reference families;
+* governing authority when applicable;
+* every active non-satisfied acceptance obligation;
+* satisfied cells that must remain protected;
+* required production-path and negative/regression proof;
+* provenance classification for missed/regressed findings.
+
+Do not slice directly from the latest symptom bullets.
+
+Do not create one ticket per symptom when one root-complete remediation ticket can prove the invariant.
+
+Do not treat a previously closed ticket as sufficient when current durable root state contains active violated or unproven obligations.
+
+## 4. Human Handoff
+
+`$to-tickets` is human-gated. Do not invoke it implicitly.
+
+When architecture-conforming Blocking remediation remains, halt with:
+
+> ⚠️ **Spec Review has Blocking remediation.**
+>
+> I have created or updated:
+> **`Spec Review: <Feature Name> #<Issue_ID>`**
+>
+> Please run:
+>
+> ```
+> $to-tickets - Spec Review: <Feature Name> (<Issue URL>)
+> ```
+>
+> `$to-tickets` should slice Blocking remediation only unless you explicitly choose to include Advisory work.
+
+If no Blocking findings remain, return to `$review-spec` so it can evaluate its Exit Gate.
+
+## Owner Overrides
+
+When the owner explicitly overrides a finding or root:
+
+* persist the scope and rationale;
+* mark the applicable root/cell `owner-overridden`;
+* remove it from Blocking counts;
+* suppress the same unchanged finding on later passes.
+
+Do not use an Owner Override to silently alter architecture or erase historical evidence.

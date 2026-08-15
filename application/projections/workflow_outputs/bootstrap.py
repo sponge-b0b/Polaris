@@ -59,7 +59,6 @@ from core.storage.persistence.repositories import (
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
     PostgresPersistenceLineageLinkRepository,
-    PostgresRagPersistenceRepository,
     PostgresTelemetryPersistenceRepository,
 )
 from core.storage.persistence.repositories.postgres_agent_signal_persistence_repository import (  # noqa: E501 - canonical module path
@@ -188,7 +187,6 @@ class PostgresWorkflowOutputProjectionCoordinator:
                     session_factory=self._session_factory,
                 ),
                 evaluation_repository=PostgresEvaluationPersistenceRepository(session),
-                rag_repository=PostgresRagPersistenceRepository(session),
                 trace_repository=PostgresTelemetryPersistenceRepository(session),
                 telemetry=None
                 if self._observability_manager is None

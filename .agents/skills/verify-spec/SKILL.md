@@ -1,10 +1,9 @@
 ---
-
 name: verify-spec
 description: Perform authorized spec-wide verification across the completed Spec branch, repair in-scope failures, and record a passing verification receipt for the exact final HEAD.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
-------------------------------
+---
 
 # Global Specification Integration & Verification
 

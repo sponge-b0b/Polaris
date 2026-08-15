@@ -43,7 +43,7 @@ A declared **Ticket branch** must exactly match the current branch before any fi
 * Missing field halts.
 * Detached `HEAD` does not satisfy a declared branch.
 
-```bash id="deh7wz"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -73,7 +73,7 @@ Do this before file mutation.
 
 If already a SHA:
 
-```bash id="lfx3va"
+```bash
 git rev-parse "$TICKET_BASELINE^{commit}"
 ```
 
@@ -319,7 +319,7 @@ If proof cannot be completed because of a permitted blocker, keep the ticket ope
 
 ### Root Closure Human Handoff Intercept
 
-`$verify-root-closure` has `allow_implicit_invocation: false`. `$implement-ticket` therefore cannot invoke it without explicit human authorization.
+`$verify-root-closure` requires explicit human authorization.
 
 For every Spec Review remediation ticket, after targeted verification and Proposed Root Closure Evidence are complete — but before commit, push, closure-evidence persistence, or ticket closure — halt.
 
@@ -340,53 +340,133 @@ Use:
 > **Production path:** <production boundary exercised>
 > **Proposed closure:** <concise acceptance/sweep/protected-root summary>
 >
-> After authorization, `$verify-root-closure` must execute in a **fresh read-only subagent**. The `$implement-ticket` main agent must not perform the certification itself.
+> This invocation authorizes `$implement-ticket` to dispatch the independent verifier. It does **not** authorize the `$implement-ticket` main agent to perform certification itself.
 
 Then stop.
 
 ### Resume After Human Authorization
 
-When the human explicitly invokes `$verify-root-closure`, resume `$implement-ticket` at this checkpoint rather than restarting implementation discovery.
+An explicit `$verify-root-closure` invocation received at this checkpoint is an **authorization event**, not a local procedure call.
 
-Spawn exactly one **fresh read-only subagent** whose explicitly authorized task is to run `$verify-root-closure`.
+Resume `$implement-ticket` at this checkpoint rather than restarting implementation discovery or executing `$verify-root-closure` in the main agent.
 
-Pass it:
+#### Verifier Dispatch Invariant
+
+After authorization, the `$implement-ticket` main agent enters **dispatcher-only mode**.
+
+It may only:
+
+1. capture the exact candidate `ROOT_CLOSURE_STATE`;
+2. spawn exactly one fresh verifier subagent;
+3. wait for and receive its result;
+4. validate verifier independence and candidate-state integrity;
+5. consume a valid `PASS` or `FAIL`.
+
+While in dispatcher-only mode, the main agent must not:
+
+* perform root-closure source inspection or tracker recovery;
+* run root-closure tests or checks;
+* reason to or emit its own closure verdict;
+* execute the `$verify-root-closure` procedure itself;
+* repair findings before the verifier returns.
+
+Capture the candidate state before spawning:
+
+```bash
+DISPATCH_ROOT_CLOSURE_STATE=$(
+  {
+    git diff --binary "$TICKET_BASELINE" --
+    git ls-files --others --exclude-standard -z \
+      | sort -z \
+      | xargs -0 -r sha256sum
+  } | sha256sum | awk '{print $1}'
+)
+```
+
+Spawn exactly one **fresh verifier subagent** and pass only the explicit handoff inputs it requires:
 
 * current ticket and parent Spec;
 * latest Spec Review / Root Blocker Ledger;
 * `TICKET_BASELINE`;
-* current uncommitted implementation state;
+* current candidate implementation state;
+* `DISPATCH_ROOT_CLOSURE_STATE`;
 * Proposed Root Closure Evidence;
 * applicable Architecture context.
 
-The subagent independently derives the required Root Invariant Sweep and protected roots. Do not constrain it to the implementer's claimed coverage.
+The verifier independently derives the required Root Invariant Sweep and protected roots. Do not constrain it to the implementer's claimed coverage.
 
-The `$implement-ticket` main agent only consumes the verifier result; it must not independently certify root closure.
+The verifier must execute `$verify-root-closure` as a **non-mutating leaf workflow**:
+
+* it may read, search, inspect, and run non-mutating targeted checks;
+* a discovered defect means `ROOT CLOSURE: FAIL`, never authorization to repair it;
+* it must not modify repository, Git, tracker, or branch state;
+* it must not invoke implementation/remediation workflows;
+* it must not delegate or spawn another agent or subagent.
+
+The main agent only consumes the verifier result; it never independently certifies root closure.
+
+#### Verify Verifier Integrity
+
+After the verifier returns, recompute:
+
+```bash
+POST_VERIFIER_ROOT_CLOSURE_STATE=$(
+  {
+    git diff --binary "$TICKET_BASELINE" --
+    git ls-files --others --exclude-standard -z \
+      | sort -z \
+      | xargs -0 -r sha256sum
+  } | sha256sum | awk '{print $1}'
+)
+```
+
+A verifier result is valid only when:
+
+* `POST_VERIFIER_ROOT_CLOSURE_STATE` equals `DISPATCH_ROOT_CLOSURE_STATE`;
+* the verifier's `TICKET_BASELINE` equals the current `TICKET_BASELINE`;
+* the verifier's `ROOT_CLOSURE_STATE` equals `DISPATCH_ROOT_CLOSURE_STATE`;
+* no verifier mutation or delegation is reported or otherwise observed.
+
+If any condition fails, discard the verdict. Do not treat it as `PASS` or `FAIL`.
+
+A verifier that mutates or delegates has not performed valid root-closure verification.
+
+Unauthorized verifier mutations are never automatically accepted as ticket implementation. They must either be safely reverted or explicitly adopted by the `$implement-ticket` implementation flow. If adopted, rerun applicable targeted verification, rebuild Proposed Root Closure Evidence, and return to the Root Closure Human Handoff Intercept for fresh authorization and a fresh verifier.
+
+If the candidate state remains unchanged but the verifier delegated or otherwise violated independence, return directly to the Root Closure Human Handoff Intercept.
+
+Each verification attempt requires fresh human authorization.
 
 #### FAIL
 
 `ROOT CLOSURE: FAIL` is non-terminal.
 
-Resume implementation immediately and complete every actionable verifier finding before returning to the Root Closure Human Handoff Intercept.
+Exit dispatcher-only mode and resume implementation immediately.
+
+Complete every actionable verifier finding before returning to the Root Closure Human Handoff Intercept.
 
 Corrective edits making the failed verdict stale are expected and are not a stopping condition.
 
 * keep the ticket open;
 * fix every implementation/proof failure within ticket scope;
-* apply **Architecture vs. Implementation Test** to architecture-blocker candidates;
+* apply **Architecture vs. Implementation** to architecture-blocker candidates;
 * rerun affected targeted checks;
 * rebuild Proposed Root Closure Evidence;
 * halt at the **Root Closure Human Handoff Intercept** again.
 
 Do not stop after a verifier `FAIL` merely to report the failures while actionable in-scope remediation remains.
 
-Each new verification attempt requires fresh human authorization and a fresh read-only subagent.
+Each new verification attempt requires fresh human authorization and a fresh verifier subagent.
 
 The parent may not override or downgrade a verifier failure.
 
 #### PASS
 
-`ROOT CLOSURE: PASS` is non-terminal. Proceed directly to Section 4.
+`ROOT CLOSURE: PASS` is non-terminal.
+
+A valid `PASS` requires the **Verify Verifier Integrity** gate above to succeed.
+
+Exit dispatcher-only mode and proceed directly to Section 4.
 
 Do not report `PASS` as completion; the ticket is not complete until commit, push, Root Closure Evidence persistence, and closure succeed.
 
@@ -405,7 +485,7 @@ Any implementation change after `PASS` makes the verdict stale and requires anot
 
 Re-check **Ticket branch** immediately before commit.
 
-```bash id="647p8h"
+```bash
 EXPECTED_TICKET_BRANCH="<Ticket branch value>"
 CURRENT_BRANCH=$(git branch --show-current)
 
@@ -421,7 +501,7 @@ Skip when **Ticket branch** is `None`.
 
 For Spec Review remediation, recompute:
 
-```bash id="7pzhxg"
+```bash
 CURRENT_ROOT_CLOSURE_STATE=$(
   {
     git diff --binary "$TICKET_BASELINE" --
@@ -434,7 +514,7 @@ CURRENT_ROOT_CLOSURE_STATE=$(
 
 Require:
 
-```bash id="gbgd27"
+```bash
 test "$CURRENT_ROOT_CLOSURE_STATE" = "$ROOT_CLOSURE_STATE"
 ```
 
@@ -452,7 +532,7 @@ After all required verification and closure gates succeed:
 4. include owned wiki changes in the same commit;
 5. push:
 
-```bash id="a1f3bo"
+```bash
 git push -u origin HEAD
 ```
 
@@ -460,7 +540,7 @@ If commit or push fails, do not close the ticket.
 
 Capture ticket commits:
 
-```bash id="8vjil4"
+```bash
 git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
 ```
 
@@ -480,14 +560,14 @@ For Spec Review remediation additionally require:
 * every carried acceptance cell is proven;
 * Root Invariant Sweep has no known remaining violation;
 * every protected root remains preserved;
-* `$verify-root-closure` returned `ROOT CLOSURE: PASS`;
+* `$verify-root-closure` returned a valid `ROOT CLOSURE: PASS`;
 * verified `ROOT_CLOSURE_STATE` remained unchanged through commit.
 
 ### Persist Root Closure Evidence
 
 Before closing a Spec Review remediation ticket, persist the independently verified closure evidence as a ticket comment:
 
-```markdown id="55ixgh"
+```markdown
 ## Root Closure Evidence
 
 **Root:** RB-<n> — <invariant>
@@ -520,7 +600,7 @@ Never close a Spec Review remediation ticket with:
 * unproven carried cells;
 * known root violations;
 * regressed/unproven protected roots;
-* missing or stale independent PASS;
+* missing, invalid, or stale independent PASS;
 * missing durable closure evidence.
 
 Ordinary tickets do not use `$verify-root-closure` or formal Root Closure Evidence.

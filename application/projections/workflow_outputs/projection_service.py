@@ -46,10 +46,6 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunBundle,
     CompletedRunRecord,
 )
-from core.storage.persistence.governance_audit import (
-    AutomatedDecisionEvidenceReference,
-    AutomatedDecisionSubject,
-)
 from core.storage.persistence.projections import (
     WorkflowOutputProjectionJobRecord,
     WorkflowOutputProjectionJobRepository,
@@ -64,18 +60,6 @@ logger = logging.getLogger(__name__)
 _UNRESOLVED_PROJECTOR_NAME = "unresolved"
 _UNSUPPORTED_OUTPUT_CONTRACT = "unsupported"
 _GOVERNED_RELEASE_SKIP_REASON = "governance_review_required"
-_REVIEW_SUBJECT_TYPE_METADATA_KEY = "governance_review_subject_type"
-_REVIEW_SUBJECT_ID_METADATA_KEY = "governance_review_subject_id"
-_REVIEW_EVIDENCE_PACKET_ID_METADATA_KEY = "governance_review_evidence_packet_id"
-_REVIEW_EVIDENCE_PACKET_VERSION_METADATA_KEY = (
-    "governance_review_evidence_packet_version"
-)
-_REVIEW_SCOPE_METADATA_KEY = "governance_review_scope"
-_REVIEW_REQUESTED_ACTION_METADATA_KEY = "governance_review_requested_action"
-_REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY = (
-    "governance_residual_risk_acceptance_required"
-)
-_REVIEW_RESIDUAL_RISK_SCOPE_METADATA_KEY = "governance_residual_risk_scope"
 _MATERIALIZER_OWNED_RELEASE_EVIDENCE_PROJECTORS: Final[frozenset[str]] = frozenset(
     {"strategy_synthesis_projector"}
 )
@@ -498,7 +482,7 @@ class WorkflowOutputProjectionService:
                 message=message,
             )
 
-        release_request = _governed_output_release_request_from_metadata(
+        release_request = _governed_output_release_request_from_materializer_state(
             authority=authority,
             node_output=node_output,
             boundary_name=boundary_name,
@@ -653,112 +637,19 @@ def _quality_status_from_metadata(
     return WorkflowOutputQualityStatus.NORMAL
 
 
-def _governed_output_release_request_from_metadata(
+def _governed_output_release_request_from_materializer_state(
     *,
     authority: RiskAuthorityContract,
     node_output: CompletedNodeOutputRecord,
     boundary_name: str,
-) -> GovernedOutputReleaseRequest | str:
-    evidence_packet_id = _metadata_text(
-        node_output.metadata,
-        _REVIEW_EVIDENCE_PACKET_ID_METADATA_KEY,
+) -> str:
+    return (
+        f"{boundary_name} is blocked: {authority.risk_tier.value} governed "
+        f"workflow output {node_output.node_output_id!r} requires "
+        "materializer-owned reconstructed decision evidence; completed-output "
+        "metadata is not accepted as packet, subject, review-scope, action, "
+        "or residual-risk authority."
     )
-    evidence_packet_version = _metadata_int(
-        node_output.metadata,
-        _REVIEW_EVIDENCE_PACKET_VERSION_METADATA_KEY,
-    )
-    if evidence_packet_id is None or evidence_packet_version is None:
-        return (
-            f"{boundary_name} is blocked: governed workflow output release "
-            "requires governance review evidence metadata."
-        )
-
-    subject_type = (
-        _metadata_text(
-            node_output.metadata,
-            _REVIEW_SUBJECT_TYPE_METADATA_KEY,
-        )
-        or node_output.output_contract
-        or node_output.node_name
-    )
-    subject_id = (
-        _metadata_text(
-            node_output.metadata,
-            _REVIEW_SUBJECT_ID_METADATA_KEY,
-        )
-        or node_output.node_output_id
-    )
-    review_scope = (
-        _metadata_text(
-            node_output.metadata,
-            _REVIEW_SCOPE_METADATA_KEY,
-        )
-        or subject_type
-    )
-    requested_action = (
-        _metadata_text(
-            node_output.metadata,
-            _REVIEW_REQUESTED_ACTION_METADATA_KEY,
-        )
-        or "durable_promotion"
-    )
-    residual_risk_acceptance_required = _metadata_bool(
-        node_output.metadata,
-        _REVIEW_RESIDUAL_RISK_ACCEPTANCE_REQUIRED_METADATA_KEY,
-    )
-    residual_risk_scope = _metadata_text(
-        node_output.metadata,
-        _REVIEW_RESIDUAL_RISK_SCOPE_METADATA_KEY,
-    )
-    if residual_risk_acceptance_required and residual_risk_scope is None:
-        return (
-            f"{boundary_name} is blocked: governed workflow output release "
-            "requires residual-risk scope metadata."
-        )
-
-    return GovernedOutputReleaseRequest(
-        authority=authority,
-        subject=AutomatedDecisionSubject(subject_type, subject_id),
-        evidence=AutomatedDecisionEvidenceReference(
-            packet_id=evidence_packet_id,
-            packet_version=evidence_packet_version,
-        ),
-        review_scope=review_scope,
-        requested_action=requested_action,
-        boundary_name=boundary_name,
-        residual_risk_acceptance_required=residual_risk_acceptance_required,
-        residual_risk_scope=residual_risk_scope,
-    )
-
-
-def _metadata_text(metadata: Mapping[str, object], key: str) -> str | None:
-    value = metadata.get(key)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def _metadata_int(metadata: Mapping[str, object], key: str) -> int | None:
-    value = metadata.get(key)
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str):
-        try:
-            return int(value)
-        except ValueError:
-            return None
-    return None
-
-
-def _metadata_bool(metadata: Mapping[str, object], key: str) -> bool:
-    value = metadata.get(key)
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "y"}
-    return False
 
 
 def _new_projection_job_record(

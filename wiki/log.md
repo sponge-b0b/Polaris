@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-15] workflow-output promotion authority | materializer-owned output evidence clarified
+
+Broadened the ADR-0018 governance invariant from named output classes to the general materializer-owned Enhanced/Vigilant output-promotion rule: generic workflow-output projection metadata, transport facts, and caller claims cannot authorize release, durable promotion, provenance, or release scope.
+
 ## [2026-08-11] governed invocation and output evidence boundaries | implemented as active execution invariants
 
 Promoted ADR-0018 after catalog-owned Baseline authority, atomic durable invocation selection, request-scoped reconstruction, mandatory packet provenance, provenance-bound strategy/RAG output packets, transport-independent RAG authority/provenance classification, and registry-backed evaluation authority-gate packet re-acquisition were implemented and tested.

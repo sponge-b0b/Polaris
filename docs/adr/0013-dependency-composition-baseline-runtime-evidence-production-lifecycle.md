@@ -46,8 +46,8 @@ into the claim-level `DecisionEvidencePacket` lifecycle.
 
 ## Consequences
 
-ADR-0012 remains active and is extended with a concrete production owner.
-Implementation must add one typed application lifecycle service and a write
-contract at the canonical orchestration boundary, while retaining reconstruction
-as the only accepted enforcement input. This decision is accepted but
-implementation pending.
+ADR-0018 carries forward the reconstruction-before-enforcement rule and this
+ADR extends it with a concrete production owner. Implementation has added the
+typed application lifecycle service and write contract at the canonical
+orchestration boundary, while retaining reconstruction as the only accepted
+enforcement input. This realization-required decision is implemented.

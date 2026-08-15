@@ -49,9 +49,9 @@ runtime provenance and Enhanced/Vigilant retain claim-level packets.
 
 ## Consequences
 
-ADR-0012's reconstruction-before-enforcement rule and ADR-0013's production
-lifecycle now require one registry-resolved identity. Implementation must add
-the typed identity and deterministic fingerprinting, bind Baseline evidence to
-it, derive packet identity from canonical provenance, and validate both before
-issuing a governed-execution capability. This decision is accepted but
-implementation pending.
+ADR-0018's reconstruction-before-enforcement rule and ADR-0013's production
+lifecycle require one registry-resolved identity. Implementation has added the
+typed identity and deterministic fingerprinting, bound Baseline evidence to it,
+derived packet identity from canonical provenance, and validated both before
+issuing a governed-execution capability. This realization-required decision is
+implemented.

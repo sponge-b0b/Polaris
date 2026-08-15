@@ -51,9 +51,8 @@ the canonical runtime/backtest path, and tier-specific evidence semantics.
 
 ## Consequences
 
-ADR-0012's typed evidence boundary remains the enforcement input, but evidence
+ADR-0018's typed evidence boundary remains the enforcement input, but evidence
 acquisition moves behind the request-scoped application service. Implementation
-must remove caller-provided evidence fields from production CLI/backtest
-requests, provide the resolver through dependency composition, and preserve
-typed fail-closed outcomes. This decision is accepted but implementation
-pending.
+has removed caller-provided evidence fields from production CLI/backtest
+requests, provided the resolver through dependency composition, and preserved
+typed fail-closed outcomes. This realization-required decision is implemented.

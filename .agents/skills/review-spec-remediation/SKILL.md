@@ -1,31 +1,42 @@
 ---
 name: review-spec-remediation
-description: Invoked only by `$review-spec` when a review returns Blocking findings. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
+description: Invoked only by `$review-spec` when independently validated Blocking findings remain. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec Remediation
 
-`$review-spec-remediation` converts Blocking `$review-spec` findings into durable remediation state.
+`$review-spec-remediation` converts independently validated Blocking `$review-spec` findings into durable remediation state.
 
-It does not fix source code.
+It does not review source code and does not fix source code.
+
+Accept only findings that passed `$review-spec`'s axis-provenance gate.
+
+Do not:
+
+* rehabilitate a discarded wrong-axis finding;
+* move a finding to another review axis;
+* derive a new review finding from Root Blocker history;
+* perform another Standards, Spec, or Architecture review.
 
 If a Blocking Architecture finding has `Architecture decision required: Yes`, return it to `$review-spec`. Unresolved architecture must not become ordinary remediation work.
 
 ## Root Blocker Model
 
-Group findings by the **durable invariant** they violate, not by file, subsystem, symptom, or reviewing axis.
+Group accepted findings by the **durable invariant** they violate, not by file, subsystem, symptom, or reviewing axis.
 
 An `RB-*` ID denotes one stable invariant.
 
-Preserve existing IDs. Do not broaden an existing invariant merely to keep a new finding under the same root.
+Preserve existing IDs.
+
+Do not broaden an existing invariant merely to keep a new finding under the same root.
 
 For each root maintain:
 
 * invariant;
 * status;
-* affected surface/reference families;
+* affected semantic surface/reference families;
 * governing architecture when applicable;
 * exit checks;
 * current evidence;
@@ -42,17 +53,19 @@ Routing: <existing-authority remediation>
 
 Do not reinterpret `$review-architecture`.
 
-### Finding Reconciliation
+## Finding Reconciliation
 
-Classify each Blocking finding as exactly one of:
+Classify each accepted Blocking finding as exactly one of:
 
-* **child symptom** — already derivable from the existing root invariant and closure domain;
-* **root-definition gap** — same durable invariant, but the recorded affected surfaces, exit checks, or acceptance matrix were incomplete;
-* **regression** — previously satisfied behavior was introduced or broken after the last satisfied `HEAD`;
-* **missed prior finding** — the violation already existed at the last satisfied `HEAD`;
+* **child symptom** — already derivable from the existing invariant and closure domain;
+* **root-definition gap** — same durable invariant, but affected surfaces, exit checks, or acceptance obligations were incomplete;
+* **regression** — previously satisfied behavior was proven to have broken later;
+* **missed prior finding** — the violation already existed at the prior satisfied state;
 * **new root** — a genuinely distinct durable invariant.
 
-Use the provenance classification supplied by `$review-spec`.
+Use provenance supplied by `$review-spec`.
+
+Do not independently reclassify review-axis authority.
 
 Do not label a newly discovered violation `regression` merely because its root was previously satisfied.
 
@@ -60,7 +73,7 @@ Do not label a newly discovered violation `regression` merely because its root w
 
 A root-definition gap may expand:
 
-* affected surface/reference families;
+* affected semantic surface/reference families;
 * exit checks;
 * acceptance obligations.
 
@@ -68,13 +81,13 @@ It must not materially change what the invariant means.
 
 If accommodating a finding requires broadening the invariant itself, create a new root instead.
 
-Do not allow an existing root to become an ever-expanding container for related architectural concerns.
+Do not allow an existing root to become an ever-expanding container for related concerns.
 
 ## Cumulative Acceptance Matrix
 
 Acceptance obligations are cumulative for the lifetime of an active root.
 
-Carry forward every established cell, including:
+Carry forward every established cell with its current state:
 
 ```text
 satisfied
@@ -84,29 +97,33 @@ unproven
 owner-overridden
 ```
 
-A later review may update a cell's status or evidence, but omission from a newer review does not remove it.
+A later review may update a cell's status or evidence, but omission does not remove it.
 
-Remove or replace an obligation only when durable state explicitly establishes that it is:
+Remove, replace, or retire an obligation only when durable state explicitly establishes that it is:
 
 * superseded by an equivalent obligation;
 * no longer required by current Spec/architecture; or
 * Owner-overridden.
 
-When replacing or retiring a cell, record why.
+Record the reason for any replacement or retirement.
 
 For a root-definition gap, add the missing surface/obligation cells before remediation is ticketed.
 
-Do not shrink the matrix to only currently failing symptoms.
+Do not shrink the matrix to currently failing symptoms.
 
-For cross-cutting roots, use semantic surface/reference families and production-path obligations rather than enumerating individual files.
+For cross-cutting roots, use semantic surface/reference families and production-path obligations rather than file lists.
 
-A root is satisfied only when every active required cell is satisfied or Owner-overridden.
+A root is satisfied only when every active required cell is `satisfied` or `owner-overridden`.
 
 ## Architecture-Conformance Gate
 
-Before persisting a new or materially changed root or acceptance obligation, confirm it conforms to current architecture.
+Before persisting a new root or materially changed acceptance obligation, confirm that the proposed remediation does not require an unresolved architectural choice.
 
-Use the Spec Architecture Impact, applicable accepted ADRs/current docs, and the Architecture finding supplied by `$review-spec`.
+Use only:
+
+* accepted Architecture findings supplied by `$review-spec`;
+* current governing authority already attached to the root;
+* Spec Architecture Impact where needed for routing.
 
 An obligation is architecture-blocked when satisfying it would require:
 
@@ -115,11 +132,13 @@ An obligation is architecture-blocked when satisfying it would require:
 * choosing a new dependency direction or lifecycle responsibility; or
 * resolving materially conflicting authorities.
 
+Do not create an Architecture finding merely because another review axis raised an architectural concern.
+
 Do not persist architecture-blocked behavior as ordinary remediation.
 
-Return all independent architecture blockers to `$review-spec` for its `$architecture-remediation` Human Handoff.
+Return any genuine architecture blocker to `$review-spec` for its Architecture Human Handoff.
 
-Do not propose the architectural answer.
+Do not propose the architectural resolution.
 
 ## Durable Ledger Format
 
@@ -147,7 +166,9 @@ Current evidence:
 
 Omit Architecture fields for non-Architecture roots.
 
-Treat legacy `Status: closed` as `satisfied` when recovering existing state. New updates use `satisfied`.
+Treat legacy `Status: closed` as `satisfied` when recovering state.
+
+New updates use `satisfied`.
 
 Do not let helper-, validator-, serializer-, mock-, or isolated unit-level proof establish root completion when the obligation requires a production path.
 
@@ -155,7 +176,7 @@ Do not let helper-, validator-, serializer-, mock-, or isolated unit-level proof
 
 When no Spec Review tracking issue exists:
 
-1. synthesize Blocking findings into stable roots;
+1. synthesize accepted Blocking findings into stable roots;
 2. build the initial cumulative acceptance matrix;
 3. apply the Architecture-Conformance Gate;
 4. create one parent issue titled:
@@ -174,10 +195,10 @@ Then include:
 
 1. Root Blocker Ledger;
 2. Spec Acceptance Matrix;
-3. aggregated Standards / Spec / Architecture findings;
+3. independently validated Standards / Spec / Architecture findings;
 4. useful Advisory findings.
 
-Treat individual findings as evidence for roots, not as an independent permanent blocker list.
+Treat findings as evidence for roots, not as an ever-growing independent blocker list.
 
 ## 2. Recursive Remediation Pass
 
@@ -185,29 +206,33 @@ When the Spec Review already exists:
 
 1. recover the complete durable Root Blocker Ledger and cumulative acceptance matrix;
 2. preserve every active prior obligation;
-3. reconcile each new Blocking finding through **Finding Reconciliation**;
-4. apply any root-definition gaps before ticketing;
+3. reconcile each accepted new Blocking finding through **Finding Reconciliation**;
+4. apply root-definition gaps without changing stable invariant identity;
 5. update root status and evidence;
-6. apply the Architecture-Conformance Gate to every new or materially changed obligation;
-7. persist the updated cumulative ledger/matrix.
+6. apply the Architecture-Conformance Gate to new or materially changed obligations;
+7. persist the updated cumulative ledger and matrix.
 
-Do not create a new parent issue.
+Do not create another parent issue.
+
+Do not resurrect discarded findings from earlier `$review-spec` passes merely because they remain in historical text.
+
+Historical findings remain evidence/history unless independently validated by the current review or already represented by an active cumulative obligation.
 
 ### Root Status
 
 Use:
 
 * **open** — one or more active obligations are violated;
-* **regressed** — previously satisfied behavior was proven to have been broken later;
+* **regressed** — previously satisfied behavior was proven to have broken later;
 * **unproven** — no known violation remains, but required proof is insufficient;
 * **satisfied** — every active obligation is proven satisfied;
-* **owner-overridden** — owner explicitly removed the root from blocking status.
+* **owner-overridden** — owner explicitly removed the root from Blocking status.
 
 A **missed prior finding** makes the root `open`, not `regressed`.
 
-A **root-definition gap** makes the root `open` or `unproven` according to the resulting obligations; it is not automatically a regression.
+A **root-definition gap** makes the root `open` or `unproven` according to its resulting obligations.
 
-Do not declare a root satisfied from source plausibility alone when its closure requires verification evidence.
+Do not declare a root satisfied from source plausibility alone when closure requires verification evidence.
 
 ### Re-review History
 
@@ -218,38 +243,46 @@ Append a concise dated section:
 
 HEAD reviewed: `<sha>`
 
-## Root Blocker Ledger Updates
+### Independently Validated Review Findings
 
+#### Standards
 ...
 
-## Spec Acceptance Matrix Updates
-
+#### Spec
 ...
 
-## Aggregated Review Findings
+#### Architecture
+...
 
+### Root Blocker Ledger Updates
+...
+
+### Spec Acceptance Matrix Updates
 ...
 ```
 
-Preserve the original issue body and `**Parent Spec:**` line.
+Preserve the original issue body and exact `**Parent Spec:** #<n>` line.
+
+Do not rewrite historical review sections.
 
 Do not re-mine the original diff for unrelated Advisory findings.
 
 ## 3. Remediation Delta
 
-After the durable root model is current, determine the Blocking remediation delta.
+After durable root state is current, determine the Blocking remediation delta.
 
 Only architecture-conforming roots proceed.
 
-For each actionable root pass `$to-tickets`:
+For each actionable root pass to `$to-tickets`:
 
-* stable root ID and invariant;
+* stable Root Blocker ID and invariant;
 * current status;
 * affected semantic surface/reference families;
 * governing authority when applicable;
 * every active non-satisfied acceptance obligation;
-* satisfied cells that must remain protected;
-* required production-path and negative/regression proof;
+* satisfied cells that remain preservation obligations;
+* required production-path and negative/fail-closed/regression proof;
+* root-complete invariant sweep;
 * provenance classification for missed/regressed findings.
 
 Do not slice directly from the latest symptom bullets.
@@ -260,24 +293,30 @@ Do not treat a previously closed ticket as sufficient when current durable root 
 
 ## 4. Human Handoff
 
-`$to-tickets` is human-gated. Do not invoke it implicitly.
+`$to-tickets` is human-gated.
 
-When architecture-conforming Blocking remediation remains, halt with:
+Do not invoke it implicitly.
 
-> ⚠️ **Spec Review has Blocking remediation.**
+When architecture-conforming Blocking remediation remains, halt using this exact structure:
+
+> ⚠️ **Spec Review Failed with [X] Blocking Findings.**
 >
-> I have created or updated:
-> **`Spec Review: <Feature Name> #<Issue_ID>`**
+> I have created or updated the parent tracking issue:
+> **`Spec Review: <Feature Name> #<Issue_ID>`**.
 >
-> Please run:
+> Please run the following command to slice the Blocking findings into tracked child tickets:
 >
 > ```
-> $to-tickets - Spec Review: <Feature Name> (<Issue URL>)
+> $to-tickets Spec Review: <Feature Name> (<Issue URL>)
 > ```
 >
-> `$to-tickets` should slice Blocking remediation only unless you explicitly choose to include Advisory work.
+> `$to-tickets` should slice **Blocking remediation only** unless you explicitly want Advisory findings ticketed.
 
-If no Blocking findings remain, return to `$review-spec` so it can evaluate its Exit Gate.
+`[X]` is the number of independently validated current Blocking findings, not the number of Root Blockers or acceptance cells.
+
+Do not add an alternative remediation summary before or after this Human Handoff that changes its structure.
+
+If no Blocking findings remain, return control to `$review-spec` so it can evaluate its Exit Gate.
 
 ## Owner Overrides
 

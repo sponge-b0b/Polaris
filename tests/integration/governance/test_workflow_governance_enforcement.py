@@ -19,6 +19,9 @@ from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.governance.governance_registry import GovernanceRegistry
 from core.runtime.governance.governance_result import GovernanceResult
 from core.runtime.governance.governance_rule import BaseGovernanceRule
+from core.runtime.policies.builtins import AllowAllPolicy
+from core.runtime.policies.policy_engine import PolicyEngine
+from core.runtime.policies.policy_registry import PolicyRegistry
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.storage.persistence.governance_audit import (
@@ -502,6 +505,80 @@ async def test_governance_audit_rejects_malformed_persistence_result() -> None:
     )
 
     with pytest.raises(RuntimeError, match="returned invalid result"):
+        await runtime.facade.run_workflow(
+            workflow_name="governance_test_workflow",
+            mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+            execution_audit_capability=await _audit_capability(runtime, audit_service),
+        )
+
+    audit_service.record_governance_evaluation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_policy_audit_rejects_empty_persistence_results() -> None:
+    audit_service = AsyncMock()
+    audit_service.record_policy_evaluation.return_value = ()
+    policy_engine = PolicyEngine(
+        registry=PolicyRegistry(
+            policies=[
+                AllowAllPolicy(),
+            ],
+        )
+    )
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=False,
+            enable_policies=True,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[
+            GovernanceTestWorkflow(),
+        ],
+        policy_engine=policy_engine,
+        automated_decision_audit_service=audit_service,
+    )
+
+    with pytest.raises(RuntimeError, match="policy audit persistence returned no"):
+        await runtime.facade.run_workflow(
+            workflow_name="governance_test_workflow",
+            mode="simulation",
+            archive_on_completion=False,
+            checkpoint_on_completion=False,
+            execution_audit_capability=await _audit_capability(runtime, audit_service),
+        )
+
+    audit_service.record_policy_evaluation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_governance_audit_rejects_empty_persistence_results() -> None:
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = ()
+    governance_engine = GovernanceEngine(
+        registry=GovernanceRegistry(
+            rules=[
+                RequireApprovalForLiveModeRule(),
+            ],
+        )
+    )
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[
+            GovernanceTestWorkflow(),
+        ],
+        governance_engine=governance_engine,
+        automated_decision_audit_service=audit_service,
+    )
+
+    with pytest.raises(RuntimeError, match="governance audit persistence returned no"):
         await runtime.facade.run_workflow(
             workflow_name="governance_test_workflow",
             mode="simulation",

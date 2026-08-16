@@ -1,17 +1,19 @@
 ---
 name: review-spec-remediation
-description: Invoked only by `$review-spec` when independently validated Blocking findings remain. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
+description: Explicitly invoked after `$review-spec` persists independently validated Blocking findings in a Pending Review Remediation packet. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec Remediation
 
-`$review-spec-remediation` converts independently validated Blocking `$review-spec` findings into durable remediation state.
+`$review-spec-remediation` is the explicit human-invoked continuation of a failed `$review-spec`.
+
+It converts the independently validated Blocking findings persisted by `$review-spec` into durable remediation state.
 
 It does not review source code and does not fix source code.
 
-Accept only findings that passed `$review-spec`'s axis-provenance gate.
+Accept only findings that passed `$review-spec`'s axis-provenance gate and were persisted in the current **Pending Review Remediation** packet.
 
 Do not:
 
@@ -21,6 +23,46 @@ Do not:
 * perform another Standards, Spec, or Architecture review.
 
 If a Blocking Architecture finding has `Architecture decision required: Yes`, return it to `$review-spec`. Unresolved architecture must not become ordinary remediation work.
+
+## Invocation Preconditions
+
+The invocation source must be the `Spec Review: ...` issue produced or reused by `$review-spec`.
+
+Recover the parent Spec from the exact body line:
+
+```markdown
+**Parent Spec:** #<spec_issue_number>
+```
+
+Recover the latest **Pending Review Remediation** packet.
+
+Require:
+
+* `Status: pending`;
+* `Reviewed HEAD` equals the current `HEAD`;
+* `Reviewed Baseline` equals the current Spec baseline;
+* `Branch` equals the current Spec branch.
+
+Verify:
+
+```bash
+CURRENT_HEAD=$(git rev-parse HEAD)
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+If the packet is missing or stale, halt:
+
+> ⚠️ **Review remediation state is missing or stale.**
+>
+> Please rerun:
+>
+> ```
+> $review-spec - <Spec Title> (<Spec URL>)
+> ```
+
+Do not reconstruct or infer pending review findings from historical ledger entries, previous sessions, or source inspection.
+
+The Pending Review Remediation packet is the sole current-review finding input to this skill.
 
 ## Root Blocker Model
 
@@ -121,7 +163,7 @@ Before persisting a new root or materially changed acceptance obligation, confir
 
 Use only:
 
-* accepted Architecture findings supplied by `$review-spec`;
+* accepted Architecture findings supplied in the Pending Review Remediation packet;
 * current governing authority already attached to the root;
 * Spec Architecture Impact where needed for routing.
 
@@ -172,41 +214,30 @@ New updates use `satisfied`.
 
 Do not let helper-, validator-, serializer-, mock-, or isolated unit-level proof establish root completion when the obligation requires a production path.
 
-## 1. First-Pass Failure
+## 1. First Remediation Pass
 
-When no Spec Review tracking issue exists:
+When the Spec Review issue has no Root Blocker Ledger yet:
 
-1. synthesize accepted Blocking findings into stable roots;
+1. synthesize the accepted Blocking findings from the Pending Review Remediation packet into stable roots;
 2. build the initial cumulative acceptance matrix;
 3. apply the Architecture-Conformance Gate;
-4. create one parent issue titled:
+4. persist the Root Blocker Ledger and Spec Acceptance Matrix to the existing Spec Review issue.
 
-```text
-Spec Review: <Feature Name>
-```
-
-The first body line must be:
+Preserve the existing issue body and exact:
 
 ```markdown
 **Parent Spec:** #<spec_issue_number>
 ```
 
-Then include:
-
-1. Root Blocker Ledger;
-2. Spec Acceptance Matrix;
-3. independently validated Standards / Spec / Architecture findings;
-4. useful Advisory findings.
-
 Treat findings as evidence for roots, not as an ever-growing independent blocker list.
 
 ## 2. Recursive Remediation Pass
 
-When the Spec Review already exists:
+When the Spec Review already has durable Root Blocker state:
 
 1. recover the complete durable Root Blocker Ledger and cumulative acceptance matrix;
 2. preserve every active prior obligation;
-3. reconcile each accepted new Blocking finding through **Finding Reconciliation**;
+3. reconcile each accepted Blocking finding from the Pending Review Remediation packet through **Finding Reconciliation**;
 4. apply root-definition gaps without changing stable invariant identity;
 5. update root status and evidence;
 6. apply the Architecture-Conformance Gate to new or materially changed obligations;
@@ -216,7 +247,7 @@ Do not create another parent issue.
 
 Do not resurrect discarded findings from earlier `$review-spec` passes merely because they remain in historical text.
 
-Historical findings remain evidence/history unless independently validated by the current review or already represented by an active cumulative obligation.
+Historical findings remain evidence/history unless represented by an active cumulative obligation or independently validated in the current Pending Review Remediation packet.
 
 ### Root Status
 
@@ -261,7 +292,7 @@ HEAD reviewed: `<sha>`
 ...
 ```
 
-Preserve the original issue body and exact `**Parent Spec:** #<n>` line.
+Preserve the original issue body and `**Parent Spec:**` line.
 
 Do not rewrite historical review sections.
 

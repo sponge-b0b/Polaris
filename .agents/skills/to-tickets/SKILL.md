@@ -65,7 +65,19 @@ If it returns a delta, preserve that delta semantically and continue at Step 4.
 
 Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
-If it returns an empty delta, report that the current ticket set already represents the source and direct the user to resume the applicable open/frontier ticket with `$implement-ticket`. Then stop.
+If it returns an empty delta, report that the current ticket set already represents the source, identify the applicable open/frontier ticket, and halt with a Human Handoff:
+
+> ✅ **No ticket changes are required.**
+>
+> Please continue with:
+>
+> ```
+> $implement-ticket - <Frontier Ticket Title> (<Ticket URL>)
+> ```
+
+If multiple frontier tickets are available, present one copy-ready `$implement-ticket` line per ticket and let the user choose.
+
+Then stop.
 
 #### Fresh Vertical Slices
 
@@ -344,3 +356,21 @@ fi
 Never overwrite the Spec body to store workspace metadata.
 
 The original baseline remains the fixed point for the entire Spec lifecycle.
+
+## Implementation Human Handoff
+
+After ticket publication/reconciliation and Spec branch metadata are complete, identify every open, unblocked frontier ticket for the Spec.
+
+If one frontier ticket is available, halt with:
+
+> ✅ **Tickets are ready for implementation.**
+>
+> Please run:
+>
+> ```
+> $implement-ticket - <Frontier Ticket Title> (<Ticket URL>)
+> ```
+
+If multiple frontier tickets are available, output one copy-ready `$implement-ticket` line per ticket and let the user choose which fresh implementation session to start.
+
+Do not invoke `$implement-ticket` implicitly.

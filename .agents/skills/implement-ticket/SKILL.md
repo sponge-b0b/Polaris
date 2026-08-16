@@ -638,4 +638,31 @@ For Spec Review remediation also report:
 * `$verify-root-closure` verdict;
 * Root Closure Evidence persistence.
 
+After successful ticket closure, inspect the parent Spec's implementation-ticket state.
+
+* If one open, unblocked frontier ticket remains, halt with:
+
+  > ✅ **Ticket completed.**
+  >
+  > Please continue with:
+  >
+  > ```
+  > $implement-ticket - <Frontier Ticket Title> (<Ticket URL>)
+  > ```
+
+* If multiple open, unblocked frontier tickets remain, output one copy-ready `$implement-ticket` line per ticket and let the user choose the next fresh implementation session.
+* If no open implementation tickets remain, halt with:
+
+  > ✅ **Spec implementation tickets are complete.**
+  >
+  > Please run:
+  >
+  > ```
+  > $verify-spec - <Spec Title> (<Spec URL>)
+  > ```
+
+* If open tickets remain but all are blocked, report the blocking relationships and stop. Do not begin `$verify-spec`.
+
+Do not invoke the next `$implement-ticket` or `$verify-spec` lifecycle stage implicitly.
+
 An unresolved required gate keeps the ticket open, but **does not by itself authorize stopping**. If actionable in-scope work remains, continue. A pre-completion handoff must identify the concrete blocker that requires the halt.

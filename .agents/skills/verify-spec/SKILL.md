@@ -418,3 +418,21 @@ Verified HEAD: <full SHA>
 ```
 
 If any required gate or receipt remains unresolved, do not report a pass.
+
+## 10. Review Human Handoff
+
+After successful receipt persistence, halt with:
+
+> ✅ **Spec verification passed.**
+>
+> The exact verified `HEAD` is ready for independent Spec review.
+>
+> Please run:
+>
+> ```
+> $review-spec - <Spec Title> (<Spec URL>)
+> ```
+
+Then stop.
+
+Do not invoke `$review-spec` implicitly.

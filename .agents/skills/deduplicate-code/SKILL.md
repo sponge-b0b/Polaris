@@ -1,8 +1,8 @@
 ---
-name: duplication-checks
+name: deduplicate-code
 description: Runs static code analysis and token-matching tools to detect duplicate code fragments and clone clusters. Use before extracting shared utilities, creating helper modules, or starting a refactor.
 license: MIT
-compatibility: product=codex product=claude-code system=jscpd network=none
+compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
   version: 1.0.0
 ---
@@ -20,13 +20,20 @@ Prevent codebase bloat and guard against split-brain logic by identifying existi
 
 Execute these duplication scanning tools over the workspace target paths before mapping out a refactor or utility extraction:
 
-### Step 1: Token Sequence Scan
-Run `jscpd` across the repository root to catch structural code clones, configuration layer mirroring, or copy-pasted blocks across different layers:
+### Step 1: Python Native Structural Scan
+
+Run `arid` to scan recursively for cloned Python blocks:
 ```bash
-npx jscpd .
+arid .
 ```
 
-### Step 2: Analysis & Consolidation Rule
+### Step 2: Token Sequence Scan
+Run `jscpd` across the repository root to catch structural code clones, configuration layer mirroring, or copy-pasted blocks across different layers:
+```bash
+jscpd .
+```
+
+### Step 3: Analysis & Consolidation Rule
 - Review the matching lines or token arrays reported by the tooling.
 - If a matching helper sequence already exists in the repository, refactor the active code block to safely inherit or consume the existing canonical interface instead of creating a parallel implementation.
 
@@ -34,8 +41,9 @@ npx jscpd .
 
 ### Example 1: Pre-Refactor Analysis Trigger
 **User:** "I want to extract some utility functions for formatting these metrics before writing the plan."
-**Agent Response:** *"I am triggering the duplication-checks skill via jscpd to verify if equivalent metrics layout logic already exists in the codebase before we design a new helper module."*
+**Agent Response:** *"I am triggering the duplication-checks skill via arid and jscpd to verify if equivalent metrics layout logic already exists in the codebase before we design a new helper module."*
 **Agent Execution:**
 ```bash
-npx jscpd .
+arid .
+jscpd .
 ```

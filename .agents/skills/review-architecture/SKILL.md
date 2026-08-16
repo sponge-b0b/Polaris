@@ -187,7 +187,8 @@ Keep the report concise and evidence-based.
 
 `$review-architecture` does not:
 
-* run tests, Ruff, Mypy, coverage, duplication scans, or `$wiki-lint`;
+* run tests, Ruff, Mypy, coverage, and duplication scans;
+* invoke the `$wiki-lint` skill;
 * update repository graphs;
 * perform the Standards or Spec review axes;
 * invent or modify Root Blocker acceptance obligations;

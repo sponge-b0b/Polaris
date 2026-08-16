@@ -15,9 +15,11 @@ The issue tracker and triage label vocabulary should have been provided — run 
 
 Assume no prior conversational or agent-session state.
 
-Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting.
 
-If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+Prior-session summaries or remembered conclusions are routing context only.
+
+If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it.
 
 ## Process
 
@@ -49,9 +51,19 @@ Before drafting:
 * existing Spec with linked implementation tickets → invoke `$to-remediation-tickets`;
 * otherwise → fresh vertical-slice drafting.
 
-`$to-remediation-tickets` owns delta analysis, duplicate prevention, open-ticket updates, superseded-ticket detection, and determining which new tickets are required.
+`$to-remediation-tickets` owns:
 
-If it returns a delta, continue at Step 4.
+* remediation delta analysis;
+* duplicate prevention;
+* open-ticket updates;
+* superseded-ticket detection;
+* Root Blocker reconciliation;
+* remediation, verification, and preservation obligations;
+* determining which new tickets are required.
+
+If it returns a delta, preserve that delta semantically and continue at Step 4.
+
+Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
 If it returns an empty delta, report that the current ticket set already represents the source and direct the user to resume the applicable open/frontier ticket with `$implement-ticket`. Then stop.
 
@@ -76,13 +88,21 @@ Give each ticket its **blocking edges**.
 
 Present the proposed fresh breakdown or remediation delta.
 
-If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5.
+If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, preservation obligations, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5.
 
 For new tickets, show:
 
 * **Title**
 * **Blocked by**
 * **What it delivers**
+
+For Spec Review remediation tickets, also summarize:
+
+* Root Blocker;
+* remediation obligations;
+* verification obligations when applicable;
+* preservation obligations;
+* root-complete sweep required for closure.
 
 For remediation, also show any:
 
@@ -116,6 +136,17 @@ New tickets must:
 * receive correct blocking relationships;
 * receive `ready-for-agent` unless instructed otherwise.
 
+For Spec Review remediation, publish the Root Blocker contract returned by `$to-remediation-tickets` without weakening it:
+
+* open/regressed implementation obligations → acceptance criteria;
+* verification-only obligations → explicit verification criteria when applicable;
+* satisfied same-root cells → preservation obligations;
+* root-complete invariant sweep → closure criterion.
+
+Do not convert preservation obligations into new implementation requirements.
+
+Do not omit them because prior tickets are closed or the cells are currently satisfied.
+
 When updating an existing open ticket, preserve valid execution metadata and add `Ticket baseline: Pending` when the field is missing. Never replace an existing pinned baseline SHA.
 
 Do not reopen or rewrite closed tickets to represent newly required work.
@@ -147,7 +178,7 @@ More generally, state only what the workflow has established. Do not turn curren
 
 # <NN> — <Ticket title>
 
-**Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the root invariant this ticket closes. Omit otherwise.
+**Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the stable root invariant this ticket closes. Omit otherwise.
 
 **Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture Readiness Language**.
 
@@ -163,6 +194,9 @@ More generally, state only what the workflow has established. Do not turn curren
 
 * [ ] Acceptance criterion 1
 * [ ] Acceptance criterion 2
+* [ ] For Spec Review remediation: the required production-path, negative/fail-closed, and root-complete invariant proof is established.
+
+**Preservation obligations:** for Spec Review remediation only, list the satisfied same-root acceptance obligations that must remain satisfied while this ticket changes shared root surfaces. Omit otherwise.
 
 </local-ticket-template>
 
@@ -174,7 +208,7 @@ Reference the parent Spec.
 
 ## Root blocker
 
-For Spec Review remediation tickets only: `RB-<n>` and the root invariant this ticket closes. Omit otherwise.
+For Spec Review remediation tickets only: `RB-<n>` and the stable root invariant this ticket closes. Omit otherwise.
 
 ## Architecture context
 
@@ -188,7 +222,15 @@ The end-to-end behaviour this ticket makes work.
 
 * [ ] Criterion 1
 * [ ] Criterion 2
-* [ ] For Spec Review remediation tickets: production-path proof and sibling-surface blast-radius audit for the root blocker are complete, or remaining unproven cells are explicitly reported.
+* [ ] For Spec Review remediation: required production-path and negative/fail-closed proof is complete, and the root-complete invariant sweep establishes every active non-satisfied obligation or explicitly reports remaining `unproven` verification work.
+
+## Preservation obligations
+
+For Spec Review remediation only, list the currently satisfied same-root acceptance obligations returned by `$to-remediation-tickets` that must remain satisfied.
+
+These are not new implementation work. They define established behavior that remediation must not regress.
+
+Omit this section for ordinary tickets.
 
 ## Blocked by
 
@@ -206,11 +248,15 @@ Pending
 
 Avoid specific file paths or code snippets unless a prototype produced a decision-rich snippet materially clearer than prose.
 
+For Spec Review remediation, semantic Root Blocker surface/reference families and acceptance obligations are durable ticket context and should be preserved even when concrete implementation files may change.
+
 ### Ticket Baseline
 
 `Ticket baseline` is a per-ticket verification anchor, not the Spec baseline.
 
-Publish every new ticket with `Ticket baseline: Pending`. `$implement-ticket` replaces `Pending` exactly once with the full current `HEAD` before the ticket's first file mutation, then reuses that persisted SHA across resumed sessions.
+Publish every new ticket with `Ticket baseline: Pending`.
+
+`$implement-ticket` replaces `Pending` exactly once with the full current `HEAD` before the ticket's first file mutation, then reuses that persisted SHA across resumed sessions.
 
 Never initialize a ticket baseline from the fixed Spec baseline or another ticket's baseline.
 
@@ -218,7 +264,9 @@ Work the frontier one ticket at a time with `$implement-ticket`, clearing contex
 
 ## Spec Branch Rule
 
-All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline. Each ticket has its own `Ticket baseline`.
+All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline.
+
+Each ticket has its own `Ticket baseline`.
 
 ### 0. Resolve the Spec Issue Number
 

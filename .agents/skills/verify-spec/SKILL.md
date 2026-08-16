@@ -192,7 +192,7 @@ Check whether implementation:
 * violates dependency direction;
 * exposes unresolved material architecture.
 
-Apply the **Realization-Status Defensive Rule** before routing `[source-conflict]`.
+Apply the **Accepted ADR Realization Maintenance** rule before routing `[source-conflict]`.
 
 ### Duplication
 
@@ -235,25 +235,34 @@ If a non-architecture failure cannot be safely repaired within Spec scope, stop 
 
 ## 5. Architecture Finding Routing
 
-### Realization-Status Defensive Rule
+### Accepted ADR Realization Maintenance
 
-Do not accept `[source-conflict]` merely because an accepted ADR still says implementation is `pending`, `not yet realized`, or equivalent.
+Do not accept `[source-conflict]` merely because an accepted realization-required ADR still says implementation is `pending`, `not yet realized`, or equivalent.
+
+Because `$verify-spec` evaluates the completed Spec as an aggregate system, it may establish that a realization-required decision is fully realized when current implementation and verification evidence clearly prove the complete decision.
 
 When:
 
 1. the ADR remains accepted;
 2. its normative decision is unambiguous;
 3. implementation conforms to that decision;
-4. implementation clearly realizes it; and
-5. only realization/lifecycle wording is stale;
+4. aggregate Spec evidence clearly establishes full realization; and
+5. only permitted realization/reference wording is stale;
 
 treat this as deterministic ADR documentation drift.
 
-Route through `$to-adr-doc`, then rerun the `$wiki-lint` skill and affected architecture checks.
+Invoke `$to-adr-doc` to apply only its permitted **Realization Maintenance**, then invoke `$wiki-sync` as required and rerun the `$wiki-lint` skill and affected architecture checks.
 
 Do not invoke `$architecture-remediation`.
 
-If implementation contradicts the normative decision or authorities genuinely disagree, use normal architecture routing.
+Do not use Realization Maintenance when:
+
+* realization is partial or ambiguous;
+* the required ADR edit would change Context, Decision, Rationale, a decision-bearing Consequence, or another normative requirement;
+* implementation contradicts the accepted decision; or
+* applicable authorities genuinely disagree.
+
+In those cases, preserve pending realization where appropriate or use normal architecture routing.
 
 ### Existing Authority Determines the Fix
 
@@ -272,7 +281,7 @@ Use the owner:
 * entity knowledge → `$wiki-sync`;
 * new non-ADR documentation → `$to-doc`;
 * classification/relocation → `$classify-doc`;
-* ADR lifecycle/realization → `$to-adr-doc`.
+* ADR lifecycle/permitted Realization Maintenance → `$to-adr-doc`.
 
 Rerun affected architecture checks.
 

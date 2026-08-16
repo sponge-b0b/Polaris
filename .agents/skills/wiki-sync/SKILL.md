@@ -8,7 +8,7 @@ compatibility: product=codex product=claude-code system=git network=none
 
 `$wiki-sync` maintains the derived Living Entity Wiki around a **specific change**.
 
-It is not a whole-wiki audit. Use `$wiki-lint` for repository-wide checking.
+It is not a whole-wiki audit. The `$wiki-lint` skill owns the separate repository-wide audit and is not invoked as part of `$wiki-sync`.
 
 ```text
 authoritative architecture + implementation evidence
@@ -436,9 +436,9 @@ Derived wiki content must never conceal ambiguity in its sources.
 * classify/move existing non-ADR documents — use `$classify-doc`;
 * create new non-ADR documents — use `$to-doc`;
 * own ADR lifecycle — use `$to-adr-doc`;
-* perform a full wiki audit — use `$wiki-lint`;
+* perform or invoke a full wiki audit — that separate workflow belongs to the `$wiki-lint` skill;
 * synthesize inferred cross-entity patterns — use `$wiki-synthesize`;
 * rewrite authoritative docs merely to make the wiki agree;
 * persist derivable dependency graphs, inventories, or call chains.
 
-`$wiki-sync` maintains derived knowledge around a specific change. `$wiki-lint` independently checks the whole system.
+`$wiki-sync` maintains derived knowledge around a specific change. The `$wiki-lint` skill independently checks the whole system.

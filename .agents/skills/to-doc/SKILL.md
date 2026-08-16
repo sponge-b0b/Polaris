@@ -166,6 +166,6 @@ Report:
 * decide entity topology — use `$wiki-sync`;
 * resolve `[source-conflict]`;
 * maintain `linked_docs`;
-* perform a full wiki audit — use `$wiki-lint`.
+* perform a full wiki audit — use the `$wiki-lint` skill.
 
 Its job is to ensure a **new non-ADR document starts in the correct place, with the correct name, and the correct lifecycle follow-through**.

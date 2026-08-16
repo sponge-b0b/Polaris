@@ -27,7 +27,7 @@ Retain:
 * `disable-model-invocation: true` for Claude Code;
 * the existing `agents/openai.yaml` manual invocation configuration for Codex.
 
-Do not invoke it automatically from `$wiki-sync`, `$wiki-lint`, routine implementation, document creation, or ADR lifecycle.
+Do not invoke it automatically from the `$wiki-sync` skill or the`$wiki-lint` skill, routine implementation, document creation, or ADR lifecycle.
 
 Run it when enough durable wiki knowledge has accumulated that cross-entity synthesis may reveal something useful.
 
@@ -96,7 +96,7 @@ Invalid:
 
 > Invariant X is obsolete.
 
-Direct contradictions belong to `$wiki-lint`, not synthesis.
+Direct contradictions belong to the `$wiki-lint` skill, not synthesis.
 
 ## 3. Preserve Provenance
 
@@ -119,7 +119,7 @@ must never become an owner decision merely because the pattern looks persuasive.
 
 If a supporting entry has an obvious health problem such as a broken citation or unresolved `[source-conflict]`, note the limitation.
 
-Recommend `$wiki-lint` when systematic source-health evaluation is required rather than duplicating lint behavior here.
+Recommend the `$wiki-lint` skill when systematic source-health evaluation is required rather than duplicating lint behavior here.
 
 ## 4. Assign Confidence
 
@@ -150,8 +150,8 @@ Examples:
 * review an Open Question;
 * reconsider a condition-dependent rejection;
 * inspect a Strict Invariant;
-* run `$wiki-lint` if a direct conflict may exist;
-* consider `$to-adr-doc` if a real architectural decision is needed;
+* invoke the `$wiki-lint` skill if a direct conflict may exist;
+* consider the `$to-adr-doc` skill if a real architectural decision is needed;
 * consider a topology review if several entities may represent one boundary.
 
 Do not perform the action automatically.

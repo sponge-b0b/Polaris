@@ -1,6 +1,6 @@
 ---
 name: to-adr-doc
-description: Create and manage Architectural Decision Records (ADRs) in docs/adr/. Owns ADR format, numbering, naming, lifecycle transitions, content mutability, supersession, and Living Entity Wiki synchronization triggers.
+description: Create and manage Architectural Decision Records (ADRs) in docs/adr/. Owns ADR format, numbering, naming, lifecycle transitions, content mutability, realization maintenance, supersession, and Living Entity Wiki synchronization triggers.
 compatibility: product=codex product=claude-code network=none
 ---
 
@@ -102,7 +102,7 @@ The decision is active architecture.
 
 Acceptance does **not** necessarily mean implementation is complete.
 
-Once accepted, decision content becomes historical and immutable.
+Once accepted, decision content becomes historical and immutable except for the narrow **Realization Maintenance** exception below.
 
 ### Rejected
 
@@ -130,7 +130,7 @@ The old ADR changes only its lifecycle status and then becomes terminal.
 
 ## Content Immutability
 
-ADR body content is editable only while status is `proposed`.
+ADR body content is editable only while status is `proposed`, except for permitted **Realization Maintenance** on an accepted ADR.
 
 Once an ADR leaves `proposed`, do not rewrite its:
 
@@ -138,13 +138,15 @@ Once an ADR leaves `proposed`, do not rewrite its:
 * Decision;
 * Rationale;
 * Considered Options;
-* Consequences.
+* decision-bearing Consequences.
 
 If the architecture changes, preserve history:
 
 1. create a new ADR;
 2. reference the earlier decision where useful;
 3. supersede or deprecate the older accepted decision when appropriate.
+
+Realization Maintenance must never be used to change what was decided, why it was decided, or the trade-offs originally accepted.
 
 ## Acceptance vs. Implementation
 
@@ -174,6 +176,44 @@ until implementation evidence confirms realization.
 Do not change ADR status merely because implementation finishes. It remains `accepted`.
 
 If immediate effectiveness vs. implementation-pending is unclear, surface the ambiguity rather than guessing.
+
+## Realization Maintenance
+
+An accepted realization-required ADR may receive a narrow maintenance edit after current-state evidence clearly establishes that its decision has been fully realized.
+
+`$to-adr-doc` does not independently determine realization. Apply this exception only when realization has already been established by the invoking workflow or `$wiki-sync`.
+
+Permitted maintenance is limited to:
+
+* changing stale realization wording from pending/future tense to implemented/current tense;
+* updating a stale ADR reference when a later ADR formally carries forward or supersedes that referenced authority and the reference update does not change the decision's meaning.
+
+For example:
+
+```text
+implementation must ...
+accepted but implementation pending
+```
+
+may become:
+
+```text
+implementation has ...
+this realization-required decision is implemented
+```
+
+Do not use Realization Maintenance to:
+
+* alter Context, Decision, Rationale, or Considered Options;
+* change a decision-bearing consequence or architectural requirement;
+* introduce a new requirement, owner, boundary, trade-off, or rationale;
+* reinterpret the historical decision using later implementation details;
+* mark partial or ambiguous realization as complete;
+* change ADR status.
+
+If the required edit would change the architectural decision rather than only its realization/reference annotation, create a new ADR instead.
+
+After Realization Maintenance, invoke `$wiki-sync` so derived current-state knowledge is re-evaluated.
 
 ## Numbering
 
@@ -221,6 +261,7 @@ If the Living Entity Wiki exists, invoke `$wiki-sync` after:
 
 * creating an ADR;
 * substantively editing a proposed ADR;
+* applying Realization Maintenance;
 * changing ADR status.
 
 Pass the ADR path and relevant old/new status where applicable.
@@ -305,7 +346,7 @@ Do not create a commit merely because `$to-adr-doc` or `$wiki-sync` ran.
 
 * decide entity topology;
 * update entity pages directly;
-* determine whether implementation has realized an accepted decision;
+* independently determine whether implementation has realized an accepted decision;
 * resolve `[source-conflict]`;
 * classify or move non-ADR documents.
 

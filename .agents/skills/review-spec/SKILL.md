@@ -463,38 +463,96 @@ Do not propose the architectural answer.
 
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation findings.
 
-## 9. Remediation
+## 9. Pending Remediation Human Handoff
 
-If Blocking findings remain and none require architecture resolution, invoke `$review-spec-remediation`.
+If Blocking findings remain and none require architecture resolution, do **not** invoke `$review-spec-remediation` implicitly.
 
-Pass:
+Persist a durable **Pending Review Remediation** section on the existing Spec Review issue.
 
-* accepted independently discovered axis findings;
-* their post-review Root Blocker mappings;
-* durable existing root invariants/statuses;
-* cumulative carried acceptance matrix;
-* still-violated/regressed/unproven obligations;
-* satisfied obligations that remain preservation obligations;
-* provenance classifications;
-* Candidate new roots;
-* possible root-definition gaps;
-* detected cumulative-ledger drift.
+If no Spec Review issue exists yet, create the parent tracking issue first using the existing Spec Review convention:
 
-Do not pass discarded wrong-axis findings as remediation input.
+```text
+Spec Review: <Feature Name>
+```
 
-Do not restart root discovery for findings already explained by an unchanged stable invariant.
+Its first body line must be:
 
-`$review-spec-remediation` owns:
+```markdown
+**Parent Spec:** #<spec_issue_number>
+```
 
-* root synthesis;
-* root-definition completeness decisions;
-* new `RB-*` IDs;
-* ledger updates;
-* cumulative acceptance-matrix updates;
-* remediation tracking;
-* Owner Overrides.
+Then persist:
 
-Advisory-only findings do not trigger remediation.
+```markdown
+## Pending Review Remediation [YYYY-MM-DD HH:MM]
+
+**Status:** pending
+**Reviewed HEAD:** <full SHA>
+**Reviewed Baseline:** <full Spec baseline SHA>
+**Branch:** spec-<spec_issue_number>
+
+### Standards
+<accepted independently validated Blocking findings or None>
+
+### Spec
+<accepted independently validated Blocking findings or None>
+
+### Architecture
+<accepted independently validated Blocking findings with `Architecture decision required: No`, or None>
+
+### Root mappings
+- <finding> → <RB-n | Candidate new root>
+
+### Root state
+- <existing root statuses and stable invariants relevant to the findings>
+- <cumulative carried acceptance obligations relevant to remediation>
+- <satisfied obligations that remain preservation obligations>
+
+### Provenance
+- <finding/root>: <Missed prior finding | Regression | Origin uncertain>
+
+### Root-definition / ledger notes
+- <possible root-definition gaps or cumulative-ledger drift>
+- or None
+```
+
+The pending packet is the durable input to the later explicit `$review-spec-remediation` invocation.
+
+Persist only the already accepted review findings and parent reconciliation state.
+
+Do not perform remediation synthesis, assign new Root Blocker IDs, or update acceptance obligations here.
+
+Immediately before persistence require:
+
+```bash
+PENDING_HEAD=$(git rev-parse HEAD)
+
+if [ "$PENDING_HEAD" != "$CURRENT_HEAD" ]; then
+  echo "❌ HEAD changed during Spec review."
+  exit 1
+fi
+```
+
+`PENDING_HEAD` must equal the `Verified HEAD` from the current passing Spec Verification Receipt.
+
+If persistence fails, the review handoff is incomplete.
+
+After persistence, halt with:
+
+> ⚠️ **Spec review requires remediation synthesis.**
+>
+> I have persisted the independently validated Blocking findings to:
+> **`Spec Review: <Feature Name> #<Issue_ID>`**
+>
+> Please run:
+>
+> ```
+> $review-spec-remediation Spec Review: <Feature Name> (<Issue URL>)
+> ```
+
+Then stop.
+
+`$review-spec-remediation` is human-gated and must not be invoked implicitly.
 
 ## Exit Gate
 

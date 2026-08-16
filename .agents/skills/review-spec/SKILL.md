@@ -463,11 +463,9 @@ Do not propose the architectural answer.
 
 Blocking Architecture findings with `Architecture decision required: No` are ordinary remediation findings.
 
-## 9. Pending Remediation Human Handoff
+## 9. Pending Remediation
 
-If Blocking findings remain and none require architecture resolution, do **not** invoke `$review-spec-remediation` implicitly.
-
-Persist a durable **Pending Review Remediation** section on the existing Spec Review issue.
+If Blocking findings remain and none require architecture resolution, persist a durable **Pending Review Remediation** section on the existing Spec Review issue.
 
 If no Spec Review issue exists yet, create the parent tracking issue first using the existing Spec Review convention:
 
@@ -516,7 +514,7 @@ Then persist:
 - or None
 ```
 
-The pending packet is the durable input to the later explicit `$review-spec-remediation` invocation.
+The pending packet is the durable input to `$review-spec-remediation`.
 
 Persist only the already accepted review findings and parent reconciliation state.
 
@@ -535,24 +533,21 @@ fi
 
 `PENDING_HEAD` must equal the `Verified HEAD` from the current passing Spec Verification Receipt.
 
-If persistence fails, the review handoff is incomplete.
+If persistence fails, review remediation is incomplete.
 
-After persistence, halt with:
+After persistence, invoke `$review-spec-remediation` with:
 
-> ⚠️ **Spec review requires remediation synthesis.**
->
-> I have persisted the independently validated Blocking findings to:
-> **`Spec Review: <Feature Name> #<Issue_ID>`**
->
-> Please run:
->
-> ```
-> $review-spec-remediation Spec Review: <Feature Name> (<Issue URL>)
-> ```
+```text
+Spec Review: <Feature Name> (<Issue URL>)
+```
 
-Then stop.
+Wait for its result.
 
-`$review-spec-remediation` is human-gated and must not be invoked implicitly.
+If `$review-spec-remediation` returns a genuine architecture blocker, apply the **Architecture Human Handoff** above and stop.
+
+If it returns its `$to-tickets` Human Handoff, propagate that handoff exactly and stop.
+
+If it reports that no Blocking findings remain, continue to the Exit Gate.
 
 ## Exit Gate
 

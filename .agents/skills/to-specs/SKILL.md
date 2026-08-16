@@ -37,7 +37,19 @@ If required durable state cannot be recovered, report the missing artifact rathe
    * no material architecture question remains unresolved;
    * the solution still agrees with the current architecture.
 
-   If not, stop and return the issue to `$wayfinder`. Do not make material architectural decisions while writing the spec.
+   If not, halt with a Human Handoff. Do not make material architectural decisions while writing the spec.
+
+   When an originating Wayfinder map or decision is known, use it in the handoff:
+
+   > ⚠️ **Specification is blocked by unresolved architecture.**
+   >
+   > Please run:
+   >
+   > ```
+   > $wayfinder - <Wayfinder Map or Decision Title> (<URL>)
+   > ```
+
+   If no originating Wayfinder artifact can be resolved, report that the architectural planning source must be established before specification can continue rather than guessing one.
 
 4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
 

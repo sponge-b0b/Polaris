@@ -329,7 +329,26 @@ When a new decision supersedes or invalidates an earlier decision, preserve the 
 
 A closed map or existing derived Spec does **not** waive this gate.
 
-If another unresolved decision, missing implementability choice, or newly specifiable fog remains, continue routing through the map rather than presenting a downstream handoff.
+If another unresolved decision, missing implementability choice, or newly specifiable fog remains, the route is not clear.
+
+Except for additional research tickets permitted by **Invocation**, do not resolve another ticket in the same session.
+
+After updating the map, identify the current frontier:
+
+* If one open, unblocked, unclaimed frontier ticket is available, halt with:
+
+  > ✅ **Wayfinder decision resolved.**
+  >
+  > Please continue with:
+  >
+  > ```
+  > $wayfinder - <Next Decision Ticket Title> (<Ticket URL>)
+  > ```
+
+* If multiple frontier tickets are available, output one copy-ready `$wayfinder` line per frontier ticket and let the user choose the next session. The user may run independent frontier tickets in parallel.
+* If unresolved in-scope fog remains but no frontier ticket can yet be stated, report the remaining fog and stop. Do not present a downstream handoff.
+
+Then stop.
 
 The route is not clear while:
 

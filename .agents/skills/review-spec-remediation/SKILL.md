@@ -1,15 +1,15 @@
 ---
 name: review-spec-remediation
-description: Explicitly invoked after `$review-spec` persists independently validated Blocking findings in a Pending Review Remediation packet. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
+description: Invoked only by `$review-spec` after it persists independently validated Blocking findings in a Pending Review Remediation packet. Maintains the durable Root Blocker Ledger and cumulative acceptance matrix, then hands architecture-conforming remediation to `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec Remediation
 
-`$review-spec-remediation` is the explicit human-invoked continuation of a failed `$review-spec`.
+`$review-spec-remediation` is an internal continuation invoked by `$review-spec` after independently validated Blocking findings are persisted in a **Pending Review Remediation** packet.
 
-It converts the independently validated Blocking findings persisted by `$review-spec` into durable remediation state.
+It converts those findings into durable remediation state.
 
 It does not review source code and does not fix source code.
 
@@ -26,7 +26,7 @@ If a Blocking Architecture finding has `Architecture decision required: Yes`, re
 
 ## Invocation Preconditions
 
-The invocation source must be the `Spec Review: ...` issue produced or reused by `$review-spec`.
+The invocation source must be the `Spec Review: ...` issue supplied by `$review-spec`.
 
 Recover the parent Spec from the exact body line:
 
@@ -50,15 +50,7 @@ CURRENT_HEAD=$(git rev-parse HEAD)
 CURRENT_BRANCH=$(git branch --show-current)
 ```
 
-If the packet is missing or stale, halt:
-
-> ⚠️ **Review remediation state is missing or stale.**
->
-> Please rerun:
->
-> ```
-> $review-spec - <Spec Title> (<Spec URL>)
-> ```
+If the packet is missing or stale, return a remediation-state error to `$review-spec` and do not synthesize remediation.
 
 Do not reconstruct or infer pending review findings from historical ledger entries, previous sessions, or source inspection.
 

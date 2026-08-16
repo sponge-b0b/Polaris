@@ -31,7 +31,17 @@ If the user passes a spec path, issue number, or URL, fetch and read its full bo
 
 If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
-If the Spec still contains an unresolved material architecture question, stop and return to `$to-specs`. Do not resolve architecture here.
+If the Spec still contains an unresolved material architecture question, halt with a Human Handoff. Do not resolve architecture here.
+
+> ⚠️ **Ticket creation is blocked by unresolved architecture.**
+>
+> Please run:
+>
+> ```
+> $to-specs - <Spec Title> (<Spec URL>)
+> ```
+
+Use the actual Spec title and URL.
 
 A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
@@ -61,11 +71,42 @@ Before drafting:
 * remediation, verification, and preservation obligations;
 * determining which new tickets are required.
 
+If `$to-remediation-tickets` returns one or more **architecture-blocked roots**, halt with a Human Handoff to the parent Spec review lifecycle:
+
+> ⚠️ **Ticket remediation is blocked by unresolved architecture.**
+>
+> Please run:
+>
+> ```
+> $review-spec - <Parent Spec Title> (<Spec URL>)
+> ```
+>
+> **Architecture blockers:**
+>
+> 1. **RB-<n> — <question/conflict>**
+>    * Governing authority: <authority>
+>    * Evidence: <concise evidence>
+>    * Material consequence: <ownership/path/boundary/dependency/lifecycle/conflict>
+
+Use the actual parent Spec title and URL. Do not continue ordinary ticket remediation while an architecture-blocked root remains.
+
 If it returns a delta, preserve that delta semantically and continue at Step 4.
 
 Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
-If it returns an empty delta, report that the current ticket set already represents the source and direct the user to resume the applicable open/frontier ticket with `$implement-ticket`. Then stop.
+If it returns an empty delta, report that the current ticket set already represents the source, identify the applicable open/frontier ticket, and halt with a Human Handoff:
+
+> ✅ **No ticket changes are required.**
+>
+> Please continue with:
+>
+> ```
+> $implement-ticket - <Frontier Ticket Title> (<Ticket URL>)
+> ```
+
+If multiple frontier tickets are available, present one copy-ready `$implement-ticket` line per ticket and let the user choose.
+
+Then stop.
 
 #### Fresh Vertical Slices
 
@@ -344,3 +385,21 @@ fi
 Never overwrite the Spec body to store workspace metadata.
 
 The original baseline remains the fixed point for the entire Spec lifecycle.
+
+## Implementation Human Handoff
+
+After ticket publication/reconciliation and Spec branch metadata are complete, identify every open, unblocked frontier ticket for the Spec.
+
+If one frontier ticket is available, halt with:
+
+> ✅ **Tickets are ready for implementation.**
+>
+> Please run:
+>
+> ```
+> $implement-ticket - <Frontier Ticket Title> (<Ticket URL>)
+> ```
+
+If multiple frontier tickets are available, output one copy-ready `$implement-ticket` line per ticket and let the user choose which fresh implementation session to start.
+
+Do not invoke `$implement-ticket` implicitly.

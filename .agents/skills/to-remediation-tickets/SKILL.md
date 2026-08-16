@@ -77,7 +77,14 @@ For each unresolved root partition its active cells into:
 
 `Architecture decision required: No` is ordinary remediation.
 
-If an unresolved root has `Architecture decision required: Yes`, halt and return it to `$review-spec`.
+If an unresolved root has `Architecture decision required: Yes`, halt ordinary remediation slicing for that root and return an **architecture-blocked remediation result** to `$to-tickets` containing:
+
+* Root Blocker ID and invariant;
+* the unresolved architecture question/conflict;
+* governing authority;
+* concise evidence and material consequence.
+
+Do not route directly to `$review-spec`; `$to-tickets` owns any lifecycle Human Handoff.
 
 Do not synthesize, broaden, split, renumber, or redefine roots here.
 
@@ -269,6 +276,9 @@ Never reset a pinned SHA to `Pending`.
 Return only actionable ticket changes:
 
 ```text
+Architecture-blocked roots:
+- RB-<n>: <question/conflict> — <governing authority/evidence>
+
 New tickets:
 - <ticket>
   Root: RB-<n>
@@ -296,6 +306,8 @@ Verification-only obligations:
 Skipped:
 - ...
 ```
+
+Omit `Architecture-blocked roots` when none exist.
 
 For Spec Review remediation, also report:
 

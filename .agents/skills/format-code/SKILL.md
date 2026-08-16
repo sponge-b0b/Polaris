@@ -1,6 +1,6 @@
 ---
 name: format-code
-description: Formats, cleans, and structures modified or newly generated files in the workspace. Use this skill whenever work is being performed on an individual active ticket (e.g., using the /implement-ticket skill) OR on-demand anytime current working files require code formatting, style compliance, and cleaning prior to running local verification checks.
+description: Formats, cleans, and structures modified or newly generated files in the workspace. Use this skill whenever work is being performed on an individual active ticket (e.g., using the `$implement-ticket` skill) OR on-demand anytime current working files require code formatting, style compliance, and cleaning prior to running local verification checks.
 license: MIT
 compatibility: product=codex product=claude-code system=git system=python network=none
 metadata:

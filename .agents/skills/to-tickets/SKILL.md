@@ -31,7 +31,17 @@ If the user passes a spec path, issue number, or URL, fetch and read its full bo
 
 If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
-If the Spec still contains an unresolved material architecture question, stop and return to `$to-specs`. Do not resolve architecture here.
+If the Spec still contains an unresolved material architecture question, halt with a Human Handoff. Do not resolve architecture here.
+
+> ⚠️ **Ticket creation is blocked by unresolved architecture.**
+>
+> Please run:
+>
+> ```
+> $to-specs - <Spec Title> (<Spec URL>)
+> ```
+
+Use the actual Spec title and URL.
 
 A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
@@ -60,6 +70,25 @@ Before drafting:
 * Root Blocker reconciliation;
 * remediation, verification, and preservation obligations;
 * determining which new tickets are required.
+
+If `$to-remediation-tickets` returns one or more **architecture-blocked roots**, halt with a Human Handoff to the parent Spec review lifecycle:
+
+> ⚠️ **Ticket remediation is blocked by unresolved architecture.**
+>
+> Please run:
+>
+> ```
+> $review-spec - <Parent Spec Title> (<Spec URL>)
+> ```
+>
+> **Architecture blockers:**
+>
+> 1. **RB-<n> — <question/conflict>**
+>    * Governing authority: <authority>
+>    * Evidence: <concise evidence>
+>    * Material consequence: <ownership/path/boundary/dependency/lifecycle/conflict>
+
+Use the actual parent Spec title and URL. Do not continue ordinary ticket remediation while an architecture-blocked root remains.
 
 If it returns a delta, preserve that delta semantically and continue at Step 4.
 

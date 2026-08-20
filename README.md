@@ -121,7 +121,7 @@ Polaris can be used as a decision-support platform for portfolio workflows such 
 - combining technical, macro, sentiment, news, and portfolio evidence into strategy rationale;
 - reviewing historical recommendations and completed workflow outputs;
 - asking grounded RAG-backed questions over curated platform records;
-- testing deterministic scenarios with fixed inputs, time, seeds, and independently verified expected outcomes;
+- testing deterministic scenarios with fixed inputs and independently verified expected outcomes;
 - monitoring providers, data quality, workflow execution, and observability signals.
 
 ## Core components

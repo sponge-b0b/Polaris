@@ -13,4 +13,5 @@
 
 ### Planned
 
+* **Request-scoped security context** — accepted, implementation pending: authenticated entrypoints establish immutable non-secret security context in the existing request scope, protected operations authorize from that context, and transports must not introduce global or transport-local current-user authority. (source: docs/adr/0023-identity-access-propagation-audit-attribution.md)
 * **API, web UI, customer-facing AI agent, and expanded external transport surfaces** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

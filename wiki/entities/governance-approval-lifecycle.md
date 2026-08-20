@@ -12,4 +12,5 @@
 
 ### Planned
 
+* **Canonical governance actor/security attribution** — accepted, implementation pending: actor-sensitive governance transitions persist canonical principal attribution, and durable protected mutations retain reconstructable references to the authorization decisions that permitted them without merging authorization evidence into governance/risk evidence. (source: docs/adr/0023-identity-access-propagation-audit-attribution.md)
 * **Runtime-integrated approval engine expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

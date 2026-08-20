@@ -7,6 +7,7 @@ This is the authoritative registry of active architectural entities for Polaris.
 | Entity | Category | Implementation | Routing Anchors | Summary |
 |---|---|---|---|---|
 | [Domain Contracts & Data Semantics](entities/domain-contracts-data-semantics.md) | Domain | present | `domain` | Semantic contract layer for typed internal data, precision, scores, and authority metadata across the platform. |
+| [Identity & Access](entities/identity-access.md) | Security | pending | — | Canonical principal identity, authentication, authorization, security-context propagation, ownership-sensitive access facts, and actor/security attribution. |
 | [Runtime & Workflow Platform](entities/runtime-workflow-platform.md) | Runtime Platform | present | `core/runtime`, `core/workflow` | Canonical execution trunk for workflow facade, runtime graph execution, runtime context, events, replay, and control hooks. |
 | [Dependency Composition](entities/dependency-composition.md) | Runtime Platform | present | `core/bootstrap`, `core/workflow/bootstrap` | Composition-root and dependency-scope policy for runtime, service, CLI, MCP, and test entry paths. |
 | [Application Services & Output Curation](entities/application-services-output-curation.md) | Application Services | present | `application/services`, `application/projections` | Use-case orchestration and curated projection of completed runtime outputs into durable domain records. |

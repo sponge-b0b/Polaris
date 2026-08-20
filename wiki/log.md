@@ -31,3 +31,7 @@ Recorded the accepted provider-neutral authentication boundary, credential termi
 ## [2026-08-20] ownership architecture | single-tenant platform ownership accepted
 
 Recorded the accepted deployment-level single-tenancy invariant, platform-owned-by-default resource semantics, explicit principal ownership only where required, separation of ownership from actor attribution, and prohibition on speculative tenant dimensions without changing entity topology.
+
+## [2026-08-20] identity/access propagation | entity promoted and audit lifecycle accepted
+
+Promoted Identity & Access under the new Security category, centralized the accepted identity/authentication/authorization/ownership-access plan there, and recorded request-scoped security context, explicit runtime actor attribution, durable authorization linkage, and identity-safe observability semantics.

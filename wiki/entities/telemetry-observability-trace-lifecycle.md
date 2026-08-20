@@ -13,4 +13,5 @@
 
 ### Planned
 
+* **Identity-safe telemetry correlation** — accepted, implementation pending: logs and traces may correlate opaque principal and authorization-decision identifiers, but principal identity remains distinct from trace/span/event/execution identity; credentials and provider tokens remain prohibited, and principal IDs must not become high-cardinality metric labels. (source: docs/adr/0023-identity-access-propagation-audit-attribution.md)
 * **Expanded observability platform projections and operational dashboards** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

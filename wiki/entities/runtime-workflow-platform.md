@@ -13,4 +13,5 @@
 
 ### Planned
 
+* **Explicit actor attribution across runtime boundaries** — accepted, implementation pending: request-scoped identity becomes typed actor attribution when work crosses into runtime, asynchronous, durable, governance, or independently protected execution; workflow executions preserve their initiating principal, while internal nodes do not redundantly re-authorize unless they start a new protected action. (source: docs/adr/0023-identity-access-propagation-audit-attribution.md)
 * **Runtime approvals and scheduling expansion** — proposed, not yet accepted. (source: docs/proposed/platform-future-architecture.md)

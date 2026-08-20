@@ -15,3 +15,7 @@ Updated the Strategy Synthesis entity invariant to use the ADR- and implementati
 ## [2026-08-09] domain flow authority rules | distributed decision-support invariants centralized
 
 Added current architecture language for signal flow, risk-agent authority, portfolio intent, execution-risk decisioning, governance ordering, and recommendation attribution, then synchronized the affected entity invariants.
+
+## [2026-08-20] principal identity architecture | canonical actor contract accepted
+
+Recorded the accepted canonical `Principal` identity and HUMAN/SERVICE/SYSTEM actor taxonomy as implementation-pending Domain Contracts & Data Semantics architecture without changing entity topology.

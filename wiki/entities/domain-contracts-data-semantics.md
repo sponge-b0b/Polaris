@@ -10,3 +10,7 @@
 * Stable business dimensions that must be queried, governed, or projected require first-class typed fields rather than being stored only in generic metadata, raw payloads, or JSON blobs, because hidden semantics cannot reliably support migrations, lineage, or downstream authority. (source: docs/current/domain-contracts-data-semantics-contract-semantics.md)
 * Score-bearing fields must identify their score family, range, polarity, and conversions explicitly, because consumers must not infer meaning from the word “score.” (source: docs/current/domain-contracts-data-semantics-contract-semantics.md)
 * Internal calculations and persistence preserve full numeric precision, with rounding limited to rendering or presentation boundaries, because precision loss inside the platform changes domain meaning. (source: docs/adr/0006-domain-contracts-data-semantics-typed-internal-contracts.md)
+
+### Planned
+
+* **Canonical principal identity** — accepted, implementation pending: Polaris will use a minimal immutable domain-owned `Principal` with an opaque deployment-scoped `principal_id` and exactly `HUMAN`, `SERVICE`, or `SYSTEM` actor kinds; credentials resolve to principals rather than becoming identity, and canonical human/service identities are durable PostgreSQL-backed records. (source: docs/adr/0019-platform-principal-identity-and-actor-taxonomy.md)

@@ -22,7 +22,16 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    When the source is a Wayfinder map, treat that map and its resolved decision tickets as the planning source.
 
-2. **Resolve spec mode.** If the source Wayfinder map already has one or more derived in-progress specs recorded in its tracker metadata, invoke `$to-remediation-specs` and do not create another spec.
+2. **Resolve spec mode.** When the source is a Wayfinder map, resolve the complete set of derived Specs before choosing fresh or remediation mode.
+
+   Recover derived Specs from both:
+
+   * explicit `Spec Handoff` metadata on the source Wayfinder map; and
+   * existing Specs whose durable tracker provenance unambiguously identifies that Wayfinder as their source, including the canonical `wayfinder-source` marker and legacy source-context references that predate that marker.
+
+   Reconcile the two sets. If an existing Spec unambiguously identifies the source Wayfinder but is missing from the map's `Spec Handoff`, add the missing linkage using the same additive tracker metadata before continuing. Do not remove existing linkages, duplicate a linkage, or treat incomplete Wayfinder metadata as proof that no other derived Specs exist.
+
+   If one or more derived in-progress Specs exist after reconciliation, invoke `$to-remediation-specs` and do not create another spec.
 
    `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
 
@@ -68,6 +77,8 @@ If required durable state cannot be recovered, report the missing artifact rathe
    ```markdown
    ## Spec Handoff
    **Derived Spec:** #<spec_issue_number>
+   **Derived Spec:** #<spec_issue_number>
+   ...
    ```
 
    Record each derived spec once. Do not overwrite the Wayfinder map body or duplicate an existing linkage.

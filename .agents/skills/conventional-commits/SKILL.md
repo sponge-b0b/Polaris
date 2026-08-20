@@ -16,12 +16,12 @@ Structure every Git commit message in strict compliance with the Conventional Co
 ## Message Structure Blueprint
 Every commit message must follow this structural schema exactly:
 ```text
-<type>[optional scope]: <description>
+<type>[scope]: <description>
 
 [optional body describing why the change was made]
 ```
 - **Type**: Must be entirely lowercase. Use only the approved structural types listed below.
-- **Scope**: Optional but highly encouraged. Represents the specific software layer or folder module modified, wrapped in lowercase parentheses (e.g., `(reranker)`, `(api)`, `(db)`).
+- **Scope**: Required. Represents the specific software layer or folder module modified, wrapped in lowercase parentheses (e.g., `(reranker)`, `(api)`, `(db)`).
 - **Description**: Written in the **imperative mood** (e.g., use `add` instead of `added`, `fix` instead of `fixes`). Do not capitalize the first letter and do not add a trailing period.
 
 ## Approved Structural Types

@@ -1,13 +1,13 @@
 ---
 name: to-remediation-specs
-description: Invoked only by `$to-specs` when a Wayfinder map already has a derived in-progress spec — recover the existing spec, apply newly resolved decision deltas, and amend it without duplicating previously consumed decisions.
+description: Invoked only by `$to-specs` when a Wayfinder map already has one or more derived in-progress specs — recover the existing specs, apply newly resolved decision deltas, and amend them without duplicating previously consumed decisions.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Remediation Specs
 
-Invoked by `$to-specs` when its source Wayfinder map already has a derived in-progress spec.
+Invoked by `$to-specs` when its source Wayfinder map already has one or more derived in-progress specs.
 
 Replace fresh spec creation for that case. The Wayfinder map remains the source input.
 
@@ -19,24 +19,26 @@ Recover every correctness-critical input from the explicit invocation, repositor
 
 If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
-## 1. Recover the Existing Spec
+## 1. Recover the Existing Specs
 
-From the source Wayfinder map, resolve the existing derived spec using explicit tracker metadata.
+From the source Wayfinder map, resolve every derived in-progress Spec using the reconciled tracker metadata established by `$to-specs`.
 
-Preserve its:
+Confirm each candidate's durable provenance identifies the source Wayfinder. If tracker evidence reveals an additional unambiguous derived in-progress Spec missing from the map's `Spec Handoff`, add the missing linkage and include that Spec before continuing.
+
+Preserve each Spec's:
 
 * issue identity;
 * branch and baseline lineage;
 * existing tickets;
 * Spec Review lineage, when present.
 
-If no derived spec exists, return to `$to-specs` for normal spec creation.
+If no derived in-progress Specs exist, return to `$to-specs` for normal spec creation.
 
-If the relationship is ambiguous, halt rather than guessing which spec to amend.
+If any candidate relationship is ambiguous, halt rather than guessing which Specs belong to the source Wayfinder.
 
 ## 2. Recover Decision Provenance
 
-Read the existing spec's Wayfinder provenance marker:
+For each existing Spec, read its Wayfinder provenance marker:
 
 ```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
@@ -44,19 +46,19 @@ Read the existing spec's Wayfinder provenance marker:
 
 Confirm that `wayfinder-source` identifies the input map.
 
-Read the map's resolved decisions and compare their IDs with those already recorded as consumed by the spec.
+Read the map's resolved decisions and compare their IDs with those already recorded as consumed by that Spec.
 
-The difference is the **decision delta**.
+The difference is that Spec's **decision delta**. Keep decision deltas independent per Spec; consumption by one Spec does not imply consumption by another.
 
-If the spec predates provenance metadata, reconcile its current contents against the map once, mark decisions already represented as consumed, and continue with only the remaining delta.
+If a Spec predates provenance metadata, reconcile its current contents against the map once, mark decisions already represented as consumed by that Spec, and continue with only its remaining delta.
 
-Do not regenerate the spec merely to bootstrap provenance.
+Do not regenerate a Spec merely to bootstrap provenance.
 
-## 3. Reconcile the Decision Delta
+## 3. Reconcile the Decision Deltas
 
-Read the newly resolved decision tickets and their resolution comments.
+For each Spec with a non-empty decision delta, read the newly resolved decision tickets and their resolution comments.
 
-Apply the delta semantically to a candidate amendment:
+Apply that delta semantically to a candidate amendment for that Spec:
 
 * update existing requirements or user stories when the decision changes the same behavior;
 * replace or remove content invalidated by the decision;
@@ -79,7 +81,7 @@ Do not introduce architectural decisions absent from resolved Wayfinder history.
 
 ## 4. Architecture Completeness Preflight
 
-Before applying a materially changed architecture-dependent implementation obligation, verify that accepted architecture determines enough to implement it without inventing another durable architectural choice.
+Before applying a materially changed architecture-dependent implementation obligation to any candidate Spec, verify that accepted architecture determines enough to implement it without inventing another durable architectural choice.
 
 Where applicable, check:
 
@@ -111,14 +113,14 @@ Do not require implementation wiring to already exist.
 
 Missing factories, methods, configuration objects, registration calls, repository operations, DI bindings, bootstrap wiring, or similar mechanisms are implementation work when accepted architecture already determines their semantics.
 
-If satisfying the concrete contract requires inventing a new durable input, meaning, authority source, classification, owner, key/path, boundary, dependency direction, or lifecycle rule, architecture remains incomplete.
+If satisfying any candidate obligation would require inventing a new durable input, meaning, authority source, classification, owner, key/path, boundary, dependency direction, or lifecycle rule, architecture remains incomplete.
 
 Ordinary implementation details are not architecture.
 
-If satisfying the candidate obligation would require inventing unresolved architecture:
+If satisfying any candidate obligation would require inventing unresolved architecture:
 
-* do not amend the Spec;
-* do not consume the decision delta;
+* do not amend any derived Spec in the current remediation run;
+* do not consume any decision delta;
 * do not create or modify implementation tickets;
 * collect every independent architecture blocker;
 * preserve coupled questions as one blocker when they jointly define the same contract or lifecycle;
@@ -130,52 +132,54 @@ Halt with a Human Handoff:
 > Please run:
 >
 > ```
-> $architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
+> $architecture-remediation - <Blocked Spec Title> (<Spec URL>) — <concise blocker-set summary>
 > ```
 >
 > Pass the blocked obligation, concrete contract/production-seam evidence, material consequence, governing authority, and source Wayfinder decisions.
+
+If more than one Spec is independently blocked, output one handoff per blocked Spec.
 
 Do not propose the architectural resolution.
 
 ## 5. Update Provenance
 
-After the candidate amendment passes the Architecture Completeness Preflight, update the existing provenance marker to include every resolved Wayfinder decision now represented by the spec:
+After all candidate amendments pass the Architecture Completeness Preflight, update each existing Spec's provenance marker to include every resolved Wayfinder decision now represented by that Spec:
 
 ```html
 <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision>,#<new-decision> -->
 ```
 
-The marker records **consumption**, not architectural authority.
+The marker is per-Spec and records **consumption**, not architectural authority.
 
 Wayfinder decision tickets remain the durable home of the decisions themselves.
 
-## 6. Update the Existing Spec
+## 6. Update the Existing Specs
 
-Write the reconciled content back to the existing spec in place.
+Write each reconciled candidate back to its existing Spec in place.
 
 Do not:
 
-* create another spec;
+* create new specs;
 * reset branch or baseline metadata;
 * replace existing ticket or review lineage;
 * create implementation tickets;
-* reopen or close existing remediation tickets merely because the spec changed.
+* reopen or close existing remediation tickets merely because a spec changed.
 
-Return the amended spec to `$to-specs`.
+Return the amended Spec set to `$to-specs`.
 
 ## Completion
 
 Report:
 
-* existing spec amended;
+* existing Specs amended or already synchronized;
 * source Wayfinder map;
-* newly consumed decision tickets;
-* spec sections changed;
+* newly consumed decision tickets per Spec;
+* spec sections changed per Spec;
 * Architecture Completeness Preflight result;
 * concrete contracts/production seams checked when applicable;
-* whether provenance was bootstrapped;
+* whether provenance was bootstrapped per Spec;
 * whether any ambiguity or architecture blocker prevented amendment.
 
-If the decision delta is empty, make no semantic spec changes and report that the existing spec is already synchronized with the Wayfinder map.
+If a Spec's decision delta is empty, make no semantic changes to that Spec and report that it is already synchronized with the Wayfinder map.
 
-If the Architecture Completeness Preflight fails, leave the existing spec and provenance unchanged and present the Human Handoff.
+If the Architecture Completeness Preflight fails, leave all existing Specs and provenance unchanged and present the Human Handoff.

@@ -9,6 +9,7 @@
 * Only curated records are eligible for canonical RAG ingestion; raw runtime dumps, vendor responses, arbitrary JSON, and transient web pages do not become canonical RAG documents merely because they were retrieved. (source: docs/current/platform-native-rag-retrieval-pipeline.md)
 * Qdrant vector collections and Neo4j graph projections are rebuildable from PostgreSQL records, because retrieval acceleration must not become a second system of record. (source: docs/current/platform-native-rag-retrieval-pipeline.md)
 * RAG, reports, MCP tools, rendered files, and graph/vector projections must not create parallel decision-evidence stores or declare rendered text to be the source of truth, because governed decisions require canonical evidence packets and durable audit records. (source: docs/adr/0009-decision-evidence-packets-canonical-semantics.md)
+* RAG source records, filters, Qdrant payloads, and Neo4j projections inherit the deployment-level trust/data boundary and must not introduce tenant or organization scoping independently of canonical PostgreSQL resource semantics; any future principal ownership is a trusted canonical resource fact rather than transport or retrieval metadata. (source: docs/adr/0022-single-tenant-resource-ownership-attribution-semantics.md)
 
 ### Planned
 

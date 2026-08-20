@@ -27,3 +27,7 @@ Recorded the accepted fail-closed Polaris authorization contract, Cerbos PDP as 
 ## [2026-08-20] authentication architecture | credential-to-principal boundary accepted
 
 Recorded the accepted provider-neutral authentication boundary, credential termination and binding semantics, fail-closed authentication, trusted-local HUMAN/SERVICE resolution, and MCP bearer/stdio migration without changing entity topology.
+
+## [2026-08-20] ownership architecture | single-tenant platform ownership accepted
+
+Recorded the accepted deployment-level single-tenancy invariant, platform-owned-by-default resource semantics, explicit principal ownership only where required, separation of ownership from actor attribution, and prohibition on speculative tenant dimensions without changing entity topology.

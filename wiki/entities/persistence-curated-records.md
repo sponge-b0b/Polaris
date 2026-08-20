@@ -10,6 +10,7 @@
 * Qdrant and Neo4j are rebuildable retrieval projections from PostgreSQL and not canonical stores, because derived indexes may be deleted or rebuilt without losing product authority. (source: docs/current/persistence-curated-records-postgresql-persistence.md)
 * Important canonical data requires a first-class typed field and schema migration rather than living only in generic metadata or JSON, because hidden fields cannot safely support querying, governance, or projection rebuilds. (source: docs/adr/0004-persistence-curated-records-postgresql-system-of-record.md)
 * Completed-run archives, curated domain records, RAG records, and observability records are distinct storage classes, because replay evidence, product facts, retrieval projections, and diagnostics have different authority. (source: docs/current/platform-architecture-ownership-ledger.md)
+* One Polaris deployment is one organizational trust/data boundary, so persistence schemas, repository APIs, keys, uniqueness rules, and cache/projection identities must not acquire speculative tenant or organization dimensions; principal ownership is represented only for resource types whose semantics require it through an explicit canonical principal reference. (source: docs/adr/0022-single-tenant-resource-ownership-attribution-semantics.md)
 
 ### Planned
 

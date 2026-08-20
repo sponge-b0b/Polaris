@@ -19,3 +19,7 @@ Added current architecture language for signal flow, risk-agent authority, portf
 ## [2026-08-20] principal identity architecture | canonical actor contract accepted
 
 Recorded the accepted canonical `Principal` identity and HUMAN/SERVICE/SYSTEM actor taxonomy as implementation-pending Domain Contracts & Data Semantics architecture without changing entity topology.
+
+## [2026-08-20] authorization architecture | Cerbos-backed provider-neutral boundary accepted
+
+Recorded the accepted fail-closed Polaris authorization contract, Cerbos PDP as the initial provider behind a provider-neutral adapter, transport delegation, and non-overridable authorization denial semantics without changing entity topology.

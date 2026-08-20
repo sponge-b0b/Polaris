@@ -14,3 +14,4 @@
 ### Planned
 
 * **Canonical principal identity** — accepted, implementation pending: Polaris will use a minimal immutable domain-owned `Principal` with an opaque deployment-scoped `principal_id` and exactly `HUMAN`, `SERVICE`, or `SYSTEM` actor kinds; credentials resolve to principals rather than becoming identity, and canonical human/service identities are durable PostgreSQL-backed records. (source: docs/adr/0019-platform-principal-identity-and-actor-taxonomy.md)
+* **Canonical authorization contract** — accepted, implementation pending: Polaris will use a provider-neutral, fail-closed typed authorization boundary over canonical principals, stable actions, typed resources, and trusted context, with binary `ALLOW`/`DENY` outcomes; Cerbos PDP is the initial provider behind a Polaris-owned adapter, while PostgreSQL retains canonical authorization evidence and immutable policy-revision identity. (source: docs/adr/0020-platform-authorization-contract-cerbos-pdp.md)

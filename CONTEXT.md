@@ -114,6 +114,24 @@ A Strategy Decision may express posture or regime interpretation, directional bi
 
 A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Release, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
 
+## Strategy Advisory
+
+A **Strategy Advisory** is a read-only, non-authoritative AI-adjacent interpretation of completed canonical strategy evidence, Strategy Hypotheses, and the resulting Strategy Decision.
+
+A Strategy Advisory may explain or critique the canonical result, surface missing or conflicting Evidence, frame counterarguments or alternative scenarios, narrate qualitative risks, and recommend topics for human review. It does not create or replace Strategy Hypotheses, participate in canonical strategy selection, or alter portfolio, risk, governance, policy, Approval, Release, or execution authority. The canonical strategy lifecycle must produce the same authoritative Strategy Decision whether Strategy Advisory succeeds, fails, is disabled, or does not exist.
+
+## Strategy Advisory Result
+
+A **Strategy Advisory Result** is the typed semantic output of one Strategy Advisory execution.
+
+A Strategy Advisory Result carries advisory availability status and typed status reasons, a code-owned non-authoritative authority marker, references to the canonical decision-evidence packets it examined, optional advisory narrative, and structured Strategy Advisory Findings. It does not carry canonical strategy-selection fields such as directional bias, strategy confidence, candidate scores, synthesis weights, rankings, Allocation, position sizing, eligibility, Approval, or execution action. Runtime and model provenance remain execution metadata rather than advisory semantics.
+
+## Strategy Advisory Finding
+
+A **Strategy Advisory Finding** is one structured, non-authoritative observation within a Strategy Advisory Result. A finding identifies its advisory kind, statement, concise user-facing explanation, the canonical subject it discusses, and the canonical Evidence it references where applicable.
+
+Finding kinds may distinguish critique, counterargument, missing Evidence, scenario analysis, and an advisory recommendation. An **advisory recommendation** recommends what a human may want to investigate or consider; it is not a canonical Recommendation, Proposed Action, Strategy Decision, portfolio instruction, or governance decision.
+
 ## Execution Risk
 
 **Execution Risk** is the risk introduced by attempting to carry out a Proposed Action or Trade Package, including timing, liquidity, sizing, slippage, concentration, volatility, operational, and governance risks.

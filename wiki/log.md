@@ -23,3 +23,7 @@ Recorded the accepted canonical `Principal` identity and HUMAN/SERVICE/SYSTEM ac
 ## [2026-08-20] authorization architecture | Cerbos-backed provider-neutral boundary accepted
 
 Recorded the accepted fail-closed Polaris authorization contract, Cerbos PDP as the initial provider behind a provider-neutral adapter, transport delegation, and non-overridable authorization denial semantics without changing entity topology.
+
+## [2026-08-20] authentication architecture | credential-to-principal boundary accepted
+
+Recorded the accepted provider-neutral authentication boundary, credential termination and binding semantics, fail-closed authentication, trusted-local HUMAN/SERVICE resolution, and MCP bearer/stdio migration without changing entity topology.

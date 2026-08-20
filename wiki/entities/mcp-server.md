@@ -8,6 +8,7 @@
 * The MCP request path is strict request model, FastMCP handler, Dishka request scope, canonical application service or `WorkflowFacade`, and strict response, because MCP is a transport adapter rather than an authority boundary. (source: docs/current/mcp-server-transport-boundary.md)
 * MCP handlers must not directly query or import internal Postgres, Qdrant, Neo4j, provider, RAG, or runtime internals; missing behavior must be implemented in the canonical service first, because transport-specific shortcuts create alternate APIs. (source: docs/current/mcp-server-transport-boundary.md)
 * MCP governance and release capabilities must delegate through the request scope and must not create local approval queues, caches, tables, gates, direct repository writers, audit stores, or RAG approval stacks, because approval state belongs to governance services. (source: docs/current/mcp-server-transport-boundary.md)
+* MCP credential handling must delegate canonical identity resolution to the Polaris authentication boundary: Streamable HTTP bearer credentials map to a configured `SERVICE` principal and trusted stdio maps through an explicit trusted-local `SERVICE` binding, rather than treating credentials, transport trust, anonymous state, or `SYSTEM` as caller identity. (source: docs/adr/0021-platform-authentication-credential-resolution-boundary.md)
 
 ### Planned
 

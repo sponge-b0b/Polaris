@@ -42,6 +42,8 @@ Polaris is recommendation-oriented. It can analyze markets and portfolios, gener
 
 Polaris is a Python platform for building replayable AI-assisted portfolio-management workflows. It combines typed application services, provider-based market integrations, a workflow runtime, persisted execution evidence, curated RAG, and observability into one platform-native architecture.
 
+**Polaris has no mandatory paid market-data or model-inference dependency.** The default configuration is designed to operate with free data sources and locally hosted models. Users can optionally configure free-tier hosted inference, self-hosted inference servers, paid hosted providers, or any combination of them.
+
 Polaris is designed to answer questions such as:
 
 - What changed in market conditions since the last report?

@@ -15,3 +15,7 @@ Updated the Strategy Synthesis entity invariant to use the ADR- and implementati
 ## [2026-08-09] domain flow authority rules | distributed decision-support invariants centralized
 
 Added current architecture language for signal flow, risk-agent authority, portfolio intent, execution-risk decisioning, governance ordering, and recommendation attribution, then synchronized the affected entity invariants.
+
+## [2026-08-20] strategy advisory authority | non-authoritative boundary accepted
+
+Accepted Strategy Advisory as a read-only AI-adjacent lane over canonical strategy evidence and decisions; it cannot feed strategy selection or downstream capital/governance authority, and its realization remains pending under ADR-0024.

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import sha256
+from typing import Protocol
 
 from core.runtime.governance import GovernanceEvaluationResult, GovernanceResult
 from core.runtime.policies import PolicyEvaluationResult, PolicyResult
@@ -40,6 +41,14 @@ from core.workflow.governance_audit import AutomatedDecisionAuditContext
 from domain.authority import RiskAuthorityContract, RiskTier
 
 from .approval_lifecycle_observability import ApprovalLifecycleObservability
+
+
+class _AutomatedAuditRecordForQuery(Protocol):
+    @property
+    def evidence_packet_version(self) -> int | None: ...
+
+    @property
+    def timestamp(self) -> datetime: ...
 
 
 class GovernanceReviewApprovalState(StrEnum):
@@ -398,19 +407,9 @@ class AutomatedDecisionAuditService:
             start=filters.start,
             end=filters.end,
         )
-        return tuple(
-            sorted(
-                (
-                    record
-                    for record in records
-                    if _matches_evidence_version(
-                        record.evidence_packet_version,
-                        filters.evidence_packet_version,
-                    )
-                ),
-                key=lambda record: record.timestamp,
-                reverse=True,
-            )
+        return _filter_and_sort_audit_records(
+            records,
+            evidence_packet_version=filters.evidence_packet_version,
         )
 
     async def list_governance_audit_records(
@@ -429,19 +428,9 @@ class AutomatedDecisionAuditService:
             start=filters.start,
             end=filters.end,
         )
-        return tuple(
-            sorted(
-                (
-                    record
-                    for record in records
-                    if _matches_evidence_version(
-                        record.evidence_packet_version,
-                        filters.evidence_packet_version,
-                    )
-                ),
-                key=lambda record: record.timestamp,
-                reverse=True,
-            )
+        return _filter_and_sort_audit_records(
+            records,
+            evidence_packet_version=filters.evidence_packet_version,
         )
 
     async def list_governance_review_tasks(
@@ -953,6 +942,27 @@ def _matches_evidence_version(
     query_version: int | None,
 ) -> bool:
     return query_version is None or record_version == query_version
+
+
+def _filter_and_sort_audit_records[T: _AutomatedAuditRecordForQuery](
+    records: Iterable[T],
+    *,
+    evidence_packet_version: int | None,
+) -> tuple[T, ...]:
+    return tuple(
+        sorted(
+            (
+                record
+                for record in records
+                if _matches_evidence_version(
+                    record.evidence_packet_version,
+                    evidence_packet_version,
+                )
+            ),
+            key=lambda record: record.timestamp,
+            reverse=True,
+        )
+    )
 
 
 def _matches_review_task_filters(

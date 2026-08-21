@@ -62,8 +62,8 @@ registry-owned authority, durable re-acquisition, and transport thinness.
 
 ## Consequences
 
-This supersedes ADRs 0012, 0016, and 0017. Implementation must provide
+This supersedes ADRs 0012, 0016, and 0017. Implementation has provided
 catalog-owned invocation facts, Baseline invocation provenance/selection,
 typed packet workflow-execution provenance, output-specific packet producers,
 durable reconstruction validation, and separate invocation versus output
-boundary governance paths.
+boundary governance paths. This realization-required decision is implemented.

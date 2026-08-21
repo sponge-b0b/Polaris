@@ -39,3 +39,7 @@ Grounded Strategy Advisory in Polaris-issued references to canonical supplied ru
 ## [2026-08-20] strategy advisory model routing | synthesis alias and prompt ownership accepted
 
 Assigned Strategy Advisory one provider-neutral `polaris-synthesis` route and one advisory-owned prompt contract, kept provider/model/fallback selection outside the advisory boundary, rejected separate perspective model personas, and made obsolete bull/bear/sideways prompts remediation cleanup under ADR-0029.
+
+## [2026-08-20] strategy advisory publication safety | fail-closed trust and sink gates accepted
+
+Made model responses untrusted until full safety, contract, source, and reference validation succeeds; contaminated or partially valid candidates are rejected rather than repaired, `DEGRADED` is reserved for trusted degraded-context outputs, claim-bearing persistence uses canonical advisory evidence, and external publication separately passes readiness and shared sink controls under ADR-0030.

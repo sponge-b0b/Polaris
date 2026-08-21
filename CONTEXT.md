@@ -257,8 +257,6 @@ Application Services are the preferred domain-facing surface for interfaces such
 
 A **Provider** is a typed boundary that normalizes a class of external or simulated capability for Application Services. Providers hide vendor-specific transport, SDK, authentication, retry, and response-shape concerns from intelligence components and workflow nodes.
 
-Clients do not own Polaris domain semantics. Provider normalization is required before external data becomes typed platform input.
-
 ## Client
 
 A **Client** is a vendor-specific or transport-specific adapter used beneath a Provider to communicate with an external system or local service.

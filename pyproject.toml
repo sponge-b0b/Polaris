@@ -96,6 +96,10 @@ select = [
     "C90",     # McCabe complexity
     "B",       # flake8-bugbear
     "UP",      # pyupgrade (modernizes python syntax)
+    "N801",    # class names use CapWords/PascalCase
+    "N802",    # function and method names use snake_case
+    "N999",    # module names use snake_case
+    "PGH003",  # type: ignore comments require an explicit error code
 ]
 
 [tool.ruff.lint.mccabe]

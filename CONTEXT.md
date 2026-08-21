@@ -124,7 +124,7 @@ A Strategy Advisory may explain or critique the canonical result, surface missin
 
 A **Strategy Advisory Result** is the typed semantic output of one Strategy Advisory execution.
 
-A Strategy Advisory Result carries advisory availability status and typed status reasons, a code-owned non-authoritative authority marker, references to the canonical decision-evidence packets it examined, optional advisory narrative, and structured Strategy Advisory Findings. It does not carry canonical strategy-selection fields such as directional bias, strategy confidence, candidate scores, synthesis weights, rankings, Allocation, position sizing, eligibility, Approval, or execution action. Runtime and model provenance remain execution metadata rather than advisory semantics.
+A Strategy Advisory Result carries advisory availability status and typed status reasons, a code-owned non-authoritative authority marker, code-owned source bindings to the canonical strategy evidence, Strategy Hypotheses, and Strategy Decision actually consumed by the advisory, optional advisory narrative, and structured Strategy Advisory Findings. It does not imply that a durable decision-evidence packet existed when the advisory ran; when the result later becomes a claim-bearing durable or published output, it receives its own decision-evidence packet through the normal evidence lifecycle. It does not carry canonical strategy-selection fields such as directional bias, strategy confidence, candidate scores, synthesis weights, rankings, Allocation, position sizing, eligibility, Approval, or execution action. Runtime and model provenance remain execution metadata rather than advisory semantics.
 
 ## Strategy Advisory Finding
 
@@ -256,6 +256,8 @@ Application Services are the preferred domain-facing surface for interfaces such
 ## Provider
 
 A **Provider** is a typed boundary that normalizes a class of external or simulated capability for Application Services. Providers hide vendor-specific transport, SDK, authentication, retry, and response-shape concerns from intelligence components and workflow nodes.
+
+Clients do not own Polaris domain semantics. Provider normalization is required before external data becomes typed platform input.
 
 ## Client
 

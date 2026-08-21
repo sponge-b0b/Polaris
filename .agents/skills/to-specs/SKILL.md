@@ -22,11 +22,30 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    When the source is a Wayfinder map, treat that map and its resolved decision tickets as the planning source.
 
-2. **Resolve spec mode.** If the source Wayfinder map already has one or more derived in-progress specs recorded in its tracker metadata, invoke `$to-remediation-specs` and do not create another spec.
+2. **Resolve spec mode.** When the source is a Wayfinder map, resolve the complete set of existing Spec handoffs before choosing fresh or remediation mode.
+
+   A handoff is one of:
+
+   * **Derived Spec** — a Spec created from this Wayfinder map; the map remains its canonical `wayfinder-source`.
+   * **Remediation Spec** — an existing Spec created from another planning source that this Wayfinder is explicitly responsible for reconciling. Remediation does not change the Spec's original source provenance.
+
+   Recover derived Specs from both:
+
+   * explicit `Derived Spec` metadata under `Spec Handoff` on the source Wayfinder map; and
+   * existing Specs whose durable tracker provenance unambiguously identifies that Wayfinder as their source, including the canonical `wayfinder-source` marker and legacy source-context references that predate that marker.
+
+   Recover remediation Specs from both:
+
+   * explicit `Remediation Spec` metadata under `Spec Handoff` on the source Wayfinder map; and
+   * existing Specs whose `wayfinder-remediation` provenance marker unambiguously identifies that Wayfinder.
+
+   Reconcile each set. If reverse provenance unambiguously establishes a linkage missing from the map's `Spec Handoff`, add the matching `Derived Spec` or `Remediation Spec` linkage before continuing. Do not remove existing linkages, duplicate a linkage, convert one handoff role into the other, replace original `wayfinder-source` provenance to represent remediation, or treat incomplete Wayfinder metadata as proof that no other handed-off Specs exist.
+
+   If one or more derived or remediation in-progress Specs exist after reconciliation, invoke `$to-remediation-specs` and do not create another spec for that handed-off scope.
 
    `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
 
-   If no derived in-progress spec exists, continue with normal spec creation.
+   If no in-progress handed-off Spec exists, continue with normal spec creation.
 
 3. **Architecture preflight.** For software work, identify the affected Living Entity Wiki entities and compare the distilled solution against their applicable invariants, decisions, rejections, boundaries, and current authoritative sources.
 
@@ -63,16 +82,25 @@ If required durable state cannot be recovered, report the missing artifact rathe
    <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
    ```
 
-   After publishing, record each derived spec on the source Wayfinder map using additive tracker metadata:
+   After publishing, record each newly derived spec on the source Wayfinder map using additive tracker metadata:
 
    ```markdown
    ## Spec Handoff
    **Derived Spec:** #<spec_issue_number>
+   **Derived Spec:** #<spec_issue_number>
+   ...
    ```
 
-   Record each derived spec once. Do not overwrite the Wayfinder map body or duplicate an existing linkage.
+   An existing Spec intentionally governed by a later Wayfinder uses a distinct linkage:
 
-6. **Human Handoff Intercept.** After all creation or remediation work for the source is complete, identify every derived in-progress Spec that is ready for ticket creation or reconciliation.
+   ```markdown
+   ## Spec Handoff
+   **Remediation Spec:** #<spec_issue_number>
+   ```
+
+   Record each linkage once. Do not overwrite the Wayfinder map body, duplicate an existing linkage, or rewrite a Spec's original source provenance to represent remediation.
+
+6. **Human Handoff Intercept.** After all creation or remediation work for the source is complete, identify every in-progress Spec handled for the source — derived or remediation — that is ready for ticket creation or reconciliation.
 
    Output one copy-ready handoff line per Spec:
 

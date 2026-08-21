@@ -218,7 +218,7 @@ Blocking uses the tracker's native dependency relationship.
 
 A ticket is **unblocked** when every blocking ticket is closed. The **frontier** is the open, unblocked, unclaimed children.
 
-The answer is recorded on resolution, not in the question body.
+Keep the ticket body as the decision question. Persist authored decision analysis and recommendations as issue comments; record the accepted answer in the final resolution comment.
 
 ## Ticket Types
 
@@ -228,8 +228,86 @@ A HITL ticket resolves only through the live exchange. **The agent must never in
 
 * **Research** (AFK): read documentation, third-party APIs, or local resources to surface a fact a decision waits on. Resolve through a `$research` subagent.
 * **Prototype** (HITL): create a cheap concrete artifact via `$prototype` when reaction to behavior or shape will improve the decision.
-* **Grilling** (HITL): use `$grilling` and `$domain-modeling`, one question at a time. Default case. For each decision question, provide the recommended answer, then explicitly ask **“Do you agree with this recommendation? (yes/no)”** and wait. `yes` accepts the recommendation. `no` keeps the current decision open and explores the disagreement before advancing. Never infer acceptance or resolve the ticket without an explicit user response.
+* **Grilling** (HITL): use `$grilling` and `$domain-modeling`, one question at a time. Default case. For each decision question, provide the recommended answer, persist the required **Decision Analysis**, then explicitly ask **“Do you agree with this recommendation? (yes/no)”** and wait. `yes` accepts the recommendation. `no` keeps the current decision open and explores the disagreement before advancing. Never infer acceptance or resolve the ticket without an explicit user response.
 * **Task** (HITL or AFK): prerequisite work that must happen before a decision can be made.
+
+## Decision Analysis
+
+For every HITL decision ticket, preserve the architectural journey in the ticket before asking the human to accept the recommendation.
+
+After investigation is materially complete and before the explicit yes/no gate, post one authored issue comment beginning with:
+
+```markdown
+## Decision Analysis
+```
+
+The comment is a durable explanation of how the recommendation follows from repository evidence and architectural constraints. It is **not** a transcript and must not contain raw private scratchpad or chain-of-thought.
+
+Include only sections that carry material information, normally drawn from:
+
+```markdown
+### Current State
+
+<relevant implementation and current architecture>
+
+### Future-State Constraints
+
+<accepted-but-not-yet-realized decisions, related Specs/Wayfinders,
+dependency chains, and reserved responsibilities that constrain this choice>
+
+### Key Findings
+
+<facts that materially shaped the recommendation>
+
+### Alternatives Considered
+
+<plausible alternatives, why they were plausible, and why they were
+rejected or retained>
+
+### Architectural Reasoning
+
+<the concise argument connecting evidence, ownership, lifecycle,
+dependency direction, authority, and tradeoffs to the recommendation>
+
+### Recommendation
+
+<the exact recommendation presented to the human>
+```
+
+Do not force empty headings or uniform length. A simple decision may need only a few paragraphs; a foundational architectural decision may need substantially more.
+
+Preserve especially:
+
+* evidence or lifecycle facts that were not obvious from the ticket question;
+* relevant future-state constraints consulted under **Resolve Architecture Before Handoff**;
+* plausible alternatives and why they were rejected;
+* assumptions whose later invalidation could justify revisiting the decision;
+* first-principles reasoning that prevents a future maintainer from mistaking a deliberate rejection for an overlooked option.
+
+The recommendation in the `Decision Analysis` comment must match the recommendation presented in the live HITL exchange.
+
+### Recommendation Revision
+
+If the human rejects, challenges, or clarifies the recommendation and further analysis materially changes it, preserve history rather than rewriting the earlier comment.
+
+Before presenting the revised yes/no gate, post a new issue comment beginning with:
+
+```markdown
+## Recommendation Revision
+```
+
+Record concisely:
+
+* the earlier recommendation or assumption being revised;
+* the challenge, new evidence, or concrete-contract finding that changed the analysis;
+* why the previous approach no longer holds;
+* the revised recommendation.
+
+Then present that revised recommendation in the live exchange and ask the exact required yes/no question again.
+
+Do not create a revision comment for mere wording cleanup that does not change the material recommendation.
+
+After acceptance, keep the final resolution comment concise: record the accepted decision and point to the durable ADR/docs/commits as applicable rather than duplicating the full analysis.
 
 ## Fog of War
 
@@ -303,13 +381,14 @@ If given a ticket, resolve its parent Wayfinder map using the tracker's native r
 1. Load the **map**, not every ticket body.
 2. Choose the named ticket or first frontier ticket and **claim it** before work.
 3. Resolve it. Fetch related detail only as needed. Use `$grilling` and `$domain-modeling` when appropriate. For architecture, apply **Resolve Architecture Before Handoff** and **Architecture Implementability Closure**.
-4. For a HITL decision, do not treat the recommendation as the user's decision. Obtain the explicit human response required by **Ticket Types** before resolution.
-5. **Persist the resolution**:
+4. For a HITL decision, after investigation is materially complete, persist the required **Decision Analysis** comment before presenting the recommendation and explicit yes/no gate. If further exchange materially changes the recommendation, persist a **Recommendation Revision** before asking again.
+5. Do not treat the recommendation as the user's decision. Obtain the explicit human response required by **Ticket Types** before resolution.
+6. **Persist the resolution**:
 
    * reconcile required authoritative architecture records;
    * if repository files changed, complete **Repository Persistence**;
-   * only after persistence succeeds, post the resolution comment, close the ticket, and append its context pointer to **Decisions so far**.
-6. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
+   * only after persistence succeeds, post the concise resolution comment, close the ticket, and append its context pointer to **Decisions so far**.
+7. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
 
 ## Post-Resolution Gate
 
@@ -322,6 +401,7 @@ Confirm:
 * no material architecture question remains unresolved;
 * **Architecture Implementability Closure** passes for materially affected architecture;
 * required authoritative architecture records are reconciled;
+* required Decision Analysis and any material Recommendation Revision are durably recorded on the decision ticket;
 * the new decision has not left stale or contradictory map state or affected prior decisions unreconciled;
 * all Wayfinder-owned repository changes are committed and pushed.
 

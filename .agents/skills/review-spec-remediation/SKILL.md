@@ -133,6 +133,12 @@ owner-overridden
 
 A later review may update a cell's status or evidence, but omission does not remove it.
 
+A `satisfied` cell remains `satisfied` unless the current independently validated findings contain concrete evidence that the **same semantic obligation** is now violated, or durable state explicitly supersedes, retires, or overrides that obligation.
+
+Discovery of a new sibling manifestation, child symptom, or root-definition gap must add or open the narrow missing obligation. It must not downgrade previously satisfied sibling cells merely because the root as a whole remains open.
+
+An open or unproven root-complete sweep does not by itself downgrade otherwise satisfied cells.
+
 Remove, replace, or retire an obligation only when durable state explicitly establishes that it is:
 
 * superseded by an equivalent obligation;
@@ -337,7 +343,7 @@ When architecture-conforming Blocking remediation remains, halt using this exact
 
 `[X]` is the number of independently validated current Blocking findings, not the number of Root Blockers or acceptance cells.
 
-Do not add an alternative remediation summary before or after this Human Handoff that changes its structure.
+Do not alter or embed additional remediation content inside this Human Handoff. When `$review-spec` propagates it, `$review-spec` retains ownership of its already-required aggregate review results before the handoff.
 
 If no Blocking findings remain, return control to `$review-spec` so it can evaluate its Exit Gate.
 

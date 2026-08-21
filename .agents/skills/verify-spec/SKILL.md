@@ -102,10 +102,11 @@ git diff --check "$BASELINE_COMMIT"
 
 For findings introduced or carried by this Spec:
 
-* deterministic whitespace-only defects → fix mechanically, rerun `git diff --check`, and continue;
+* deterministic whitespace-only defects that are provably semantics-preserving for the affected file type → fix mechanically, rerun `git diff --check`, and continue;
+* Markdown trailing whitespace → do not rewrite solely to satisfy `git diff --check`; trailing spaces may encode hard line breaks. If a Markdown whitespace finding remains after repository whitespace policy is applied, report it unless an existing repository rule establishes an unambiguous semantics-preserving correction;
 * unresolved conflict markers → Blocking; investigate rather than treating them as whitespace cleanup.
 
-Do not ask for confirmation for whitespace-only fixes.
+Do not ask for confirmation for automatic whitespace fixes that satisfy the semantics-preserving rule above.
 
 Do not alter document/code meaning while fixing whitespace.
 
@@ -196,7 +197,7 @@ Apply the **Accepted ADR Realization Maintenance** rule before routing `[source-
 
 ### Duplication
 
-When the Spec introduces a module, helper, utility layer, service, or canonical behavior, invoke `$duplication-checks`.
+When the Spec introduces a module, helper, utility layer, service, or canonical behavior, invoke `$deduplicate-code`.
 
 New duplicate canonical behavior fails verification.
 
@@ -213,7 +214,7 @@ For an ordinary verification failure:
 
 This includes:
 
-* deterministic whitespace defects;
+* deterministic, semantics-preserving whitespace defects;
 * Ruff;
 * Mypy;
 * targeted tests;
@@ -229,7 +230,7 @@ Do not:
 * broaden testing to compensate for failure;
 * modify unrelated pre-existing failures.
 
-Deterministic whitespace-only fixes require no owner confirmation.
+Automatic whitespace-only fixes require no owner confirmation only when they are provably semantics-preserving for the affected file type.
 
 If a non-architecture failure cannot be safely repaired within Spec scope, stop and report it.
 
@@ -330,9 +331,9 @@ After all verification-owned fixes, rerun every applicable gate needed for final
 * repository-wide Mypy;
 * targeted integration/regression tests;
 * invoke the `$wiki-lint` skill and affected architecture queries;
-* invoke the `$duplication-checks` skill when applicable.
+* invoke the `$deduplicate-code` skill when applicable.
 
-If final `git diff --check` finds a deterministic Spec-owned whitespace defect, fix it mechanically and rerun the affected final gates as needed.
+If final `git diff --check` finds a deterministic Spec-owned whitespace defect that is provably semantics-preserving to repair for the affected file type, fix it mechanically and rerun the affected final gates as needed. Do not rewrite Markdown trailing whitespace solely to satisfy this check.
 
 Do not report success while any required gate remains failed or unresolved.
 

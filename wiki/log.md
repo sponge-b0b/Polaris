@@ -43,3 +43,7 @@ Assigned Strategy Advisory one provider-neutral `polaris-synthesis` route and on
 ## [2026-08-20] strategy advisory publication safety | fail-closed trust and sink gates accepted
 
 Made model responses untrusted until full safety, contract, source, and reference validation succeeds; contaminated or partially valid candidates are rejected rather than repaired, `DEGRADED` is reserved for trusted degraded-context outputs, claim-bearing persistence uses canonical advisory evidence, and external publication separately passes readiness and shared sink controls under ADR-0030.
+
+## [2026-08-21] strategy advisory readiness | deterministic proof and evaluation evidence separated
+
+Required deterministic service-free proof for Strategy Advisory authority, workflow, safety, evidence, routing, persistence, and publication invariants; created a distinct `STRATEGY_ADVISORY` evaluation responsibility for qualitative usefulness and robustness; and delegated release/publication qualification to shared platform readiness and sink controls under ADR-0031.

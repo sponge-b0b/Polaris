@@ -23,6 +23,8 @@ Do not invoke `$wiki-lint`.
 
 `$review-spec` requires a passing `$verify-spec` receipt for the exact current `HEAD`.
 
+The review protocol is coverage-driven. Optimize for exhaustive blocker discovery inside one review invocation rather than relying on repeated end-to-end lifecycle rounds to reveal omitted findings.
+
 ## Session Independence
 
 Assume no prior conversational or agent-session state.
@@ -195,33 +197,130 @@ Do not ask reviewers to:
 * report Root Blocker status;
 * preserve prior finding classifications.
 
-The parent performs all root reconciliation only after the three reviewer result sets are complete and frozen.
+The parent performs all root reconciliation only after both independent passes for every applicable axis are coverage-complete and their finding sets are frozen.
 
-## 5. Spawn Independent Reviewers
+## 5. Build the Review Universe and Spawn Independent Reviewers
 
-Spawn exactly three parallel sub-agents when all axes apply:
+Before reviewer dispatch, build a **Review Universe** from current authoritative inputs.
 
-* one Standards;
-* one Spec;
-* one Architecture.
+This is coverage routing, not review. Do not use prior Root Blocker findings, acceptance cells, remediation tickets, or previous reviewer conclusions to construct it.
 
-Never spawn more than one reviewer per axis.
+### Review Universe
 
-Give every reviewer:
+Capture an axis-neutral surface inventory from the aggregate Spec diff and originating Spec:
+
+* every changed file, grouped by production code, tests, configuration, migrations, docs/ADRs, and tooling/process files;
+* every production/interface/transport/persistence/release/evaluation boundary explicitly named by the Spec or materially changed by the aggregate diff;
+* named sibling or alternate surfaces that the same explicit requirement says must behave consistently.
+
+Build axis-specific cells with stable IDs.
+
+#### Standards cells
+
+Create `STD-<n>` cells covering:
+
+* every changed file group subject to deterministic repository coding/process standards;
+* every applicable documented Standards rule/category for those surfaces.
+
+Do not silently exempt a changed file. A file or group outside Standards scope must be represented as `not-applicable` with a reason.
+
+#### Spec cells
+
+Create `SPEC-<n>` cells for every explicit normative Spec obligation, including:
+
+* every numbered User Story;
+* every Implementation Decision bullet;
+* every Testing Decision bullet;
+* every Out of Scope prohibition;
+* every materially unique `must`, `must not`, `only`, `cannot`, fail-closed, unavailable, reconstruction, no-fallback, no-bypass, or equivalent normative requirement elsewhere in the Spec.
+
+Do not collapse materially distinct positive and negative obligations merely because they concern the same subsystem.
+
+Attach named production/transport/sibling surfaces from the Spec to the relevant cells.
+
+#### Architecture cells
+
+Create `ARCH-<n>` cells covering:
+
+* every affected entity in Architecture Impact;
+* every governing ADR/current architecture document named by the Spec or current entity context;
+* every named canonical owner/path/boundary implicated by those authorities;
+* changed production surfaces participating in those entities;
+* sibling/alternate paths explicitly required to obey the same authority.
+
+`$review-architecture` owns the architecture dimensions and evidence procedure; do not duplicate its internal algorithm here.
+
+### Dual Independent Passes
+
+Spawn exactly **two fresh reviewers per applicable axis**:
+
+* Standards primary;
+* Standards challenger;
+* Spec primary;
+* Spec challenger;
+* Architecture primary;
+* Architecture challenger.
+
+When all three axes apply, this is six reviewers.
+
+Never show one pass another pass's findings, coverage dispositions, reasoning, or historical review state.
+
+Give each pass:
 
 * aggregate diff and commits;
 * Finding Taxonomy;
-* only the source material authoritative for its axis.
+* its complete axis Review Universe;
+* only source material authoritative for its axis;
+* one pass strategy.
+
+Use distinct strategies:
+
+**Primary — authority-first**
+
+Start from each rule/requirement/authority cell and trace it into implementation evidence and all named required surfaces.
+
+**Challenger — adversarial-surface-first**
+
+Start from changed and named implementation surfaces and trace backward to authority. Deliberately inspect paths likely to escape the intended contract, especially:
+
+* optional/`None` dependencies;
+* defaults and fallback behavior;
+* compatibility and direct-construction paths;
+* early returns and success-without-owner/service branches;
+* caller-supplied authority/evidence/version/provenance;
+* metadata/mapping/type-recovery paths;
+* alternate persistence/release/evaluation/audit paths;
+* sibling CLI/backtest/MCP/runtime/facade surfaces;
+* negative requirements such as `cannot`, `must not`, `only`, fail closed, and `without fallback`.
+
+The challenger is not a critic of the primary. It is a fully independent second discovery pass.
+
+### Required Reviewer Contract
 
 Tell every reviewer:
 
-1. review the complete aggregate Spec change independently;
+1. review the complete assigned Review Universe independently;
 2. use only its axis authority to decide whether a finding exists;
 3. do not stop after the first blocker;
 4. return every independently supported Blocking finding;
 5. do not infer requirements from another review axis;
 6. do not perform Root Blocker mapping;
-7. do not perform remediation.
+7. do not perform remediation;
+8. disposition every supplied coverage cell;
+9. add a new coverage cell when its own authority reveals a materially relevant omitted requirement/surface rather than silently broadening an existing cell;
+10. continue until no supplied or newly discovered cell remains unchecked.
+
+Every coverage cell must end in exactly one state:
+
+```text
+checked-no-finding | blocking | advisory | not-applicable
+```
+
+`not-applicable` requires a concrete reason.
+
+`unknown`, `unchecked`, `deferred`, omitted, or “not reviewed due to time/context” is incomplete review.
+
+A finding does not discharge other cells.
 
 ### Standards
 
@@ -233,6 +332,16 @@ Authority:
 Review for deterministic standards violations and relevant non-tooling smells.
 
 Skip issues reliably owned by verification tooling.
+
+For each Standards coverage cell, return:
+
+```text
+Coverage: STD-<n>
+State: <checked-no-finding | blocking | advisory | not-applicable>
+Standard authority: <exact standard file/skill + rule or section>
+Surfaces inspected: <files/groups>
+Evidence/reason: <concise evidence or N/A reason>
+```
 
 Every Blocking Standards finding must return:
 
@@ -267,6 +376,20 @@ Authority:
 
 Review for missing, partial, incorrect, or unauthorized behavior required by the Spec.
 
+For each Spec coverage cell, return:
+
+```text
+Coverage: SPEC-<n>
+State: <checked-no-finding | blocking | advisory | not-applicable>
+Spec authority: <exact requirement/section>
+Surfaces inspected: <production/test/transport surfaces>
+Evidence/reason: <concise evidence or N/A reason>
+```
+
+For negative requirements such as `must not`, `cannot`, `only`, fail closed, unavailable/reconstruction failure, or `without fallback`, source evidence must include the named canonical path **and relevant sibling/alternate/default/fallback paths**. Do not infer compliance only because the intended path exists.
+
+A helper/unit assertion is not sufficient source-review evidence when the requirement governs a higher production boundary. Inspect the production boundary itself.
+
 Every Blocking Spec finding must return:
 
 ```text
@@ -293,9 +416,12 @@ Authority:
 
 * current applicable architecture evaluated through `$review-architecture`.
 
-Invoke `$review-architecture`.
+Both Architecture reviewers must independently invoke `$review-architecture` with:
 
-Review the complete aggregate change against applicable architectural authority.
+* the aggregate diff and commits;
+* originating Spec and Architecture Impact;
+* the complete Architecture Review Universe;
+* their assigned pass strategy: `authority-first` or `adversarial-surface-first`.
 
 Every Blocking Architecture finding must preserve:
 
@@ -307,13 +433,49 @@ Architecture decision required: Yes | No
 Routing: <existing-authority remediation | architecture resolution>
 ```
 
-Return all independently supported Architecture findings.
+Each Architecture result must also return the complete `$review-architecture` Coverage section.
 
-## 6. Freeze and Validate Findings
+## 6. Complete Coverage, Freeze, and Validate Findings
 
-Wait for all applicable reviewers to complete.
+Wait for all applicable primary and challenger reviewers to complete.
 
-Freeze each axis's returned findings before Root Blocker reconciliation.
+### Review Completeness Gate
+
+For each axis, form the union of:
+
+* parent-supplied Review Universe cells;
+* additional cells independently discovered by either pass.
+
+Coverage is complete only when **both independent passes** have dispositioned every cell in that union.
+
+If one pass adds a cell that the sibling pass did not inspect, continue or dispatch a fresh completion pass for only the uncovered cell(s), using the same axis authority and strategy. Do not show it the other pass's finding or disposition.
+
+Do not freeze findings, persist Pending Review Remediation, issue a Human Handoff, or pass review while any coverage cell is missing, unchecked, unknown, deferred, or silently omitted.
+
+The parent may validate:
+
+* coverage IDs and completeness;
+* whether every required source item was represented in the Review Universe;
+* whether each row has authority, inspected surfaces, and evidence/reason;
+* citations and axis provenance.
+
+This is coverage validation, not a second semantic review.
+
+Require final coverage summary:
+
+```text
+Standards: <n> cells; primary complete; challenger complete; unchecked 0
+Spec: <n> cells; primary complete; challenger complete; unchecked 0
+Architecture: <n> cells; primary complete; challenger complete; unchecked 0
+```
+
+### Freeze Findings
+
+After the Review Completeness Gate succeeds, freeze each axis's results.
+
+The final axis finding set is the de-duplicated **union** of independently returned findings from both passes.
+
+A valid finding does not require both passes to discover it. A `checked-no-finding` disposition from one pass does not suppress an independently supported finding from the other.
 
 The parent may lightly validate citations and axis provenance.
 
@@ -337,7 +499,7 @@ Do **not** repair a Spec finding by supplying an ADR.
 
 Do **not** create a new Architecture finding because another reviewer raised an architectural concern.
 
-A concern exists in the final review only if the reviewer for the authoritative axis independently returned it.
+A concern exists in the final review only if at least one reviewer for the authoritative axis independently returned it and it passes this provenance gate.
 
 ## 7. Reconcile Findings Against Root State
 
@@ -416,6 +578,12 @@ Present the independent review results first:
 ```
 
 Do not display discarded wrong-axis findings as blockers.
+
+Immediately after the three axes, add one compact line without exposing the internal coverage matrix:
+
+```text
+Review coverage: complete — Standards <n> cells (2/2 passes); Spec <n> cells (2/2 passes); Architecture <n> cells (2/2 passes); unchecked 0.
+```
 
 If a Root Blocker Ledger exists or Candidate roots were discovered, also present:
 
@@ -498,6 +666,11 @@ Then persist:
 ### Architecture
 <accepted independently validated Blocking findings with `Architecture decision required: No`, or None>
 
+### Review coverage
+- Standards: <n> cells; primary complete; challenger complete; unchecked 0
+- Spec: <n> cells; primary complete; challenger complete; unchecked 0
+- Architecture: <n> cells; primary complete; challenger complete; unchecked 0
+
 ### Root mappings
 - <finding> → <RB-n | Candidate new root>
 
@@ -516,7 +689,7 @@ Then persist:
 
 The pending packet is the durable input to `$review-spec-remediation`.
 
-Persist only the already accepted review findings and parent reconciliation state.
+Persist only the already accepted review findings, completed coverage summary, and parent reconciliation state.
 
 Do not perform remediation synthesis, assign new Root Blocker IDs, or update acceptance obligations here.
 
@@ -554,6 +727,9 @@ If it reports that no Blocking findings remain, continue to the Exit Gate.
 The review passes only when:
 
 * current `HEAD` still matches the passing Spec Verification Receipt;
+* the Review Completeness Gate passed for every applicable axis;
+* both independent passes are complete for every applicable axis;
+* zero Review Universe cells remain unchecked;
 * all three independent axes have zero Blocking findings;
 * every existing Root Blocker is satisfied or Owner-overridden;
 * no Candidate new root remains unresolved.
@@ -574,6 +750,9 @@ Only after the Exit Gate passes, persist on the parent Spec:
 **Blocking findings:** 0
 **Root blockers:** satisfied-or-owner-overridden
 **Candidate new roots:** 0
+**Review coverage:** complete
+**Independent passes:** Standards 2/2; Spec 2/2; Architecture 2/2
+**Unchecked coverage cells:** 0
 ```
 
 Immediately before persistence:

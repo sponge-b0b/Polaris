@@ -20,7 +20,9 @@ Use the caller-provided:
 * affected entities and governing ADR/doc references, when known;
 * owner overrides, when applicable;
 * proposed remediation or Root Blocker acceptance obligation, when evaluating its architecture conformance;
-* affected production paths/contracts for that obligation, when known.
+* affected production paths/contracts for that obligation, when known;
+* architecture Review Universe cells, when provided by `$review-spec`;
+* review pass strategy: `authority-first | adversarial-surface-first`, when provided.
 
 ## 1. Establish the Intended Architecture
 
@@ -61,6 +63,72 @@ Do not update indexes or regenerate graphs.
 
 When reviewing implementation, inspect the complete spec diff for architecture consequences that may not be visible in any individual ticket.
 
+### Architecture Coverage Contract
+
+Architecture review is coverage-driven, not discovery-until-interest-runs-out.
+
+When `$review-spec` supplies Architecture Review Universe cells, preserve every supplied cell and its ID. Do not merge or drop materially distinct cells.
+
+The architecture universe must account for:
+
+* every affected entity in the Spec Architecture Impact;
+* every governing ADR/current architectural document identified by the Spec or current entity context;
+* every changed production surface materially participating in those entities or authorities;
+* named canonical owners, paths, boundaries, persistence/release/evaluation seams, and transports;
+* relevant sibling or alternate paths required to obey the same authority, even when they are unchanged by the latest remediation;
+* the applicable architecture dimensions below.
+
+For each relevant surface or boundary, evaluate applicable dimensions:
+
+* canonical owner and source of truth;
+* boundary crossing and dependency direction;
+* authority/evidence/lifecycle ownership;
+* fail-closed, unavailable, optional-dependency, default, and fallback behavior;
+* alternate, compatibility, direct-construction, bypass, and parallel canonical paths;
+* duplicate ownership of durable concepts, services, repositories, or sources of truth;
+* caller/model/payload/metadata/mapping control over authoritative semantics;
+* accepted realization-required decisions versus actual realization;
+* retirement or topology changes not deliberately resolved.
+
+Do not restrict architecture review to changed hunks when the governing authority requires parity across sibling entry points or transports.
+
+Every coverage cell must end in exactly one state:
+
+```text
+checked-no-finding | blocking | advisory | not-applicable
+```
+
+`not-applicable` requires a concrete reason. `unknown`, `unchecked`, `deferred`, or silent omission is not complete review.
+
+For every coverage cell, return concise evidence identifying the authority and inspected implementation surface(s). A finding does not discharge unrelated cells; continue until all cells are dispositioned.
+
+If review discovers an additional materially relevant architecture surface or authority not present in the supplied universe, add a new coverage cell rather than silently expanding another one.
+
+### Independent Pass Strategies
+
+When `review pass strategy` is supplied:
+
+**`authority-first`**
+
+Start from each governing entity/ADR/current authority and trace forward to its canonical implementation, callers, persistence/release/evaluation seams, and required sibling surfaces.
+
+**`adversarial-surface-first`**
+
+Start from changed and named production surfaces and trace backward to authority. Deliberately search for paths most likely to evade the canonical lifecycle, including:
+
+* `None`/optional dependency behavior;
+* defaults, fallbacks, compatibility branches, and early returns;
+* direct construction or alternate service/facade entry points;
+* caller-supplied authority/evidence/version/provenance;
+* metadata/mapping/type-recovery authority paths;
+* alternate persistence, release, promotion, audit, or evaluation paths;
+* sibling CLI/backtest/MCP/runtime/facade behavior;
+* paths that succeed when the canonical owner/service is unavailable.
+
+Do not use another reviewer's findings or coverage conclusions. Each pass must independently disposition the complete architecture universe.
+
+### Architectural Checks
+
 Look for:
 
 * ownership moving away from the canonical owner;
@@ -92,6 +160,8 @@ Report **Blocking** with `Architecture decision required: Yes` when satisfying t
 Use `Architecture decision required: No` when current authority already permits and determines the required behavior.
 
 If the obligation conforms to current architecture, report no architecture finding for it.
+
+When this skill is reviewing only a proposed remediation obligation rather than an aggregate implementation, full Spec-wide coverage accounting is not required; cover the supplied obligation and its affected production paths/contracts.
 
 ## 5. Handle Evidence Correctly
 
@@ -175,13 +245,19 @@ For `Architecture decision required: Yes`, identify the specific unresolved arch
 
 If reviewing a proposed remediation obligation, identify the exact blocked obligation when applicable.
 
-If no findings exist:
+For aggregate implementation review, always append:
 
-```text
-No findings.
+```markdown
+## Coverage
+
+- ARCH-<id> — <checked-no-finding | blocking | advisory | not-applicable> — <authority>; <surfaces inspected>; <evidence/reason>
 ```
 
-Keep the report concise and evidence-based.
+Include every supplied and reviewer-added Architecture Review Universe cell exactly once.
+
+If no findings exist, report `No findings.` **and still return the complete Coverage section**.
+
+Keep findings concise and evidence-based. Coverage may be longer because it is an internal completeness artifact consumed by `$review-spec`.
 
 ## Out of Scope
 

@@ -323,7 +323,18 @@ If proof cannot be completed because of a permitted blocker, keep the ticket ope
 
 For every Spec Review remediation ticket, after targeted verification and Proposed Root Closure Evidence are complete — but before commit, push, closure-evidence persistence, or ticket closure — halt.
 
-Use:
+Before halting, confirm the handoff explicitly contains:
+
+* current ticket title and URL;
+* Root Blocker ID and invariant;
+* `TICKET_BASELINE`;
+* production boundary/path exercised;
+* concise Proposed Root Closure Evidence summary covering acceptance, invariant sweep, and protected-root/preservation state;
+* the explicit verifier-dispatch authorization statement below.
+
+Do not rely on preceding prose to satisfy these required handoff fields.
+
+Emit the following handoff structure exactly. An implementation summary or verification summary may precede it, but none of the required fields or final authorization statement may be omitted, merged, paraphrased away, or left implicit:
 
 > ⚠️ **Implementation is ready for independent Root Blocker closure verification.**
 >
@@ -341,6 +352,10 @@ Use:
 > **Proposed closure:** <concise acceptance/sweep/protected-root summary>
 >
 > This invocation authorizes `$implement-ticket` to dispatch the independent verifier. It does **not** authorize the `$implement-ticket` main agent to perform certification itself.
+
+The surrounding implementation report may contain additional evidence, test results, or changed surfaces, but it does not replace this lifecycle handoff.
+
+Do not substitute a shorter or free-form request to run `$verify-root-closure`.
 
 Then stop.
 

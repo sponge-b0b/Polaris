@@ -19,6 +19,7 @@ from application.evaluations.evaluation_datasets import (
 )
 from application.evaluations.evaluation_gate_evidence import (
     canonical_evaluation_readiness_packet,
+    evaluation_gate_workflow_facts,
     reacquire_authority_gate_decision_evidence,
 )
 from application.evaluations.rag_evaluation_metrics import (
@@ -40,7 +41,6 @@ from core.storage.persistence.evaluation import (
     JsonValue,
 )
 from core.workflow.registry.workflow_registry import (
-    WorkflowAuthorityFacts,
     WorkflowRegistry,
 )
 from domain.authority import (
@@ -432,7 +432,7 @@ class ModelReplacementValidationGate:
         persistence_metric_results_written = 0
         authority_contract = _authority_contract_for_section(section)
         try:
-            workflow_facts = _evaluation_gate_workflow_facts(self.workflow_registry)
+            workflow_facts = evaluation_gate_workflow_facts(self.workflow_registry)
         except ValueError:
             authority_evidence = RiskAuthorityGateEvidence(
                 provenance_record_ids=_case_ids(loaded_cases),
@@ -782,19 +782,6 @@ def _authority_gate_evidence(
         model_replacement_gate_ids=(gate_id,),
         decision_evidence_packets=decision_packets,
     )
-
-
-def _evaluation_gate_workflow_facts(
-    registry: WorkflowRegistry | None,
-) -> WorkflowAuthorityFacts:
-    if registry is None:
-        raise ValueError("evaluation gate workflow registry is not configured.")
-    try:
-        return registry.get_authority_facts("evaluation_gate")
-    except KeyError as exc:
-        raise ValueError(
-            "evaluation gate workflow registry facts are not configured."
-        ) from exc
 
 
 def _authority_gate_details(

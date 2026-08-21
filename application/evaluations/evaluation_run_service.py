@@ -19,6 +19,7 @@ from application.evaluations.evaluation_datasets import (
 )
 from application.evaluations.evaluation_gate_evidence import (
     canonical_evaluation_readiness_packet,
+    evaluation_gate_workflow_facts,
     reacquire_authority_gate_decision_evidence,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
@@ -38,7 +39,6 @@ from core.storage.persistence.evaluation import (
     EvaluationRunRecord,
 )
 from core.workflow.registry.workflow_registry import (
-    WorkflowAuthorityFacts,
     WorkflowRegistry,
 )
 from domain.authority import (
@@ -342,7 +342,7 @@ class EvaluationRunService:
         request: EvaluationRunServiceRequest,
     ) -> RiskAuthorityGateEvidence:
         try:
-            facts = _evaluation_gate_workflow_facts(self.workflow_registry)
+            facts = evaluation_gate_workflow_facts(self.workflow_registry)
         except ValueError:
             return RiskAuthorityGateEvidence(
                 provenance_record_ids=_provenance_ids_for_evaluation_cases(
@@ -425,19 +425,6 @@ def _provenance_ids_for_evaluation_cases(
             provenance_ids.append(case.workflow_execution_id)
         provenance_ids.append(case.case_id)
     return tuple(dict.fromkeys(provenance_ids))
-
-
-def _evaluation_gate_workflow_facts(
-    registry: WorkflowRegistry | None,
-) -> WorkflowAuthorityFacts:
-    if registry is None:
-        raise ValueError("evaluation gate workflow registry is not configured.")
-    try:
-        return registry.get_authority_facts("evaluation_gate")
-    except KeyError as exc:
-        raise ValueError(
-            "evaluation gate workflow registry facts are not configured."
-        ) from exc
 
 
 def _authority_classification_input_for_target(

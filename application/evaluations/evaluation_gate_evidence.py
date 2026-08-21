@@ -8,6 +8,10 @@ from dataclasses import replace
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations.risk_authority_gate import RiskAuthorityGateEvidence
+from core.workflow.registry.workflow_registry import (
+    WorkflowAuthorityFacts,
+    WorkflowRegistry,
+)
 from domain.authority import RiskAuthorityContract, RiskTier, SourceOfTruthCategory
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -25,6 +29,19 @@ from domain.evaluation import EvaluationCase
 _EVALUATION_READINESS_RETENTION_UNTIL = "2031-07-29T00:00:00Z"
 _EVALUATION_READINESS_RETENTION_POLICY_ID = "evaluation-readiness-5y"
 logger = logging.getLogger(__name__)
+
+
+def evaluation_gate_workflow_facts(
+    registry: WorkflowRegistry | None,
+) -> WorkflowAuthorityFacts:
+    if registry is None:
+        raise ValueError("evaluation gate workflow registry is not configured.")
+    try:
+        return registry.get_authority_facts("evaluation_gate")
+    except KeyError as exc:
+        raise ValueError(
+            "evaluation gate workflow registry facts are not configured."
+        ) from exc
 
 
 def canonical_evaluation_readiness_packet(

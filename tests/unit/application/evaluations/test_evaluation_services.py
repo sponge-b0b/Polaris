@@ -7,6 +7,8 @@ from typing import cast
 
 import pytest
 
+import application.evaluations.evaluation_run_service as run_service_module
+import application.evaluations.model_replacement_gate as replacement_gate_module
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations import (
     EvaluationDatasetRegistrationRequest,
@@ -25,6 +27,9 @@ from application.evaluations import (
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_slice_definition_by_name,
     select_risk_authority_gate,
+)
+from application.evaluations.evaluation_gate_evidence import (
+    evaluation_gate_workflow_facts,
 )
 from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketPersistenceResult,
@@ -365,6 +370,38 @@ def _metric() -> EvaluationMetricSpec:
         metric_name="faithfulness",
         threshold=EvaluationThreshold("faithfulness", 0.8),
     )
+
+
+def test_evaluation_gate_workflow_facts_have_one_shared_owner() -> None:
+    assert run_service_module.evaluation_gate_workflow_facts is (
+        evaluation_gate_workflow_facts
+    )
+    assert replacement_gate_module.evaluation_gate_workflow_facts is (
+        evaluation_gate_workflow_facts
+    )
+
+
+def test_evaluation_gate_workflow_facts_preserve_missing_configuration_errors() -> None:
+    with pytest.raises(
+        ValueError,
+        match="evaluation gate workflow registry is not configured.",
+    ):
+        evaluation_gate_workflow_facts(None)
+
+    registry = cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: (_ for _ in ()).throw(
+                KeyError(workflow_name)
+            )
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="evaluation gate workflow registry facts are not configured.",
+    ):
+        evaluation_gate_workflow_facts(registry)
 
 
 @pytest.mark.asyncio

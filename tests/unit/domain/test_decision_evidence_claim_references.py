@@ -39,6 +39,7 @@ def test_claim_references_preserve_reconstruction_uncertainty_limits() -> None:
     assert claim_reference == {
         "schema_version": 1,
         "packet_id": "packet-1",
+        "packet_version": 1,
         "output_id": "recommendation-output-1",
         "claim_id": "claim-1",
         "risk_tier": RiskTier.ENHANCED.value,

@@ -184,6 +184,28 @@ async def test_binding_fails_closed_for_substituted_support_reference() -> None:
 
 
 @pytest.mark.asyncio
+async def test_binding_fails_closed_for_stale_packet_version() -> None:
+    packet = _packet()
+    reference = replace(
+        evidence_claim_references_from_packet(packet).claim_references[0],
+        packet_version=2,
+    )
+    service = DecisionEvidenceClaimBindingService(_FakePacketService(packet))
+
+    with pytest.raises(ClaimEvidenceBindingError, match="packet_version"):
+        await service.bind_report_claims(
+            report_id="report-1",
+            targets=(
+                ReportClaimEvidenceBindingTarget(
+                    section_id="section-1",
+                    claim_target_id="section-1:claim:claim-1",
+                    claim_references=(reference,),
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
 async def test_binding_fails_closed_for_substituted_reconstruction_reference() -> None:
     packet = _packet()
     reference = replace(

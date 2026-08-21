@@ -61,6 +61,7 @@ from domain.authority import (
     CanonicalOwner,
     IntendedSink,
     RiskAuthorityClassificationInput,
+    RiskTier,
     SourceOfTruthCategory,
     classify_risk_authority,
 )
@@ -193,6 +194,8 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
     result = await service.run(request)
 
     assert result.evidence_packet is not None
+    assert result.authority is not None
+    assert result.evidence_packet.authority == result.authority
     final_query_log = repository.query_logs[-1]
     retrieved_contexts = cast(
         Sequence[Mapping[str, object]],
@@ -241,6 +244,8 @@ async def test_rag_service_ignores_request_provenance_for_packet_binding() -> No
 
     assert result.status == "answered"
     assert result.evidence_packet is not None
+    assert result.authority is not None
+    assert result.evidence_packet.authority == result.authority
     assert result.evidence_packet.workflow_name == "morning_report"
     assert result.evidence_packet.execution_id == "exec-1"
 
@@ -287,6 +292,46 @@ async def test_rag_service_fails_closed_when_claim_packet_cannot_be_persisted() 
     assert result.evidence_packet is None
     assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
     assert repository.answer_logs[-1].status == "no_results"
+
+
+@pytest.mark.asyncio
+async def test_rag_service_ignores_result_metadata_for_packet_authority() -> None:
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        request_id="rag_query:metadata-authority-substitution",
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    repository = FakeRagRepository()
+    service = RagService(
+        pipeline=StaticResultPipeline(
+            RagResult.answered(
+                request=request,
+                answer_text="SPY breadth improved with broad participation [C1].",
+                contexts=(context,),
+                generated_claims=(_generated_claim(),),
+                metadata={
+                    "risk_authority": {
+                        "risk_tier": "baseline",
+                        "intended_sink": "internal_runtime_evidence",
+                    }
+                },
+            )
+        ),
+        repository=cast(RagPersistenceRepository, repository),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
+    )
+
+    result = await service.run(request)
+
+    assert result.status == "answered"
+    assert result.authority is not None
+    assert result.authority.risk_tier is RiskTier.ENHANCED
+    assert result.evidence_packet is not None
+    assert result.evidence_packet.authority == result.authority
 
 
 @pytest.mark.asyncio

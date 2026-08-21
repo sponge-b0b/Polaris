@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-21] output-release review work | approval-required release blocking made durable
+
+Updated the approval-lifecycle invariant after governed output-release evaluation began persisting evidence-scoped review work before returning a blocked/pending release decision, matching the existing durable approval lifecycle boundary.
+
 ## [2026-08-15] workflow-output promotion authority | materializer-owned output evidence clarified
 
 Broadened the ADR-0018 governance invariant from named output classes to the general materializer-owned Enhanced/Vigilant output-promotion rule: generic workflow-output projection metadata, transport facts, and caller claims cannot authorize release, durable promotion, provenance, or release scope.

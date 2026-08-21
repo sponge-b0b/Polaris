@@ -131,9 +131,10 @@ def classify_rag_result_authority(
             citations=(),
             confidence_score=None,
             error=None,
+            authority=contract,
             metadata=metadata,
         )
-    return replace(result, metadata=metadata)
+    return replace(result, authority=contract, metadata=metadata)
 
 
 def _strip_authority_metadata(metadata: JsonObject) -> JsonObject:

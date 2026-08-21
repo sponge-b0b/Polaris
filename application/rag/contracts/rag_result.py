@@ -18,6 +18,7 @@ from application.rag.contracts.rag_quality_models import (
 from application.rag.contracts.rag_request import RagRequest
 from core.storage.persistence.rag import JsonObject
 from domain.authority import (
+    RiskAuthorityContract,
     SourceOfTruthCategory,
     risk_authority_contract_from_metadata,
 )
@@ -62,6 +63,7 @@ class RagResult:
     corrective_actions: tuple[RagCorrectiveAction, ...] = ()
     error: str | None = None
     evidence_packet: DecisionEvidencePacket | None = None
+    authority: RiskAuthorityContract | None = None
     generated_claims: tuple[RagGeneratedClaim, ...] = ()
     generated_at: datetime = field(
         default_factory=lambda: datetime.now(UTC),
@@ -183,6 +185,9 @@ class RagResult:
             "corrective_actions": [action.value for action in self.corrective_actions],
             "error": self.error,
             "evidence_packet": _evidence_packet_to_payload(self.evidence_packet),
+            "authority": (
+                None if self.authority is None else self.authority.to_metadata()
+            ),
             "generated_claims": [claim.to_dict() for claim in self.generated_claims],
             "generated_at": self.generated_at.isoformat(),
             "metadata": deepcopy(
@@ -263,6 +268,7 @@ class RagResult:
                     "evidence_packet",
                 )
             ),
+            authority=_authority_from_payload(payload.get("authority")),
             generated_claims=generated_claims_from_payload(
                 payload.get("generated_claims", ())
             ),
@@ -386,6 +392,13 @@ def _evidence_packet_from_payload(
             payload.get("schema_version", 1), "schema_version"
         ),
     )
+
+
+def _authority_from_payload(value: object) -> RiskAuthorityContract | None:
+    if value is None:
+        return None
+    payload = _require_mapping(value)
+    return risk_authority_contract_from_metadata(payload)
 
 
 def _claim_to_payload(claim: MaterialClaim) -> dict[str, Any]:

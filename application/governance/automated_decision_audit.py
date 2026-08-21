@@ -671,12 +671,25 @@ class AutomatedDecisionAuditService:
         )
         task = _latest_matching_release_task(tasks, request=request)
         if task is None:
+            review_work = await self._record_governed_output_release_review_work(
+                request
+            )
+            if not review_work.success:
+                return await self._blocked_governed_output_release_decision(
+                    request,
+                    approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+                    reason=(
+                        f"{request.boundary_name} is blocked: governed output "
+                        "review work could not be durably persisted."
+                    ),
+                )
             return await self._blocked_governed_output_release_decision(
                 request,
                 approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+                review_task_id=review_work.review_task_id,
                 reason=(
-                    f"{request.boundary_name} is blocked: no authoritative "
-                    "governance review task approved this subject, scope, "
+                    f"{request.boundary_name} is blocked: authoritative "
+                    "governance review is pending for this subject, scope, "
                     "requested action, sink, and evidence version."
                 ),
             )
@@ -725,6 +738,72 @@ class AutomatedDecisionAuditService:
             review_task_id=task.review_task_id,
             reason="governance review permits release",
         )
+
+    async def _record_governed_output_release_review_work(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> AutomatedDecisionAuditPersistenceResult:
+        timestamp = datetime.now(UTC)
+        record = AutomatedGovernanceAuditRecord(
+            audit_record_id=new_automated_governance_audit_record_id(),
+            subject=request.subject,
+            risk_tier=request.authority.risk_tier,
+            authority_metadata=authority_metadata_from_contract(request.authority),
+            evidence=request.evidence,
+            outcome=AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+            rule_name="governed_output_release",
+            timestamp=timestamp,
+            reason=request.requested_action,
+            message=(
+                f"{request.boundary_name} requires evidence-scoped governance "
+                "review before release."
+            ),
+            metadata={
+                "approval_required": True,
+                "blocking": True,
+                "boundary_name": request.boundary_name,
+            },
+        )
+        audit_result = await self._repository.persist_governance_audit_record(record)
+        if not audit_result.success:
+            await self._approval_observability.review_failure(
+                operation="evaluate_governed_output_release",
+                reason="output_governance_audit_persistence_failed",
+                error=ValueError(
+                    "governed output governance audit record could not be persisted."
+                ),
+                trace_context=request.trace_context,
+                record=record,
+                metadata={"repository_errors": tuple(audit_result.errors)},
+            )
+            return audit_result
+
+        task = _review_task_from_release_request(
+            request=request,
+            record=record,
+        )
+        review_result = await self._repository.persist_governance_review_task(task)
+        if not review_result.success:
+            await self._approval_observability.review_failure(
+                operation="evaluate_governed_output_release",
+                reason="output_review_task_persistence_failed",
+                error=ValueError("governed output review task could not be persisted."),
+                trace_context=request.trace_context,
+                record=record,
+                task=task,
+                metadata={"repository_errors": tuple(review_result.errors)},
+            )
+            return AutomatedDecisionAuditPersistenceResult(
+                success=False,
+                audit_record_id=audit_result.audit_record_id,
+                errors=review_result.errors,
+            )
+        await self._approval_observability.required_approval(
+            record=record,
+            task=task,
+            trace_context=request.trace_context,
+        )
+        return replace(audit_result, review_task_id=task.review_task_id)
 
     async def _blocked_governed_output_release_decision(
         self,
@@ -1024,10 +1103,39 @@ def _review_task_from_record(
     )
 
 
+def _review_task_from_release_request(
+    *,
+    request: GovernedOutputReleaseRequest,
+    record: AutomatedGovernanceAuditRecord,
+) -> GovernanceReviewTaskRecord:
+    return GovernanceReviewTaskRecord(
+        review_task_id=governance_review_task_id(
+            subject=request.subject,
+            evidence=request.evidence,
+            review_scope=request.review_scope,
+            intended_sink=request.authority.intended_sink.value,
+            requested_action=request.requested_action,
+        ),
+        automated_governance_audit_record_id=record.audit_record_id,
+        subject=request.subject,
+        risk_tier=request.authority.risk_tier,
+        authority_metadata=record.authority_metadata,
+        review_scope=request.review_scope,
+        intended_sink=request.authority.intended_sink.value,
+        requested_action=request.requested_action,
+        status=GovernanceReviewTaskStatus.PENDING,
+        evidence=request.evidence,
+        evidence_references={
+            "automated_governance_audit_record_id": record.audit_record_id,
+            "boundary_name": request.boundary_name,
+            "evidence_packet": request.evidence.as_dict(),
+        },
+        created_at=record.timestamp,
+        updated_at=record.timestamp,
+    )
+
+
 def _review_scope(record: AutomatedGovernanceAuditRecord) -> str:
-    candidate = record.metadata.get("authority_subject_family")
-    if isinstance(candidate, str) and candidate.strip():
-        return candidate
     return record.subject_type
 
 

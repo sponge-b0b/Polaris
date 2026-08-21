@@ -17,10 +17,8 @@ from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.storage.persistence.rag import JsonObject
 from domain.authority import (
-    RISK_AUTHORITY_METADATA_KEY,
     RiskTier,
     SourceOfTruthCategory,
-    coerce_risk_authority_contract,
 )
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -121,9 +119,11 @@ def assemble_rag_answer_evidence_packet(
         raise RagEvidencePacketAssemblyError(
             "only answered RAG results can be packeted."
         )
-    authority = coerce_risk_authority_contract(
-        result.metadata.get(RISK_AUTHORITY_METADATA_KEY),
-    )
+    authority = result.authority
+    if authority is None:
+        raise RagEvidencePacketAssemblyError(
+            "RAG answer evidence packets require typed platform-owned authority."
+        )
     if authority.risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
         raise RagEvidencePacketAssemblyError(
             "RAG answer evidence packets require Enhanced or Vigilant authority."

@@ -41,6 +41,7 @@ class EvidenceClaimReference:
     risk_tier: RiskTier
     supporting_evidence_ids: tuple[str, ...]
     reconstruction_reference_ids: tuple[str, ...]
+    packet_version: int = 1
     conflicting_evidence_ids: tuple[str, ...] = ()
     unresolved_conflicting_evidence_ids: tuple[str, ...] = ()
     uncertainty_ids: tuple[str, ...] = ()
@@ -53,6 +54,10 @@ class EvidenceClaimReference:
         object.__setattr__(
             self, "packet_id", _clean_string(self.packet_id, "packet_id")
         )
+        if self.packet_version < 1:
+            raise DecisionEvidencePacketValidationError(
+                "packet_version must be positive."
+            )
         object.__setattr__(
             self, "output_id", _clean_string(self.output_id, "output_id")
         )
@@ -126,6 +131,7 @@ class EvidenceClaimReference:
         return {
             "schema_version": self.schema_version,
             "packet_id": self.packet_id,
+            "packet_version": self.packet_version,
             "output_id": self.output_id,
             "claim_id": self.claim_id,
             "risk_tier": self.risk_tier.value,
@@ -283,6 +289,7 @@ def _claim_reference_from_packet_claim(
         reconstruction_ids.extend(evidence.reconstruction_reference_ids)
     return EvidenceClaimReference(
         packet_id=packet.packet_id,
+        packet_version=packet.schema_version,
         output_id=packet.output_id,
         claim_id=claim.claim_id,
         risk_tier=packet.risk_tier,
@@ -306,6 +313,7 @@ def _claim_reference_from_mapping(value: object) -> EvidenceClaimReference:
         )
     return EvidenceClaimReference(
         packet_id=_required_string(value, "packet_id"),
+        packet_version=_int_value(value.get("packet_version", 1), "packet_version"),
         output_id=_required_string(value, "output_id"),
         claim_id=_required_string(value, "claim_id"),
         risk_tier=_coerce_risk_tier(_required_string(value, "risk_tier")),

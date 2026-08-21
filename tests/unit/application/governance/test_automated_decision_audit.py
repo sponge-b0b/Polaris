@@ -158,12 +158,15 @@ async def test_enhanced_require_approval_creates_review_task_for_packet_version(
     )
 
     result = await service.record_governance_decision(
-        context=_context(authority=enhanced_authority),
+        context=_context(
+            authority=enhanced_authority,
+            subject=AutomatedDecisionSubject("rag_answer", "rag-answer-1"),
+        ),
         result=GovernanceResult.require_approval(
             rule_name="authority_metadata_governance",
             message="enhanced output requires evidence review",
             reason="enhanced_authority_evidence_required",
-            metadata={"authority_subject_family": "rag_answer"},
+            metadata={"authority_subject_family": "forged_scope"},
         ),
     )
 
@@ -183,6 +186,26 @@ async def test_enhanced_require_approval_creates_review_task_for_packet_version(
         "packet_id": "packet-1",
         "packet_version": 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_review_scope_ignores_generic_result_metadata() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+
+    await service.record_governance_decision(
+        context=_context(subject=AutomatedDecisionSubject("report", "report-1")),
+        result=GovernanceResult.require_approval(
+            rule_name="authority_metadata_governance",
+            message="report publication requires review",
+            reason="report_publication",
+            metadata={"authority_subject_family": "attacker_selected_scope"},
+        ),
+    )
+
+    task = repository.review_tasks[0]
+    assert task.review_scope == "report"
+    assert task.review_scope != "attacker_selected_scope"
 
 
 @pytest.mark.asyncio
@@ -750,6 +773,38 @@ async def test_governed_release_blocks_matching_review_context() -> None:
     assert exact_scope.allowed is True
     assert exact_scope.approval_state is GovernanceReviewApprovalState.REVIEW_APPROVED
     assert exact_scope.review_task_id == task.review_task_id
+
+
+@pytest.mark.asyncio
+async def test_governed_release_creates_review_work_before_blocking() -> None:
+    repository = FakeAutomatedDecisionAuditRepository()
+    service = AutomatedDecisionAuditService(repository)
+    authority = _context().authority
+    request = GovernedOutputReleaseRequest(
+        authority=authority,
+        subject=AutomatedDecisionSubject("report", "morning_report:exec-1"),
+        evidence=AutomatedDecisionEvidenceReference("packet-report", 1),
+        review_scope="morning_report",
+        requested_action="report_publication",
+        boundary_name="morning_report.persistence",
+        residual_risk_acceptance_required=True,
+        residual_risk_scope="morning_report_publication",
+    )
+
+    release = await service.evaluate_governed_output_release(request)
+
+    assert release.allowed is False
+    assert release.approval_state is GovernanceReviewApprovalState.PENDING_REVIEW
+    assert release.review_task_id == repository.review_tasks[0].review_task_id
+    assert repository.governance_records[0].outcome is (
+        AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL
+    )
+    task = repository.review_tasks[0]
+    assert task.subject == request.subject
+    assert task.evidence == request.evidence
+    assert task.review_scope == "morning_report"
+    assert task.requested_action == "report_publication"
+    assert task.intended_sink == authority.intended_sink.value
 
 
 @pytest.mark.parametrize(
@@ -1674,13 +1729,14 @@ async def test_unexpected_observability_failure_is_not_silenced() -> None:
 
 def _context(
     *,
+    subject: AutomatedDecisionSubject | None = None,
     authority: RiskAuthorityContract | None = None,
     evidence: AutomatedDecisionEvidenceReference | None = None,
     timestamp: datetime | None = None,
     trace_context: TraceContext | None = None,
 ) -> AutomatedDecisionAuditContext:
     return AutomatedDecisionAuditContext(
-        subject=AutomatedDecisionSubject("recommendation", "rec-1"),
+        subject=subject or AutomatedDecisionSubject("recommendation", "rec-1"),
         authority=authority
         or classify_risk_authority(recommendation_explanation_authority_input()),
         evidence=evidence or AutomatedDecisionEvidenceReference("packet-1", 1),
@@ -2077,12 +2133,15 @@ async def _create_enhanced_review_task(
         ),
     )
     await service.record_governance_decision(
-        context=_context(authority=enhanced_authority),
+        context=_context(
+            subject=AutomatedDecisionSubject("rag_answer", "rag-answer-1"),
+            authority=enhanced_authority,
+        ),
         result=GovernanceResult.require_approval(
             rule_name="authority_metadata_governance",
             message="enhanced output requires evidence review",
             reason="enhanced_authority_evidence_required",
-            metadata={"authority_subject_family": "rag_answer"},
+            metadata={"authority_subject_family": "forged_scope"},
         ),
     )
 

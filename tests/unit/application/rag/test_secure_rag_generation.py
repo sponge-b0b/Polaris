@@ -17,6 +17,7 @@ from application.decision_evidence import (
     MissingDecisionEvidenceSnapshotError,
     TamperedDecisionEvidenceSnapshotError,
 )
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_generated_claims import RagGeneratedClaim
 from application.rag.contracts.rag_request import RagRequest
@@ -914,9 +915,10 @@ def _attach_test_packet(
     request: RagRequest,
     result: RagResult,
 ) -> RagResult:
+    classified = classify_rag_result_authority(request=request, result=result)
     return attach_rag_answer_evidence_packet(
         request=request,
-        result=result,
+        result=classified,
         workflow_name="morning_report",
         workflow_definition_fingerprint="test-definition-fingerprint",
         execution_id="exec-1",

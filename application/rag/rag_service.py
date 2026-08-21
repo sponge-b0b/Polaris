@@ -42,7 +42,6 @@ from core.workflow.registry.workflow_registry import (
 from domain.authority import (
     RiskAuthorityContract,
     RiskTier,
-    coerce_risk_authority_contract,
 )
 
 
@@ -182,9 +181,9 @@ class RagService:
         if result.status != "answered":
             return result
         try:
-            authority = coerce_risk_authority_contract(
-                result.metadata.get("risk_authority")
-            )
+            authority = result.authority
+            if authority is None:
+                raise ValueError("RAG answer lacks typed platform-owned authority.")
             if authority.risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
                 return result
             facts, execution_id = self._workflow_facts(result=result)

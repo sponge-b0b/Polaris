@@ -84,6 +84,7 @@ TICKET_138_PACKET_ID = "ticket-138-packet"
 TICKET_143_PACKET_ID = "ticket-143-packet"
 TICKET_153_PACKET_ID = "ticket-153-packet"
 TICKET_154_PACKET_ID = "ticket-154-packet"
+TICKET_204_PACKET_ID = "ticket-204-packet"
 
 
 class GovernanceAuditRuntimeNode(RuntimeNode):
@@ -680,6 +681,74 @@ async def test_governed_release_requires_exact_postgres_residual_risk_scope(
 
 
 @pytest.mark.asyncio
+async def test_governed_release_persists_postgres_review_work_before_blocking(
+    postgres_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    authority = classify_risk_authority(
+        recommendation_explanation_authority_input(),
+    )
+    subject = AutomatedDecisionSubject("report", "morning_report:ticket-204")
+    evidence = AutomatedDecisionEvidenceReference(TICKET_204_PACKET_ID, 1)
+
+    await _delete_ticket_204_records(postgres_session_factory)
+    try:
+        async with postgres_session_factory() as session:
+            service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            release = await service.evaluate_governed_output_release(
+                GovernedOutputReleaseRequest(
+                    authority=authority,
+                    subject=subject,
+                    evidence=evidence,
+                    review_scope="morning_report",
+                    requested_action="report_publication",
+                    boundary_name="morning_report.persistence",
+                ),
+            )
+
+        assert release.allowed is False
+        assert release.approval_state is GovernanceReviewApprovalState.PENDING_REVIEW
+        assert release.review_task_id is not None
+
+        async with postgres_session_factory() as session:
+            service = AutomatedDecisionAuditService(
+                PostgresAutomatedDecisionAuditRepository(session),
+            )
+            governance_records = await service.list_governance_audit_records(
+                AutomatedDecisionAuditQuery(
+                    subject_type="report",
+                    subject_id="morning_report:ticket-204",
+                    risk_tier=authority.risk_tier,
+                    outcome=AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
+                    rule_name="governed_output_release",
+                    evidence_packet_id=TICKET_204_PACKET_ID,
+                    evidence_packet_version=1,
+                ),
+            )
+            pending_states = await service.list_governance_review_states(
+                GovernanceReviewTaskQuery(
+                    subject_type="report",
+                    subject_id="morning_report:ticket-204",
+                    risk_tier=authority.risk_tier.value,
+                    approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+                    review_scope="morning_report",
+                    requested_action="report_publication",
+                    evidence_packet_id=TICKET_204_PACKET_ID,
+                    evidence_packet_version=1,
+                    closed=False,
+                ),
+            )
+
+        assert len(governance_records) == 1
+        assert len(pending_states) == 1
+        assert pending_states[0].review_task_id == release.review_task_id
+        assert pending_states[0].task.evidence == evidence
+    finally:
+        await _delete_ticket_204_records(postgres_session_factory)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("result", "outcome", "blocks_execution"),
     (
@@ -903,6 +972,24 @@ async def _delete_ticket_154_records(
             await session.execute(
                 delete(model).where(
                     model.evidence_packet_id == TICKET_154_PACKET_ID,
+                )
+            )
+        await session.commit()
+
+
+async def _delete_ticket_204_records(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        for model in (
+            GovernanceReviewDecisionModel,
+            GovernanceResidualRiskAcceptanceModel,
+            GovernanceReviewTaskModel,
+            AutomatedGovernanceAuditRecordModel,
+        ):
+            await session.execute(
+                delete(model).where(
+                    model.evidence_packet_id == TICKET_204_PACKET_ID,
                 )
             )
         await session.commit()

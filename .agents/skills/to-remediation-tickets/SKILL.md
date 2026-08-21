@@ -331,4 +331,6 @@ Before returning a proposed Spec Review remediation ticket, confirm that no sati
 
 If one was omitted from the ticket, the delta is incomplete.
 
+The returned ticket blocks are the authoritative semantic input to `$to-tickets`' approval proposal. `$to-tickets` may improve presentation but must not condense, merge, reclassify, or omit any returned obligation.
+
 Return control to `$to-tickets` at its approval/publishing step.

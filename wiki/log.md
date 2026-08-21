@@ -35,3 +35,7 @@ Superseded ADR-0026 with ADR-0027 so Strategy Advisory binds to the canonical ru
 ## [2026-08-20] strategy advisory evidence | closed-world reference validation accepted
 
 Grounded Strategy Advisory in Polaris-issued references to canonical supplied runtime or application/RAG evidence, separated subject references from evidentiary support, prohibited citation-shaped prose and model-invented sources from carrying evidence authority, and assigned advisory claims their own later-materialized `DecisionEvidencePacket` under ADR-0028.
+
+## [2026-08-20] strategy advisory model routing | synthesis alias and prompt ownership accepted
+
+Assigned Strategy Advisory one provider-neutral `polaris-synthesis` route and one advisory-owned prompt contract, kept provider/model/fallback selection outside the advisory boundary, rejected separate perspective model personas, and made obsolete bull/bear/sideways prompts remediation cleanup under ADR-0029.

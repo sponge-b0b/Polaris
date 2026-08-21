@@ -126,6 +126,18 @@ A **Strategy Advisory Result** is the typed semantic output of one Strategy Advi
 
 A Strategy Advisory Result carries advisory availability status and typed status reasons, a code-owned non-authoritative authority marker, code-owned source bindings to the canonical strategy evidence, Strategy Hypotheses, and Strategy Decision actually consumed by the advisory, optional advisory narrative, and structured Strategy Advisory Findings. It does not imply that a durable decision-evidence packet existed when the advisory ran; when the result later becomes a claim-bearing durable or published output, it receives its own decision-evidence packet through the normal evidence lifecycle. It does not carry canonical strategy-selection fields such as directional bias, strategy confidence, candidate scores, synthesis weights, rankings, Allocation, position sizing, eligibility, Approval, or execution action. Runtime and model provenance remain execution metadata rather than advisory semantics.
 
+## Strategy Advisory Source Binding
+
+A **Strategy Advisory Source Binding** is the code-owned identity of the exact canonical runtime strategy sources consumed by one Strategy Advisory execution.
+
+A Strategy Advisory Source Binding uses stable canonical identities or deterministic content fingerprints for the consumed strategy evidence, Strategy Hypotheses, Strategy Decision, and any supplemental canonical evidence. It establishes what the advisory actually examined; it is not a decision-evidence packet, a projection identifier, or a model-generated citation.
+
+## Strategy Advisory Reference
+
+A **Strategy Advisory Reference** is a typed, Polaris-issued reference from a Strategy Advisory Finding to a canonical source that Polaris supplied for that advisory execution.
+
+A **subject reference** identifies the canonical source or element the finding discusses. An **evidence reference** identifies canonical support for the finding. A reference has no evidentiary authority merely because its identifier appears in model prose; model-invented identifiers, arbitrary URLs, reasoning traces, and rebuildable projection identifiers are not Strategy Advisory References. A missing-evidence reference must point to canonical supplied state representing the absence or degradation rather than infer absence from omission.
+
 ## Strategy Advisory Finding
 
 A **Strategy Advisory Finding** is one structured, non-authoritative observation within a Strategy Advisory Result. A finding identifies its advisory kind, statement, concise user-facing explanation, the canonical subject it discusses, and the canonical Evidence it references where applicable.

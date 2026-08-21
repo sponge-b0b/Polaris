@@ -139,6 +139,8 @@ The human invocation authorizes independent verification. It does not transfer i
 
 `$verify-root-closure` is a non-mutating leaf workflow. `$implement-ticket` fingerprints candidate repository state before dispatch and again after the verifier returns. Any repository-state change during verification invalidates the verifier result; the attempt is neither `PASS` nor `FAIL`.
 
+After a valid `PASS`, `$implement-ticket` remains the lifecycle owner: it commits and pushes the verified candidate, persists Root Closure Evidence on the remediation ticket, reconciles the verified root state into the parent Spec Review's canonical Root Blocker Ledger and cumulative acceptance state, and only then closes the ticket.
+
 ## Skill Roles
 
 Use role classification to reason about composition without maintaining a brittle catalog of every invocation edge.
@@ -263,7 +265,8 @@ Examples include:
 * Root Blocker Ledger;
 * cumulative acceptance matrix;
 * Pending Review Remediation packet;
-* Root Closure Evidence.
+* Root Closure Evidence;
+* Root Closure Reconciliation.
 
 A durable intermediate artifact may remain valuable even when both producing and consuming skills are internal composition.
 

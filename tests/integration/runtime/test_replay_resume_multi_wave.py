@@ -157,6 +157,8 @@ async def test_replay_resume_from_wave_checkpoint_skips_completed_nodes(
             enable_telemetry=False,
             enable_jsonl_telemetry=False,
             checkpoint_on_wave_completion=True,
+            enable_policies=False,
+            enable_governance=False,
         ),
         workflow_definitions=[
             ReplayMultiWaveWorkflow(),

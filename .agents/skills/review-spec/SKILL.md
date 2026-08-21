@@ -117,7 +117,7 @@ If no matching receipt exists, halt:
 
 > ⚠️ **Spec review requires current passing spec verification.**
 >
-> Current HEAD: `<current HEAD>`  
+> Current HEAD: `<current HEAD>`
 > Verified HEAD: `<latest verified HEAD or none>`
 >
 > Please run:

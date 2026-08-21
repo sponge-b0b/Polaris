@@ -31,3 +31,7 @@ Defined the advisory semantic contract as typed availability state, code-owned n
 ## [2026-08-20] strategy advisory source binding | runtime-first evidence lifecycle corrected
 
 Superseded ADR-0026 with ADR-0027 so Strategy Advisory binds to the canonical runtime strategy artifacts it actually consumes, while its own claim-bearing `DecisionEvidencePacket` is created later through normal materialization rather than being a prerequisite for advisory execution.
+
+## [2026-08-20] strategy advisory evidence | closed-world reference validation accepted
+
+Grounded Strategy Advisory in Polaris-issued references to canonical supplied runtime or application/RAG evidence, separated subject references from evidentiary support, prohibited citation-shaped prose and model-invented sources from carrying evidence authority, and assigned advisory claims their own later-materialized `DecisionEvidencePacket` under ADR-0028.

@@ -483,7 +483,7 @@ A valid `PASS` requires the **Verify Verifier Integrity** gate above to succeed.
 
 Exit dispatcher-only mode and proceed directly to Section 4.
 
-Do not report `PASS` as completion; the ticket is not complete until commit, push, Root Closure Evidence persistence, and closure succeed.
+Do not report `PASS` as completion; the ticket is not complete until commit, push, Root Closure Evidence persistence, parent Root Closure Reconciliation persistence, and closure succeed.
 
 Capture the verifier's:
 
@@ -576,7 +576,8 @@ For Spec Review remediation additionally require:
 * Root Invariant Sweep has no known remaining violation;
 * every protected root remains preserved;
 * `$verify-root-closure` returned a valid `ROOT CLOSURE: PASS`;
-* verified `ROOT_CLOSURE_STATE` remained unchanged through commit.
+* verified `ROOT_CLOSURE_STATE` remained unchanged through commit;
+* parent Spec Review Root Closure Reconciliation is durably persisted.
 
 ### Persist Root Closure Evidence
 
@@ -588,6 +589,8 @@ Before closing a Spec Review remediation ticket, persist the independently verif
 **Root:** RB-<n> — <invariant>
 **Production path:** <boundary exercised>
 **Independent verification:** PASS
+**Ticket baseline:** <TICKET_BASELINE>
+**ROOT_CLOSURE_STATE:** <ROOT_CLOSURE_STATE>
 
 ### Acceptance proof
 - <cell>: proven — <evidence>
@@ -610,15 +613,89 @@ Use the verifier's results. Do not strengthen them with unsupported parent claim
 
 Do not close if this comment cannot be persisted.
 
+### Persist Parent Root Closure Reconciliation
+
+For a Spec Review remediation ticket, ticket-local Root Closure Evidence is not sufficient durable completion state.
+
+Before closing the ticket, reconcile the independently verified `ROOT CLOSURE: PASS` into the existing parent Spec Review's canonical Root Blocker Ledger and cumulative acceptance state.
+
+This is a closure-state projection, not a review or remediation-synthesis pass.
+
+Do not:
+
+* invoke `$review-spec-remediation`;
+* perform another Standards, Spec, or Architecture review;
+* create, split, renumber, broaden, or redefine a Root Blocker;
+* add, remove, replace, or reinterpret acceptance obligations;
+* strengthen verifier evidence;
+* rewrite historical Spec Review content.
+
+Immediately before reconciliation, re-read the latest durable Spec Review state, including later ledger normalization and Root Closure Reconciliation updates.
+
+Require that:
+
+* the current Root Blocker ID equals the independently verified root;
+* the current stable invariant materially matches the independently verified invariant;
+* every currently active `open`, `regressed`, or `unproven` acceptance cell for that root was included in the verifier's closure contract and was proven;
+* no new or materially changed non-satisfied obligation for that root appeared after verifier dispatch.
+
+If any requirement fails, the PASS is stale relative to the canonical ledger.
+
+Keep the ticket open and return to the Root Closure Human Handoff Intercept for fresh authorization and independent verification against the current root contract. A previously completed commit/push does not waive this gate.
+
+Before appending reconciliation, inspect the parent Spec Review for an existing Root Closure Reconciliation for the same remediation ticket and `ROOT_CLOSURE_STATE`.
+
+* exact matching reconciliation → reuse it and treat the persistence gate as satisfied;
+* no matching reconciliation → append it;
+* same remediation ticket with conflicting root, invariant, ticket baseline, or `ROOT_CLOSURE_STATE` → halt with a durable-state error and do not close the ticket.
+
+Append:
+
+```markdown
+## Root Closure Reconciliation [YYYY-MM-DD HH:MM]
+
+This is a durable-state reconciliation only. It does not rewrite or invalidate historical review findings or prior ledger updates.
+
+**Root:** RB-<n> — <invariant>
+**Remediation ticket:** #<ticket>
+**Root Closure Evidence:** <ticket closure-evidence comment URL>
+**Independent verification:** `ROOT CLOSURE: PASS`
+**Ticket baseline:** `<TICKET_BASELINE>`
+**ROOT_CLOSURE_STATE:** `<ROOT_CLOSURE_STATE>`
+
+### Acceptance state changes
+
+- <previously non-satisfied cell>: `satisfied` — <verifier evidence>
+
+### Preserved acceptance state
+
+- All previously `satisfied` active cells remain `satisfied`.
+- All `owner-overridden` cells remain `owner-overridden`.
+- Other Root Blockers and their acceptance cells are unchanged.
+
+### Root status
+
+- RB-<n>: `satisfied`
+```
+
+Use only the independently verified results.
+
+Change only the current root's proven non-satisfied cells to `satisfied`. A root becomes `satisfied` only when every active required cell is `satisfied` or `owner-overridden`.
+
+Do not change the status of protected other Root Blockers merely because the verifier proved they were preserved.
+
+If the reconciliation comment cannot be persisted, do not close the ticket.
+
 Never close a Spec Review remediation ticket with:
 
 * unproven carried cells;
 * known root violations;
 * regressed/unproven protected roots;
 * missing, invalid, or stale independent PASS;
-* missing durable closure evidence.
+* missing durable closure evidence;
+* missing durable parent Root Closure Reconciliation.
 
-Ordinary tickets do not use `$verify-root-closure` or formal Root Closure Evidence.
+Ordinary tickets do not use `$verify-root-closure`, formal Root Closure Evidence, or Root Closure Reconciliation.
 
 ## 7. Handoff
 
@@ -651,7 +728,8 @@ For Spec Review remediation also report:
 * carried acceptance-cell proof;
 * protected-root preservation;
 * `$verify-root-closure` verdict;
-* Root Closure Evidence persistence.
+* Root Closure Evidence persistence;
+* Root Closure Reconciliation persistence.
 
 After successful ticket closure, inspect the parent Spec's implementation-ticket state.
 

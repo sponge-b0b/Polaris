@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0027
 ---
 
 # 0026. Strategy Advisory Output Contract

@@ -133,6 +133,12 @@ owner-overridden
 
 A later review may update a cell's status or evidence, but omission does not remove it.
 
+A `satisfied` cell remains `satisfied` unless the current independently validated findings contain concrete evidence that the **same semantic obligation** is now violated, or durable state explicitly supersedes, retires, or overrides that obligation.
+
+Discovery of a new sibling manifestation, child symptom, or root-definition gap must add or open the narrow missing obligation. It must not downgrade previously satisfied sibling cells merely because the root as a whole remains open.
+
+An open or unproven root-complete sweep does not by itself downgrade otherwise satisfied cells.
+
 Remove, replace, or retire an obligation only when durable state explicitly establishes that it is:
 
 * superseded by an equivalent obligation;

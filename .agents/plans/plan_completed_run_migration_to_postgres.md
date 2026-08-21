@@ -538,7 +538,7 @@ Migration behavior:
 
 Verification:
 
-- Run `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db uv run alembic upgrade head`.
+- Run `POLARIS_DATABASE_URL=<local-postgres-url> uv run alembic upgrade head`.
 - Run migration tests when available.
 
 ### Step 4 — Refactor CompletedRunArchive to Async PostgreSQL-Only Contract
@@ -741,13 +741,13 @@ Add/update tests for:
 Verification:
 
 - Run targeted completed-run tests.
-- With PostgreSQL available, run migration tests using `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db`.
+- With PostgreSQL available, run migration tests using `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url>`.
 
 ### Step 14 — Run Migration and Verification Suite
 
 Run PostgreSQL migration validation:
 
-- `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db uv run alembic upgrade head`
+- `POLARIS_DATABASE_URL=<local-postgres-url> uv run alembic upgrade head`
 
 Then run targeted tests and final quality checks:
 
@@ -806,8 +806,8 @@ Minimum required tests:
 
 PostgreSQL validation:
 
-- `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db uv run alembic upgrade head`
-- `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db uv run pytest -q tests/database/test_migrations.py`
+- `POLARIS_DATABASE_URL=<local-postgres-url> uv run alembic upgrade head`
+- `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> uv run pytest -q tests/database/test_migrations.py`
 
 ## Assumptions
 
@@ -900,14 +900,14 @@ Verification:
 - Ran `uv run ruff check migrations/versions/20260621_090000_d4e5f6a7b8c9_add_completed_run_archive_tables.py` successfully.
 - Ran `uv run alembic heads` and confirmed `d4e5f6a7b8c9` is the single head.
 - Ran PostgreSQL migration validation successfully:
-  - `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db uv run alembic upgrade head`
+  - `POLARIS_DATABASE_URL=<local-postgres-url> uv run alembic upgrade head`
 - Queried PostgreSQL and confirmed the new tables exist:
   - `completed_workflow_runs`
   - `completed_workflow_node_outputs`
   - `completed_run_artifacts`
 - Confirmed `alembic_version` is `d4e5f6a7b8c9`.
 - Ran live migration contract tests successfully:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db uv run pytest -q tests/database/test_migrations.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> uv run pytest -q tests/database/test_migrations.py`
   - Result: `4 passed, 5 warnings`.
 
 Known issues / deferred work:
@@ -1067,7 +1067,7 @@ Verification:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_completed_run_archive.py`
   - Result: `14 passed`.
 - Ran live PostgreSQL integration test successfully:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
   - Result: `1 passed`.
 - Ran targeted MyPy successfully with skipped imports to avoid known pending async runtime caller updates:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run mypy core/storage/persistence/repositories/postgres_completed_run_repository.py core/storage/persistence/serializers/completed_run_serializer.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py --explicit-package-bases --follow-imports=skip`
@@ -1113,7 +1113,7 @@ Verification:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_completed_run_archive.py`
   - Result: `17 passed`.
 - Ran live PostgreSQL integration tests successfully:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
   - Result: `2 passed`.
 - Ran targeted MyPy successfully with skipped imports to avoid known pending async runtime caller updates:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run mypy core/storage/persistence/postgres_completed_run_archive.py core/storage/persistence/repositories/postgres_completed_run_repository.py core/storage/persistence/serializers/completed_run_serializer.py tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py --explicit-package-bases --follow-imports=skip`
@@ -1166,7 +1166,7 @@ Verification:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/core/runtime/state/test_state_manager_completed_runs.py tests/unit/core/workflow/execution/test_completed_run_archive_async.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py`
   - Result: `14 passed`.
 - Ran live PostgreSQL completed-run integration tests successfully:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 120s uv run pytest -q tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py`
   - Result: `3 passed`.
 - Ran targeted MyPy successfully:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run mypy core/runtime/state/state_manager.py core/workflow/execution/workflow_engine.py core/workflow/execution/workflow_service.py core/workflow/execution/workflow_facade.py core/storage/persistence/repositories/postgres_completed_run_repository.py tests/unit/core/runtime/state/test_state_manager_completed_runs.py tests/unit/core/workflow/execution/test_completed_run_archive_async.py tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py --explicit-package-bases`
@@ -1334,7 +1334,7 @@ Verification:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py tests/unit/core/runtime/state/test_state_manager_completed_runs.py tests/unit/core/workflow/execution/test_completed_run_archive_async.py tests/unit/interfaces/cli/test_completed_runs_command.py`
   - Result: `24 passed, 1 warning`.
 - Ran live PostgreSQL migration and completed-run integration tests successfully after escalating local database access out of the sandbox:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py`
   - Result: `7 passed, 5 warnings`.
 - Ran targeted MyPy successfully:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run mypy tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py tests/unit/core/runtime/state/test_state_manager_completed_runs.py tests/unit/core/workflow/execution/test_completed_run_archive_async.py tests/unit/interfaces/cli/test_completed_runs_command.py tests/database/test_migrations.py --explicit-package-bases`
@@ -1376,12 +1376,12 @@ Summary:
 Verification:
 
 - PostgreSQL Alembic upgrade succeeded:
-  - `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run alembic upgrade head`
+  - `POLARIS_DATABASE_URL=<local-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run alembic upgrade head`
   - Result: exit `0`.
 - PostgreSQL completed-run table check succeeded:
   - Result: `completed_run_artifacts`, `completed_workflow_node_outputs`, and `completed_workflow_runs` were present.
 - Live PostgreSQL migration and completed-run integration tests passed:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py tests/integration/core/storage/persistence/test_postgres_completed_run_archive_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_repository_integration.py tests/integration/core/storage/persistence/test_postgres_completed_run_workflow_integration.py`
   - Result: `7 passed, 5 warnings`.
 - Targeted completed-run unit tests passed:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/core/storage/persistence/test_completed_run_serializer.py tests/unit/core/storage/persistence/test_postgres_completed_run_repository.py tests/unit/core/storage/persistence/test_postgres_completed_run_archive.py tests/unit/core/runtime/state/test_state_manager_completed_runs.py tests/unit/core/workflow/execution/test_completed_run_archive_async.py tests/unit/interfaces/cli/test_completed_runs_command.py`

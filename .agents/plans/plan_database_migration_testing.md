@@ -183,7 +183,7 @@ def test_custom_data_migration(alembic_runner):
 
   Run live PostgreSQL migration tests with:
 
-  POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db \
+  POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> \
   UV_CACHE_DIR=/tmp/uv-cache \
   uv run pytest -q tests/database/test_migrations.py
 
@@ -277,12 +277,12 @@ Removed files:
 - Verification passed: `uv run mypy migrations/env.py tests/database --explicit-package-bases`.
 - Verification passed without live database env: `uv run pytest -q tests/database/test_migrations.py tests/unit/core/database/test_alembic_foundation.py` returned `2 passed, 4 skipped`.
 - Ran `uv run graphify update .` after the code change to refresh the repository graph.
-- Live PostgreSQL execution was attempted with `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db`, but the command timed out before producing pytest output. This appears to be a local database connectivity/runtime issue rather than a collection or static contract issue; Step 5 should perform final live verification once PostgreSQL connectivity is confirmed.
+- Live PostgreSQL execution was attempted with `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url>`, but the command timed out before producing pytest output. This appears to be a local database connectivity/runtime issue rather than a collection or static contract issue; Step 5 should perform final live verification once PostgreSQL connectivity is confirmed.
 
 ### Step 5 — Final migration-test verification and no generic data-migration tests (2026-06-15 11:33:35 UTC)
 
 - Confirmed local PostgreSQL TCP connectivity on `localhost:5432`; sandbox escalation was required because local socket access is restricted by default.
-- Ran the live PostgreSQL migration contract tests with `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db`.
+- Ran the live PostgreSQL migration contract tests with `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url>`.
 - First live run exposed an asyncpg event-loop ownership issue in the pytest fixture teardown because a fixture-scoped `AsyncEngine` was reused across multiple `asyncio.run(...)` calls and pytest-alembic migration invocations.
 - Refactored `tests/database/conftest.py` to provide pytest-alembic a synchronous SQLAlchemy `Engine` using the existing `psycopg2` dependency while preserving the externally supplied async test URL as the required environment contract.
   - The fixture converts `postgresql+asyncpg://...` to `postgresql+psycopg2://...` only inside the migration test fixture.
@@ -290,7 +290,7 @@ Removed files:
   - Schema isolation is preserved through PostgreSQL `search_path` and one temporary schema per test.
 - Cleaned up four temporary `polaris_migration_test_%` schemas left by the failed pre-fix live run.
 - Verification passed: live PostgreSQL test run returned `4 passed`:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run pytest -q tests/database/test_migrations.py`
 - Verification passed without live database env: `uv run pytest -q tests/database/test_migrations.py tests/unit/core/database --maxfail=1` returned `132 passed, 4 skipped`.
 - Verification passed: no migration tests under `tests/database` or `tests/unit/core/database` contain migration-file path checks, `os.listdir`, or hardcoded revision IDs.
 - Ran `uv run graphify update .` after the fixture change to refresh the repository graph.

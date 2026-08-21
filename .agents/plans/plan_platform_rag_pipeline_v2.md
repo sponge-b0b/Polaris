@@ -395,7 +395,7 @@ Summary:
 Verification:
 
 - PostgreSQL connectivity check succeeded:
-  - `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 60s uv run python ...`
+  - `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 60s uv run python ...`
   - Result: `database=polaris user=polaris`.
 - Focused RAG tests passed:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/rag tests/unit/application/persistence/rag tests/unit/core/storage/persistence/test_rag_persistence_contracts.py tests/unit/core/storage/persistence/test_rag_persistence_serializer.py tests/unit/core/storage/persistence/test_rag_eligibility_rules.py tests/unit/core/storage/persistence/test_rag_eligibility_persistence_contracts.py tests/unit/core/storage/persistence/test_rag_readiness.py tests/unit/core/storage/persistence/test_postgres_rag_persistence_repository.py tests/unit/core/database/test_rag_persistence_models.py tests/unit/integration/clients/rag tests/unit/integration/providers/rag tests/unit/interfaces/cli/test_rag_command.py tests/unit/intelligence/research/test_rag_research_node.py tests/unit/telemetry/test_application_rag_telemetry.py`
@@ -450,7 +450,7 @@ Verification:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run polaris rag rebuild --projection qdrant`
   - Result: rendered a successful dry-run operation and did not delete or rebuild a projection.
 - Live PostgreSQL status verification passed with escalation for local database access:
-  - `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 30s uv run polaris rag status`
+  - `POLARIS_DATABASE_URL=<local-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 30s uv run polaris rag status`
   - Result: rendered RAG status from PostgreSQL successfully.
 - Focused RAG/CLI tests passed:
   - `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/unit/application/rag tests/unit/interfaces/cli/test_rag_command.py`
@@ -583,7 +583,7 @@ Verification:
   - Result: `200 passed, 1 skipped, 1 warning`.
 - The guarded live Qdrant test skipped cleanly because Qdrant was not available at `http://localhost:6333` during Step 4 execution.
 - CLI rebuild safety check passed:
-  - `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 30s uv run polaris rag rebuild --projection qdrant`
+  - `POLARIS_DATABASE_URL=<local-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 30s uv run polaris rag rebuild --projection qdrant`
   - Result: successful dry-run output; no projection was deleted.
 - `git diff --check` passed.
 - Graphify was updated:
@@ -1174,7 +1174,7 @@ Verification:
   - The tests verified isolated Qdrant collection lifecycle, idempotent Neo4j projection/retrieval/cleanup, and live BGE relevance ordering.
 - The first PostgreSQL schema check correctly reported that the local database was behind migration head and `polaris rag status` failed because `rag_source_eligibility` did not yet exist.
 - Applied the repository's existing migration chain successfully:
-  - `POLARIS_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/db UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run alembic upgrade head`
+  - `POLARIS_DATABASE_URL=<local-postgres-url> UV_CACHE_DIR=/tmp/uv-cache timeout 300s uv run alembic upgrade head`
   - Applied revisions through completed-run archive head without errors.
 - PostgreSQL migration and live RAG status gates then passed:
   - `uv run alembic check`: `No new upgrade operations detected.`

@@ -426,7 +426,7 @@
 
   **Non-RAG test and coverage baseline**
 
-  - Reproducible command scope: the complete test suite excluding `tests/integration/rag`, with `POLARIS_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db` so PostgreSQL migration and integration contracts execute rather than skip.
+  - Reproducible command scope: the complete test suite excluding `tests/integration/rag`, with `POLARIS_TEST_DATABASE_URL=<local-test-postgres-url>` so PostgreSQL migration and integration contracts execute rather than skip.
   - Result: **1 failed, 1,524 passed**, 13 warnings, in 117.43 seconds.
   - Coverage: **89.42%** (`29,270 / 32,732` statements covered; 3,462 missing).
   - The single failure is `tests/unit/core/workflow/execution/test_completed_run_archive_async.py::test_workflow_archive_failure_is_logged_and_non_fatal`.

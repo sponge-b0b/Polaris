@@ -86,6 +86,7 @@ A Spec containing unresolved material architecture is not ready for verification
 ### Guardrails
 
 * Invocation authorizes the repository-wide Ruff and Mypy commands below.
+* Every pytest command executed by this workflow must set `POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>`. This satisfies the agent command guard only; it does not expand the test scope authorized here.
 * It does not authorize untargeted full-suite pytest, coverage, or broad live/service-backed suites.
 * Read `docs/process/testing-guide.md`.
 * Select tests from the Spec diff, affected boundaries, acceptance requirements, and regression risks.
@@ -118,7 +119,7 @@ If a required targeted test cannot establish its criterion service-free:
 
 * derive safe local configuration when unambiguous;
 * start only the required authorized local service;
-* rerun the exact targeted check.
+* rerun the exact targeted check using the authorized pytest form below.
 
 A required test skipped solely because local setup is absent remains unresolved.
 
@@ -158,7 +159,9 @@ Do not blindly run the full suite.
 ### Targeted Integration and Regression
 
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q <targeted_test_directory_or_marker>
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
+UV_CACHE_DIR=/tmp/uv-cache \
+uv run pytest -q <targeted_test_directory_or_marker>
 ```
 
 A helper/unit test is insufficient when the Spec requires proof through a higher production boundary.
@@ -209,7 +212,7 @@ For an ordinary verification failure:
 
 1. determine whether the Spec introduced or owns it;
 2. fix the narrowest authoritative point within Spec scope;
-3. rerun the affected check;
+3. rerun the affected check, preserving the authorized pytest form above when the check is pytest;
 4. continue verification.
 
 This includes:
@@ -329,7 +332,7 @@ After all verification-owned fixes, rerun every applicable gate needed for final
 * `git diff --check "$BASELINE_COMMIT"`;
 * repository-wide Ruff;
 * repository-wide Mypy;
-* targeted integration/regression tests;
+* targeted integration/regression tests using the authorized pytest form above;
 * invoke the `$wiki-lint` skill and affected architecture queries;
 * invoke the `$deduplicate-code` skill when applicable.
 

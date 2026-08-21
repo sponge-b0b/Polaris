@@ -27,3 +27,7 @@ Placed Strategy Advisory once after canonical synthesis as an independent workfl
 ## [2026-08-20] strategy advisory contract | typed non-authoritative result accepted
 
 Defined the advisory semantic contract as typed availability state, code-owned non-authoritative authority, canonical evidence references, narrative, and typed findings while excluding canonical strategy-selection fields, numeric advisory confidence, and runtime/model provenance; realization remains pending under ADR-0026.
+
+## [2026-08-20] strategy advisory source binding | runtime-first evidence lifecycle corrected
+
+Superseded ADR-0026 with ADR-0027 so Strategy Advisory binds to the canonical runtime strategy artifacts it actually consumes, while its own claim-bearing `DecisionEvidencePacket` is created later through normal materialization rather than being a prerequisite for advisory execution.

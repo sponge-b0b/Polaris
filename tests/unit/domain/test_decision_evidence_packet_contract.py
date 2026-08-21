@@ -35,7 +35,7 @@ from tests.helpers.risk_authority_examples import (
 )
 
 
-def DecisionEvidencePacket(**kwargs: object) -> DomainDecisionEvidencePacket:
+def decision_evidence_packet(**kwargs: object) -> DomainDecisionEvidencePacket:
     return DomainDecisionEvidencePacket(
         workflow_name="test-workflow",
         workflow_definition_fingerprint="test-definition-fingerprint",
@@ -45,7 +45,7 @@ def DecisionEvidencePacket(**kwargs: object) -> DomainDecisionEvidencePacket:
 
 
 def test_enhanced_packet_models_claim_relationships_and_reconstruction_refs() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="rag-answer-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -141,7 +141,7 @@ def test_enhanced_and_vigilant_packets_require_risk_authority_contract(
         DecisionEvidencePacketValidationError,
         match="authority must be a RiskAuthorityContract",
     ):
-        DecisionEvidencePacket(
+        decision_evidence_packet(
             packet_id="packet-1",
             output_id="output-1",
             authority=None,  # type: ignore[arg-type]
@@ -156,7 +156,7 @@ def test_enhanced_and_vigilant_packets_require_risk_authority_contract(
         DecisionEvidencePacketValidationError,
         match="decision evidence packets are only valid for enhanced or vigilant",
     ):
-        DecisionEvidencePacket(
+        decision_evidence_packet(
             packet_id="packet-1",
             output_id="output-1",
             authority=baseline_authority,
@@ -167,7 +167,7 @@ def test_enhanced_and_vigilant_packets_require_risk_authority_contract(
         )
 
     authority = classify_risk_authority(authority_input_for_tier(tier))
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id=f"packet-{tier.value}",
         output_id="output-1",
         authority=authority,
@@ -185,7 +185,7 @@ def test_material_claim_without_support_fails_closed() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
 
     with pytest.raises(UnsupportedMaterialClaimError, match="claim-unsupported"):
-        DecisionEvidencePacket(
+        decision_evidence_packet(
             packet_id="packet-1",
             output_id="output-1",
             authority=authority,
@@ -202,7 +202,7 @@ def test_material_claim_without_support_fails_closed() -> None:
 
 
 def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -223,7 +223,7 @@ def test_supported_uncontradicted_material_claim_is_readiness_gating() -> None:
 
 
 def test_readiness_requires_retained_material_support_snapshot() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -262,7 +262,7 @@ def test_readiness_detects_tampered_or_incomplete_material_support_snapshot(
 ) -> None:
     snapshot = material_support_snapshot()
     object.__setattr__(snapshot, tampered_field, tampered_value)
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -285,7 +285,7 @@ def test_readiness_detects_tampered_or_incomplete_material_support_snapshot(
 
 
 def test_verified_claim_reference_matches_canonical_packet_binding() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -337,7 +337,7 @@ def test_reference_only_claim_metadata_cannot_satisfy_material_readiness() -> No
 
 
 def test_fabricated_claim_reference_must_match_verified_packet_binding() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -405,7 +405,7 @@ def test_reference_only_contextual_metadata_is_audit_not_readiness_proof() -> No
 def test_unresolved_material_conflict_fails_readiness_closed() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
 
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=authority,
@@ -443,7 +443,7 @@ def test_unresolved_material_conflict_fails_readiness_closed() -> None:
 def test_resolved_contrary_evidence_stays_reviewable_without_blocking() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
 
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=authority,
@@ -478,7 +478,7 @@ def test_resolved_contrary_evidence_stays_reviewable_without_blocking() -> None:
 def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() -> None:
     authority = classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED))
 
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=authority,
@@ -508,7 +508,7 @@ def test_contextual_claim_can_be_unsupported_or_conflicted_without_blocking() ->
 
 
 def test_readiness_separates_reconstructable_provenance_from_rejected_support() -> None:
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -548,7 +548,7 @@ def test_readiness_validates_every_canonical_reconstruction_reference_kind() -> 
         )
         for kind in ReconstructionReferenceKind
     )
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-all-reference-kinds",
         output_id="output-1",
         authority=classify_risk_authority(authority_input_for_tier(RiskTier.ENHANCED)),
@@ -594,7 +594,7 @@ def test_packet_references_canonical_evidence_ids_not_source_payloads() -> None:
             raw_payload={"arbitrary": "source copy"},  # type: ignore[call-arg]
         )
 
-    packet = DecisionEvidencePacket(
+    packet = decision_evidence_packet(
         packet_id="packet-1",
         output_id="output-1",
         authority=authority,
@@ -614,7 +614,7 @@ def test_unknown_relationship_targets_are_rejected() -> None:
         DecisionEvidencePacketValidationError,
         match="claim-1 references unknown supporting evidence 'missing-evidence'",
     ):
-        DecisionEvidencePacket(
+        decision_evidence_packet(
             packet_id="packet-1",
             output_id="output-1",
             authority=authority,

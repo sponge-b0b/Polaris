@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import pytest
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestExpectedOutcome,
@@ -140,7 +141,7 @@ initial_cash: '100000'
 
 
 @pytest.mark.asyncio
-async def test_backtest_application_service_prepares_validated_result() -> None:
+async def test_backtest_application_service_fails_without_governed_execution() -> None:
     service = BacktestApplicationService()
     scenario = BacktestScenario(
         scenario_id="service-check",
@@ -166,12 +167,12 @@ async def test_backtest_application_service_prepares_validated_result() -> None:
     )
 
     assert validation_errors == ()
-    assert result.success is True
-    assert result.result is not None
-    assert result.result.status == "validated"
-    assert result.result.scenario == scenario
-    assert result.result.steps == ()
+    assert result.success is False
+    assert result.result is None
+    assert result.error_type == GovernedWorkflowExecutionEvidenceRequiredError.__name__
+    assert result.error_message == "Governed workflow execution service is required."
     assert result.metadata["mode"] == "backtest"
+    assert result.metadata["status"] == "unavailable"
 
 
 class FakeWorkflowFacade:

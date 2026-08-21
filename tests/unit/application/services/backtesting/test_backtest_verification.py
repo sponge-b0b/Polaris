@@ -210,6 +210,7 @@ async def test_failed_expected_outcome_fails_run_with_attributable_evidence() ->
 @pytest.mark.asyncio
 async def test_injected_backtest_clock_must_be_timezone_aware() -> None:
     service = BacktestApplicationService(
+        governed_workflow_execution_service=DeterministicGoldenWorkflowFacade(),
         clock=lambda: datetime(2026, 1, 1),
         run_id_factory=lambda: "backtest-naive-clock",
     )

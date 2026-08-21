@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any, Protocol
 from uuid import uuid4
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.services.backtesting.backtest_metrics import compute_backtest_metrics
 from application.services.backtesting.backtest_reporting import build_backtest_artifacts
 from application.services.backtesting.backtest_request import (
@@ -87,6 +88,19 @@ class BacktestApplicationService(
         self,
         request: ServiceRequest[BacktestRunRequest],
     ) -> ServiceResult[BacktestResult]:
+        if self.governed_workflow_execution_service is None:
+            return ServiceResult.failed(
+                request_id=request.request_id,
+                request_name=request.request_name,
+                error=GovernedWorkflowExecutionEvidenceRequiredError(
+                    "Governed workflow execution service is required."
+                ),
+                metadata=self._result_metadata(
+                    request=request,
+                    status="unavailable",
+                ),
+            )
+
         result = await self._execute(
             request.payload,
         )
@@ -95,13 +109,24 @@ class BacktestApplicationService(
             request_id=request.request_id,
             request_name=request.request_name,
             result=result,
-            metadata={
-                "service_name": self.service_name,
-                "provider_profile": request.payload.scenario.provider_profile,
-                "mode": "backtest",
-                "status": result.status,
-            },
+            metadata=self._result_metadata(
+                request=request,
+                status=result.status,
+            ),
         )
+
+    def _result_metadata(
+        self,
+        *,
+        request: ServiceRequest[BacktestRunRequest],
+        status: str,
+    ) -> dict[str, object]:
+        return {
+            "service_name": self.service_name,
+            "provider_profile": request.payload.scenario.provider_profile,
+            "mode": "backtest",
+            "status": status,
+        }
 
     async def validate_request(
         self,
@@ -126,13 +151,6 @@ class BacktestApplicationService(
         request: BacktestRunRequest,
     ) -> BacktestResult:
         backtest_run_id = self.run_id_factory()
-
-        if self.governed_workflow_execution_service is None:
-            return BacktestResult.validated(
-                backtest_run_id=backtest_run_id,
-                scenario=request.scenario,
-                timestamp=_utc_timestamp(self.clock()),
-            )
 
         return await self._execute_runtime_backtest(
             backtest_run_id=backtest_run_id,

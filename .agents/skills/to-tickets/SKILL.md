@@ -90,7 +90,7 @@ If `$to-remediation-tickets` returns one or more **architecture-blocked roots**,
 
 Use the actual parent Spec title and URL. Do not continue ordinary ticket remediation while an architecture-blocked root remains.
 
-If it returns a delta, preserve that delta semantically and continue at Step 4.
+If it returns a delta, treat each returned ticket block as the authoritative semantic input for Step 4. You may improve presentation, but do not condense, reclassify, merge, or omit any returned remediation, verification, preservation, root-complete sweep, dependency, or metadata obligation.
 
 Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
@@ -137,19 +137,40 @@ For new tickets, show:
 * **Blocked by**
 * **What it delivers**
 
-For Spec Review remediation tickets, also summarize:
+For Spec Review remediation tickets, present a **publication-ready proposal**. For each ticket show:
 
-* Root Blocker;
-* remediation obligations;
-* verification obligations when applicable;
-* preservation obligations;
-* root-complete sweep required for closure.
+* **Title**;
+* **Root Blocker**;
+* **Blocked by**;
+* **Remediation obligations / What it delivers**;
+* **Verification obligations**;
+* **Preservation obligations**;
+* **Root-complete sweep required for closure**;
+* **Ticket branch**;
+* **Ticket baseline**;
+* **Required label/status**.
+
+Use `None` where a category has no obligations. Do not summarize away, merge, reclassify, or omit any obligation returned by `$to-remediation-tickets`. The proposal must contain everything needed to publish the ticket correctly without additional semantic interpretation after approval.
 
 For remediation, also show any:
 
 * open tickets to update;
 * open tickets to close as superseded;
 * dependency changes.
+
+Before requesting approval for Spec Review remediation, verify:
+
+* every unresolved Root Blocker returned by `$to-remediation-tickets` has the required ticket coverage;
+* every remediation obligation appears in the proposed ticket;
+* every verification obligation is explicitly identified as verification rather than implementation;
+* every applicable satisfied same-root cell appears under Preservation obligations;
+* the root-complete sweep is explicit;
+* blocking edges and dependency changes match the returned delta;
+* no closed ticket is being reopened or rewritten;
+* `Ticket branch`, `Ticket baseline`, and required label/status are shown;
+* architecture-blocked roots, if any, halted ordinary publication instead of appearing as ordinary tickets.
+
+If any check fails, correct the proposal before presenting it to the user. Do not rely on the user to discover omissions or repair the remediation contract during approval.
 
 For any delta that is not metadata-only deterministic normalization, ask:
 
@@ -158,6 +179,10 @@ For any delta that is not metadata-only deterministic normalization, ask:
 * Should anything be merged, split, or adjusted?
 
 Iterate until approved.
+
+An unqualified `yes`, `approved`, or equivalent approves the proposal exactly as presented.
+
+After approval, do not add, remove, merge, split, reinterpret, or reclassify ticket semantics. If a semantic defect is discovered during publishing, return to Step 4 for approval instead of silently repairing it.
 
 ### 5. Publish to the Configured Tracker
 

@@ -337,7 +337,7 @@ When architecture-conforming Blocking remediation remains, halt using this exact
 
 `[X]` is the number of independently validated current Blocking findings, not the number of Root Blockers or acceptance cells.
 
-Do not add an alternative remediation summary before or after this Human Handoff that changes its structure.
+Do not alter or embed additional remediation content inside this Human Handoff. When `$review-spec` propagates it, `$review-spec` retains ownership of its already-required aggregate review results before the handoff.
 
 If no Blocking findings remain, return control to `$review-spec` so it can evaluate its Exit Gate.
 

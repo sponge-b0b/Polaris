@@ -545,7 +545,7 @@ Wait for its result.
 
 If `$review-spec-remediation` returns a genuine architecture blocker, apply the **Architecture Human Handoff** above and stop.
 
-If it returns its `$to-tickets` Human Handoff, propagate that handoff exactly and stop.
+If it returns its `$to-tickets` Human Handoff, first present the Section 8 aggregate review results and Root Blocker Status required above, then append the returned Human Handoff exactly and stop.
 
 If it reports that no Blocking findings remain, continue to the Exit Gate.
 

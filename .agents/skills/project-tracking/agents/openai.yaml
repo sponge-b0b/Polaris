@@ -1,0 +1,5 @@
+interface:
+  display_name: "Project Tracking"
+  short_description: "Reconcile Polaris Project workflow state"
+policy:
+  allow_implicit_invocation: false

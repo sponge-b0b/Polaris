@@ -38,6 +38,14 @@ Polaris is recommendation-oriented. It can analyze markets and portfolios, gener
 > [!WARNING]
 > Polaris is research and decision-support software. Outputs are not financial, investment, legal, tax, or trading advice. Always verify data and decisions independently before acting.
 
+## Development workflow
+
+Polaris is developed in public through an architecture-first delivery workflow that makes the path from idea to architecture, specification, implementation, verification, review, remediation, and completion visible rather than hiding it behind a finished-code snapshot.
+
+The **Ideas & Intake** board is a curated public backlog, not a private notebook. Intake items are concepts that are ready to be discussed publicly but have not yet entered the formal delivery lifecycle. Rough or private brainstorming stays outside the public project until it is ready to be exposed. An Intake item does not establish architecture, scope, or an implementation commitment.
+
+Promotion from Intake to **Wayfinder** marks formal entry into the delivery lifecycle. Wayfinder resolves architecture before downstream specification and implementation, and later verification, review, or implementation work may route back into Wayfinder when a genuine architecture question is discovered. The workflow is intentionally non-linear so unresolved decisions and blockers return to the owner that can actually resolve them.
+
 ## What is Polaris?
 
 Polaris is a Python platform for building replayable AI-assisted portfolio-management workflows. It combines typed application services, provider-based market integrations, a workflow runtime, persisted execution evidence, curated RAG, and observability into one platform-native architecture.

@@ -188,6 +188,18 @@ Use `$wiki-synthesize` manually for higher-inference recurring-pattern analysis;
 
 ## Agent Skills
 
+### Workflow Project tracking
+
+The public Polaris GitHub Project is an operational projection, not workflow authority.
+
+Whenever a lifecycle owner durably creates, changes, re-enters, or completes a formal workflow artifact, it must invoke `$project-tracking` as internal composition **after** the authoritative tracker/repository transition succeeds and **before** the owner's Human Handoff or ordinary return.
+
+This applies to `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$spec-merge-cleanup`, and `$architecture-remediation`.
+
+The owner supplies the desired projection from the durable state it just established. If one transition changes multiple artifacts, synchronize every affected artifact. Internal helpers return their result to the lifecycle owner; independent verifiers do not synchronize Project state.
+
+Follow `.agents/skills/project-tracking/WIRING.md` for the cross-skill call contract and `$project-tracking` for projection mechanics. Project synchronization failure is projection drift and must never roll back or rewrite the authoritative workflow transition.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `sponge-b0b/Polaris`.

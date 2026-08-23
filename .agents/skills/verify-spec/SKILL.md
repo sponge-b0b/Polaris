@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Perform authorized spec-wide verification across the completed Spec, select gates from the actual change surface, repair in-scope failures, and record a passing verification receipt for the exact final HEAD.
+description: Perform authorized spec-wide verification across the completed Spec, reuse proven ancestor verification checkpoints when safe, select gates from the actual change surface, repair in-scope failures, and record a passing verification receipt for the exact final HEAD.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -66,6 +66,94 @@ git log "$BASELINE_COMMIT"..HEAD --oneline
 ```
 
 A non-empty repository diff is required only when the Spec changes repository content. A tracker-only Spec may have an empty diff, but only when durable Spec/ticket evidence establishes that no repository mutation was required and tracker-state evidence proves the implementation.
+
+## Incremental Re-verification
+
+The fixed Spec baseline remains the canonical verification origin. A prior passing **Spec Verification Receipt** may reduce repeated proof work only as a durable verified checkpoint inside the unchanged baseline-to-current-`HEAD` proof chain.
+
+Do not treat a prior receipt as the passing receipt for the current `HEAD`, and do not replace the fixed Spec baseline with the prior verified `HEAD`.
+
+### Select a Checkpoint
+
+After recovering the fixed baseline, branch, current `HEAD`, and complete baseline-to-`HEAD` repository inventory, inspect prior **Spec Verification Receipt** comments for this Spec.
+
+Use checkpoint mode only when the latest passing receipt for the same fixed baseline and branch is well-formed and all of these conditions hold:
+
+1. `Status` is `passed`;
+2. `Verified Baseline` exactly equals `BASELINE_COMMIT`;
+3. `Branch` exactly equals `spec-<spec_issue_number>`;
+4. `Verified HEAD` resolves to a commit;
+5. `Verified HEAD` is an ancestor of the current `HEAD`;
+6. the complete `Verified HEAD..HEAD` commit and file delta can be inventoried without ambiguity.
+
+Prove ancestry rather than inferring it from timestamps, issue order, or conversational history:
+
+```bash
+CHECKPOINT_HEAD=<prior Verified HEAD>
+
+git merge-base --is-ancestor "$CHECKPOINT_HEAD" HEAD
+git log "$CHECKPOINT_HEAD"..HEAD --oneline
+git diff --name-status "$CHECKPOINT_HEAD"..HEAD
+git diff "$CHECKPOINT_HEAD"..HEAD
+```
+
+If the latest otherwise-relevant passing receipt is malformed, belongs to a different baseline/branch, is not an ancestor of current `HEAD`, or its delta cannot be bounded completely, do **full verification from the fixed Spec baseline**. Do not search backward for a more convenient older checkpoint through ambiguous or divergent verification history.
+
+An unusable checkpoint is not itself a verification failure when full fixed-baseline verification remains possible.
+
+### Inherit Only Unaffected Immutable Proof
+
+A checkpoint may carry forward only proof over unchanged immutable repository state whose validity cannot have been affected by the checkpoint-to-current delta.
+
+Before inheriting any prior gate result:
+
+1. inventory the complete checkpoint-to-current repository delta;
+2. freshly recover the current Spec, implementation tickets, tracker relationships, and other durable obligations;
+3. determine which previously satisfied gates can be invalidated directly or transitively by the repository delta or changed durable obligations;
+4. rerun every affected applicable gate;
+5. rerun any gate whose invalidation impact is uncertain.
+
+A gate is safe to inherit only when its prior proof is bound entirely to immutable repository state at or before `CHECKPOINT_HEAD`, its current applicability is unchanged, and the complete subsequent delta cannot affect its evidence or conclusion.
+
+Do not inherit proof merely because the files a gate originally inspected were not edited. Configuration, contracts, generated state, dependency changes, or another changed surface may invalidate the gate transitively.
+
+If affected-gate analysis cannot bound the impact confidently, fall back to full fixed-baseline verification.
+
+### Always Verify Mutable and Current-State Evidence Freshly
+
+Checkpoint mode never inherits mutable tracker, authorization, dependency, or lifecycle truth. Freshly verify at least:
+
+* current branch/`HEAD` and ancestry to the fixed Spec baseline;
+* the complete current baseline-to-`HEAD` repository change inventory;
+* current Spec obligations and acceptance coverage;
+* implementation-ticket completion and native hierarchy;
+* native blocker relationships;
+* every current governing Wayfinder and its governance relationship;
+* Project Delivery focus/authorization and the **Project Delivery Actionability Guard**;
+* other mutable tracker relationships or durable lifecycle state relevant to the Spec;
+* the current applicability matrix and any gate affected by the checkpoint-to-current delta;
+* final repository/worktree stability and final actionability before receipt persistence.
+
+Tracker evidence re-read during checkpoint mode must come from canonical current state, not from descriptions embedded in the prior receipt.
+
+### Verification-Owned Changes Extend the Delta
+
+If this verification run changes and commits repository files, the new commit becomes part of the checkpoint-to-final-`HEAD` delta.
+
+Before the final pass and receipt:
+
+* recompute the complete baseline-to-final-`HEAD` inventory;
+* recompute the checkpoint-to-final-`HEAD` delta when checkpoint mode is active;
+* repeat affected-gate analysis for the verification-owned changes;
+* rerun every newly affected applicable gate.
+
+A prior checkpoint never authorizes unverified verification-owned changes.
+
+### New Receipt Required
+
+Whether verification runs in full or checkpoint mode, success requires a **new Spec Verification Receipt** bound to the exact final `HEAD` and the original fixed Spec baseline.
+
+A checkpoint is historical evidence only. This is compatible with the prohibition on stale-receipt reuse because the prior receipt never attests to the new `HEAD`.
 
 ## 2. Identify the Spec
 
@@ -154,6 +242,8 @@ Typical surface-driven gates include:
 * Tracker-only state → canonical re-read, native relationship/state verification, idempotency where required, and proof that no repository diff was needed.
 
 Do not manufacture tests or tool invocations that do not prove an actual Spec obligation.
+
+In checkpoint mode, keep the current applicability matrix authoritative. Record an inherited gate as `passed` only when **Incremental Re-verification** proves its prior immutable evidence remains unaffected; otherwise execute it normally.
 
 ## 4. Execute Applicable Verification
 
@@ -327,9 +417,15 @@ Do not propose an architectural answer.
 
 After all verification-owned fixes, rerun every **applicable** gate needed for final consistency.
 
-At minimum reconcile the applicability matrix so every required gate is `passed`, every non-applicable gate has a concrete reason, and no gate remains `unresolved`.
+At minimum:
 
-When repository content changed, rerun `git diff --check "$BASELINE_COMMIT"`. Rerun Ruff, Mypy, targeted tests, database, documentation/workflow/configuration/tracker, architecture/wiki, and duplication checks only when their applicability remains established.
+* recompute the complete current baseline-to-final-`HEAD` inventory;
+* in checkpoint mode, recompute the checkpoint-to-final-`HEAD` delta and affected-gate analysis;
+* reconcile the applicability matrix so every required gate is `passed`, every non-applicable gate has a concrete reason, and no gate remains `unresolved`;
+* freshly reconcile acceptance coverage and mutable tracker/lifecycle evidence;
+* rerun every gate newly affected by verification-owned changes.
+
+When repository content changed, rerun `git diff --check "$BASELINE_COMMIT"`. Rerun Ruff, Mypy, targeted tests, database, documentation/workflow/configuration/tracker, architecture/wiki, and duplication checks only when their applicability remains established or checkpoint invalidation analysis requires them.
 
 Do not report success while any required gate remains failed or unresolved.
 
@@ -383,14 +479,17 @@ Persist on the Spec:
 **Verified HEAD:** <FINAL_HEAD>
 **Verified Baseline:** <BASELINE_COMMIT>
 **Branch:** spec-<spec_issue_number>
+**Verification mode:** full | checkpoint
+**Prior verified checkpoint:** None | <full prior Verified HEAD>
 **Change surfaces:** <classified surfaces>
 
 ### Verification gates
-- <gate>: passed — <evidence>
+- <gate>: passed — <fresh evidence>
+- <gate>: passed — inherited from checkpoint <SHA>; unaffected by complete delta/invalidation analysis
 - <gate>: not-applicable — <reason>
 ```
 
-The receipt attests only to that exact `HEAD` and the recorded durable tracker state. Do not write a passing receipt while any required gate is failed or unresolved, and never reuse a stale receipt.
+The receipt attests only to that exact `HEAD` and the recorded durable tracker state. A prior receipt is historical checkpoint evidence only and never substitutes for this new receipt. Do not write a passing receipt while any required gate is failed or unresolved, and never reuse a stale receipt as current authorization.
 
 Receipt persistence failure means verification is incomplete.
 
@@ -400,8 +499,10 @@ Report:
 
 * baseline and final `HEAD`;
 * Spec branch;
+* verification mode and prior verified checkpoint when used;
+* complete checkpoint-to-final-`HEAD` delta when checkpoint mode is used;
 * classified change surfaces;
-* applicable verification gates and results;
+* applicable verification gates and results, distinguishing freshly executed from checkpoint-inherited proof;
 * non-applicable gates with reasons;
 * acceptance evidence;
 * failures repaired;

@@ -1,6 +1,6 @@
 ---
 name: verify-root-closure
-description: Independently verify Root Blocker closure for a Spec Review remediation ticket in the fresh non-mutating verifier subagent dispatched by `$implement-ticket` after explicit human authorization.
+description: Independently verify Root Blocker closure for a Spec Review remediation ticket across the authoritative surfaces governed by the root, in the fresh non-mutating verifier subagent dispatched by `$implement-ticket` after explicit human authorization.
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,7 +9,13 @@ disable-model-invocation: true
 
 Independently certify or reject closure of one Root Blocker for a **Spec Review remediation ticket**.
 
-Closure certification is coverage-driven. A `PASS` must prove the complete current Root Blocker contract against the current repository state. Prior `PASS`, `satisfied`, `preserved`, or closure status is durable history and routing context, never current proof.
+Closure certification is coverage-driven and surface-neutral:
+
+> Repository location does not determine root-closure verification discipline. Derive the required proof from the stable Root Blocker invariant, cumulative acceptance contract, and the actual authoritative surfaces governed by the root.
+
+A root may govern code/runtime, tests, documentation/ADR, agent skills/workflow policy, repository configuration, CI/automation, data/schema/migrations, tracker-only state, or a mixed union of those surfaces.
+
+A `PASS` must prove the complete current Root Blocker contract against current authoritative state. Prior `PASS`, `satisfied`, `preserved`, or closure status is durable history and routing context, never current proof.
 
 ## Invocation Semantics
 
@@ -29,18 +35,18 @@ It may:
 
 * read and search repository/tracker evidence;
 * inspect Git state and history;
-* run targeted checks required for current-root closure or preservation obligations.
+* run non-mutating targeted checks required for current-root closure or preservation obligations.
 
 It must not:
 
 * edit, create, delete, move, format, or generate repository files;
-* modify Git, branch, commit, or tracker state;
+* modify Git, branch, commit, issue, native relationship, label, Project, or other tracker state;
 * run fixers or repository-mutating commands;
 * perform implementation or remediation;
 * invoke implementation/remediation workflows;
 * delegate or spawn another agent or subagent.
 
-A discovered implementation defect is evidence for `ROOT CLOSURE: FAIL`, never authorization to repair it.
+A discovered defect is evidence for `ROOT CLOSURE: FAIL`, never authorization to repair it.
 
 A verifier that mutates or delegates has not performed valid root-closure verification.
 
@@ -64,14 +70,16 @@ Read:
 
 Use the caller-provided `TICKET_BASELINE`.
 
-Inspect the current implementation state:
+When repository state is part of the root, inspect:
 
 ```bash
 git status --short
 git diff --name-status "$TICKET_BASELINE"
 ```
 
-Search before reading. Locate relevant symbols, contracts, citations, and call sites, then read the smallest useful surrounding regions.
+When tracker state is part of the root, independently re-read the exact canonical issues, native hierarchy/dependencies, labels, durable lifecycle fields/comments, focus singleton, or Project projection required by the root. Project state is evidence only where the governing contract makes projection itself the subject; it never becomes workflow authority.
+
+Search before reading. Locate the smallest authoritative source/tracker surfaces needed to prove the root.
 
 Do not rely on the implementer's narrative to determine what changed or what must be proven.
 
@@ -84,11 +92,11 @@ Before substantive verification, establish that the verification run itself is v
 Fail immediately without continuing the scan if:
 
 * required ticket/root state cannot be recovered;
-* `TICKET_BASELINE` is invalid or unavailable;
-* the required repository state cannot be inspected;
+* `TICKET_BASELINE` is invalid or unavailable when repository state is part of the candidate;
+* required repository or tracker state cannot be inspected;
 * the verifier mutates repository/tracker state;
 * the verifier delegates or spawns another agent;
-* the repository implementation state changes during verification;
+* candidate repository or root-required tracker state changes during verification;
 * another condition makes subsequent evidence untrustworthy.
 
 These are **verifier-integrity failures**, not Root Blocker implementation failures.
@@ -97,25 +105,31 @@ Do not emit `ROOT CLOSURE: PASS` or `ROOT CLOSURE: FAIL` from an invalid run.
 
 Return the invalidation reason to `$implement-ticket`, which owns recovery and fresh dispatch.
 
-## 3. Derive Closure Obligations Independently
+## 3. Classify Root Surfaces and Derive Closure Obligations
 
-The stable Root Blocker invariant is authoritative over enumerated symptoms.
+The stable Root Blocker invariant is authoritative over enumerated symptoms. The cumulative acceptance contract remains required evidence and must not be silently narrowed.
 
-The cumulative acceptance contract remains required evidence and must not be silently narrowed.
+Classify every surface needed to prove the root using these classes as applicable:
 
-Independently derive the bounded contract surface required to prove the root, including applicable:
+* **Code** — production/library/runtime source;
+* **Tests** — tests, fixtures, harnesses, test configuration;
+* **Documentation** — docs, ADRs, wiki content;
+* **Agent skills / workflow policy** — skills, lifecycle contracts, tracker/process policy;
+* **Repository configuration** — package/tool/runtime configuration;
+* **CI / automation** — workflows, scripts, release/qualification automation;
+* **Data / schema / migrations** — models, migrations, durable serializers/contracts;
+* **Tracker-only state** — issues, native relationships, labels, durable workflow state, focus, Project projection.
 
-* constructors/factories and defaults;
-* producers;
-* persistence/result boundaries;
-* adapters/facades;
-* callers and consumers;
-* DI/bootstrap/composition;
-* named production entrypoints;
-* sibling surfaces;
-* publication/release/materialization boundaries;
-* negative/bypass paths;
-* tests representing those paths.
+`Mixed` means apply the union of all relevant classes.
+
+Independently derive the bounded contract surface required to prove the root. Depending on the classification, that may include:
+
+* runtime constructors/factories/defaults, producers/consumers, adapters/facades, DI/bootstrap/composition, persistence/result boundaries, entrypoints, sibling paths, negative/bypass paths, and representative tests;
+* skill owners, invocation boundaries, handoffs, guard paths, default/fallback workflow behavior, re-entry/completion paths, dependency/provenance writers, and Project-projection boundaries;
+* documentation/ADR normative claims, realization/lifecycle state, citations, and competing source-of-truth claims;
+* configuration/CI schemas, defaults, alternate configuration paths, enabled/disabled automation, dry-run/failure behavior;
+* schema/migration ordering, persistence/reconstruction contracts, and database proof where required;
+* canonical tracker provenance, hierarchy, native dependencies, focus state, lifecycle transitions, idempotency/reconciliation, and exact post-mutation rereads.
 
 Do not expand into unrelated review.
 
@@ -129,8 +143,8 @@ Create cells for every applicable:
 * verification obligation;
 * carried acceptance cell, including cells already recorded as satisfied;
 * same-root preservation obligation;
-* production/composition/sibling surface independently required by the stable invariant;
-* negative, bypass, fail-closed, alternate-authority, or alternate-evidence-selection path independently required by the stable invariant.
+* authoritative/sibling surface independently required by the stable invariant;
+* negative, bypass, fail-closed, alternate-authority, fallback, re-entry, or alternate-evidence path independently required by the invariant.
 
 Each cell records:
 
@@ -138,16 +152,16 @@ Each cell records:
 Coverage: RC-<n>
 Kind: <remediation | verification | acceptance | preservation | invariant-sweep>
 Obligation: <exact durable obligation or invariant-derived requirement>
-Surfaces: <source/test/production surfaces requiring inspection>
+Surfaces: <authoritative files/artifacts/tracker state requiring inspection>
 State: <unchecked | proven | violated | unproven>
 Evidence: <current evidence when dispositioned>
 ```
 
 Rules:
 
-* construct the manifest from durable root state, the stable invariant, authoritative Spec/architecture, and current repository discovery — not from the implementer's Proposed Root Closure Evidence;
-* prior closure evidence may identify useful symbols, tests, or surfaces to re-check, but it must not initialize a cell as `proven`;
-* a prior `PASS`, `satisfied`, `satisfied/closed`, `preserved`, unchanged-file status, or ticket closure is never current proof;
+* construct the manifest from durable root state, the stable invariant, authoritative Spec/architecture, and current independent discovery — not from Proposed Root Closure Evidence;
+* prior closure evidence may identify useful surfaces to re-check, but must not initialize a cell as `proven`;
+* prior `PASS`, `satisfied`, `preserved`, unchanged-file status, or ticket closure is never current proof;
 * do not silently remove or merge materially distinct carried cells;
 * if the scan discovers another material manifestation of the same stable invariant, add an `invariant-sweep` cell and evaluate it before verdict;
 * only durable state that explicitly supersedes, retires, or Owner-overrides an obligation removes it from the current-root manifest.
@@ -158,28 +172,17 @@ Coverage is complete only when every manifest cell is `proven`, `violated`, or `
 
 Every carried satisfied cell applicable to the current root remains a current closure obligation.
 
-Re-prove each carried same-root cell against the current repository state even when the current remediation ticket did not modify its surface.
+Re-prove each carried same-root cell against current authoritative state even when the remediation ticket did not modify its surface.
 
-Do not treat satisfied cells as new remediation work, but do not accept their historical status as proof.
-
-This same-root rule is intentionally stronger than protected-root verification below: previously missed sibling or bypass defects must be discoverable before the root can close again.
+Do not treat satisfied cells as new remediation work, but do not accept historical status as proof.
 
 ### Protected Roots
 
 From the latest Spec Review state, independently derive previously satisfied **other Root Blockers** whose governed surfaces/contracts intersect the current ticket's modified surfaces.
 
-Relevant intersections include the same:
+Relevant intersections may include the same runtime path/service/repository, typed contract/evidence object, adapter/persistence boundary, workflow owner/handoff/guard, documentation authority, configuration/CI path, schema/migration boundary, tracker lifecycle/relationship/projection, canonical owner, or named sibling surface.
 
-* production path;
-* façade/service/repository;
-* typed contract or evidence object;
-* adapter/persistence boundary;
-* canonical owner;
-* explicitly named sibling surface.
-
-Protected roots are Root Blocker IDs, not remediation-ticket numbers.
-
-Do not trust the implementer's protected-root list.
+Protected roots are Root Blocker IDs, not remediation-ticket numbers. Do not trust the implementer's protected-root list.
 
 ## 4. Verify the Current Root
 
@@ -187,66 +190,44 @@ Evaluate every `RC-*` cell in the Root Closure Coverage Manifest.
 
 For each:
 
-1. inspect the actual current source path;
-2. verify required production composition/wiring where relevant;
-3. identify concrete current source/test evidence;
-4. determine whether that evidence proves the invariant at the required boundary;
+1. inspect the actual current authoritative surface;
+2. verify required composition/wiring/lifecycle/state transition where relevant;
+3. identify concrete current evidence appropriate to that surface;
+4. determine whether the evidence proves the invariant at the required boundary;
 5. record `proven`, `violated`, or `unproven` with evidence.
 
-A result is `proven` only when current evidence establishes the required behavior.
+A result is `proven` only when current evidence establishes the required behavior/state.
 
-Never mark a cell `proven` solely because:
+Never mark a cell `proven` solely because a prior verifier passed it, durable state labels it satisfied/preserved, the implicated file is unchanged, a previous ticket claimed it fixed, or Proposed Root Closure Evidence says it is covered.
 
-* a prior verifier passed it;
-* durable state says `satisfied` or `preserved`;
-* the implicated code is unchanged from an earlier reviewed HEAD;
-* a previous ticket claimed the obligation was fixed;
-* the implementer's Proposed Root Closure Evidence says it is covered.
+Proof must match the surface. Examples:
 
-Unchanged code may help bound history analysis, but current source/test evidence is still required.
+* runtime behavior may require source plus targeted production-boundary tests;
+* workflow policy may require skill contracts plus canonical tracker-state/re-entry/idempotency evidence;
+* documentation/ADR obligations may require exact normative text, lifecycle state, and source consistency;
+* configuration/CI obligations may require schema/syntax/dry-run/effective-state proof;
+* migrations may require migration/database proof;
+* tracker-only obligations may require exact canonical re-reads of native relationships and durable lifecycle/focus/projection state.
 
-Unless the obligation itself is lower-level, the following are insufficient:
+Do not manufacture code tests for non-code obligations.
 
-* aggregate test counts;
-* mock-only proof of production composition;
-* request forwarding without proving acquisition/consumption;
-* schema/read coverage without required write/lifecycle proof;
-* helper-level success when the required production boundary differs;
-* unsupported assertions in Proposed Root Closure Evidence.
-
-When fail-closed or caller-exclusion behavior is required, verify applicable:
-
-* absence;
-* mismatch;
-* substitution;
-* malformed input;
-* stale/replayed state;
-* persistence failure;
-* unavailable evidence;
-* bypass;
-* optional/`None` dependencies and default-success paths;
-* direct-construction and compatibility paths;
-* caller-selected identity/correlation/version/tier/authority/provenance;
-* metadata, mapping, type-recovery, or forged-context authority/evidence paths;
-* alternate authority/evidence-selection paths.
+For negative or fail-closed invariants, inspect the bypass forms appropriate to the surface. This may include runtime defaults/direct construction/fallbacks, alternate workflow entry/handoff paths, inferred tracker authority, stale/replayed lifecycle state, conflicting documentation authority, alternate configuration/defaults, partial-mutation recovery, unavailable dependencies, or other routes by which the forbidden condition could still occur.
 
 ### Adversarial Root Invariant Sweep
 
 After dispositioning explicit remediation and carried acceptance cells, independently sweep from the **stable Root Blocker invariant outward** rather than from the ticket diff inward.
 
-Use repository/source search to locate all materially relevant current implementations, callers, sibling transports, constructors/defaults, registration/bootstrap paths, persistence/reconstruction paths, and success/failure branches that could satisfy or bypass the invariant.
+Search all materially relevant current surfaces—changed or unchanged—that could satisfy or bypass the invariant. For workflow/tracker roots, explicitly inspect ownership, guards, handoffs, re-entry, idempotency, native relationship semantics, and projection-authority boundaries. For code/runtime roots, inspect the relevant construction/composition/persistence/alternate paths. Use analogous authoritative surfaces for docs/config/migrations.
 
-For negative invariants, explicitly search for alternate ways the forbidden behavior could still occur. Do not infer root closure merely because the intended canonical path exists.
+For negative invariants, explicitly search for alternate ways the forbidden behavior could still occur. Do not infer closure merely because the intended canonical path exists.
 
-The sweep is bounded by the stable root invariant, but it may and often must inspect unchanged files outside the current ticket diff.
+The sweep is bounded by the stable root invariant but may inspect unchanged surfaces outside the current ticket diff.
 
 Add every newly discovered material same-root manifestation to the Coverage Manifest and disposition it before verdict.
 
-If accepted architecture already determines a responsibility but implementation is missing or incorrect, classify it as an **implementation violation**, not unresolved architecture.
+If accepted architecture already determines a responsibility but realization is missing or incorrect, classify it as an **implementation violation**, not unresolved architecture.
 
-If proceeding would genuinely require a new durable architectural choice, record an `architecture-blocker candidate`.
-
-Do not resolve, route, or remediate it here.
+If proceeding would genuinely require a new durable architectural choice, record an `architecture-blocker candidate`. Do not resolve, route, or remediate it here.
 
 ## 5. Root Closure Completeness Gate
 
@@ -258,9 +239,9 @@ Require:
 Root coverage: <n> cells; proven <n>; violated <n>; unproven <n>; unchecked 0
 ```
 
-The verifier must be able to account for every carried acceptance cell and every material same-root surface discovered by the invariant sweep.
+The verifier must account for every carried acceptance cell and every material same-root surface discovered by the invariant sweep.
 
-A summary statement such as “prior cells preserved,” “previous closure remains valid,” or “no affected changes” cannot substitute for per-cell current evidence.
+A summary such as “prior cells preserved,” “previous closure remains valid,” or “no affected changes” cannot substitute for per-cell current evidence.
 
 A root with any `violated` or `unproven` cell cannot pass.
 
@@ -268,7 +249,7 @@ A root with any `violated` or `unproven` cell cannot pass.
 
 Once a valid verification scan begins, **do not fail fast on implementation or proof defects**.
 
-When any current-root, preservation, protected-root, negative-path, production-composition, or proof obligation fails:
+When any current-root, preservation, protected-root, negative-path, authoritative-surface, or proof obligation fails:
 
 1. record the failure with concrete evidence;
 2. continue the remaining bounded closure scan;
@@ -292,41 +273,25 @@ For every independently derived protected root:
 3. rerun only proof affected by the current ticket;
 4. record whether the root remains preserved.
 
-If adequate proof cannot establish preservation, mark the protected root `unproven`.
+If adequate current proof cannot establish preservation, mark the protected root `unproven`.
 
-A protected root contributes to final `FAIL` when violated or unproven.
-
-Continue verifying remaining protected roots after discovering one failure.
+A protected root contributes to final `FAIL` when violated or unproven. Continue verifying remaining protected roots after discovering one failure.
 
 ## 8. Verification Scope
 
-Run only checks required to establish:
-
-* complete current-root coverage;
-* same-root carried acceptance and preservation obligations;
-* affected protected-root preservation;
-* independent Root Invariant Sweep coverage.
+Run only checks required to establish complete current-root coverage, carried acceptance/preservation obligations, affected protected-root preservation, and independent Root Invariant Sweep coverage.
 
 The current-root boundary is the stable Root Blocker invariant, not the current ticket diff.
 
-Inspecting unchanged sibling/source paths required to prove that invariant is targeted root verification, not unrelated broad review.
+Inspecting unchanged sibling/source/tracker paths required to prove that invariant is targeted root verification, not unrelated broad review.
 
-Targeted tests spanning production composition or sibling surfaces are required when necessary proof; they are not optional broad verification.
+Run targeted tests only when tests are necessary proof for the applicable root surface. Do not run unrelated full test suites, repository-wide lint/type checks, coverage suites, or integration suites unrelated to the root.
 
-Do not run unrelated:
+Do not fix failures. A failed targeted check is recorded and does not terminate the bounded scan unless it invalidates verifier integrity.
 
-* full test suites;
-* repository-wide lint/type checks;
-* coverage suites;
-* integration suites unrelated to the root.
+## 9. Candidate-State Integrity
 
-Do not fix failures.
-
-A failed targeted check is recorded and does not terminate the bounded scan unless it invalidates verifier integrity.
-
-## 9. Worktree Fingerprint
-
-After the bounded scan, confirm and record the exact verified implementation state:
+After the bounded scan, confirm and record the exact verified repository candidate state:
 
 ```bash
 ROOT_CLOSURE_STATE=$(
@@ -339,22 +304,21 @@ ROOT_CLOSURE_STATE=$(
 )
 ```
 
-Return both:
+Return:
 
 * `TICKET_BASELINE`;
-* `ROOT_CLOSURE_STATE`.
+* `ROOT_CLOSURE_STATE`;
+* the exact root-required durable tracker-state evidence/read set, or `Tracker state: not-applicable`.
 
-The caller-provided candidate state and returned `ROOT_CLOSURE_STATE` must describe the same state.
+The caller-provided candidate repository state and returned `ROOT_CLOSURE_STATE` must match. Root-required tracker state must also remain unchanged during the verifier run.
 
-If the implementation state changed during verification, invalidate the run rather than reconcile it.
+If candidate repository or tracker state changed during verification, invalidate the run rather than reconcile it.
 
-`$implement-ticket` owns candidate-state integrity and verdict invalidation.
-
-Any implementation change after a valid `PASS` makes that verdict stale.
+`$implement-ticket` owns candidate-state integrity and verdict invalidation. Any implementation/tracker change after a valid `PASS` makes that verdict stale when it affects the verified root state.
 
 ## 10. Verdict
 
-Emit a verdict only after the complete bounded scan, Root Closure Completeness Gate, and final fingerprint succeed.
+Emit a verdict only after the complete bounded scan, Root Closure Completeness Gate, and candidate-state integrity checks succeed.
 
 ### PASS
 
@@ -366,7 +330,7 @@ Return `PASS` only when:
 * every carried acceptance cell has current proof;
 * every same-root preservation obligation has current proof;
 * the adversarial Root Invariant Sweep finds no remaining in-scope violation;
-* required production composition and sibling surfaces are proven;
+* every required authoritative and sibling surface is proven;
 * required negative/fail-closed behavior is proven;
 * every protected root is preserved;
 * Proposed Root Closure Evidence contains no materially unsupported claim.
@@ -377,7 +341,8 @@ Use:
 ROOT CLOSURE: PASS
 
 Root: RB-<n> — <invariant>
-Production path: <path proven>
+Production path: <authoritative path/boundary proven>
+Root surfaces: <classified surfaces>
 Root coverage: <n> cells; proven <n>; violated 0; unproven 0; unchecked 0
 
 Acceptance:
@@ -397,6 +362,10 @@ Protected roots:
 Targeted verification:
 - <check>: passed
 
+Tracker state:
+- <canonical root-required state/evidence>
+- or not-applicable
+
 TICKET_BASELINE: <sha>
 ROOT_CLOSURE_STATE: <sha256>
 ```
@@ -411,6 +380,7 @@ If one or more required obligations are violated or unproven, return **all indep
 ROOT CLOSURE: FAIL
 
 Root: RB-<n> — <invariant>
+Root surfaces: <classified surfaces>
 Root coverage: <n> cells; proven <n>; violated <n>; unproven <n>; unchecked 0
 
 Current-root failures:
@@ -440,17 +410,15 @@ Required corrections:
 Targeted verification:
 - <check>: passed|failed — <relevant evidence>
 
+Tracker state:
+- <canonical root-required state/evidence>
+- or not-applicable
+
 TICKET_BASELINE: <sha>
 ROOT_CLOSURE_STATE: <sha256>
 ```
 
-Do not stop after the first failure.
-
-Do not duplicate one underlying failure as several corrections unless the failures are independently actionable.
-
-Do not downgrade required failures to advisory findings.
-
-Do not repair any failure before returning the verdict.
+Do not stop after the first failure. Do not duplicate one underlying failure as several corrections unless independently actionable. Do not downgrade required failures to advisory findings. Do not repair any failure before returning the verdict.
 
 ## Completion
 
@@ -459,20 +427,8 @@ A valid verifier execution completes with exactly one independent verdict after 
 * `ROOT CLOSURE: PASS`; or
 * `ROOT CLOSURE: FAIL`.
 
-A verifier-integrity failure produces no closure verdict and requires fresh dispatch.
+A verifier-integrity failure produces no closure verdict and requires fresh dispatch. `FAIL` keeps the remediation ticket open.
 
-`FAIL` keeps the remediation ticket open.
-
-`$implement-ticket` alone owns:
-
-* correcting consolidated failures;
-* applying its Architecture vs. Implementation rule to architecture-blocker candidates;
-* rerunning affected implementation verification;
-* rebuilding Proposed Root Closure Evidence;
-* requesting fresh human authorization;
-* dispatching a fresh `$verify-root-closure` verifier;
-* committing and pushing;
-* persisting final Root Closure Evidence;
-* closing the ticket.
+`$implement-ticket` alone owns correcting consolidated failures, applying Architecture vs. Implementation to architecture-blocker candidates, rerunning affected implementation verification, rebuilding Proposed Root Closure Evidence, requesting fresh human authorization, dispatching a fresh verifier, committing/pushing when applicable, persisting final Root Closure Evidence/Reconciliation, and closing the ticket.
 
 This skill does not replace `$verify-code`, `$verify-spec`, or `$review-spec`.

@@ -55,6 +55,42 @@ if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
 fi
 ```
 
+### Project Delivery Actionability Guard
+
+Before persisting a pending Ticket baseline or making any other tracker/repository mutation, resolve the parent Spec and determine whether it is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
+
+For a Spec Review remediation ticket, use its durable `Parent Spec` lineage for this guard. The Spec Review remains remediation provenance; it is not a substitute project-delivery governor.
+
+An intentionally non-Wayfinder Spec keeps the existing implementation lifecycle. Do not invent a governing Wayfinder merely to enroll it into project focus.
+
+For a Wayfinder-managed Spec:
+
+1. require the parent Spec to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated or unreadable;
+3. stop if any direct Spec blocker is open;
+4. recover every current governing Wayfinder; ambiguous governance fails closed rather than choosing one;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for every governor;
+7. require at least one governor to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If no governor is allowed, stop before Ticket-baseline persistence, implementation, verification, or ticket-state mutation. Report the governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$implement-ticket` never establishes, switches, or broadens focus.
+
+A legitimately reopened blocker Spec makes existing tickets under the dependent Spec non-actionable again through the unchanged native dependency edge. Ticket publication, prior ticket completion, Project state, or a prior allowed invocation does not override current Spec blocker state.
+
+Capture whether the successful entry guard returned `Mode: pre-bootstrap`.
+
+Re-run this guard on every resumed human invocation before further substantive work. Internal child/helper workflows dispatched by an already-authorized `$implement-ticket` lifecycle inherit that parent authorization and must not introduce a redundant project-focus Human Handoff; a distinct later human lifecycle performs its own guard.
+
+If **this same ticket lifecycle** is the atomic bootstrap/cutover operation that activates project delivery after entering with `Mode: pre-bootstrap`, preserve that captured entry authorization only through this ticket's commit/push/closure as allowed by `$project-delivery-management`'s **Bootstrap Activation Boundary**. The cutover may not retroactively block the operation required to create it.
+
+That exception:
+
+* applies only when this ticket itself activates the canonical label + singleton cutover;
+* never bypasses a direct Wayfinder blocker or reopened/open parent-Spec dependency;
+* may not establish, switch, or broaden focus;
+* expires when this ticket closes;
+* may not authorize any downstream human lifecycle or handoff after activation.
+
 ### Ticket Baseline Guard
 
 **Ticket baseline** is the durable per-ticket verification anchor, distinct from the Spec baseline.
@@ -365,6 +401,8 @@ An explicit `$verify-root-closure` invocation received at this checkpoint is an 
 
 Resume `$implement-ticket` at this checkpoint rather than restarting implementation discovery or executing `$verify-root-closure` in the main agent.
 
+Before entering dispatcher-only mode on a resumed invocation, re-run the **Project Delivery Actionability Guard** when the parent Spec is Wayfinder-managed. The fresh verifier inherits that already-established parent lifecycle authorization; it does not perform a separate project-focus decision.
+
 #### Verifier Dispatch Invariant
 
 After authorization, the `$implement-ticket` main agent enters **dispatcher-only mode**.
@@ -511,6 +549,19 @@ fi
 ```
 
 Skip when **Ticket branch** is `None`.
+
+For a Wayfinder-managed parent Spec, re-run the **Project Delivery Actionability Guard** immediately before commit unless this exact ticket entered with `Mode: pre-bootstrap` and is itself the atomic cutover operation that activated project delivery.
+
+For that one bootstrap case, validate instead that:
+
+* the parent Spec and governing Wayfinder have not gained an open dependency/direct-map blocker;
+* the canonical activation label now exists;
+* exactly one valid open singleton exists with the migration-defined initial state;
+* the captured pre-bootstrap authorization belongs to this same still-open ticket lifecycle.
+
+Then allow this ticket to commit/close under the captured cutover authorization. Do not require the newly activated empty focus to authorize the operation that created it.
+
+For every other case, if dependency/focus authorization changed during implementation, do not commit or close under stale authorization; report the current durable blocker/focus state.
 
 ### Root Closure State Guard
 
@@ -731,7 +782,15 @@ For Spec Review remediation also report:
 * Root Closure Evidence persistence;
 * Root Closure Reconciliation persistence.
 
-After successful ticket closure, inspect the parent Spec's implementation-ticket state.
+After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` **after** the ticket closure is durable. Ticket closure remains authoritative even if reconciliation fails; in that case report the reconciliation failure and do not present a downstream lifecycle handoff that depends on current project-delivery state.
+
+Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again **without** reusing a bootstrap-cutover exception from the completed ticket.
+
+If no governing Wayfinder is currently allowed—for example, the bootstrap ticket has just activated the singleton with empty focus—do not advertise a downstream lifecycle as actionable. Instead report the governing Wayfinder set and the explicit human `$project-delivery-management` focus/switch/parallel action required before work continues.
+
+Only when current project-delivery authorization permits the parent Spec to advance should the normal ticket frontier handoff below be emitted.
+
+Then inspect the parent Spec's implementation-ticket state.
 
 * If one open, unblocked frontier ticket remains, halt with:
 

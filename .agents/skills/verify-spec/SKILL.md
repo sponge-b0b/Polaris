@@ -81,6 +81,30 @@ Capture its **Architecture Impact**:
 
 A Spec containing unresolved material architecture is not ready for verification.
 
+## Project Delivery Actionability Guard
+
+Before executing verification or mutating repository/tracker state, determine whether the Spec is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
+
+An intentionally non-Wayfinder Spec keeps the existing verification lifecycle. Do not invent a governing Wayfinder merely to enroll it into project focus.
+
+For a Wayfinder-managed Spec:
+
+1. require the Spec issue to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated or unreadable;
+3. stop if any direct blocker is open;
+4. recover every current governing Wayfinder; ambiguous governance fails closed rather than choosing one;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for every governor;
+7. require at least one governor to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If no governor is allowed, stop before verification and report the governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$verify-spec` never establishes, switches, or broadens focus.
+
+A legitimately reopened blocker Spec makes this guard fail again through the unchanged native dependency relationship. Ticket completion, prior verification work, Project state, or a stale receipt does not override current blocker state.
+
+Internal child workflows invoked by this already-authorized `$verify-spec` lifecycle inherit the parent authorization and must not introduce a second project-focus Human Handoff. A distinct later human lifecycle invocation must perform its own guard.
+
+Re-run this guard immediately before persisting a passing **Spec Verification Receipt**. If authorization or dependency eligibility changed during verification, do not write a passing receipt.
+
 ## 3. Execute Verification
 
 ### Guardrails
@@ -373,7 +397,11 @@ fi
 
 ## 8. Record the Verification Receipt
 
-Only after all required gates pass, fixes are committed/pushed, and the worktree is clean:
+Only after all required gates pass, fixes are committed/pushed, and the worktree is clean, re-run the **Project Delivery Actionability Guard** when the Spec is Wayfinder-managed.
+
+If current dependency/focus authorization no longer permits this Spec to advance, do not write a passing receipt. Report the current blocker/focus state and leave completed verification evidence as non-authoritative until a fresh authorized lifecycle resumes.
+
+Then capture:
 
 ```bash
 FINAL_HEAD=$(git rev-parse HEAD)

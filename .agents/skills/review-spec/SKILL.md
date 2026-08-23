@@ -132,6 +132,30 @@ Do not invoke `$verify-spec` implicitly.
 
 Any commit after verification makes the receipt stale.
 
+#### Project Delivery Actionability Guard
+
+Before reviewer dispatch or any review-state persistence, determine whether the Spec is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
+
+An intentionally non-Wayfinder Spec keeps the existing review lifecycle. Do not invent a governing Wayfinder merely to enroll it into project focus.
+
+For a Wayfinder-managed Spec:
+
+1. require the Spec issue to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated or unreadable;
+3. stop if any direct blocker is open;
+4. recover every current governing Wayfinder; ambiguous governance fails closed rather than choosing one;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for every governor;
+7. require at least one governor to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If no governor is allowed, stop before reviewer dispatch and report the governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$review-spec` never establishes, switches, or broadens focus.
+
+A legitimately reopened blocker Spec makes this guard fail again through the unchanged native dependency edge. A prior passing verification receipt does not override current dependency/focus state.
+
+`$review-spec-remediation` is an internal continuation of this already-authorized review lifecycle. It inherits the parent project-delivery authorization and must not introduce a redundant focus Human Handoff. A later distinct human `$review-spec` invocation performs this guard again.
+
+Re-run this guard immediately before persisting either **Pending Review Remediation** or the final **Spec Review Exit Receipt**. If dependency/focus authorization changed during review, do not persist lifecycle advancement under stale authorization.
+
 ### 4. Recover Durable Review State
 
 Before reviewer dispatch, determine whether a Spec Review already exists.
@@ -633,7 +657,9 @@ Blocking Architecture findings with `Architecture decision required: No` are ord
 
 ## 9. Pending Remediation
 
-If Blocking findings remain and none require architecture resolution, persist a durable **Pending Review Remediation** section on the existing Spec Review issue.
+If Blocking findings remain and none require architecture resolution, re-run the **Project Delivery Actionability Guard** before persisting review-remediation state.
+
+Then persist a durable **Pending Review Remediation** section on the existing Spec Review issue.
 
 If no Spec Review issue exists yet, create the parent tracking issue first using the existing Spec Review convention:
 
@@ -716,6 +742,8 @@ Spec Review: <Feature Name> (<Issue URL>)
 
 Wait for its result.
 
+The internal `$review-spec-remediation` continuation inherits this review invocation's project-delivery authorization; do not introduce another project-focus Human Handoff inside that child.
+
 If `$review-spec-remediation` returns a genuine architecture blocker, apply the **Architecture Human Handoff** above and stop.
 
 If it returns its `$to-tickets` Human Handoff, first present the Section 8 aggregate review results and Root Blocker Status required above, then append the returned Human Handoff exactly and stop.
@@ -738,7 +766,11 @@ Advisory findings may remain.
 
 ### Persist Exit Receipt
 
-Only after the Exit Gate passes, persist on the parent Spec:
+Only after the Exit Gate passes, re-run the **Project Delivery Actionability Guard** when the Spec is Wayfinder-managed.
+
+If current dependency/focus authorization no longer permits the Spec to advance, do not persist an exit receipt or hand off cleanup under stale authorization.
+
+Then persist on the parent Spec:
 
 ```markdown
 ## Spec Review Exit Receipt

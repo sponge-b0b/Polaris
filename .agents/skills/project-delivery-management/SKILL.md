@@ -198,7 +198,7 @@ The durable control artifact is exactly one long-lived GitHub issue carrying the
 project-delivery:management
 ```
 
-The label is the canonical discovery key. The title `Project Delivery Management` is presentation, not identity.
+The label is the canonical discovery and **bootstrap activation** key. The title `Project Delivery Management` is presentation, not identity.
 
 The singleton:
 
@@ -207,9 +207,47 @@ The singleton:
 * must not carry `workflow:tracked`;
 * is not workflow truth because of any GitHub Project membership.
 
-Bootstrap/migration owns creating the singleton and required label. After bootstrap, this skill fails closed if discovery returns zero or more than one matching issue.
+Bootstrap/migration owns creating the label and singleton.
 
-Discover across open and closed issues so a mistakenly closed singleton cannot be bypassed by creating another:
+### Bootstrap Activation Boundary
+
+Project-delivery focus enforcement has two durable phases so the workflow can implement its own cutover without a circular dependency.
+
+**Pre-bootstrap** means the repository does not yet contain the canonical `project-delivery:management` label.
+
+In pre-bootstrap mode:
+
+* no singleton is expected and no focused-set state exists;
+* `guard <Wayfinder>` still validates that the target is a canonical open Wayfinder with no open direct map blocker;
+* an eligible target returns `PROJECT DELIVERY GUARD: ALLOWED` with `Mode: pre-bootstrap`;
+* a directly blocked target still returns `PROJECT DELIVERY GUARD: BLOCKED`;
+* `reconcile` performs no focus mutation because focus authority is not activated yet;
+* `status` reports `PROJECT DELIVERY MANAGEMENT: NOT BOOTSTRAPPED` plus the derivable Wayfinder frontier;
+* human `focus`, `switch-focus`, and `parallel-focus` operations are unavailable because there is no durable focus owner yet;
+* cross-Wayfinder dependency validation/mutation may still operate because native dependency semantics do not depend on the singleton focused set.
+
+This is a temporary cutover compatibility mode, not an alternate scheduler. Do not infer or persist focus while pre-bootstrap.
+
+**Activation begins when the canonical label exists.** From that point forward, require exactly one matching open singleton. Zero, multiple, or closed matching control issues fail closed. A partially applied migration that created the label but not a valid singleton is therefore invalid rather than silently treated as pre-bootstrap.
+
+Migration should create the label and singleton in one audited cutover sequence and initialize:
+
+```text
+Focused Wayfinders: None
+Parallel authorization: None
+```
+
+An already-running lifecycle that entered with `PROJECT DELIVERY GUARD: ALLOWED` in `Mode: pre-bootstrap` may finish **only that current atomic bootstrap/cutover lifecycle** if it is the operation activating project delivery. Activation during that invocation does not retroactively invalidate the authorization that was required to perform the cutover itself.
+
+That inherited pre-bootstrap authorization:
+
+* may not authorize a new human lifecycle after cutover;
+* may not establish, switch, or broaden focus;
+* may not be used to emit a downstream lifecycle handoff that requires focused delivery after activation.
+
+Every later human lifecycle observes the activated singleton and normal focus rules.
+
+When activation is in effect, discover across open and closed issues so a mistakenly closed singleton cannot be bypassed by creating another:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
@@ -292,7 +330,7 @@ Lower-level blockers remain lower-level.
 
 ## Validate Current Focus
 
-Parse the singleton current-state block and validate it against canonical tracker state.
+When bootstrap activation is in effect, parse the singleton current-state block and validate it against canonical tracker state.
 
 Require:
 
@@ -307,7 +345,9 @@ If current state is malformed or ambiguous, fail closed.
 
 ## Deterministic Reconciliation
 
-`reconcile` may change focus only when canonical state forces the consequence.
+In pre-bootstrap mode, `reconcile` reports the derivable Wayfinder frontier and performs no focus mutation.
+
+After activation, `reconcile` may change focus only when canonical state forces the consequence.
 
 1. Re-read the singleton.
 2. Re-read canonical `wayfinder:map` issues and their direct blockers.
@@ -341,7 +381,9 @@ Later lifecycle-integration tickets own the exact lower-level frontier recovery 
 
 ## Human Focus Operations
 
-Always re-read canonical state immediately before mutation.
+Human focus operations are unavailable in pre-bootstrap mode. Bootstrap/migration activates the singleton with empty focus; a later explicit human invocation may then choose focus.
+
+After activation, always re-read canonical state immediately before mutation.
 
 ### `focus <Wayfinder>`
 
@@ -391,7 +433,18 @@ Later eligible maps are not members unless a new explicit `parallel-focus` invoc
 
 The caller must supply or durably resolve the exact governing Wayfinder before calling this operation.
 
-Re-read and reconcile current state first.
+Re-read canonical map state first.
+
+If pre-bootstrap, return:
+
+```text
+PROJECT DELIVERY GUARD: ALLOWED
+Mode: pre-bootstrap
+```
+
+only when the target is a canonical open Wayfinder with zero open direct map blockers. A directly blocked target returns `PROJECT DELIVERY GUARD: BLOCKED` even before focus activation.
+
+After activation, re-read and reconcile current singleton state first.
 
 Return:
 
@@ -430,7 +483,14 @@ Do not mutate focus from an internal guard.
 
 `status` is read-only.
 
-Report:
+In pre-bootstrap mode, report:
+
+* `PROJECT DELIVERY MANAGEMENT: NOT BOOTSTRAPPED`;
+* current Wayfinder frontier;
+* directly blocked open Wayfinders and their open direct blockers;
+* that no focused-set authority exists yet.
+
+After activation, report:
 
 * singleton identity;
 * current focused Wayfinder set;
@@ -446,7 +506,7 @@ Do not order eligible-but-unfocused Wayfinders by Priority, age, number, Project
 
 Fail closed without semantic mutation when:
 
-* the singleton is missing after bootstrap;
+* bootstrap activation exists but the singleton is missing;
 * more than one singleton exists;
 * the singleton is closed;
 * the current-state block is missing, duplicated, malformed, or references non-Wayfinder issues;
@@ -464,16 +524,19 @@ PROJECT DELIVERY MANAGEMENT: INVALID STATE
 Reason: <exact durable-state, dependency, or eligibility failure>
 ```
 
+The absence of the canonical activation label is the one valid pre-bootstrap condition; once the label exists, a missing singleton is invalid.
+
 Project drift is never a reason to rewrite canonical focus or dependency state.
 
 ## Scope Boundary
 
 This skill may:
 
+* identify pre-bootstrap versus activated project-delivery state from the canonical label boundary;
 * discover the singleton and canonical Wayfinder maps;
 * derive the Wayfinder frontier from direct native blockers;
-* own and persist the focused Wayfinder set;
-* own and persist exact human parallel-focus authorization;
+* own and persist the focused Wayfinder set after activation;
+* own and persist exact human parallel-focus authorization after activation;
 * guard map-level substantive delivery authorization;
 * own semantic validation/write reconciliation for cross-Wayfinder dependencies;
 * delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
@@ -483,6 +546,7 @@ This skill may:
 This skill must not:
 
 * create/bootstrap or migrate the live singleton under this ticket;
+* infer or persist focus in pre-bootstrap mode;
 * own same-lineage dependency semantics;
 * create parent/sub-issue hierarchy while reconciling cross-Wayfinder dependencies;
 * infer dependencies from broad prose, Project state, labels, priority, similarity, or architectural overlap;

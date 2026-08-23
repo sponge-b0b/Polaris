@@ -1,6 +1,6 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, cleans up the branch and Spec Review, and reconciles completion with the originating Wayfinder map.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, cleans up the branch and Spec Review, and reconciles completion with every governing Wayfinder map.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -62,37 +62,71 @@ If the receipt is missing, malformed, or stale, halt:
 
 Do not invoke `$review-spec` implicitly.
 
+## Project Delivery Actionability Guard
+
+Before merge, direct close, or any other lifecycle mutation, determine whether the Spec is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
+
+An intentionally non-Wayfinder Spec keeps the existing cleanup lifecycle. Do not invent a Wayfinder merely to enroll it into project focus.
+
+For a Wayfinder-managed Spec:
+
+1. require the Spec to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated or unreadable;
+3. stop if any direct blocker is open;
+4. recover every current governing Wayfinder; ambiguous governance fails closed rather than choosing one;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for every governor;
+7. require at least one governor to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If none is allowed, stop before merge/close and report the governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. This skill never establishes, switches, or broadens focus.
+
+A legitimately reopened blocker Spec makes this guard fail again through the unchanged native dependency edge. Do not persist a parallel "unblocked" state.
+
+This explicit `$spec-merge-cleanup` invocation is a distinct human lifecycle entry and must revalidate authorization even though `$review-spec` was previously authorized.
+
 ## Wayfinder Completion Reconciliation
 
-After the current Spec is successfully closed, recover its originating Wayfinder map from the Spec provenance marker when present:
+Authoritative Spec closure is the Spec dependency-completion boundary. Once the current Spec is confirmed closed, existing native dependents observe that closure directly; do not write a second satisfaction marker.
 
-```html
-<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
-```
+Then recover **every current governing Wayfinder** for the completed Spec from:
 
-Determine every Spec derived from that map using explicit Wayfinder/Spec handoff metadata or the same provenance marker.
+* its canonical `wayfinder-source` marker;
+* every `wayfinder-remediation` marker; and
+* matching `Derived Spec` / `Remediation Spec` handoffs on canonical Wayfinder maps.
 
-If any derived Spec remains open, make no Wayfinder lifecycle change.
+Preserve the original `wayfinder-source`; remediation governance is additive and never rewrites source provenance.
 
-If all derived Specs are closed:
+For each recovered governing Wayfinder:
 
-* post one concise completion comment on the Wayfinder map identifying the completed derived Specs;
+1. recover its complete currently governed Spec set from both forward `Spec Handoff` metadata and reverse source/remediation provenance;
+2. require every recovered relationship to be unambiguous; do not guess or silently convert Derived/Remediation roles;
+3. determine whether any governed Spec remains open;
+4. determine whether the map still has any open Wayfinder decision ticket or unresolved in-scope `Not yet specified` fog;
+5. close the map only when **all** currently governed Derived and Remediation Specs are closed **and** no unresolved decision/fog remains.
+
+If a governed Spec remains open or decision/fog remains, leave an open Wayfinder open. Do not create a synthetic map blocker merely to represent the lower-level work.
+
+If a Wayfinder is already closed while the completion invariant is false, report the inconsistent lifecycle state and do not pretend it is complete or silently reopen it here. Explicit re-entry belongs to the owning re-entry workflow; historical inconsistent state is handled by migration/reconciliation.
+
+When a Wayfinder becomes complete:
+
+* post one concise completion comment identifying all currently governed Specs considered;
 * if the map is still open, close it;
-* if it is already closed, leave it closed.
-
-Do not reopen a closed Wayfinder map merely to close it again.
+* if it is already closed and the completion invariant is true, leave it closed.
 
 Example completion comment:
 
 ```text
-All implementation Specs derived from this Wayfinder effort are complete and closed: #<spec>, #<spec>.
+All Specs currently governed by this Wayfinder are complete and closed, with no unresolved decision/fog remaining: #<spec>, #<spec>.
 ```
 
-Failure to determine Wayfinder provenance is not a merge failure; report it and skip Wayfinder reconciliation rather than guessing.
+After all Spec/Wayfinder authoritative transitions are durable, invoke `$project-delivery-management` `reconcile`. A closed or directly map-ineligible focused Wayfinder must be removed from focus; a still-map-eligible Wayfinder with only narrower blocked work remains focused. Reconciliation never auto-selects a replacement.
+
+Failure to determine a governing relationship is not permission to guess and is not a reason to roll back an otherwise successful merge. Report the reconciliation failure, leave ambiguous Wayfinder state untouched, and do not claim Wayfinder completion for that relationship.
 
 ## Step 0 — Route: Standard vs. Direct Close
 
-Require a current passing **Spec Review Exit Receipt** before selecting either path.
+Require a current passing **Spec Review Exit Receipt** and pass the **Project Delivery Actionability Guard** before selecting either path.
 
 If `spec-<spec_issue_number>` does not exist locally or remotely, no PR will auto-close the Spec:
 
@@ -110,7 +144,7 @@ if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
     echo "No Spec Review issue exists — nothing to close."
   fi
 
-  # Perform Wayfinder Completion Reconciliation here.
+  # Perform Wayfinder Completion Reconciliation here, then project-delivery reconciliation.
 
   exit 0
 fi
@@ -122,7 +156,7 @@ If the branch exists, continue with the standard merge path.
 
 1. **Confirm Precondition**
 
-   Do not proceed unless the current **Spec Review Exit Receipt** passes **Review Exit Authorization**.
+   Do not proceed unless the current **Spec Review Exit Receipt** passes **Review Exit Authorization** and the **Project Delivery Actionability Guard** remains satisfied.
 
 2. **Push Final State**
 
@@ -232,18 +266,18 @@ Do not continue to cleanup unless the merge succeeded.
 
    Perform **Wayfinder Completion Reconciliation** only after the Spec is confirmed closed and all required cleanup above succeeded.
 
-   If another derived Spec remains open, leave the Wayfinder map unchanged.
-
-   If this was the final derived Spec, comment on the map and close it only if it is still open.
+   Reconcile every governing Wayfinder against all of its currently governed Derived and Remediation Specs plus unresolved decision/fog state. Then invoke `$project-delivery-management` `reconcile` after any map closure is durable.
 
 ## Completion
 
 Cleanup is complete only when the applicable path has:
 
 * validated a current passing Spec Review Exit Receipt from the parent Spec;
+* passed the current project-delivery actionability guard when the Spec is Wayfinder-managed;
 * successfully closed the Spec;
 * closed its Spec Review issue when one exists;
 * merged and deleted the Spec branch when applicable;
-* reconciled the originating Wayfinder map when provenance is available.
+* reconciled every unambiguously recovered governing Wayfinder against its full Derived+Remediation governed Spec set and decision/fog state;
+* invoked project-delivery reconciliation after authoritative completion transitions.
 
-Wayfinder reconciliation must never guess missing lineage or block an otherwise successful Spec merge solely because provenance cannot be recovered.
+Wayfinder reconciliation must never guess missing lineage or roll back an otherwise successful Spec merge solely because provenance cannot be recovered. Report ambiguity/inconsistency explicitly and leave the affected map untouched rather than manufacturing lifecycle truth.

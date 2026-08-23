@@ -1,6 +1,6 @@
 ---
 name: project-delivery-management
-description: Coordinate project-level delivery across Polaris Wayfinder efforts by owning durable focus and exact parallel-focus authorization, deriving the Wayfinder frontier from canonical tracker state, and providing fail-closed guard/reconciliation operations without becoming a delivery executor or GitHub Project authority.
+description: Coordinate project-level delivery across Polaris Wayfinder efforts by owning durable focus and exact parallel-focus authorization, deriving the Wayfinder frontier from canonical tracker state, and providing fail-closed guard, cross-Wayfinder dependency, and reconciliation operations without becoming a delivery executor or GitHub Project authority.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Coordinate delivery **at the Polaris project level** across independent Wayfinder efforts.
 
-This skill owns the project-level delivery control state that cannot be derived elsewhere. It does not own Wayfinder decisions, Specs, tickets, implementation, verification, review, merge work, or GitHub Project truth.
+This skill owns project-level delivery coordination that has no lower authoritative owner. It does not own Wayfinder decisions, Specs, tickets, implementation, verification, review, merge work, or GitHub Project truth.
 
 ## Session Independence
 
@@ -42,6 +42,8 @@ Do not infer a focus change from an invocation of `$wayfinder`, `$to-specs`, `$i
 An already-authorized lifecycle owner may invoke this skill internally for:
 
 * `guard <Wayfinder>` — determine whether substantive work on that exact Wayfinder delivery scope is currently authorized;
+* `dependency ensure <consumer> blocked-by <blocker>` — validate and establish an exact cross-Wayfinder semantic prerequisite;
+* `dependency remove <consumer> blocked-by <blocker>` — remove an exact cross-Wayfinder prerequisite only when authoritative evidence says it no longer applies;
 * `reconcile` — reduce canonical tracker state after an authoritative transition already succeeded.
 
 Internal composition may never:
@@ -49,7 +51,8 @@ Internal composition may never:
 * establish focus from an empty set;
 * switch focus;
 * add a Wayfinder to parallel focus;
-* broaden an existing parallel authorization.
+* broaden an existing parallel authorization;
+* invent a dependency from prose, Project state, similarity, or architectural overlap.
 
 Deterministic removal of completed or directly ineligible focused Wayfinders is reconciliation, not a discretionary focus choice.
 
@@ -61,15 +64,131 @@ Keep each fact at its lowest authoritative owner.
 | --- | --- |
 | Wayfinder identity, destination, decisions, handoffs | individual Wayfinder artifacts |
 | Wayfinder membership | canonical `wayfinder:map` issues |
-| direct dependency truth | native GitHub `blocked by` relationships |
+| same-lineage dependency semantics | existing lifecycle owner for that lineage |
+| cross-Wayfinder dependency semantics/writer authority | `$project-delivery-management` |
+| native dependency relationship mechanics | `$github-issue-dependencies` |
 | focused Wayfinder set | Project Delivery Management singleton |
 | exact parallel-focus authorization | Project Delivery Management singleton + authorization comment |
 | frontier / eligible / queued / blocked classification | derived here |
 | GitHub Project fields | downstream projection only |
 
-Do not maintain a duplicate registry of Wayfinder maps or a persisted frontier/queue.
+Do not maintain a duplicate registry of Wayfinder maps or a persisted dependency/frontier/queue registry.
 
-Cross-Wayfinder dependency semantics and mutation are added by the dedicated downstream implementation ticket. Until then, this skill consumes the native relationships that already exist; it does not invent or rewrite them.
+Native GitHub `blocked by` relationships are the durable dependency truth. This skill decides and reconciles only relationships that cross Wayfinder lineages; it delegates the native relationship mutation to `$github-issue-dependencies`.
+
+## Cross-Wayfinder Dependency Reconciliation
+
+A **cross-Wayfinder dependency** is an exact semantic prerequisite between artifacts governed by different Wayfinder lineages.
+
+Dependency means:
+
+> The consumer artifact may not advance until the blocker artifact completes through its own authoritative lifecycle.
+
+The blocker artifact's lifecycle completion supplies the satisfaction boundary. Do not introduce a second dependency type such as planning-vs-delivery.
+
+### Recover and Validate Lineage
+
+Before deciding ownership, recover the exact governing Wayfinder for both consumer and blocker from durable tracker relationships/provenance.
+
+Use the artifact's existing lifecycle lineage:
+
+* Wayfinder map → itself;
+* Wayfinder decision → its native Wayfinder parent;
+* Spec → its durable Wayfinder source/remediation governance applicable to the requested relationship;
+* implementation/review artifacts → their parent Spec/Spec Review lineage and that artifact's governing Wayfinder.
+
+The caller may supply the expected lineage as routing context, but this skill must validate it against durable tracker evidence.
+
+If an artifact currently has multiple plausible governing Wayfinders and the relationship context does not establish exactly one, fail closed. Do not choose a lineage heuristically.
+
+If consumer and blocker resolve to the same Wayfinder lineage, do not mutate the edge here. Return the relationship to the existing same-lineage lifecycle owner.
+
+### Lowest Accurate Semantic Boundary
+
+For `dependency ensure`, require durable semantic evidence for this exact prerequisite. A title similarity, broad architectural reference, Project field, label, or prose such as “Map B depends on Map A” is candidate evidence only.
+
+Choose the **narrowest authoritative consumer and blocker artifacts whose lifecycle boundaries make the prerequisite true**.
+
+Normal shapes include:
+
+* decision blocked by decision;
+* Spec blocked by Spec;
+* implementation ticket blocked by implementation ticket.
+
+Same-level symmetry is not mandatory. Use a cross-level relationship when it is genuinely the narrower accurate completion boundary.
+
+Before accepting the pair, ask both:
+
+1. Does completion of this blocker fully satisfy the prerequisite represented by this edge?
+2. Is there a narrower authoritative consumer or blocker artifact that expresses the prerequisite without blocking unrelated work?
+
+If either answer is unresolved, fail closed with `AMBIGUOUS DEPENDENCY PLACEMENT` and do not mutate.
+
+### Whole-Map Dependency Gate
+
+Wayfinder → Wayfinder is valid only when **the downstream destination as a whole** cannot safely advance until the upstream Wayfinder is delivery-complete and no narrower authoritative prerequisite is sufficient.
+
+If any legitimate portion of the downstream map can proceed independently, do not create the map-level edge. Place the prerequisite lower or reject the proposal as unresolved.
+
+The #188/#194 relationship is the standing counterexample: broad prose says the background-ingestion worker consumes incremental-ingestion semantics, but #195 can proceed independently while #196 depends narrowly on #189/#190 and #198 depends narrowly on #193. Never translate that evidence into `#194 blocked by #188`.
+
+### Cycle Guard
+
+Before adding `consumer blocked-by blocker`:
+
+1. reject consumer = blocker;
+2. recover the complete native `blocked by` graph reachable from the blocker;
+3. require blocker data to be complete at every visited artifact;
+4. reject the edge if the consumer is reachable from the blocker.
+
+That reachability means the new edge would create a dependency cycle.
+
+Do not interpret an unreadable/truncated graph as acyclic. Fail closed.
+
+### Ensure an Edge
+
+For `dependency ensure <consumer> blocked-by <blocker>`:
+
+1. recover/validate both lineages;
+2. require they are different;
+3. validate durable semantic evidence and lowest accurate placement;
+4. pass the Whole-Map Dependency Gate when both artifacts are Wayfinder maps;
+5. run the Cycle Guard;
+6. re-read the consumer's native blockers immediately before mutation;
+7. if the exact edge already exists, verify it and return idempotent success;
+8. otherwise invoke `$github-issue-dependencies` to add only that native `blocked by` relationship;
+9. re-read the consumer and require the exact blocker relationship to exist;
+10. run deterministic focus reconciliation because a newly added direct map blocker may invalidate current focus.
+
+Do not create parent/sub-issue hierarchy here.
+
+### Remove an Edge
+
+Absence of prose or a closed blocker is not evidence that a dependency should be deleted. A closed blocker satisfies the existing edge; reopening it must make the edge blocking again.
+
+For `dependency remove <consumer> blocked-by <blocker>` require authoritative evidence that the semantic prerequisite itself no longer applies or was established in error.
+
+Then:
+
+1. recover/validate both lineages and confirm this skill owns the cross-lineage relationship;
+2. re-read the exact current edge;
+3. if absent, return idempotent success;
+4. invoke `$github-issue-dependencies` to remove only that native relationship;
+5. re-read and require the relationship to be absent;
+6. run deterministic focus reconciliation. Newly eligible maps are never auto-focused.
+
+### Dependency Failure Result
+
+On cycle, ambiguous placement/lineage, unsupported inference, incomplete graph data, mutation failure, or post-mutation verification failure, return:
+
+```text
+PROJECT DELIVERY DEPENDENCY: INVALID
+Consumer: <issue>
+Blocker: <issue>
+Reason: <cycle | ambiguous placement | ambiguous lineage | unsupported inference | incomplete graph | mutation/verification failure>
+```
+
+Do not partially rewrite another dependency, focus state, hierarchy, or Project projection to compensate.
 
 ## Canonical Singleton
 
@@ -218,7 +337,7 @@ Retain focus and surface the lower-level blockers supplied/recovered by their ow
 
 Do not promote those blockers to the map and do not silently switch or release focus.
 
-This ticket establishes the retention rule. Later lifecycle-integration tickets own the exact lower-level frontier recovery at their respective boundaries.
+Later lifecycle-integration tickets own the exact lower-level frontier recovery at their respective boundaries.
 
 ## Human Focus Operations
 
@@ -334,13 +453,15 @@ Fail closed without semantic mutation when:
 * focused-set cardinality is greater than one without matching durable parallel authorization;
 * native blocker data is truncated or cannot be read;
 * a requested focus target is not frontier-eligible;
-* required authorization/current-state persistence cannot be verified.
+* cross-Wayfinder dependency lineage or placement is ambiguous;
+* a proposed dependency would create a cycle or is supported only by inference;
+* required dependency/focus persistence cannot be verified.
 
 Use:
 
 ```text
 PROJECT DELIVERY MANAGEMENT: INVALID STATE
-Reason: <exact durable-state or eligibility failure>
+Reason: <exact durable-state, dependency, or eligibility failure>
 ```
 
 Project drift is never a reason to rewrite canonical focus or dependency state.
@@ -354,16 +475,19 @@ This skill may:
 * own and persist the focused Wayfinder set;
 * own and persist exact human parallel-focus authorization;
 * guard map-level substantive delivery authorization;
+* own semantic validation/write reconciliation for cross-Wayfinder dependencies;
+* delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
 * deterministically shrink invalid/completed focus membership;
 * report canonical status and focused-but-stalled state.
 
-This skill must not, under this ticket:
+This skill must not:
 
-* create/bootstrap or migrate the live singleton;
-* invent, add, remove, or relocate cross-Wayfinder dependency edges;
-* decide same-lineage dependency semantics;
+* create/bootstrap or migrate the live singleton under this ticket;
+* own same-lineage dependency semantics;
+* create parent/sub-issue hierarchy while reconciling cross-Wayfinder dependencies;
+* infer dependencies from broad prose, Project state, labels, priority, similarity, or architectural overlap;
 * write Wayfinder decisions, Specs, tickets, implementation, verification, review, or merge artifacts;
-* derive detailed Spec/ticket frontiers;
+* derive detailed Spec/ticket frontiers under this ticket;
 * mutate GitHub Project schema or use Project fields as authority;
 * auto-run downstream lifecycle skills;
 * auto-select a successor Wayfinder.

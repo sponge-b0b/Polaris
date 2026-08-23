@@ -22,6 +22,12 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    When the source is a Wayfinder map, treat that map and its resolved decision tickets as the planning source.
 
+   Before any tracker/repository mutation for a Wayfinder-managed source, invoke `$project-delivery-management` `reconcile`, then `guard <Wayfinder>`. Require `PROJECT DELIVERY GUARD: ALLOWED` before reconciling handoff metadata, amending Specs, or publishing new Specs.
+
+   If the source Wayfinder is directly blocked, report its blockers and stop. If it is eligible but unfocused, stop and surface the explicit `$project-delivery-management` focus/switch/parallel choice. `$to-specs` must not establish or change focus itself.
+
+   Read-only context recovery and architecture inspection may happen before the guard. An intentionally non-Wayfinder planning source remains outside Wayfinder focus management; do not invent a governing Wayfinder merely to enroll it.
+
 2. **Resolve spec mode.** When the source is a Wayfinder map, resolve the complete set of existing Spec handoffs before choosing fresh or remediation mode.
 
    A handoff is one of:
@@ -41,6 +47,8 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    Reconcile each set. If reverse provenance unambiguously establishes a linkage missing from the map's `Spec Handoff`, add the matching `Derived Spec` or `Remediation Spec` linkage before continuing. Do not remove existing linkages, duplicate a linkage, convert one handoff role into the other, replace original `wayfinder-source` provenance to represent remediation, or treat incomplete Wayfinder metadata as proof that no other handed-off Specs exist.
 
+   `Spec Handoff` is additive provenance only. Entry order, issue number, publication order, and handoff role do not define execution order or priority.
+
    If one or more derived or remediation in-progress Specs exist after reconciliation, invoke `$to-remediation-specs` and do not create another spec for that handed-off scope.
 
    `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
@@ -56,7 +64,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
    * no material architecture question remains unresolved;
    * the solution still agrees with the current architecture.
 
-   If not, halt with a Human Handoff. Do not make material architectural decisions while writing the spec.
+   If not, halt with a Human Handoff. Do not make material architectural decisions while writing the spec and do not publish placeholder Specs merely to reserve ordering or future scope.
 
    When an originating Wayfinder map or decision is known, use it in the handoff:
 
@@ -74,7 +82,11 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    Use seams already established by the resolved solution, durable Wayfinder decisions, or current repository state. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
 
-5. **Write and publish the spec(s)** using the template below. Apply the `ready-for-agent` triage label.
+5. **Write and publish the complete currently specifiable set** using the template below. Apply the `ready-for-agent` triage label.
+
+   Partition the planning source into every implementation Spec that is currently decision-complete and independently specifiable. Publish that complete set up front; do not serialize Spec creation merely because one Spec depends on another. A blocked Spec may be fully specified and published while remaining non-actionable.
+
+   Do not create a placeholder Spec for scope whose material architecture remains unresolved. Route that scope back through the Architecture preflight instead.
 
    When sourced from Wayfinder, include the source map and the resolved decision tickets consumed by that spec:
 
@@ -100,15 +112,46 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    Record each linkage once. Do not overwrite the Wayfinder map body, duplicate an existing linkage, or rewrite a Spec's original source provenance to represent remediation.
 
-6. **Human Handoff Intercept.** After all creation or remediation work for the source is complete, identify every in-progress Spec handled for the source — derived or remediation — that is ready for ticket creation or reconciliation.
+6. **Publish semantic Spec dependencies and derive the frontier.** After all currently specifiable Specs for the source have been published or amended, establish every currently known semantic Spec prerequisite before any `$to-tickets` handoff.
 
-   Output one copy-ready handoff line per Spec:
+   A dependency says the consumer Spec may not advance until the blocker Spec closes through its authoritative Spec lifecycle. Ticket completion, verification readiness, review passage, `Ready to Merge`, Priority, Project fields, issue order, or handoff order do not satisfy a Spec dependency.
+
+   For each required Spec dependency:
+
+   * recover the governing Wayfinder lineage of consumer and blocker from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence;
+   * place the edge on the narrowest authoritative Specs whose closure expresses the prerequisite; do not promote a narrower dependency to a Wayfinder edge;
+   * when both Specs belong to the same Wayfinder lineage, `$to-specs` owns the semantic relationship and invokes `$github-issue-dependencies` for the exact native `blocked by` mutation;
+   * when the relationship crosses Wayfinder lineages, delegate semantic validation and mutation to `$project-delivery-management` `dependency ensure <consumer> blocked-by <blocker>`;
+   * reject same-lineage cycles or incomplete blocker graphs before mutation; cross-lineage cycle/placement validation remains owned by `$project-delivery-management`;
+   * re-read the consumer after mutation and require the exact native edge to exist.
+
+   Do not maintain a parallel dependency registry in Spec bodies, handoff metadata, or Project fields. Human-readable planning prose may explain why an edge exists but never substitutes for the native relationship.
+
+   Then re-read every in-progress Derived/Remediation Spec handled for this source, including complete native blocker data.
+
+   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec.
+
+   For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
+
+   Do not assume the invocation source remains the Spec's only or currently focused governor. If the governing set is ambiguous or no governing Wayfinder is authorized, exclude the Spec from the actionable frontier and report the exact reason. One currently focused governing Wayfinder is sufficient.
+
+   Do not persist an active-Spec field, queue, WIP=1 marker, or frontier snapshot. Multiple independent actionable Specs inside the same focused Wayfinder are concurrently actionable.
+
+   A blocked Spec remains published and visible but receives no `$to-tickets` handoff. A Wayfinder-managed Spec governed only by unfocused Wayfinders also receives no handoff.
+
+   Native dependency state is re-read on every reduction. If a blocker Spec is legitimately reopened, the unchanged edge makes the dependent Spec ineligible again automatically; do not invent replacement state.
+
+7. **Human Handoff Intercept.** After all creation/remediation and dependency reconciliation for the source is complete, output handoffs only for Specs in the actionable Spec frontier.
+
+   Output one copy-ready handoff line per actionable Spec:
 
    ```text
    $to-tickets - <Spec Title> (<Spec URL>)
    ```
 
-   If multiple Specs exist, output all lines together. If only one exists, output one line.
+   If multiple independent actionable Specs exist, output all lines together and let the user choose or run independent sessions in parallel. If only one exists, output one line.
+
+   If no handled Spec is actionable, report each blocked or unfocused Spec and its exact reason, then stop without a `$to-tickets` handoff.
 
    Use the actual tracker title and URL. Do not substitute issue numbers for titles.
 

@@ -1,6 +1,6 @@
 ---
 name: github-issue-dependencies
-description: Internal GitHub relationship helper used by `$to-tickets` and `$project-delivery-management` for authorized native parent/child and dependency mutations. Documents current `gh` CLI relationship flags so lifecycle owners do not duplicate tracker mechanics.
+description: Internal GitHub relationship helper used by `$to-specs`, `$to-tickets`, and `$project-delivery-management` for authorized native parent/child and dependency mutations. Documents current `gh` CLI relationship flags so lifecycle owners do not duplicate tracker mechanics.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
@@ -11,6 +11,7 @@ This is a **mechanical relationship helper**, not a semantic lifecycle owner and
 
 Authorized callers:
 
+* `$to-specs` — native dependency mutations for same-lineage Spec prerequisites after it has established semantic ownership and cycle safety;
 * `$to-tickets` — native direct-decomposition hierarchy plus dependency edges it already owns;
 * `$project-delivery-management` — native `blocked by` / `blocking` mutations only after it has established cross-Wayfinder semantic ownership, lowest-accurate placement, and cycle safety.
 
@@ -49,7 +50,7 @@ gh issue create \
   --label ready-for-agent
 ```
 
-`$project-delivery-management` must **not** use `--parent`, `--remove-parent`, `--add-sub-issue`, or `--remove-sub-issue` when reconciling cross-Wayfinder dependencies.
+`$to-specs` and `$project-delivery-management` must **not** use `--parent`, `--remove-parent`, `--add-sub-issue`, or `--remove-sub-issue` when reconciling dependency edges.
 
 ## Before relying on this
 
@@ -99,7 +100,7 @@ gh issue edit <issue_number> --remove-blocking <blocked_issue_numbers_or_urls>
 
 The relationship flags accept comma-separated issue numbers or URLs where multiple relationships are supported.
 
-For `$project-delivery-management`, mutate only the exact cross-Wayfinder edge it authorized. Do not add/remove neighboring dependencies, hierarchy, labels, Project fields, or lifecycle state in the same helper call.
+For `$to-specs`, mutate only same-lineage Spec dependency edges it owns. For `$project-delivery-management`, mutate only the exact cross-Wayfinder edge it authorized. Neither caller may add/remove neighboring dependencies, hierarchy, labels, Project fields, or lifecycle state in the same helper call.
 
 ## Verification
 

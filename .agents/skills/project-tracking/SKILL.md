@@ -56,11 +56,84 @@ Before mutating the Project, validate:
 * any non-`Complete` projection requires `Completed On = None`;
 * a non-empty `Root Blocker` is valid only for `Artifact Type = Review Remediation Ticket` and must match `RB-[0-9]+`;
 * `Priority` is optional and is preserved when omitted;
-* every requested single-select value must already exist in the Project schema.
+* every requested single-select value must already exist in the Project schema;
+* the requested `Artifact Type`, `Workflow State`, and `Next Skill` combination is allowed by the compatibility contract below.
 
 Do not create a completion date from the issue's `closedAt` value. GitHub issue closure is not Polaris lifecycle completion.
 
 When an artifact legitimately re-enters the lifecycle from `Complete`, clear `Completed On` as part of the non-Complete projection.
+
+### Artifact Route Compatibility
+
+`Next Skill` names the next human-invocable lifecycle/HITL entry point **for the artifact represented by that Project row**. Never copy a descendant artifact's next action onto its parent.
+
+`None` is correct when the artifact remains active but the next executable work belongs to a child or downstream artifact.
+
+Allow only these combinations:
+
+| Artifact Type | Workflow State | Allowed `Next Skill` |
+| --- | --- | --- |
+| Wayfinder Map | Architecture Decision | `$wayfinder` |
+| Wayfinder Map | Ready to Spec | `$to-specs` or `None` |
+| Wayfinder Map | Architecture Remediation | `$wayfinder` |
+| Wayfinder Map | Blocked | `None` |
+| Wayfinder Map | Complete | `None` |
+| Wayfinder Decision | Architecture Decision | `$wayfinder` |
+| Wayfinder Decision | Blocked | `None` |
+| Wayfinder Decision | Complete | `None` |
+| Spec | Ready to Ticket | `$to-tickets` |
+| Spec | Ready to Implement | `None` |
+| Spec | Ready to Verify | `$verify-spec` |
+| Spec | Ready to Review | `$review-spec` |
+| Spec | Review Remediation | `None` |
+| Spec | Architecture Remediation | `$architecture-remediation` |
+| Spec | Ready to Merge | `$spec-merge-cleanup` |
+| Spec | Blocked | `None` |
+| Spec | Complete | `None` |
+| Implementation Ticket | Ready to Implement | `$implement-ticket` |
+| Implementation Ticket | Architecture Remediation | `$architecture-remediation` |
+| Implementation Ticket | Blocked | `None` |
+| Implementation Ticket | Complete | `None` |
+| Spec Review | Review Remediation | `$to-tickets` or `None` |
+| Spec Review | Architecture Remediation | `$architecture-remediation` |
+| Spec Review | Blocked | `None` |
+| Spec Review | Complete | `None` |
+| Review Remediation Ticket | Ready to Implement | `$implement-ticket` |
+| Review Remediation Ticket | Awaiting Root Verification | `$verify-root-closure` |
+| Review Remediation Ticket | Architecture Remediation | `$architecture-remediation` |
+| Review Remediation Ticket | Blocked | `None` |
+| Review Remediation Ticket | Complete | `None` |
+
+Context-sensitive `None` cases are intentional:
+
+* a `Spec` in `Ready to Implement` waits on its implementation-ticket children;
+* a `Spec` in `Review Remediation` waits on its Spec Review/remediation lineage;
+* a `Spec Review` in `Review Remediation` uses `$to-tickets` before executable remediation tickets exist and `None` while those child tickets own the next action;
+* a `Wayfinder Map` in `Ready to Spec` uses `$to-specs` when specification work is the next human action and `None` while already-handed-off Specs own the active downstream work.
+
+Any combination not listed above is invalid. Reject it before Project mutation rather than normalizing it to a nearby value.
+
+### Completion Contradiction Checks
+
+A caller-supplied `Complete` projection still requires durable lifecycle authority. This helper may use tracker relationships only to detect a contradiction that proves the requested completion is impossible; it must never use issue closure or an all-closed descendant set to infer completion by itself.
+
+Before accepting `Workflow State = Complete`:
+
+* for a `Wayfinder Map`, recover explicit **Derived Spec** lineage from Wayfinder/Spec handoff provenance and reject completion if any derived Spec remains open;
+* do not treat a `Remediation Spec` or `wayfinder-remediation` relationship as derived-Spec completion ownership; the Spec's original `wayfinder-source` remains authoritative for originating-Wayfinder completion;
+* for a `Spec`, reject completion if any implementation-ticket child or associated Spec Review remains open;
+* for a `Spec Review`, reject completion if any review-remediation ticket remains open.
+
+An open required descendant is contradiction evidence only. The absence of one is not completion evidence.
+
+If route compatibility or a completion contradiction fails, do not mutate the Project. Return:
+
+```text
+PROJECT TRACKING: INVALID PROJECTION
+Artifact: <title / URL>
+Rejected projection: <field=value summary>
+Reason: <incompatible artifact/state/skill combination or completion contradiction>
+```
 
 ## 1. Resolve the Existing Project
 
@@ -163,6 +236,8 @@ Do not infer success merely because mutation commands returned zero.
 ## Failure Semantics
 
 Project synchronization happens **after** semantic workflow state is durable. Therefore a synchronization failure must never roll back, rewrite, reopen, re-close, or otherwise alter the authoritative workflow artifacts merely to make the board match.
+
+An invalid requested projection is rejected before mutation under **Projection Invariants**. It is not Project drift.
 
 On any membership, permission, schema, network, mutation, or verification failure, return:
 

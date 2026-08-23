@@ -45,6 +45,36 @@ Use the actual Spec title and URL.
 
 A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
+#### Project Delivery Actionability Guard
+
+Before ticket drafting, remediation reconciliation, branch setup, or any tracker/repository mutation for a Wayfinder-managed Spec, prove that the underlying Spec is currently in the actionable Spec frontier.
+
+If the invocation source is a `Spec Review: ` issue, first recover its exact `**Parent Spec:** #<n>` and apply this guard to that Spec. Otherwise use the source Spec itself.
+
+A Spec is **Wayfinder-managed** when durable provenance/handoff evidence identifies one or more governing Wayfinders through:
+
+* its canonical `wayfinder-source` marker;
+* one or more `wayfinder-remediation` markers; or
+* an unambiguous matching `Derived Spec` / `Remediation Spec` entry on a canonical Wayfinder map.
+
+Do not invent a governing Wayfinder. An intentionally non-Wayfinder Spec continues through the existing lifecycle and is not enrolled into project focus merely because `$to-tickets` was invoked.
+
+For a Wayfinder-managed Spec:
+
+1. require the Spec issue to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated/unreadable;
+3. if any direct blocker is open, stop before substantive work and report the Spec as dependency-blocked;
+4. recover every currently governing Wayfinder from durable provenance/handoff evidence; ambiguity in governance fails closed and routes back to `$to-specs` for reconciliation rather than guessing;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for each governing Wayfinder;
+7. require at least one governing Wayfinder to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If no governing Wayfinder is allowed, stop before substantive work. Surface the exact governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$to-tickets` must never establish, switch, or broaden focus itself.
+
+A closed blocker satisfies the Spec dependency only because its authoritative Spec lifecycle is complete. Ticket completion, verification readiness, review passage, `Ready to Merge`, Priority, Project fields, issue order, or handoff order do not satisfy the dependency. If a blocker Spec is reopened, the unchanged native edge makes this guard fail again automatically.
+
+Passing this guard does not create an active-Spec scheduler. Multiple independent open/unblocked Specs governed by the same focused Wayfinder may each be ticketed in separate sessions.
+
 ### 2. Explore the Codebase
 
 If needed, inspect the current codebase before slicing.

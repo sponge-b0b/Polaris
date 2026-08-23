@@ -23,6 +23,55 @@ Prior-session summaries or remembered conclusions are routing context only and m
 
 If required durable state cannot be recovered, report the missing artifact rather than infer it.
 
+## Project Delivery Focus Guard
+
+`$project-delivery-management` owns project-level delivery focus. `$wayfinder` owns Wayfinder planning and must not copy, infer, or persist competing focus state.
+
+The guard applies differently to the two invocation modes:
+
+* **Chart the Map** is capture/planning and is not focus-gated. A new map may be charted while another Wayfinder is focused. Charting must not establish, switch, broaden, or otherwise change focus, and chart-time research needed to form the map remains allowed.
+* **Work Through the Map** is substantive advancement and is focus-gated before any durable mutation, including claiming a decision ticket.
+
+Never create a native dependency merely to encode focus or queue preference. Dependency determines eligibility; focus determines intentional project WIP.
+
+### Guard Before Substantive Wayfinder Work
+
+When working through an existing map or decision ticket:
+
+1. resolve the exact governing Wayfinder map from durable tracker relationships/metadata;
+2. invoke `$project-delivery-management` `reconcile` so completed or directly ineligible focused maps are reduced before authorization;
+3. invoke `$project-delivery-management` `guard <Wayfinder>`;
+4. proceed only after the guard returns `PROJECT DELIVERY GUARD: ALLOWED`.
+
+Handle other results without claiming or mutating the decision:
+
+* `PROJECT DELIVERY GUARD: BLOCKED` → report the direct map blockers and stop;
+* `PROJECT DELIVERY GUARD: FOCUS REQUIRED` with another focused Wayfinder/set → report the current focus and stop with the explicit human choices to continue current work, run `$project-delivery-management` `switch-focus <Wayfinder>`, or authorize an exact `$project-delivery-management` `parallel-focus <Wayfinder>...` set;
+* `PROJECT DELIVERY GUARD: FOCUS REQUIRED` with an empty focused set → ask the human:
+
+  > Establish <Wayfinder Map Title> as the project delivery focus and continue? (yes/no)
+
+  Only an explicit `yes` authorizes invoking `$project-delivery-management` `focus <Wayfinder>` as the human focus decision for this session. Re-run the guard and require `ALLOWED` before continuing. `no` leaves focus empty and ends substantive Wayfinder work.
+
+The empty-focus confirmation is the only focus establishment `$wayfinder` may facilitate. `$wayfinder` must never infer or perform a focus switch, parallel authorization, or broader focus change from its own invocation.
+
+Read-only investigation required to resolve the governing map and project-delivery state is allowed before the guard. Do not claim a decision, post a Decision Analysis, mutate tracker/repository state, or resolve architecture before authorization succeeds.
+
+### Reconcile After Durable Wayfinder Transitions
+
+After a Wayfinder-owned transition that can affect project eligibility, focus validity, or lower-level actionability is durably persisted, invoke `$project-delivery-management` `reconcile` **after** that authoritative mutation succeeds.
+
+Examples include:
+
+* creating/charting a canonical Wayfinder map;
+* closing/reopening a Wayfinder decision and updating the map's durable state;
+* changing native dependency state owned by the Wayfinder lifecycle;
+* any map closure/re-entry performed by the owning lifecycle.
+
+Reconciliation may remove completed/directly ineligible focused maps but must never select a replacement. If reconciliation cannot recover valid project-delivery state, report the failure and do not present a downstream lifecycle handoff that depends on current focus.
+
+A focused map that remains map-eligible but has no currently actionable lower-level decision work because narrower blockers remain is **focused-but-stalled**. Retain focus, surface the blockers, and do not promote them to a synthetic map blocker or silently switch/release focus.
+
 ## Plan, Don't Do
 
 Wayfinder is **planning** by default.
@@ -368,9 +417,10 @@ User invokes with a loose idea.
 5. Create currently specifiable tickets and wire blocking edges.
 6. Fire research subagents for research tickets.
 7. Persist repository artifacts through **Repository Persistence** when applicable.
-8. Stop. Charting does not hand-resolve tickets.
+8. After the map/ticket/dependency state is durable, invoke `$project-delivery-management` `reconcile`. Do not establish or change focus as part of charting.
+9. Stop. Charting does not hand-resolve tickets.
 
-The same persistence rule applies when charting collapses into a single `$grill-with-docs` session.
+The same persistence rule applies when charting collapses into a single `$grill-with-docs` session. A collapse that creates no Wayfinder map has no Wayfinder focus to reconcile.
 
 ### Work Through the Map
 
@@ -379,16 +429,18 @@ User invokes with a map or decision ticket.
 If given a ticket, resolve its parent Wayfinder map using the tracker's native relationship or explicit `Parent Wayfinder` metadata, then treat that ticket as the named decision.
 
 1. Load the **map**, not every ticket body.
-2. Choose the named ticket or first frontier ticket and **claim it** before work.
-3. Resolve it. Fetch related detail only as needed. Use `$grilling` and `$domain-modeling` when appropriate. For architecture, apply **Resolve Architecture Before Handoff** and **Architecture Implementability Closure**.
-4. For a HITL decision, after investigation is materially complete, persist the required **Decision Analysis** comment before presenting the recommendation and explicit yes/no gate. If further exchange materially changes the recommendation, persist a **Recommendation Revision** before asking again.
-5. Do not treat the recommendation as the user's decision. Obtain the explicit human response required by **Ticket Types** before resolution.
-6. **Persist the resolution**:
+2. Apply **Project Delivery Focus Guard** and require `PROJECT DELIVERY GUARD: ALLOWED` before claiming or mutating the decision.
+3. Choose the named ticket or first frontier ticket and **claim it** before work.
+4. Resolve it. Fetch related detail only as needed. Use `$grilling` and `$domain-modeling` when appropriate. For architecture, apply **Resolve Architecture Before Handoff** and **Architecture Implementability Closure**.
+5. For a HITL decision, after investigation is materially complete, persist the required **Decision Analysis** comment before presenting the recommendation and explicit yes/no gate. If further exchange materially changes the recommendation, persist a **Recommendation Revision** before asking again.
+6. Do not treat the recommendation as the user's decision. Obtain the explicit human response required by **Ticket Types** before resolution.
+7. **Persist the resolution**:
 
    * reconcile required authoritative architecture records;
    * if repository files changed, complete **Repository Persistence**;
    * only after persistence succeeds, post the concise resolution comment, close the ticket, and append its context pointer to **Decisions so far**.
-7. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
+8. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
+9. After all Wayfinder-owned tracker/repository mutations from this decision are durable, invoke `$project-delivery-management` `reconcile` before the Post-Resolution Gate.
 
 ## Post-Resolution Gate
 
@@ -403,7 +455,8 @@ Confirm:
 * required authoritative architecture records are reconciled;
 * required Decision Analysis and any material Recommendation Revision are durably recorded on the decision ticket;
 * the new decision has not left stale or contradictory map state or affected prior decisions unreconciled;
-* all Wayfinder-owned repository changes are committed and pushed.
+* all Wayfinder-owned repository changes are committed and pushed;
+* required project-delivery reconciliation completed successfully.
 
 When a new decision supersedes or invalidates an earlier decision, preserve the historical resolution but update affected map/ticket state enough to make the supersession explicit.
 
@@ -425,7 +478,8 @@ After updating the map, identify the current frontier:
   > $wayfinder - <Next Decision Ticket Title> (<Ticket URL>)
   > ```
 
-* If multiple frontier tickets are available, output one copy-ready `$wayfinder` line per frontier ticket and let the user choose the next session. The user may run independent frontier tickets in parallel.
+* If multiple frontier tickets are available, output one copy-ready `$wayfinder` line per frontier ticket and let the user choose the next session. The user may run independent frontier tickets in parallel because they remain inside the same focused Wayfinder delivery scope.
+* If open decision tickets remain but every one is blocked, keep the map focused when it remains map-frontier eligible, report `PROJECT DELIVERY: FOCUSED-BUT-STALLED`, surface the exact decision blockers, and stop. Do not create a map blocker or release/switch focus.
 * If unresolved in-scope fog remains but no frontier ticket can yet be stated, report the remaining fog and stop. Do not present a downstream handoff.
 
 Then stop.
@@ -437,7 +491,8 @@ The route is not clear while:
 * implementation of an affected canonical contract/path/lifecycle would still require inventing a durable architectural choice;
 * authoritative records remain unreconciled;
 * affected prior map state remains contradictory or stale;
-* Wayfinder-owned repository changes remain uncommitted or unpushed.
+* Wayfinder-owned repository changes remain uncommitted or unpushed;
+* project-delivery reconciliation required by the current transition remains unresolved.
 
 When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept:
 
@@ -452,5 +507,7 @@ When the Post-Resolution Gate passes and the destination is an implementation sp
 Always hand `$to-specs` the **Wayfinder map**, never an individual decision ticket or derived Spec.
 
 `$to-specs` owns deciding whether this creates a new Spec or delegates an existing-Spec update to `$to-remediation-specs`.
+
+The project-delivery focus remains on the governing Wayfinder across this handoff; route clarity does not release or switch focus.
 
 The user may run unblocked tickets in parallel, so expect other sessions to edit the tracker concurrently.

@@ -1,6 +1,6 @@
 ---
 name: architecture-remediation
-description: Route unresolved architecture blockers back into the existing Wayfinder effort, creating or reusing one decision ticket per independent architectural decision and handing resolution to `$wayfinder`.
+description: Route unresolved architecture blockers back into the existing governing Wayfinder effort, reopening that map when authoritative re-entry requires it, creating or reusing one decision ticket per independent architectural decision, and handing resolution to `$wayfinder`.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
@@ -64,21 +64,32 @@ If **Yes**, keep them independent.
 
 Do not create separate decisions merely because the caller reported several numbered blockers.
 
-## 2. Recover the Existing Wayfinder Effort
+## 2. Recover the Existing Governing Wayfinder Effort
 
-Read the parent Spec and recover its Wayfinder provenance.
+Read the parent Spec and recover its complete current Wayfinder governance from durable evidence:
 
-Prefer:
+* canonical source provenance:
 
-```html
-<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
-```
+  ```html
+  <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
+  ```
 
-If absent, use another explicit and unambiguous tracker relationship.
+* every applicable remediation provenance marker:
 
-If the originating Wayfinder map cannot be determined reliably, halt. Do not guess or create a replacement map.
+  ```html
+  <!-- wayfinder-remediation: #<map>; decisions: #<decision>,#<decision> -->
+  ```
 
-Blockers remain under that map unless one is genuinely outside its destination.
+* matching `Derived Spec` / `Remediation Spec` handoff metadata on canonical Wayfinder maps;
+* source ticket / Spec Review lineage supplied by the caller.
+
+Preserve original source provenance. Remediation governance is additive and must never replace `wayfinder-source`.
+
+Resolve the **exact governing Wayfinder whose scope owns the architecture blocker being routed**. A Spec may have more than one governor; do not default to the original source when the blocker belongs to a later remediation Wayfinder.
+
+If one candidate governor is established unambiguously, use it. If multiple governors plausibly own the blocker and durable context does not distinguish one, fail closed. Do not guess, create a replacement map, or duplicate the decision under several maps.
+
+Blockers remain under that governing map unless one is genuinely outside its destination.
 
 ## 3. Test Existing Architecture Coverage
 
@@ -104,13 +115,31 @@ For example, deciding **who owns** a lifecycle does not automatically determine 
 
 If existing authority resolves only part of a blocker, preserve only the unresolved dimensions and re-apply **Decision Coupling** to them.
 
-## 4. Create or Reuse Decision Tickets
+## 4. Re-enter the Governing Wayfinder Before New Decision Work
 
-For every blocker still unresolved after the coverage test, inspect the map's open child decisions.
+Perform this step only when at least one architecture blocker remains unresolved after Step 3.
+
+Re-read the exact governing Wayfinder immediately before mutation.
+
+If it is closed:
+
+1. reopen that same Wayfinder issue with an explicit lifecycle-reentry reason identifying the blocked Spec/work;
+2. re-read it and require state `open`;
+3. invoke `$project-delivery-management` `reconcile` **after** the reopen is durable.
+
+Reopening restores authoritative Wayfinder lifecycle state; it does **not** restore project focus. `$project-delivery-management` reconciliation must never auto-focus the reopened map or silently replace another focused map.
+
+If the Wayfinder is already open, do not create a synthetic reopen/close cycle.
+
+If the map cannot be reopened or its identity/state cannot be verified, halt. Do not create/reuse a decision ticket against a lifecycle state that still says delivery-complete.
+
+## 5. Create or Reuse Decision Tickets
+
+For every blocker still unresolved after the coverage test, inspect the governing map's open child decisions.
 
 Reuse an open child only when it represents the same underlying unresolved decision.
 
-Otherwise create exactly one child decision under the existing map using repository Wayfinding operations.
+Otherwise create exactly one child decision under the existing governing map using repository Wayfinding operations.
 
 Use `wayfinder:grilling` unless the caller established another appropriate Wayfinder ticket type.
 
@@ -157,7 +186,9 @@ Do not:
 
 The ticket must preserve enough context for `$wayfinder` to determine whether authority must change, the blocked obligation must change, existing authority must be completed, or both must be reconciled.
 
-## 5. Human Handoff Intercept
+After the required decision-ticket/map mutations are durable, invoke `$project-delivery-management` `reconcile`. This reduction may remove invalid focus but must never select, switch, or broaden focus.
+
+## 6. Human Handoff Intercept
 
 ### Unresolved Decisions Remain
 
@@ -181,11 +212,11 @@ When only one exists, present only that ticket.
 
 Do not resume implementation, review remediation, or Spec amendment until the applicable decisions are resolved and the map route is clear.
 
-`$wayfinder` owns decision sequencing and resolves one decision ticket per session. One ticket may contain several tightly coupled questions.
+`$wayfinder` owns decision sequencing and resolves one decision ticket per session. Its project-delivery focus guard applies at that substantive decision-entry boundary. If this remediation reopened a previously completed map, `$wayfinder` may require an explicit human focus/switch/parallel decision before resolution proceeds.
 
 ### Existing Authority Fully Resolves the Blocker Set
 
-If every reported blocker is directly resolved by current accepted authority, create no Wayfinder decision.
+If every reported blocker is directly resolved by current accepted authority, create no Wayfinder decision and do not reopen a closed Wayfinder solely to restate existing authority.
 
 Report for each blocker:
 
@@ -199,7 +230,7 @@ If current authority invalidates or materially changes the existing Spec/remedia
 
 Otherwise report that the blocker set is already architecturally resolved and return control to the calling workflow.
 
-## 6. Return Path
+## 7. Return Path
 
 After new architectural decisions are resolved, or existing accepted authority requires Spec reconciliation:
 
@@ -215,15 +246,19 @@ Do not hand directly back to a blocked implementation ticket when architecture c
 
 `$to-remediation-specs` owns reconciling existing Spec requirements and downstream ticket intent against newly resolved architecture.
 
+A legitimately reopened Spec or blocker participates through the existing native dependency graph. Do not write a separate satisfaction/ineligibility flag; downstream frontier guards must re-read current open/closed blocker state.
+
 ## Completion
 
 This skill is complete when:
 
-* the existing Wayfinder map is recovered;
+* the exact existing governing Wayfinder map is recovered without rewriting source/remediation provenance;
 * caller blockers are reduced to the minimum set of genuinely independent decisions;
 * existing accepted authority is tested against the exact missing durable choices;
+* when unresolved decision work re-enters a closed map, that same map is reopened and verified open before decision work is created/reused;
 * every unresolved decision is represented by exactly one open Wayfinder ticket;
 * blocked obligations are preserved when applicable;
+* project-delivery reconciliation runs after authoritative reopen/decision-tracker transitions without auto-focusing a map;
 * no duplicate or artificially split decisions were introduced;
 * the appropriate Human Handoff or resolved-authority return is presented.
 

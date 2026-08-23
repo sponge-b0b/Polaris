@@ -100,11 +100,33 @@ The happy path is intentionally simple, but implementation, verification, review
 Important invariants:
 
 * lifecycle state may move backward or revisit an earlier stage;
-* a closed GitHub issue does not necessarily mean downstream lifecycle work is complete;
-* a closed Wayfinder map may still have Specs to implement and may later receive architecture-remediation decisions;
+* a closed GitHub issue does not necessarily mean its parent lifecycle is complete; for example, a closed ticket may still leave its Spec active;
+* a closed Wayfinder map is the durable marker that its delivery scope is complete under the current known state; authoritative architecture re-entry or proven open governed Spec work reopens the map before substantive advancement;
 * a Spec Review issue is **conditional remediation state**, not a mandatory stage;
 * internal helper skills do not become separate lifecycle stages merely because they are named skills;
 * durable tracker/repository state, not conversational memory or Project-board position, determines correctness-critical workflow state.
+
+### Project Delivery Management
+
+`$project-delivery-management` coordinates intentional delivery WIP across independent Wayfinder lineages without replacing their lifecycle owners.
+
+Keep two questions separate:
+
+> **Dependency determines what may proceed. Focus determines what Polaris will proceed with now.**
+
+Cross-skill invariants:
+
+* canonical Wayfinders are discovered from `wayfinder:map`; there is no duplicate map registry;
+* the Wayfinder frontier is the set of open canonical maps with no open direct native blockers;
+* project focus is durable, explicit human intent owned by the single `project-delivery:management` control issue; it is never inferred from Project fields, Priority, assignees, issue ordering, activity, branches, or conversation state;
+* charting a new Wayfinder is allowed while another map is focused, but substantive advancement of a Wayfinder-managed lineage is guarded before mutation;
+* cross-Wayfinder semantic dependencies belong on the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics and delegates native relationship mechanics to `$github-issue-dependencies`;
+* Wayfinder-to-Wayfinder blockers are reserved for true whole-map prerequisites and must never encode project WIP preference;
+* `$to-specs` may publish all currently specifiable Specs. The Spec dependency frontier is open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused;
+* multiple independent actionable Specs inside one focused Wayfinder are allowed; do not create a separate active-Spec queue or WIP state;
+* authoritative transitions happen before project-delivery reconciliation. Reconciliation may remove completed or directly ineligible focus but never chooses a replacement;
+* a map that remains frontier-eligible but has only lower-level blocked work stays focused-but-stalled rather than acquiring a synthetic map blocker;
+* the GitHub Project remains a downstream projection of these facts and never becomes workflow authority.
 
 ### Complete Delivery Lifecycle
 
@@ -186,7 +208,9 @@ $spec-merge-cleanup
     ├─ merge or directly close the Spec
     ├─ close the Spec Review issue when one exists
     ├─ clean the Spec branch when applicable
-    └─ reconcile originating Wayfinder completion after all derived Specs close
+    └─ reconcile every governing Wayfinder
+           └─ close only when no unresolved decision/fog remains
+              and all governed Derived/Remediation Specs are complete
            ↓
        Spec lifecycle complete
 ```
@@ -208,6 +232,8 @@ If accepted architecture does not determine the durable semantics required to am
 `$to-tickets` owns the transition from a Spec or Spec Review remediation source into executable ticket work.
 
 When an existing Spec already has ticket lineage, or the source is a Spec Review, `$to-tickets` invokes `$to-remediation-tickets` internally.
+
+Formal Implementation Tickets and Review Remediation Tickets are created or reconciled only through this ticketing lifecycle. A lifecycle owner that discovers additional executable work must route that work back through `$to-tickets` rather than create an ad-hoc formal ticket. `$to-remediation-tickets` remains internal composition and `$github-issue-dependencies` remains the mechanical owner for native relationship publication.
 
 Remediation ticketing is root-driven rather than symptom-driven. Closed tickets are historical evidence and are not reopened or rewritten to represent newly required work.
 
@@ -273,6 +299,8 @@ $wayfinder
 
 Do not treat missing realization of already accepted architecture as a new architecture decision. The owning skill decides whether the blocker is implementation work or genuinely unresolved architecture.
 
+If the governing Wayfinder was previously closed, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus.
+
 After new architecture is resolved, or current authority requires Spec reconciliation, the normal return path is:
 
 ```text
@@ -332,11 +360,11 @@ It requires the exact current **Spec Review Exit Receipt** and owns:
 * merge or direct Spec closure;
 * branch cleanup when applicable;
 * closure of the Spec Review issue when one exists;
-* reconciliation of originating Wayfinder completion.
+* reconciliation of every current Wayfinder governing the completing Spec.
 
 A missing Spec Review issue is valid on a clean-review lifecycle and is not a cleanup error.
 
-A Wayfinder effort is reconciled as complete only after every derived Spec is closed. Provenance failure must not be guessed.
+A Wayfinder effort is reconciled as complete only when no unresolved Wayfinder decision/fog remains and every currently governed Derived and Remediation Spec is complete. Wayfinder closure is the durable delivery-complete marker. Provenance failure must not be guessed.
 
 ## Tracker Relationship Semantics
 
@@ -359,7 +387,9 @@ A Wayfinder-to-Spec relationship is normally **planning provenance / lifecycle h
 
 Likewise, promotion from an Intake item to Wayfinder is a lifecycle/provenance transition, not automatically a parent/sub-issue relationship.
 
-Use blocking/dependency relationships for actual execution dependencies. Do not infer lifecycle authority merely from hierarchy or dependency edges.
+Use blocking/dependency relationships for actual execution dependencies. Same-lineage dependency semantics remain with the existing lifecycle owner. `$project-delivery-management` owns semantics for dependencies crossing Wayfinder lineages and places them at the narrowest authoritative consumer/blocker artifacts; it delegates only native relationship mechanics to `$github-issue-dependencies`.
+
+Do not infer lifecycle authority merely from hierarchy or dependency edges. Do not create dependencies to represent focus, priority, queue order, or WIP preference.
 
 ## GitHub Project Tracking
 
@@ -379,9 +409,10 @@ The Project may expose fields such as:
 Cross-skill rules:
 
 * **Workflow State is a state machine, not a stage number.** Items may move backward or revisit a prior state when the skill lifecycle loops.
-* **GitHub issue Open/Closed is not Polaris workflow state.** A closed Wayfinder map may still be `Ready to Spec`; a closed ticket may still leave its parent Spec active.
+* **GitHub issue Open/Closed is not generally equivalent to Polaris workflow state.** Ticket closure may still leave its parent Spec active. Wayfinder closure is narrower and intentional: it is the durable delivery-complete marker and must be reversed before authoritative re-entry or proven governed incomplete work advances.
 * **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
-* **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, and issue state used by the skills.
+* **Project-delivery focus overlays, rather than replaces, lifecycle state.** Focused work projects `In Progress`; eligible-unfocused Wayfinders project `Ready` with `Next Skill=$project-delivery-management`; descendants governed only by unfocused Wayfinders suppress `Next Skill`; genuinely ineligible work projects `Blocked`; completed work projects `Done`.
+* **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
 * **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection rather than changing the underlying lifecycle to match the board.
 * **Project synchronization happens after the corresponding durable transition succeeds.** Do not let a board update create authority that the owning skill has not established.
 * **Project synchronization failure is projection drift, not semantic rollback.** Report it and preserve the authoritative tracker/repository result; later workflow entry should reconcile the board from durable state.
@@ -407,6 +438,14 @@ $review-spec
 $spec-merge-cleanup
 $architecture-remediation
 ```
+
+### Project-Level Coordination Owner
+
+```text
+$project-delivery-management
+```
+
+This owner is not an additional lifecycle stage. Human invocations make discretionary focus choices; lifecycle owners invoke its guard/reconcile/dependency operations only where their own contracts prescribe internal composition.
 
 ### Internal Composition and Helper Skills
 
@@ -611,7 +650,7 @@ Reconcile Project state from durable workflow artifacts instead.
 
 Do not infer `Complete`, `Ready to Spec`, `Ready to Verify`, or another workflow state solely from whether an issue is open or closed.
 
-Issue state and Polaris lifecycle state answer different questions.
+Issue state and Polaris lifecycle state answer different questions. Wayfinder closure is a specific delivery-complete marker established by its owning lifecycle, not a generic substitute for workflow-state derivation.
 
 ### Provenance as Hierarchy
 

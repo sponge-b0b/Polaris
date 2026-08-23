@@ -1,13 +1,13 @@
 ---
 name: github-issue-dependencies
-description: Invoked only by `$to-tickets` when publishing tickets with blocking edges to a GitHub tracker — not a standalone command. Documents the native `gh` CLI flags for sub-issue and blocked-by/blocking relationships, so this doesn't need to be re-researched on every invocation.
+description: Invoked only by `$to-tickets` when publishing or updating native GitHub issue relationships — parent/child hierarchy and blocking edges — not a standalone command. Documents the native `gh` CLI flags for sub-issue and blocked-by/blocking relationships, so this doesn't need to be re-researched on every invocation.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # GitHub Issue Dependencies
 
-This skill is invoked by `$to-tickets` at Step 5 ("Publish the tickets to the configured tracker"), specifically when the configured tracker is GitHub and the tickets being published have blocking edges. Use the commands below rather than researching this from scratch or falling back to raw `gh api graphql` mutations — the CLI now does this natively.
+This skill is invoked by `$to-tickets` at Step 5 ("Publish the tickets to the configured tracker") when the configured tracker is GitHub and native parent/child or blocked-by/blocking relationships must be published or updated. Use the commands below rather than researching this from scratch or falling back to raw `gh api graphql` mutations — the CLI now does this natively.
 
 ## Native `gh` flags
 
@@ -48,4 +48,34 @@ If it's older than 2.94.0, fall back to the text-based "Blocked by" convention a
 
 ## Editing relationships on an already-published issue
 
-For adding or changing these relationships on an issue that's already been created — relevant during `to-remediation-tickets`'s regression/dedup handling, for example — check `gh issue edit --help` for the corresponding flags. They were added alongside the create-time ones in the same release, but the exact flag names weren't independently verified for this skill; confirm against `--help` output before relying on a specific flag name.
+Use `gh issue edit` directly for existing issue relationships.
+
+Set or change an issue's native parent using the same direct-decomposition invariant as create-time publication:
+
+```bash
+gh issue edit <issue_number> --parent <native_parent_issue_number>
+```
+
+Remove its native parent:
+
+```bash
+gh issue edit <issue_number> --remove-parent
+```
+
+When operating from the parent side, add or remove existing sub-issues:
+
+```bash
+gh issue edit <parent_issue_number> --add-sub-issue <child_issue_number>
+gh issue edit <parent_issue_number> --remove-sub-issue <child_issue_number>
+```
+
+Add or remove dependency relationships:
+
+```bash
+gh issue edit <issue_number> --add-blocked-by <blocker_numbers_or_urls>
+gh issue edit <issue_number> --remove-blocked-by <blocker_numbers_or_urls>
+gh issue edit <issue_number> --add-blocking <blocked_issue_numbers_or_urls>
+gh issue edit <issue_number> --remove-blocking <blocked_issue_numbers_or_urls>
+```
+
+The relationship flags accept comma-separated issue numbers or URLs where multiple relationships are supported. Prefer `--parent` / `--remove-parent` when reconciling one ticket's immediate decomposition ownership; use `--add-sub-issue` / `--remove-sub-issue` when the parent issue is the natural reconciliation anchor.

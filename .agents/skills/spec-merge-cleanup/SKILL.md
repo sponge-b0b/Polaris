@@ -1,6 +1,6 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, cleans up the branch and Spec Review, and reconciles completion with every governing Wayfinder map.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and Spec Review, and reconciles completion with every governing Wayfinder map.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking findings, every Root Blocker satisfied or Owner-overridden, and no unresolved Candidate new root.
 
-Execution splits depending on whether the Spec used `spec-<spec_issue_number>`.
+Execution splits depending on whether the Spec used `spec-<spec_issue_number>` and whether authoritative Spec completion has already occurred.
 
 ## Session Independence
 
@@ -19,9 +19,11 @@ Recover every correctness-critical input from the explicit invocation, repositor
 
 If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
+Never assume an invocation is pre-merge merely because cleanup work remains. Detect whether the authoritative Spec completion transition has already occurred before applying any open-Spec or project-focus precondition.
+
 ## Review Exit Authorization
 
-Before closing or merging anything, recover the latest **Spec Review Exit Receipt** from the parent Spec issue.
+Before closing or merging anything, and before resuming interrupted post-completion cleanup, recover the latest **Spec Review Exit Receipt** from the parent Spec issue.
 
 The receipt must have been persisted by `$review-spec` only after its Exit Gate passed:
 
@@ -46,11 +48,14 @@ Require:
 * `Blocking findings` is `0`;
 * `Root blockers` is `satisfied-or-owner-overridden`;
 * `Candidate new roots` is `0`;
-* when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`.
+* before merge, when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`;
+* during post-merge recovery, `Reviewed HEAD` exactly equals the matching merged PR's recorded head SHA.
 
-Any commit after the receipt makes the authorization stale.
+Any commit after the receipt and before merge makes the authorization stale.
 
-If the receipt is missing, malformed, or stale, halt:
+A later commit on a still-existing Spec branch **after** the reviewed HEAD was merged does not retroactively invalidate the completed merge, but it makes that branch unsafe to delete automatically. Post-merge cleanup must fail closed on branch-tip drift rather than deleting unmerged work.
+
+If the receipt is missing, malformed, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
 
 > ⚠️ **Spec cleanup requires durable review authorization.**
 >
@@ -62,9 +67,51 @@ If the receipt is missing, malformed, or stale, halt:
 
 Do not invoke `$review-spec` implicitly.
 
+## Lifecycle Phase Detection
+
+Determine the lifecycle phase from durable state before invoking the project-delivery actionability guard.
+
+### Pre-completion
+
+The Spec is open and has not yet completed through this skill's authoritative merge/direct-close boundary.
+
+Use the normal actionability guard and then select the standard merge or direct-close path.
+
+### Post-merge recovery
+
+A closed Spec may resume the standard branch cleanup path without being reopened and without re-running the pre-merge project-focus guard only when all of the following are proven:
+
+1. the latest **Spec Review Exit Receipt** passes **Review Exit Authorization**;
+2. exactly one merged PR for `spec-<spec_issue_number>` into `main` matches the receipt's `Reviewed HEAD` as its recorded head SHA;
+3. the PR is durably `MERGED` and its merge commit is reachable from current `main`;
+4. `Reviewed HEAD` is an ancestor of current `main`;
+5. the Spec is closed;
+6. if the local or remote Spec branch still exists, each existing branch tip still equals `Reviewed HEAD`.
+
+If an existing local or remote branch tip differs from `Reviewed HEAD`, stop before deletion and report branch drift. Never force-delete or silently discard commits added after the reviewed merge.
+
+When these conditions hold, set `PR_NUMBER` from the matching merged PR and resume directly at **Phase B — Cleanup and Finalize**. Do not create another PR, merge again, reopen/reclose the Spec, or require the governing Wayfinder to remain focused. Successful completion may already have released project focus or closed a governing Wayfinder.
+
+### Post-direct-close recovery
+
+A closed branchless Spec may resume finalization without being reopened and without re-running the pre-close project-focus guard only when all of the following are proven:
+
+1. the latest **Spec Review Exit Receipt** passes **Review Exit Authorization**;
+2. no local or remote `spec-<spec_issue_number>` branch exists;
+3. no merged PR exists for that Spec branch and reviewed HEAD;
+4. the Spec contains the durable direct-close completion comment emitted by this skill:
+
+   `Spec work completed and reviewed directly (no dedicated branch was used). Zero blocking findings on final review.`
+
+When these conditions hold, resume with Spec Review cleanup and **Wayfinder Completion Reconciliation**. Do not close the Spec again.
+
+If the Spec is closed but neither recovery mode can be proven exactly, fail closed. Never infer that an arbitrary closed Spec was completed by this workflow.
+
 ## Project Delivery Actionability Guard
 
-Before merge, direct close, or any other lifecycle mutation, determine whether the Spec is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
+Apply this guard only in the **Pre-completion** phase, before merge, direct close, or another pre-completion lifecycle mutation. Do not re-run it during proven post-merge or post-direct-close recovery; completion may already have legitimately released focus.
+
+Determine whether the Spec is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
 
 An intentionally non-Wayfinder Spec keeps the existing cleanup lifecycle. Do not invent a Wayfinder merely to enroll it into project focus.
 
@@ -82,7 +129,7 @@ If none is allowed, stop before merge/close and report the governing maps, their
 
 A legitimately reopened blocker Spec makes this guard fail again through the unchanged native dependency edge. Do not persist a parallel "unblocked" state.
 
-This explicit `$spec-merge-cleanup` invocation is a distinct human lifecycle entry and must revalidate authorization even though `$review-spec` was previously authorized.
+This explicit `$spec-merge-cleanup` invocation is a distinct human lifecycle entry and must revalidate authorization before a new authoritative completion transition. A proven post-completion recovery is continuation of an already-durable completion transition, not authorization for another one.
 
 ## Wayfinder Completion Reconciliation
 
@@ -110,7 +157,7 @@ If a Wayfinder is already closed while the completion invariant is false, report
 
 When a Wayfinder becomes complete:
 
-* post one concise completion comment identifying all currently governed Specs considered;
+* post one concise completion comment identifying all currently governed Specs considered, unless an equivalent completion comment for the same governed set is already present;
 * if the map is still open, close it;
 * if it is already closed and the completion invariant is true, leave it closed.
 
@@ -120,13 +167,19 @@ Example completion comment:
 All Specs currently governed by this Wayfinder are complete and closed, with no unresolved decision/fog remaining: #<spec>, #<spec>.
 ```
 
-After all Spec/Wayfinder authoritative transitions are durable, invoke `$project-delivery-management` `reconcile`. A closed or directly map-ineligible focused Wayfinder must be removed from focus; a still-map-eligible Wayfinder with only narrower blocked work remains focused. Reconciliation never auto-selects a replacement.
+After all Spec/Wayfinder authoritative transitions are durable, invoke `$project-delivery-management` `reconcile`. A closed or directly map-ineligible focused Wayfinder must be removed from focus; a still-map-eligible Wayfinder with only narrower blocked work remains focused. Reconciliation never auto-selects a replacement and must be safe to rerun after an interrupted cleanup.
 
 Failure to determine a governing relationship is not permission to guess and is not a reason to roll back an otherwise successful merge. Report the reconciliation failure, leave ambiguous Wayfinder state untouched, and do not claim Wayfinder completion for that relationship.
 
-## Step 0 — Route: Standard vs. Direct Close
+## Step 0 — Route: Pre-completion vs. Recovery
 
-Require a current passing **Spec Review Exit Receipt** and pass the **Project Delivery Actionability Guard** before selecting either path.
+Require a current passing **Spec Review Exit Receipt**, then run **Lifecycle Phase Detection**.
+
+If **Post-merge recovery** is proven, skip the pre-completion actionability guard and continue directly to **Phase B — Cleanup and Finalize** with the recovered `PR_NUMBER`.
+
+If **Post-direct-close recovery** is proven, skip the pre-completion actionability guard, finish any still-open Spec Review, perform **Wayfinder Completion Reconciliation**, invoke project-delivery reconciliation, and exit successfully when the completion criteria are satisfied.
+
+If the Spec is open, apply the **Project Delivery Actionability Guard** before selecting either pre-completion path.
 
 If `spec-<spec_issue_number>` does not exist locally or remotely, no PR will auto-close the Spec:
 
@@ -138,8 +191,11 @@ if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
     --comment "Spec work completed and reviewed directly (no dedicated branch was used). Zero blocking findings on final review."
 
   if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-    gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
-      --comment "Spec #<spec_issue_number> closed directly. Zero blocking findings on final review."
+    REVIEW_STATE=$(gh issue view "$SPEC_REVIEW_ISSUE_NUMBER" --json state -q .state)
+    if [ "$REVIEW_STATE" = "OPEN" ]; then
+      gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
+        --comment "Spec #<spec_issue_number> closed directly. Zero blocking findings on final review."
+    fi
   else
     echo "No Spec Review issue exists — nothing to close."
   fi
@@ -156,7 +212,7 @@ If the branch exists, continue with the standard merge path.
 
 1. **Confirm Precondition**
 
-   Do not proceed unless the current **Spec Review Exit Receipt** passes **Review Exit Authorization** and the **Project Delivery Actionability Guard** remains satisfied.
+   Do not proceed unless the Spec is in **Pre-completion**, the current **Spec Review Exit Receipt** passes **Review Exit Authorization**, and the **Project Delivery Actionability Guard** remains satisfied.
 
 2. **Push Final State**
 
@@ -214,9 +270,11 @@ If the branch exists, continue with the standard merge path.
    fi
    ```
 
-Do not continue to cleanup unless the merge succeeded.
+Do not continue to cleanup unless the merge succeeded. If cleanup later fails, the next invocation must enter **Post-merge recovery** rather than attempting Phase A again.
 
 ## Phase B — Cleanup and Finalize
+
+This phase must be idempotent. It may run immediately after Phase A or from proven **Post-merge recovery**.
 
 1. **Check Current Branch**
 
@@ -235,28 +293,66 @@ Do not continue to cleanup unless the merge succeeded.
    git pull origin main
    ```
 
-3. **Delete Local Branch**
+   Reconfirm that the matching merge commit is reachable from `main` and that `Reviewed HEAD` is an ancestor of `main` before deleting either branch ref.
+
+3. **Delete Local Branch Safely and Idempotently**
+
+   If the local Spec branch is already absent, treat local cleanup as satisfied.
+
+   If it exists, require its current tip to equal `Reviewed HEAD`, then use normal merged-branch deletion only:
 
    ```bash
-   git branch -d spec-<spec_issue_number>
+   if git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>"; then
+     LOCAL_SPEC_HEAD=$(git rev-parse spec-<spec_issue_number>)
+
+     if [ "$LOCAL_SPEC_HEAD" != "$REVIEWED_HEAD" ]; then
+       echo "❌ Local spec branch moved after the reviewed merge; refusing to delete it."
+       exit 1
+     fi
+
+     git branch -d spec-<spec_issue_number>
+   else
+     echo "Local spec branch already absent — cleanup satisfied."
+   fi
    ```
 
-   If this fails, stop and investigate. Do not force-delete with `-D`.
+   If `git branch -d` fails, stop and investigate. Do not force-delete with `-D`.
 
-4. **Delete Remote Branch**
+4. **Delete Remote Branch Safely and Idempotently**
+
+   If the remote Spec branch is already absent, treat remote cleanup as satisfied.
+
+   If it exists, require its current tip to equal `Reviewed HEAD` before deletion:
 
    ```bash
-   git push origin --delete spec-<spec_issue_number>
+   REMOTE_SPEC_HEAD=$(git ls-remote --heads origin "refs/heads/spec-<spec_issue_number>" | awk '{print $1}')
+
+   if [ -n "$REMOTE_SPEC_HEAD" ]; then
+     if [ "$REMOTE_SPEC_HEAD" != "$REVIEWED_HEAD" ]; then
+       echo "❌ Remote spec branch moved after the reviewed merge; refusing to delete it."
+       exit 1
+     fi
+
+     git push origin --delete spec-<spec_issue_number>
+   else
+     echo "Remote spec branch already absent — cleanup satisfied."
+   fi
    ```
 
-5. **Close Spec Review**
+5. **Close Spec Review Idempotently**
 
-   The Spec itself was closed by the merged PR.
+   The Spec itself was closed by the merged PR. Never reopen or reclose it during post-merge recovery.
 
    ```bash
    if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-     gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
-       --comment "Spec merged (PR #$PR_NUMBER) and branch cleaned up. Zero blocking findings on final review."
+     REVIEW_STATE=$(gh issue view "$SPEC_REVIEW_ISSUE_NUMBER" --json state -q .state)
+
+     if [ "$REVIEW_STATE" = "OPEN" ]; then
+       gh issue close "$SPEC_REVIEW_ISSUE_NUMBER" \
+         --comment "Spec merged (PR #$PR_NUMBER) and branch cleaned up. Zero blocking findings on final review."
+     else
+       echo "Spec Review already closed — cleanup satisfied."
+     fi
    else
      echo "No Spec Review issue exists — nothing to close."
    fi
@@ -264,20 +360,24 @@ Do not continue to cleanup unless the merge succeeded.
 
 6. **Reconcile Wayfinder Completion**
 
-   Perform **Wayfinder Completion Reconciliation** only after the Spec is confirmed closed and all required cleanup above succeeded.
+   Perform **Wayfinder Completion Reconciliation** only after the Spec is confirmed closed and required branch cleanup above is satisfied.
 
    Reconcile every governing Wayfinder against all of its currently governed Derived and Remediation Specs plus unresolved decision/fog state. Then invoke `$project-delivery-management` `reconcile` after any map closure is durable.
+
+   Recovery must tolerate already-correct completion state: an already-closed Wayfinder whose invariant still holds and an already-released project focus are successful no-op reconciliation results, not errors.
 
 ## Completion
 
 Cleanup is complete only when the applicable path has:
 
 * validated a current passing Spec Review Exit Receipt from the parent Spec;
-* passed the current project-delivery actionability guard when the Spec is Wayfinder-managed;
-* successfully closed the Spec;
-* closed its Spec Review issue when one exists;
-* merged and deleted the Spec branch when applicable;
+* either passed the current project-delivery actionability guard before a new authoritative completion transition **or** proven an exact post-completion recovery path from durable evidence;
+* successfully closed the Spec exactly once through the applicable authoritative path;
+* closed its Spec Review issue when one exists, or confirmed it was already closed;
+* for a branch-backed Spec, confirmed the exact reviewed HEAD was merged to `main` and removed any still-existing local/remote Spec branch without deleting drifted post-merge work;
 * reconciled every unambiguously recovered governing Wayfinder against its full Derived+Remediation governed Spec set and decision/fog state;
-* invoked project-delivery reconciliation after authoritative completion transitions.
+* invoked project-delivery reconciliation after authoritative completion transitions, with already-correct reconciled state accepted as a no-op.
+
+A failed cleanup step after successful Spec completion does not invalidate the completed merge/direct close. A later invocation must recover from durable completion evidence and resume the remaining idempotent cleanup instead of requiring the Spec to be open, re-establishing focus, or repeating the completion transition.
 
 Wayfinder reconciliation must never guess missing lineage or roll back an otherwise successful Spec merge solely because provenance cannot be recovered. Report ambiguity/inconsistency explicitly and leave the affected map untouched rather than manufacturing lifecycle truth.

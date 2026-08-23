@@ -233,6 +233,8 @@ If accepted architecture does not determine the durable semantics required to am
 
 When an existing Spec already has ticket lineage, or the source is a Spec Review, `$to-tickets` invokes `$to-remediation-tickets` internally.
 
+Formal Implementation Tickets and Review Remediation Tickets are created or reconciled only through this ticketing lifecycle. A lifecycle owner that discovers additional executable work must route that work back through `$to-tickets` rather than create an ad-hoc formal ticket. `$to-remediation-tickets` remains internal composition and `$github-issue-dependencies` remains the mechanical owner for native relationship publication.
+
 Remediation ticketing is root-driven rather than symptom-driven. Closed tickets are historical evidence and are not reopened or rewritten to represent newly required work.
 
 All tickets for one Spec share the same Spec branch and fixed Spec baseline. Each ticket owns its own immutable Ticket baseline after `$implement-ticket` replaces `Pending` before first mutation.

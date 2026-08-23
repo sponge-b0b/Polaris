@@ -61,6 +61,32 @@ if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
 fi
 ```
 
+### Ticket Hierarchy Integrity Guard
+
+Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, validate the ticket's declared lineage against its native GitHub direct parent.
+
+Determine ticket mode from durable ticket metadata:
+
+* ordinary Implementation Ticket → require exactly one `Parent Spec: #<n>` and no remediation parent; expected native parent is Spec `#<n>`;
+* Review Remediation Ticket → require exactly one `Remediation parent: Spec Review #<r>` plus exactly one `Parent Spec: #<s>` for lifecycle/branch provenance; expected native parent is Spec Review `#<r>`, never Parent Spec `#<s>`.
+
+Re-read the ticket's native direct parent from canonical GitHub relationship state. Missing, unreadable, ambiguous, or contradictory lineage/parentage fails closed. Textual lineage is not a substitute for native decomposition hierarchy.
+
+On failure, halt before baseline persistence, project-delivery reconciliation, implementation, verification, commit, or ticket-state mutation and report:
+
+```text
+TICKET HIERARCHY: INVALID
+Ticket: #<ticket>
+Declared lineage: <Parent Spec / Remediation parent values>
+Expected native parent: #<n>
+Actual native parent: <#n | None | unreadable>
+Reason: <missing, ambiguous, or contradictory hierarchy>
+```
+
+`$implement-ticket` validates hierarchy only. It must not create, remove, or repair native parent/sub-issue relationships. Formal ticket publication/reconciliation remains owned by `$to-tickets`; `$github-issue-dependencies` remains the mechanical relationship helper for that owner.
+
+A correctly published ticket continues through the existing guards and lifecycle unchanged.
+
 ### Project Delivery Actionability Guard
 
 Before persisting a pending Ticket baseline or making any other tracker/repository mutation, resolve the parent Spec and determine whether it is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
@@ -431,6 +457,8 @@ Exit dispatcher-only mode and proceed to Section 4. Capture the verifier's basel
 Any implementation change after `PASS` makes the verdict stale and requires another Human Handoff and fresh verifier.
 
 ## 4. Re-Verify Before Persistence
+
+Re-run the **Ticket Hierarchy Integrity Guard** immediately before final repository persistence or ticket closure. If the native direct parent or declared lineage changed during implementation, halt under `TICKET HIERARCHY: INVALID`; do not commit or close under stale decomposition state.
 
 Re-check **Ticket branch** immediately before repository commit when repository files changed:
 

@@ -31,4 +31,4 @@ Do not invoke `$project-tracking` before the semantic transition succeeds, and d
 
 `PROJECT TRACKING: DRIFT` never rolls back or rewrites the authoritative workflow transition or project-delivery focus. Report the drift and continue to treat durable tracker/repository state as authoritative.
 
-The one-time addition of `$project-delivery-management` to the existing `Next Skill` single-select field is owned by `ROLLOUT.md`. Steady-state `$project-tracking` never repairs Project schema.
+The required `$project-delivery-management` `Next Skill` option is provisioned once during migration. Steady-state `$project-tracking` requires the existing option and never creates, alters, or repairs Project schema.

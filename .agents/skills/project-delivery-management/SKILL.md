@@ -377,7 +377,7 @@ Retain focus and surface the lower-level blockers supplied/recovered by their ow
 
 Do not promote those blockers to the map and do not silently switch or release focus.
 
-Later lifecycle-integration tickets own the exact lower-level frontier recovery at their respective boundaries.
+Lower-level lifecycle owners recover their exact decision/Spec/ticket frontiers at their own boundaries and supply the resulting blockers here.
 
 ## Human Focus Operations
 
@@ -545,15 +545,15 @@ This skill may:
 
 This skill must not:
 
-* create/bootstrap or migrate the live singleton under this ticket;
+* create/bootstrap or migrate the live singleton during steady-state operation;
 * infer or persist focus in pre-bootstrap mode;
 * own same-lineage dependency semantics;
 * create parent/sub-issue hierarchy while reconciling cross-Wayfinder dependencies;
 * infer dependencies from broad prose, Project state, labels, priority, similarity, or architectural overlap;
 * write Wayfinder decisions, Specs, tickets, implementation, verification, review, or merge artifacts;
-* derive detailed Spec/ticket frontiers under this ticket;
+* own detailed Spec/ticket frontier semantics;
 * mutate GitHub Project schema or use Project fields as authority;
 * auto-run downstream lifecycle skills;
 * auto-select a successor Wayfinder.
 
-Those responsibilities remain with existing lifecycle owners or the downstream Spec #219 tickets that explicitly implement their integration.
+Those responsibilities remain with their existing lifecycle owners; `$project-tracking` owns GitHub Project projection mechanics.

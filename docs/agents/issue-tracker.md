@@ -57,7 +57,27 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 - **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
+- **Blocking**: GitHub's **native issue dependencies** are the canonical, UI-visible representation. Use `$github-issue-dependencies` for relationship mechanics. Legacy textual `Blocked by` metadata may be retained as historical/explanatory context but is not a second dependency authority when native relationships are available. A ticket is unblocked when every native blocker is closed.
+- **Frontier query**: list the map's open children, drop any with an open native blocker or an assignee; first in map order wins.
+- **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write after required project-delivery authorization.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## Project Delivery Management
+
+`$project-delivery-management` owns project-level delivery coordination across independent Wayfinder lineages. Dependency answers **what may proceed**; focus answers **what Polaris intends to work now**.
+
+Canonical rules:
+
+- discover Wayfinder maps from open issues labelled `wayfinder:map`; do not maintain a second map registry;
+- discover the single Project Delivery Management control issue by `project-delivery:management`; it is not a Wayfinder, Project item, or parent of maps;
+- derive the Wayfinder frontier from open canonical maps with no open direct native blockers;
+- persist only focused Wayfinders and exact parallel-focus authorization on the control issue; frontier/blocked/queued state remains derived;
+- require explicit human focus/switch/parallel authorization; never infer focus from Project fields, Priority, assignees, issue order/age, activity, branches, or conversation state;
+- keep cross-Wayfinder semantic dependencies at the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics and delegates native relationship mutation to `$github-issue-dependencies`;
+- reserve Wayfinder-to-Wayfinder blockers for true whole-map prerequisites; never create dependency edges merely to enforce project WIP;
+- derive the Spec dependency frontier from open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused;
+- permit multiple independent actionable Specs inside a focused Wayfinder; do not persist a separate active-Spec queue or WIP field;
+- treat a closed Wayfinder as the durable delivery-complete marker. If authoritative re-entry or open governed Derived/Remediation Spec work exists, reopen the Wayfinder before substantive advancement;
+- keep the public GitHub Project downstream and non-authoritative. Project drift is repaired from canonical issue/provenance/dependency/focus state, never the reverse.
+
+Project Delivery Management bootstrap initializes `Focused Wayfinders: None` and `Parallel authorization: None`. After bootstrap, zero or multiple canonical control issues is invalid state and project-gated advancement fails closed.

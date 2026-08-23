@@ -18,13 +18,20 @@ As of `gh` CLI **v2.94.0** (June 2026), `gh issue create` supports:
 - `--blocking <numbers>` — marks the new issue as blocking the given issue number(s)/URL(s)
 - `--type <name>` — sets the issue type, if your tracker uses GitHub's issue types
 
-All four flags can be combined in one call. Example — a ticket blocked by two earlier tickets, filed as a sub-issue of the spec:
+All four flags can be combined in one call. `$to-tickets` must resolve `<native_parent_issue_number>` from its direct-decomposition invariant before invoking this helper:
+
+- ordinary Spec ticketing → the Spec issue number;
+- Spec Review remediation → the Spec Review issue number.
+
+Do not substitute an upstream provenance issue for the direct decomposition parent. In particular, a remediation ticket's originating Parent Spec remains lifecycle/branch provenance and is not its native GitHub parent.
+
+Example — a ticket blocked by two earlier tickets and filed under the artifact directly decomposed by `$to-tickets`:
 
 ```bash
 gh issue create \
   --title "..." \
   --body "..." \
-  --parent <spec_issue_number> \
+  --parent <native_parent_issue_number> \
   --blocked-by <blocker_1_number>,<blocker_2_number> \
   --label ready-for-agent
 ```

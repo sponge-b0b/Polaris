@@ -193,9 +193,19 @@ Apply only the approved changes, or deterministic metadata-only normalization au
 
 Use native parent/child and blocking relationships where supported. For GitHub, invoke `$github-issue-dependencies` for relationship operations.
 
+The native parent is the artifact **directly decomposed by this `$to-tickets` invocation**:
+
+* ordinary Spec ticketing → the Spec is the native parent of its Implementation Tickets;
+* Spec Review remediation → the Spec Review is the native parent of its Review Remediation Tickets.
+
+Do not use transitive provenance as native hierarchy. In particular, the originating Spec remains the branch/baseline and lifecycle provenance owner for remediation, but it is **not** the native parent of tickets created from a Spec Review. A Spec Review is likewise lifecycle provenance for the Spec, not an implementation child of the Spec.
+
 New tickets must:
 
-* link to the same parent Spec;
+* record lineage according to ticket mode:
+  * ordinary Spec ticket → `Parent Spec: #<spec_issue_number>`;
+  * Spec Review remediation ticket → `Remediation parent: Spec Review #<review_issue_number>` and `Parent Spec: #<spec_issue_number>`;
+* use the direct decomposition artifact above as the native GitHub parent;
 * carry applicable Architecture context;
 * use the shared **Ticket branch**;
 * declare **Ticket baseline** as `Pending`;
@@ -270,7 +280,20 @@ More generally, state only what the workflow has established. Do not turn curren
 
 ## Parent
 
-Reference the parent Spec.
+For an ordinary Implementation Ticket:
+
+```text
+Parent Spec: #<spec_issue_number>
+```
+
+For a Review Remediation Ticket:
+
+```text
+Remediation parent: Spec Review #<review_issue_number>
+Parent Spec: #<spec_issue_number>
+```
+
+The first line identifies immediate decomposition ownership. `Parent Spec` on a remediation ticket is transitive lifecycle provenance and branch/baseline ownership only; do not use it as the native GitHub parent.
 
 ## Root blocker
 
@@ -333,6 +356,8 @@ Work the frontier one ticket at a time with `$implement-ticket`, clearing contex
 All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline.
 
 Each ticket has its own `Ticket baseline`.
+
+The originating Spec's branch/baseline ownership does not make it the native parent of Spec Review remediation tickets. Native hierarchy follows direct decomposition ownership from Step 5.
 
 ### 0. Resolve the Spec Issue Number
 

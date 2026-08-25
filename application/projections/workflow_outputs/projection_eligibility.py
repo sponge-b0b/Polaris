@@ -8,6 +8,7 @@ from application.projections.workflow_outputs.projection_registry import (
     WorkflowOutputProjectionRegistry,
     WorkflowOutputProjectionResolution,
     WorkflowOutputProjectionResolutionStatus,
+    WorkflowOutputProjectorRegistration,
 )
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
@@ -24,6 +25,7 @@ from domain.authority import (
     RiskAuthorityContract,
     SourceOfTruthCategory,
     classify_risk_authority,
+    risk_authority_decision_profile_for_tier,
     validate_risk_authority_metadata,
 )
 
@@ -176,12 +178,6 @@ class WorkflowOutputProjectionEligibilityPolicy:
                 "Projection requires an archived node output with success=True.",
             )
 
-        authority_contract, authority_decision = _evaluate_authority_contract(
-            context,
-        )
-        if authority_decision is not None:
-            return authority_decision
-
         resolution = registry.resolve(
             output_contract=node_output.output_contract,
             output_schema_version=node_output.output_schema_version,
@@ -191,8 +187,14 @@ class WorkflowOutputProjectionEligibilityPolicy:
             return _skipped_for_resolution(
                 node_output,
                 resolution,
-                authority_contract=authority_contract,
             )
+
+        authority_contract, authority_decision = _evaluate_authority_contract(
+            context,
+            resolution.registration,
+        )
+        if authority_decision is not None:
+            return authority_decision
 
         if (
             quality_status is not WorkflowOutputQualityStatus.NORMAL
@@ -224,11 +226,13 @@ class WorkflowOutputProjectionEligibilityPolicy:
 
 def _evaluate_authority_contract(
     context: WorkflowOutputProjectionEligibilityContext,
+    registration: WorkflowOutputProjectorRegistration,
 ) -> tuple[
     RiskAuthorityContract | None, WorkflowOutputProjectionEligibilityDecision | None
 ]:
     node_output = context.node_output
     intended_sink = cast(IntendedSink, context.intended_sink)
+    authority_contract = registration.expected_authority_contract
     raw_authority_metadata = node_output.metadata.get(
         WORKFLOW_OUTPUT_AUTHORITY_METADATA_KEY,
     )
@@ -246,33 +250,32 @@ def _evaluate_authority_contract(
                 ),
                 authority_contract=authority_contract,
             )
-        return None, _skipped(
+        return authority_contract, _prohibited_authority_decision(
             node_output,
-            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_REQUIRED,
-            (
-                "Projection requires canonical risk authority metadata for "
-                "durable workflow-output curation."
-            ),
+            authority_contract,
         )
 
     try:
         validation = validate_risk_authority_metadata(raw_authority_metadata)
     except ValueError as exc:
-        return None, _skipped(
+        return authority_contract, _skipped(
             node_output,
             WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_MALFORMED,
-            f"Projection requires well-formed risk authority metadata: {exc}",
+            (
+                "Projection rejects completed-output risk authority metadata "
+                f"that cannot be validated against platform-owned authority: {exc}"
+            ),
+            authority_contract=authority_contract,
         )
 
-    authority_contract = validation.contract
-    if authority_contract.intended_sink is not intended_sink:
+    metadata_contract = validation.contract
+    if metadata_contract != authority_contract:
         return authority_contract, _skipped(
             node_output,
             WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT,
             (
-                "Projection authority metadata intended sink "
-                f"{authority_contract.intended_sink.value!r} does not match "
-                f"the curation sink {intended_sink.value!r}."
+                "Projection rejects completed-output risk authority metadata "
+                "that differs from the platform-owned projector authority."
             ),
             authority_contract=authority_contract,
         )
@@ -288,18 +291,44 @@ def _evaluate_authority_contract(
             authority_contract=authority_contract,
         )
 
-    if validation.selected_profile.prohibits_boundary:
+    prohibited_decision = _prohibited_authority_decision(
+        node_output,
+        authority_contract,
+    )
+    if prohibited_decision is not None:
+        return authority_contract, prohibited_decision
+
+    if authority_contract.intended_sink is not intended_sink:
         return authority_contract, _skipped(
             node_output,
-            WorkflowOutputProjectionSkipReason.PROHIBITED_OUTSIDE_AUTHORITY,
+            WorkflowOutputProjectionSkipReason.AUTHORITY_METADATA_INCONSISTENT,
             (
-                "Projection rejected before durable curation because the "
-                "canonical authority tier is 'prohibited_outside_authority'."
+                "Projection authority metadata intended sink "
+                f"{authority_contract.intended_sink.value!r} does not match "
+                f"the curation sink {intended_sink.value!r}."
             ),
             authority_contract=authority_contract,
         )
 
     return authority_contract, None
+
+
+def _prohibited_authority_decision(
+    node_output: CompletedNodeOutputRecord,
+    authority_contract: RiskAuthorityContract,
+) -> WorkflowOutputProjectionEligibilityDecision | None:
+    profile = risk_authority_decision_profile_for_tier(authority_contract.risk_tier)
+    if not profile.prohibits_boundary:
+        return None
+    return _skipped(
+        node_output,
+        WorkflowOutputProjectionSkipReason.PROHIBITED_OUTSIDE_AUTHORITY,
+        (
+            "Projection rejected before durable curation because the "
+            "canonical authority tier is 'prohibited_outside_authority'."
+        ),
+        authority_contract=authority_contract,
+    )
 
 
 def _classify_internal_baseline_runtime_evidence() -> RiskAuthorityContract:

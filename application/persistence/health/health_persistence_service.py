@@ -5,9 +5,13 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from core.database.base import Base
 from core.storage.persistence.health import (
@@ -22,6 +26,7 @@ DatabaseTableLoader = Callable[[], Awaitable[Sequence[str]]]
 CurrentRevisionLoader = Callable[[], Awaitable[str | None]]
 HeadRevisionLoader = Callable[[], str | None]
 MetadataTableLoader = Callable[[], Sequence[str]]
+SchemaDriftLoader = Callable[[], Awaitable[Sequence[str]]]
 
 
 @dataclass(
@@ -83,6 +88,7 @@ class HealthPersistenceService:
         current_revision_loader: CurrentRevisionLoader | None = None,
         head_revision_loader: HeadRevisionLoader | None = None,
         metadata_table_loader: MetadataTableLoader | None = None,
+        schema_drift_loader: SchemaDriftLoader | None = None,
     ) -> None:
         self._connectivity_checker = (
             connectivity_checker or _check_database_connectivity
@@ -93,6 +99,7 @@ class HealthPersistenceService:
         )
         self._head_revision_loader = head_revision_loader or _load_head_alembic_revision
         self._metadata_table_loader = metadata_table_loader or _load_metadata_tables
+        self._schema_drift_loader = schema_drift_loader or _load_schema_drift_operations
 
     async def check_health(
         self,
@@ -113,6 +120,9 @@ class HealthPersistenceService:
                 checked_at=active_checked_at,
             ),
             await self._check_migration_state(
+                checked_at=active_checked_at,
+            ),
+            await self._check_schema_drift(
                 checked_at=active_checked_at,
             ),
             self._check_metadata_tables(
@@ -239,6 +249,54 @@ class HealthPersistenceService:
             component="alembic",
             checked_at=checked_at,
             message="Database migration revision matches Alembic head.",
+            metadata=metadata,
+        )
+
+    async def _check_schema_drift(
+        self,
+        *,
+        checked_at: datetime,
+    ) -> PersistenceHealthCheckResult:
+        try:
+            drift_operations = tuple(
+                await self._schema_drift_loader(),
+            )
+        except (ImportError, SQLAlchemyError) as exc:
+            return PersistenceHealthCheckResult.unhealthy(
+                category=PersistenceHealthCheckCategory.MIGRATION_STATE,
+                check_name="alembic_schema_drift",
+                component="alembic",
+                checked_at=checked_at,
+                message="Alembic schema drift check failed.",
+                metadata={
+                    "error": str(
+                        exc,
+                    ),
+                },
+            )
+
+        metadata: dict[str, JsonValue] = {
+            "operation_count": len(
+                drift_operations,
+            ),
+            "operations": drift_operations,
+        }
+        if drift_operations:
+            return PersistenceHealthCheckResult.unhealthy(
+                category=PersistenceHealthCheckCategory.MIGRATION_STATE,
+                check_name="alembic_schema_drift",
+                component="alembic",
+                checked_at=checked_at,
+                message="Database schema differs from SQLAlchemy metadata.",
+                metadata=metadata,
+            )
+
+        return PersistenceHealthCheckResult.healthy(
+            category=PersistenceHealthCheckCategory.MIGRATION_STATE,
+            check_name="alembic_schema_drift",
+            component="alembic",
+            checked_at=checked_at,
+            message="Database schema matches SQLAlchemy metadata.",
             metadata=metadata,
         )
 
@@ -419,6 +477,65 @@ def _load_head_alembic_revision() -> str | None:
         config,
     )
     return script.get_current_head()
+
+
+async def _load_schema_drift_operations() -> tuple[str, ...]:
+    from core.database.postgres import create_database_engine
+
+    importlib.import_module(
+        "core.database.models",
+    )
+
+    engine = create_database_engine()
+    try:
+        async with engine.connect() as connection:
+            operations = await connection.run_sync(
+                _compare_database_schema_to_metadata,
+            )
+    finally:
+        await engine.dispose()
+    return operations
+
+
+def _compare_database_schema_to_metadata(
+    connection: Connection,
+) -> tuple[str, ...]:
+    migration_context = MigrationContext.configure(
+        connection,
+        opts={
+            "target_metadata": Base.metadata,
+            "compare_type": True,
+            "compare_server_default": True,
+            "include_schemas": False,
+        },
+    )
+    differences = compare_metadata(
+        migration_context,
+        Base.metadata,
+    )
+    return tuple(
+        _summarize_schema_drift_operation(
+            difference,
+        )
+        for difference in differences
+    )
+
+
+def _summarize_schema_drift_operation(
+    operation: object,
+) -> str:
+    summary = repr(
+        operation,
+    )
+    max_length = 240
+    if (
+        len(
+            summary,
+        )
+        <= max_length
+    ):
+        return summary
+    return f"{summary[: max_length - 3]}..."
 
 
 def _load_metadata_tables() -> tuple[str, ...]:

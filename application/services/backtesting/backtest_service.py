@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any, Protocol
 from uuid import uuid4
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.services.backtesting.backtest_metrics import compute_backtest_metrics
 from application.services.backtesting.backtest_reporting import build_backtest_artifacts
 from application.services.backtesting.backtest_request import (
@@ -38,13 +39,14 @@ def _new_backtest_run_id() -> str:
     return f"backtest-{uuid4().hex}"
 
 
-class BacktestWorkflowFacade(Protocol):
+class BacktestGovernedWorkflowExecutionService(Protocol):
     """
     Minimal WorkflowFacade contract required by backtesting orchestration.
     """
 
     async def run_workflow(
         self,
+        *,
         workflow_name: str,
         execution_id: str | None = None,
         mode: str = "live",
@@ -64,18 +66,21 @@ class BacktestApplicationService(
     Canonical application boundary for platform backtesting.
 
     Backtest execution is runtime-native: each simulation timestamp delegates to
-    WorkflowFacade.run_workflow with mode="backtest" and simulation_time set.
+    the governed workflow execution service with mode="backtest" and simulation
+    time.
     """
 
     service_name = "backtest_application_service"
 
     def __init__(
         self,
-        workflow_facade: BacktestWorkflowFacade | None = None,
+        governed_workflow_execution_service: (
+            BacktestGovernedWorkflowExecutionService | None
+        ) = None,
         clock: Callable[[], datetime] = _system_clock,
         run_id_factory: Callable[[], str] = _new_backtest_run_id,
     ) -> None:
-        self.workflow_facade = workflow_facade
+        self.governed_workflow_execution_service = governed_workflow_execution_service
         self.clock = clock
         self.run_id_factory = run_id_factory
 
@@ -83,6 +88,19 @@ class BacktestApplicationService(
         self,
         request: ServiceRequest[BacktestRunRequest],
     ) -> ServiceResult[BacktestResult]:
+        if self.governed_workflow_execution_service is None:
+            return ServiceResult.failed(
+                request_id=request.request_id,
+                request_name=request.request_name,
+                error=GovernedWorkflowExecutionEvidenceRequiredError(
+                    "Governed workflow execution service is required."
+                ),
+                metadata=self._result_metadata(
+                    request=request,
+                    status="unavailable",
+                ),
+            )
+
         result = await self._execute(
             request.payload,
         )
@@ -91,13 +109,24 @@ class BacktestApplicationService(
             request_id=request.request_id,
             request_name=request.request_name,
             result=result,
-            metadata={
-                "service_name": self.service_name,
-                "provider_profile": request.payload.scenario.provider_profile,
-                "mode": "backtest",
-                "status": result.status,
-            },
+            metadata=self._result_metadata(
+                request=request,
+                status=result.status,
+            ),
         )
+
+    def _result_metadata(
+        self,
+        *,
+        request: ServiceRequest[BacktestRunRequest],
+        status: str,
+    ) -> dict[str, object]:
+        return {
+            "service_name": self.service_name,
+            "provider_profile": request.payload.scenario.provider_profile,
+            "mode": "backtest",
+            "status": status,
+        }
 
     async def validate_request(
         self,
@@ -123,13 +152,6 @@ class BacktestApplicationService(
     ) -> BacktestResult:
         backtest_run_id = self.run_id_factory()
 
-        if self.workflow_facade is None:
-            return BacktestResult.validated(
-                backtest_run_id=backtest_run_id,
-                scenario=request.scenario,
-                timestamp=_utc_timestamp(self.clock()),
-            )
-
         return await self._execute_runtime_backtest(
             backtest_run_id=backtest_run_id,
             request=request,
@@ -141,8 +163,8 @@ class BacktestApplicationService(
         backtest_run_id: str,
         request: BacktestRunRequest,
     ) -> BacktestResult:
-        if self.workflow_facade is None:
-            raise RuntimeError("WorkflowFacade is required for backtest execution.")
+        if self.governed_workflow_execution_service is None:
+            raise RuntimeError("Governed workflow execution service is required.")
 
         started_at = _utc_timestamp(self.clock())
         steps: list[BacktestStepResult] = []
@@ -162,7 +184,9 @@ class BacktestApplicationService(
                 persist_results=request.persist_results,
                 checkpoint_workflow_runs=request.checkpoint_workflow_runs,
             )
-            workflow_result = await self._run_workflow_step(step_request)
+            workflow_result = await self._run_workflow_step(
+                step_request,
+            )
             step_result = _step_result_from_workflow_result(
                 scenario=request.scenario,
                 simulation_time=simulation_time,
@@ -225,9 +249,9 @@ class BacktestApplicationService(
         self,
         request: BacktestWorkflowStepRequest,
     ) -> Any:
-        if self.workflow_facade is None:
-            raise RuntimeError("WorkflowFacade is required for backtest execution.")
-        return await self.workflow_facade.run_workflow(
+        if self.governed_workflow_execution_service is None:
+            raise RuntimeError("Governed workflow execution service is required.")
+        return await self.governed_workflow_execution_service.run_workflow(
             workflow_name=request.workflow_name,
             execution_id=request.execution_id,
             mode="backtest",

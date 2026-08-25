@@ -23,7 +23,7 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapResult,
 )
 from interfaces.cli.bootstrap.settings import CliSettings
-from workflows.catalog import get_builtin_workflows
+from workflows.catalog import get_builtin_workflow_registrations
 
 DependencyT = TypeVar("DependencyT")
 
@@ -92,11 +92,12 @@ async def cli_runtime_scope(
         runtime = request_container.get(WorkflowBootstrapResult)
         subscribe_default_workflow_output_projection(
             event_bus=runtime.event_bus,
+            workflow_registry=runtime.facade.registry,
             observability_manager=runtime.observability_manager,
         )
-        for workflow in get_builtin_workflows():
-            await runtime.facade.register_workflow_async(
-                workflow_definition=workflow,
+        for registration in get_builtin_workflow_registrations():
+            await runtime.facade.register_builtin_workflow_async(
+                workflow_name=registration.definition.workflow_name,
                 tags=("builtin",),
                 metadata={"source": "workflows.catalog"},
                 overwrite=True,

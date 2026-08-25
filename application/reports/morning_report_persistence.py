@@ -5,7 +5,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from application.decision_evidence.claim_binding import (
     ClaimEvidenceBindingError,
@@ -16,6 +16,12 @@ from application.decision_evidence.claim_binding import (
 )
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketReconstructionError,
+)
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
 )
 from application.reports.authority import (
     ensure_report_publication_authority,
@@ -28,6 +34,10 @@ from application.reports.morning_report_models import (
     ReportSection,
     ReportTable,
 )
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+)
 from core.storage.persistence.reports import (
     JsonObject,
     ReportArtifactRecord,
@@ -39,9 +49,10 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     new_report_id,
 )
-from domain.authority import RiskTier
+from domain.authority import RiskAuthorityContract, RiskTier
 from domain.decision_evidence import (
     DecisionEvidencePacketValidationError,
+    EvidenceClaimReference,
 )
 from domain.llm import (
     is_model_internal_reasoning_key,
@@ -52,6 +63,23 @@ logger = logging.getLogger(__name__)
 _HIGH_RISK_REPORT_CLAIM_PROVENANCE_TIERS = frozenset(
     (RiskTier.ENHANCED, RiskTier.VIGILANT),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _ReportClaimEvidenceBindingResult:
+    links: tuple[ReportClaimEvidenceLinkRecord, ...]
+    validated_claim_references: tuple[EvidenceClaimReference, ...]
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Approval-state service used before report publication."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Return whether this scoped report may be published."""
+        ...
 
 
 @dataclass(
@@ -204,10 +232,12 @@ class MorningReportPersistenceService:
         *,
         mapper: MorningReportPersistenceMapper | None = None,
         claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
+        governed_output_release_service: GovernedOutputReleaseService | None = None,
     ) -> None:
         self._repository = repository
         self._mapper = mapper or MorningReportPersistenceMapper()
         self._claim_binding_service = claim_binding_service
+        self._governed_output_release_service = governed_output_release_service
 
     async def persist(
         self,
@@ -227,7 +257,7 @@ class MorningReportPersistenceService:
         )
 
         try:
-            claim_evidence_links = await _bind_report_claim_evidence(
+            claim_evidence_binding = await _bind_report_claim_evidence(
                 self._claim_binding_service,
                 report_id=bundle.report.report_id,
                 document=document,
@@ -249,12 +279,150 @@ class MorningReportPersistenceService:
             )
             return ReportPersistenceResult.failed(str(exc))
 
+        release_decision = await self._evaluate_publication_release(
+            document,
+            claim_references=claim_evidence_binding.validated_claim_references,
+        )
+        if release_decision is not None and not release_decision.allowed:
+            logger.warning(
+                "morning_report.persistence.governance_review_blocked",
+                extra={
+                    "execution_id": document.execution_id,
+                    "risk_tier": document.authority.risk_tier.value,
+                    "approval_state": (
+                        release_decision.approval_state.value
+                        if release_decision.approval_state is not None
+                        else None
+                    ),
+                    "review_task_id": release_decision.review_task_id,
+                    "reason": release_decision.reason,
+                },
+            )
+            return ReportPersistenceResult.failed(release_decision.reason)
+
         return await self._repository.persist_report(
             bundle.report,
             sections=bundle.sections,
             artifacts=bundle.artifacts,
-            claim_evidence_links=claim_evidence_links,
+            claim_evidence_links=claim_evidence_binding.links,
         )
+
+    async def _evaluate_publication_release(
+        self,
+        document: MorningReportDocument,
+        *,
+        claim_references: tuple[EvidenceClaimReference, ...],
+    ) -> GovernedOutputReleaseDecision | None:
+        service = self._governed_output_release_service
+        if not requires_governed_output_release_review(document.authority):
+            return None
+        if service is None:
+            return _missing_publication_release_service_decision(
+                document.authority,
+                boundary_name="morning_report.persistence",
+            )
+
+        release_request = _report_publication_release_request(
+            document=document,
+            claim_references=claim_references,
+            boundary_name="morning_report.persistence",
+        )
+        if isinstance(release_request, GovernedOutputReleaseDecision):
+            return release_request
+        return await service.evaluate_governed_output_release(release_request)
+
+
+def _missing_publication_release_service_decision(
+    authority: RiskAuthorityContract,
+    *,
+    boundary_name: str,
+) -> GovernedOutputReleaseDecision:
+    return GovernedOutputReleaseDecision(
+        allowed=False,
+        approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+        reason=(
+            f"{boundary_name} is blocked: capital-relevant {authority.risk_tier.value} "
+            "report publication requires the canonical governed output release "
+            "service."
+        ),
+    )
+
+
+def _missing_publication_packet_decision(
+    authority: RiskAuthorityContract,
+    *,
+    boundary_name: str,
+) -> GovernedOutputReleaseDecision:
+    return GovernedOutputReleaseDecision(
+        allowed=False,
+        approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+        reason=(
+            f"{boundary_name} is blocked: capital-relevant {authority.risk_tier.value} "
+            "report publication requires materializer-owned decision evidence packet "
+            "claim references."
+        ),
+    )
+
+
+def _report_publication_release_request(
+    *,
+    document: MorningReportDocument,
+    claim_references: tuple[EvidenceClaimReference, ...],
+    boundary_name: str,
+) -> GovernedOutputReleaseRequest | GovernedOutputReleaseDecision:
+    evidence = _report_publication_evidence(
+        authority=document.authority,
+        claim_references=claim_references,
+        boundary_name=boundary_name,
+    )
+    if isinstance(evidence, GovernedOutputReleaseDecision):
+        return evidence
+    residual_risk_acceptance_required = (
+        document.authority.risk_tier is RiskTier.VIGILANT
+    )
+    return GovernedOutputReleaseRequest(
+        authority=document.authority,
+        subject=AutomatedDecisionSubject(
+            "report",
+            f"morning_report:{document.execution_id}",
+        ),
+        evidence=evidence,
+        review_scope="morning_report",
+        requested_action="report_publication",
+        boundary_name=boundary_name,
+        residual_risk_acceptance_required=residual_risk_acceptance_required,
+        residual_risk_scope=(
+            "morning_report_publication" if residual_risk_acceptance_required else None
+        ),
+    )
+
+
+def _report_publication_evidence(
+    *,
+    authority: RiskAuthorityContract,
+    claim_references: tuple[EvidenceClaimReference, ...],
+    boundary_name: str,
+) -> AutomatedDecisionEvidenceReference | GovernedOutputReleaseDecision:
+    if not claim_references:
+        return _missing_publication_packet_decision(
+            authority,
+            boundary_name=boundary_name,
+        )
+    packet_ids = {reference.packet_id for reference in claim_references}
+    packet_versions = {reference.packet_version for reference in claim_references}
+    if len(packet_ids) != 1 or len(packet_versions) != 1:
+        return GovernedOutputReleaseDecision(
+            allowed=False,
+            approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+            reason=(
+                f"{boundary_name} is blocked: report publication requires one "
+                "materializer-owned decision evidence packet identity."
+            ),
+        )
+    return AutomatedDecisionEvidenceReference(
+        packet_id=next(iter(packet_ids)),
+        packet_version=next(iter(packet_versions)),
+    )
 
 
 async def _bind_report_claim_evidence(
@@ -262,21 +430,29 @@ async def _bind_report_claim_evidence(
     *,
     report_id: str,
     document: MorningReportDocument,
-) -> tuple[ReportClaimEvidenceLinkRecord, ...]:
+) -> _ReportClaimEvidenceBindingResult:
     targets = _report_claim_evidence_binding_targets(
         report_id,
         document,
     )
     if not targets:
         _ensure_claim_audit_treatment_present(document)
-        return ()
+        return _ReportClaimEvidenceBindingResult(
+            links=(),
+            validated_claim_references=(),
+        )
     if claim_binding_service is None:
-        if has_material_claim_references(targets):
+        if has_material_claim_references(
+            targets
+        ) or requires_governed_output_release_review(document.authority):
             raise ClaimEvidenceBindingError(
                 "canonical claim evidence binding service is required for "
-                "material report claim references."
+                "report publication claim references."
             )
-        return ()
+        return _ReportClaimEvidenceBindingResult(
+            links=(),
+            validated_claim_references=(),
+        )
     links = await claim_binding_service.bind_report_claims(
         report_id=report_id,
         targets=targets,
@@ -286,7 +462,10 @@ async def _bind_report_claim_evidence(
         links=links,
         boundary_name="report persistence",
     )
-    return links
+    return _ReportClaimEvidenceBindingResult(
+        links=tuple(links),
+        validated_claim_references=_claim_references_from_targets(targets),
+    )
 
 
 def _ensure_claim_audit_treatment_present(
@@ -298,9 +477,19 @@ def _ensure_claim_audit_treatment_present(
     raise ClaimEvidenceBindingError(
         "morning_report.persistence "
         f"{document.authority.risk_tier.value} report output has no explicit "
-        "decision-evidence claim audit treatment; material report claims require "
-        "canonical decision-evidence packet provenance before persistence."
+        "decision-evidence claim audit treatment; report publication requires "
+        "materializer-owned decision evidence packet claim references before "
+        "persistence."
     )
+
+
+def _claim_references_from_targets(
+    targets: Sequence[ReportClaimEvidenceBindingTarget],
+) -> tuple[EvidenceClaimReference, ...]:
+    references: list[EvidenceClaimReference] = []
+    for target in targets:
+        references.extend(target.claim_references)
+    return tuple(references)
 
 
 def _report_claim_evidence_binding_targets(

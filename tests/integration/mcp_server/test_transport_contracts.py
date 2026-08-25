@@ -44,6 +44,7 @@ from mcp_server.auth import McpHttpAuthenticationBoundary
 from mcp_server.contracts.models import (
     CompletedRunGetRequest,
     CompletedRunsListRequest,
+    GovernanceReviewStatesListRequest,
     RagAskRequest,
     RagStatusRequest,
     WorkflowDescribeRequest,
@@ -59,6 +60,9 @@ from mcp_server.tools.allowlist import (
 )
 from mcp_server.tools.completed_run_get import execute_completed_run_get
 from mcp_server.tools.completed_runs import execute_completed_runs_list
+from mcp_server.tools.governance_review_state import (
+    execute_governance_review_states_list,
+)
 from mcp_server.tools.rag import execute_rag_ask
 from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.workflow_describe import execute_workflow_describe
@@ -211,6 +215,14 @@ class _FakeWorkflowFacade:
         )
 
 
+class _FakeAutomatedDecisionAuditService:
+    async def list_governance_review_states(
+        self,
+        query: object | None = None,
+    ) -> tuple[object, ...]:
+        return ()
+
+
 class _RequestContainer:
     def __init__(
         self,
@@ -218,10 +230,12 @@ class _RequestContainer:
         rag_service: _FakeRagService | None = None,
         rag_status_service: _FakeRagStatusService | None = None,
         workflow_facade: _FakeWorkflowFacade | None = None,
+        audit_service: _FakeAutomatedDecisionAuditService | None = None,
     ) -> None:
         self._rag_service = rag_service or _FakeRagService()
         self._rag_status_service = rag_status_service or _FakeRagStatusService()
         self._workflow_facade = workflow_facade or _FakeWorkflowFacade()
+        self._audit_service = audit_service or _FakeAutomatedDecisionAuditService()
 
     async def get(self, dependency_type: type[object]) -> object:
         dependency_name = dependency_type.__name__
@@ -231,6 +245,8 @@ class _RequestContainer:
             return self._rag_status_service
         if dependency_name == "WorkflowFacade":
             return self._workflow_facade
+        if dependency_name == "AutomatedDecisionAuditService":
+            return self._audit_service
         raise AssertionError(f"Unexpected dependency requested: {dependency_name}")
 
 
@@ -457,6 +473,12 @@ async def test_stdio_and_streamable_http_expose_identical_tool_schemas(
                 context,
             ),
         ),
+        (
+            "polaris_governance_review_states_list",
+            lambda context: execute_governance_review_states_list(
+                GovernanceReviewStatesListRequest(), context
+            ),
+        ),
     ),
 )
 async def test_tool_handlers_open_and_close_one_request_scope(
@@ -514,7 +536,7 @@ async def test_application_errors_become_safe_mcp_errors_and_close_scope() -> No
     assert sink.events[-1].attributes["error_type"] == "RuntimeError"
 
 
-def test_exact_six_tool_allowlist_is_enforced() -> None:
+def test_exact_read_only_tool_allowlist_is_enforced() -> None:
     registered_tools = server_module.server._tool_manager.list_tools()
 
     validate_registered_tool_allowlist(registered_tools)
@@ -539,27 +561,100 @@ def test_mcp_handlers_do_not_import_forbidden_infrastructure() -> None:
         "integration.clients.",
         "integration.providers.",
     )
-    handler_paths = tuple(Path("mcp_server").glob("*_tool.py")) + (
-        Path("mcp_server/server.py"),
+    forbidden_review_mutators = {
+        "GovernanceResidualRiskAcceptanceRequest",
+        "GovernanceReviewDecisionOutcome",
+        "GovernanceReviewResolution",
+        "GovernanceReviewResolutionRequest",
+    }
+    handler_paths = (
+        tuple(Path("mcp_server/tools").glob("*.py"))
+        + tuple(Path("mcp_server").glob("*_tool.py"))
+        + (Path("mcp_server/server.py"),)
     )
-    violations: list[str] = []
-
-    for path in handler_paths:
-        tree = ast.parse(path.read_text(), filename=str(path))
-        for node in ast.walk(tree):
-            module: str | None = None
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    module = alias.name
-                    if module in forbidden_exact or module.startswith(
-                        forbidden_prefixes
-                    ):
-                        violations.append(f"{path}: import {module}")
-            elif isinstance(node, ast.ImportFrom):
-                module = node.module
-                if module is not None and (
-                    module in forbidden_exact or module.startswith(forbidden_prefixes)
-                ):
-                    violations.append(f"{path}: from {module} import ...")
+    violations: list[str] = [
+        violation
+        for path in handler_paths
+        for violation in _mcp_handler_import_violations(
+            path,
+            forbidden_exact=forbidden_exact,
+            forbidden_prefixes=forbidden_prefixes,
+            forbidden_review_mutators=forbidden_review_mutators,
+        )
+    ]
 
     assert violations == []
+
+
+def _mcp_handler_import_violations(
+    path: Path,
+    *,
+    forbidden_exact: set[str],
+    forbidden_prefixes: tuple[str, ...],
+    forbidden_review_mutators: set[str],
+) -> tuple[str, ...]:
+    tree = ast.parse(path.read_text(), filename=str(path))
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            violations.extend(
+                _forbidden_direct_imports(
+                    path,
+                    node,
+                    forbidden_exact=forbidden_exact,
+                    forbidden_prefixes=forbidden_prefixes,
+                )
+            )
+        elif isinstance(node, ast.ImportFrom):
+            violations.extend(
+                _forbidden_from_imports(
+                    path,
+                    node,
+                    forbidden_exact=forbidden_exact,
+                    forbidden_prefixes=forbidden_prefixes,
+                    forbidden_review_mutators=forbidden_review_mutators,
+                )
+            )
+    return tuple(violations)
+
+
+def _forbidden_direct_imports(
+    path: Path,
+    node: ast.Import,
+    *,
+    forbidden_exact: set[str],
+    forbidden_prefixes: tuple[str, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        f"{path}: import {alias.name}"
+        for alias in node.names
+        if alias.name in forbidden_exact or alias.name.startswith(forbidden_prefixes)
+    )
+
+
+def _forbidden_from_imports(
+    path: Path,
+    node: ast.ImportFrom,
+    *,
+    forbidden_exact: set[str],
+    forbidden_prefixes: tuple[str, ...],
+    forbidden_review_mutators: set[str],
+) -> tuple[str, ...]:
+    module = node.module
+    if module is None:
+        return ()
+    infrastructure = (
+        (f"{path}: from {module} import ...",)
+        if module in forbidden_exact or module.startswith(forbidden_prefixes)
+        else ()
+    )
+    review_mutators = (
+        tuple(
+            f"{path}: imports {alias.name}"
+            for alias in node.names
+            if alias.name in forbidden_review_mutators
+        )
+        if module == "application.governance"
+        else ()
+    )
+    return infrastructure + review_mutators

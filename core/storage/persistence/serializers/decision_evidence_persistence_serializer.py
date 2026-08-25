@@ -71,6 +71,9 @@ class DecisionEvidencePacketPersistenceSerializer:
             limitations=tuple(
                 _limitation_values(limitation) for limitation in packet.limitations
             ),
+            workflow_name=packet.workflow_name,
+            workflow_definition_fingerprint=packet.workflow_definition_fingerprint,
+            execution_id=packet.execution_id,
         )
 
     @staticmethod
@@ -111,6 +114,9 @@ class DecisionEvidencePacketPersistenceSerializer:
             limitations=tuple(
                 _limitation_from_values(values) for values in record.limitations
             ),
+            workflow_name=record.workflow_name,
+            workflow_definition_fingerprint=record.workflow_definition_fingerprint,
+            execution_id=record.execution_id,
             schema_version=record.schema_version,
         )
 
@@ -138,6 +144,9 @@ class DecisionEvidencePacketPersistenceSerializer:
             "constraints": [dict(value) for value in record.constraints],
             "uncertainties": [dict(value) for value in record.uncertainties],
             "limitations": [dict(value) for value in record.limitations],
+            "workflow_name": record.workflow_name,
+            "workflow_definition_fingerprint": record.workflow_definition_fingerprint,
+            "execution_id": record.execution_id,
         }
 
     @staticmethod
@@ -173,6 +182,9 @@ class DecisionEvidencePacketPersistenceSerializer:
             constraints=_json_object_sequence(model.constraints, "constraints"),
             uncertainties=_json_object_sequence(model.uncertainties, "uncertainties"),
             limitations=_json_object_sequence(model.limitations, "limitations"),
+            workflow_name=model.workflow_name,
+            workflow_definition_fingerprint=model.workflow_definition_fingerprint,
+            execution_id=model.execution_id,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )

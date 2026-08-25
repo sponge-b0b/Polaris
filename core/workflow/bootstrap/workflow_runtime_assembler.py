@@ -150,6 +150,9 @@ class WorkflowRuntimeAssembler:
                 plugin_runtime_manager=overrides.plugin_runtime_manager,
                 policy_engine=policy_engine,
                 governance_engine=governance_engine,
+                automated_decision_audit_service=(
+                    overrides.automated_decision_audit_service
+                ),
                 runtime_persistence_subscriber=runtime_persistence_subscriber,
                 opentelemetry_config=overrides.opentelemetry_config,
                 prometheus_metrics_exporter=prometheus_metrics_exporter,
@@ -307,6 +310,9 @@ class WorkflowRuntimeAssembler:
             plugin_runtime_manager=plugin_runtime_manager,
             policy_engine=overrides.policy_engine,
             governance_engine=overrides.governance_engine,
+            automated_decision_audit_service=(
+                overrides.automated_decision_audit_service
+            ),
             archive=overrides.archive,
             runtime_persistence_subscriber=overrides.runtime_persistence_subscriber,
         )

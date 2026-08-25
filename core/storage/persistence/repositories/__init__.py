@@ -30,6 +30,9 @@ from core.storage.persistence.repositories.postgres_completed_run_repository imp
 from core.storage.persistence.repositories.postgres_evaluation_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresEvaluationPersistenceRepository,
 )
+from core.storage.persistence.repositories.postgres_governance_audit_repository import (
+    PostgresAutomatedDecisionAuditRepository,
+)
 from core.storage.persistence.repositories.postgres_lineage_persistence_repository import (  # noqa: E501 - canonical module path
     PostgresPersistenceLineageLinkRepository,
 )
@@ -73,21 +76,30 @@ from core.storage.persistence.repositories.postgres_workflow_output_projection_j
     PostgresWorkflowOutputProjectionJobRepository,
 )
 
+from .postgres_baseline_runtime_evidence_repository import (
+    PostgresBaselineRuntimeEvidenceRepository,
+)
 from .postgres_decision_evidence_persistence_repository import (
     PostgresDecisionEvidencePacketRepository,
+)
+from .postgres_governed_execution_evidence_selection_repository import (
+    PostgresGovernedExecutionEvidenceSelectionRepository,
 )
 
 __all__ = [
     "PostgresAiObservabilityExportJobRepository",
     "PostgresAiArtifactPersistenceRepository",
     "PostgresEvaluationPersistenceRepository",
+    "PostgresAutomatedDecisionAuditRepository",
     "PortfolioStateRepository",
     "PostgresAgentIntelligencePersistenceRepository",
     "PostgresAgentSignalPersistenceRepository",
     "PostgresAttributionPersistenceRepository",
     "PostgresBacktestPersistenceRepository",
+    "PostgresBaselineRuntimeEvidenceRepository",
     "PostgresCompletedRunRepository",
     "PostgresDecisionEvidencePacketRepository",
+    "PostgresGovernedExecutionEvidenceSelectionRepository",
     "PostgresMacroPersistenceRepository",
     "PostgresMarketPersistenceRepository",
     "PostgresNewsPersistenceRepository",

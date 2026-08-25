@@ -16,6 +16,7 @@ from core.workflow.execution.workflow_runner import (
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.authority import RiskAuthorityContract
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,23 @@ class WorkflowService:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
+            overwrite=overwrite,
+        )
+
+    def _register_catalog_workflow(
+        self,
+        workflow_definition: WorkflowGraphDefinition,
+        *,
+        risk_authority_contract: RiskAuthorityContract,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        self.registry._register_catalog_workflow(
+            workflow_definition=workflow_definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=risk_authority_contract,
             overwrite=overwrite,
         )
 

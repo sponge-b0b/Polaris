@@ -34,6 +34,7 @@ APPROVED_MCP_TOOL_NAMES: frozenset[str] = frozenset(
         "polaris_workflow_describe",
         "polaris_completed_runs_list",
         "polaris_completed_run_get",
+        "polaris_governance_review_states_list",
     }
 )
 
@@ -74,6 +75,12 @@ MCP_TOOL_ANNOTATION_REQUIREMENTS: dict[str, McpToolAnnotationRequirement] = {
         idempotent=True,
         open_world=False,
     ),
+    "polaris_governance_review_states_list": McpToolAnnotationRequirement(
+        read_only=True,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
 }
 
 PROHIBITED_MCP_TOOL_NAMES: frozenset[str] = frozenset(
@@ -88,6 +95,13 @@ PROHIBITED_MCP_TOOL_NAMES: frozenset[str] = frozenset(
         "polaris_rag_rebuild_projection",
         "polaris_completed_run_delete",
         "polaris_completed_runs_cleanup",
+        "polaris_governance_review_approve",
+        "polaris_governance_review_deny",
+        "polaris_governance_review_override",
+        "polaris_governance_review_accept_residual_risk",
+        "polaris_governance_review_resolve",
+        "polaris_governance_review_mutate",
+        "polaris_governance_review_bypass",
         "polaris_sql_query",
         "polaris_cypher_query",
         "polaris_qdrant_query",
@@ -110,6 +124,13 @@ PROHIBITED_MCP_TOOL_PREFIXES: tuple[str, ...] = (
     "polaris_shell_",
     "polaris_filesystem_",
     "polaris_plugin_",
+    "polaris_governance_review_approve",
+    "polaris_governance_review_deny",
+    "polaris_governance_review_override",
+    "polaris_governance_review_accept_residual_risk",
+    "polaris_governance_review_resolve",
+    "polaris_governance_review_mutate",
+    "polaris_governance_review_bypass",
 )
 
 

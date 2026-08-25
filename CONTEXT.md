@@ -1,5 +1,42 @@
 # Polaris Domain Glossary
 
+## Workflow Identity
+
+A **Workflow Identity** is the immutable identity of a registered workflow
+definition: its canonical workflow name plus the deterministic fingerprint of
+that definition. The fingerprint is the workflow version; it identifies a
+definition revision, not an individual execution or caller-supplied label.
+
+Workflow Identity is distinct from an execution identifier. One Workflow
+Identity may have many executions, while a definition change creates a new
+Workflow Identity version.
+
+## Governed Execution Evidence
+
+**Governed Execution Evidence** is the tier-specific durable authority and
+provenance record selected for one platform-created workflow execution before
+its governed evaluation. It is distinct from a Workflow Identity: one
+immutable workflow definition may have many executions, each with its own
+evidence-selection correlation. It is also distinct from caller-supplied
+evidence or an evidence identifier, neither of which may select or authorize
+a governed execution.
+
+## Workflow Invocation
+
+A **Workflow Invocation** is the platform-created execution of a registered
+workflow definition. It is not automatically a claim-bearing Output Boundary:
+its runtime provenance may be governed as Baseline evidence before execution,
+while any resulting output is classified and governed independently at its
+actual Output Boundary.
+
+## Workflow Authority Facts
+
+**Workflow Authority Facts** are the platform-owned, typed association of a
+registered Workflow Identity with its Risk Authority Contract. They determine
+the applicable consequence tier and governed-evidence variant for an
+execution. Workflow Authority Facts are not caller metadata, an execution
+identifier, or a claim about the workflow supplied by a transport.
+
 ## Recommendation
 
 A **Recommendation** is a Polaris decision-support output that proposes or explains a portfolio-relevant posture, action candidate, or risk response, backed by decision evidence. A Recommendation is not financial advice, human or organizational approval, broker execution intent, or a live order.

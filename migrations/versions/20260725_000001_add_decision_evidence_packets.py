@@ -24,6 +24,9 @@ def upgrade() -> None:
         "decision_evidence_packets",
         sa.Column("packet_id", sa.String(), nullable=False),
         sa.Column("output_id", sa.String(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_definition_fingerprint", sa.String(), nullable=False),
+        sa.Column("execution_id", sa.String(), nullable=False),
         sa.Column("schema_version", sa.Integer(), nullable=False),
         sa.Column("risk_tier", sa.String(), nullable=False),
         sa.Column(
@@ -135,6 +138,648 @@ def upgrade() -> None:
         "idx_decision_evidence_packets_risk_tier",
         "decision_evidence_packets",
         ["risk_tier"],
+        unique=False,
+    )
+
+    op.create_table(
+        "automated_policy_audit_records",
+        sa.Column("audit_record_id", sa.String(), nullable=False),
+        sa.Column("subject_type", sa.String(), nullable=False),
+        sa.Column("subject_id", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column(
+            "authority_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("evidence_packet_id", sa.String(), nullable=True),
+        sa.Column("evidence_packet_version", sa.Integer(), nullable=True),
+        sa.Column("outcome", sa.String(), nullable=False),
+        sa.Column("policy_name", sa.String(), nullable=False),
+        sa.Column("reason", sa.String(), nullable=True),
+        sa.Column("message", sa.String(), nullable=False),
+        sa.Column(
+            "metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "row_created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "row_updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "outcome IN ('allow', 'warn', 'deny', 'skip')",
+            name="ck_automated_policy_audit_records_outcome",
+        ),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant', "
+            "'prohibited_outside_authority')",
+            name="ck_automated_policy_audit_records_risk_tier",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(authority_metadata) = 'object'",
+            name="ck_automated_policy_audit_records_authority_metadata_object",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_automated_policy_audit_records_metadata_object",
+        ),
+        sa.PrimaryKeyConstraint("audit_record_id"),
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_subject_type",
+        "automated_policy_audit_records",
+        ["subject_type"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_subject_id",
+        "automated_policy_audit_records",
+        ["subject_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_risk_tier",
+        "automated_policy_audit_records",
+        ["risk_tier"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_evidence_packet_id",
+        "automated_policy_audit_records",
+        ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_outcome",
+        "automated_policy_audit_records",
+        ["outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_policy_name",
+        "automated_policy_audit_records",
+        ["policy_name"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_policy_audit_records_timestamp",
+        "automated_policy_audit_records",
+        ["timestamp"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_automated_policy_audit_subject_outcome",
+        "automated_policy_audit_records",
+        ["subject_type", "subject_id", "outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_automated_policy_audit_evidence_outcome",
+        "automated_policy_audit_records",
+        ["evidence_packet_id", "outcome"],
+        unique=False,
+    )
+
+    op.create_table(
+        "automated_governance_audit_records",
+        sa.Column("audit_record_id", sa.String(), nullable=False),
+        sa.Column("subject_type", sa.String(), nullable=False),
+        sa.Column("subject_id", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column(
+            "authority_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("evidence_packet_id", sa.String(), nullable=True),
+        sa.Column("evidence_packet_version", sa.Integer(), nullable=True),
+        sa.Column("outcome", sa.String(), nullable=False),
+        sa.Column("rule_name", sa.String(), nullable=False),
+        sa.Column("reason", sa.String(), nullable=True),
+        sa.Column("message", sa.String(), nullable=False),
+        sa.Column(
+            "metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "row_created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "row_updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "outcome IN ('allow', 'warn', 'deny', 'require_approval', 'skip')",
+            name="ck_automated_governance_audit_records_outcome",
+        ),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant', "
+            "'prohibited_outside_authority')",
+            name="ck_automated_governance_audit_records_risk_tier",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(authority_metadata) = 'object'",
+            name="ck_automated_governance_audit_records_authority_metadata_object",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_automated_governance_audit_records_metadata_object",
+        ),
+        sa.PrimaryKeyConstraint("audit_record_id"),
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_subject_type",
+        "automated_governance_audit_records",
+        ["subject_type"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_subject_id",
+        "automated_governance_audit_records",
+        ["subject_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_risk_tier",
+        "automated_governance_audit_records",
+        ["risk_tier"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_evidence_packet_id",
+        "automated_governance_audit_records",
+        ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_outcome",
+        "automated_governance_audit_records",
+        ["outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_rule_name",
+        "automated_governance_audit_records",
+        ["rule_name"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_automated_governance_audit_records_timestamp",
+        "automated_governance_audit_records",
+        ["timestamp"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_automated_governance_audit_subject_outcome",
+        "automated_governance_audit_records",
+        ["subject_type", "subject_id", "outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_automated_governance_audit_evidence_outcome",
+        "automated_governance_audit_records",
+        ["evidence_packet_id", "outcome"],
+        unique=False,
+    )
+
+    op.create_table(
+        "governance_review_tasks",
+        sa.Column("review_task_id", sa.String(), nullable=False),
+        sa.Column("automated_governance_audit_record_id", sa.String(), nullable=False),
+        sa.Column("subject_type", sa.String(), nullable=False),
+        sa.Column("subject_id", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column(
+            "authority_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("review_scope", sa.String(), nullable=False),
+        sa.Column("intended_sink", sa.String(), nullable=False),
+        sa.Column("requested_action", sa.String(), nullable=False),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("evidence_packet_id", sa.String(), nullable=False),
+        sa.Column("evidence_packet_version", sa.Integer(), nullable=False),
+        sa.Column(
+            "evidence_references",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "row_created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "row_updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant', "
+            "'prohibited_outside_authority')",
+            name="ck_governance_review_tasks_risk_tier",
+        ),
+        sa.CheckConstraint(
+            "status IN ('pending', 'in_review', 'approved', 'denied', "
+            "'contested', 'changes_requested', 'overridden', 'cancelled')",
+            name="ck_governance_review_tasks_status",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(authority_metadata) = 'object'",
+            name="ck_governance_review_tasks_authority_metadata_object",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(evidence_references) = 'object'",
+            name="ck_governance_review_tasks_evidence_references_object",
+        ),
+        sa.ForeignKeyConstraint(
+            ["automated_governance_audit_record_id"],
+            ["automated_governance_audit_records.audit_record_id"],
+        ),
+        sa.PrimaryKeyConstraint("review_task_id"),
+        sa.UniqueConstraint(
+            "subject_type",
+            "subject_id",
+            "evidence_packet_id",
+            "evidence_packet_version",
+            "review_scope",
+            "intended_sink",
+            "requested_action",
+            name="uq_governance_review_tasks_scoped_evidence_sink_action",
+        ),
+    )
+    op.create_index(
+        "ix_governance_review_tasks_automated_governance_audit_record_id",
+        "governance_review_tasks",
+        ["automated_governance_audit_record_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_subject_type",
+        "governance_review_tasks",
+        ["subject_type"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_subject_id",
+        "governance_review_tasks",
+        ["subject_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_risk_tier",
+        "governance_review_tasks",
+        ["risk_tier"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_review_scope",
+        "governance_review_tasks",
+        ["review_scope"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_intended_sink",
+        "governance_review_tasks",
+        ["intended_sink"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_requested_action",
+        "governance_review_tasks",
+        ["requested_action"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_status",
+        "governance_review_tasks",
+        ["status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_evidence_packet_id",
+        "governance_review_tasks",
+        ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_created_at",
+        "governance_review_tasks",
+        ["created_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_tasks_updated_at",
+        "governance_review_tasks",
+        ["updated_at"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_governance_review_tasks_subject_status",
+        "governance_review_tasks",
+        ["subject_type", "subject_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_governance_review_tasks_evidence_status",
+        "governance_review_tasks",
+        ["evidence_packet_id", "evidence_packet_version", "status"],
+        unique=False,
+    )
+
+    op.create_table(
+        "governance_residual_risk_acceptances",
+        sa.Column("acceptance_id", sa.String(), nullable=False),
+        sa.Column("review_task_id", sa.String(), nullable=False),
+        sa.Column("subject_type", sa.String(), nullable=False),
+        sa.Column("subject_id", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column("reviewer_id", sa.String(), nullable=False),
+        sa.Column("reviewer_actor_type", sa.String(), nullable=False),
+        sa.Column("reviewer_display_name", sa.String(), nullable=True),
+        sa.Column("rationale", sa.String(), nullable=False),
+        sa.Column("review_scope", sa.String(), nullable=False),
+        sa.Column("residual_risk_scope", sa.String(), nullable=False),
+        sa.Column("evidence_packet_id", sa.String(), nullable=False),
+        sa.Column("evidence_packet_version", sa.Integer(), nullable=False),
+        sa.Column(
+            "metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "row_created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "risk_tier IN ('vigilant')",
+            name="ck_governance_residual_risk_acceptances_risk_tier",
+        ),
+        sa.CheckConstraint(
+            "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
+            name="ck_governance_residual_acceptances_reviewer_actor_type",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_governance_residual_risk_acceptances_metadata_object",
+        ),
+        sa.ForeignKeyConstraint(
+            ["review_task_id"],
+            ["governance_review_tasks.review_task_id"],
+        ),
+        sa.PrimaryKeyConstraint("acceptance_id"),
+        sa.UniqueConstraint(
+            "review_task_id",
+            "evidence_packet_id",
+            "evidence_packet_version",
+            "review_scope",
+            "residual_risk_scope",
+            name="uq_governance_residual_acceptances_scoped_evidence",
+        ),
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_review_task_id",
+        "governance_residual_risk_acceptances",
+        ["review_task_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_subject_type",
+        "governance_residual_risk_acceptances",
+        ["subject_type"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_subject_id",
+        "governance_residual_risk_acceptances",
+        ["subject_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_risk_tier",
+        "governance_residual_risk_acceptances",
+        ["risk_tier"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_reviewer_id",
+        "governance_residual_risk_acceptances",
+        ["reviewer_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_review_scope",
+        "governance_residual_risk_acceptances",
+        ["review_scope"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_residual_risk_scope",
+        "governance_residual_risk_acceptances",
+        ["residual_risk_scope"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_evidence_packet_id",
+        "governance_residual_risk_acceptances",
+        ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_residual_risk_acceptances_accepted_at",
+        "governance_residual_risk_acceptances",
+        ["accepted_at"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_governance_residual_acceptances_task_evidence",
+        "governance_residual_risk_acceptances",
+        ["review_task_id", "evidence_packet_id", "evidence_packet_version"],
+        unique=False,
+    )
+
+    op.create_table(
+        "governance_review_decisions",
+        sa.Column("review_decision_id", sa.String(), nullable=False),
+        sa.Column("review_task_id", sa.String(), nullable=False),
+        sa.Column("resolution_fingerprint", sa.String(length=64), nullable=False),
+        sa.Column("automated_governance_audit_record_id", sa.String(), nullable=False),
+        sa.Column("subject_type", sa.String(), nullable=False),
+        sa.Column("subject_id", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column("outcome", sa.String(), nullable=False),
+        sa.Column("reviewer_id", sa.String(), nullable=False),
+        sa.Column("reviewer_actor_type", sa.String(), nullable=False),
+        sa.Column("reviewer_display_name", sa.String(), nullable=True),
+        sa.Column("rationale", sa.String(), nullable=False),
+        sa.Column("review_scope", sa.String(), nullable=False),
+        sa.Column("evidence_packet_id", sa.String(), nullable=False),
+        sa.Column("evidence_packet_version", sa.Integer(), nullable=False),
+        sa.Column("resulting_task_status", sa.String(), nullable=False),
+        sa.Column("requested_remediation", sa.String(), nullable=True),
+        sa.Column(
+            "residual_risk_acceptance_required",
+            sa.Boolean(),
+            nullable=False,
+        ),
+        sa.Column("residual_risk_acceptance_id", sa.String(), nullable=True),
+        sa.Column(
+            "metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column("decided_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "row_created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant', "
+            "'prohibited_outside_authority')",
+            name="ck_governance_review_decisions_risk_tier",
+        ),
+        sa.CheckConstraint(
+            "outcome IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
+            name="ck_governance_review_decisions_outcome",
+        ),
+        sa.CheckConstraint(
+            "resulting_task_status IN ('approved', 'denied', 'contested', "
+            "'changes_requested', 'overridden')",
+            name="ck_governance_review_decisions_resulting_status",
+        ),
+        sa.CheckConstraint(
+            "reviewer_actor_type IN ('human_reviewer', 'organization_reviewer')",
+            name="ck_governance_review_decisions_reviewer_actor_type",
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(metadata) = 'object'",
+            name="ck_governance_review_decisions_metadata_object",
+        ),
+        sa.ForeignKeyConstraint(
+            ["automated_governance_audit_record_id"],
+            ["automated_governance_audit_records.audit_record_id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["review_task_id"],
+            ["governance_review_tasks.review_task_id"],
+        ),
+        sa.PrimaryKeyConstraint("review_decision_id"),
+        sa.UniqueConstraint(
+            "review_task_id",
+            "resolution_fingerprint",
+            name="uq_governance_review_decisions_task_resolution_fingerprint",
+        ),
+    )
+    op.create_index(
+        "ix_governance_review_decisions_review_task_id",
+        "governance_review_decisions",
+        ["review_task_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_gov_audit_id",
+        "governance_review_decisions",
+        ["automated_governance_audit_record_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_subject_type",
+        "governance_review_decisions",
+        ["subject_type"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_subject_id",
+        "governance_review_decisions",
+        ["subject_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_risk_tier",
+        "governance_review_decisions",
+        ["risk_tier"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_outcome",
+        "governance_review_decisions",
+        ["outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_reviewer_id",
+        "governance_review_decisions",
+        ["reviewer_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_review_scope",
+        "governance_review_decisions",
+        ["review_scope"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_evidence_packet_id",
+        "governance_review_decisions",
+        ["evidence_packet_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_resulting_task_status",
+        "governance_review_decisions",
+        ["resulting_task_status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_residual_risk_acceptance_id",
+        "governance_review_decisions",
+        ["residual_risk_acceptance_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_governance_review_decisions_decided_at",
+        "governance_review_decisions",
+        ["decided_at"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_governance_review_decisions_task_outcome",
+        "governance_review_decisions",
+        ["review_task_id", "outcome"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_governance_review_decisions_evidence_outcome",
+        "governance_review_decisions",
+        ["evidence_packet_id", "evidence_packet_version", "outcome"],
         unique=False,
     )
 
@@ -414,8 +1059,309 @@ def upgrade() -> None:
         unique=False,
     )
 
+    op.create_table(
+        "baseline_runtime_evidence",
+        sa.Column("evidence_id", sa.String(), nullable=False),
+        sa.Column("schema_version", sa.Integer(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_version", sa.String(), nullable=False),
+        sa.Column("execution_id", sa.String(), nullable=False),
+        sa.Column("provenance_digest", sa.String(length=64), nullable=False),
+        sa.Column(
+            "authority_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(authority_metadata) = 'object'",
+            name="ck_baseline_runtime_evidence_authority_metadata_object",
+        ),
+        sa.PrimaryKeyConstraint("evidence_id"),
+    )
+    op.create_index(
+        "idx_baseline_runtime_evidence_workflow",
+        "baseline_runtime_evidence",
+        ["workflow_name"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_baseline_runtime_evidence_execution",
+        "baseline_runtime_evidence",
+        ["execution_id"],
+        unique=False,
+    )
+    op.create_table(
+        "governed_execution_evidence_selections",
+        sa.Column("execution_id", sa.String(), nullable=False),
+        sa.Column("workflow_name", sa.String(), nullable=False),
+        sa.Column("workflow_version", sa.String(), nullable=False),
+        sa.Column("risk_tier", sa.String(), nullable=False),
+        sa.Column("evidence_id", sa.String(), nullable=False),
+        sa.CheckConstraint(
+            "risk_tier IN ('baseline', 'enhanced', 'vigilant')",
+            name="ck_governed_execution_evidence_selection_risk_tier",
+        ),
+        sa.PrimaryKeyConstraint("execution_id", "workflow_name", "workflow_version"),
+    )
+    op.create_index(
+        "idx_governed_execution_evidence_selection_evidence",
+        "governed_execution_evidence_selections",
+        ["evidence_id"],
+        unique=False,
+    )
+
 
 def downgrade() -> None:
+    op.drop_index(
+        "idx_governed_execution_evidence_selection_evidence",
+        table_name="governed_execution_evidence_selections",
+    )
+    op.drop_table("governed_execution_evidence_selections")
+    op.drop_index(
+        "idx_baseline_runtime_evidence_execution",
+        table_name="baseline_runtime_evidence",
+    )
+    op.drop_index(
+        "idx_baseline_runtime_evidence_workflow",
+        table_name="baseline_runtime_evidence",
+    )
+    op.drop_table("baseline_runtime_evidence")
+
+    op.drop_index(
+        "idx_governance_review_decisions_evidence_outcome",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "idx_governance_review_decisions_task_outcome",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_decided_at",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_residual_risk_acceptance_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_resulting_task_status",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_evidence_packet_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_review_scope",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_reviewer_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_outcome",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_risk_tier",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_subject_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_subject_type",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_gov_audit_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_index(
+        "ix_governance_review_decisions_review_task_id",
+        table_name="governance_review_decisions",
+    )
+    op.drop_table("governance_review_decisions")
+
+    op.drop_index(
+        "idx_governance_residual_acceptances_task_evidence",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_accepted_at",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_evidence_packet_id",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_residual_risk_scope",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_review_scope",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_reviewer_id",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_risk_tier",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_subject_id",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_subject_type",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_index(
+        "ix_governance_residual_risk_acceptances_review_task_id",
+        table_name="governance_residual_risk_acceptances",
+    )
+    op.drop_table("governance_residual_risk_acceptances")
+
+    op.drop_index(
+        "idx_governance_review_tasks_evidence_status",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "idx_governance_review_tasks_subject_status",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_updated_at",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_created_at",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_evidence_packet_id",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_status",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_requested_action",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_intended_sink",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_review_scope",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_risk_tier",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_subject_id",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_subject_type",
+        table_name="governance_review_tasks",
+    )
+    op.drop_index(
+        "ix_governance_review_tasks_automated_governance_audit_record_id",
+        table_name="governance_review_tasks",
+    )
+    op.drop_table("governance_review_tasks")
+
+    op.drop_index(
+        "idx_automated_governance_audit_evidence_outcome",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "idx_automated_governance_audit_subject_outcome",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_timestamp",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_rule_name",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_outcome",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_evidence_packet_id",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_risk_tier",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_subject_id",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_governance_audit_records_subject_type",
+        table_name="automated_governance_audit_records",
+    )
+    op.drop_table("automated_governance_audit_records")
+
+    op.drop_index(
+        "idx_automated_policy_audit_evidence_outcome",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "idx_automated_policy_audit_subject_outcome",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_timestamp",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_policy_name",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_outcome",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_evidence_packet_id",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_risk_tier",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_subject_id",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_index(
+        "ix_automated_policy_audit_records_subject_type",
+        table_name="automated_policy_audit_records",
+    )
+    op.drop_table("automated_policy_audit_records")
     op.drop_index(
         "idx_recommendation_claim_evidence_links_recommendation_claim",
         table_name="recommendation_claim_evidence_links",

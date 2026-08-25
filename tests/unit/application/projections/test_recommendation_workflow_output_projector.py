@@ -23,6 +23,7 @@ from application.projections.workflow_outputs.projection_models import (
 from application.projections.workflow_outputs.projectors import (
     PortfolioAllocationIntentWorkflowOutputProjector,
     TradeRecommendationWorkflowOutputProjector,
+    build_recommendation_projector_registrations,
 )
 from core.storage.persistence.completed_run_archive import (
     CompletedNodeOutputRecord,
@@ -37,7 +38,7 @@ from core.storage.persistence.recommendations import (
     RecommendationPersistenceRepository,
     RecommendationPersistenceResult,
 )
-from domain.authority import GateProfile, RiskTier
+from domain.authority import CanonicalOwner, GateProfile, IntendedSink, RiskTier
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
     ClaimMaterialityTier,
@@ -51,6 +52,26 @@ from domain.workflow_outputs import (
 
 def _authority_metadata(metadata: JsonObject) -> Mapping[str, JsonValue]:
     return cast(Mapping[str, JsonValue], metadata["risk_authority"])
+
+
+def test_recommendation_registrations_use_persisted_record_authority() -> None:
+    repository = _FakeRecommendationRepository()
+
+    registrations = build_recommendation_projector_registrations(
+        RecommendationPersistenceService(
+            cast(RecommendationPersistenceRepository, repository),
+        )
+    )
+
+    assert len(registrations) == 2
+    for registration in registrations:
+        authority = registration.expected_authority_contract
+        assert authority.risk_tier is RiskTier.VIGILANT
+        assert authority.gate_profile is GateProfile.VIGILANT_DECISION_EVIDENCE
+        assert authority.canonical_owner is CanonicalOwner.RECOMMENDATION_SERVICE
+        assert authority.intended_sink is IntendedSink.RECOMMENDATION
+        assert authority.capital_relevant is True
+        assert authority.durable_authority is True
 
 
 @pytest.mark.asyncio

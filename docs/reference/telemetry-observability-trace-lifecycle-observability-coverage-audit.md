@@ -24,4 +24,3 @@
 - [x] RAG and intelligence degradation/failure ownership.
 - [x] Duplicate completed-run repository/archive logging removed; workflow archival fallback remains the single visible owner.
 - [x] Focused architecture and boundary regression tests.
-

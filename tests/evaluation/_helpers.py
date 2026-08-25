@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any, cast
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations.contracts import (
     EvaluationLangfuseProjectionRequest,
     EvaluationLangfuseProjectionResult,
+)
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceResult,
 )
 from core.storage.persistence.evaluation import (
     EvaluationArtifactRecord,
@@ -17,6 +22,8 @@ from core.storage.persistence.evaluation import (
     EvaluationPersistenceResult,
     EvaluationRunRecord,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.decision_evidence import DecisionEvidencePacket
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -33,6 +40,7 @@ from integration.providers.llm_evaluation import (
 )
 
 JsonRow = dict[str, Any]
+_EVALUATION_GATE_DEFINITION_FINGERPRINT = "test-evaluation-gate-fingerprint"
 
 
 @dataclass(slots=True)
@@ -210,6 +218,42 @@ class RecordingProjectionService:
             export_results=(),
             skipped_count=len(request.metric_results),
         )
+
+
+class FakeDecisionEvidencePacketPersistenceService:
+    def __init__(self) -> None:
+        self.packets: dict[str, DecisionEvidencePacket] = {}
+
+    async def persist_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.packets[packet.packet_id] = packet
+        return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
+
+    async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        return self.packets[packet_id]
+
+
+def packet_persistence_service() -> DecisionEvidencePacketPersistenceService:
+    return cast(
+        DecisionEvidencePacketPersistenceService,
+        FakeDecisionEvidencePacketPersistenceService(),
+    )
+
+
+def evaluation_gate_workflow_registry() -> WorkflowRegistry:
+    return cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: SimpleNamespace(
+                identity=SimpleNamespace(
+                    workflow_name=workflow_name,
+                    definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
+                )
+            )
+        ),
+    )
 
 
 def evaluation_case_from_row(

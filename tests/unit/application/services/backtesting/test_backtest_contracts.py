@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import pytest
 
+from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestExpectedOutcome,
@@ -140,7 +141,7 @@ initial_cash: '100000'
 
 
 @pytest.mark.asyncio
-async def test_backtest_application_service_prepares_validated_result() -> None:
+async def test_backtest_application_service_fails_without_governed_execution() -> None:
     service = BacktestApplicationService()
     scenario = BacktestScenario(
         scenario_id="service-check",
@@ -166,12 +167,12 @@ async def test_backtest_application_service_prepares_validated_result() -> None:
     )
 
     assert validation_errors == ()
-    assert result.success is True
-    assert result.result is not None
-    assert result.result.status == "validated"
-    assert result.result.scenario == scenario
-    assert result.result.steps == ()
+    assert result.success is False
+    assert result.result is None
+    assert result.error_type == GovernedWorkflowExecutionEvidenceRequiredError.__name__
+    assert result.error_message == "Governed workflow execution service is required."
     assert result.metadata["mode"] == "backtest"
+    assert result.metadata["status"] == "unavailable"
 
 
 class FakeWorkflowFacade:
@@ -181,6 +182,7 @@ class FakeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
+        governed_execution_evidence: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -230,7 +232,7 @@ async def test_backtest_application_service_executes_each_step_through_workflow_
 ):
     workflow_facade = FakeWorkflowFacade()
     service = BacktestApplicationService(
-        workflow_facade=workflow_facade,
+        governed_workflow_execution_service=workflow_facade,
     )
     scenario = BacktestScenario(
         scenario_id="runtime-native-check",
@@ -291,10 +293,36 @@ async def test_backtest_application_service_executes_each_step_through_workflow_
     assert first_step.portfolio_snapshot.equity == Decimal("101000")
 
 
+@pytest.mark.asyncio
+async def test_backtest_application_service_uses_governed_execution_service() -> None:
+    workflow_service = FakeWorkflowFacade()
+    service = BacktestApplicationService(
+        governed_workflow_execution_service=workflow_service,
+    )
+    scenario = BacktestScenario(
+        scenario_id="governed-runtime-native-check",
+        name="Governed runtime native check",
+        workflow_name="morning_report",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        symbols=("SPY",),
+        benchmark_symbol="SPY",
+        initial_cash=Decimal("100000"),
+    )
+
+    result = await service.run(
+        ServiceRequest(payload=BacktestRunRequest(scenario=scenario))
+    )
+
+    assert result.success is True
+    assert len(workflow_service.calls) == 1
+
+
 class FakeTradeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
+        governed_execution_evidence: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -356,7 +384,7 @@ async def test_backtest_application_service_simulates_fills_from_workflow_output
     None
 ):
     service = BacktestApplicationService(
-        workflow_facade=FakeTradeWorkflowFacade(),
+        governed_workflow_execution_service=FakeTradeWorkflowFacade(),
     )
     scenario = BacktestScenario(
         scenario_id="fill-engine-check",

@@ -7,6 +7,10 @@ from application.reports.authority import (
     REPORT_AUTHORITY_LIMITATIONS,
     morning_report_authority,
 )
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+)
 from domain.authority import RiskAuthorityContract
 from domain.decision_evidence import EvidenceClaimReference
 
@@ -124,6 +128,18 @@ class ReportSection:
 
 
 @dataclass(frozen=True, slots=True)
+class ReportPublicationReview:
+    """Scoped governance review metadata required before report publication."""
+
+    subject: AutomatedDecisionSubject
+    evidence: AutomatedDecisionEvidenceReference
+    review_scope: str
+    requested_action: str
+    residual_risk_acceptance_required: bool = False
+    residual_risk_scope: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class MorningReportDocument:
     """
     Typed human-facing document for the morning-report workflow.
@@ -148,6 +164,7 @@ class MorningReportDocument:
         default_factory=morning_report_authority,
     )
     authority_limitations: tuple[str, ...] = REPORT_AUTHORITY_LIMITATIONS
+    publication_review: ReportPublicationReview | None = None
 
 
 # ============================================================

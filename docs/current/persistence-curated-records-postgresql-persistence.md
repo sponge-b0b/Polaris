@@ -118,12 +118,31 @@ Apply all migrations to the configured database:
 uv run alembic upgrade head
 ```
 
-Inspect current and target revisions:
+Inspect current and target revisions, then check for physical schema drift:
 
 ```bash
 uv run alembic current
 uv run alembic heads
+uv run alembic check
+uv run polaris inspect persistence
 ```
+
+`alembic current` only reports the revision stamp stored in the database. During
+pre-1.0 squashed migration work, a local database can be stamped at head while
+missing physical operations from the rewritten baseline migration. Treat a
+non-empty `alembic check` result or an unhealthy `alembic_schema_drift`
+persistence diagnostic as a stale local schema that must be rebuilt or repaired.
+
+For a disposable local database, destructively rebuild the `public` schema and
+apply Alembic head:
+
+```bash
+uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+```
+
+The reset script refuses non-local hosts and protected database names, destroys
+all data in the configured local `public` schema, applies migrations, and then
+runs persistence diagnostics.
 
 Generate a new migration only after updating SQLAlchemy models:
 
@@ -137,9 +156,12 @@ Development-only rollback of one revision:
 uv run alembic downgrade -1
 ```
 
-Migration files may be squashed during development. Documentation must describe
-schema ownership and validation contracts rather than maintaining migration-file
-inventories, which become stale after squashes.
+Migration files may be squashed during development because Polaris is still
+pre-1.0.0. Documentation must describe schema ownership and validation contracts
+rather than maintaining migration-file inventories, which become stale after
+squashes. After any squashed migration rewrite, refresh disposable local
+databases with the reset script or verify that `uv run alembic check` and
+`uv run polaris inspect persistence` both report no schema drift.
 
 ## Data contract convention
 

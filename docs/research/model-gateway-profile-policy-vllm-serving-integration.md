@@ -1,9 +1,9 @@
 # Research: vLLM serving integration architecture for Polaris
 
-Research date: 2026-08-19  
-Repository snapshot: `main` at `9f9bf86dfe1bf54ea0ee0eeaf348574bc8f9ffb0`  
-Primary entity: `model-gateway-profile-policy`  
-Related Wayfinder: [#53 vLLM model-serving integration](https://github.com/sponge-b0b/Polaris/issues/53)  
+Research date: 2026-08-19
+Repository snapshot: `main` at `9f9bf86dfe1bf54ea0ee0eeaf348574bc8f9ffb0`
+Primary entity: `model-gateway-profile-policy`
+Related Wayfinder: [#53 vLLM model-serving integration](https://github.com/sponge-b0b/Polaris/issues/53)
 Companion research: [vLLM serving capabilities and constraints](model-gateway-profile-policy-vllm-serving-capabilities-constraints.md)
 
 ## Research status and authority

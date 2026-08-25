@@ -16,10 +16,8 @@ from application.reports import (
 from core.bootstrap.di_providers import application_request_scope
 from core.storage.persistence.reports import ReportPersistenceResult
 from interfaces.cli.commands.workflow_command_boundary import (
-    build_interactive_input_reader,
     build_progress_renderer,
     emit_cli_status_line,
-    emit_control_notification,
     emit_rendered_workflow_output,
     render_workflow_output_with_fallback,
     validate_workflow_artifact_format,
@@ -105,9 +103,7 @@ def morning_report(
                         plugin_dirs,
                     ),
                     progress_handler=progress_renderer.handle,
-                    interactive_control=True,
-                    interactive_input=build_interactive_input_reader(),
-                    control_handler=emit_control_notification,
+                    interactive_control=False,
                 )
             )
         )

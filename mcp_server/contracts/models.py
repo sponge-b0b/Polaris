@@ -379,6 +379,176 @@ class CompletedRunsListResponse(McpBoundaryModel):
     next_offset: int | None = Field(default=None, ge=0)
 
 
+class GovernanceReviewStatesListRequest(McpBoundaryModel):
+    """Input contract for ``polaris_governance_review_states_list``."""
+
+    subject_type: NonEmptyString | None = None
+    subject_id: NonEmptyString | None = None
+    risk_tier: NonEmptyString | None = None
+    status: NonEmptyString | None = None
+    approval_state: NonEmptyString | None = None
+    review_scope: NonEmptyString | None = None
+    intended_sink: NonEmptyString | None = None
+    requested_action: NonEmptyString | None = None
+    evidence_packet_id: NonEmptyString | None = None
+    evidence_packet_version: int | None = Field(default=None, ge=1)
+    closed: bool | None = None
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1)
+
+
+class GovernanceReviewDecisionSummary(McpBoundaryModel):
+    """Immutable human review outcome summary exposed through MCP."""
+
+    review_decision_id: NonEmptyString
+    outcome: NonEmptyString
+    reviewer_id: NonEmptyString
+    reviewer_actor_type: NonEmptyString
+    review_scope: NonEmptyString
+    evidence_packet_id: NonEmptyString
+    evidence_packet_version: int = Field(ge=1)
+    decided_at: datetime
+    resulting_task_status: NonEmptyString
+    residual_risk_acceptance_required: bool = False
+    residual_risk_acceptance_id: NonEmptyString | None = None
+    requested_remediation: str | None = None
+
+    @field_validator(
+        "review_decision_id",
+        "outcome",
+        "reviewer_id",
+        "reviewer_actor_type",
+        "review_scope",
+        "evidence_packet_id",
+        "resulting_task_status",
+        "residual_risk_acceptance_id",
+        "requested_remediation",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.governance_review.decision.{info.field_name}",
+        )
+
+
+class GovernanceResidualRiskAcceptanceSummary(McpBoundaryModel):
+    """Scoped residual-risk acceptance summary exposed through MCP."""
+
+    acceptance_id: NonEmptyString
+    reviewer_id: NonEmptyString
+    reviewer_actor_type: NonEmptyString
+    review_scope: NonEmptyString
+    residual_risk_scope: NonEmptyString
+    evidence_packet_id: NonEmptyString
+    evidence_packet_version: int = Field(ge=1)
+    accepted_at: datetime
+
+    @field_validator(
+        "acceptance_id",
+        "reviewer_id",
+        "reviewer_actor_type",
+        "review_scope",
+        "residual_risk_scope",
+        "evidence_packet_id",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.governance_review.acceptance.{info.field_name}",
+        )
+
+
+class GovernanceReviewStateSummary(McpBoundaryModel):
+    """Read-only governance approval/review state exposed through MCP."""
+
+    review_task_id: NonEmptyString
+    subject_type: NonEmptyString
+    subject_id: NonEmptyString
+    risk_tier: NonEmptyString
+    status: NonEmptyString
+    approval_state: NonEmptyString
+    review_scope: NonEmptyString
+    intended_sink: NonEmptyString
+    requested_action: NonEmptyString
+    evidence_packet_id: NonEmptyString
+    evidence_packet_version: int = Field(ge=1)
+    closed: bool
+    created_at: datetime
+    updated_at: datetime
+    automated_governance_audit_record_id: NonEmptyString | None = None
+    automated_governance_outcome: NonEmptyString | None = None
+    automated_governance_reason: str | None = None
+    authority_metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    evidence_references: dict[str, JsonValue] = Field(default_factory=dict)
+    audit_history: tuple[GovernanceReviewDecisionSummary, ...] = ()
+    residual_risk_acceptances: tuple[
+        GovernanceResidualRiskAcceptanceSummary,
+        ...,
+    ] = ()
+
+    @field_validator(
+        "review_task_id",
+        "subject_type",
+        "subject_id",
+        "risk_tier",
+        "status",
+        "approval_state",
+        "review_scope",
+        "intended_sink",
+        "requested_action",
+        "evidence_packet_id",
+        "automated_governance_audit_record_id",
+        "automated_governance_outcome",
+        "automated_governance_reason",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_public_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.governance_review.state.{info.field_name}",
+        )
+
+    @field_validator("authority_metadata", "evidence_references", mode="before")
+    @classmethod
+    def sanitize_mapping_payload(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_mcp_json_value(
+            value,
+            boundary_name=f"mcp.governance_review.state.{info.field_name}",
+        )
+
+
+class GovernanceReviewStatesListResponse(McpBoundaryModel):
+    """Output contract for ``polaris_governance_review_states_list``."""
+
+    review_states: tuple[GovernanceReviewStateSummary, ...]
+    total_count: int = Field(ge=0)
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    has_more: bool
+    next_offset: int | None = Field(default=None, ge=0)
+
+
 class CompletedRunSection(StrEnum):
     WORKFLOW_INPUTS = "workflow_inputs"
     NODE_OUTPUTS = "node_outputs"
@@ -664,6 +834,7 @@ TOOL_INPUT_MODELS: dict[str, type[McpBoundaryModel]] = {
     "polaris_workflow_describe": WorkflowDescribeRequest,
     "polaris_completed_runs_list": CompletedRunsListRequest,
     "polaris_completed_run_get": CompletedRunGetRequest,
+    "polaris_governance_review_states_list": GovernanceReviewStatesListRequest,
 }
 
 TOOL_OUTPUT_MODELS: dict[str, type[McpBoundaryModel]] = {
@@ -673,4 +844,5 @@ TOOL_OUTPUT_MODELS: dict[str, type[McpBoundaryModel]] = {
     "polaris_workflow_describe": WorkflowDescribeResponse,
     "polaris_completed_runs_list": CompletedRunsListResponse,
     "polaris_completed_run_get": CompletedRunGetResponse,
+    "polaris_governance_review_states_list": GovernanceReviewStatesListResponse,
 }

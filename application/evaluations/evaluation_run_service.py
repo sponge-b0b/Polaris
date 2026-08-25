@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 from typing import Protocol
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations.contracts import (
     EvaluationLangfuseProjectionRequest,
     EvaluationLangfuseProjectionResult,
@@ -17,7 +18,12 @@ from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_definition_by_name,
 )
 from application.evaluations.evaluation_gate_evidence import (
+    GovernedOutputReleaseService,
+    OutputGovernanceReadinessRequest,
     canonical_evaluation_readiness_packet,
+    evaluation_gate_workflow_facts,
+    reacquire_authority_gate_decision_evidence,
+    reacquire_output_governance_gate_evidence,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.risk_authority_gate import (
@@ -34,6 +40,9 @@ from core.storage.persistence.evaluation import (
     EvaluationPersistenceRepository,
     EvaluationPersistenceResult,
     EvaluationRunRecord,
+)
+from core.workflow.registry.workflow_registry import (
+    WorkflowRegistry,
 )
 from domain.authority import (
     AiOutputContentType,
@@ -75,6 +84,11 @@ class EvaluationRunService:
     repository: EvaluationPersistenceRepository
     projection_service: EvaluationRunScoreProjectionService
     telemetry: EvaluationTelemetry | None = None
+    decision_evidence_packet_persistence_service: (
+        DecisionEvidencePacketPersistenceService | None
+    ) = None
+    workflow_registry: WorkflowRegistry | None = None
+    governed_output_release_service: GovernedOutputReleaseService | None = None
 
     async def run_evaluation(
         self,
@@ -103,7 +117,7 @@ class EvaluationRunService:
                 runs=(EvaluationRunRecord.from_domain(running_run),),
             )
         )
-        authority_gate_decision = _select_authority_gate(request)
+        authority_gate_decision = await self._select_authority_gate(request)
         if self.telemetry is not None:
             await self.telemetry.emit_run_started(
                 run_id=request.run_id,
@@ -305,21 +319,66 @@ class EvaluationRunService:
                     target_type=run_record.target_type,
                     failed_count=failed_count,
                 )
-            return EvaluationLangfuseProjectionResult(
-                export_results=(),
-                failed_count=failed_count,
+        return EvaluationLangfuseProjectionResult(
+            export_results=(),
+            failed_count=failed_count,
+        )
+
+    async def _select_authority_gate(
+        self,
+        request: EvaluationRunServiceRequest,
+    ) -> RiskAuthorityGateDecision:
+        evidence = self._authority_gate_evidence(request)
+        evidence = await reacquire_authority_gate_decision_evidence(
+            evidence=evidence,
+            persistence_service=self.decision_evidence_packet_persistence_service,
+        )
+        if evidence is not None:
+            evidence = await reacquire_output_governance_gate_evidence(
+                evidence=evidence,
+                release_service=self.governed_output_release_service,
+                readiness_request=_output_governance_readiness_request(request),
             )
+        return select_risk_authority_gate(
+            request.authority_metadata,
+            evidence=evidence,
+            expected_authority_metadata=expected_authority_metadata_for_evaluation_target(
+                request.target_type,
+            ),
+        )
 
-
-def _select_authority_gate(
-    request: EvaluationRunServiceRequest,
-) -> RiskAuthorityGateDecision:
-    return select_risk_authority_gate(
-        request.authority_metadata,
-        evidence=request.authority_gate_evidence,
-        expected_authority_metadata=expected_authority_metadata_for_evaluation_target(
+    def _authority_gate_evidence(
+        self,
+        request: EvaluationRunServiceRequest,
+    ) -> RiskAuthorityGateEvidence:
+        try:
+            facts = evaluation_gate_workflow_facts(self.workflow_registry)
+        except ValueError:
+            return RiskAuthorityGateEvidence(
+                provenance_record_ids=_provenance_ids_for_evaluation_cases(
+                    request.cases
+                ),
+                evaluation_run_ids=(request.run_id,),
+            )
+        return authority_gate_evidence_for_evaluation_cases(
             request.target_type,
-        ),
+            request.cases,
+            run_id=request.run_id,
+            workflow_name=facts.identity.workflow_name,
+            workflow_definition_fingerprint=facts.identity.definition_fingerprint,
+        )
+
+
+def _output_governance_readiness_request(
+    request: EvaluationRunServiceRequest,
+) -> OutputGovernanceReadinessRequest:
+    return OutputGovernanceReadinessRequest(
+        subject_type=request.target_type.value,
+        subject_id=f"evaluation_run:{request.run_id}",
+        review_scope=request.target_type.value,
+        requested_action="evaluate_readiness",
+        boundary_name="evaluation_run.readiness_gate",
+        residual_risk_scope=request.target_type.value,
     )
 
 
@@ -336,6 +395,8 @@ def authority_gate_evidence_for_evaluation_cases(
     cases: Sequence[EvaluationCase],
     *,
     run_id: str,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
 ) -> RiskAuthorityGateEvidence:
     provenance_ids = _provenance_ids_for_evaluation_cases(cases)
     authority = classify_risk_authority(
@@ -350,6 +411,9 @@ def authority_gate_evidence_for_evaluation_cases(
             "Evaluation run readiness is backed by canonical source and "
             "reconstruction records, not only evaluation case provenance."
         ),
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=run_id,
         cases=cases,
     )
     decision_packets = () if packet is None else (packet,)

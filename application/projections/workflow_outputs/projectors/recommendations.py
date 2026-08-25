@@ -348,6 +348,7 @@ def build_recommendation_projector_registrations(
     claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical recommendation projector registrations."""
+    expected_record_authority = recommendation_record_authority()
     allocation_projector = PortfolioAllocationIntentWorkflowOutputProjector(
         recommendation_persistence_service,
         claim_binding_service=claim_binding_service,
@@ -363,6 +364,7 @@ def build_recommendation_projector_registrations(
             output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
             projector=allocation_projector,
             supported_node_names=("portfolio_manager_agent",),
+            expected_authority_contract=expected_record_authority,
         ),
         WorkflowOutputProjectorRegistration(
             projector_name=TRADE_RECOMMENDATION_PROJECTOR_NAME,
@@ -370,6 +372,7 @@ def build_recommendation_projector_registrations(
             output_schema_version=WORKFLOW_OUTPUT_SCHEMA_VERSION_V1,
             projector=trade_projector,
             supported_node_names=("trade_packager",),
+            expected_authority_contract=expected_record_authority,
         ),
     )
 

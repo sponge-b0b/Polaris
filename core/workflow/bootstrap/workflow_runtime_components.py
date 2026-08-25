@@ -29,6 +29,7 @@ from core.workflow.compiler.workflow_compiler import WorkflowCompiler
 from core.workflow.execution.workflow_engine import WorkflowEngine
 from core.workflow.execution.workflow_runner import WorkflowRunner
 from core.workflow.execution.workflow_service import WorkflowService
+from core.workflow.governance_audit import WorkflowAutomatedDecisionAuditService
 from core.workflow.registry.workflow_registry import WorkflowRegistry
 
 
@@ -108,6 +109,9 @@ class WorkflowRuntimeOverrides:
     plugin_runtime_manager: PluginRuntimeManager | None = None
     policy_engine: PolicyEngine | None = None
     governance_engine: GovernanceEngine | None = None
+    automated_decision_audit_service: WorkflowAutomatedDecisionAuditService | None = (
+        None
+    )
     runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None = None
     opentelemetry_config: OpenTelemetryConfig | None = None
     prometheus_metrics_exporter: PrometheusMetricsExporter | None = None
@@ -140,5 +144,6 @@ class WorkflowRuntimeComponents:
     plugin_runtime_manager: PluginRuntimeManager
     policy_engine: PolicyEngine | None
     governance_engine: GovernanceEngine | None
+    automated_decision_audit_service: WorkflowAutomatedDecisionAuditService | None
     archive: CompletedRunArchive | None
     runtime_persistence_subscriber: RuntimePersistenceEventSubscriber | None

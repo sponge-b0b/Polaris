@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations import (
     EvaluationJobProcessor,
     EvaluationJobRequest,
@@ -15,6 +18,9 @@ from application.evaluations import (
     EvaluationResultService,
     EvaluationRunService,
 )
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceResult,
+)
 from core.storage.persistence.evaluation import (
     EvaluationArtifactRecord,
     EvaluationCaseRecord,
@@ -24,6 +30,8 @@ from core.storage.persistence.evaluation import (
     EvaluationPersistenceResult,
     EvaluationRunRecord,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.decision_evidence import DecisionEvidencePacket
 from domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetReference,
@@ -36,6 +44,8 @@ from integration.providers.llm_evaluation import (
     EvaluationProviderRequest,
     EvaluationProviderResult,
 )
+
+_EVALUATION_GATE_DEFINITION_FINGERPRINT = "test-evaluation-gate-fingerprint"
 
 
 @dataclass(slots=True)
@@ -198,8 +208,44 @@ class RecordingProjectionService:
         )
 
 
+class FakeDecisionEvidencePacketPersistenceService:
+    def __init__(self) -> None:
+        self.packets: dict[str, DecisionEvidencePacket] = {}
+
+    async def persist_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.packets[packet.packet_id] = packet
+        return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
+
+    async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        return self.packets[packet_id]
+
+
 def _repository() -> FakeEvaluationRepository:
     return FakeEvaluationRepository({}, {}, {}, [], [])
+
+
+def _packet_persistence() -> DecisionEvidencePacketPersistenceService:
+    return cast(
+        DecisionEvidencePacketPersistenceService,
+        FakeDecisionEvidencePacketPersistenceService(),
+    )
+
+
+def _workflow_registry() -> WorkflowRegistry:
+    return cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: SimpleNamespace(
+                identity=SimpleNamespace(
+                    workflow_name=workflow_name,
+                    definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
+                )
+            )
+        ),
+    )
 
 
 def _processor(
@@ -208,7 +254,13 @@ def _processor(
     provider = RecordingProvider([])
     projection_service = RecordingProjectionService([])
     result_service = EvaluationResultService(repository)
-    run_service = EvaluationRunService(provider, repository, projection_service)
+    run_service = EvaluationRunService(
+        provider,
+        repository,
+        projection_service,
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
+    )
     return (
         EvaluationJobProcessor(
             run_service=run_service,

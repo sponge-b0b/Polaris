@@ -12,12 +12,21 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from application.decision_evidence import DecisionEvidencePacketNotFoundError
+from application.governance import (
+    GovernedExecutionEvidenceResolutionError,
+    GovernedWorkflowExecutionEvidenceRequiredError,
+)
+from application.governance.baseline_runtime_evidence import (
+    BaselineRuntimeEvidenceNotFoundError,
+)
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestResult,
     BacktestScenario,
 )
 from application.services.base import ServiceRunner
+from application.services.base.service_result import ServiceResult
 from interfaces.cli.app import create_app
 from interfaces.cli.services.backtest_command_service import (
     BacktestCommandService,
@@ -34,6 +43,7 @@ class FakeWorkflowFacade:
     async def run_workflow(
         self,
         workflow_name: str,
+        governed_execution_evidence: object | None = None,
         execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
@@ -104,7 +114,9 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
     class FakeScope:
         def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
-                return BacktestApplicationService(facade)
+                return BacktestApplicationService(
+                    governed_workflow_execution_service=facade
+                )
             if dependency_type is ServiceRunner:
                 return DirectServiceRunner()
             raise AssertionError(f"Unexpected dependency: {dependency_type}")
@@ -136,6 +148,72 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
     assert facade.calls[0]["mode"] == "backtest"
     assert facade.calls[0]["archive_on_completion"] is False
     assert facade.calls[0]["checkpoint_on_completion"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_class",
+    [
+        GovernedWorkflowExecutionEvidenceRequiredError,
+        GovernedExecutionEvidenceResolutionError,
+        BaselineRuntimeEvidenceNotFoundError,
+        DecisionEvidencePacketNotFoundError,
+    ],
+)
+async def test_backtest_command_preserves_typed_governed_evidence_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    error_class: type[Exception],
+) -> None:
+    scenario_file = tmp_path / "scenario.json"
+    scenario_file.write_text(
+        json.dumps(
+            {
+                "scenario_id": "evidence-required",
+                "name": "Evidence required",
+                "workflow_name": "morning_report",
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-01",
+                "symbols": ["SPY"],
+                "benchmark_symbol": "SPY",
+                "initial_cash": "100000",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FailingServiceRunner:
+        async def run(self, service: Any, request: Any) -> ServiceResult[Any]:
+            return ServiceResult.failed(
+                request_id="backtest-evidence-required",
+                request_name="backtest run",
+                error=error_class("canonical decision evidence is required"),
+            )
+
+    class FakeScope:
+        def get(self, dependency_type: type[Any]) -> Any:
+            if dependency_type is BacktestApplicationService:
+                return object()
+            if dependency_type is ServiceRunner:
+                return FailingServiceRunner()
+            raise AssertionError(f"Unexpected dependency: {dependency_type}")
+
+    @asynccontextmanager
+    async def fake_cli_runtime_scope(**kwargs: object) -> AsyncIterator[FakeScope]:
+        yield FakeScope()
+
+    monkeypatch.setattr(
+        "interfaces.cli.services.backtest_command_service.cli_runtime_scope",
+        fake_cli_runtime_scope,
+    )
+
+    with pytest.raises(error_class):
+        await BacktestCommandService().run_backtest(
+            BacktestRunCommandRequest(
+                scenario_path=scenario_file,
+                persist_results=False,
+            )
+        )
 
 
 def test_backtest_help_lists_runtime_native_commands() -> None:

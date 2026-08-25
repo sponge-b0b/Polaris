@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from application.governance import GovernedWorkflowExecutionService
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestExpectedOutcome,
@@ -167,7 +168,9 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
 
     async with cli_runtime_scope() as scope:
         service = BacktestApplicationService(
-            workflow_facade=scope.runtime.facade,
+            governed_workflow_execution_service=scope.get(
+                GovernedWorkflowExecutionService
+            ),
             clock=lambda: _FIXED_BACKTEST_TIME,
             run_id_factory=lambda: "backtest-real-golden",
         )

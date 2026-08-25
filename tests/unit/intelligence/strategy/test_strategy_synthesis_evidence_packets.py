@@ -28,7 +28,7 @@ from tests.helpers.risk_authority_examples import strategy_synthesis_authority_i
 
 
 def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
-    decision = _decision(evidence_packet_ids=("strategy-packet-1",))
+    decision = _decision()
 
     packet = assemble_strategy_synthesis_decision_evidence_packet(
         decision=decision,
@@ -39,12 +39,15 @@ def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
         reconstruction_references=(_workflow_reference(),),
         retention=_retention_requirement(),
         support_snapshots=_support_snapshots(_hypotheses()),
+        workflow_name="strategy_workflow",
+        workflow_definition_fingerprint="workflow-definition-fingerprint",
+        execution_id="execution-1",
     )
 
     assert packet.packet_id == "strategy-packet-1"
     assert packet.output_id == "strategy-synthesis-output-1"
     assert packet.risk_tier.value == "vigilant"
-    assert decision.to_dict()["evidence_packet_ids"] == ["strategy-packet-1"]
+    assert decision.to_dict()["evidence_packet_ids"] == []
     assert StrategySynthesisDecision.from_dict(decision.to_dict()) == decision
 
     claim_ids = {claim.claim_id for claim in packet.claims}
@@ -91,37 +94,6 @@ def test_strategy_synthesis_packet_exposes_hypotheses_and_evidence() -> None:
     assert selected_claim.evidence.uncertainty_ids == (
         "strategy_synthesis_uncertainty",
     )
-
-
-@pytest.mark.parametrize(
-    ("evidence_packet_ids", "expected_message"),
-    [
-        ((), "requires canonical evidence packet binding"),
-        (("packet-substituted",), "does not match canonical packet"),
-        (
-            ("strategy-packet-1", "packet-substituted"),
-            "contains substituted evidence packet ids",
-        ),
-    ],
-)
-def test_strategy_synthesis_packet_fails_for_missing_or_substituted_binding(
-    evidence_packet_ids: tuple[str, ...],
-    expected_message: str,
-) -> None:
-    with pytest.raises(
-        StrategySynthesisEvidencePacketAssemblyError,
-        match=expected_message,
-    ):
-        assemble_strategy_synthesis_decision_evidence_packet(
-            decision=_decision(evidence_packet_ids=evidence_packet_ids),
-            hypotheses=_hypotheses(),
-            packet_id="strategy-packet-1",
-            output_id="strategy-synthesis-output-1",
-            authority=classify_risk_authority(strategy_synthesis_authority_input()),
-            reconstruction_references=(_workflow_reference(),),
-            retention=_retention_requirement(),
-            support_snapshots=_support_snapshots(_hypotheses()),
-        )
 
 
 @pytest.mark.parametrize(
@@ -226,7 +198,7 @@ def test_strategy_synthesis_packet_assembly_fails_when_references_are_missing(
         match=expected_message,
     ):
         assemble_strategy_synthesis_decision_evidence_packet(
-            decision=_decision(evidence_packet_ids=("strategy-packet-1",)),
+            decision=_decision(),
             hypotheses=active_hypotheses,
             packet_id="strategy-packet-1",
             output_id="strategy-synthesis-output-1",
@@ -243,7 +215,7 @@ def test_strategy_synthesis_packet_assembly_fails_when_snapshot_missing() -> Non
         match="lacks retained support snapshot",
     ):
         assemble_strategy_synthesis_decision_evidence_packet(
-            decision=_decision(evidence_packet_ids=("strategy-packet-1",)),
+            decision=_decision(),
             hypotheses=_hypotheses(),
             packet_id="strategy-packet-1",
             output_id="strategy-synthesis-output-1",

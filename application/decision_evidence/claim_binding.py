@@ -424,10 +424,10 @@ def _assert_reference_matches_canonical(
     reference: EvidenceClaimReference,
     canonical: EvidenceClaimReference,
 ) -> None:
-    if reference.output_id != canonical.output_id:
-        raise ClaimEvidenceBindingError(
-            f"claim {reference.claim_id!r} output_id does not match canonical packet."
-        )
+    _assert_reference_identity_matches_canonical(
+        reference=reference,
+        canonical=canonical,
+    )
     if reference.risk_tier is not canonical.risk_tier:
         raise ClaimEvidenceBindingError(
             f"claim {reference.claim_id!r} risk_tier does not match canonical packet."
@@ -466,6 +466,22 @@ def _assert_reference_matches_canonical(
         raise ClaimEvidenceBindingError(
             f"claim {reference.claim_id!r} limitation references do not match "
             "canonical packet."
+        )
+
+
+def _assert_reference_identity_matches_canonical(
+    *,
+    reference: EvidenceClaimReference,
+    canonical: EvidenceClaimReference,
+) -> None:
+    if reference.packet_version != canonical.packet_version:
+        raise ClaimEvidenceBindingError(
+            f"claim {reference.claim_id!r} packet_version does not match "
+            "canonical packet."
+        )
+    if reference.output_id != canonical.output_id:
+        raise ClaimEvidenceBindingError(
+            f"claim {reference.claim_id!r} output_id does not match canonical packet."
         )
 
 

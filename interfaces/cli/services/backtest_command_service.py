@@ -4,6 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from application.decision_evidence import DecisionEvidencePacketNotFoundError
+from application.governance import (
+    GovernedExecutionEvidenceResolutionError,
+    GovernedWorkflowExecutionEvidenceRequiredError,
+)
+from application.governance.baseline_runtime_evidence import (
+    BaselineRuntimeEvidenceNotFoundError,
+)
 from application.persistence.backtesting import (
     BacktestPersistenceService,
     BacktestRunPersistenceFilters,
@@ -118,6 +126,7 @@ class BacktestCommandService:
                     },
                 ),
             )
+        _raise_typed_governed_evidence_error(result.error_type, result.error_message)
         result.raise_if_failed()
         if result.result is None:
             raise RuntimeError("Backtest service returned no result.")
@@ -198,6 +207,30 @@ class BacktestCommandService:
         raise ValueError(
             f"Persisted backtest artifact not found for format: {request.output_format}"
         )
+
+
+def _raise_typed_governed_evidence_error(
+    error_type: str | None,
+    error_message: str | None,
+) -> None:
+    message = error_message or "Canonical decision evidence is required."
+    typed_errors: dict[str, type[Exception]] = {
+        GovernedWorkflowExecutionEvidenceRequiredError.__name__: (
+            GovernedWorkflowExecutionEvidenceRequiredError
+        ),
+        GovernedExecutionEvidenceResolutionError.__name__: (
+            GovernedExecutionEvidenceResolutionError
+        ),
+        BaselineRuntimeEvidenceNotFoundError.__name__: (
+            BaselineRuntimeEvidenceNotFoundError
+        ),
+        DecisionEvidencePacketNotFoundError.__name__: (
+            DecisionEvidencePacketNotFoundError
+        ),
+    }
+    error_class = typed_errors.get(error_type or "")
+    if error_class is not None:
+        raise error_class(message)
 
 
 def _with_persistence_metadata(

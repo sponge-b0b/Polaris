@@ -23,6 +23,7 @@ from core.database.models.backtesting import (
     BacktestScenarioModel,
     BacktestStepModel,
 )
+from core.database.models.baseline_runtime_evidence import BaselineRuntimeEvidenceModel
 from core.database.models.completed_runs import (
     CompletedRunArtifactModel,
     CompletedWorkflowNodeOutputModel,
@@ -35,6 +36,16 @@ from core.database.models.evaluation import (
     EvaluationDatasetModel,
     EvaluationMetricResultModel,
     EvaluationRunModel,
+)
+from core.database.models.governance_audit import (
+    AutomatedGovernanceAuditRecordModel,
+    AutomatedPolicyAuditRecordModel,
+    GovernanceResidualRiskAcceptanceModel,
+    GovernanceReviewDecisionModel,
+    GovernanceReviewTaskModel,
+)
+from core.database.models.governed_execution_evidence_selection import (
+    GovernedExecutionEvidenceSelectionModel,
 )
 from core.database.models.lineage import PersistenceLineageLinkModel
 from core.database.models.macro import (
@@ -126,7 +137,14 @@ __all__ = [
     "BacktestRunModel",
     "BacktestScenarioModel",
     "BacktestStepModel",
+    "AutomatedGovernanceAuditRecordModel",
+    "AutomatedPolicyAuditRecordModel",
+    "GovernanceResidualRiskAcceptanceModel",
+    "GovernanceReviewDecisionModel",
+    "GovernanceReviewTaskModel",
     "PersistenceAuditEventModel",
+    "BaselineRuntimeEvidenceModel",
+    "GovernedExecutionEvidenceSelectionModel",
     "DecisionEvidencePacketModel",
     "CompletedWorkflowRunModel",
     "CompletedWorkflowNodeOutputModel",

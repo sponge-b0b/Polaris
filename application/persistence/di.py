@@ -7,8 +7,21 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import (
+    AutomatedDecisionAuditService,
+    GovernedWorkflowExecutionService,
+)
+from application.governance.baseline_runtime_evidence import (
+    BaselineRuntimeEvidencePersistenceService,
+)
+from application.governance.governed_execution_evidence_resolver import (
+    CanonicalGovernedExecutionEvidenceLifecycle,
+    GovernedExecutionEvidenceResolver,
+)
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.backtesting import BacktestPersistenceService
+from application.persistence.diagnostics import DiagnosticsPersistenceService
+from application.persistence.health import HealthPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
 from application.persistence.market import MarketPersistenceService
@@ -27,9 +40,12 @@ from core.storage.persistence.portfolio.portfolio_state_repository import (
 )
 from core.storage.persistence.repositories import (
     PostgresAgentSignalPersistenceRepository,
+    PostgresAutomatedDecisionAuditRepository,
     PostgresBacktestPersistenceRepository,
+    PostgresBaselineRuntimeEvidenceRepository,
     PostgresDecisionEvidencePacketRepository,
     PostgresEvaluationPersistenceRepository,
+    PostgresGovernedExecutionEvidenceSelectionRepository,
     PostgresMacroPersistenceRepository,
     PostgresMarketPersistenceRepository,
     PostgresNewsPersistenceRepository,
@@ -45,12 +61,28 @@ from core.telemetry.emitters.application_service_telemetry import (
     ApplicationServiceTelemetry,
 )
 from core.telemetry.observability import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
 
 
 class ApplicationPersistenceDIProvider(Provider):
     """Request-scoped application persistence orchestration."""
 
     scope = Scope.REQUEST
+
+    @provide
+    def provide_health_persistence_service(
+        self,
+    ) -> HealthPersistenceService:
+        return HealthPersistenceService()
+
+    @provide
+    def provide_diagnostics_persistence_service(
+        self,
+        health_service: HealthPersistenceService,
+    ) -> DiagnosticsPersistenceService:
+        return DiagnosticsPersistenceService(
+            health_service=health_service,
+        )
 
     @provide
     def provide_portfolio_persistence_service(
@@ -159,6 +191,65 @@ class ApplicationPersistenceDIProvider(Provider):
         )
 
     @provide
+    def provide_baseline_runtime_evidence_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresBaselineRuntimeEvidenceRepository:
+        return PostgresBaselineRuntimeEvidenceRepository(session)
+
+    @provide
+    def provide_baseline_runtime_evidence_persistence_service(
+        self,
+        repository: PostgresBaselineRuntimeEvidenceRepository,
+    ) -> BaselineRuntimeEvidencePersistenceService:
+        return BaselineRuntimeEvidencePersistenceService(repository)
+
+    @provide
+    def provide_governed_execution_evidence_selection_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresGovernedExecutionEvidenceSelectionRepository:
+        return PostgresGovernedExecutionEvidenceSelectionRepository(session)
+
+    @provide
+    def provide_canonical_governed_execution_evidence_lifecycle(
+        self,
+        workflow_facade: WorkflowFacade,
+        selection_repository: PostgresGovernedExecutionEvidenceSelectionRepository,
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+    ) -> CanonicalGovernedExecutionEvidenceLifecycle:
+        return CanonicalGovernedExecutionEvidenceLifecycle(
+            workflow_registry=workflow_facade.registry,
+            selection_repository=selection_repository,
+            baseline_evidence_service=baseline_runtime_evidence_persistence_service,
+            packet_persistence_service=decision_evidence_packet_persistence_service,
+        )
+
+    @provide
+    def provide_governed_execution_evidence_resolver(
+        self,
+        workflow_facade: WorkflowFacade,
+        selection_repository: PostgresGovernedExecutionEvidenceSelectionRepository,
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+    ) -> GovernedExecutionEvidenceResolver:
+        return GovernedExecutionEvidenceResolver(
+            workflow_registry=workflow_facade.registry,
+            selection_repository=selection_repository,
+            baseline_evidence_service=baseline_runtime_evidence_persistence_service,
+            packet_persistence_service=decision_evidence_packet_persistence_service,
+        )
+
+    @provide
     def provide_decision_evidence_rag_repository(
         self,
         session: AsyncSession,
@@ -245,12 +336,59 @@ class ApplicationPersistenceDIProvider(Provider):
         return BacktestPersistenceService(repository)
 
     @provide
+    def provide_automated_decision_audit_repository(
+        self,
+        session: AsyncSession,
+    ) -> PostgresAutomatedDecisionAuditRepository:
+        return PostgresAutomatedDecisionAuditRepository(session)
+
+    @provide
+    def provide_automated_decision_audit_service(
+        self,
+        repository: PostgresAutomatedDecisionAuditRepository,
+        observability_manager: ObservabilityManager,
+    ) -> AutomatedDecisionAuditService:
+        return AutomatedDecisionAuditService(
+            repository,
+            observability_manager=observability_manager,
+        )
+
+    @provide
+    def provide_governed_workflow_execution_service(
+        self,
+        workflow_facade: WorkflowFacade,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+        baseline_runtime_evidence_persistence_service: (
+            BaselineRuntimeEvidencePersistenceService
+        ),
+        evidence_lifecycle: CanonicalGovernedExecutionEvidenceLifecycle,
+        evidence_resolver: GovernedExecutionEvidenceResolver,
+    ) -> GovernedWorkflowExecutionService:
+        return GovernedWorkflowExecutionService(
+            workflow_facade=workflow_facade,
+            automated_decision_audit_service=automated_decision_audit_service,
+            decision_evidence_packet_persistence_service=(
+                decision_evidence_packet_persistence_service
+            ),
+            baseline_runtime_evidence_persistence_service=(
+                baseline_runtime_evidence_persistence_service
+            ),
+            evidence_lifecycle=evidence_lifecycle,
+            evidence_resolver=evidence_resolver,
+        )
+
+    @provide
     def provide_morning_report_persistence_service(
         self,
         repository: PostgresReportPersistenceRepository,
         claim_binding_service: DecisionEvidenceClaimBindingService,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> MorningReportPersistenceService:
         return MorningReportPersistenceService(
             repository,
             claim_binding_service=claim_binding_service,
+            governed_output_release_service=automated_decision_audit_service,
         )

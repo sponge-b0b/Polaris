@@ -107,7 +107,7 @@ Do not automatically choose a winner or rewrite derived wiki content to one side
 
 Resolve `[source-conflict]` before ordinary `[code-drift]` or `[doc-drift]`.
 
-Detailed handling belongs to `$wiki-sync` and `$wiki-lint`.
+Detailed handling belongs to the `$wiki-sync` skill and the `$wiki-lint` skill.
 
 ## Entity Citations
 

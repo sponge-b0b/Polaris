@@ -22,8 +22,10 @@ def _runtime_scope_from_builder(
 ) -> Callable[..., Any]:
     @asynccontextmanager
     async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
+        runtime = await builder(**kwargs)
         yield SimpleNamespace(
-            runtime=await builder(**kwargs),
+            runtime=runtime,
+            get=lambda _: runtime.governed_execution_service,
         )
 
     return scope
@@ -34,6 +36,9 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -84,7 +89,6 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
     envelope = await WorkflowCommandService().run_workflow(
         WorkflowRunCommandRequest(
             workflow_name="morning_report",
-            execution_id="exec-123",
             metadata={
                 "interface": "cli",
             },
@@ -93,7 +97,7 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
 
     assert envelope.success is True
     assert envelope.workflow_name == "morning_report"
-    assert envelope.execution_id == "exec-123"
+    assert envelope.execution_id is None
     assert (
         envelope.payload["node_outputs"]["technical_agent"]["outputs"][
             "technical_signal"
@@ -103,10 +107,60 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
 
 
 @pytest.mark.asyncio
+async def test_workflow_command_service_uses_governed_execution_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    class FakeFacade:
+        policy_engine = object()
+        governance_engine = None
+
+        def workflow_exists(self, workflow_name: str) -> bool:
+            return workflow_name == "morning_report"
+
+    class FakeGovernedExecutionService:
+        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+            captured.update(kwargs)
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": kwargs["execution_id"],
+                "execution_result": {"success": True, "final_context": {}},
+            }
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        governed_execution_service = FakeGovernedExecutionService()
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+        )
+    )
+
+    assert envelope.success is True
+    assert captured["execution_id"] is None
+    assert "governed_execution_evidence" not in captured
+
+
+@pytest.mark.asyncio
 async def test_workflow_command_service_renders_missing_workflow_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -152,6 +206,9 @@ async def test_morning_report_command_service_builds_workflow_inputs(
     captured: dict[str, Any] = {}
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -212,6 +269,9 @@ async def test_workflow_command_service_forwards_progress_notifications(
     notifications: list[str] = []
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -262,7 +322,6 @@ async def test_workflow_command_service_forwards_progress_notifications(
     envelope = await WorkflowCommandService().run_workflow(
         WorkflowRunCommandRequest(
             workflow_name="morning_report",
-            execution_id="exec-123",
             progress_handler=lambda notification: notifications.append(
                 notification.event_type,
             ),
@@ -302,6 +361,9 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         return None
 
     class FakeFacade:
+        policy_engine = None
+        governance_engine = None
+
         def workflow_exists(
             self,
             workflow_name: str,
@@ -392,7 +454,6 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
     envelope = await WorkflowCommandService().run_workflow(
         WorkflowRunCommandRequest(
             workflow_name="morning_report",
-            execution_id="exec-control",
             interactive_control=True,
             interactive_input=read_input,
             control_handler=lambda notification: messages.append(
@@ -401,19 +462,6 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         )
     )
 
-    assert envelope.success is True
-    assert commands == [
-        (
-            "pause",
-            "exec-control",
-        ),
-        (
-            "resume",
-            "exec-control",
-        ),
-        (
-            "cancel",
-            "exec-control",
-        ),
-    ]
-    assert any("interactive control enabled" in message for message in messages)
+    assert envelope.success is False
+    assert commands == []
+    assert messages == []

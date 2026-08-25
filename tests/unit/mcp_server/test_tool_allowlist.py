@@ -70,10 +70,23 @@ def test_no_prohibited_v1_operations_are_registered_or_modeled() -> None:
     )
 
 
-def test_allowlist_validator_rejects_unapproved_tools() -> None:
+@pytest.mark.parametrize(
+    "tool_name",
+    (
+        "polaris_workflow_run",
+        "polaris_governance_review_approve",
+        "polaris_governance_review_deny",
+        "polaris_governance_review_override",
+        "polaris_governance_review_accept_residual_risk",
+        "polaris_governance_review_resolve",
+        "polaris_governance_review_mutate",
+        "polaris_governance_review_bypass",
+    ),
+)
+def test_allowlist_validator_rejects_unapproved_tools(tool_name: str) -> None:
     tools = [
         SimpleNamespace(
-            name="polaris_workflow_run",
+            name=tool_name,
             annotations=ToolAnnotations(
                 readOnlyHint=False,
                 destructiveHint=False,

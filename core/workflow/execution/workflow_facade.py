@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.plugins.runtime.plugin_runtime_loader import PluginRuntimeLoader
 from core.plugins.runtime.plugin_runtime_manager import (
@@ -23,16 +23,21 @@ from core.runtime.control import (
 from core.runtime.events.event_bus import EventBus
 from core.runtime.execution.runtime_engine import RuntimeEngine
 from core.runtime.factory.runtime_node_factory import RuntimeNodeFactory
+from core.runtime.governance import GovernanceEvaluationResult
 from core.runtime.governance.governance_engine import GovernanceEngine
 from core.runtime.lifecycle.runtime_lifecycle_manager import (
     RuntimeLifecycleManager,
 )
+from core.runtime.policies import PolicyEvaluationResult
 from core.runtime.policies.policy_engine import PolicyEngine
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.state_manager import StateManager
 from core.runtime.telemetry.runtime_telemetry import RuntimeTelemetry
 from core.runtime.telemetry.runtime_telemetry_hook import RuntimeTelemetryHook
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionAuditPersistenceResult,
+)
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
@@ -48,12 +53,46 @@ from core.workflow.compiler.workflow_compiler import CompiledWorkflow, WorkflowC
 from core.workflow.execution.workflow_engine import WorkflowEngine
 from core.workflow.execution.workflow_runner import WorkflowRunner, WorkflowRunResult
 from core.workflow.execution.workflow_service import WorkflowService, WorkflowSummary
+from core.workflow.governance_audit import (
+    WorkflowExecutionAuditCapability,
+)
 from core.workflow.models.destructive_operation_confirmation import (
     DestructiveOperationConfirmation,
     DestructiveWorkflowOperation,
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.authority import RiskAuthorityContract
+from domain.governed_execution_evidence import GovernedExecutionEvidence
+
+if TYPE_CHECKING:
+    from workflows.catalog import BuiltinWorkflowRegistration
+
+
+class _GovernedWorkflowSubject(Mapping[str, Any]):
+    """Typed evaluation subject bound to reconstructed execution evidence."""
+
+    __slots__ = ("_values", "authority", "evidence")
+
+    def __init__(
+        self,
+        *,
+        values: Mapping[str, Any],
+        authority: RiskAuthorityContract,
+        evidence: GovernedExecutionEvidence,
+    ) -> None:
+        self._values = values
+        self.authority = authority
+        self.evidence = evidence
+
+    def __getitem__(self, key: str) -> Any:
+        return self._values[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
 
 
 class WorkflowFacade:
@@ -318,6 +357,45 @@ class WorkflowFacade:
             overwrite=overwrite,
         )
 
+    def register_builtin_workflow(
+        self,
+        *,
+        workflow_name: str,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        registration = _builtin_workflow_registration(workflow_name)
+        self._require_governance_allowed_sync(
+            subject=registration.definition,
+            context={
+                "governance_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self._require_policy_allowed_sync(
+            subject=registration.definition,
+            context={
+                "policy_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self.service._register_catalog_workflow(
+            workflow_definition=registration.definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=registration.authority,
+            overwrite=overwrite,
+        )
+
     async def register_workflow_async(
         self,
         workflow_definition: WorkflowGraphDefinition,
@@ -351,6 +429,45 @@ class WorkflowFacade:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
+            overwrite=overwrite,
+        )
+
+    async def register_builtin_workflow_async(
+        self,
+        *,
+        workflow_name: str,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        registration = _builtin_workflow_registration(workflow_name)
+        await self._require_governance_allowed_async(
+            subject=registration.definition,
+            context={
+                "governance_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        await self._require_policy_allowed_async(
+            subject=registration.definition,
+            context={
+                "policy_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self.service._register_catalog_workflow(
+            workflow_definition=registration.definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=registration.authority,
             overwrite=overwrite,
         )
 
@@ -446,41 +563,56 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> WorkflowRunResult:
+        audit_capability = self._require_execution_audit_capability(
+            execution_audit_capability,
+        )
+        governance_context = {
+            "governance_phase": "workflow_run_preflight",
+            "workflow_name": workflow_name,
+            "execution_id": execution_id,
+            "mode": mode,
+        }
+        policy_context = {
+            "policy_phase": "workflow_run_preflight",
+            "workflow_name": workflow_name,
+            "execution_id": execution_id,
+            "mode": mode,
+        }
+
         await self._require_governance_allowed_async(
-            subject={
-                "operation": "run_workflow",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
-            context={
-                "governance_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_workflow",
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                    "mode": mode,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
+            context=governance_context,
+            execution_audit_capability=audit_capability,
         )
 
         await self._require_policy_allowed_async(
-            subject={
-                "operation": "run_workflow",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
-            context={
-                "policy_phase": "workflow_run_preflight",
-                "workflow_name": workflow_name,
-                "execution_id": execution_id,
-                "mode": mode,
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_workflow",
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                    "mode": mode,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
+            context=policy_context,
+            execution_audit_capability=audit_capability,
         )
 
         return await self.service.run_workflow(
@@ -501,41 +633,56 @@ class WorkflowFacade:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> WorkflowRunResult:
+        audit_capability = self._require_execution_audit_capability(
+            execution_audit_capability,
+        )
+        governance_context = {
+            "governance_phase": "workflow_run_from_context_preflight",
+            "workflow_name": workflow_name,
+            "runtime_id": context.runtime_id,
+            "execution_id": context.execution_id,
+        }
+        policy_context = {
+            "policy_phase": "workflow_run_from_context_preflight",
+            "workflow_name": workflow_name,
+            "runtime_id": context.runtime_id,
+            "execution_id": context.execution_id,
+        }
+
         await self._require_governance_allowed_async(
-            subject={
-                "operation": "run_from_context",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
-            context={
-                "governance_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_from_context",
+                    "workflow_name": workflow_name,
+                    "runtime_id": context.runtime_id,
+                    "execution_id": context.execution_id,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
+            context=governance_context,
+            execution_audit_capability=audit_capability,
         )
 
         await self._require_policy_allowed_async(
-            subject={
-                "operation": "run_from_context",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-                "archive_on_completion": archive_on_completion,
-                "checkpoint_on_completion": checkpoint_on_completion,
-                "metadata": metadata or {},
-            },
-            context={
-                "policy_phase": "workflow_run_from_context_preflight",
-                "workflow_name": workflow_name,
-                "runtime_id": context.runtime_id,
-                "execution_id": context.execution_id,
-            },
+            subject=self._governed_subject(
+                {
+                    "operation": "run_from_context",
+                    "workflow_name": workflow_name,
+                    "runtime_id": context.runtime_id,
+                    "execution_id": context.execution_id,
+                    "archive_on_completion": archive_on_completion,
+                    "checkpoint_on_completion": checkpoint_on_completion,
+                    "metadata": metadata or {},
+                },
+                audit_capability,
+            ),
+            context=policy_context,
+            execution_audit_capability=audit_capability,
         )
 
         return await self.service.run_from_context(
@@ -793,14 +940,20 @@ class WorkflowFacade:
         self,
         subject: Any,
         context: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> None:
         if self.policy_engine is None:
             return
 
-        await self.policy_engine.require_allowed(
+        evaluation = await self.policy_engine.evaluate(
             subject=subject,
             context=context,
         )
+        await self._record_policy_evaluation(
+            execution_audit_capability=execution_audit_capability,
+            evaluation=evaluation,
+        )
+        evaluation.raise_if_denied()
 
     def _require_policy_allowed_sync(
         self,
@@ -824,10 +977,28 @@ class WorkflowFacade:
             )
 
         asyncio.run(
-            self.policy_engine.require_allowed(
+            self._require_policy_allowed_async(
                 subject=subject,
                 context=context,
             )
+        )
+
+    async def _record_policy_evaluation(
+        self,
+        *,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None,
+        evaluation: PolicyEvaluationResult,
+    ) -> None:
+        if execution_audit_capability is None:
+            return
+
+        results = await execution_audit_capability.service.record_policy_evaluation(
+            context=execution_audit_capability.context,
+            evaluation=evaluation,
+        )
+        self._raise_if_automated_decision_audit_failed(
+            evaluation_kind="policy",
+            results=results,
         )
 
     # ========================================================
@@ -838,14 +1009,20 @@ class WorkflowFacade:
         self,
         subject: Any,
         context: dict[str, Any] | None = None,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
     ) -> None:
         if self.governance_engine is None:
             return
 
-        await self.governance_engine.require_allowed(
+        evaluation = await self.governance_engine.evaluate(
             subject=subject,
             context=context,
         )
+        await self._record_governance_evaluation(
+            execution_audit_capability=execution_audit_capability,
+            evaluation=evaluation,
+        )
+        evaluation.raise_if_blocking()
 
     def _require_governance_allowed_sync(
         self,
@@ -869,8 +1046,94 @@ class WorkflowFacade:
             )
 
         asyncio.run(
-            self.governance_engine.require_allowed(
+            self._require_governance_allowed_async(
                 subject=subject,
                 context=context,
             )
         )
+
+    async def _record_governance_evaluation(
+        self,
+        *,
+        execution_audit_capability: WorkflowExecutionAuditCapability | None,
+        evaluation: GovernanceEvaluationResult,
+    ) -> None:
+        if execution_audit_capability is None:
+            return
+
+        results = await execution_audit_capability.service.record_governance_evaluation(
+            context=execution_audit_capability.context,
+            evaluation=evaluation,
+        )
+        self._raise_if_automated_decision_audit_failed(
+            evaluation_kind="governance",
+            results=results,
+        )
+
+    @staticmethod
+    def _governed_subject(
+        values: Mapping[str, Any],
+        capability: WorkflowExecutionAuditCapability | None,
+    ) -> Mapping[str, Any]:
+        if capability is None:
+            return values
+        return _GovernedWorkflowSubject(
+            values=values,
+            authority=capability.evidence.authority,
+            evidence=capability.evidence,
+        )
+
+    def _require_execution_audit_capability(
+        self,
+        capability: WorkflowExecutionAuditCapability | None,
+    ) -> WorkflowExecutionAuditCapability | None:
+        if self.policy_engine is None and self.governance_engine is None:
+            return None
+        if capability is None:
+            raise RuntimeError(
+                "Governed workflow execution requires an execution audit capability."
+            )
+        capability.consume()
+        return capability
+
+    @staticmethod
+    def _raise_if_automated_decision_audit_failed(
+        *,
+        evaluation_kind: str,
+        results: Sequence[AutomatedDecisionAuditPersistenceResult],
+    ) -> None:
+        if not results:
+            raise RuntimeError(
+                f"Automated {evaluation_kind} audit persistence returned no "
+                "durable write result."
+            )
+        errors: list[str] = []
+        for result in results:
+            if not isinstance(result, AutomatedDecisionAuditPersistenceResult):
+                raise RuntimeError(
+                    f"Automated {evaluation_kind} audit persistence returned "
+                    "invalid result."
+                )
+            if result.success and result.records_persisted > 0:
+                continue
+
+            if result.success:
+                errors.append("durable audit write did not persist a record")
+                continue
+
+            result_errors = tuple(str(error) for error in result.errors)
+            errors.extend(result_errors or ("unknown persistence failure",))
+
+        if errors:
+            raise RuntimeError(
+                f"Automated {evaluation_kind} audit persistence failed: "
+                f"{'; '.join(errors)}"
+            )
+
+
+def _builtin_workflow_registration(
+    workflow_name: str,
+) -> BuiltinWorkflowRegistration:
+    from workflows.catalog import get_builtin_workflow_registration
+
+    return get_builtin_workflow_registration(workflow_name)

@@ -4,11 +4,17 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Final, cast
+from hashlib import sha256
+from typing import Final, Protocol, cast
 
 from application.decision_evidence import (
     DecisionEvidencePacketPersistenceService,
     calculate_completed_workflow_node_evidence_digest,
+)
+from application.governance import (
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
 )
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
@@ -23,6 +29,10 @@ from application.projections.workflow_outputs.projection_registry import (
 )
 from core.security.sensitive_data import sanitize_sensitive_value
 from core.storage.persistence.completed_run_archive import CompletedNodeOutputRecord
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+)
 from core.storage.persistence.lineage import (
     JsonObject,
     PersistenceLineage,
@@ -46,8 +56,13 @@ from core.storage.persistence.strategy import (
     new_strategy_evaluation_id,
     new_strategy_hypothesis_id,
 )
+from core.workflow.registry.workflow_registry import (
+    WorkflowAuthorityFacts,
+    WorkflowRegistry,
+)
 from domain.authority import (
     RiskAuthorityContract,
+    RiskTier,
     SourceOfTruthCategory,
     authority_contract_metadata,
     model_authority_claims_from_payloads,
@@ -56,6 +71,7 @@ from domain.authority import (
     strategy_synthesis_decision_authority,
 )
 from domain.decision_evidence import (
+    DecisionEvidencePacket,
     EvidenceRetentionRequirement,
     ReconstructionReference,
     ReconstructionReferenceKind,
@@ -93,6 +109,22 @@ _STRATEGY_DECISION_RECORD_TYPE: Final = "strategy_synthesis_decision"
 _STRATEGY_RECOMMENDATION_RECORD_TYPE: Final = "recommendation"
 _STRATEGY_RECOMMENDATION_RATIONALE_RECORD_TYPE: Final = "recommendation_rationale"
 _EVIDENCE_PACKET_RELATIONSHIP_TYPE: Final = "supported_by_decision_evidence_packet"
+_STRATEGY_RELEASE_BOUNDARY_NAME: Final = (
+    f"workflow_output_projection.{STRATEGY_SYNTHESIS_PROJECTOR_NAME}"
+)
+_VIGILANT_RELEASE_ACTION: Final = "vigilant_authority_requires_approval"
+_ENHANCED_RELEASE_ACTION: Final = "enhanced_authority_evidence_required"
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Approval-state service used before strategy durable promotion."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Return whether this scoped output may be durably promoted."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +139,14 @@ class _StrategyHypothesisProjectionEvidence:
     hypothesis: StrategyHypothesis
     node_output: CompletedNodeOutputRecord
     content_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class _StrategySynthesisProjectionPayload:
+    outputs: Mapping[str, object]
+    features: Mapping[str, object]
+    decision: StrategySynthesisDecision
+    symbol: str
 
 
 class StrategyHypothesisWorkflowOutputProjector:
@@ -171,6 +211,8 @@ class StrategySynthesisWorkflowOutputProjector:
             DecisionEvidencePacketPersistenceService
         ),
         lineage_persistence_service: LineagePersistenceService,
+        workflow_registry: WorkflowRegistry | None = None,
+        governed_output_release_service: GovernedOutputReleaseService | None = None,
     ) -> None:
         self._strategy_persistence_service = strategy_persistence_service
         self._recommendation_persistence_service = recommendation_persistence_service
@@ -178,6 +220,8 @@ class StrategySynthesisWorkflowOutputProjector:
             decision_evidence_packet_persistence_service
         )
         self._lineage_persistence_service = lineage_persistence_service
+        self._workflow_registry = workflow_registry
+        self._governed_output_release_service = governed_output_release_service
 
     @property
     def projector_name(self) -> str:
@@ -187,39 +231,40 @@ class StrategySynthesisWorkflowOutputProjector:
         self,
         request: WorkflowOutputProjectorRequest,
     ) -> WorkflowOutputProjectionOutcome:
-        outputs = _mapping(request.node_output.outputs)
-        features = _mapping(outputs.get("features"))
-        decision_payload = _mapping(features.get("strategy_synthesis_decision"))
-        if not decision_payload:
-            return _skipped(
-                request, self.projector_name, "Strategy synthesis decision missing."
-            )
-        decision = StrategySynthesisDecision.from_dict(dict(decision_payload))
-        symbol = _symbol_from_request(request, outputs=outputs, features=features)
-        if symbol is None:
-            return _skipped(request, self.projector_name, "Strategy symbol missing.")
+        payload = _strategy_synthesis_projection_payload(
+            request,
+            projector_name=self.projector_name,
+        )
+        if isinstance(payload, WorkflowOutputProjectionOutcome):
+            return payload
 
         hypothesis_evidence = _strategy_hypothesis_projection_evidence(request)
         hypotheses = _hypothesis_records_from_projection_evidence(
             request,
-            symbol=symbol,
+            symbol=payload.symbol,
             hypothesis_evidence=hypothesis_evidence,
         )
         evidence_fingerprint = _decision_evidence_fingerprint(
-            decision=decision,
+            decision=payload.decision,
             hypotheses=hypotheses,
             request=request,
         )
         try:
+            workflow_facts = _strategy_workflow_authority_facts(
+                registry=self._workflow_registry,
+                workflow_name=request.run.workflow_name,
+            )
             evidence_packet = assemble_strategy_synthesis_decision_evidence_packet(
-                decision=decision,
+                decision=payload.decision,
                 hypotheses=tuple(item.hypothesis for item in hypothesis_evidence),
-                packet_id=_canonical_strategy_packet_id(decision),
+                packet_id=_canonical_strategy_packet_id(
+                    request=request,
+                    workflow_facts=workflow_facts,
+                ),
                 output_id=request.node_output.node_output_id,
                 authority=_strategy_synthesis_authority(
-                    request=request,
-                    outputs=outputs,
-                    features=features,
+                    outputs=payload.outputs,
+                    features=payload.features,
                 ),
                 reconstruction_references=_strategy_reconstruction_references(
                     request=request,
@@ -227,6 +272,11 @@ class StrategySynthesisWorkflowOutputProjector:
                 ),
                 retention=_strategy_evidence_retention_requirement(request),
                 support_snapshots=_strategy_support_snapshots(hypothesis_evidence),
+                workflow_name=workflow_facts.identity.workflow_name,
+                workflow_definition_fingerprint=(
+                    workflow_facts.identity.definition_fingerprint
+                ),
+                execution_id=request.run.execution_id,
             )
         except StrategySynthesisEvidencePacketAssemblyError as exc:
             return _failed(
@@ -240,22 +290,44 @@ class StrategySynthesisWorkflowOutputProjector:
                 evidence_packet
             )
         )
-        if not packet_result.success:
+        if (
+            not packet_result.success
+            or packet_result.records_persisted < 1
+            or packet_result.packet_id != evidence_packet.packet_id
+        ):
             error = "; ".join(packet_result.errors) or (
                 "Strategy decision evidence packet persistence failed."
             )
             return _failed(request, self.projector_name, error)
+        reconstructed_packet = (
+            await self._decision_evidence_packet_persistence_service.reconstruct_packet(
+                evidence_packet.packet_id
+            )
+        )
+        if reconstructed_packet != evidence_packet:
+            return _failed(
+                request,
+                self.projector_name,
+                "Strategy decision evidence packet reconstruction was substituted.",
+            )
+        release_outcome = await _strategy_governed_release_outcome(
+            request=request,
+            service=self._governed_output_release_service,
+            packet=reconstructed_packet,
+        )
+        if release_outcome is not None:
+            return release_outcome
         evidence_packet_ids = (evidence_packet.packet_id,)
 
         decision_record = _decision_record(
             request=request,
-            decision=decision,
-            symbol=symbol,
+            decision=payload.decision,
+            symbol=payload.symbol,
             evidence_fingerprint=evidence_fingerprint,
         )
         evaluations = _evaluation_records(
             request=request,
-            decision=decision,
+            decision=payload.decision,
             decision_record=decision_record,
             hypotheses=hypotheses,
         )
@@ -278,7 +350,7 @@ class StrategySynthesisWorkflowOutputProjector:
         )
         recommendation_bundle = _strategy_recommendation_bundle(
             request=request,
-            decision=decision,
+            decision=payload.decision,
             decision_record=decision_record,
         )
         if recommendation_bundle is not None:
@@ -334,6 +406,8 @@ def build_strategy_projector_registrations(
         DecisionEvidencePacketPersistenceService
     ),
     lineage_persistence_service: LineagePersistenceService,
+    workflow_registry: WorkflowRegistry | None = None,
+    governed_output_release_service: GovernedOutputReleaseService | None = None,
 ) -> tuple[WorkflowOutputProjectorRegistration, ...]:
     """Build canonical strategy projector registrations."""
     hypothesis_specs = (
@@ -373,6 +447,8 @@ def build_strategy_projector_registrations(
             decision_evidence_packet_persistence_service
         ),
         lineage_persistence_service=lineage_persistence_service,
+        workflow_registry=workflow_registry,
+        governed_output_release_service=governed_output_release_service,
     )
     registrations.append(
         WorkflowOutputProjectorRegistration(
@@ -382,9 +458,62 @@ def build_strategy_projector_registrations(
             projector=synthesis_projector,
             supported_node_names=("strategy_synthesis_agent",),
             persists_quality_status=True,
+            expected_authority_contract=strategy_synthesis_decision_authority(),
         )
     )
     return tuple(registrations)
+
+
+def _strategy_synthesis_projection_payload(
+    request: WorkflowOutputProjectorRequest,
+    *,
+    projector_name: str,
+) -> _StrategySynthesisProjectionPayload | WorkflowOutputProjectionOutcome:
+    outputs = _mapping(request.node_output.outputs)
+    features = _mapping(outputs.get("features"))
+    decision_payload = _mapping(features.get("strategy_synthesis_decision"))
+    if not decision_payload:
+        return _skipped(request, projector_name, "Strategy synthesis decision missing.")
+
+    decision = StrategySynthesisDecision.from_dict(dict(decision_payload))
+    if decision.evidence_packet_ids:
+        return _failed(
+            request,
+            projector_name,
+            (
+                "Strategy synthesis decision payload cannot select decision "
+                "evidence packet ids."
+            ),
+        )
+
+    symbol = _symbol_from_request(request, outputs=outputs, features=features)
+    if symbol is None:
+        return _skipped(request, projector_name, "Strategy symbol missing.")
+
+    return _StrategySynthesisProjectionPayload(
+        outputs=outputs,
+        features=features,
+        decision=decision,
+        symbol=symbol,
+    )
+
+
+def _strategy_workflow_authority_facts(
+    *,
+    registry: WorkflowRegistry | None,
+    workflow_name: str,
+) -> WorkflowAuthorityFacts:
+    if registry is None:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis evidence packet requires workflow registry facts."
+        )
+    try:
+        return registry.get_authority_facts(workflow_name)
+    except KeyError as exc:
+        raise StrategySynthesisEvidencePacketAssemblyError(
+            "strategy synthesis evidence packet requires registered workflow "
+            f"authority facts for {workflow_name!r}."
+        ) from exc
 
 
 def _hypothesis_from_node_output(
@@ -630,21 +759,94 @@ def _decision_evidence_fingerprint(
     return request.source_fingerprint
 
 
-def _canonical_strategy_packet_id(decision: StrategySynthesisDecision) -> str:
-    if not decision.evidence_packet_ids:
-        raise StrategySynthesisEvidencePacketAssemblyError(
-            "strategy synthesis decision requires canonical evidence packet binding."
+def _canonical_strategy_packet_id(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    workflow_facts: WorkflowAuthorityFacts,
+) -> str:
+    packet_identity = {
+        "workflow_name": workflow_facts.identity.workflow_name,
+        "workflow_definition_fingerprint": (
+            workflow_facts.identity.definition_fingerprint
+        ),
+        "execution_id": request.run.execution_id,
+        "node_output_id": request.node_output.node_output_id,
+        "source_fingerprint": request.source_fingerprint,
+    }
+    encoded = json.dumps(packet_identity, sort_keys=True, separators=(",", ":"))
+    return f"strategy_synthesis:{sha256(encoded.encode('utf-8')).hexdigest()}"
+
+
+async def _strategy_governed_release_outcome(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    service: GovernedOutputReleaseService | None,
+    packet: DecisionEvidencePacket,
+) -> WorkflowOutputProjectionOutcome | None:
+    authority = packet.authority
+    if not requires_governed_output_release_review(authority):
+        return None
+    if service is None:
+        return _skipped(
+            request,
+            STRATEGY_SYNTHESIS_PROJECTOR_NAME,
+            (
+                f"{_STRATEGY_RELEASE_BOUNDARY_NAME} is blocked: capital-relevant "
+                f"{authority.risk_tier.value} durable promotion requires the "
+                "canonical governed output release service."
+            ),
         )
-    return decision.evidence_packet_ids[0]
+
+    release_decision = await service.evaluate_governed_output_release(
+        _strategy_governed_release_request(request=request, packet=packet),
+    )
+    if release_decision.allowed:
+        return None
+    return _skipped(
+        request,
+        STRATEGY_SYNTHESIS_PROJECTOR_NAME,
+        release_decision.reason,
+    )
+
+
+def _strategy_governed_release_request(
+    *,
+    request: WorkflowOutputProjectorRequest,
+    packet: DecisionEvidencePacket,
+) -> GovernedOutputReleaseRequest:
+    authority = packet.authority
+    subject_type = request.node_output.output_contract or request.node_output.node_name
+    residual_risk_acceptance_required = authority.risk_tier is RiskTier.VIGILANT
+    return GovernedOutputReleaseRequest(
+        authority=authority,
+        subject=AutomatedDecisionSubject(
+            subject_type,
+            request.node_output.node_output_id,
+        ),
+        evidence=AutomatedDecisionEvidenceReference(
+            packet_id=packet.packet_id,
+            packet_version=packet.schema_version,
+        ),
+        review_scope=subject_type,
+        requested_action=_strategy_release_requested_action(authority),
+        boundary_name=_STRATEGY_RELEASE_BOUNDARY_NAME,
+        residual_risk_acceptance_required=residual_risk_acceptance_required,
+        residual_risk_scope=subject_type if residual_risk_acceptance_required else None,
+    )
+
+
+def _strategy_release_requested_action(authority: RiskAuthorityContract) -> str:
+    if authority.risk_tier is RiskTier.VIGILANT:
+        return _VIGILANT_RELEASE_ACTION
+    return _ENHANCED_RELEASE_ACTION
 
 
 def _strategy_synthesis_authority(
     *,
-    request: WorkflowOutputProjectorRequest,
     outputs: Mapping[str, object],
     features: Mapping[str, object],
 ) -> RiskAuthorityContract:
-    return request.authority_contract or strategy_synthesis_decision_authority(
+    return strategy_synthesis_decision_authority(
         model_authority_claims_from_payloads(outputs, features)
     )
 

@@ -61,7 +61,7 @@ uv run polaris-mcp --transport stdio
 
 Stdio behavior:
 
-- Uses the same FastMCP server and same six-tool catalog as HTTP.
+- Uses the same FastMCP server and same seven-tool catalog as HTTP.
 - Requires no bearer token because the parent process owns the child process.
 - Keeps MCP protocol frames on stdout.
 - Redirects normal process logging away from stdout so logs do not corrupt the
@@ -154,6 +154,7 @@ The V1 catalog is intentionally small and read-only.
 | `polaris_workflow_describe` | Describe one registered workflow graph. | Yes | Yes | No |
 | `polaris_completed_runs_list` | List completed execution IDs for one workflow. | Yes | Yes | No |
 | `polaris_completed_run_get` | Retrieve one completed-run summary and selected sections. | Yes | Yes | No |
+| `polaris_governance_review_states_list` | List governance approval/review states through the canonical application query service. | Yes | Yes | No |
 
 `polaris_rag_ask` is non-idempotent because model output and persisted query-log
 metadata may vary between invocations. It is the only open-world tool because the
@@ -162,8 +163,8 @@ configuration and the request allow it.
 
 ## Tool schemas and examples
 
-The source of truth for schemas is `mcp_server/models.py`. The server registers
-strict input and output models with unknown fields rejected.
+The source of truth for schemas is `mcp_server/contracts/models.py`. The server
+registers strict input and output models with unknown fields rejected.
 
 ### `polaris_rag_ask`
 
@@ -328,6 +329,41 @@ Response highlights:
 Selected node outputs are returned exactly after boundary sanitization; the MCP
 layer does not summarize or truncate long LLM-style response fields.
 
+### `polaris_governance_review_states_list`
+
+Input fields:
+
+- Optional filters: `subject_type`, `subject_id`, `risk_tier`, `status`,
+  `approval_state`, `review_scope`, `intended_sink`, `requested_action`,
+  `evidence_packet_id`, `evidence_packet_version`, `closed`
+- Pagination: `offset`, `limit`
+
+Example request:
+
+```json
+{
+  "subject_type": "recommendation",
+  "approval_state": "pending_review",
+  "closed": false,
+  "offset": 0,
+  "limit": 20
+}
+```
+
+Response highlights:
+
+- `review_states`
+- task identity, subject, risk tier, status, approval state, review scope,
+  intended sink, requested action, evidence packet/version, and closed state
+- sanitized authority metadata and evidence references
+- immutable review-decision history and scoped residual-risk acceptances
+- `total_count`, `offset`, `limit`, `has_more`, and `next_offset`
+
+Review-state filtering and ordering are delegated to
+`AutomatedDecisionAuditService`; MCP only applies transport pagination and
+serialization. The tool cannot approve, deny, override, accept residual risk,
+change review status, or bypass review.
+
 ## Web-access policy
 
 Web access is controlled twice:
@@ -369,9 +405,10 @@ or tracebacks.
 
 ## Governance and approval tools
 
-V1 is read-only and exposes no approval or review mutation tools. Future MCP
-review tools, if explicitly approved, must be thin transports over canonical
-application services:
+V1 exposes governance approval/review state as a read-only query surface and
+exposes no approval or review mutation tools. Future MCP review mutation tools,
+if explicitly approved, must be thin transports over canonical application
+services:
 
 - list/query operations call the canonical governance review query methods and
   return transport-shaped read models only;
@@ -403,6 +440,8 @@ The following are intentionally not part of V1:
 - direct SQL, Cypher, Qdrant, Neo4j, or provider/vendor operations
 - SearXNG, Crawl4AI, or web search as standalone tools
 - shell, filesystem, or plugin-management tools
+- governance review approval, denial, override, residual-risk acceptance,
+  resolution, state mutation, or review-bypass tools
 - write/admin tools of any kind
 
 Adding any of these requires a separate plan, explicit approval, and usually a

@@ -25,6 +25,9 @@ class DecisionEvidencePacketRecord:
     output_id: str
     schema_version: int
     risk_tier: RiskTier
+    workflow_name: str
+    workflow_definition_fingerprint: str
+    execution_id: str
     authority_metadata: DecisionEvidenceJsonObject
     retention_metadata: DecisionEvidenceJsonObject
     reconstruction_reference_ids: tuple[str, ...]
@@ -73,6 +76,16 @@ class DecisionEvidencePacketRecord:
             self, "uncertainties", _tuple_of_mappings(self.uncertainties)
         )
         object.__setattr__(self, "limitations", _tuple_of_mappings(self.limitations))
+        for field_name in (
+            "workflow_name",
+            "workflow_definition_fingerprint",
+            "execution_id",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _clean_identifier(getattr(self, field_name), field_name),
+            )
 
     def with_reconstruction_reference_ids(
         self,

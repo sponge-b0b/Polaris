@@ -2,9 +2,22 @@ from __future__ import annotations
 
 import pytest
 
+from application.evaluations import (
+    OutputGovernanceGateEvidence,
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+)
+from core.storage.persistence.governance_audit import GovernanceReviewDecisionOutcome
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
+from domain.authority import GateProfile, RiskTier
 from domain.evaluation import (
     EvaluationMetricResult,
     EvaluationScore,
@@ -72,6 +85,73 @@ async def test_evaluation_telemetry_records_run_lifecycle_and_metrics() -> None:
     assert "evaluation_metric_duration_seconds" in metric_names
     assert "evaluation_cases_evaluated_total" in metric_names
     assert "evaluation_threshold_failures_total" in metric_names
+
+
+@pytest.mark.asyncio
+async def test_evaluation_telemetry_records_output_governance_gate_evidence() -> None:
+    sink = InMemoryTelemetrySink()
+    observability = ObservabilityManager()
+    observability.add_sink(sink)
+    telemetry = EvaluationTelemetry(observability)
+
+    await telemetry.emit_run_completed(
+        run_id="run-1",
+        target_type=EvaluationTargetType.STRATEGY_SYNTHESIS,
+        status=EvaluationStatus.PASSED,
+        evaluator_provider="deepeval",
+        evaluator_model="qwen3.5:4b",
+        case_count=1,
+        metric_result_count=1,
+        dataset_id="dataset-1",
+        duration_seconds=0.25,
+        authority_gate_decision=RiskAuthorityGateDecision(
+            status=RiskAuthorityGateDecisionStatus.PASSED,
+            failure_mode=RiskAuthorityGateFailureMode.NONE,
+            message="Vigilant gate satisfied.",
+            risk_tier=RiskTier.VIGILANT,
+            gate_profile=GateProfile.VIGILANT_DECISION_EVIDENCE,
+            authority_metadata=None,
+            evidence=RiskAuthorityGateEvidence(
+                output_governance_evidence=(
+                    OutputGovernanceGateEvidence(
+                        release_decision=GovernedOutputReleaseDecision(
+                            allowed=True,
+                            reason="governance review permits release",
+                            approval_state=(
+                                GovernanceReviewApprovalState.REVIEW_APPROVED
+                            ),
+                            review_task_id="governance-review-task-1",
+                            residual_risk_acceptance_id="acceptance-1",
+                            review_decision_outcome=(
+                                GovernanceReviewDecisionOutcome.APPROVED
+                            ),
+                        ),
+                        review_scope="durable_promotion",
+                        requested_action="promote",
+                        boundary_name="strategy_synthesis.durable_promotion",
+                        evidence_packet_id="readiness-packet-1",
+                        evidence_packet_version=1,
+                        residual_risk_acceptance_required=True,
+                        residual_risk_scope="known-residual-risk",
+                        review_decision_outcome=(
+                            GovernanceReviewDecisionOutcome.APPROVED
+                        ),
+                    ),
+                )
+            ),
+        ),
+    )
+
+    event = sink.events[-1]
+    evidence = event.payload["authority_gate"]["output_governance_evidence"][0]
+
+    assert evidence["allowed"] is True
+    assert evidence["approval_state"] == "review_approved"
+    assert evidence["review_task_id"] == "governance-review-task-1"
+    assert evidence["review_decision_outcome"] == "approved"
+    assert evidence["evidence_packet_id"] == "readiness-packet-1"
+    assert evidence["residual_risk_acceptance_required"] is True
+    assert evidence["residual_risk_acceptance_id"] == "acceptance-1"
 
 
 @pytest.mark.asyncio

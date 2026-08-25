@@ -33,6 +33,7 @@ async def test_diagnostics_service_delegates_to_health_service_boundary() -> Non
             "reports",
             "recommendations",
         ),
+        schema_drift_loader=_schema_drift(),
     )
     diagnostics = DiagnosticsPersistenceService(
         health_service=health_service,
@@ -71,6 +72,7 @@ async def test_diagnostics_service_uses_default_diagnostics_filters() -> None:
         ),
         head_revision_loader=lambda: "20260606_0001",
         metadata_table_loader=lambda: ("reports",),
+        schema_drift_loader=_schema_drift(),
     )
     diagnostics = DiagnosticsPersistenceService(
         health_service=health_service,
@@ -127,6 +129,17 @@ def _tables(
         )
 
     return load_tables
+
+
+def _schema_drift(
+    *operations: str,
+):
+    async def load_schema_drift() -> tuple[str, ...]:
+        return tuple(
+            operations,
+        )
+
+    return load_schema_drift
 
 
 def _revision(

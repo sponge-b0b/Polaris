@@ -11,7 +11,6 @@ from typing import cast
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import JsonValue
 
-from application.rag.authority import RAG_AUTHORITY_REQUEST_METADATA_KEY
 from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagRetrievedContext,
@@ -19,12 +18,7 @@ from application.rag.contracts.rag_context import (
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from application.rag.rag_service import RagService
-from domain.authority import (
-    RISK_AUTHORITY_METADATA_KEY,
-    AuthorityEffect,
-    IntendedSink,
-    SourceOfTruthCategory,
-)
+from domain.authority import RISK_AUTHORITY_METADATA_KEY
 from mcp_server.contracts.models import (
     RagAskRequest,
     RagAskResponse,
@@ -142,17 +136,9 @@ def _to_rag_request(request: RagAskRequest, *, request_id: str) -> RagRequest:
         top_k=request.top_k,
         allow_web=request.allow_web,
         requester="polaris_mcp",
-        workflow_name=request.workflow_name,
-        execution_id=request.execution_id,
         metadata={
             "source": "polaris_mcp",
             "tool": _TOOL_NAME,
-            RAG_AUTHORITY_REQUEST_METADATA_KEY: {
-                "authority_effect": AuthorityEffect.NON_AUTHORITATIVE_INFORMATION.value,
-                "source_of_truth": SourceOfTruthCategory.PRESENTATION_OUTPUT.value,
-                "intended_sink": IntendedSink.MCP_TOOL_RESPONSE.value,
-                "tool_response_external": True,
-            },
         },
         request_id=request_id,
     )

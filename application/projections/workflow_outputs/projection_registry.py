@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol, TypeVar
+
+from domain.authority import (
+    AiOutputContentType,
+    AuthorityEffect,
+    CanonicalOwner,
+    IntendedSink,
+    RiskAuthorityClassificationInput,
+    RiskAuthorityContract,
+    SourceOfTruthCategory,
+    classify_risk_authority,
+)
 
 if TYPE_CHECKING:
     from application.projections.workflow_outputs.projection_models import (
@@ -50,6 +61,18 @@ class WorkflowOutputProjectorRegistration:
     projector: WorkflowOutputProjector
     supported_node_names: tuple[str, ...] = ()
     persists_quality_status: bool = False
+    expected_authority_contract: RiskAuthorityContract = field(
+        default_factory=lambda: classify_risk_authority(
+            RiskAuthorityClassificationInput(
+                content_type=AiOutputContentType.DURABLE_RECORD,
+                authority_effect=AuthorityEffect.CANONICAL_RECORD,
+                canonical_owner=CanonicalOwner.WORKFLOW_OUTPUT_CURATION,
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+                intended_sink=IntendedSink.DURABLE_DOMAIN_RECORD,
+                durable_authority=True,
+            )
+        )
+    )
 
     def __post_init__(self) -> None:
         object.__setattr__(

@@ -6,8 +6,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from time import perf_counter
-from typing import cast
+from typing import Final, Protocol, cast
 
+from application.governance import (
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+    requires_governed_output_release_review,
+)
 from application.observability.risk_authority import risk_authority_attributes
 from application.projections.workflow_output_fingerprints import (
     calculate_workflow_output_source_fingerprint,
@@ -54,6 +59,21 @@ logger = logging.getLogger(__name__)
 
 _UNRESOLVED_PROJECTOR_NAME = "unresolved"
 _UNSUPPORTED_OUTPUT_CONTRACT = "unsupported"
+_GOVERNED_RELEASE_SKIP_REASON = "governance_review_required"
+_MATERIALIZER_OWNED_RELEASE_EVIDENCE_PROJECTORS: Final[frozenset[str]] = frozenset(
+    {"strategy_synthesis_projector"}
+)
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Approval-state service used before capital-relevant output release."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        """Return whether this scoped output may be promoted or published."""
+        ...
 
 
 class CompletedRunProjectionNotFoundError(LookupError):
@@ -71,6 +91,7 @@ class WorkflowOutputProjectionService:
         registry: WorkflowOutputProjectionRegistry,
         eligibility_policy: WorkflowOutputProjectionEligibilityPolicy | None = None,
         observability_manager: ObservabilityManager | None = None,
+        governed_output_release_service: GovernedOutputReleaseService | None = None,
     ) -> None:
         self._completed_run_archive = completed_run_archive
         self._projection_job_repository = projection_job_repository
@@ -79,6 +100,7 @@ class WorkflowOutputProjectionService:
             eligibility_policy or WorkflowOutputProjectionEligibilityPolicy()
         )
         self._observability_manager = observability_manager
+        self._governed_output_release_service = governed_output_release_service
         self._telemetry = WorkflowOutputProjectionTelemetry(observability_manager)
 
     async def project_completed_run(
@@ -242,6 +264,27 @@ class WorkflowOutputProjectionService:
             )
             return outcome
 
+        release_outcome = await self._governed_release_skip_outcome(
+            decision=decision,
+            registration=registration,
+            node_output=node_output,
+            source_fingerprint=source_fingerprint,
+        )
+        if release_outcome is not None:
+            await self._telemetry.emit_projector_skipped(
+                run=run,
+                node_output=node_output,
+                outcome=release_outcome,
+                skip_reason=_GOVERNED_RELEASE_SKIP_REASON,
+                trace_context=_projector_trace_context(
+                    run_trace_context=run_trace_context,
+                    node_name=node_output.node_name,
+                    projector_name=registration.projector_name,
+                ),
+                authority_contract=decision.authority_contract,
+            )
+            return release_outcome
+
         job = await self._projection_job_repository.create_job(
             _new_projection_job_record(
                 run=run,
@@ -396,6 +439,99 @@ class WorkflowOutputProjectionService:
         )
         return persisted_outcome
 
+    async def _governed_release_skip_outcome(
+        self,
+        *,
+        decision: WorkflowOutputProjectionEligibilityDecision,
+        registration: WorkflowOutputProjectorRegistration,
+        node_output: CompletedNodeOutputRecord,
+        source_fingerprint: str,
+    ) -> WorkflowOutputProjectionOutcome | None:
+        service = self._governed_output_release_service
+        authority = decision.authority_contract
+        if authority is None:
+            return None
+        if not requires_governed_output_release_review(authority):
+            return None
+        if (
+            registration.projector_name
+            in _MATERIALIZER_OWNED_RELEASE_EVIDENCE_PROJECTORS
+        ):
+            return None
+
+        boundary_name = f"workflow_output_projection.{registration.projector_name}"
+        if service is None:
+            message = (
+                f"{boundary_name} is blocked: capital-relevant "
+                f"{authority.risk_tier.value} durable promotion requires the "
+                "canonical governed output release service."
+            )
+            logger.warning(
+                "workflow_output_projection.governance_review_blocked",
+                extra={
+                    "node_name": node_output.node_name,
+                    "projector_name": registration.projector_name,
+                    "output_contract": registration.output_contract,
+                    "reason": message,
+                },
+            )
+            return _governed_release_blocked_outcome(
+                registration=registration,
+                node_output=node_output,
+                source_fingerprint=source_fingerprint,
+                message=message,
+            )
+
+        release_request = _governed_output_release_request_from_materializer_state(
+            authority=authority,
+            node_output=node_output,
+            boundary_name=boundary_name,
+        )
+        if isinstance(release_request, str):
+            logger.warning(
+                "workflow_output_projection.governance_review_blocked",
+                extra={
+                    "node_name": node_output.node_name,
+                    "projector_name": registration.projector_name,
+                    "output_contract": registration.output_contract,
+                    "reason": release_request,
+                },
+            )
+            return _governed_release_blocked_outcome(
+                registration=registration,
+                node_output=node_output,
+                source_fingerprint=source_fingerprint,
+                message=release_request,
+            )
+
+        release_decision = await service.evaluate_governed_output_release(
+            release_request,
+        )
+        if release_decision.allowed:
+            return None
+
+        logger.warning(
+            "workflow_output_projection.governance_review_blocked",
+            extra={
+                "node_name": node_output.node_name,
+                "projector_name": registration.projector_name,
+                "output_contract": registration.output_contract,
+                "review_task_id": release_decision.review_task_id,
+                "approval_state": (
+                    release_decision.approval_state.value
+                    if release_decision.approval_state is not None
+                    else None
+                ),
+                "reason": release_decision.reason,
+            },
+        )
+        return _governed_release_blocked_outcome(
+            registration=registration,
+            node_output=node_output,
+            source_fingerprint=source_fingerprint,
+            message=release_decision.reason,
+        )
+
     async def _persist_projector_outcome(
         self,
         *,
@@ -499,6 +635,21 @@ def _quality_status_from_metadata(
                 extra={"quality_status": raw_value},
             )
     return WorkflowOutputQualityStatus.NORMAL
+
+
+def _governed_output_release_request_from_materializer_state(
+    *,
+    authority: RiskAuthorityContract,
+    node_output: CompletedNodeOutputRecord,
+    boundary_name: str,
+) -> str:
+    return (
+        f"{boundary_name} is blocked: {authority.risk_tier.value} governed "
+        f"workflow output {node_output.node_output_id!r} requires "
+        "materializer-owned reconstructed decision evidence; completed-output "
+        "metadata is not accepted as packet, subject, review-scope, action, "
+        "or residual-risk authority."
+    )
 
 
 def _new_projection_job_record(
@@ -616,6 +767,25 @@ def _dry_run_outcome(
         message=(
             "Projection dry run skipped durable job creation and projector execution."
         ),
+        completed_at=datetime.now(UTC),
+    )
+
+
+def _governed_release_blocked_outcome(
+    *,
+    registration: WorkflowOutputProjectorRegistration,
+    node_output: CompletedNodeOutputRecord,
+    source_fingerprint: str,
+    message: str,
+) -> WorkflowOutputProjectionOutcome:
+    return WorkflowOutputProjectionOutcome(
+        status=WorkflowOutputProjectionStatus.SKIPPED,
+        projector_name=registration.projector_name,
+        node_name=node_output.node_name,
+        output_contract=registration.output_contract,
+        output_schema_version=registration.output_schema_version,
+        source_fingerprint=source_fingerprint,
+        message=message,
         completed_at=datetime.now(UTC),
     )
 

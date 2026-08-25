@@ -8,6 +8,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -42,6 +43,7 @@ from application.projections.workflow_outputs.projectors import (
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.projections import WorkflowOutputProjectionJobRepository
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
 
 
 class WorkflowOutputProjectionDIProvider(Provider):
@@ -65,6 +67,8 @@ class WorkflowOutputProjectionDIProvider(Provider):
         lineage_persistence_service: LineagePersistenceService,
         sentiment_persistence_service: SentimentPersistenceService,
         strategy_persistence_service: StrategyPersistenceService,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
+        workflow_facade: WorkflowFacade,
     ) -> WorkflowOutputProjectionRegistry:
         """Return the request-scoped registry for domain projectors."""
         return WorkflowOutputProjectionRegistry(
@@ -96,6 +100,8 @@ class WorkflowOutputProjectionDIProvider(Provider):
                         decision_evidence_packet_persistence_service
                     ),
                     lineage_persistence_service=lineage_persistence_service,
+                    workflow_registry=workflow_facade.registry,
+                    governed_output_release_service=(automated_decision_audit_service),
                 ),
                 *build_recommendation_projector_registrations(
                     recommendation_persistence_service,
@@ -118,6 +124,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
         registry: WorkflowOutputProjectionRegistry,
         eligibility_policy: WorkflowOutputProjectionEligibilityPolicy,
         observability_manager: ObservabilityManager,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> WorkflowOutputProjectionService:
         return WorkflowOutputProjectionService(
             completed_run_archive=completed_run_archive,
@@ -125,6 +132,7 @@ class WorkflowOutputProjectionDIProvider(Provider):
             registry=registry,
             eligibility_policy=eligibility_policy,
             observability_manager=observability_manager,
+            governed_output_release_service=automated_decision_audit_service,
         )
 
     @provide

@@ -14,7 +14,6 @@ from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import RagRetrievedContext
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
-from application.rag.evidence_packets import attach_rag_answer_evidence_packet
 from application.rag.generation.secure_prompt_builder import (
     RAG_ANSWER_GENERATION_PROMPT_HASH,
     RAG_ANSWER_GENERATION_PROMPT_NAME,
@@ -189,23 +188,20 @@ class RagAnswerGenerator:
             )
             return result
 
-        result = attach_rag_answer_evidence_packet(
+        result = classify_rag_result_authority(
             request=request,
-            result=classify_rag_result_authority(
+            result=RagResult.answered(
                 request=request,
-                result=RagResult.answered(
-                    request=request,
-                    answer_text=provider_result.answer_text,
-                    contexts=package.contexts,
-                    confidence_score=provider_result.confidence_score,
-                    generated_claims=provider_result.generated_claims,
-                    metadata=_result_metadata(
-                        package=package,
-                        provider_name=provider_result.provider_name,
-                        model=provider_result.model,
-                        provider_metadata=provider_result.metadata,
-                        prompt_artifact=prompt_artifact,
-                    ),
+                answer_text=provider_result.answer_text,
+                contexts=package.contexts,
+                confidence_score=provider_result.confidence_score,
+                generated_claims=provider_result.generated_claims,
+                metadata=_result_metadata(
+                    package=package,
+                    provider_name=provider_result.provider_name,
+                    model=provider_result.model,
+                    provider_metadata=provider_result.metadata,
+                    prompt_artifact=prompt_artifact,
                 ),
             ),
         )

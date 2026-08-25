@@ -101,7 +101,7 @@ Ownership rules:
 
 Review and residual-risk records are scoped and attributable. A review task is
 keyed by subject, evidence packet, evidence version, review scope, and requested
-action. Review decisions record the reviewer identity, actor type, rationale,
+action, and intended sink. Review decisions record the reviewer identity, actor type, rationale,
 reviewed evidence, requested remediation when applicable, and resulting status.
 Residual-risk acceptance records are limited to Vigilant risk, carry a reviewer,
 rationale, review scope, residual-risk scope, subject, and evidence

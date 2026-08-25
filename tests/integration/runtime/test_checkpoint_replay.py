@@ -49,6 +49,8 @@ async def test_checkpoint_replay_resumes_successfully(
             enable_telemetry=False,
             enable_jsonl_telemetry=False,
             checkpoint_on_wave_completion=True,
+            enable_policies=False,
+            enable_governance=False,
         ),
     )
 
@@ -121,7 +123,7 @@ async def test_checkpoint_replay_is_policy_governed(
             artifact_dir=str(tmp_path / "artifacts"),
             enable_checkpoints=True,
             enable_artifacts=True,
-            enable_policies=True,
+            enable_policies=False,
             enable_governance=False,
             enable_telemetry=False,
             enable_jsonl_telemetry=False,

@@ -14,7 +14,6 @@ from application.evaluations import (
     EvaluationResultBundle,
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
-    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
     canonical_evaluation_dataset_definitions,
     expected_authority_metadata_for_evaluation_target,
@@ -365,11 +364,6 @@ class EvaluationCommandService:
             timeout_seconds=settings.DEEPEVAL_TIMEOUT_SECONDS,
             authority_metadata=expected_authority_metadata_for_evaluation_target(
                 target_type,
-            ),
-            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                target_type,
-                evaluation_cases,
-                run_id=run_id,
             ),
         )
         try:

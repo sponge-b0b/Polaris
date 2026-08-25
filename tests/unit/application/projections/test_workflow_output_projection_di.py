@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import cast
 
 from application.decision_evidence.claim_binding import (
@@ -8,6 +9,7 @@ from application.decision_evidence.claim_binding import (
 from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.persistence.agent_signals import AgentSignalPersistenceService
 from application.persistence.lineage import LineagePersistenceService
 from application.persistence.macro import MacroPersistenceService
@@ -36,6 +38,8 @@ from core.storage.persistence.recommendations import RecommendationPersistenceRe
 from core.storage.persistence.sentiment import SentimentPersistenceRepository
 from core.storage.persistence.strategy import StrategyPersistenceRepository
 from core.telemetry.observability.observability_manager import ObservabilityManager
+from core.workflow.execution.workflow_facade import WorkflowFacade
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 
 
 class _FakeCompletedRunArchive:
@@ -133,6 +137,8 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         lineage_persistence_service,
         sentiment_persistence_service,
         strategy_persistence_service,
+        cast(AutomatedDecisionAuditService, object()),
+        cast(WorkflowFacade, SimpleNamespace(registry=WorkflowRegistry())),
     )
     policy = provider.provide_workflow_output_projection_policy()
     observability = ObservabilityManager()
@@ -146,6 +152,7 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
         registry=registry,
         eligibility_policy=policy,
         observability_manager=observability,
+        automated_decision_audit_service=cast(AutomatedDecisionAuditService, object()),
     )
 
     assert isinstance(service, WorkflowOutputProjectionService)
@@ -165,3 +172,4 @@ def test_projection_di_provider_builds_typed_projection_service() -> None:
     assert registry.supported_schema_versions("polaris.trade.recommendation") == (1,)
     assert service._eligibility_policy is policy
     assert service._observability_manager is observability
+    assert service._governed_output_release_service is not None

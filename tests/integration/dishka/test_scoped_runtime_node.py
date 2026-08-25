@@ -9,6 +9,7 @@ from core.runtime.factory.runtime_node_factory import RuntimeNodeFactory
 from core.runtime.state.runtime_context import RuntimeContext
 from core.runtime.state.runtime_node_output import RuntimeNodeOutput
 from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime_async
+from core.workflow.bootstrap.workflow_runtime_components import WorkflowBootstrapConfig
 from core.workflow.models.workflow_graph_definition import (
     WorkflowGraphDefinition,
 )
@@ -119,6 +120,10 @@ async def test_scoped_runtime_node_resolves_through_dishka_request_scope() -> No
             ScopedDishkaWorkflow(),
         ],
         runtime_node_factory=runtime_node_factory,
+        config=WorkflowBootstrapConfig(
+            enable_governance=False,
+            enable_policies=False,
+        ),
     )
 
     first_result = await runtime.facade.run_workflow(

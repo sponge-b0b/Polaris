@@ -56,11 +56,15 @@ from core.storage.persistence.serializers.telemetry_persistence_serializer impor
 from .decision_evidence_persistence_serializer import (
     DecisionEvidencePacketPersistenceSerializer,
 )
+from .governance_audit_persistence_serializer import (
+    AutomatedDecisionAuditPersistenceSerializer,
+)
 
 __all__ = [
     "AgentIntelligencePersistenceSerializer",
     "AgentSignalPersistenceSerializer",
     "AttributionPersistenceSerializer",
+    "AutomatedDecisionAuditPersistenceSerializer",
     "CompletedRunModelSerializer",
     "CompletedRunPersistenceSerializer",
     "DecisionEvidencePacketPersistenceSerializer",

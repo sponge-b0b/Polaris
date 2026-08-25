@@ -5,6 +5,7 @@ import pytest
 from core.bootstrap.app_container import build_app_container
 from core.runtime.factory.runtime_node_factory import RuntimeNodeFactory
 from core.workflow.bootstrap.workflow_bootstrap import build_workflow_runtime_async
+from core.workflow.bootstrap.workflow_runtime_components import WorkflowBootstrapConfig
 from core.workflow.examples.dishka_example_nodes import (
     DishkaMarketDataNode,
     ExampleWorkflowNodeProvider,
@@ -59,6 +60,10 @@ async def test_dishka_resolved_workflow_runs_successfully() -> None:
             DishkaTestWorkflow(),
         ],
         runtime_node_factory=runtime_node_factory,
+        config=WorkflowBootstrapConfig(
+            enable_governance=False,
+            enable_policies=False,
+        ),
     )
 
     result = await runtime.facade.run_workflow(

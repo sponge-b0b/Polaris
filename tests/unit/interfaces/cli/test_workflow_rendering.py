@@ -346,7 +346,7 @@ def test_morning_report_command_rejects_removed_interactive_control_flag() -> No
     assert "--interactive-control" in result.output
 
 
-def test_morning_report_command_enables_progress_and_control_by_default(
+def test_morning_report_command_enables_progress_without_control_by_default(
     monkeypatch,
 ) -> None:
     captured_request: dict[str, object] = {}
@@ -387,8 +387,8 @@ def test_morning_report_command_enables_progress_and_control_by_default(
 
     assert result.exit_code == 0
     assert request.progress_handler is not None
-    assert request.interactive_control is True
-    assert request.control_handler is not None
+    assert request.interactive_control is False
+    assert request.control_handler is None
 
 
 def test_workflow_run_command_renders_failed_workflow_result(
@@ -450,7 +450,7 @@ def test_workflow_run_command_renders_failed_workflow_result(
 
     assert result.exit_code == 1
     assert "[control]" not in result.stdout
-    assert "[control]" in result.stderr
+    assert "[control]" not in result.stderr
     data = json.loads(
         result.stdout,
     )
@@ -539,7 +539,7 @@ def test_workflow_run_command_rejects_removed_interactive_control_flag() -> None
     assert "--interactive-control" in result.output
 
 
-def test_workflow_run_command_enables_progress_and_control_by_default(
+def test_workflow_run_command_enables_progress_without_control_by_default(
     monkeypatch,
 ) -> None:
     captured_request: dict[str, object] = {}
@@ -576,8 +576,8 @@ def test_workflow_run_command_enables_progress_and_control_by_default(
 
     assert result.exit_code == 0
     assert request.progress_handler is not None
-    assert request.interactive_control is True
-    assert request.control_handler is not None
+    assert request.interactive_control is False
+    assert request.control_handler is None
 
 
 def test_morning_report_command_markdown_writes_default_artifact(

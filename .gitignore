@@ -223,6 +223,11 @@ __marimo__/
 # Platform Storage
 /storage/
 
+# Generated deployment runtime state
+/deployment/storage/checkpoints/
+/deployment/storage/runs/
+/deployment/storage/telemetry/runtime_telemetry.jsonl
+
 # pyright
 pyrightconfig.json
 

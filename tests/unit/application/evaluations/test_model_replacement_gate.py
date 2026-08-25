@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 import application.evaluations.model_replacement_gate as gate_module
+from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.evaluations import (
     ModelReplacementGateSection,
     ModelReplacementGateStatus,
@@ -23,8 +25,19 @@ from application.evaluations.contracts import (
     EvaluationRunServiceRequest,
     EvaluationRunServiceResult,
 )
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
 from config.settings import Settings
+from core.storage.persistence.decision_evidence import (
+    DecisionEvidencePacketPersistenceResult,
+)
 from core.storage.persistence.evaluation import EvaluationCaseRecord
+from core.storage.persistence.governance_audit import GovernanceReviewDecisionOutcome
+from core.workflow.registry.workflow_registry import WorkflowRegistry
+from domain.decision_evidence import DecisionEvidencePacket
 from domain.evaluation import (
     EvaluationCase,
     EvaluationMetricResult,
@@ -34,6 +47,8 @@ from domain.evaluation import (
     EvaluationTargetType,
     EvaluationThreshold,
 )
+
+_EVALUATION_GATE_DEFINITION_FINGERPRINT = "test-evaluation-gate-fingerprint"
 
 
 @dataclass(slots=True)
@@ -95,13 +110,90 @@ class RecordingRunService:
         )
 
 
+class FakeDecisionEvidencePacketPersistenceService:
+    def __init__(self) -> None:
+        self.packets: dict[str, DecisionEvidencePacket] = {}
+
+    async def persist_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> DecisionEvidencePacketPersistenceResult:
+        self.packets[packet.packet_id] = packet
+        return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
+
+    async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        return self.packets[packet_id]
+
+
+@dataclass(slots=True)
+class FakeGovernedOutputReleaseService:
+    decisions: list[GovernedOutputReleaseDecision]
+    requests: list[GovernedOutputReleaseRequest]
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        self.requests.append(request)
+        if not self.decisions:
+            return GovernedOutputReleaseDecision(
+                allowed=False,
+                reason="governance review unavailable",
+                approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
+            )
+        return self.decisions.pop(0)
+
+
+def _packet_persistence() -> DecisionEvidencePacketPersistenceService:
+    return cast(
+        DecisionEvidencePacketPersistenceService,
+        FakeDecisionEvidencePacketPersistenceService(),
+    )
+
+
+def _workflow_registry() -> WorkflowRegistry:
+    return cast(
+        WorkflowRegistry,
+        SimpleNamespace(
+            get_authority_facts=lambda workflow_name: SimpleNamespace(
+                identity=SimpleNamespace(
+                    workflow_name=workflow_name,
+                    definition_fingerprint=_EVALUATION_GATE_DEFINITION_FINGERPRINT,
+                )
+            )
+        ),
+    )
+
+
+def _validation_gate(
+    *,
+    result_service: FakeResultService,
+    run_service: RecordingRunService,
+    settings: Settings,
+    release_service: FakeGovernedOutputReleaseService | None = None,
+) -> ModelReplacementValidationGate:
+    return ModelReplacementValidationGate(
+        result_service=result_service,
+        run_service=run_service,
+        settings=settings,
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        workflow_registry=_workflow_registry(),
+        governed_output_release_service=release_service,
+    )
+
+
 @pytest.mark.asyncio()
 async def test_replacement_gate_runs_complete_replacement_validation() -> None:
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    release_service = FakeGovernedOutputReleaseService(
+        decisions=[_approved_output_governance_release_decision() for _ in range(2)],
+        requests=[],
+    )
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_validation_settings(),
+        release_service=release_service,
     )
 
     result = await gate.validate(
@@ -187,6 +279,24 @@ async def test_replacement_gate_runs_complete_replacement_validation() -> None:
         == RiskAuthorityGateFailureMode.NONE.value
     )
     assert execution_section.details["model_replacement_gate_id"] == "gate-001"
+    assert execution_section.details["output_governance_readiness_complete"] is True
+    assert execution_section.details["output_governance_approval_states"] == (
+        "review_approved",
+    )
+    assert execution_section.details["output_governance_reviewer_outcomes"] == (
+        "approved",
+    )
+    assert {request.evidence.packet_id for request in release_service.requests} == {
+        "model_replacement_gate:gate-001:strategy:readiness-packet",
+        (
+            "model_replacement_gate:gate-001:execution_risk_recommendation:"
+            "readiness-packet"
+        ),
+    }
+    assert all(
+        request.residual_risk_acceptance_required
+        for request in release_service.requests
+    )
     supporting_ids = cast(
         "tuple[str, ...]",
         execution_section.details["packet_readiness_supporting_evidence_ids"],
@@ -212,10 +322,59 @@ def test_gate_requires_explicit_settings_dependency() -> None:
         )
 
 
+def test_replacement_request_rejects_caller_supplied_authority_gate_evidence() -> None:
+    request_type: Any = ModelReplacementValidationRequest
+
+    with pytest.raises(TypeError, match="authority_gate_evidence_by_section"):
+        request_type(
+            gate_id="gate-forged",
+            candidate_profile_name="local-qwen-profile",
+            candidate_model="polaris-local-synthesis",
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
+            evaluator_provider="litellm",
+            evaluator_model="polaris-local-evaluation",
+            authority_gate_evidence_by_section={},
+        )
+
+
+@pytest.mark.asyncio()
+async def test_replacement_gate_requires_vigilant_governance_evidence() -> None:
+    run_service = RecordingRunService([])
+    gate = _validation_gate(
+        result_service=FakeResultService(_model_regression_records()),
+        run_service=run_service,
+        settings=_validation_settings(),
+    )
+
+    result = await gate.validate(
+        ModelReplacementValidationRequest(
+            gate_id="gate-missing-governance",
+            candidate_profile_name="local-qwen-profile",
+            candidate_model="polaris-local-synthesis",
+            mode=ModelReplacementValidationMode.REPLACEMENT_VALIDATION,
+            evaluator_provider="litellm",
+            evaluator_model="polaris-local-evaluation",
+            timeout_seconds=60.0,
+            low_vram_mode=True,
+            required_vram_gb=5.0,
+            available_vram_gb=8.0,
+        )
+    )
+
+    strategy = _section(result, ModelReplacementGateSection.STRATEGY)
+
+    assert result.passed_replacement_validation is False
+    assert strategy.status is ModelReplacementGateStatus.FAILED
+    assert strategy.details["authority_gate_failure_mode"] == (
+        RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED.value
+    )
+    assert strategy.details["output_governance_readiness_complete"] is False
+
+
 @pytest.mark.asyncio()
 async def test_gate_reports_explicit_missing_configuration_without_defaults() -> None:
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_missing_validation_settings(),
@@ -250,7 +409,7 @@ async def test_gate_reports_explicit_missing_configuration_without_defaults() ->
 @pytest.mark.asyncio()
 async def test_exploratory_smoke_mode_never_passes_replacement_validation() -> None:
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_validation_settings(),
@@ -282,7 +441,7 @@ async def test_exploratory_smoke_mode_never_passes_replacement_validation() -> N
 @pytest.mark.asyncio()
 async def test_gate_rejects_missing_model_regression_cases() -> None:
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService({}),
         run_service=run_service,
         settings=_validation_settings(),
@@ -325,7 +484,7 @@ async def test_gate_rejects_missing_model_regression_cases() -> None:
 @pytest.mark.asyncio()
 async def test_gate_reports_timeout_and_low_vram_readiness_failures() -> None:
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_validation_settings(),
@@ -371,7 +530,7 @@ async def test_gate_reports_failed_local_operations_behavior() -> None:
         [],
         status_by_run_id_fragment={"_local_operations_": EvaluationStatus.FAILED},
     )
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_validation_settings(),
@@ -420,7 +579,7 @@ async def test_gate_reports_unsupported_local_operations_behavior(
         metric_specs_without_local_operations,
     )
     run_service = RecordingRunService([])
-    gate = ModelReplacementValidationGate(
+    gate = _validation_gate(
         result_service=FakeResultService(_model_regression_records()),
         run_service=run_service,
         settings=_validation_settings(),
@@ -576,6 +735,17 @@ def _persistence_result(
     return EvaluationPersistenceResult(
         runs_written=runs_written,
         metric_results_written=metric_results_written,
+    )
+
+
+def _approved_output_governance_release_decision() -> GovernedOutputReleaseDecision:
+    return GovernedOutputReleaseDecision(
+        allowed=True,
+        reason="governance review and residual-risk acceptance permit release",
+        approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+        review_task_id="governance-review-task-1",
+        residual_risk_acceptance_id="acceptance-1",
+        review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
     )
 
 

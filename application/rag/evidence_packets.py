@@ -17,10 +17,8 @@ from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.storage.persistence.rag import JsonObject
 from domain.authority import (
-    RISK_AUTHORITY_METADATA_KEY,
     RiskTier,
     SourceOfTruthCategory,
-    coerce_risk_authority_contract,
 )
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
@@ -60,6 +58,9 @@ def attach_rag_answer_evidence_packet(
     *,
     request: RagRequest,
     result: RagResult,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
+    execution_id: str,
 ) -> RagResult:
     """Attach a canonical decision evidence packet to supported RAG answers.
 
@@ -75,6 +76,9 @@ def attach_rag_answer_evidence_packet(
     try:
         packet = assemble_rag_answer_evidence_packet(
             result=result,
+            workflow_name=workflow_name,
+            workflow_definition_fingerprint=workflow_definition_fingerprint,
+            execution_id=execution_id,
         )
     except DecisionEvidencePacketValidationError as exc:
         return classify_rag_result_authority(
@@ -105,6 +109,9 @@ def attach_rag_answer_evidence_packet(
 def assemble_rag_answer_evidence_packet(
     *,
     result: RagResult,
+    workflow_name: str,
+    workflow_definition_fingerprint: str,
+    execution_id: str,
 ) -> DecisionEvidencePacket:
     """Build the canonical evidence packet for an already-classified RAG answer."""
 
@@ -112,9 +119,11 @@ def assemble_rag_answer_evidence_packet(
         raise RagEvidencePacketAssemblyError(
             "only answered RAG results can be packeted."
         )
-    authority = coerce_risk_authority_contract(
-        result.metadata.get(RISK_AUTHORITY_METADATA_KEY),
-    )
+    authority = result.authority
+    if authority is None:
+        raise RagEvidencePacketAssemblyError(
+            "RAG answer evidence packets require typed platform-owned authority."
+        )
     if authority.risk_tier not in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
         raise RagEvidencePacketAssemblyError(
             "RAG answer evidence packets require Enhanced or Vigilant authority."
@@ -217,6 +226,9 @@ def assemble_rag_answer_evidence_packet(
         evidence=tuple(evidence),
         reconstruction_references=tuple(reconstruction_references),
         retention=_retention_requirement(result.generated_at, authority.risk_tier),
+        workflow_name=workflow_name,
+        workflow_definition_fingerprint=workflow_definition_fingerprint,
+        execution_id=execution_id,
         limitations=tuple(limitations),
     )
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pytest
 
+from application.persistence.diagnostics import DiagnosticsPersistenceService
 from core.telemetry.observability.observability_manager import (
     ObservabilityManager,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from workflows.catalog import get_builtin_workflows
 
@@ -46,6 +48,21 @@ async def test_cli_runtime_accepts_backtest_postgres_profile_without_runtime_cha
 
 
 @pytest.mark.asyncio
+async def test_cli_runtime_scope_resolves_persistence_diagnostics_service() -> None:
+    async with cli_runtime_scope(
+        provider_profile="backtest_synthetic",
+    ) as scope:
+        diagnostics_service = scope.get(
+            DiagnosticsPersistenceService,
+        )
+
+    assert isinstance(
+        diagnostics_service,
+        DiagnosticsPersistenceService,
+    )
+
+
+@pytest.mark.asyncio
 async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -57,7 +74,9 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     lifecycle: list[str] = []
 
     class FakeFacade:
-        async def register_workflow_async(self, **_: object) -> None:
+        registry = WorkflowRegistry()
+
+        async def register_builtin_workflow_async(self, **_: object) -> None:
             return None
 
     class FakeRuntime:
@@ -91,7 +110,7 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     )
     monkeypatch.setattr(
         cli_container,
-        "get_builtin_workflows",
+        "get_builtin_workflow_registrations",
         lambda: (),
     )
     monkeypatch.setattr(

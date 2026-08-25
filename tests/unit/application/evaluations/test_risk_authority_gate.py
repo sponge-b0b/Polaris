@@ -3,10 +3,21 @@ from __future__ import annotations
 import pytest
 
 from application.evaluations import (
+    OutputGovernanceGateEvidence,
     RiskAuthorityGateDecisionStatus,
     RiskAuthorityGateEvidence,
     RiskAuthorityGateFailureMode,
     select_risk_authority_gate,
+)
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+    GovernanceReviewDecisionOutcome,
 )
 from domain.authority import (
     GateProfile,
@@ -84,6 +95,9 @@ def _packet(
             retain_until="2031-07-25T00:00:00Z",
             policy_id="enhanced-provenance-5y",
         ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="test-definition-fingerprint",
+        execution_id="exec-1",
     )
 
 
@@ -113,6 +127,48 @@ def _claim_reference(
     )
 
 
+def _output_governance_evidence(
+    *,
+    packet: DecisionEvidencePacket,
+    approval_state: GovernanceReviewApprovalState,
+    review_decision_outcome: GovernanceReviewDecisionOutcome | None,
+    allowed: bool,
+    review_task_id: str | None = "governance-review-task-1",
+    residual_risk_acceptance_required: bool = False,
+    residual_risk_acceptance_id: str | None = None,
+    evidence_packet_id: str | None = None,
+) -> OutputGovernanceGateEvidence:
+    release_request = GovernedOutputReleaseRequest(
+        authority=packet.authority,
+        subject=AutomatedDecisionSubject(
+            subject_type="recommendation",
+            subject_id=packet.output_id,
+        ),
+        evidence=AutomatedDecisionEvidenceReference(
+            packet_id=evidence_packet_id or packet.packet_id,
+            packet_version=packet.schema_version,
+        ),
+        review_scope="publication",
+        requested_action="publish",
+        boundary_name="recommendation.publication",
+        residual_risk_acceptance_required=residual_risk_acceptance_required,
+        residual_risk_scope="known-residual-risk"
+        if residual_risk_acceptance_required
+        else None,
+    )
+    return OutputGovernanceGateEvidence.from_release_decision(
+        request=release_request,
+        decision=GovernedOutputReleaseDecision(
+            allowed=allowed,
+            reason="release decision from canonical governance state",
+            approval_state=approval_state,
+            review_task_id=review_task_id,
+            residual_risk_acceptance_id=residual_risk_acceptance_id,
+            review_decision_outcome=review_decision_outcome,
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     ("metadata", "evidence", "expected_tier", "expected_gate_profile"),
     [
@@ -136,6 +192,16 @@ def _claim_reference(
             RiskAuthorityGateEvidence(
                 provenance_record_ids=("recommendation-record-1",),
                 decision_evidence_packets=(_packet(RiskTier.VIGILANT),),
+                output_governance_evidence=(
+                    _output_governance_evidence(
+                        packet=_packet(RiskTier.VIGILANT),
+                        approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                        review_decision_outcome=(
+                            GovernanceReviewDecisionOutcome.APPROVED
+                        ),
+                        allowed=True,
+                    ),
+                ),
             ),
             RiskTier.VIGILANT,
             GateProfile.VIGILANT_DECISION_EVIDENCE,
@@ -182,10 +248,31 @@ def test_capital_visible_output_cannot_select_lower_gate_than_metadata_allows() 
 
     assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
     assert decision.failure_mode is RiskAuthorityGateFailureMode.METADATA_INCONSISTENT
-    assert decision.risk_tier is RiskTier.BASELINE
-    assert decision.gate_profile is GateProfile.BASELINE_INTERNAL
+    assert decision.risk_tier is RiskTier.VIGILANT
+    assert decision.gate_profile is GateProfile.VIGILANT_DECISION_EVIDENCE
     assert decision.expected_risk_tier is RiskTier.VIGILANT
     assert decision.expected_gate_profile is GateProfile.VIGILANT_DECISION_EVIDENCE
+
+
+def test_expected_target_authority_controls_gate_selection_over_caller_metadata() -> (
+    None
+):
+    caller_metadata = _metadata(runtime_evidence_authority_input())
+    expected_metadata = _metadata(rag_answer_authority_input())
+
+    decision = select_risk_authority_gate(
+        caller_metadata,
+        evidence=RiskAuthorityGateEvidence(provenance_record_ids=("rag-doc-1",)),
+        expected_authority_metadata=expected_metadata,
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert decision.failure_mode is RiskAuthorityGateFailureMode.METADATA_INCONSISTENT
+    assert decision.risk_tier is RiskTier.ENHANCED
+    assert decision.gate_profile is GateProfile.ENHANCED_PROVENANCE
+    assert decision.expected_risk_tier is RiskTier.ENHANCED
+    assert decision.expected_gate_profile is GateProfile.ENHANCED_PROVENANCE
+    assert decision.authority_metadata == caller_metadata
 
 
 @pytest.mark.parametrize(
@@ -262,11 +349,231 @@ def test_vigilant_readiness_accepts_claim_reference_when_packet_backed() -> None
             provenance_record_ids=("recommendation-record-1",),
             decision_evidence_packets=(packet,),
             decision_evidence_claim_references=references,
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                    review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    allowed=True,
+                ),
+            ),
         ),
     )
 
     assert decision.status is RiskAuthorityGateDecisionStatus.PASSED
     assert decision.failure_mode is RiskAuthorityGateFailureMode.NONE
+
+
+def test_vigilant_readiness_requires_governance_evidence_not_only_packet() -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+    )
+    assert "output governance accountability evidence" in decision.message.lower()
+
+
+def test_vigilant_readiness_requires_governance_evidence_for_every_packet() -> None:
+    packet_one = _packet(RiskTier.VIGILANT)
+    packet_two = _packet(
+        RiskTier.VIGILANT,
+        packet_id="packet-2",
+        output_id="output-2",
+        supporting_evidence_id="evidence-2",
+    )
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet_one, packet_two),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet_one,
+                    approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                    review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    allowed=True,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+    )
+    assert "missing for a selected vigilant" in decision.message.lower()
+
+
+@pytest.mark.parametrize(
+    ("approval_state", "review_outcome", "acceptance_id"),
+    [
+        (
+            GovernanceReviewApprovalState.REVIEW_APPROVED,
+            GovernanceReviewDecisionOutcome.APPROVED,
+            None,
+        ),
+        (
+            GovernanceReviewApprovalState.REVIEW_OVERRIDDEN,
+            GovernanceReviewDecisionOutcome.OVERRIDDEN,
+            "residual-risk-acceptance-1",
+        ),
+    ],
+)
+def test_vigilant_readiness_accepts_review_approval_override_and_residual_risk(
+    approval_state: GovernanceReviewApprovalState,
+    review_outcome: GovernanceReviewDecisionOutcome,
+    acceptance_id: str | None,
+) -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    approval_state=approval_state,
+                    review_decision_outcome=review_outcome,
+                    allowed=True,
+                    residual_risk_acceptance_required=acceptance_id is not None,
+                    residual_risk_acceptance_id=acceptance_id,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.PASSED
+    assert decision.evidence.output_governance_evidence[0].approval_state is (
+        approval_state
+    )
+    assert (
+        decision.evidence.output_governance_evidence[0].review_decision_outcome
+        is review_outcome
+    )
+    assert (
+        decision.evidence.output_governance_evidence[0].residual_risk_acceptance_id
+        == acceptance_id
+    )
+
+
+@pytest.mark.parametrize(
+    ("approval_state", "review_outcome"),
+    [
+        (
+            GovernanceReviewApprovalState.PENDING_REVIEW,
+            None,
+        ),
+        (
+            GovernanceReviewApprovalState.REVIEW_DENIED,
+            GovernanceReviewDecisionOutcome.DENIED,
+        ),
+        (
+            GovernanceReviewApprovalState.REVIEW_CONTESTED,
+            GovernanceReviewDecisionOutcome.CONTESTED,
+        ),
+    ],
+)
+def test_vigilant_readiness_preserves_blocking_governance_states(
+    approval_state: GovernanceReviewApprovalState,
+    review_outcome: GovernanceReviewDecisionOutcome | None,
+) -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    approval_state=approval_state,
+                    review_decision_outcome=review_outcome,
+                    allowed=False,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+    )
+    assert decision.evidence.output_governance_evidence[0].approval_state is (
+        approval_state
+    )
+    assert "not allowed" in decision.message.lower()
+
+
+def test_vigilant_readiness_rejects_mismatched_governance_packet() -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    evidence_packet_id="packet-from-another-output",
+                    approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                    review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    allowed=True,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+    )
+    assert "does not match" in decision.message.lower()
+
+
+def test_vigilant_readiness_rejects_missing_residual_risk_acceptance() -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            provenance_record_ids=("recommendation-record-1",),
+            decision_evidence_packets=(packet,),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                    review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    allowed=True,
+                    residual_risk_acceptance_required=True,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+    )
+    assert "residual-risk acceptance" in decision.message.lower()
 
 
 def test_enhanced_readiness_rejects_generic_reference_only_claim_metadata() -> None:

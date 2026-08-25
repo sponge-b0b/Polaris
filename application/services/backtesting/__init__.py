@@ -22,7 +22,7 @@ from application.services.backtesting.backtest_result import (
 )
 from application.services.backtesting.backtest_service import (
     BacktestApplicationService,
-    BacktestWorkflowFacade,
+    BacktestGovernedWorkflowExecutionService,
 )
 from application.services.backtesting.backtest_verification import (
     verify_backtest_outcomes,
@@ -51,7 +51,7 @@ __all__ = [
     "BacktestRunRequest",
     "BacktestScenario",
     "BacktestStepResult",
-    "BacktestWorkflowFacade",
+    "BacktestGovernedWorkflowExecutionService",
     "BacktestWorkflowStepRequest",
     "build_backtest_artifacts",
     "compute_backtest_metrics",

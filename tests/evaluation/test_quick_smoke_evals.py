@@ -9,7 +9,6 @@ import pytest
 from application.evaluations import (
     EvaluationRunService,
     EvaluationRunServiceRequest,
-    authority_gate_evidence_for_evaluation_cases,
     canonical_evaluation_dataset_definition_by_name,
     expected_authority_metadata_for_evaluation_target,
 )
@@ -24,6 +23,8 @@ from tests.evaluation._helpers import (
     PassingEvaluationProvider,
     RecordingProjectionService,
     evaluation_case_from_row,
+    evaluation_gate_workflow_registry,
+    packet_persistence_service,
 )
 
 LoadJsonlFixture = Callable[[Path], tuple[dict[str, Any], ...]]
@@ -50,6 +51,8 @@ async def test_quick_smoke_eval_runs_without_live_judge_model(
         provider=PassingEvaluationProvider(score=0.91),
         repository=repository,
         projection_service=projection_service,
+        decision_evidence_packet_persistence_service=packet_persistence_service(),
+        workflow_registry=evaluation_gate_workflow_registry(),
     )
 
     result = await service.run_evaluation(
@@ -69,11 +72,6 @@ async def test_quick_smoke_eval_runs_without_live_judge_model(
             timeout_seconds=5.0,
             authority_metadata=expected_authority_metadata_for_evaluation_target(
                 EvaluationTargetType.RAG_ANSWER,
-            ),
-            authority_gate_evidence=authority_gate_evidence_for_evaluation_cases(
-                EvaluationTargetType.RAG_ANSWER,
-                (evaluation_case,),
-                run_id="ci-smoke-rag-run-001",
             ),
         )
     )

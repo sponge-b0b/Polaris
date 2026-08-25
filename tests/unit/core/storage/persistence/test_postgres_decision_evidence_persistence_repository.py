@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -13,6 +14,9 @@ from core.storage.persistence.decision_evidence import DecisionEvidencePacketRec
 from core.storage.persistence.repositories import (
     PostgresDecisionEvidencePacketRepository,
 )
+from core.storage.persistence.repositories import (
+    postgres_decision_evidence_persistence_repository as repository_module,
+)
 from core.storage.persistence.serializers import (
     DecisionEvidencePacketPersistenceSerializer,
 )
@@ -20,6 +24,17 @@ from core.telemetry.events import TelemetryEvent
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from domain.authority import RiskTier
+
+
+@pytest.fixture(autouse=True)
+def _repository_logging_enabled() -> Iterator[None]:
+    repository_logger = logging.getLogger(repository_module.__name__)
+    previous_disabled = repository_logger.disabled
+    repository_logger.disabled = False
+    try:
+        yield
+    finally:
+        repository_logger.disabled = previous_disabled
 
 
 @pytest.mark.asyncio
@@ -348,6 +363,9 @@ def _record() -> DecisionEvidencePacketRecord:
     return DecisionEvidencePacketRecord(
         packet_id="packet-1",
         output_id="strategy-decision-1",
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="workflow-fingerprint-1",
+        execution_id="exec-1",
         schema_version=1,
         risk_tier=RiskTier.ENHANCED,
         authority_metadata={

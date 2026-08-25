@@ -23,6 +23,117 @@ Recover correctness-critical inputs from the invocation, repository, and durable
 
 If required durable state cannot be recovered, report the missing artifact rather than infer it.
 
+### Durable Root-Verification Checkpoint
+
+For an open Spec Review remediation ticket, the root-verification Human Handoff and verifier result must survive complete conversational/session context loss.
+
+Use exactly one machine-managed ticket comment identified by:
+
+```text
+<!-- implement-ticket-root-checkpoint:v1 -->
+```
+
+The checkpoint is routing/re-entry state only. It is not Root Closure Evidence, a verifier verdict, or workflow authority.
+
+Persist this schema:
+
+```markdown
+<!-- implement-ticket-root-checkpoint:v1 -->
+## Implement Ticket Root Checkpoint
+
+**Version:** 1
+**Stage:** awaiting-root-verification | verifier-failed | verifier-passed
+**Ticket:** #<ticket>
+**Ticket branch:** <branch>
+**Ticket baseline:** <sha>
+**Remediation parent:** #<Spec Review>
+**Parent Spec:** #<Spec>
+**Root:** RB-<n> — <stable invariant>
+**Candidate state:** <ROOT_CLOSURE_STATE>
+**Attempt:** <n>
+
+### Proposed Root Closure Evidence
+<complete current Proposed Root Closure Evidence>
+
+### Last verifier result
+<None | exact valid PASS/FAIL result, including all consolidated findings and returned state>
+
+### Attempt history
+- Attempt <n> | <candidate state> | <PASS|FAIL|invalid> | <concise result>
+```
+
+Use the existing marker comment if present; never create multiple active checkpoint comments for one ticket.
+
+Resolve it deterministically:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+CHECKPOINT_MARKER='<!-- implement-ticket-root-checkpoint:v1 -->'
+
+CHECKPOINT_IDS=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$TICKET_NUMBER/comments?per_page=100" \
+    | jq -c --arg marker "$CHECKPOINT_MARKER" \
+      '[.[][] | select(.body | contains($marker)) | .id]'
+)
+```
+
+Require zero or one ID. More than one is ambiguous durable state and fails closed.
+
+Write checkpoint Markdown outside the repository, for example `/tmp/implement-ticket-root-checkpoint.md`.
+
+If no checkpoint exists:
+
+```bash
+jq -Rs '{body: .}' /tmp/implement-ticket-root-checkpoint.md \
+  | gh api -X POST \
+      -H "X-GitHub-Api-Version: 2026-03-10" \
+      "repos/$REPO/issues/$TICKET_NUMBER/comments" \
+      --input -
+```
+
+If one exists:
+
+```bash
+CHECKPOINT_ID=<the one existing id>
+
+jq -Rs '{body: .}' /tmp/implement-ticket-root-checkpoint.md \
+  | gh api -X PATCH \
+      -H "X-GitHub-Api-Version: 2026-03-10" \
+      "repos/$REPO/issues/comments/$CHECKPOINT_ID" \
+      --input -
+```
+
+Re-read the comment after every write and require exact `Version`, `Stage`, ticket/lineage, root, baseline, candidate state, and attempt values.
+
+Do not use Project fields, labels, local scratch files, prior conversation, or subagent memory as a substitute for this checkpoint.
+
+### Durable Re-entry Routing
+
+On every human invocation concerning an open Spec Review remediation ticket, recover the latest checkpoint before choosing a root-verification continuation.
+
+Always re-run current branch, hierarchy, baseline, parent/root-ledger, and project-delivery guards; the checkpoint never bypasses fresh authority checks.
+
+Route by `Stage`:
+
+* `awaiting-root-verification`
+  * `$verify-root-closure` invocation → require branch/baseline/lineage/root and current candidate state to match the checkpoint, then resume at **Resume After Human Authorization**;
+  * `$implement-ticket` invocation → if the candidate still matches, re-emit the existing Root Closure Human Handoff without reimplementing or self-verifying;
+  * a candidate mismatch makes the checkpoint stale; resume implementation and rebuild Proposed Root Closure Evidence before another handoff.
+* `verifier-failed`
+  * resume `$implement-ticket` correction immediately using **all** consolidated findings stored in `Last verifier result`;
+  * do not dispatch another verifier until corrective work is complete, Proposed Root Closure Evidence is rebuilt, and the checkpoint is rewritten to `awaiting-root-verification` with a new/current candidate state;
+  * a candidate mismatch is allowed when it is explained by corrective edits after the recorded FAIL; the stored findings remain mandatory until re-proven.
+* `verifier-passed`
+  * require exact candidate-state, baseline, branch, lineage, root, and verifier-state match;
+  * if valid, resume Section 4 without re-running independent certification;
+  * any candidate/root-state mismatch makes the PASS stale and returns to implementation/handoff.
+
+A missing checkpoint is acceptable only before the first Root Closure Human Handoff. Once a root-verification attempt has begun, missing, duplicated, malformed, or contradictory checkpoint state is a hard re-entry blocker; do not infer the suspended stage from conversation history.
+
+The same explicit command plus the same durable repository/tracker state must produce the same lifecycle continuation whether or not prior conversational context exists.
+
 ## 1. Read the Ticket and Guard the Branch
 
 Read the full ticket and capture:
@@ -341,10 +452,16 @@ A prior root becomes protected when this ticket changes a surface it governs, in
 For each protected root:
 
 1. identify applicable existing regression/acceptance proof;
-2. rerun only proof affected by this change;
-3. confirm its invariant remains satisfied.
+2. recover and re-read the **current governing authority** for that protected contract when it derives from a Standard, repository policy, ADR/document authority, workflow policy, configuration contract, or other mutable normative source;
+3. reconcile historical root wording against that current authority, including documented exceptions or explicit supersession;
+4. rerun only proof affected by this change;
+5. confirm the currently applicable protected contract remains satisfied.
 
-If regressed, fix it within this ticket and rerun both current-root and protected-root proof.
+Historical root state identifies the concern to preserve; it does not silently freeze a superseded policy forever. Current authority supersedes historical policy wording only when that authority change is explicit and durable. Implementation drift is never supersession.
+
+For Standards/policy roots, do not treat the historical symptom alone as the violation. Cite the exact current rule and explain why any documented exception does or does not apply.
+
+If regressed under the current applicable authority, fix it within this ticket and rerun both current-root and protected-root proof.
 
 ### Closure Reconciliation
 
@@ -378,7 +495,14 @@ Generic test counts or unsupported assertions are insufficient.
 
 `$verify-root-closure` requires explicit human authorization.
 
-For every Spec Review remediation ticket, after targeted verification and Proposed Root Closure Evidence are complete — but before repository persistence, closure-evidence persistence, or ticket closure — halt.
+For every Spec Review remediation ticket, after targeted verification and Proposed Root Closure Evidence are complete — but before repository persistence, closure-evidence persistence, or ticket closure:
+
+1. compute the current candidate `ROOT_CLOSURE_STATE` using the same hash procedure used at verifier dispatch;
+2. create/update the durable checkpoint with `Stage: awaiting-root-verification`, the complete Proposed Root Closure Evidence, the current candidate state, and incremented `Attempt`;
+3. re-read and verify the checkpoint;
+4. only then halt for human authorization.
+
+If checkpoint persistence or verification fails, this is a hard tracker/persistence blocker. Do not emit a verifier handoff that cannot be durably resumed.
 
 Emit this structure exactly:
 
@@ -405,7 +529,11 @@ Then stop.
 
 An explicit `$verify-root-closure` invocation received at this checkpoint is an **authorization event**, not a local procedure call.
 
-Resume `$implement-ticket` at this checkpoint. Before dispatcher-only mode, re-run the **Project Delivery Actionability Guard** when the parent Spec is Wayfinder-managed.
+First recover the durable root checkpoint. Dispatch is authorized only when `Stage: awaiting-root-verification` and the checkpoint's ticket, branch, baseline, lineage, root, and candidate state match current durable state.
+
+If the checkpoint says `verifier-failed`, the human invocation does **not** authorize re-verification of the stale candidate. Resume `$implement-ticket` correction instead. If it says `verifier-passed`, resume Section 4 after state validation. Missing/stale/ambiguous checkpoint state after an attempt began fails closed.
+
+Resume `$implement-ticket` at the recovered checkpoint. Before dispatcher-only mode, re-run the **Project Delivery Actionability Guard** when the parent Spec is Wayfinder-managed.
 
 #### Verifier Dispatch Invariant
 
@@ -426,6 +554,8 @@ DISPATCH_ROOT_CLOSURE_STATE=$(
 )
 ```
 
+Require `DISPATCH_ROOT_CLOSURE_STATE` to equal the durable `awaiting-root-verification` checkpoint candidate state before spawning the verifier.
+
 For a tracker-only remediation root with no repository mutation, also pass the exact durable tracker-state identifiers/read set required to prove the root; `$verify-root-closure` remains non-mutating and independently re-reads them.
 
 Spawn exactly one fresh verifier subagent and pass only the explicit handoff inputs it requires: current ticket/parent Spec, latest Spec Review/Root Blocker Ledger, `TICKET_BASELINE`, current candidate state, `DISPATCH_ROOT_CLOSURE_STATE`, Proposed Root Closure Evidence, applicable Architecture context, and any root-required durable tracker identifiers.
@@ -444,17 +574,35 @@ If any condition fails, discard the verdict. Unauthorized verifier mutations are
 
 #### FAIL
 
-`ROOT CLOSURE: FAIL` is non-terminal. Exit dispatcher-only mode and resume implementation immediately. Complete every actionable verifier finding, rerun affected targeted checks, rebuild Proposed Root Closure Evidence, and return to the Root Closure Human Handoff Intercept.
+`ROOT CLOSURE: FAIL` is non-terminal.
 
-The parent may not override or downgrade a verifier failure.
+Before leaving dispatcher-only mode:
+
+1. update the durable checkpoint to `Stage: verifier-failed`;
+2. preserve the exact valid verifier verdict in `Last verifier result`, including every consolidated finding/correction and returned candidate state;
+3. append the attempt/candidate/result to `Attempt history`;
+4. re-read and verify the checkpoint.
+
+Then exit dispatcher-only mode and resume implementation **in the same invocation**. Complete every actionable verifier finding, rerun affected targeted checks, rebuild Proposed Root Closure Evidence, and return to the Root Closure Human Handoff Intercept.
+
+If context is later lost, `Stage: verifier-failed` is sufficient to resume this correction path without the human having to reconstruct the prior verifier result.
+
+The parent may not override or downgrade a verifier failure. It may, however, determine the narrowest correct implementation response using current authoritative contracts cited by the verifier; that is implementation, not verdict override.
 
 #### PASS
 
 `ROOT CLOSURE: PASS` is non-terminal and requires verifier-integrity success.
 
-Exit dispatcher-only mode and proceed to Section 4. Capture the verifier's baseline/state, acceptance proof, invariant-sweep result, protected-root result, and targeted verification result.
+Before proceeding:
 
-Any implementation change after `PASS` makes the verdict stale and requires another Human Handoff and fresh verifier.
+1. update the durable checkpoint to `Stage: verifier-passed`;
+2. preserve the exact valid PASS, baseline/state, acceptance proof, invariant-sweep result, protected-root result, and targeted verification result;
+3. append the attempt/candidate/result to `Attempt history`;
+4. re-read and verify the checkpoint.
+
+Exit dispatcher-only mode and proceed to Section 4.
+
+Any implementation change after `PASS` makes the verdict stale and requires another Human Handoff and fresh verifier; rewrite the checkpoint accordingly before that handoff.
 
 ## 4. Re-Verify Before Persistence
 

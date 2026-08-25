@@ -40,7 +40,36 @@ Rules:
 
 ## 1. Pin Baseline, Branch, and Verified HEAD
 
-Resolve `BASELINE_COMMIT` from the Spec, verify the expected Spec branch, and require a clean worktree.
+Resolve the repository and read the parent Spec's complete durable comment history once:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+SPEC_NUMBER=<spec_issue_number>
+
+SPEC_COMMENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
+)
+```
+
+Resolve `BASELINE_COMMIT` from that complete snapshot:
+
+```bash
+BASELINE_COMMIT=$(
+  printf '%s\n' "$SPEC_COMMENT_PAGES" \
+    | jq -r '
+        [.[][]
+         | select((.body // "") | contains("**Baseline Commit Hash:**"))
+         | {id, created_at, body}]
+        | sort_by(.created_at, .id)
+        | last
+        | .body // ""
+        | capture("\\*\\*Baseline Commit Hash:\\*\\*\\s+(?<sha>[0-9a-fA-F]{40})").sha // empty'
+)
+```
+
+Verify the expected Spec branch and require a clean worktree.
 
 Capture:
 
@@ -48,7 +77,23 @@ Capture:
 CURRENT_HEAD=$(git rev-parse HEAD)
 ```
 
-Recover the latest passing **Spec Verification Receipt** and require:
+Select exactly the latest durable comment whose body contains `## Spec Verification Receipt`, ordered by `created_at` then comment `id`:
+
+```bash
+VERIFICATION_RECEIPT_JSON=$(
+  printf '%s\n' "$SPEC_COMMENT_PAGES" \
+    | jq -c '
+        [.[][]
+         | select((.body // "") | contains("## Spec Verification Receipt"))
+         | {id, created_at, html_url, body}]
+        | sort_by(.created_at, .id)
+        | last // empty'
+)
+```
+
+That newest receipt is the only verification candidate. Do not use `gh issue view --json comments`, an unpaginated comment read, or walk backward to an older receipt when the newest one is malformed or stale.
+
+Require the selected receipt:
 
 * `Status: passed`;
 * `Verified HEAD == CURRENT_HEAD`;
@@ -108,7 +153,74 @@ Re-run immediately before persisting Pending Review Remediation or the final Exi
 
 The **conventional Spec Review issue** is the durable owner of review state for the parent Spec. Pending Review Remediation, Root Blocker ledger/reconciliation state, Scope corrections, and the final **Spec Review Exit Receipt** all belong on that one review issue, not on the parent Spec issue.
 
-Resolve exactly one conventional Spec Review for the parent Spec before any review-state persistence. If none exists yet and this review reaches a persistence point, create/reuse the conventional Spec Review issue first. More than one matching review issue is ambiguous durable state and fails closed.
+Resolve the conventional review issue through one prescribed REST read:
+
+```bash
+PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
+
+resolve_spec_review_issue() {
+  REVIEW_PAGES=$(
+    gh api --paginate --slurp \
+      -H "X-GitHub-Api-Version: 2026-03-10" \
+      "repos/$REPO/issues?state=all&per_page=100"
+  )
+
+  REVIEW_MATCHES=$(
+    printf '%s\n' "$REVIEW_PAGES" \
+      | jq -c --arg parent "$PARENT_MARKER" '
+          [.[][]
+           | select(.pull_request == null)
+           | select(.title | startswith("Spec Review:"))
+           | select((.body // "") | contains($parent))
+           | {number, state, url: .html_url}]'
+  )
+
+  REVIEW_COUNT=$(printf '%s\n' "$REVIEW_MATCHES" | jq 'length')
+
+  if [ "$REVIEW_COUNT" -gt 1 ]; then
+    echo "❌ More than one conventional Spec Review identifies parent Spec #$SPEC_NUMBER."
+    exit 1
+  fi
+
+  if [ "$REVIEW_COUNT" -eq 1 ]; then
+    SPEC_REVIEW_ISSUE_NUMBER=$(printf '%s\n' "$REVIEW_MATCHES" | jq -r '.[0].number')
+  else
+    SPEC_REVIEW_ISSUE_NUMBER=""
+  fi
+}
+
+resolve_spec_review_issue
+```
+
+Do not infer review ownership from Project fields, labels, prior conversation, title similarity alone, or a receipt copied onto the parent Spec.
+
+If no conventional Spec Review exists yet, keep `SPEC_REVIEW_ISSUE_NUMBER` empty until review reaches a persistence point. At the first persistence point, create it once and immediately re-resolve through the same canonical read:
+
+```bash
+ensure_spec_review_issue() {
+  resolve_spec_review_issue
+
+  if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
+    return 0
+  fi
+
+  SPEC_TITLE=$(gh api "repos/$REPO/issues/$SPEC_NUMBER" --jq .title)
+  REVIEW_TITLE_BODY=${SPEC_TITLE#Spec: }
+
+  gh api --method POST "repos/$REPO/issues" \
+    -f title="Spec Review: $REVIEW_TITLE_BODY" \
+    -f body="$PARENT_MARKER" >/dev/null
+
+  resolve_spec_review_issue
+
+  if [ -z "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
+    echo "❌ Conventional Spec Review creation could not be confirmed."
+    exit 1
+  fi
+}
+```
+
+Re-resolution after creation is mandatory. If a concurrent or historical duplicate makes the result ambiguous, fail closed rather than choosing one.
 
 If a Spec Review exists, recover privately:
 
@@ -386,7 +498,7 @@ Do not propose the architectural answer.
 
 If architecture-conforming Blocking findings remain **or Scope corrections must update existing durable review state**, re-run the Project Delivery Actionability Guard.
 
-Create/reuse the conventional Spec Review issue and persist:
+Call `ensure_spec_review_issue` from Section 3, then persist on that resolved conventional Spec Review issue:
 
 ```markdown
 ## Pending Review Remediation [YYYY-MM-DD HH:MM]
@@ -457,7 +569,7 @@ Advisories and unrelated inherited findings may remain.
 
 ### Persist Exit Receipt
 
-Re-run Project Delivery Actionability Guard and persist the Exit Receipt on the **conventional Spec Review issue** resolved in Section 3. Do not persist the review Exit Receipt on the parent Spec issue.
+Re-run Project Delivery Actionability Guard, call `ensure_spec_review_issue` from Section 3, and persist the Exit Receipt on that resolved **conventional Spec Review issue**. Do not persist the review Exit Receipt on the parent Spec issue.
 
 Require the review issue to durably identify the current parent Spec before writing. The receipt is review-owned authorization consumed later by `$spec-merge-cleanup`; the parent Spec continues to own its Spec Verification Receipt and workspace metadata.
 

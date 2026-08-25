@@ -45,15 +45,20 @@ The caller supplies one or more exact open Wayfinder-managed formal artifact URL
 
 This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type` to be one of `Wayfinder Map`, `Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, or `Review Remediation Ticket`, preserves the current projected `Workflow State`, and reconstructs only the base `Work Status` and base `Next Skill` required to re-apply the delivery overlay.
 
+For these exact supplied open artifacts, read their complete current native `blocked by` state once from GitHub Issues before reconstructing base `Work Status`. This is dependency-status evidence only: do not decide whether an edge is semantically correct, add/remove relationships, or promote a lower-level blocker into project-delivery state. Require `blockedBy.nodes` count to equal `blockedBy.totalCount` for every supplied artifact; unreadable, missing, or truncated blocker data fails closed.
+
 Derive the base route from **Base Artifact Route Compatibility** below:
 
 * `Workflow State = Blocked` → base `Work Status = Blocked`;
-* `Wayfinder Map / Spec Delivery` → base `Work Status = In Progress`;
+* otherwise, one or more open native blockers → base `Work Status = Blocked`;
+* otherwise, `Wayfinder Map / Spec Delivery` → base `Work Status = In Progress`;
 * every other listed non-complete route → base `Work Status = Ready`;
 * base `Next Skill` is the allowed route value for the exact `Artifact Type` + `Workflow State`;
 * for `Spec Review / Review Remediation`, read its native remediation-ticket children to choose `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action.
 
-Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, or `Workflow State = Complete` in this open-artifact sync mode is projection drift and fails closed.
+Native blockers affect `Work Status` only in this sync mode. They do not rewrite `Workflow State`, suppress or replace the base `Next Skill`, or determine `Delivery State`.
+
+Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, incomplete blocker data, or `Workflow State = Complete` in this open-artifact sync mode is projection drift and fails closed.
 
 This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
 
@@ -212,7 +217,7 @@ For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implement
 
 Delivery authorization never suppresses a descendant's lifecycle route. `Next Skill` continues to name the lifecycle owner even when delivery is currently `Eligible` or `Denied`; that lifecycle owner must enforce its existing project-delivery guard before substantive work. `None` appears only when the base lifecycle route itself is `None`.
 
-A lifecycle-blocked descendant may therefore be `Delivery State = In Focus` or `Eligible` while `Work Status = Blocked`; the columns describe different facts.
+A lifecycle- or dependency-blocked descendant may therefore be `Delivery State = In Focus` or `Eligible` while `Work Status = Blocked`; the columns describe different facts.
 
 `$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
 
@@ -259,6 +264,7 @@ Steady-state execution is:
 ```text
 validate projection
 → resolve Project once
+→ read supplied native blocker state once in Delivery Overlay Sync
 → read schema once
 → read affected current rows once
 → add only missing members
@@ -277,6 +283,18 @@ Resolve repository owner once:
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 OWNER=${REPO%%/*}
 ```
+
+For **Delivery Overlay Sync** only, read open issue blocker state exactly once after resolving `REPO`:
+
+```bash
+gh issue list \
+  --repo "$REPO" \
+  --state open \
+  --limit 1000 \
+  --json number,url,blockedBy
+```
+
+Locate every supplied artifact by issue number/URL. Require each supplied artifact to be present and require `blockedBy.nodes` count to equal `blockedBy.totalCount`. Record only its open native blockers for base `Work Status` derivation. Do not interpret dependency semantics or mutate relationships from this read.
 
 Resolve exactly one open Project titled `Polaris` once:
 
@@ -528,6 +546,7 @@ This helper may:
 
 * ensure formal issue membership in the existing Polaris Project;
 * validate caller-supplied project-delivery context;
+* read complete native blocker state for supplied open artifacts solely to derive dependency-blocked `Work Status`;
 * apply the deterministic delivery overlay;
 * project the universal visible `Delivery State` field;
 * set/clear existing Project field values;
@@ -537,6 +556,7 @@ This helper must not:
 
 * determine lifecycle state or project focus;
 * infer delivery state from Project fields or incidental tracker metadata;
+* interpret, create, remove, or otherwise mutate native dependency semantics/relationships while projecting `Work Status`;
 * modify GitHub issue labels or issue content;
 * open/close issues;
 * create/change parent, sub-issue, or blocking relationships;

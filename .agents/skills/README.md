@@ -102,7 +102,7 @@ Important invariants:
 * lifecycle state may move backward or revisit an earlier stage;
 * a closed GitHub issue does not necessarily mean its parent lifecycle is complete; for example, a closed ticket may still leave its Spec active;
 * a closed Wayfinder map is the durable marker that its delivery scope is complete under the current known state; authoritative architecture re-entry or proven open governed Spec work reopens the map before substantive advancement;
-* a Spec Review issue is **conditional remediation state**, not a mandatory stage;
+* every reviewed Spec has exactly one conventional Spec Review issue as the durable owner of review/remediation state and the final Spec Review Exit Receipt; remediation state itself is conditional;
 * internal helper skills do not become separate lifecycle stages merely because they are named skills;
 * durable tracker/repository state, not conversational memory or Project-board position, determines correctness-critical workflow state.
 
@@ -186,8 +186,8 @@ $verify-spec
            ↓ HUMAN
 $review-spec
     ├─ zero Blocking findings
-    │      ├─ create no Spec Review issue when none exists
-    │      ├─ persist Spec Review Exit Receipt on the Spec
+    │      ├─ create or reuse the one conventional Spec Review issue
+    │      ├─ persist Spec Review Exit Receipt on that review issue
     │      └─ HUMAN → $spec-merge-cleanup
     │
     ├─ Blocking findings; no new architecture decision required
@@ -206,7 +206,7 @@ $review-spec
 $spec-merge-cleanup
     ├─ validate current Spec Review Exit Receipt
     ├─ merge or directly close the Spec
-    ├─ close the Spec Review issue when one exists
+    ├─ close the conventional Spec Review issue
     ├─ clean the Spec branch when applicable
     └─ reconcile every governing Wayfinder
            └─ close only when no unresolved decision/fog remains
@@ -243,19 +243,21 @@ All tickets for one Spec share the same Spec branch and fixed Spec baseline. Eac
 
 `$review-spec` owns independent review and parent reconciliation.
 
-A **Spec Review issue is created only when Blocking findings remain and durable review-remediation state is required**. It is not created for a clean review merely to record that review happened.
+Every reviewed Spec has exactly one conventional **Spec Review issue** as the durable owner of review state. `$review-spec` creates it at the first persistence point when none exists and reuses it across clean review, remediation, and re-review. Do not create one issue per pass.
 
 Clean first review:
 
 ```text
 $review-spec
     ↓ zero Blocking findings
-persist Spec Review Exit Receipt on parent Spec
+create or reuse the one conventional Spec Review issue
+    ↓
+persist Spec Review Exit Receipt on that review issue
     ↓ HUMAN
 $spec-merge-cleanup
 ```
 
-No Spec Review issue is required on this path.
+The conventional Spec Review issue remains the durable review owner even when no remediation is required.
 
 When architecture-conforming Blocking findings remain:
 
@@ -281,7 +283,7 @@ The same Spec Review issue is reused across remediation/re-review cycles. Do not
 
 The **Pending Review Remediation** packet remains intentionally durable even though the transition into `$review-spec-remediation` is internal. It provides an explicit, recoverable contract between independent review/reconciliation and remediation synthesis.
 
-The review loop ends only when the review Exit Gate passes and `$review-spec` persists a current **Spec Review Exit Receipt** on the parent Spec.
+The review loop ends only when the review Exit Gate passes and `$review-spec` persists a current **Spec Review Exit Receipt** on the one conventional Spec Review issue.
 
 ### Architecture Escalation and Re-entry
 
@@ -359,10 +361,10 @@ It requires the exact current **Spec Review Exit Receipt** and owns:
 
 * merge or direct Spec closure;
 * branch cleanup when applicable;
-* closure of the Spec Review issue when one exists;
+* closure of the conventional Spec Review issue;
 * reconciliation of every current Wayfinder governing the completing Spec.
 
-A missing Spec Review issue is valid on a clean-review lifecycle and is not a cleanup error.
+Once review reaches a persistence point, a missing or duplicate conventional Spec Review issue is workflow drift; cleanup must fail closed rather than infer review authority.
 
 A Wayfinder effort is reconciled as complete only when no unresolved Wayfinder decision/fog remains and every currently governed Derived and Remediation Spec is complete. Wayfinder closure is the durable delivery-complete marker. Provenance failure must not be guessed.
 
@@ -417,6 +419,7 @@ Cross-skill rules:
 * **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
 * **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection rather than changing the underlying lifecycle to match the board.
 * **Project synchronization happens after the corresponding durable transition succeeds.** Do not let a board update create authority that the owning skill has not established.
+* **Area and Priority are presentation metadata, not workflow authority.** A lifecycle owner supplies either only when it independently owns an intentional presentation change; otherwise `$project-tracking` preserves the current Project value verbatim, including blank.
 * **Project synchronization failure is projection drift, not semantic rollback.** Report it and preserve the authoritative tracker/repository result; later workflow entry should reconcile the board from durable state.
 * A lightweight auto-add label such as `workflow:tracked` may provide discovery/safety-net behavior, but labels and auto-add rules do not determine lifecycle correctness.
 
@@ -618,7 +621,7 @@ Before adding or changing a cross-skill edge, answer these questions in order:
 10. **Who owns lifecycle routing when the child detects a blocker?** Prefer the parent lifecycle owner.
 11. **Does the change preserve reviewer/verifier independence?** Never trade independence for convenience.
 12. **Does Project tracking need synchronization?** Update it only as a projection of the durable transition and never make it the semantic source of truth.
-13. **Does the transition create a new durable artifact only when semantically required?** In particular, do not create a Spec Review issue on a clean review.
+13. **Does the transition preserve the durable artifact ownership contract?** In particular, reuse the one conventional Spec Review issue across clean review, remediation, and re-review rather than omitting it or creating one issue per pass.
 
 When changing an existing skill, preserve unrelated behavior. Cross-skill governance changes should be lean and surgical.
 
@@ -636,11 +639,11 @@ is the happy path, not a guarantee that work can only move forward.
 
 Architecture discovery and review remediation may legitimately loop back through earlier lifecycle owners.
 
-### Mandatory Spec Review Issue
+### Duplicate or Parent-Owned Spec Review State
 
-Do not create a `Spec Review:` issue simply because `$review-spec` ran.
+Every reviewed Spec uses exactly one conventional `Spec Review:` issue as the durable owner of review/remediation state and the final Exit Receipt.
 
-A Spec Review issue exists only when Blocking findings require durable remediation tracking. Clean review records its Exit Receipt directly on the parent Spec.
+Do not create one review issue per pass, omit the conventional review issue on a clean review, or persist the final Exit Receipt on the parent Spec.
 
 ### Project Board as Workflow Authority
 

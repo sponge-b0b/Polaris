@@ -29,7 +29,7 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 * `Workflow State`;
 * `Next Skill` — ordinary lifecycle next action before project-delivery overlay;
 * `Work Status` — ordinary lifecycle status before project-delivery overlay;
-* `Area`;
+* `Area` only when the caller intentionally owns an Area presentation change;
 * `Root Blocker` as `RB-n` or `None`;
 * `Completed On` as `YYYY-MM-DD` only when `Workflow State = Complete`, otherwise `None`;
 * `Priority` only when the caller intentionally owns a priority change;
@@ -120,7 +120,7 @@ Validate the base lifecycle projection before any Project mutation:
 * `Workflow State = Complete` requires base `Work Status = Done`, base `Next Skill = None`, and non-empty `Completed On`;
 * non-`Complete` requires `Completed On = None`;
 * non-empty `Root Blocker` is valid only for `Artifact Type = Review Remediation Ticket` and must match `RB-[0-9]+`;
-* `Priority` is preserved when omitted;
+* `Area` and `Priority` are preserved when omitted; either may be blank;
 * requested single-select values must exist in the Project schema;
 * `Artifact Type`, `Workflow State`, and base `Next Skill` must satisfy **Base Artifact Route Compatibility**.
 
@@ -402,8 +402,9 @@ Write only differences.
 
 Rules:
 
-* `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, final `Work Status`, and `Area` → set only when different;
+* `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, and final `Work Status` → set only when different;
 * after project-delivery bootstrap, never intentionally leave `Delivery State` empty for a formal artifact;
+* `Area` → preserve unless caller supplied it; then set only when different;
 * `Priority` → preserve unless caller supplied it; then set only when different;
 * `Root Blocker = RB-n` → set text only when different;
 * `Root Blocker = None` → clear only when currently populated;
@@ -488,11 +489,11 @@ Re-run the exact affected-row command from Section 3 once after mutation.
 Require exact agreement with every final projection:
 
 * every artifact is a Project member;
-* required formal fields equal final projected values;
+* required lifecycle/delivery fields equal final projected values;
 * after project-delivery bootstrap, every formal artifact has exactly one valid `Delivery State` value;
 * `Root Blocker` is set/cleared as requested;
 * `Completed On` is set/cleared as requested;
-* `Priority` changed only when supplied;
+* `Area` and `Priority` equal supplied values when supplied and otherwise equal their pre-mutation values;
 * `Intake State` is empty.
 
 Do not infer success from mutation exit status alone.

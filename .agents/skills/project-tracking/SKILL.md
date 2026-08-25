@@ -33,7 +33,7 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 * `Root Blocker` as `RB-n` or `None`;
 * `Completed On` as `YYYY-MM-DD` only when `Workflow State = Complete`, otherwise `None`;
 * `Priority` only when the caller intentionally owns a priority change;
-* `Project Delivery State` when project-delivery focus applies: `focused | focused-stalled | eligible-unfocused | ineligible`.
+* after project-delivery bootstrap, `Project Delivery State` for every non-complete formal artifact: `in-focus | eligible | blocked | independent`.
 
 `Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
 
@@ -41,7 +41,7 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 
 Only `$project-delivery-management` may invoke this mode.
 
-The caller supplies one or more exact Wayfinder Map URLs plus their current authoritative `Project Delivery State`. This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type = Wayfinder Map`, preserves the current projected `Workflow State`, and derives only the base Wayfinder route needed to re-apply the delivery overlay:
+The caller supplies one or more exact open Wayfinder Map URLs plus their current authoritative `Project Delivery State`: `in-focus | eligible | blocked`. This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type = Wayfinder Map`, preserves the current projected `Workflow State`, and derives only the base Wayfinder route needed to re-apply the delivery overlay:
 
 | Existing `Workflow State` | Base `Work Status` | Base `Next Skill` |
 | --- | --- | --- |
@@ -50,9 +50,8 @@ The caller supplies one or more exact Wayfinder Map URLs plus their current auth
 | Spec Delivery | In Progress | None |
 | Architecture Remediation | Ready | `$wayfinder` |
 | Blocked | Blocked | None |
-| Complete | Done | None |
 
-Any other existing Wayfinder workflow state is projection drift and fails closed. This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Workflow State`.
+Any other existing open Wayfinder workflow state is projection drift and fails closed. This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Workflow State`.
 
 Do not hand `$project-tracking` itself to the human. Return its result to the caller.
 
@@ -73,33 +72,37 @@ Project state may be read only to detect and repair projection drift.
 
 Project-delivery focus is authoritative only through `$project-delivery-management` and canonical tracker state. `$project-tracking` never derives focus from Project values.
 
-For a Wayfinder-managed artifact after project-delivery bootstrap, require exactly one caller-supplied `Project Delivery State`:
+After project-delivery bootstrap, every formal artifact has exactly one visible delivery relationship:
 
-* `focused` — at least one current governing Wayfinder is focused and the artifact is not complete;
-* `focused-stalled` — Wayfinder Map only; focused/eligible while narrower work is stalled;
-* `eligible-unfocused` — governed only by currently eligible but unfocused scope;
-* `ineligible` — current delivery authorization forbids advancement.
+* `Workflow State = Complete` → `Released`; no caller-supplied project-delivery context is required;
+* non-complete Wayfinder-managed artifact governed by at least one currently focused Wayfinder → caller supplies `in-focus`;
+* non-complete Wayfinder-managed artifact governed by no focused Wayfinder but at least one frontier-eligible Wayfinder → caller supplies `eligible`;
+* non-complete Wayfinder-managed artifact for which no governing Wayfinder is currently frontier-eligible → caller supplies `blocked`;
+* non-complete formal artifact durably established as intentionally outside Wayfinder delivery governance → caller supplies `independent`.
 
-For multiple governing Wayfinders, one focused eligible governor is sufficient for `focused`.
+For multiple governing Wayfinders, one focused eligible governor is sufficient for `in-focus`; otherwise one eligible governor is sufficient for `eligible`.
 
-Before bootstrap, or for intentionally non-Wayfinder artifacts, omit `Project Delivery State`.
+`independent` is an explicit durable classification, not a fallback for missing or ambiguous Wayfinder provenance. A Wayfinder-managed artifact with unresolved governance is invalid rather than `independent`.
+
+Before project-delivery bootstrap, `Delivery State` is outside this helper's required projection contract.
 
 If caller-supplied durable state is contradictory or ambiguous, reject it. Do not repair semantic state from the Project.
 
 ### Visible Delivery State Projection
 
-When `Project Delivery State` is supplied for a non-complete artifact, project it into the Project's visible `Delivery State` field:
+Map authoritative context into the Project's universal `Delivery State` field:
 
 | Authoritative context | Project `Delivery State` |
 | --- | --- |
-| `focused` | Focused |
-| `focused-stalled` | Focused Stalled |
-| `eligible-unfocused` | Eligible |
-| `ineligible` | Blocked |
+| `in-focus` | In Focus |
+| `eligible` | Eligible |
+| `blocked` | Blocked |
+| `independent` | Independent |
+| `Workflow State = Complete` | Released |
 
-`Delivery State` is projection only. It never establishes or changes focus, frontier eligibility, dependency state, or authorization.
+`Delivery State` answers only the artifact's current relationship to project-level delivery coordination. It never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
 
-Clear `Delivery State` for `Workflow State = Complete` and for formal artifacts for which project-delivery context is intentionally omitted.
+A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness is reported by its owning lifecycle and must not create a separate Delivery State value.
 
 ## Projection Invariants
 
@@ -114,7 +117,7 @@ Validate the base lifecycle projection before any Project mutation:
 
 Never infer `Completed On` from issue closure.
 
-When an artifact legitimately re-enters from `Complete`, clear `Completed On`.
+When an artifact legitimately re-enters from `Complete`, clear `Completed On` and require its current non-complete `Project Delivery State` to be re-established from durable authority.
 
 ### Base Artifact Route Compatibility
 
@@ -169,47 +172,43 @@ Reject any unlisted combination.
 
 ### Project Delivery Overlay
 
-Validate the base route first. Then apply delivery focus without changing `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
+Validate the base route first. Then apply delivery coordination without changing `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
 
 For `Workflow State = Complete` project exactly:
 
 ```text
 Work Status = Done
 Next Skill = None
-Delivery State = <cleared>
+Delivery State = Released
 ```
 
-Supplying non-complete project-delivery context with `Complete` is invalid.
+For a non-complete artifact with `Project Delivery State = independent`, preserve base `Work Status` and base `Next Skill` and project `Delivery State = Independent`.
 
 For a **Wayfinder Map**:
 
 | Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
 | --- | --- | --- | --- |
-| `focused` | In Progress | preserve base | Focused |
-| `focused-stalled` | In Progress | preserve base | Focused Stalled |
-| `eligible-unfocused` | Ready | `$project-delivery-management` | Eligible |
-| `ineligible` | Blocked | None | Blocked |
+| `in-focus` | In Progress | preserve base | In Focus |
+| `eligible` | Ready | `$project-delivery-management` | Eligible |
+| `blocked` | Blocked | None | Blocked |
 
 Rules:
 
-* `focused-stalled` is Wayfinder Map only;
-* `focused`, `focused-stalled`, and `eligible-unfocused` are invalid with `Workflow State = Complete`;
-* `focused` and `focused-stalled` are invalid with `Workflow State = Blocked`;
-* `eligible-unfocused` is invalid with `Workflow State = Blocked`;
-* an eligible-unfocused Wayfinder never advertises `$wayfinder` or `$to-specs`;
-* a focused-stalled Wayfinder remains `In Progress`.
+* `in-focus` and `eligible` are invalid with `Workflow State = Blocked`;
+* an eligible Wayfinder never advertises `$wayfinder` or `$to-specs`;
+* a focused-but-stalled Wayfinder remains `in-focus` / `In Focus` and `In Progress`.
 
 For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, `Review Remediation Ticket`):
 
 | Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
 | --- | --- | --- | --- |
-| `focused` | preserve base | preserve base | Focused |
-| `eligible-unfocused` | Ready | None | Eligible |
-| `ineligible` | Blocked | None | Blocked |
+| `in-focus` | preserve base | preserve base | In Focus |
+| `eligible` | Ready | None | Eligible |
+| `blocked` | Blocked | None | Blocked |
 
-A descendant governed only by an unfocused Wayfinder preserves lifecycle stage while executable handoff is suppressed.
+A descendant governed only by an unfocused eligible Wayfinder preserves lifecycle stage while executable handoff is suppressed.
 
-`$project-delivery-management` is a valid final Project `Next Skill` only for eligible-unfocused Wayfinder Map rows.
+`$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
 
 ### Completion Contradiction Checks
 
@@ -310,7 +309,7 @@ Require existing fields:
 
 When project-delivery bootstrap is active, additionally require:
 
-* `Delivery State` — single select with `Focused`, `Focused Stalled`, `Eligible`, `Blocked`;
+* `Delivery State` — single select with `In Focus`, `Eligible`, `Blocked`, `Independent`, `Released`;
 * `Workflow State` option `Spec Delivery`;
 * `Next Skill` option `$project-delivery-management`.
 
@@ -373,14 +372,14 @@ Never archive/delete formal workflow artifacts merely because they completed.
 
 ## 4. Compute the Minimal Field Delta
 
-Compare each final focus-aware projection against its current Project row.
+Compare each final projection against its current Project row.
 
 Write only differences.
 
 Rules:
 
 * `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, final `Work Status`, and `Area` → set only when different;
-* clear `Delivery State` only when the final projection intentionally has no delivery context or is complete;
+* after project-delivery bootstrap, never intentionally leave `Delivery State` empty for a formal artifact;
 * `Priority` → preserve unless caller supplied it; then set only when different;
 * `Root Blocker = RB-n` → set text only when different;
 * `Root Blocker = None` → clear only when currently populated;
@@ -466,7 +465,7 @@ Require exact agreement with every final projection:
 
 * every artifact is a Project member;
 * required formal fields equal final projected values;
-* `Delivery State` is set/cleared exactly as required;
+* after project-delivery bootstrap, every formal artifact has exactly one valid `Delivery State` value;
 * `Root Blocker` is set/cleared as requested;
 * `Completed On` is set/cleared as requested;
 * `Priority` changed only when supplied;
@@ -524,7 +523,7 @@ This helper may:
 * ensure formal issue membership in the existing Polaris Project;
 * validate caller-supplied project-delivery context;
 * apply the deterministic delivery overlay;
-* project the visible `Delivery State` field;
+* project the universal visible `Delivery State` field;
 * set/clear existing Project field values;
 * verify final projection.
 

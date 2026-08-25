@@ -13,12 +13,14 @@ Reconcile the public Polaris GitHub Project after the owning lifecycle has alrea
 
 ## Invocation Boundary
 
+`$project-tracking` supports three internal modes.
+
+### Formal Artifact Projection
+
 Invoke only:
 
 * from an already-authorized Polaris lifecycle owner after its authoritative tracker/repository transition succeeds; or
 * from an explicit reconciliation flow that independently recovered the authoritative durable state.
-
-Do not hand this helper to the human. Return its result to the caller.
 
 The caller supplies one or more desired **base formal artifact projections**. For each artifact provide:
 
@@ -35,20 +37,45 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 
 `Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
 
+### Wayfinder Delivery Overlay Sync
+
+Only `$project-delivery-management` may invoke this mode.
+
+The caller supplies one or more exact Wayfinder Map URLs plus their current authoritative `Project Delivery State`. This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type = Wayfinder Map`, preserves the current projected `Workflow State`, and derives only the base Wayfinder route needed to re-apply the delivery overlay:
+
+| Existing `Workflow State` | Base `Work Status` | Base `Next Skill` |
+| --- | --- | --- |
+| Architecture Decision | Ready | `$wayfinder` |
+| Ready to Spec | Ready | `$to-specs` |
+| Spec Delivery | In Progress | None |
+| Architecture Remediation | Ready | `$wayfinder` |
+| Blocked | Blocked | None |
+| Complete | Done | None |
+
+Any other existing Wayfinder workflow state is projection drift and fails closed. This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Workflow State`.
+
+### Delivery Projection Schema Migration
+
+This mode is allowed only as internal composition of an explicit human `$project-delivery-management migrate-projection` invocation.
+
+It performs the narrow one-time/idempotent migration defined in **Delivery Projection Schema Migration** below. Steady-state callers must never enter this mode.
+
+Do not hand `$project-tracking` itself to the human. Return its result to the caller.
+
 ## Authority Rules
 
 The caller's base projection and project-delivery context must come from durable workflow evidence already recovered by the caller.
 
 Never infer workflow or delivery truth from:
 
-* GitHub issue Open/Closed state;
+* GitHub issue Open/Closed state alone;
 * current Project fields;
 * labels;
 * saved-view position;
 * hierarchy/sub-issue position alone;
 * prior conversation/session memory.
 
-Project state may be read only to detect and repair projection drift.
+Project state may be read only to detect and repair projection drift, except for the narrowly bounded legacy representation migration defined below.
 
 Project-delivery focus is authoritative only through `$project-delivery-management` and canonical tracker state. `$project-tracking` never derives focus from Project values.
 
@@ -64,6 +91,21 @@ For multiple governing Wayfinders, one focused eligible governor is sufficient f
 Before bootstrap, or for intentionally non-Wayfinder artifacts, omit `Project Delivery State`.
 
 If caller-supplied durable state is contradictory or ambiguous, reject it. Do not repair semantic state from the Project.
+
+### Visible Delivery State Projection
+
+When `Project Delivery State` is supplied for a non-complete artifact, project it into the Project's visible `Delivery State` field:
+
+| Authoritative context | Project `Delivery State` |
+| --- | --- |
+| `focused` | Focused |
+| `focused-stalled` | Focused Stalled |
+| `eligible-unfocused` | Eligible |
+| `ineligible` | Blocked |
+
+`Delivery State` is projection only. It never establishes or changes focus, frontier eligibility, dependency state, or authorization.
+
+Clear `Delivery State` for `Workflow State = Complete` and for formal artifacts for which project-delivery context is intentionally omitted.
 
 ## Projection Invariants
 
@@ -89,42 +131,45 @@ When an artifact legitimately re-enters from `Complete`, clear `Completed On`.
 | Artifact Type | Workflow State | Allowed base `Next Skill` |
 | --- | --- | --- |
 | Wayfinder Map | Architecture Decision | `$wayfinder` |
-| Wayfinder Map | Ready to Spec | `$to-specs` or `None` |
+| Wayfinder Map | Ready to Spec | `$to-specs` |
+| Wayfinder Map | Spec Delivery | None |
 | Wayfinder Map | Architecture Remediation | `$wayfinder` |
-| Wayfinder Map | Blocked | `None` |
-| Wayfinder Map | Complete | `None` |
+| Wayfinder Map | Blocked | None |
+| Wayfinder Map | Complete | None |
 | Wayfinder Decision | Architecture Decision | `$wayfinder` |
-| Wayfinder Decision | Blocked | `None` |
-| Wayfinder Decision | Complete | `None` |
+| Wayfinder Decision | Blocked | None |
+| Wayfinder Decision | Complete | None |
 | Spec | Ready to Ticket | `$to-tickets` |
-| Spec | Ready to Implement | `None` |
+| Spec | Ready to Implement | None |
 | Spec | Ready to Verify | `$verify-spec` |
 | Spec | Ready to Review | `$review-spec` |
-| Spec | Review Remediation | `None` |
+| Spec | Review Remediation | None |
 | Spec | Architecture Remediation | `$architecture-remediation` |
 | Spec | Ready to Merge | `$spec-merge-cleanup` |
-| Spec | Blocked | `None` |
-| Spec | Complete | `None` |
+| Spec | Blocked | None |
+| Spec | Complete | None |
 | Implementation Ticket | Ready to Implement | `$implement-ticket` |
 | Implementation Ticket | Architecture Remediation | `$architecture-remediation` |
-| Implementation Ticket | Blocked | `None` |
-| Implementation Ticket | Complete | `None` |
-| Spec Review | Review Remediation | `$to-tickets` or `None` |
+| Implementation Ticket | Blocked | None |
+| Implementation Ticket | Complete | None |
+| Spec Review | Review Remediation | `$to-tickets` or None |
 | Spec Review | Architecture Remediation | `$architecture-remediation` |
-| Spec Review | Blocked | `None` |
-| Spec Review | Complete | `None` |
+| Spec Review | Blocked | None |
+| Spec Review | Complete | None |
 | Review Remediation Ticket | Ready to Implement | `$implement-ticket` |
 | Review Remediation Ticket | Awaiting Root Verification | `$verify-root-closure` |
 | Review Remediation Ticket | Architecture Remediation | `$architecture-remediation` |
-| Review Remediation Ticket | Blocked | `None` |
-| Review Remediation Ticket | Complete | `None` |
+| Review Remediation Ticket | Blocked | None |
+| Review Remediation Ticket | Complete | None |
 
 Context-sensitive `None` cases:
 
 * `Spec / Ready to Implement` waits on implementation-ticket children;
 * `Spec / Review Remediation` waits on Spec Review/remediation lineage;
 * `Spec Review / Review Remediation` uses `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action;
-* `Wayfinder Map / Ready to Spec` uses `$to-specs` when specification is next and `None` while handed-off Specs own downstream work.
+* `Wayfinder Map / Spec Delivery` means durable Derived/Remediation Spec handoffs exist and at least one governed Spec remains open; those Specs own the next executable action.
+
+`Wayfinder Map / Ready to Spec` means specification itself is next. Once durable Spec handoffs exist with active governed Specs, do not leave the map in `Ready to Spec`.
 
 Reject any unlisted combination.
 
@@ -137,18 +182,19 @@ For `Workflow State = Complete` project exactly:
 ```text
 Work Status = Done
 Next Skill = None
+Delivery State = <cleared>
 ```
 
 Supplying non-complete project-delivery context with `Complete` is invalid.
 
 For a **Wayfinder Map**:
 
-| Project Delivery State | Final `Work Status` | Final `Next Skill` |
-| --- | --- | --- |
-| `focused` | `In Progress` | preserve base |
-| `focused-stalled` | `In Progress` | preserve base |
-| `eligible-unfocused` | `Ready` | `$project-delivery-management` |
-| `ineligible` | `Blocked` | `None` |
+| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
+| --- | --- | --- | --- |
+| `focused` | In Progress | preserve base | Focused |
+| `focused-stalled` | In Progress | preserve base | Focused Stalled |
+| `eligible-unfocused` | Ready | `$project-delivery-management` | Eligible |
+| `ineligible` | Blocked | None | Blocked |
 
 Rules:
 
@@ -161,11 +207,11 @@ Rules:
 
 For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, `Review Remediation Ticket`):
 
-| Project Delivery State | Final `Work Status` | Final `Next Skill` |
-| --- | --- | --- |
-| `focused` | preserve base | preserve base |
-| `eligible-unfocused` | `Ready` | `None` |
-| `ineligible` | `Blocked` | `None` |
+| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
+| --- | --- | --- | --- |
+| `focused` | preserve base | preserve base | Focused |
+| `eligible-unfocused` | Ready | None | Eligible |
+| `ineligible` | Blocked | None | Blocked |
 
 A descendant governed only by an unfocused Wayfinder preserves lifecycle stage while executable handoff is suppressed.
 
@@ -191,16 +237,96 @@ Rejected projection: <field=value summary>
 Reason: <concise invariant failure>
 ```
 
+## Delivery Projection Schema Migration
+
+This migration exists only to establish the projection vocabulary introduced by project-delivery management and to translate the one legacy overloaded Wayfinder state. It is not a general Project schema-management facility.
+
+Resolve the existing `Polaris` Project exactly as in steady-state execution, then read its field schema once.
+
+### 1. Ensure `Delivery State`
+
+If `Delivery State` is absent, create it exactly once:
+
+```bash
+gh project field-create "$PROJECT_NUMBER" \
+  --owner "$OWNER" \
+  --name "Delivery State" \
+  --data-type SINGLE_SELECT \
+  --single-select-options "Focused,Focused Stalled,Eligible,Blocked" \
+  --format json
+```
+
+If it already exists, require it to be a single-select field containing exactly those four option names. A partial/conflicting field is migration drift; do not delete or recreate it.
+
+### 2. Ensure `Workflow State = Spec Delivery`
+
+If the existing `Workflow State` single-select already contains `Spec Delivery`, do nothing.
+
+Otherwise fetch that field through GraphQL including every current option's `id`, `name`, `color`, and `description`. Build one replacement option array containing every existing option unchanged by identity plus:
+
+```json
+{"name":"Spec Delivery","color":"BLUE","description":"Wayfinder has durable Spec handoffs with active governed Specs."}
+```
+
+Update the field with one `updateProjectV2Field` mutation. Existing option IDs **must** be supplied so current item values remain attached. Never rebuild options by name alone.
+
+Example mutation shape:
+
+```graphql
+mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+  updateProjectV2Field(input: {fieldId: $fieldId, singleSelectOptions: $options}) {
+    projectV2Field {
+      ... on ProjectV2SingleSelectField { id name }
+    }
+  }
+}
+```
+
+Use `jq` to construct a JSON request containing `query` and typed `variables`, then submit it once with `gh api graphql --input <file>`. Re-read the field and require all pre-migration option IDs/names plus `Spec Delivery` to be present.
+
+### 3. Make `Delivery State` visible
+
+Read all Project views and each view's ordered visible field IDs through `ProjectV2View.configuration.visibleFields`.
+
+For every view whose visible fields already include `Workflow State`, append `Delivery State` when absent while preserving every existing visible field ID and order. Update each affected view with `updateProjectV2View(input: {viewId: ..., configuration: {visibleFieldIds: [...]}})` and verify by one readback after all updates.
+
+Do not otherwise change view names, layouts, filters, grouping, sorting, slicing, or field order.
+
+### 4. Backfill the legacy Wayfinder state
+
+This is the only migration-time lifecycle translation allowed from an existing Project value.
+
+For each current Project row with:
+
+```text
+Artifact Type = Wayfinder Map
+Workflow State = Ready to Spec
+```
+
+recover the canonical Wayfinder issue and its durable `Spec Handoff`. Reconcile the referenced `Derived Spec` / `Remediation Spec` identities against their durable provenance. If at least one such governed Spec exists and remains open, translate only:
+
+```text
+Workflow State: Ready to Spec → Spec Delivery
+base Next Skill: $to-specs → None
+base Work Status: Ready → In Progress
+```
+
+If no durable Spec handoff exists, preserve `Ready to Spec`. If handoff/provenance is ambiguous, fail closed for that row rather than guessing.
+
+This backfill corrects the old overloaded presentation; it does not make Project state authoritative.
+
+After the schema/backfill verifies, return control to `$project-delivery-management`, which owns the authoritative delivery-state reconciliation and overlay sync for canonical Wayfinders.
+
 ## Execution Contract
 
-Use the deterministic command path below.
+Use the deterministic command path below for steady-state projection and overlay sync.
 
 Do **not**:
 
 * probe `gh` capabilities with `--help`;
 * try alternate command/flag combinations;
 * retry a failed command using a different interface;
-* inspect or repair Project views, workflows, auto-add rules, or schema;
+* inspect or repair Project views, workflows, auto-add rules, or schema outside explicit **Delivery Projection Schema Migration**;
 * narrate successful intermediate discovery, field edits, waits, or no-op checks.
 
 The supported baseline is GitHub CLI `gh 2.97.0` or newer with authenticated `project` scope.
@@ -268,7 +394,13 @@ Require existing fields:
 * `Root Blocker` — text;
 * `Completed On` — date.
 
-When project-delivery bootstrap is active, require the existing `Next Skill` option `$project-delivery-management`.
+When project-delivery bootstrap is active, additionally require:
+
+* `Delivery State` — single select with `Focused`, `Focused Stalled`, `Eligible`, `Blocked`;
+* `Workflow State` option `Spec Delivery`;
+* `Next Skill` option `$project-delivery-management`.
+
+If these projection additions are missing, return drift and direct the parent `$project-delivery-management` flow to its explicit `migrate-projection` operation. Steady-state `$project-tracking` never mutates schema.
 
 From this one response capture:
 
@@ -276,8 +408,6 @@ From this one response capture:
 * every requested single-select option ID.
 
 Validate only the fields/options required by the supplied projections. Do not inspect unrelated Project configuration.
-
-Never create, rename, delete, or repair Projects, fields, options, views, workflows, or auto-add rules.
 
 ## 3. Read Affected Current Rows Once
 
@@ -289,6 +419,7 @@ gh project item-list "$PROJECT_NUMBER" \
   --limit 1000 \
   --field "Artifact Type" \
   --field "Workflow State" \
+  --field "Delivery State" \
   --field "Next Skill" \
   --field "Work Status" \
   --field "Intake State" \
@@ -334,7 +465,8 @@ Write only differences.
 
 Rules:
 
-* `Artifact Type`, `Workflow State`, final `Next Skill`, final `Work Status`, and `Area` → set only when different;
+* `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, final `Work Status`, and `Area` → set only when different;
+* clear `Delivery State` only when the final projection intentionally has no delivery context or is complete;
 * `Priority` → preserve unless caller supplied it; then set only when different;
 * `Root Blocker = RB-n` → set text only when different;
 * `Root Blocker = None` → clear only when currently populated;
@@ -420,6 +552,7 @@ Require exact agreement with every final projection:
 
 * every artifact is a Project member;
 * required formal fields equal final projected values;
+* `Delivery State` is set/cleared exactly as required;
 * `Root Blocker` is set/cleared as requested;
 * `Completed On` is set/cleared as requested;
 * `Priority` changed only when supplied;
@@ -477,7 +610,9 @@ This helper may:
 * ensure formal issue membership in the existing Polaris Project;
 * validate caller-supplied project-delivery context;
 * apply the deterministic delivery overlay;
+* project the visible `Delivery State` field;
 * set/clear existing Project field values;
+* in explicitly authorized migration mode only, create the exact `Delivery State` field, add the exact `Spec Delivery` Workflow State option while preserving existing option identities, expose `Delivery State` in existing workflow views, and translate the legacy overloaded `Ready to Spec` representation;
 * verify final projection.
 
 This helper must not:
@@ -487,7 +622,7 @@ This helper must not:
 * modify GitHub issue labels or issue content;
 * open/close issues;
 * create/change parent, sub-issue, or blocking relationships;
-* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation;
+* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation outside the exact explicit migration above;
 * archive/delete formal workflow history;
 * modify repository files;
 * perform another lifecycle Human Handoff.

@@ -13,7 +13,7 @@ Reconcile the public Polaris GitHub Project after the owning lifecycle has alrea
 
 ## Invocation Boundary
 
-`$project-tracking` supports three internal modes.
+`$project-tracking` supports two internal modes.
 
 ### Formal Artifact Projection
 
@@ -54,12 +54,6 @@ The caller supplies one or more exact Wayfinder Map URLs plus their current auth
 
 Any other existing Wayfinder workflow state is projection drift and fails closed. This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Workflow State`.
 
-### Delivery Projection Schema Migration
-
-This mode is allowed only as internal composition of an explicit human `$project-delivery-management migrate-projection` invocation.
-
-It performs the narrow one-time/idempotent migration defined in **Delivery Projection Schema Migration** below. Steady-state callers must never enter this mode.
-
 Do not hand `$project-tracking` itself to the human. Return its result to the caller.
 
 ## Authority Rules
@@ -75,7 +69,7 @@ Never infer workflow or delivery truth from:
 * hierarchy/sub-issue position alone;
 * prior conversation/session memory.
 
-Project state may be read only to detect and repair projection drift, except for the narrowly bounded legacy representation migration defined below.
+Project state may be read only to detect and repair projection drift.
 
 Project-delivery focus is authoritative only through `$project-delivery-management` and canonical tracker state. `$project-tracking` never derives focus from Project values.
 
@@ -237,86 +231,6 @@ Rejected projection: <field=value summary>
 Reason: <concise invariant failure>
 ```
 
-## Delivery Projection Schema Migration
-
-This migration exists only to establish the projection vocabulary introduced by project-delivery management and to translate the one legacy overloaded Wayfinder state. It is not a general Project schema-management facility.
-
-Resolve the existing `Polaris` Project exactly as in steady-state execution, then read its field schema once.
-
-### 1. Ensure `Delivery State`
-
-If `Delivery State` is absent, create it exactly once:
-
-```bash
-gh project field-create "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --name "Delivery State" \
-  --data-type SINGLE_SELECT \
-  --single-select-options "Focused,Focused Stalled,Eligible,Blocked" \
-  --format json
-```
-
-If it already exists, require it to be a single-select field containing exactly those four option names. A partial/conflicting field is migration drift; do not delete or recreate it.
-
-### 2. Ensure `Workflow State = Spec Delivery`
-
-If the existing `Workflow State` single-select already contains `Spec Delivery`, do nothing.
-
-Otherwise fetch that field through GraphQL including every current option's `id`, `name`, `color`, and `description`. Build one replacement option array containing every existing option unchanged by identity plus:
-
-```json
-{"name":"Spec Delivery","color":"BLUE","description":"Wayfinder has durable Spec handoffs with active governed Specs."}
-```
-
-Update the field with one `updateProjectV2Field` mutation. Existing option IDs **must** be supplied so current item values remain attached. Never rebuild options by name alone.
-
-Example mutation shape:
-
-```graphql
-mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-  updateProjectV2Field(input: {fieldId: $fieldId, singleSelectOptions: $options}) {
-    projectV2Field {
-      ... on ProjectV2SingleSelectField { id name }
-    }
-  }
-}
-```
-
-Use `jq` to construct a JSON request containing `query` and typed `variables`, then submit it once with `gh api graphql --input <file>`. Re-read the field and require all pre-migration option IDs/names plus `Spec Delivery` to be present.
-
-### 3. Make `Delivery State` visible
-
-Read all Project views and each view's ordered visible field IDs through `ProjectV2View.configuration.visibleFields`.
-
-For every view whose visible fields already include `Workflow State`, append `Delivery State` when absent while preserving every existing visible field ID and order. Update each affected view with `updateProjectV2View(input: {viewId: ..., configuration: {visibleFieldIds: [...]}})` and verify by one readback after all updates.
-
-Do not otherwise change view names, layouts, filters, grouping, sorting, slicing, or field order.
-
-### 4. Backfill the legacy Wayfinder state
-
-This is the only migration-time lifecycle translation allowed from an existing Project value.
-
-For each current Project row with:
-
-```text
-Artifact Type = Wayfinder Map
-Workflow State = Ready to Spec
-```
-
-recover the canonical Wayfinder issue and its durable `Spec Handoff`. Reconcile the referenced `Derived Spec` / `Remediation Spec` identities against their durable provenance. If at least one such governed Spec exists and remains open, translate only:
-
-```text
-Workflow State: Ready to Spec → Spec Delivery
-base Next Skill: $to-specs → None
-base Work Status: Ready → In Progress
-```
-
-If no durable Spec handoff exists, preserve `Ready to Spec`. If handoff/provenance is ambiguous, fail closed for that row rather than guessing.
-
-This backfill corrects the old overloaded presentation; it does not make Project state authoritative.
-
-After the schema/backfill verifies, return control to `$project-delivery-management`, which owns the authoritative delivery-state reconciliation and overlay sync for canonical Wayfinders.
-
 ## Execution Contract
 
 Use the deterministic command path below for steady-state projection and overlay sync.
@@ -326,7 +240,7 @@ Do **not**:
 * probe `gh` capabilities with `--help`;
 * try alternate command/flag combinations;
 * retry a failed command using a different interface;
-* inspect or repair Project views, workflows, auto-add rules, or schema outside explicit **Delivery Projection Schema Migration**;
+* inspect or repair Project views, workflows, auto-add rules, or schema;
 * narrate successful intermediate discovery, field edits, waits, or no-op checks.
 
 The supported baseline is GitHub CLI `gh 2.97.0` or newer with authenticated `project` scope.
@@ -400,7 +314,7 @@ When project-delivery bootstrap is active, additionally require:
 * `Workflow State` option `Spec Delivery`;
 * `Next Skill` option `$project-delivery-management`.
 
-If these projection additions are missing, return drift and direct the parent `$project-delivery-management` flow to its explicit `migrate-projection` operation. Steady-state `$project-tracking` never mutates schema.
+If these projection additions are missing, return drift and report the exact missing Project schema. Steady-state `$project-tracking` never mutates schema.
 
 From this one response capture:
 
@@ -612,7 +526,6 @@ This helper may:
 * apply the deterministic delivery overlay;
 * project the visible `Delivery State` field;
 * set/clear existing Project field values;
-* in explicitly authorized migration mode only, create the exact `Delivery State` field, add the exact `Spec Delivery` Workflow State option while preserving existing option identities, expose `Delivery State` in existing workflow views, and translate the legacy overloaded `Ready to Spec` representation;
 * verify final projection.
 
 This helper must not:
@@ -622,7 +535,7 @@ This helper must not:
 * modify GitHub issue labels or issue content;
 * open/close issues;
 * create/change parent, sub-issue, or blocking relationships;
-* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation outside the exact explicit migration above;
+* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation;
 * archive/delete formal workflow history;
 * modify repository files;
 * perform another lifecycle Human Handoff.

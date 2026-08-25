@@ -773,6 +773,9 @@ async def test_governed_release_blocks_matching_review_context() -> None:
     assert exact_scope.allowed is True
     assert exact_scope.approval_state is GovernanceReviewApprovalState.REVIEW_APPROVED
     assert exact_scope.review_task_id == task.review_task_id
+    assert exact_scope.review_decision_outcome is (
+        GovernanceReviewDecisionOutcome.APPROVED
+    )
 
 
 @pytest.mark.asyncio
@@ -861,6 +864,7 @@ async def test_governed_release_blocks_non_approved_review_states(
     assert release.allowed is False
     assert release.approval_state is approval_state
     assert release.review_task_id == task.review_task_id
+    assert release.review_decision_outcome is outcome
     assert approval_state.value in release.reason
 
 
@@ -987,6 +991,9 @@ async def test_vigilant_release_requires_scoped_residual_risk_acceptance() -> No
         GovernanceReviewApprovalState.PENDING_REVIEW
     )
     assert exact_scope.allowed is True
+    assert exact_scope.review_decision_outcome is (
+        GovernanceReviewDecisionOutcome.APPROVED
+    )
     assert exact_scope.residual_risk_acceptance_id == (
         repository.residual_risk_acceptances[0].acceptance_id
     )

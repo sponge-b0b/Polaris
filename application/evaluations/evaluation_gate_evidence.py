@@ -4,10 +4,22 @@ import hashlib
 import json
 import logging
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from typing import Protocol
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
-from application.evaluations.risk_authority_gate import RiskAuthorityGateEvidence
+from application.evaluations.risk_authority_gate import (
+    OutputGovernanceGateEvidence,
+    RiskAuthorityGateEvidence,
+)
+from application.governance import (
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
+from core.storage.persistence.governance_audit import (
+    AutomatedDecisionEvidenceReference,
+    AutomatedDecisionSubject,
+)
 from core.workflow.registry.workflow_registry import (
     WorkflowAuthorityFacts,
     WorkflowRegistry,
@@ -29,6 +41,85 @@ from domain.evaluation import EvaluationCase
 _EVALUATION_READINESS_RETENTION_UNTIL = "2031-07-29T00:00:00Z"
 _EVALUATION_READINESS_RETENTION_POLICY_ID = "evaluation-readiness-5y"
 logger = logging.getLogger(__name__)
+
+
+class GovernedOutputReleaseService(Protocol):
+    """Canonical release-gate service for output-governance accountability."""
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision: ...
+
+
+@dataclass(frozen=True, slots=True)
+class OutputGovernanceReadinessRequest:
+    """Factory for canonical governance release requests for readiness gates."""
+
+    subject_type: str
+    subject_id: str
+    review_scope: str
+    requested_action: str
+    boundary_name: str
+    residual_risk_scope: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "subject_type",
+            _clean_required(self.subject_type, "subject_type"),
+        )
+        object.__setattr__(
+            self,
+            "subject_id",
+            _clean_required(self.subject_id, "subject_id"),
+        )
+        object.__setattr__(
+            self,
+            "review_scope",
+            _clean_required(self.review_scope, "review_scope"),
+        )
+        object.__setattr__(
+            self,
+            "requested_action",
+            _clean_required(self.requested_action, "requested_action"),
+        )
+        object.__setattr__(
+            self,
+            "boundary_name",
+            _clean_required(self.boundary_name, "boundary_name"),
+        )
+        object.__setattr__(
+            self,
+            "residual_risk_scope",
+            _clean_required(self.residual_risk_scope, "residual_risk_scope"),
+        )
+
+    def release_request_for_packet(
+        self,
+        packet: DecisionEvidencePacket,
+    ) -> GovernedOutputReleaseRequest:
+        residual_risk_acceptance_required = (
+            packet.authority.risk_tier is RiskTier.VIGILANT
+        )
+        return GovernedOutputReleaseRequest(
+            authority=packet.authority,
+            subject=AutomatedDecisionSubject(
+                self.subject_type,
+                self.subject_id,
+            ),
+            evidence=AutomatedDecisionEvidenceReference(
+                packet_id=packet.packet_id,
+                packet_version=packet.schema_version,
+            ),
+            review_scope=self.review_scope,
+            requested_action=self.requested_action,
+            boundary_name=self.boundary_name,
+            residual_risk_acceptance_required=residual_risk_acceptance_required,
+            residual_risk_scope=(
+                self.residual_risk_scope if residual_risk_acceptance_required else None
+            ),
+        )
 
 
 def evaluation_gate_workflow_facts(
@@ -150,6 +241,57 @@ async def reacquire_authority_gate_decision_evidence(
             packet.packet_id for packet in reconstructed_packets
         ),
     )
+
+
+async def reacquire_output_governance_gate_evidence(
+    *,
+    evidence: RiskAuthorityGateEvidence,
+    release_service: GovernedOutputReleaseService | None,
+    readiness_request: OutputGovernanceReadinessRequest,
+) -> RiskAuthorityGateEvidence:
+    """Re-acquire canonical release/review state for readiness gate evidence."""
+
+    if not evidence.decision_evidence_packets:
+        return evidence
+    if release_service is None:
+        logger.warning(
+            "Output governance release service is not configured for readiness gate.",
+            extra={"decision_evidence_ids": evidence.decision_evidence_ids},
+        )
+        return evidence
+    output_governance_evidence = []
+    for packet in evidence.decision_evidence_packets:
+        if packet.authority.risk_tier is not RiskTier.VIGILANT:
+            continue
+        release_request = readiness_request.release_request_for_packet(packet)
+        try:
+            release_decision = await release_service.evaluate_governed_output_release(
+                release_request,
+            )
+        except Exception:
+            logger.warning(
+                "Output governance release decision re-acquisition failed closed.",
+                extra={"decision_evidence_id": packet.packet_id},
+                exc_info=True,
+            )
+            continue
+        output_governance_evidence.append(
+            OutputGovernanceGateEvidence.from_release_decision(
+                request=release_request,
+                decision=release_decision,
+            )
+        )
+    return replace(
+        evidence,
+        output_governance_evidence=tuple(output_governance_evidence),
+    )
+
+
+def _clean_required(value: str, field_name: str) -> str:
+    cleaned_value = value.strip()
+    if not cleaned_value:
+        raise ValueError(f"{field_name} cannot be empty.")
+    return cleaned_value
 
 
 def _reject_decision_evidence_packets(

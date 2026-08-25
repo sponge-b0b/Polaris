@@ -12,6 +12,10 @@ Clarified the runtime workflow invariant after RB-1 remediation preserved ADR-00
 
 Updated the approval-lifecycle invariant after governed output-release evaluation began persisting evidence-scoped review work before returning a blocked/pending release decision, matching the existing durable approval lifecycle boundary.
 
+## [2026-08-25] vigilant readiness governance accountability | implemented as gate evidence
+
+Recorded that Vigilant readiness gates must carry output-governance accountability evidence re-acquired through the canonical governed-output release service and bound to the selected decision evidence packet, including release allowance, approval state, review-task identity, reviewer outcome, and scoped residual-risk acceptance where required.
+
 ## [2026-08-15] workflow-output promotion authority | materializer-owned output evidence clarified
 
 Broadened the ADR-0018 governance invariant from named output classes to the general materializer-owned Enhanced/Vigilant output-promotion rule: generic workflow-output projection metadata, transport facts, and caller claims cannot authorize release, durable promotion, provenance, or release scope.

@@ -18,9 +18,12 @@ from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_definition_by_name,
 )
 from application.evaluations.evaluation_gate_evidence import (
+    GovernedOutputReleaseService,
+    OutputGovernanceReadinessRequest,
     canonical_evaluation_readiness_packet,
     evaluation_gate_workflow_facts,
     reacquire_authority_gate_decision_evidence,
+    reacquire_output_governance_gate_evidence,
 )
 from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.risk_authority_gate import (
@@ -85,6 +88,7 @@ class EvaluationRunService:
         DecisionEvidencePacketPersistenceService | None
     ) = None
     workflow_registry: WorkflowRegistry | None = None
+    governed_output_release_service: GovernedOutputReleaseService | None = None
 
     async def run_evaluation(
         self,
@@ -329,6 +333,12 @@ class EvaluationRunService:
             evidence=evidence,
             persistence_service=self.decision_evidence_packet_persistence_service,
         )
+        if evidence is not None:
+            evidence = await reacquire_output_governance_gate_evidence(
+                evidence=evidence,
+                release_service=self.governed_output_release_service,
+                readiness_request=_output_governance_readiness_request(request),
+            )
         return select_risk_authority_gate(
             request.authority_metadata,
             evidence=evidence,
@@ -359,15 +369,16 @@ class EvaluationRunService:
         )
 
 
-def _select_authority_gate(
+def _output_governance_readiness_request(
     request: EvaluationRunServiceRequest,
-) -> RiskAuthorityGateDecision:
-    return select_risk_authority_gate(
-        request.authority_metadata,
-        evidence=request.authority_gate_evidence,
-        expected_authority_metadata=expected_authority_metadata_for_evaluation_target(
-            request.target_type,
-        ),
+) -> OutputGovernanceReadinessRequest:
+    return OutputGovernanceReadinessRequest(
+        subject_type=request.target_type.value,
+        subject_id=f"evaluation_run:{request.run_id}",
+        review_scope=request.target_type.value,
+        requested_action="evaluate_readiness",
+        boundary_name="evaluation_run.readiness_gate",
+        residual_risk_scope=request.target_type.value,
     )
 
 

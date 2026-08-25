@@ -4,6 +4,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
+from application.governance.automated_decision_audit import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
+from core.storage.persistence.governance_audit import GovernanceReviewDecisionOutcome
 from domain.authority import (
     GateProfile,
     IntendedSink,
@@ -36,7 +42,114 @@ class RiskAuthorityGateFailureMode(StrEnum):
     METADATA_INCONSISTENT = "metadata_inconsistent"
     PROVENANCE_EVIDENCE_REQUIRED = "provenance_evidence_required"
     DECISION_EVIDENCE_REQUIRED = "decision_evidence_required"
+    OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED = "output_governance_evidence_required"
     PROHIBITED_BOUNDARY = "prohibited_boundary"
+
+
+@dataclass(frozen=True, slots=True)
+class OutputGovernanceGateReadiness:
+    """Readiness of governance accountability evidence for one output boundary."""
+
+    passed: bool
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class OutputGovernanceGateEvidence:
+    """Governance review/release accountability evidence for readiness gates."""
+
+    release_decision: GovernedOutputReleaseDecision
+    review_scope: str
+    requested_action: str
+    boundary_name: str
+    evidence_packet_id: str
+    evidence_packet_version: int
+    residual_risk_acceptance_required: bool = False
+    residual_risk_scope: str | None = None
+    review_decision_outcome: GovernanceReviewDecisionOutcome | None = None
+
+    @classmethod
+    def from_release_decision(
+        cls,
+        *,
+        request: GovernedOutputReleaseRequest,
+        decision: GovernedOutputReleaseDecision,
+    ) -> OutputGovernanceGateEvidence:
+        return cls(
+            release_decision=decision,
+            review_scope=request.review_scope,
+            requested_action=request.requested_action,
+            boundary_name=request.boundary_name,
+            evidence_packet_id=request.evidence.packet_id,
+            evidence_packet_version=request.evidence.packet_version,
+            residual_risk_acceptance_required=(
+                request.residual_risk_acceptance_required
+            ),
+            residual_risk_scope=request.residual_risk_scope,
+            review_decision_outcome=decision.review_decision_outcome,
+        )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.release_decision, GovernedOutputReleaseDecision):
+            raise ValueError(
+                "release_decision must be a GovernedOutputReleaseDecision instance."
+            )
+        object.__setattr__(
+            self,
+            "review_scope",
+            _clean_string(self.review_scope, "review_scope"),
+        )
+        object.__setattr__(
+            self,
+            "requested_action",
+            _clean_string(self.requested_action, "requested_action"),
+        )
+        object.__setattr__(
+            self,
+            "boundary_name",
+            _clean_string(self.boundary_name, "boundary_name"),
+        )
+        object.__setattr__(
+            self,
+            "evidence_packet_id",
+            _clean_string(self.evidence_packet_id, "evidence_packet_id"),
+        )
+        if self.evidence_packet_version < 1:
+            raise ValueError("evidence_packet_version must be positive.")
+        if self.residual_risk_acceptance_required and self.residual_risk_scope is None:
+            raise ValueError(
+                "residual_risk_scope is required when residual-risk acceptance "
+                "is required."
+            )
+        object.__setattr__(
+            self,
+            "residual_risk_scope",
+            _clean_optional_string(self.residual_risk_scope, "residual_risk_scope"),
+        )
+        if self.review_decision_outcome is not None and not isinstance(
+            self.review_decision_outcome,
+            GovernanceReviewDecisionOutcome,
+        ):
+            raise ValueError(
+                "review_decision_outcome must be a GovernanceReviewDecisionOutcome "
+                "instance."
+            )
+
+    @property
+    def allowed(self) -> bool:
+        return self.release_decision.allowed
+
+    @property
+    def approval_state(self) -> GovernanceReviewApprovalState | None:
+        return self.release_decision.approval_state
+
+    @property
+    def review_task_id(self) -> str | None:
+        return self.release_decision.review_task_id
+
+    @property
+    def residual_risk_acceptance_id(self) -> str | None:
+        return self.release_decision.residual_risk_acceptance_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +162,7 @@ class RiskAuthorityGateEvidence:
     model_replacement_gate_ids: tuple[str, ...] = ()
     decision_evidence_packets: tuple[DecisionEvidencePacket, ...] = ()
     decision_evidence_claim_references: tuple[EvidenceClaimReference, ...] = ()
+    output_governance_evidence: tuple[OutputGovernanceGateEvidence, ...] = ()
     rejected_evidence_ids: tuple[str, ...] = ()
     metric_result_count: int = 0
 
@@ -101,6 +215,15 @@ class RiskAuthorityGateEvidence:
                 "decision_evidence_claim_references",
             ),
         )
+        object.__setattr__(
+            self,
+            "output_governance_evidence",
+            _typed_tuple(
+                self.output_governance_evidence,
+                OutputGovernanceGateEvidence,
+                "output_governance_evidence",
+            ),
+        )
 
     @property
     def has_provenance_evidence(self) -> bool:
@@ -124,6 +247,65 @@ class RiskAuthorityGateEvidence:
             claim_references=self.decision_evidence_claim_references,
             rejected_evidence_ids=self.rejected_evidence_ids,
             required_risk_tier=required_risk_tier,
+        )
+
+    def output_governance_readiness(self) -> OutputGovernanceGateReadiness:
+        if not self.output_governance_evidence:
+            return OutputGovernanceGateReadiness(
+                passed=False,
+                message=(
+                    "Selected Vigilant authority gate profile requires output "
+                    "governance accountability evidence."
+                ),
+            )
+        packet_versions = {
+            packet.packet_id: packet.schema_version
+            for packet in self.decision_evidence_packets
+            if packet.authority.risk_tier is RiskTier.VIGILANT
+        }
+        if not packet_versions:
+            return OutputGovernanceGateReadiness(
+                passed=False,
+                message=(
+                    "Selected Vigilant authority gate profile requires selected "
+                    "Vigilant decision evidence packets before output governance "
+                    "accountability evidence."
+                ),
+            )
+        matched_packet_ids = set()
+        for evidence in self.output_governance_evidence:
+            evidence_packet_version = packet_versions.get(evidence.evidence_packet_id)
+            if evidence_packet_version is None:
+                return OutputGovernanceGateReadiness(
+                    passed=False,
+                    message=(
+                        "Output governance evidence does not match a selected "
+                        "Vigilant decision evidence packet."
+                    ),
+                )
+            if evidence_packet_version != evidence.evidence_packet_version:
+                return OutputGovernanceGateReadiness(
+                    passed=False,
+                    message=(
+                        "Output governance evidence references a mismatched "
+                        "decision evidence packet version."
+                    ),
+                )
+            failure = _output_governance_failure(evidence)
+            if failure is not None:
+                return OutputGovernanceGateReadiness(passed=False, message=failure)
+            matched_packet_ids.add(evidence.evidence_packet_id)
+        if set(packet_versions) != matched_packet_ids:
+            return OutputGovernanceGateReadiness(
+                passed=False,
+                message=(
+                    "Output governance evidence is missing for a selected Vigilant "
+                    "decision evidence packet."
+                ),
+            )
+        return OutputGovernanceGateReadiness(
+            passed=True,
+            message="Output governance accountability evidence is complete.",
         )
 
 
@@ -252,6 +434,13 @@ def select_risk_authority_gate(
                 expected_gate_profile=authoritative_contract.gate_profile,
             )
 
+    output_governance_failure = _output_governance_required_decision(
+        authoritative_contract,
+        gate_evidence,
+    )
+    if output_governance_failure is not None:
+        return output_governance_failure
+
     if decision_profile.requires_decision_evidence and not (
         gate_evidence.has_decision_evidence
     ):
@@ -349,6 +538,28 @@ def _missing_metadata_decision(
     )
 
 
+def _output_governance_required_decision(
+    authoritative_contract: RiskAuthorityContract,
+    gate_evidence: RiskAuthorityGateEvidence,
+) -> RiskAuthorityGateDecision | None:
+    if authoritative_contract.risk_tier is not RiskTier.VIGILANT:
+        return None
+    output_governance_readiness = gate_evidence.output_governance_readiness()
+    if output_governance_readiness.passed:
+        return None
+    return RiskAuthorityGateDecision(
+        status=RiskAuthorityGateDecisionStatus.FAILED,
+        failure_mode=RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED,
+        message=output_governance_readiness.message,
+        risk_tier=authoritative_contract.risk_tier,
+        gate_profile=authoritative_contract.gate_profile,
+        authority_metadata=authoritative_contract.to_metadata(),
+        evidence=gate_evidence,
+        expected_risk_tier=authoritative_contract.risk_tier,
+        expected_gate_profile=authoritative_contract.gate_profile,
+    )
+
+
 def _metadata_copy(
     authority_metadata: Mapping[str, object] | RiskAuthorityContract,
 ) -> Mapping[str, object]:
@@ -386,6 +597,77 @@ def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, 
             raise ValueError(f"{field_name} cannot contain empty strings.")
         cleaned_values.append(cleaned_value)
     return tuple(cleaned_values)
+
+
+def _clean_string(value: str, field_name: str) -> str:
+    cleaned_value = value.strip()
+    if not cleaned_value:
+        raise ValueError(f"{field_name} cannot be empty.")
+    return cleaned_value
+
+
+def _clean_optional_string(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _clean_string(value, field_name)
+
+
+def _output_governance_failure(
+    evidence: OutputGovernanceGateEvidence,
+) -> str | None:
+    decision = evidence.release_decision
+    if decision.approval_state is None:
+        return "Output governance evidence must carry approval state."
+    if decision.review_task_id is None:
+        return "Output governance evidence must carry a review task id."
+    if not decision.review_task_id.strip():
+        return "Output governance evidence review task id cannot be empty."
+    expected_outcome = _REVIEW_OUTCOME_BY_APPROVAL_STATE.get(decision.approval_state)
+    if expected_outcome is not None and evidence.review_decision_outcome is None:
+        return "Output governance evidence must carry the reviewer outcome."
+    if (
+        expected_outcome is not None
+        and evidence.review_decision_outcome is not expected_outcome
+    ):
+        return (
+            "Output governance evidence reviewer outcome does not match approval state."
+        )
+    if not decision.allowed:
+        return (
+            "Output governance release is not allowed: "
+            f"{decision.approval_state.value}."
+        )
+    if decision.approval_state not in _RELEASE_ALLOWED_APPROVAL_STATES:
+        return "Output governance approval state does not permit release."
+    if (
+        evidence.residual_risk_acceptance_required
+        and decision.residual_risk_acceptance_id is None
+    ):
+        return "Output governance evidence must carry residual-risk acceptance."
+    return None
+
+
+_RELEASE_ALLOWED_APPROVAL_STATES = frozenset(
+    (
+        GovernanceReviewApprovalState.REVIEW_APPROVED,
+        GovernanceReviewApprovalState.REVIEW_OVERRIDDEN,
+    )
+)
+_REVIEW_OUTCOME_BY_APPROVAL_STATE = {
+    GovernanceReviewApprovalState.REVIEW_APPROVED: (
+        GovernanceReviewDecisionOutcome.APPROVED
+    ),
+    GovernanceReviewApprovalState.REVIEW_DENIED: GovernanceReviewDecisionOutcome.DENIED,
+    GovernanceReviewApprovalState.REVIEW_CONTESTED: (
+        GovernanceReviewDecisionOutcome.CONTESTED
+    ),
+    GovernanceReviewApprovalState.CHANGES_REQUESTED: (
+        GovernanceReviewDecisionOutcome.CHANGES_REQUESTED
+    ),
+    GovernanceReviewApprovalState.REVIEW_OVERRIDDEN: (
+        GovernanceReviewDecisionOutcome.OVERRIDDEN
+    ),
+}
 
 
 def _typed_tuple[T](

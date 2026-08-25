@@ -87,6 +87,7 @@ class GovernedOutputReleaseDecision:
     approval_state: GovernanceReviewApprovalState | None = None
     review_task_id: str | None = None
     residual_risk_acceptance_id: str | None = None
+    review_decision_outcome: GovernanceReviewDecisionOutcome | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -684,11 +685,15 @@ class AutomatedDecisionAuditService:
             )
 
         approval_state = _approval_state_for_task_status(task.status)
+        review_decision_outcome = await self._latest_review_decision_outcome(
+            task.review_task_id,
+        )
         if task.status not in _RELEASE_APPROVED_TASK_STATUSES:
             return await self._blocked_governed_output_release_decision(
                 request,
                 approval_state=approval_state,
                 review_task_id=task.review_task_id,
+                review_decision_outcome=review_decision_outcome,
                 reason=(
                     f"{request.boundary_name} is blocked by governance review "
                     f"state {approval_state.value}."
@@ -707,6 +712,7 @@ class AutomatedDecisionAuditService:
                         GovernanceReviewApprovalState.RESIDUAL_RISK_ACCEPTANCE_REQUIRED
                     ),
                     review_task_id=task.review_task_id,
+                    review_decision_outcome=review_decision_outcome,
                     reason=(
                         f"{request.boundary_name} is blocked: vigilant review "
                         "requires scoped residual-risk acceptance for this "
@@ -718,6 +724,7 @@ class AutomatedDecisionAuditService:
                 approval_state=approval_state,
                 review_task_id=task.review_task_id,
                 residual_risk_acceptance_id=acceptance.acceptance_id,
+                review_decision_outcome=review_decision_outcome,
                 reason="governance review and residual-risk acceptance permit release",
             )
 
@@ -725,6 +732,7 @@ class AutomatedDecisionAuditService:
             allowed=True,
             approval_state=approval_state,
             review_task_id=task.review_task_id,
+            review_decision_outcome=review_decision_outcome,
             reason="governance review permits release",
         )
 
@@ -801,11 +809,13 @@ class AutomatedDecisionAuditService:
         approval_state: GovernanceReviewApprovalState,
         reason: str,
         review_task_id: str | None = None,
+        review_decision_outcome: GovernanceReviewDecisionOutcome | None = None,
     ) -> GovernedOutputReleaseDecision:
         decision = GovernedOutputReleaseDecision(
             allowed=False,
             approval_state=approval_state,
             review_task_id=review_task_id,
+            review_decision_outcome=review_decision_outcome,
             reason=reason,
         )
         await self._approval_observability.blocked_release(
@@ -821,6 +831,17 @@ class AutomatedDecisionAuditService:
             trace_context=request.trace_context,
         )
         return decision
+
+    async def _latest_review_decision_outcome(
+        self,
+        review_task_id: str,
+    ) -> GovernanceReviewDecisionOutcome | None:
+        decisions = await self.list_governance_review_decisions(
+            GovernanceReviewDecisionQuery(review_task_id=review_task_id),
+        )
+        if not decisions:
+            return None
+        return max(decisions, key=lambda decision: decision.decided_at).outcome
 
     async def _governance_review_state_from_task(
         self,

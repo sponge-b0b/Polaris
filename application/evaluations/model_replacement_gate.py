@@ -18,9 +18,12 @@ from application.evaluations.evaluation_datasets import (
     canonical_evaluation_dataset_slice_definition_by_name,
 )
 from application.evaluations.evaluation_gate_evidence import (
+    GovernedOutputReleaseService,
+    OutputGovernanceReadinessRequest,
     canonical_evaluation_readiness_packet,
     evaluation_gate_workflow_facts,
     reacquire_authority_gate_decision_evidence,
+    reacquire_output_governance_gate_evidence,
 )
 from application.evaluations.rag_evaluation_metrics import (
     intelligence_evaluation_metric_specs,
@@ -324,6 +327,7 @@ class ModelReplacementValidationGate:
         DecisionEvidencePacketPersistenceService | None
     ) = None
     workflow_registry: WorkflowRegistry | None = None
+    governed_output_release_service: GovernedOutputReleaseService | None = None
 
     async def validate(
         self,
@@ -451,6 +455,11 @@ class ModelReplacementValidationGate:
                 ),
                 persistence_service=self.decision_evidence_packet_persistence_service,
             )
+        authority_evidence = await reacquire_output_governance_gate_evidence(
+            evidence=authority_evidence,
+            release_service=self.governed_output_release_service,
+            readiness_request=_output_governance_readiness_request(gate_id, section),
+        )
         authority_gate_decision = select_risk_authority_gate(
             authority_contract,
             evidence=authority_evidence,
@@ -822,6 +831,38 @@ def _authority_gate_details(
                 ),
             }
         )
+    if decision.risk_tier is RiskTier.VIGILANT:
+        output_governance_readiness = decision.evidence.output_governance_readiness()
+        details.update(
+            {
+                "output_governance_readiness_complete": (
+                    output_governance_readiness.passed
+                ),
+                "output_governance_readiness_message": (
+                    output_governance_readiness.message
+                ),
+                "output_governance_approval_states": tuple(
+                    evidence.approval_state.value
+                    for evidence in decision.evidence.output_governance_evidence
+                    if evidence.approval_state is not None
+                ),
+                "output_governance_review_task_ids": tuple(
+                    evidence.review_task_id
+                    for evidence in decision.evidence.output_governance_evidence
+                    if evidence.review_task_id is not None
+                ),
+                "output_governance_reviewer_outcomes": tuple(
+                    evidence.review_decision_outcome.value
+                    for evidence in decision.evidence.output_governance_evidence
+                    if evidence.review_decision_outcome is not None
+                ),
+                "output_governance_residual_risk_acceptance_ids": tuple(
+                    evidence.residual_risk_acceptance_id
+                    for evidence in decision.evidence.output_governance_evidence
+                    if evidence.residual_risk_acceptance_id is not None
+                ),
+            }
+        )
     if decision.risk_tier is not None:
         details["selected_risk_tier"] = decision.risk_tier.value
     if decision.gate_profile is not None:
@@ -1137,6 +1178,20 @@ def _evaluation_run_id(
     return (
         f"model_replacement_gate_{gate_id}_{section.value}_"
         f"{target_type.value}_{dataset.name}"
+    )
+
+
+def _output_governance_readiness_request(
+    gate_id: str,
+    section: ModelReplacementGateSection,
+) -> OutputGovernanceReadinessRequest:
+    return OutputGovernanceReadinessRequest(
+        subject_type=section.value,
+        subject_id=f"model_replacement_gate:{gate_id}:{section.value}",
+        review_scope=section.value,
+        requested_action="validate_model_replacement",
+        boundary_name="model_replacement_gate.readiness_gate",
+        residual_risk_scope=section.value,
     )
 
 

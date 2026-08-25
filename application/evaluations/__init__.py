@@ -75,6 +75,8 @@ from application.evaluations.rag_evaluation_metrics import (
     rag_threshold_profile,
 )
 from application.evaluations.risk_authority_gate import (
+    OutputGovernanceGateEvidence,
+    OutputGovernanceGateReadiness,
     RiskAuthorityGateDecision,
     RiskAuthorityGateDecisionStatus,
     RiskAuthorityGateEvidence,
@@ -120,6 +122,8 @@ __all__ = [
     "expected_authority_metadata_for_evaluation_target",
     "EvaluationRunServiceRequest",
     "EvaluationRunServiceResult",
+    "OutputGovernanceGateEvidence",
+    "OutputGovernanceGateReadiness",
     "RiskAuthorityGateDecision",
     "RiskAuthorityGateDecisionStatus",
     "RiskAuthorityGateEvidence",

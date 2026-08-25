@@ -453,5 +453,34 @@ def _authority_gate_payload(
             "expected_gate_profile": decision.expected_gate_profile.value
             if decision.expected_gate_profile is not None
             else None,
+            "output_governance_evidence": _output_governance_payload(decision),
         },
     }
+
+
+def _output_governance_payload(
+    decision: RiskAuthorityGateDecision,
+) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {
+            "allowed": evidence.allowed,
+            "approval_state": evidence.approval_state.value
+            if evidence.approval_state is not None
+            else None,
+            "review_task_id": evidence.review_task_id,
+            "review_decision_outcome": evidence.review_decision_outcome.value
+            if evidence.review_decision_outcome is not None
+            else None,
+            "review_scope": evidence.review_scope,
+            "requested_action": evidence.requested_action,
+            "boundary_name": evidence.boundary_name,
+            "evidence_packet_id": evidence.evidence_packet_id,
+            "evidence_packet_version": evidence.evidence_packet_version,
+            "residual_risk_acceptance_required": (
+                evidence.residual_risk_acceptance_required
+            ),
+            "residual_risk_scope": evidence.residual_risk_scope,
+            "residual_risk_acceptance_id": evidence.residual_risk_acceptance_id,
+        }
+        for evidence in decision.evidence.output_governance_evidence
+    )

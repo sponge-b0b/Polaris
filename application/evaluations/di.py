@@ -14,6 +14,7 @@ from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.model_replacement_gate import (
     ModelReplacementValidationGate,
 )
+from application.governance import AutomatedDecisionAuditService
 from application.observability.langfuse_projection import AiObservabilityProjector
 from config.settings import Settings
 from core.storage.persistence.evaluation import EvaluationPersistenceRepository
@@ -89,6 +90,7 @@ class ApplicationEvaluationsDIProvider(Provider):
             DecisionEvidencePacketPersistenceService
         ),
         workflow_facade: WorkflowFacade,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> EvaluationRunService:
         return EvaluationRunService(
             provider,
@@ -97,6 +99,7 @@ class ApplicationEvaluationsDIProvider(Provider):
             telemetry,
             decision_evidence_packet_persistence_service,
             workflow_facade.registry,
+            automated_decision_audit_service,
         )
 
     @provide
@@ -109,6 +112,7 @@ class ApplicationEvaluationsDIProvider(Provider):
             DecisionEvidencePacketPersistenceService
         ),
         workflow_facade: WorkflowFacade,
+        automated_decision_audit_service: AutomatedDecisionAuditService,
     ) -> ModelReplacementValidationGate:
         return ModelReplacementValidationGate(
             result_service=result_service,
@@ -118,6 +122,7 @@ class ApplicationEvaluationsDIProvider(Provider):
                 decision_evidence_packet_persistence_service
             ),
             workflow_registry=workflow_facade.registry,
+            governed_output_release_service=automated_decision_audit_service,
         )
 
     @provide

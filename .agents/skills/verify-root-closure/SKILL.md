@@ -23,6 +23,13 @@ When the human explicitly invokes `$verify-root-closure` in response to the Root
 
 The main agent must resume `$implement-ticket` at its verifier-dispatch checkpoint and spawn exactly one fresh verifier subagent.
 
+Before dispatch, the main agent must recover the ticket's durable `<!-- implement-ticket-root-checkpoint:v1 -->` comment and route by its recorded stage. This requirement applies even after complete conversational/session context loss:
+
+* `awaiting-root-verification` with matching ticket/branch/baseline/lineage/root/candidate state → the human invocation authorizes one fresh verifier dispatch;
+* `verifier-failed` → do **not** dispatch the stale candidate; resume `$implement-ticket` correction from the stored consolidated FAIL;
+* `verifier-passed` → do not re-certify; resume `$implement-ticket` persistence after state validation;
+* missing, duplicated, malformed, or contradictory checkpoint state after an attempt began → fail closed and return control to `$implement-ticket`.
+
 Only that fresh verifier executes the procedure below.
 
 If this skill is being executed directly by the `$implement-ticket` main agent, do not perform certification or emit a root-closure verdict.
@@ -66,9 +73,10 @@ Read:
 * preservation obligations;
 * affected semantic surfaces/reference kinds;
 * applicable accepted architecture referenced by the ticket;
-* Proposed Root Closure Evidence.
+* Proposed Root Closure Evidence;
+* the durable `$implement-ticket` root checkpoint used for this dispatch, including attempt number and candidate state.
 
-Use the caller-provided `TICKET_BASELINE`.
+Use the caller-provided `TICKET_BASELINE`. Require the checkpoint to be `Stage: awaiting-root-verification` and its ticket/branch/baseline/lineage/root/candidate state to match the dispatch inputs. The verifier does not mutate the checkpoint.
 
 When repository state is part of the root, inspect:
 
@@ -184,6 +192,28 @@ Relevant intersections may include the same runtime path/service/repository, typ
 
 Protected roots are Root Blocker IDs, not remediation-ticket numbers. Do not trust the implementer's protected-root list.
 
+For each protected root, distinguish durable historical remediation state from its **current governing authority**.
+
+* Recover the historical root invariant and acceptance/regression evidence.
+* Identify and re-read the current authoritative Standard, repository policy, ADR/document authority, workflow policy, configuration contract, schema contract, or other normative source that governs the intersecting surface.
+* Historical root wording does not silently become a permanent shadow policy when the governing authority has been explicitly and durably changed.
+* Current implementation behavior never counts as supersession by itself.
+* A current authority change supersedes historical policy wording only when that authority relationship/change is explicit and durable.
+* Preserve every unsuperseded part of the historical root contract.
+
+For Standards/policy-derived roots, evaluate the candidate against the **exact current rule**, including documented exceptions. Do not convert the old symptom into an automatic violation.
+
+A Standards/policy protected-root failure must cite:
+
+1. protected Root Blocker ID and historical concern;
+2. current governing authority;
+3. exact current rule violated;
+4. why any documented exception or explicit supersession does not apply.
+
+If current authority expressly permits the candidate under a documented exception, that fact may prove preservation; no owner override is required merely because the historical symptom is present.
+
+If the current authority relationship is ambiguous or cannot be recovered, mark the protected root `unproven`; do not invent a stricter historical rule or silently waive it.
+
 ## 4. Verify the Current Root
 
 Evaluate every `RC-*` cell in the Root Closure Coverage Manifest.
@@ -268,10 +298,13 @@ Fail immediately only for a **verifier-integrity failure** that makes continued 
 
 For every independently derived protected root:
 
-1. recover its invariant and applicable existing acceptance/regression proof;
-2. inspect the modified shared surface;
-3. rerun only proof affected by the current ticket;
-4. record whether the root remains preserved.
+1. recover its historical invariant and applicable existing acceptance/regression proof;
+2. recover the current governing authority for the intersecting contract and reconcile any explicit durable policy change or documented exception;
+3. inspect the modified shared surface;
+4. rerun only proof affected by the current ticket;
+5. record whether the **currently applicable protected contract** remains preserved.
+
+For Standards/policy roots, a broad pattern match or old symptom is insufficient. The evidence must show why the current authoritative rule actually forbids the candidate at this boundary.
 
 If adequate current proof cannot establish preservation, mark the protected root `unproven`.
 
@@ -392,7 +425,7 @@ Preservation failures:
 - or None
 
 Protected-root failures:
-- RB-<n>: violated|unproven — <concrete evidence>
+- RB-<n>: violated|unproven — <concrete evidence>; current authority: <source/rule>; exception/supersession analysis: <why it does not apply>
 - or None
 
 Architecture-blocker candidates:

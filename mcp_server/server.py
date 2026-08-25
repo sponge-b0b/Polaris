@@ -18,6 +18,8 @@ from mcp_server.contracts.models import (
     CompletedRunGetResponse,
     CompletedRunsListRequest,
     CompletedRunsListResponse,
+    GovernanceReviewStatesListRequest,
+    GovernanceReviewStatesListResponse,
     RagAskRequest,
     RagAskResponse,
     RagStatusRequest,
@@ -32,6 +34,9 @@ from mcp_server.settings import McpServerSettings, McpTransport
 from mcp_server.tools.allowlist import validate_registered_tool_allowlist
 from mcp_server.tools.completed_run_get import execute_completed_run_get
 from mcp_server.tools.completed_runs import execute_completed_runs_list
+from mcp_server.tools.governance_review_state import (
+    execute_governance_review_states_list,
+)
 from mcp_server.tools.rag import execute_rag_ask
 from mcp_server.tools.rag_status import execute_rag_status
 from mcp_server.tools.workflow_describe import execute_workflow_describe
@@ -188,6 +193,33 @@ async def polaris_completed_run_get(
     """Delegate completed-run retrieval through the canonical workflow facade."""
 
     return await execute_completed_run_get(
+        request,
+        context.request_context.lifespan_context,
+        request_id=context.request_id,
+    )
+
+
+@server.tool(
+    name="polaris_governance_review_states_list",
+    description=(
+        "List governance approval and review states through the canonical "
+        "application query service."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    structured_output=True,
+)
+async def polaris_governance_review_states_list(
+    request: GovernanceReviewStatesListRequest,
+    context: Context,
+) -> GovernanceReviewStatesListResponse:
+    """Delegate governance review-state queries through a request scope."""
+
+    return await execute_governance_review_states_list(
         request,
         context.request_context.lifespan_context,
         request_id=context.request_id,

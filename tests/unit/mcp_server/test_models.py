@@ -26,6 +26,7 @@ _SCHEMA_SNAPSHOT = Path(__file__).parent / "snapshots" / "tool_input_schemas.jso
 _EXPECTED_TOOLS = {
     "polaris_completed_run_get",
     "polaris_completed_runs_list",
+    "polaris_governance_review_states_list",
     "polaris_rag_ask",
     "polaris_rag_status",
     "polaris_workflow_describe",
@@ -33,7 +34,7 @@ _EXPECTED_TOOLS = {
 }
 
 
-def test_tool_catalog_has_exactly_six_typed_input_and_output_contracts() -> None:
+def test_tool_catalog_has_exactly_seven_typed_input_and_output_contracts() -> None:
     assert set(TOOL_INPUT_MODELS) == _EXPECTED_TOOLS
     assert set(TOOL_OUTPUT_MODELS) == _EXPECTED_TOOLS
 

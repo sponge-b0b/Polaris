@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Spec Merge & Cleanup
 
-Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking findings, every Root Blocker satisfied or Owner-overridden, and no unresolved Candidate new root.
+Invoked by `$review-spec` only after its Exit Gate passes: zero Blocking findings, every Root Blocker satisfied, Owner-overridden, or Scope-retired, and no unresolved Candidate new root.
 
 Execution splits depending on whether the Spec used `spec-<spec_issue_number>` and whether authoritative Spec completion has already occurred.
 
@@ -23,9 +23,37 @@ Never assume an invocation is pre-merge merely because cleanup work remains. Det
 
 ## Review Exit Authorization
 
-Before closing or merging anything, and before resuming interrupted post-completion cleanup, recover the latest **Spec Review Exit Receipt** from the parent Spec issue.
+Before closing or merging anything, and before resuming interrupted post-completion cleanup, resolve the parent Spec's **one conventional Spec Review issue** and recover the latest **Spec Review Exit Receipt** from that review issue. The parent Spec owns workspace metadata and Spec Verification Receipts; the Spec Review owns review/remediation state and the final review Exit Receipt.
 
-The receipt must have been persisted by `$review-spec` only after its Exit Gate passed:
+Resolve the review issue deterministically from durable issue state. Do not probe unsupported `gh issue view --json` fields or infer it from Project fields, labels, prior conversation, or a receipt copied onto the parent Spec.
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+SPEC_NUMBER=<parent Spec issue number>
+PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
+
+REVIEW_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues?state=all&per_page=100"
+)
+
+REVIEW_MATCHES=$(
+  printf '%s\n' "$REVIEW_PAGES" \
+    | jq -c --arg parent "$PARENT_MARKER" '
+        [.[][]
+         | select(.pull_request == null)
+         | select(.title | startswith("Spec Review:"))
+         | select((.body // "") | contains($parent))
+         | {number, state, url: .html_url}]'
+)
+```
+
+Require exactly one match. Zero means review authorization is missing; more than one means durable review ownership is ambiguous. Set `SPEC_REVIEW_ISSUE_NUMBER` from that one match.
+
+Read all review comments once and select the latest well-formed `## Spec Review Exit Receipt` by durable comment order/date. Do not substitute a Spec Verification Receipt or historical Pending Review Remediation entry.
+
+The receipt must have been persisted by `$review-spec` only after its Exit Gate passed and must match the current producer schema:
 
 ```markdown
 ## Spec Review Exit Receipt
@@ -34,20 +62,27 @@ The receipt must have been persisted by `$review-spec` only after its Exit Gate 
 **Reviewed HEAD:** <full SHA>
 **Reviewed Baseline:** <full Spec baseline SHA>
 **Branch:** spec-<spec_issue_number>
+**Spec Body Hash:** <hash>
+**Spec Contract Hash:** <hash>
 **Blocking findings:** 0
-**Root blockers:** satisfied-or-owner-overridden
+**Root blockers:** satisfied/owner-overridden/scope-retired
 **Candidate new roots:** 0
+**Review coverage:** complete
+**Unchecked coverage cells:** 0
 ```
 
-Recover the current Spec baseline from its durable workspace metadata.
+Recover the current Spec baseline from its durable workspace metadata and the latest passing Spec Verification Receipt on the parent Spec for the same candidate HEAD.
 
 Require:
 
+* the Spec Review issue durably identifies `Parent Spec: #<spec_issue_number>`;
 * `Status` is `passed`;
 * `Reviewed Baseline` equals the current Spec baseline;
+* `Spec Body Hash` and `Spec Contract Hash` equal the parent Spec's latest passing Spec Verification Receipt for the same `Reviewed HEAD`;
 * `Blocking findings` is `0`;
-* `Root blockers` is `satisfied-or-owner-overridden`;
+* `Root blockers` is exactly `satisfied/owner-overridden/scope-retired`;
 * `Candidate new roots` is `0`;
+* `Review coverage` is `complete` and `Unchecked coverage cells` is `0`;
 * before merge, when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`;
 * during post-merge recovery, `Reviewed HEAD` exactly equals the matching merged PR's recorded head SHA.
 
@@ -55,7 +90,7 @@ Any commit after the receipt and before merge makes the authorization stale.
 
 A later commit on a still-existing Spec branch **after** the reviewed HEAD was merged does not retroactively invalidate the completed merge, but it makes that branch unsafe to delete automatically. Post-merge cleanup must fail closed on branch-tip drift rather than deleting unmerged work.
 
-If the receipt is missing, malformed, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
+If the review issue/receipt is missing, malformed, ambiguous, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
 
 > ⚠️ **Spec cleanup requires durable review authorization.**
 >
@@ -65,7 +100,47 @@ If the receipt is missing, malformed, or cannot be bound either to the current p
 > $review-spec - <Spec Title> (<Spec URL>)
 > ```
 
-Do not invoke `$review-spec` implicitly.
+Do not invoke `$review-spec` implicitly and do not copy/recreate the receipt on the parent Spec merely to satisfy cleanup.
+
+### Canonical Lifecycle Reads
+
+Use canonical GitHub REST state for phase detection. Do not probe `gh issue view --json closingIssuesReferences` or other optional/unsupported CLI JSON fields, and do not retry the same fact through alternate interfaces after a prescribed read succeeds.
+
+Read Spec state directly:
+
+```bash
+SPEC_STATE=$(gh api \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  "repos/$REPO/issues/$SPEC_NUMBER" \
+  --jq '.state')
+```
+
+For branch-backed Specs, recover PR candidates from the REST pull-request collection and match by base branch plus exact reviewed head SHA:
+
+```bash
+OWNER=${REPO%%/*}
+SPEC_BRANCH="spec-$SPEC_NUMBER"
+
+PR_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/pulls?state=all&base=main&per_page=100"
+)
+
+MATCHING_MERGED_PRS=$(
+  printf '%s\n' "$PR_PAGES" \
+    | jq -c --arg owner "$OWNER" --arg branch "$SPEC_BRANCH" --arg head "$REVIEWED_HEAD" '
+        [.[][]
+         | select(.head.user.login == $owner)
+         | select(.head.ref == $branch)
+         | select(.head.sha == $head)
+         | select(.base.ref == "main")
+         | select(.merged_at != null)
+         | {number, merge_commit_sha, head_sha: .head.sha, url: .html_url}]'
+)
+```
+
+Use these prescribed reads for lifecycle routing. A read failure makes the corresponding phase fact unreadable; do not guess it from issue-closing references, Project projection, or prior session state.
 
 ## Lifecycle Phase Detection
 
@@ -370,7 +445,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
 
 Cleanup is complete only when the applicable path has:
 
-* validated a current passing Spec Review Exit Receipt from the parent Spec;
+* validated a current passing Spec Review Exit Receipt from the parent Spec's one conventional Spec Review issue and bound it to the current Spec verification/branch state;
 * either passed the current project-delivery actionability guard before a new authoritative completion transition **or** proven an exact post-completion recovery path from durable evidence;
 * successfully closed the Spec exactly once through the applicable authoritative path;
 * closed its Spec Review issue when one exists, or confirmed it was already closed;

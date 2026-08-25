@@ -603,12 +603,78 @@ Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a W
 
 If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
 
-Only when current project-delivery authorization permits advancement should the normal ticket frontier handoff be emitted:
+### Deterministic Ticket Frontier
 
-* one open unblocked ticket → one copy-ready `$implement-ticket` handoff;
-* multiple open unblocked tickets → one copy-ready line per ticket and let the user choose;
-* no open implementation tickets → `$verify-spec - <Spec Title> (<Spec URL>)`;
-* open tickets but all blocked → report blockers and stop.
+After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier from native GitHub relationships only.
+
+Use the already recovered repository and decomposition parent:
+
+* ordinary Implementation Ticket → frontier parent is its native parent Spec;
+* Review Remediation Ticket → frontier parent is its native parent Spec Review.
+
+Do not infer the frontier from Project fields, labels, prior conversation, or prose in issue comments.
+
+Use the native REST sub-issue endpoint exactly once to read all direct children:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+FRONTIER_PARENT=<native parent issue number>
+
+FRONTIER_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$FRONTIER_PARENT/sub_issues?per_page=100"
+)
+
+OPEN_CHILDREN=$(
+  printf '%s\n' "$FRONTIER_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
+)
+```
+
+For each open direct child, use the native dependency endpoint exactly once to recover its complete `blocked by` set:
+
+```bash
+BLOCKER_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$CHILD_NUMBER/dependencies/blocked_by?per_page=100"
+)
+
+OPEN_BLOCKERS=$(
+  printf '%s\n' "$BLOCKER_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
+)
+```
+
+A child is executable only when `OPEN_BLOCKERS` is empty.
+
+Execution rules:
+
+* use these prescribed REST reads; do not probe `gh issue view --json subIssues`, alternate JSON shapes, GraphQL relationship queries, or help output;
+* do not retry a failed frontier/dependency read through another interface;
+* if a prescribed read fails or cannot be fully paginated, report frontier state as unreadable and do not advertise downstream work as actionable;
+* do not narrate successful frontier discovery, per-child blocker reads, intermediate counts, or retries;
+* preserve native hierarchy as the decomposition authority and native `blocked by` relationships as dependency authority.
+
+Only when current project-delivery authorization permits advancement should the normal frontier handoff be emitted:
+
+* exactly one open unblocked ticket → emit exactly one copy-ready line:
+
+  ```text
+  $implement-ticket - <Ticket Title> (<Ticket URL>)
+  ```
+
+* multiple open unblocked tickets → emit one copy-ready line per ticket in stable issue-number order and let the user choose;
+* no open implementation/remediation tickets → emit exactly one copy-ready line:
+
+  ```text
+  $verify-spec - <Spec Title> (<Spec URL>)
+  ```
+
+* open tickets but all blocked → report the open blockers and stop.
+
+A prose sentence that merely names the next artifact does **not** satisfy the handoff requirement. The required copy-ready `$implement-ticket` or `$verify-spec` command must be present in the final response when that lifecycle is actionable.
 
 Do not invoke the next `$implement-ticket` or `$verify-spec` lifecycle stage implicitly.
 

@@ -88,7 +88,10 @@ Capture:
 * `SPEC_CONTRACT_HASH`;
 * complete ordered Spec Contract Manifest;
 * source counts and manifest-integrity counts;
-* Spec-owned, Mixed, Inherited-only, and Spec-owned tracker surfaces.
+* Spec-owned, Mixed, Inherited-only, and Spec-owned tracker surfaces;
+* immutable default-branch name and head returned by `$spec-contract` for ownership.
+
+Treat the returned default-branch SHA as `DEFAULT_HEAD`. `$verify-spec` does not independently refresh or reinterpret default-branch state.
 
 If the contract is invalid or ownership is ambiguous, verification cannot pass.
 
@@ -301,7 +304,9 @@ Apply these repository-policy checks to Spec-owned/Mixed surfaces. Do not turn u
 
 Run architecture/wiki checks only when Architecture Impact or manifest obligations make them applicable.
 
-If Living Entity Wiki routing is relevant, invoke `$wiki-lint` and evaluate only Spec-relevant conflict/drift results.
+If Living Entity Wiki routing is relevant, invoke `$wiki-lint` and evaluate only Spec-relevant conflict/drift results. `$wiki-lint` owns wiki structural integrity and citation resolution/eligibility; do not duplicate those checks with ad hoc `rg`, `sed`, or similar shell pipelines.
+
+If an applicable wiki proof is not provided by `$wiki-lint`, treat that proof as unresolved or fix the missing audit contract at `$wiki-lint`; do not invent a parallel verifier inside `$verify-spec`.
 
 Use graph queries only when they materially prove affected architecture.
 
@@ -430,7 +435,9 @@ Capture:
 FINAL_HEAD=$(git rev-parse HEAD)
 ```
 
-Persist on the Spec:
+Use the final `$spec-contract` result for `SPEC_BODY_HASH`, `SPEC_CONTRACT_HASH`, `DEFAULT_BRANCH`, `DEFAULT_HEAD`, source counts, manifest count, ownership, and the complete ordered manifest. Do not refresh default-branch state independently during receipt persistence.
+
+Persist this body on the Spec:
 
 ```markdown
 ## Spec Verification Receipt
@@ -443,8 +450,8 @@ Persist on the Spec:
 **Prior verified checkpoint:** None | <SHA>
 **Spec Body Hash:** <SPEC_BODY_HASH>
 **Spec Contract Hash:** <SPEC_CONTRACT_HASH>
-**Default branch:** <name>
-**Default branch head used for ownership:** <SHA>
+**Default branch:** <DEFAULT_BRANCH>
+**Default branch head used for ownership:** <DEFAULT_HEAD>
 **Change surfaces:** <Spec-owned/Mixed surface classes>
 
 ### Spec Contract Integrity
@@ -484,6 +491,37 @@ Persist on the Spec:
 ```
 
 The receipt must contain the complete manifest and exactly one coverage row per manifest cell.
+
+### Atomic Receipt Persistence
+
+1. Render the **complete** receipt into `RECEIPT_FILE=$(mktemp)` before any GitHub mutation. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
+2. Pre-validate `RECEIPT_FILE` with one Python invocation. Require exact equality for Status, HEAD, baseline, branch, verification mode/checkpoint, body/contract hashes, default branch/head; require all six receipt sections exactly once; require the three manifest-integrity zero lines; parse manifest and coverage IDs matching `(?:US|ID|TD|OOS|NORM)-<n>[.<suffix>]`; require both ordered ID lists to equal the final `$spec-contract` manifest exactly, with no duplicates, coverage count equal to `MANIFEST_CELL_COUNT`, and no `unresolved` state. Do not substitute an improvised `grep`/`sed`/`awk`/regex pipeline.
+3. If pre-validation passes, POST the validated body **once**:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+RECEIPT_JSON=$(mktemp)
+COMMENT_JSON=$(mktemp)
+READBACK_FILE=$(mktemp)
+
+jq -Rs '{body: .}' "$RECEIPT_FILE" > "$RECEIPT_JSON"
+gh api --method POST \
+  "repos/$REPO/issues/<spec_issue_number>/comments" \
+  --input "$RECEIPT_JSON" > "$COMMENT_JSON"
+
+COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
+COMMENT_URL=$(jq -r .html_url "$COMMENT_JSON")
+[ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]
+
+gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+  | jq -j '.body' > "$READBACK_FILE"
+
+cmp -s "$RECEIPT_FILE" "$READBACK_FILE"
+```
+
+4. Run the same deterministic Python validation against `READBACK_FILE`. Only then is persistence complete. Clean up the temporary files.
+
+Never POST/PATCH a partial receipt, repair a malformed persisted receipt in place, replace its body with a file reference, or create a second corrective receipt in the same invocation. If POST succeeds but exact readback or post-validation fails, verification is incomplete: stop, report `COMMENT_URL`, and do not claim PASS.
 
 Receipt persistence failure means verification is incomplete. Any later commit or Spec-body change makes the receipt stale.
 

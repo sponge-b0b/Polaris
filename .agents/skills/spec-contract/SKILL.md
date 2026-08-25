@@ -14,7 +14,7 @@ It owns two shared facts that must not be independently reinvented by those call
 1. the complete **Spec Contract Manifest** of normative obligations;
 2. the **Spec Change Ownership** classification separating fixed-baseline integration history from work owned by the current Spec.
 
-It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, or decide remediation.
+It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, or decide remediation.
 
 ## Session Independence
 
@@ -33,7 +33,7 @@ The parent supplies:
 * mode: `build` or `validate`;
 * in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**.
 
-The helper may refresh the remote-tracking ref for the repository default branch. It must not switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
+The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
 
 ## 1. Pin the Spec Source
 
@@ -46,16 +46,36 @@ SPEC_BODY_HASH=$(
 )
 ```
 
-Resolve the repository default branch:
+Resolve the repository default branch and the exact GitHub head used for ownership:
 
 ```bash
-DEFAULT_BRANCH=$(
-  gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
-)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
-git fetch --quiet origin "$DEFAULT_BRANCH"
-DEFAULT_REF="origin/$DEFAULT_BRANCH"
+DEFAULT_BRANCH=$(gh api "repos/$REPO" --jq .default_branch)
+DEFAULT_HEAD=$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq .sha)
+
+if [ -z "$DEFAULT_BRANCH" ] || [ -z "$DEFAULT_HEAD" ]; then
+  echo "SPEC OWNERSHIP: AMBIGUOUS"
+  echo "Reason: repository default branch or head could not be resolved from GitHub"
+  exit 1
+fi
+
+if ! git cat-file -e "${DEFAULT_HEAD}^{commit}" 2>/dev/null; then
+  git fetch --quiet "https://github.com/${REPO}.git" "refs/heads/${DEFAULT_BRANCH}"
+  FETCHED_HEAD=$(git rev-parse FETCH_HEAD)
+
+  if [ "$FETCHED_HEAD" != "$DEFAULT_HEAD" ]; then
+    echo "SPEC OWNERSHIP: AMBIGUOUS"
+    echo "Reason: default branch advanced while ownership head was being pinned"
+    exit 1
+  fi
+fi
+
+git cat-file -e "${DEFAULT_HEAD}^{commit}"
+DEFAULT_REF="$DEFAULT_HEAD"
 ```
+
+Do not fall back from this procedure to SSH, a configured remote URL, a stale `origin/<branch>` ref, or another transport. If the canonical HTTPS fetch fails or the fetched head differs from the GitHub-pinned SHA, return ambiguous rather than improvising another refresh path.
 
 Require the supplied branch, `BASELINE_COMMIT`, and `HEAD` to resolve.
 
@@ -143,7 +163,7 @@ git diff --name-status "$BASELINE_COMMIT"...HEAD
 git log "$BASELINE_COMMIT"..HEAD --oneline
 ```
 
-Capture commits/files unique to the current Spec branch relative to the current default branch:
+Capture commits/files unique to the current Spec branch relative to the immutable default-branch head pinned in Section 1:
 
 ```bash
 git rev-list --reverse HEAD --not "$DEFAULT_REF"
@@ -188,7 +208,7 @@ In `validate` mode:
 3. require the persisted source counts and canonical manifest rows to satisfy the Manifest Integrity Gate;
 4. recompute `SPEC_CONTRACT_HASH` from those rows and require an exact match;
 5. require the receipt's baseline/branch/Verified HEAD to match the current invocation;
-6. recompute Spec Change Ownership fresh against the current default branch.
+6. recompute Spec Change Ownership fresh against the immutable current default-branch head resolved in Section 1.
 
 Do not silently rebuild a different manifest when validation fails.
 

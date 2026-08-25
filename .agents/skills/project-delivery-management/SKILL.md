@@ -91,12 +91,13 @@ Affected maps are the minimal set whose delivery projection may have changed, in
 * Wayfinder consumer/blocker maps whose map-level dependency mutation changes eligibility or focus;
 * newly resumable direct Wayfinder dependents identified after a focused prerequisite completes.
 
-Supply only each exact Wayfinder identity and its current authoritative `Project Delivery State` derived here:
+Supply only each exact open Wayfinder identity and its current authoritative `Project Delivery State` derived here:
 
-* focused and frontier-eligible → `focused`;
-* focused and explicitly established lower-level stalled → `focused-stalled`;
-* frontier-eligible and not focused → `eligible-unfocused`;
-* open with an open direct map blocker → `ineligible`.
+* focused and frontier-eligible → `in-focus`;
+* frontier-eligible and not focused → `eligible`;
+* open with an open direct map blocker → `blocked`.
+
+A focused Wayfinder with narrower stalled work remains `in-focus`; stalledness is an execution condition reported by the owning lifecycle, not a distinct project-delivery authorization state.
 
 `$project-tracking` preserves the current projected Wayfinder lifecycle state in overlay-sync mode. This skill must not derive or rewrite `Workflow State` merely to synchronize focus.
 
@@ -462,7 +463,7 @@ When a downstream lifecycle owner has authoritatively established that a focused
 PROJECT DELIVERY: FOCUSED-BUT-STALLED
 ```
 
-Retain focus, synchronize `Delivery State = Focused Stalled`, surface the lower-level blockers, and do not promote those blockers to a synthetic map blocker or silently switch/release focus.
+Retain focus, synchronize `Delivery State = In Focus`, surface the lower-level blockers, and do not promote those blockers to a synthetic map blocker or silently switch/release focus.
 
 Lower-level lifecycle owners recover their exact decision/Spec/ticket frontiers at their own boundaries and supply the resulting blockers here.
 

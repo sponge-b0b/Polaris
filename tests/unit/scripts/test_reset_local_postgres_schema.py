@@ -3,35 +3,45 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import URL
 
 from core.database.settings import PostgresSettings
 from core.storage.persistence.health import PersistenceHealthReport
 from scripts import reset_local_postgres_schema as reset_script
 
 
+def _test_settings(
+    *,
+    database: str,
+    host: str = "127.0.0.1",
+) -> PostgresSettings:
+    return PostgresSettings(
+        host=host,
+        port=5432,
+        database=database,
+        user="polaris",
+        password=_redaction_probe_value(),
+    )
+
+
 def _test_database_url(
     *,
     database: str,
     host: str = "127.0.0.1",
-) -> str:
+) -> URL:
     return URL.create(
         "postgresql+asyncpg",
-        username="polaris",
-        password=_test_password(),
         host=host,
         port=5432,
         database=database,
-    ).render_as_string(
-        hide_password=False,
     )
 
 
-def _test_password() -> str:
+def _redaction_probe_value() -> str:
     return "-".join(
         (
-            "fixture",
-            "credential",
+            "redaction",
+            "probe",
         )
     )
 
@@ -57,15 +67,13 @@ def test_reset_script_refuses_non_local_database_without_printing_secret(
         "load_dotenv",
         lambda dotenv_path: None,
     )
-    password = _test_password()
+    redaction_probe = _redaction_probe_value()
     monkeypatch.setattr(
         reset_script,
         "_load_settings",
-        lambda: PostgresSettings(
-            database_url=_test_database_url(
-                database="polaris",
-                host="db.example.invalid",
-            ),
+        lambda: _test_settings(
+            database="polaris",
+            host="db.example.invalid",
         ),
     )
 
@@ -79,8 +87,8 @@ def test_reset_script_refuses_non_local_database_without_printing_secret(
     assert result == 1
     assert "non-local database host" in captured.err
     assert "db.example.invalid" in captured.err
-    assert password not in captured.err
-    assert password not in captured.out
+    assert redaction_probe not in captured.err
+    assert redaction_probe not in captured.out
 
 
 def test_reset_script_refuses_protected_database_name() -> None:
@@ -89,10 +97,8 @@ def test_reset_script_refuses_protected_database_name() -> None:
         match="protected database",
     ):
         reset_script._validate_local_database_url(
-            make_url(
-                _test_database_url(
-                    database="postgres",
-                ),
+            _test_database_url(
+                database="postgres",
             )
         )
 
@@ -102,11 +108,9 @@ def test_reset_script_resets_upgrades_and_verifies_in_order(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     calls: list[str] = []
-    password = _test_password()
-    settings = PostgresSettings(
-        database_url=_test_database_url(
-            database="polaris",
-        ),
+    redaction_probe = _redaction_probe_value()
+    settings = _test_settings(
+        database="polaris",
     )
 
     async def reset_schema(
@@ -178,5 +182,5 @@ def test_reset_script_resets_upgrades_and_verifies_in_order(
         "health",
     ]
     assert "host='127.0.0.1' database='polaris'" in captured.out
-    assert password not in captured.out
+    assert redaction_probe not in captured.out
     assert "schema is current" in captured.out

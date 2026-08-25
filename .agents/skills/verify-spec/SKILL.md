@@ -27,12 +27,36 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
 ## 1. Pin the Fixed Point
 
-Resolve the baseline from the parent Spec unless explicitly supplied:
+Resolve the repository and read the parent Spec's complete durable comment history once:
 
 ```bash
-BASELINE_COMMIT=$(gh issue view <spec_issue_number> --json comments -q '.comments[].body' \
-  | grep -oP '(?<=\*\*Baseline Commit Hash:\*\* )\S+' | tail -1)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+SPEC_NUMBER=<spec_issue_number>
+
+SPEC_COMMENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
+)
 ```
+
+Resolve the baseline from that complete comment snapshot unless explicitly supplied:
+
+```bash
+BASELINE_COMMIT=$(
+  printf '%s\n' "$SPEC_COMMENT_PAGES" \
+    | jq -r '
+        [.[][]
+         | select((.body // "") | contains("**Baseline Commit Hash:**"))
+         | {id, created_at, body}]
+        | sort_by(.created_at, .id)
+        | last
+        | .body // ""
+        | capture("\\*\\*Baseline Commit Hash:\\*\\*\\s+(?<sha>[0-9a-fA-F]{40})").sha // empty'
+)
+```
+
+Do not substitute `gh issue view --json comments` or an unpaginated comment read. Reuse `SPEC_COMMENT_PAGES` for checkpoint receipt selection in Section 3.
 
 If missing and no explicit ref was supplied, ask for it.
 
@@ -133,7 +157,23 @@ The fixed Spec baseline remains the canonical verification origin. A prior passi
 
 ### Select a Checkpoint
 
-Use checkpoint mode only when the latest passing receipt for the same fixed baseline and branch is well formed and:
+From `SPEC_COMMENT_PAGES`, select exactly the latest durable comment whose body contains the exact header `## Spec Verification Receipt`, ordered by `created_at` then comment `id`:
+
+```bash
+CHECKPOINT_RECEIPT_JSON=$(
+  printf '%s\n' "$SPEC_COMMENT_PAGES" \
+    | jq -c '
+        [.[][]
+         | select((.body // "") | contains("## Spec Verification Receipt"))
+         | {id, created_at, html_url, body}]
+        | sort_by(.created_at, .id)
+        | last // empty'
+)
+```
+
+That newest receipt is the only checkpoint candidate. If it is absent, malformed, stale, or fails any condition below, perform full verification from the fixed baseline. Do **not** search backward for an older convenient receipt.
+
+Use checkpoint mode only when that receipt is well formed and:
 
 1. `Status: passed`;
 2. `Verified Baseline` equals `BASELINE_COMMIT`;

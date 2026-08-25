@@ -1,0 +1,5 @@
+interface:
+  display_name: "Spec Contract"
+  short_description: "Build the shared Spec obligation and ownership contract"
+policy:
+  allow_implicit_invocation: false

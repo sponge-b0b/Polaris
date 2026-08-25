@@ -76,7 +76,7 @@ async def test_cli_runtime_scope_closes_canonical_scope_on_failure(
     class FakeFacade:
         registry = WorkflowRegistry()
 
-        async def register_workflow_async(self, **_: object) -> None:
+        async def register_builtin_workflow_async(self, **_: object) -> None:
             return None
 
     class FakeRuntime:

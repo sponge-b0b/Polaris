@@ -46,6 +46,7 @@ from core.workflow.models.workflow_graph_definition import (
 from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
+from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import DecisionEvidencePacket
 from domain.governed_execution_evidence import BaselineRuntimeEvidence
@@ -53,6 +54,7 @@ from tests.helpers.risk_authority_examples import (
     authority_input_for_tier,
     workflow_curation_authority_input,
 )
+from workflows.catalog import get_builtin_workflow_registration
 
 
 class GovernanceTestNode(RuntimeNode):
@@ -211,6 +213,24 @@ def test_governance_denies_workflow_registration() -> None:
         )
 
 
+def test_bootstrap_rejects_caller_supplied_workflow_authority_contracts() -> None:
+    with pytest.raises(ValueError, match="caller-supplied workflow authority"):
+        build_workflow_runtime(
+            config=WorkflowBootstrapConfig(
+                enable_governance=False,
+                enable_policies=False,
+                enable_telemetry=False,
+                enable_jsonl_telemetry=False,
+            ),
+            workflow_definitions=[GovernanceTestWorkflow()],
+            workflow_authority_contracts={
+                "governance_test_workflow": classify_risk_authority(
+                    authority_input_for_tier(RiskTier.BASELINE)
+                )
+            },
+        )
+
+
 @pytest.mark.asyncio
 async def test_governance_denies_workflow_run_preflight() -> None:
     governance_engine = GovernanceEngine(
@@ -363,6 +383,179 @@ async def test_governed_execution_reconstructs_baseline_runtime_evidence() -> No
     assert audit_context.authority is authority
     assert audit_context.evidence is not None
     assert audit_context.evidence.packet_id == evidence.evidence_id
+
+
+@pytest.mark.asyncio
+async def test_governed_execution_uses_platform_owned_correlation() -> None:
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+    )
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.BASELINE))
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = (
+        AutomatedDecisionAuditPersistenceResult.succeeded(
+            "platform-correlation-audit",
+            records_persisted=1,
+        ),
+    )
+    evidence_lifecycle = AsyncMock()
+    evidence_resolver = AsyncMock()
+
+    async def resolve_evidence(
+        *,
+        workflow_name: str,
+        execution_id: str,
+    ) -> BaselineRuntimeEvidence:
+        return BaselineRuntimeEvidence.create(
+            evidence_id=f"baseline:{execution_id}",
+            authority=authority,
+            workflow_name=workflow_name,
+            workflow_version="1.0.0",
+            execution_id=execution_id,
+        )
+
+    evidence_resolver.resolve.side_effect = resolve_evidence
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=audit_service,
+        decision_evidence_packet_persistence_service=AsyncMock(),
+        evidence_lifecycle=evidence_lifecycle,
+        evidence_resolver=evidence_resolver,
+    )
+
+    result = await execution_service.run_workflow(
+        workflow_name="governance_test_workflow",
+        execution_id="caller-selected-execution",
+        archive_on_completion=False,
+        checkpoint_on_completion=False,
+    )
+
+    prepared_execution_id = evidence_lifecycle.prepare.await_args.kwargs["execution_id"]
+    resolved_execution_id = evidence_resolver.resolve.await_args.kwargs["execution_id"]
+    assert prepared_execution_id == resolved_execution_id
+    assert prepared_execution_id.startswith("governed-")
+    assert prepared_execution_id != "caller-selected-execution"
+    assert result.execution_id == prepared_execution_id
+
+
+@pytest.mark.asyncio
+async def test_builtin_registration_rejects_forged_direct_authority() -> None:
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=False,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+    )
+    forged_authority = classify_risk_authority(
+        authority_input_for_tier(RiskTier.VIGILANT)
+    )
+
+    forged_registration_call: Any = runtime.facade.register_builtin_workflow_async
+    with pytest.raises(TypeError):
+        await forged_registration_call(
+            workflow_name="morning_report",
+            risk_authority_contract=forged_authority,
+            tags=("builtin",),
+            metadata={"source": "forged"},
+            overwrite=True,
+        )
+
+    await runtime.facade.register_builtin_workflow_async(
+        workflow_name="morning_report",
+        tags=("builtin",),
+        metadata={"source": "workflows.catalog"},
+        overwrite=True,
+    )
+
+    facts = runtime.facade.registry.get_authority_facts("morning_report")
+    assert facts.authority.risk_tier is RiskTier.BASELINE
+    assert facts.authority != forged_authority
+
+
+def test_registry_rejects_forged_builtin_catalog_authority() -> None:
+    registration = get_builtin_workflow_registration("morning_report")
+    forged_authority = classify_risk_authority(
+        authority_input_for_tier(RiskTier.VIGILANT)
+    )
+
+    with pytest.raises(ValueError, match="canonical workflow catalog"):
+        WorkflowRegistry()._register_catalog_workflow(
+            registration.definition,
+            risk_authority_contract=forged_authority,
+        )
+
+
+@pytest.mark.asyncio
+async def test_governed_run_from_context_reacquires_existing_context_evidence() -> None:
+    runtime = await build_workflow_runtime_async(
+        config=WorkflowBootstrapConfig(
+            enable_governance=True,
+            enable_policies=False,
+            enable_telemetry=False,
+            enable_jsonl_telemetry=False,
+        ),
+        workflow_definitions=[GovernanceTestWorkflow()],
+    )
+    authority = classify_risk_authority(authority_input_for_tier(RiskTier.BASELINE))
+    audit_service = AsyncMock()
+    audit_service.record_governance_evaluation.return_value = (
+        AutomatedDecisionAuditPersistenceResult.succeeded(
+            "context-correlation-audit",
+            records_persisted=1,
+        ),
+    )
+    evidence_lifecycle = AsyncMock()
+    evidence_resolver = AsyncMock()
+
+    async def resolve_evidence(
+        *,
+        workflow_name: str,
+        execution_id: str,
+    ) -> BaselineRuntimeEvidence:
+        return BaselineRuntimeEvidence.create(
+            evidence_id=f"baseline:{execution_id}",
+            authority=authority,
+            workflow_name=workflow_name,
+            workflow_version="1.0.0",
+            execution_id=execution_id,
+        )
+
+    evidence_resolver.resolve.side_effect = resolve_evidence
+    execution_service = GovernedWorkflowExecutionService(
+        workflow_facade=runtime.facade,
+        automated_decision_audit_service=audit_service,
+        decision_evidence_packet_persistence_service=AsyncMock(),
+        evidence_lifecycle=evidence_lifecycle,
+        evidence_resolver=evidence_resolver,
+    )
+    context = RuntimeContext(
+        runtime_id="runtime-1",
+        workflow_id="governance_test_workflow",
+        execution_id="platform-created-context",
+        mode="simulation",
+    )
+
+    result = await execution_service.run_from_context(
+        workflow_name="governance_test_workflow",
+        context=context,
+        archive_on_completion=False,
+        checkpoint_on_completion=False,
+    )
+
+    evidence_lifecycle.prepare.assert_not_awaited()
+    evidence_resolver.resolve.assert_awaited_once_with(
+        workflow_name="governance_test_workflow",
+        execution_id="platform-created-context",
+    )
+    assert result.execution_id == "platform-created-context"
 
 
 @pytest.mark.asyncio

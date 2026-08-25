@@ -71,7 +71,8 @@ class GovernedWorkflowExecutionService:
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> WorkflowRunResult:
-        correlation_id = execution_id or f"governed-{uuid4().hex}"
+        del execution_id
+        correlation_id = f"governed-{uuid4().hex}"
         capability = await self._audit_capability_for_run(
             workflow_name=workflow_name,
             execution_id=correlation_id,
@@ -100,6 +101,7 @@ class GovernedWorkflowExecutionService:
         capability = await self._audit_capability_for_run(
             workflow_name=workflow_name,
             execution_id=context.execution_id,
+            prepare_evidence=False,
         )
         return await self._workflow_facade.run_from_context(
             workflow_name=workflow_name,
@@ -115,6 +117,7 @@ class GovernedWorkflowExecutionService:
         *,
         workflow_name: str,
         execution_id: str | None,
+        prepare_evidence: bool = True,
     ) -> WorkflowExecutionAuditCapability | None:
         if not self._is_governed():
             return None
@@ -126,10 +129,11 @@ class GovernedWorkflowExecutionService:
             raise GovernedWorkflowExecutionEvidenceRequiredError(
                 "Governed workflow execution requires an execution correlation."
             )
-        await self._evidence_lifecycle.prepare(
-            workflow_name=workflow_name,
-            execution_id=execution_id,
-        )
+        if prepare_evidence:
+            await self._evidence_lifecycle.prepare(
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+            )
         evidence = await self._evidence_resolver.resolve(
             workflow_name=workflow_name,
             execution_id=execution_id,

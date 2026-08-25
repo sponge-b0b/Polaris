@@ -56,11 +56,10 @@ async def mcp_application_lifespan(
             observability_manager=runtime.observability_manager,
         )
         for registration in _get_builtin_workflow_registrations():
-            await runtime.facade.register_workflow_async(
-                workflow_definition=registration.definition,
+            await runtime.facade.register_builtin_workflow_async(
+                workflow_name=registration.definition.workflow_name,
                 tags=("builtin",),
                 metadata={"source": "workflows.catalog"},
-                risk_authority_contract=registration.authority,
                 overwrite=True,
             )
         if runtime.observability_manager is None:

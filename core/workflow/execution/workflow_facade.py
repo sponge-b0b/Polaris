@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.plugins.runtime.plugin_runtime_loader import PluginRuntimeLoader
 from core.plugins.runtime.plugin_runtime_manager import (
@@ -64,6 +64,9 @@ from core.workflow.models.workflow_graph_definition import WorkflowGraphDefiniti
 from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.authority import RiskAuthorityContract
 from domain.governed_execution_evidence import GovernedExecutionEvidence
+
+if TYPE_CHECKING:
+    from workflows.catalog import BuiltinWorkflowRegistration
 
 
 class _GovernedWorkflowSubject(Mapping[str, Any]):
@@ -323,7 +326,6 @@ class WorkflowFacade:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
-        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         self._require_governance_allowed_sync(
@@ -352,7 +354,45 @@ class WorkflowFacade:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
-            risk_authority_contract=risk_authority_contract,
+            overwrite=overwrite,
+        )
+
+    def register_builtin_workflow(
+        self,
+        *,
+        workflow_name: str,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        registration = _builtin_workflow_registration(workflow_name)
+        self._require_governance_allowed_sync(
+            subject=registration.definition,
+            context={
+                "governance_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self._require_policy_allowed_sync(
+            subject=registration.definition,
+            context={
+                "policy_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self.service._register_catalog_workflow(
+            workflow_definition=registration.definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=registration.authority,
             overwrite=overwrite,
         )
 
@@ -361,7 +401,6 @@ class WorkflowFacade:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
-        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         await self._require_governance_allowed_async(
@@ -390,7 +429,45 @@ class WorkflowFacade:
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,
-            risk_authority_contract=risk_authority_contract,
+            overwrite=overwrite,
+        )
+
+    async def register_builtin_workflow_async(
+        self,
+        *,
+        workflow_name: str,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        registration = _builtin_workflow_registration(workflow_name)
+        await self._require_governance_allowed_async(
+            subject=registration.definition,
+            context={
+                "governance_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        await self._require_policy_allowed_async(
+            subject=registration.definition,
+            context={
+                "policy_phase": "workflow_catalog_registration",
+                "workflow_name": registration.definition.workflow_name,
+                "tags": tags,
+                "metadata": metadata or {},
+                "overwrite": overwrite,
+            },
+        )
+
+        self.service._register_catalog_workflow(
+            workflow_definition=registration.definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=registration.authority,
             overwrite=overwrite,
         )
 
@@ -1052,3 +1129,11 @@ class WorkflowFacade:
                 f"Automated {evaluation_kind} audit persistence failed: "
                 f"{'; '.join(errors)}"
             )
+
+
+def _builtin_workflow_registration(
+    workflow_name: str,
+) -> BuiltinWorkflowRegistration:
+    from workflows.catalog import get_builtin_workflow_registration
+
+    return get_builtin_workflow_registration(workflow_name)

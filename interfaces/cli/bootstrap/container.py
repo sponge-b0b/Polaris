@@ -96,11 +96,10 @@ async def cli_runtime_scope(
             observability_manager=runtime.observability_manager,
         )
         for registration in get_builtin_workflow_registrations():
-            await runtime.facade.register_workflow_async(
-                workflow_definition=registration.definition,
+            await runtime.facade.register_builtin_workflow_async(
+                workflow_name=registration.definition.workflow_name,
                 tags=("builtin",),
                 metadata={"source": "workflows.catalog"},
-                risk_authority_contract=registration.authority,
                 overwrite=True,
             )
         await _autoload_cli_plugins(runtime)

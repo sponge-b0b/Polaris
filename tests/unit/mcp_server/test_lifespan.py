@@ -20,7 +20,10 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lifecycle: list[str] = []
-    workflows = (object(), object())
+    workflows = (
+        SimpleNamespace(workflow_name="workflow_one"),
+        SimpleNamespace(workflow_name="workflow_two"),
+    )
     registrations = tuple(
         SimpleNamespace(definition=workflow, authority=object())
         for workflow in workflows
@@ -29,16 +32,16 @@ async def test_lifespan_owns_one_container_runtime_and_workflow_registration(
     class FakeFacade:
         registry = WorkflowRegistry()
 
-        async def register_workflow_async(
+        async def register_builtin_workflow_async(
             self,
             *,
-            workflow_definition: object,
+            workflow_name: str,
             tags: tuple[str, ...],
             metadata: dict[str, str],
-            risk_authority_contract: object,
             overwrite: bool,
         ) -> None:
-            workflow_index = workflows.index(workflow_definition)
+            workflow_names = [workflow.workflow_name for workflow in workflows]
+            workflow_index = workflow_names.index(workflow_name)
             lifecycle.append(f"workflow_{workflow_index}_registered")
             assert tags == ("builtin",)
             assert metadata == {"source": "workflows.catalog"}

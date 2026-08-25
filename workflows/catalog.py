@@ -97,6 +97,20 @@ def get_builtin_workflow_registrations() -> tuple[BuiltinWorkflowRegistration, .
     )
 
 
+def get_builtin_workflow_registration(
+    workflow_name: str,
+) -> BuiltinWorkflowRegistration:
+    """Return the catalog-owned registration for one built-in workflow."""
+
+    normalized_workflow_name = workflow_name.strip()
+    for registration in get_builtin_workflow_registrations():
+        if registration.definition.workflow_name == normalized_workflow_name:
+            return registration
+    raise KeyError(
+        f"Built-in workflow is not registered in the catalog: {workflow_name}"
+    )
+
+
 def get_builtin_workflows() -> list[WorkflowGraphDefinition]:
     """Return public executable built-in workflows."""
 

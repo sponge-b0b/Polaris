@@ -18,9 +18,10 @@ from core.storage.persistence.governed_execution_evidence import (
 )
 from core.workflow.models.workflow_graph_definition import WorkflowGraphDefinition
 from core.workflow.registry.workflow_registry import WorkflowIdentity, WorkflowRegistry
-from domain.authority import RiskTier, classify_risk_authority
+from domain.authority import IntendedSink, RiskTier, classify_risk_authority
 from domain.governed_execution_evidence import BaselineRuntimeEvidence
 from tests.helpers.risk_authority_examples import authority_input_for_tier
+from workflows.catalog import get_builtin_workflow_registrations
 
 
 class _BaselineRepository:
@@ -102,7 +103,7 @@ def _registry_with_facts(
         "nodes": [{"name": "node"}],
     }
     registry = WorkflowRegistry()
-    registry.register(
+    registry._register_catalog_workflow(
         cast(WorkflowGraphDefinition, definition),
         risk_authority_contract=classify_risk_authority(
             authority_input_for_tier(risk_tier)
@@ -152,6 +153,57 @@ async def test_baseline_evidence_is_created_and_reacquired_by_execution() -> Non
             workflow_name=workflow_name,
             execution_id="execution-two",
         )
+
+
+@pytest.mark.asyncio
+async def test_builtin_morning_report_catalog_authority_reconstructs_baseline() -> None:
+    registration = next(
+        candidate
+        for candidate in get_builtin_workflow_registrations()
+        if candidate.definition.workflow_name == "morning_report"
+    )
+    registry = WorkflowRegistry()
+    registry._register_catalog_workflow(
+        registration.definition,
+        risk_authority_contract=registration.authority,
+        tags=("builtin",),
+        metadata={"source": "workflows.catalog"},
+    )
+    baseline_repository = _BaselineRepository()
+    selection_repository = _SelectionRepository()
+    baseline_service = BaselineRuntimeEvidencePersistenceService(baseline_repository)
+    packets = AsyncMock()
+    lifecycle = CanonicalGovernedExecutionEvidenceLifecycle(
+        workflow_registry=registry,
+        selection_repository=selection_repository,
+        baseline_evidence_service=baseline_service,
+        packet_persistence_service=packets,
+    )
+    resolver = GovernedExecutionEvidenceResolver(
+        workflow_registry=registry,
+        selection_repository=selection_repository,
+        baseline_evidence_service=baseline_service,
+        packet_persistence_service=packets,
+    )
+
+    facts = await lifecycle.prepare(
+        workflow_name="morning_report",
+        execution_id="morning-report-execution",
+    )
+    evidence = await resolver.resolve(
+        workflow_name="morning_report",
+        execution_id="morning-report-execution",
+    )
+
+    assert facts.authority == registration.authority
+    assert facts.authority.risk_tier is RiskTier.BASELINE
+    assert facts.authority.intended_sink is IntendedSink.INTERNAL_RUNTIME_EVIDENCE
+    assert isinstance(evidence, BaselineRuntimeEvidence)
+    assert evidence.workflow_name == "morning_report"
+    assert evidence.workflow_version == facts.identity.definition_fingerprint
+    assert evidence.execution_id == "morning-report-execution"
+    assert evidence.authority == registration.authority
+    assert selection_repository.selections[0].identity == facts.identity
 
 
 @pytest.mark.asyncio

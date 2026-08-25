@@ -79,8 +79,45 @@ class WorkflowRegistry:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
-        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
+    ) -> None:
+        self._register(
+            workflow_definition=workflow_definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=None,
+            overwrite=overwrite,
+        )
+
+    def _register_catalog_workflow(
+        self,
+        workflow_definition: WorkflowGraphDefinition,
+        *,
+        risk_authority_contract: RiskAuthorityContract,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        _require_canonical_builtin_authority(
+            workflow_definition=workflow_definition,
+            risk_authority_contract=risk_authority_contract,
+        )
+        self._register(
+            workflow_definition=workflow_definition,
+            tags=tags,
+            metadata=metadata,
+            risk_authority_contract=risk_authority_contract,
+            overwrite=overwrite,
+        )
+
+    def _register(
+        self,
+        *,
+        workflow_definition: WorkflowGraphDefinition,
+        tags: tuple[str, ...],
+        metadata: dict[str, Any] | None,
+        risk_authority_contract: RiskAuthorityContract | None,
+        overwrite: bool,
     ) -> None:
         workflow_definition.validate()
 
@@ -237,3 +274,30 @@ def _definition_fingerprint(workflow_definition: WorkflowGraphDefinition) -> str
         separators=(",", ":"),
     )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _require_canonical_builtin_authority(
+    *,
+    workflow_definition: WorkflowGraphDefinition,
+    risk_authority_contract: RiskAuthorityContract,
+) -> None:
+    try:
+        from workflows.catalog import get_builtin_workflow_registration
+
+        registration = get_builtin_workflow_registration(
+            workflow_definition.workflow_name
+        )
+    except KeyError:
+        return
+
+    if (
+        _definition_fingerprint(workflow_definition)
+        == _definition_fingerprint(registration.definition)
+        and risk_authority_contract == registration.authority
+    ):
+        return
+
+    raise ValueError(
+        "Built-in workflow authority facts must come from the canonical "
+        "workflow catalog registration."
+    )

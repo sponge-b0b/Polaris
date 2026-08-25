@@ -12,7 +12,14 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from application.governance import GovernedWorkflowExecutionEvidenceRequiredError
+from application.decision_evidence import DecisionEvidencePacketNotFoundError
+from application.governance import (
+    GovernedExecutionEvidenceResolutionError,
+    GovernedWorkflowExecutionEvidenceRequiredError,
+)
+from application.governance.baseline_runtime_evidence import (
+    BaselineRuntimeEvidenceNotFoundError,
+)
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestResult,
@@ -144,9 +151,19 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
 
 
 @pytest.mark.asyncio
-async def test_backtest_command_preserves_typed_evidence_required_failure(
+@pytest.mark.parametrize(
+    "error_class",
+    [
+        GovernedWorkflowExecutionEvidenceRequiredError,
+        GovernedExecutionEvidenceResolutionError,
+        BaselineRuntimeEvidenceNotFoundError,
+        DecisionEvidencePacketNotFoundError,
+    ],
+)
+async def test_backtest_command_preserves_typed_governed_evidence_failures(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
+    error_class: type[Exception],
 ) -> None:
     scenario_file = tmp_path / "scenario.json"
     scenario_file.write_text(
@@ -170,9 +187,7 @@ async def test_backtest_command_preserves_typed_evidence_required_failure(
             return ServiceResult.failed(
                 request_id="backtest-evidence-required",
                 request_name="backtest run",
-                error=GovernedWorkflowExecutionEvidenceRequiredError(
-                    "canonical decision evidence is required"
-                ),
+                error=error_class("canonical decision evidence is required"),
             )
 
     class FakeScope:
@@ -192,7 +207,7 @@ async def test_backtest_command_preserves_typed_evidence_required_failure(
         fake_cli_runtime_scope,
     )
 
-    with pytest.raises(GovernedWorkflowExecutionEvidenceRequiredError):
+    with pytest.raises(error_class):
         await BacktestCommandService().run_backtest(
             BacktestRunCommandRequest(
                 scenario_path=scenario_file,

@@ -96,10 +96,25 @@ class WorkflowService:
         workflow_definition: WorkflowGraphDefinition,
         tags: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
-        risk_authority_contract: RiskAuthorityContract | None = None,
         overwrite: bool = False,
     ) -> None:
         self.registry.register(
+            workflow_definition=workflow_definition,
+            tags=tags,
+            metadata=metadata,
+            overwrite=overwrite,
+        )
+
+    def _register_catalog_workflow(
+        self,
+        workflow_definition: WorkflowGraphDefinition,
+        *,
+        risk_authority_contract: RiskAuthorityContract,
+        tags: tuple[str, ...] = (),
+        metadata: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        self.registry._register_catalog_workflow(
             workflow_definition=workflow_definition,
             tags=tags,
             metadata=metadata,

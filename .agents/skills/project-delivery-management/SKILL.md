@@ -56,6 +56,8 @@ Internal composition may never:
 
 Deterministic removal of completed or directly ineligible focused Wayfinders is reconciliation, not a discretionary focus choice.
 
+If an internal operation returns a **Human Focus Handoff** defined by this skill, the caller must surface that handoff to the human unchanged in meaning. The caller must not execute the suggested focus operation implicitly or replace it with an inferred downstream lifecycle action.
+
 ## Authority Model
 
 Keep each fact at its lowest authoritative owner.
@@ -156,11 +158,39 @@ For `dependency ensure <consumer> blocked-by <blocker>`:
 5. run the Cycle Guard;
 6. re-read the consumer's native blockers immediately before mutation;
 7. if the exact edge already exists, verify it and return idempotent success;
-8. otherwise invoke `$github-issue-dependencies` to add only that native `blocked by` relationship;
-9. re-read the consumer and require the exact blocker relationship to exist;
-10. run deterministic focus reconciliation because a newly added direct map blocker may invalidate current focus.
+8. when both artifacts are Wayfinder maps, capture the current focused set before adding a new edge;
+9. otherwise invoke `$github-issue-dependencies` to add only that native `blocked by` relationship;
+10. re-read the consumer and require the exact blocker relationship to exist;
+11. run deterministic focus reconciliation because a newly added direct map blocker may invalidate current focus;
+12. if this new open map-level blocker caused a previously focused consumer to be removed from focus, emit the **Dependency Focus Handoff** below.
 
 Do not create parent/sub-issue hierarchy here.
+
+#### Dependency Focus Handoff
+
+This handoff reports a forced loss of focus; it never chooses the replacement.
+
+If the newly established open blocker caused the consumer to leave focus, report:
+
+```text
+PROJECT DELIVERY: FOCUS RELEASED BY DEPENDENCY
+Previously focused: #<consumer>
+Now blocked by: #<blocker>
+Current focus: <None | exact focused set>
+```
+
+Then re-read the blocker as a Wayfinder map and its complete direct blocker set.
+
+If current focus is `None` and the blocker is frontier-eligible, append exactly:
+
+```text
+Next human action:
+$project-delivery-management focus #<blocker>
+```
+
+If the blocker is not frontier-eligible, list its open direct map blockers and state that no focus command for the blocker is currently valid. Do not traverse the dependency graph to select another Wayfinder.
+
+If another Wayfinder remains focused, report the blocker as frontier-eligible or blocked and list only the valid explicit human choices (`switch-focus` or an exact `parallel-focus` set when eligible). Do not mutate the remaining focus.
 
 ### Remove an Edge
 
@@ -356,12 +386,42 @@ After activation, `reconcile` may change focus only when canonical state forces 
    * is closed; or
    * has an open direct map blocker; or
    * is no longer a canonical `wayfinder:map`.
-5. Never add a replacement.
-6. If a previously parallel set shrinks to one or zero, set `Parallel authorization: None`. Historical authorization remains in comments.
-7. Persist the new current-state block only when its value changed.
-8. Re-read and verify the exact persisted state.
+5. Record which focused Wayfinders were removed because they are closed.
+6. Never add a replacement.
+7. If a previously parallel set shrinks to one or zero, set `Parallel authorization: None`. Historical authorization remains in comments.
+8. Persist the new current-state block only when its value changed.
+9. Re-read and verify the exact persisted state.
+10. For each closed focused Wayfinder removed in step 5, derive open canonical Wayfinders that directly list it in `blocked by` and are now frontier-eligible. If any exist, emit the **Prerequisite Completion Handoff** below.
 
 A newly eligible Wayfinder never joins the focused set automatically.
+
+### Prerequisite Completion Handoff
+
+This handoff identifies downstream work that became eligible because a focused prerequisite completed. It never chooses among multiple successors.
+
+When one or more downstream Wayfinders become frontier-eligible through a closed focused prerequisite, report:
+
+```text
+PROJECT DELIVERY: PREREQUISITE COMPLETE
+Completed prerequisite: #<closed Wayfinder>
+Resumable Wayfinders: #<n>[, #<n>...]
+Current focus: <None | exact focused set>
+```
+
+Sort resumable Wayfinders by issue number only for stable presentation, not priority.
+
+If current focus is `None` and exactly one resumable Wayfinder exists, append exactly:
+
+```text
+Next human action:
+$project-delivery-management focus #<Wayfinder>
+```
+
+If current focus is `None` and multiple resumable Wayfinders exist, list the exact valid `focus` command for each and, when all are frontier-eligible, the exact `parallel-focus` command for the full sorted set. State that no successor was selected.
+
+If another Wayfinder remains focused, list the resumable Wayfinders and only the exact valid `switch-focus` / `parallel-focus` choices. Do not alter the remaining focus.
+
+An internal caller that triggered reconciliation after authoritative completion must surface this handoff to the human rather than auto-running a resumed Wayfinder lifecycle.
 
 ### Focused-but-Stalled
 
@@ -541,6 +601,7 @@ This skill may:
 * own semantic validation/write reconciliation for cross-Wayfinder dependencies;
 * delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
 * deterministically shrink invalid/completed focus membership;
+* report deterministic human focus handoffs after dependency-driven focus release or focused prerequisite completion;
 * report canonical status and focused-but-stalled state.
 
 This skill must not:

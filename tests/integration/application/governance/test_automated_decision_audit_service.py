@@ -413,7 +413,6 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
             governance_records = await audit_service.list_governance_audit_records(
                 AutomatedDecisionAuditQuery(
                     subject_type="workflow",
-                    subject_id="ticket-138-workflow-run",
                     risk_tier=RiskTier.VIGILANT,
                     outcome=AutomatedGovernanceAuditOutcome.REQUIRE_APPROVAL,
                     rule_name="require_approval_for_live_mode",
@@ -424,7 +423,6 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
             pending_states = await audit_service.list_governance_review_states(
                 GovernanceReviewTaskQuery(
                     subject_type="workflow",
-                    subject_id="ticket-138-workflow-run",
                     risk_tier="vigilant",
                     approval_state=GovernanceReviewApprovalState.PENDING_REVIEW,
                     review_scope="workflow",
@@ -437,6 +435,11 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
 
         assert len(governance_records) == 1
         assert len(pending_states) == 1
+        assert governance_records[0].subject.subject_id.startswith("governed-")
+        assert governance_records[0].subject.subject_id != "ticket-138-workflow-run"
+        assert pending_states[0].task.subject.subject_id == (
+            governance_records[0].subject.subject_id
+        )
         assert pending_states[0].task.automated_governance_audit_record_id == (
             governance_records[0].audit_record_id
         )
@@ -842,7 +845,6 @@ async def test_governed_execution_persists_nonapproval_outcomes(
             records = await audit_service.list_governance_audit_records(
                 AutomatedDecisionAuditQuery(
                     subject_type="workflow",
-                    subject_id="ticket-143-workflow-run",
                     risk_tier=RiskTier.VIGILANT,
                     outcome=outcome,
                     rule_name=result.rule_name,
@@ -852,6 +854,8 @@ async def test_governed_execution_persists_nonapproval_outcomes(
             )
 
         assert len(records) == 1
+        assert records[0].subject.subject_id.startswith("governed-")
+        assert records[0].subject.subject_id != "ticket-143-workflow-run"
     finally:
         await _delete_ticket_143_records(postgres_session_factory)
 

@@ -25,12 +25,11 @@ Never derive delivery truth from GitHub Project fields, Priority, issue age/orde
 
 ### Human Management Operations
 
-Only an explicit human invocation may make a discretionary focus choice or authorize the one-time delivery-projection migration:
+Only an explicit human invocation may make a discretionary focus choice:
 
 * `focus <Wayfinder>` — establish focus when none exists;
 * `switch-focus <Wayfinder>` — replace the current focused set with one eligible Wayfinder;
 * `parallel-focus <Wayfinder>...` — authorize the exact eligible Wayfinder set for parallel delivery;
-* `migrate-projection` — idempotently establish the Project projection vocabulary for delivery state and reconcile current Wayfinder rows; this never changes focus merely to perform the migration;
 * `status` — inspect canonical project-delivery state without mutation;
 * `reconcile` — apply only deterministic consequences already forced by canonical state.
 
@@ -53,7 +52,6 @@ Internal composition may never:
 * switch focus;
 * add a Wayfinder to parallel focus;
 * broaden an existing parallel authorization;
-* invoke `migrate-projection`;
 * invent a dependency from prose, Project state, similarity, or architectural overlap.
 
 Deterministic removal of completed or directly ineligible focused Wayfinders is reconciliation, not a discretionary focus choice.
@@ -283,7 +281,7 @@ In pre-bootstrap mode:
 * a directly blocked target still returns `PROJECT DELIVERY GUARD: BLOCKED`;
 * `reconcile` performs no focus mutation because focus authority is not activated yet;
 * `status` reports `PROJECT DELIVERY MANAGEMENT: NOT BOOTSTRAPPED` plus the derivable Wayfinder frontier;
-* human `focus`, `switch-focus`, `parallel-focus`, and `migrate-projection` operations are unavailable because there is no durable focus owner yet;
+* human `focus`, `switch-focus`, and `parallel-focus` operations are unavailable because there is no durable focus owner yet;
 * cross-Wayfinder dependency validation/mutation may still operate because native dependency semantics do not depend on the singleton focused set.
 
 This is a temporary cutover compatibility mode, not an alternate scheduler. Do not infer or persist focus while pre-bootstrap.
@@ -470,7 +468,7 @@ Lower-level lifecycle owners recover their exact decision/Spec/ticket frontiers 
 
 ## Human Focus Operations
 
-Human focus operations are unavailable in pre-bootstrap mode. Bootstrap/migration activates the singleton with empty focus; a later explicit human invocation may then choose focus.
+Human focus operations are unavailable in pre-bootstrap mode. Bootstrap/cutover activates the singleton with empty focus; a later explicit human invocation may then choose focus.
 
 After activation, always re-read canonical state immediately before mutation.
 
@@ -521,21 +519,6 @@ Parallel authorization: <authorization comment URL>
 Synchronize the union of the prior and new focused sets through **Project Projection Synchronization**.
 
 Later eligible maps are not members unless a new explicit `parallel-focus` invocation authorizes a new exact set.
-
-### `migrate-projection`
-
-This is an explicit human migration/reconciliation operation, not a focus operation.
-
-Require project-delivery bootstrap activation and valid canonical singleton state. Then:
-
-1. invoke `$project-tracking` internally in **Delivery Projection Schema Migration** mode;
-2. require its exact schema/backfill migration to verify successfully;
-3. run **Deterministic Reconciliation** without establishing, switching, or broadening focus;
-4. derive current delivery state for every open canonical Wayfinder map;
-5. invoke `$project-tracking` once in **Wayfinder Delivery Overlay Sync** mode for all of them;
-6. require final Project synchronization or report Project drift.
-
-This operation may repair legacy Project representation such as an already-spec'd Wayfinder still displayed as `Ready to Spec`; it does not infer canonical workflow/focus truth from the Project or modify the singleton merely to match the Project.
 
 ## Internal `guard <Wayfinder>`
 
@@ -650,7 +633,6 @@ This skill may:
 * delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
 * deterministically shrink invalid/completed focus membership;
 * invoke `$project-tracking` after authoritative delivery changes so Project delivery state is visibly synchronized;
-* under explicit human `migrate-projection`, internally authorize `$project-tracking`'s exact delivery-projection schema/backfill migration;
 * report deterministic human focus handoffs after dependency-driven focus release or focused prerequisite completion;
 * report canonical status and focused-but-stalled state.
 

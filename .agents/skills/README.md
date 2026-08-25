@@ -398,20 +398,22 @@ The public Polaris GitHub Project is an **operational projection** of the workfl
 The Project may expose fields such as:
 
 * Artifact Type;
+* Delivery State;
 * Workflow State;
 * Next Skill;
 * Work Status;
 * Intake State;
 * Priority;
 * Area;
-* Root Blocker.
+* Root Blocker;
+* Completed On.
 
 Cross-skill rules:
 
 * **Workflow State is a state machine, not a stage number.** Items may move backward or revisit a prior state when the skill lifecycle loops.
 * **GitHub issue Open/Closed is not generally equivalent to Polaris workflow state.** Ticket closure may still leave its parent Spec active. Wayfinder closure is narrower and intentional: it is the durable delivery-complete marker and must be reversed before authoritative re-entry or proven governed incomplete work advances.
 * **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
-* **Project-delivery focus overlays, rather than replaces, lifecycle state.** Focused work projects `In Progress`; eligible-unfocused Wayfinders project `Ready` with `Next Skill=$project-delivery-management`; descendants governed only by unfocused Wayfinders suppress `Next Skill`; genuinely ineligible work projects `Blocked`; completed work projects `Done`.
+* **Project-delivery authorization overlays, rather than replaces, lifecycle routing.** Eligible-unfocused Wayfinder Maps use `Next Skill=$project-delivery-management`; Wayfinder-managed descendants preserve the lifecycle `Next Skill` for `In Focus`, `Eligible`, and `Denied`, while lifecycle-owned `None` remains `None`. `Delivery State` carries project-delivery authorization independently of `Workflow State` and `Next Skill`.
 * **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
 * **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection rather than changing the underlying lifecycle to match the board.
 * **Project synchronization happens after the corresponding durable transition succeeds.** Do not let a board update create authority that the owning skill has not established.

@@ -263,7 +263,6 @@ class StrategySynthesisWorkflowOutputProjector:
                 ),
                 output_id=request.node_output.node_output_id,
                 authority=_strategy_synthesis_authority(
-                    request=request,
                     outputs=payload.outputs,
                     features=payload.features,
                 ),
@@ -459,6 +458,7 @@ def build_strategy_projector_registrations(
             projector=synthesis_projector,
             supported_node_names=("strategy_synthesis_agent",),
             persists_quality_status=True,
+            expected_authority_contract=strategy_synthesis_decision_authority(),
         )
     )
     return tuple(registrations)
@@ -843,11 +843,10 @@ def _strategy_release_requested_action(authority: RiskAuthorityContract) -> str:
 
 def _strategy_synthesis_authority(
     *,
-    request: WorkflowOutputProjectorRequest,
     outputs: Mapping[str, object],
     features: Mapping[str, object],
 ) -> RiskAuthorityContract:
-    return request.authority_contract or strategy_synthesis_decision_authority(
+    return strategy_synthesis_decision_authority(
         model_authority_claims_from_payloads(outputs, features)
     )
 

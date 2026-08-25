@@ -37,21 +37,25 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 
 `Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
 
-### Wayfinder Delivery Overlay Sync
+### Delivery Overlay Sync
 
 Only `$project-delivery-management` may invoke this mode.
 
-The caller supplies one or more exact open Wayfinder Map URLs plus their current authoritative `Project Delivery State`: `in-focus | eligible | blocked`. This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type = Wayfinder Map`, preserves the current projected `Workflow State`, and derives only the base Wayfinder route needed to re-apply the delivery overlay:
+The caller supplies one or more exact open Wayfinder-managed formal artifact URLs plus their current authoritative `Project Delivery State`: `in-focus | eligible | blocked`.
 
-| Existing `Workflow State` | Base `Work Status` | Base `Next Skill` |
-| --- | --- | --- |
-| Architecture Decision | Ready | `$wayfinder` |
-| Ready to Spec | Ready | `$to-specs` |
-| Spec Delivery | In Progress | None |
-| Architecture Remediation | Ready | `$wayfinder` |
-| Blocked | Blocked | None |
+This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type` to be one of `Wayfinder Map`, `Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, or `Review Remediation Ticket`, preserves the current projected `Workflow State`, and reconstructs only the base `Work Status` and base `Next Skill` required to re-apply the delivery overlay.
 
-Any other existing open Wayfinder workflow state is projection drift and fails closed. This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Workflow State`.
+Derive the base route from **Base Artifact Route Compatibility** below:
+
+* `Workflow State = Blocked` → base `Work Status = Blocked`;
+* `Wayfinder Map / Spec Delivery` → base `Work Status = In Progress`;
+* every other listed non-complete route → base `Work Status = Ready`;
+* base `Next Skill` is the allowed route value for the exact `Artifact Type` + `Workflow State`;
+* for `Spec Review / Review Remediation`, read its native remediation-ticket children to choose `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action.
+
+Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, or `Workflow State = Complete` in this open-artifact sync mode is projection drift and fails closed.
+
+This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
 
 Do not hand `$project-tracking` itself to the human. Return its result to the caller.
 
@@ -121,7 +125,7 @@ When an artifact legitimately re-enters from `Complete`, clear `Completed On` an
 
 ### Base Artifact Route Compatibility
 
-`Next Skill` names the next human-invocable lifecycle/HITL entry point for that Project row before focus overlay. Never copy a descendant's next action onto its parent.
+`Next Skill` names the next human-invocable lifecycle/HITL entry point for that Project row before delivery authorization is considered. Never copy a descendant's next action onto its parent.
 
 `None` is correct when the artifact remains active while child/downstream work owns the next executable action.
 
@@ -203,10 +207,12 @@ For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implement
 | Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
 | --- | --- | --- | --- |
 | `in-focus` | preserve base | preserve base | In Focus |
-| `eligible` | Ready | None | Eligible |
-| `blocked` | Blocked | None | Denied |
+| `eligible` | preserve base | preserve base | Eligible |
+| `blocked` | Blocked | preserve base | Denied |
 
-A descendant governed only by an unfocused eligible Wayfinder preserves lifecycle stage while executable handoff is suppressed.
+Delivery authorization never suppresses a descendant's lifecycle route. `Next Skill` continues to name the lifecycle owner even when delivery is currently `Eligible` or `Denied`; that lifecycle owner must enforce its existing project-delivery guard before substantive work. `None` appears only when the base lifecycle route itself is `None`.
+
+A lifecycle-blocked descendant may therefore be `Delivery State = In Focus` or `Eligible` while `Work Status = Blocked`; the columns describe different facts.
 
 `$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
 

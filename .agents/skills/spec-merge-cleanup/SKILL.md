@@ -301,6 +301,7 @@ If the branch exists, continue with the standard merge path.
    ```bash
    EXISTING_PR=$(gh pr list \
      --head spec-<spec_issue_number> \
+     --base main \
      --state open \
      --json number \
      -q '.[0].number')
@@ -328,6 +329,7 @@ If the branch exists, continue with the standard merge path.
    ```bash
    PR_NUMBER=$(gh pr list \
      --head spec-<spec_issue_number> \
+     --base main \
      --state open \
      --json number \
      -q '.[0].number')

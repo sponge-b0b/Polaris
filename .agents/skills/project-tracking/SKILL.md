@@ -96,11 +96,11 @@ Map authoritative context into the Project's universal `Delivery State` field:
 | --- | --- |
 | `in-focus` | In Focus |
 | `eligible` | Eligible |
-| `blocked` | Blocked |
+| `blocked` | Denied |
 | `independent` | Independent |
 | `Workflow State = Complete` | Released |
 
-`Delivery State` answers only the artifact's current relationship to project-level delivery coordination. It never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
+`Delivery State` answers only the artifact's current relationship to project-level delivery authorization. `Denied` means current project-delivery authorization forbids advancement; it is distinct from lifecycle/execution `Blocked` in `Workflow State` or `Work Status`. The field never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
 
 A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness is reported by its owning lifecycle and must not create a separate Delivery State value.
 
@@ -190,7 +190,7 @@ For a **Wayfinder Map**:
 | --- | --- | --- | --- |
 | `in-focus` | In Progress | preserve base | In Focus |
 | `eligible` | Ready | `$project-delivery-management` | Eligible |
-| `blocked` | Blocked | None | Blocked |
+| `blocked` | Blocked | None | Denied |
 
 Rules:
 
@@ -204,7 +204,7 @@ For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implement
 | --- | --- | --- | --- |
 | `in-focus` | preserve base | preserve base | In Focus |
 | `eligible` | Ready | None | Eligible |
-| `blocked` | Blocked | None | Blocked |
+| `blocked` | Blocked | None | Denied |
 
 A descendant governed only by an unfocused eligible Wayfinder preserves lifecycle stage while executable handoff is suppressed.
 
@@ -309,7 +309,7 @@ Require existing fields:
 
 When project-delivery bootstrap is active, additionally require:
 
-* `Delivery State` — single select with `In Focus`, `Eligible`, `Blocked`, `Independent`, `Released`;
+* `Delivery State` — single select with `In Focus`, `Eligible`, `Denied`, `Independent`, `Released`;
 * `Workflow State` option `Spec Delivery`;
 * `Next Skill` option `$project-delivery-management`.
 

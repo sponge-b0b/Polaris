@@ -1,0 +1,5 @@
+interface:
+  display_name: "Project Delivery Management"
+  short_description: "Coordinate project-level Wayfinder delivery focus"
+policy:
+  allow_implicit_invocation: false

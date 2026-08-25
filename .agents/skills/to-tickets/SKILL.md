@@ -45,6 +45,36 @@ Use the actual Spec title and URL.
 
 A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
+#### Project Delivery Actionability Guard
+
+Before ticket drafting, remediation reconciliation, branch setup, or any tracker/repository mutation for a Wayfinder-managed Spec, prove that the underlying Spec is currently in the actionable Spec frontier.
+
+If the invocation source is a `Spec Review: ` issue, first recover its exact `**Parent Spec:** #<n>` and apply this guard to that Spec. Otherwise use the source Spec itself.
+
+A Spec is **Wayfinder-managed** when durable provenance/handoff evidence identifies one or more governing Wayfinders through:
+
+* its canonical `wayfinder-source` marker;
+* one or more `wayfinder-remediation` markers; or
+* an unambiguous matching `Derived Spec` / `Remediation Spec` entry on a canonical Wayfinder map.
+
+Do not invent a governing Wayfinder. An intentionally non-Wayfinder Spec continues through the existing lifecycle and is not enrolled into project focus merely because `$to-tickets` was invoked.
+
+For a Wayfinder-managed Spec:
+
+1. require the Spec issue to be open;
+2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated/unreadable;
+3. if any direct blocker is open, stop before substantive work and report the Spec as dependency-blocked;
+4. recover every currently governing Wayfinder from durable provenance/handoff evidence; ambiguity in governance fails closed and routes back to `$to-specs` for reconciliation rather than guessing;
+5. invoke `$project-delivery-management` `reconcile`;
+6. invoke `$project-delivery-management` `guard <Wayfinder>` for each governing Wayfinder;
+7. require at least one governing Wayfinder to return `PROJECT DELIVERY GUARD: ALLOWED`.
+
+If no governing Wayfinder is allowed, stop before substantive work. Surface the exact governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$to-tickets` must never establish, switch, or broaden focus itself.
+
+A closed blocker satisfies the Spec dependency only because its authoritative Spec lifecycle is complete. Ticket completion, verification readiness, review passage, `Ready to Merge`, Priority, Project fields, issue order, or handoff order do not satisfy the dependency. If a blocker Spec is reopened, the unchanged native edge makes this guard fail again automatically.
+
+Passing this guard does not create an active-Spec scheduler. Multiple independent open/unblocked Specs governed by the same focused Wayfinder may each be ticketed in separate sessions.
+
 ### 2. Explore the Codebase
 
 If needed, inspect the current codebase before slicing.
@@ -193,9 +223,19 @@ Apply only the approved changes, or deterministic metadata-only normalization au
 
 Use native parent/child and blocking relationships where supported. For GitHub, invoke `$github-issue-dependencies` for relationship operations.
 
+The native parent is the artifact **directly decomposed by this `$to-tickets` invocation**:
+
+* ordinary Spec ticketing → the Spec is the native parent of its Implementation Tickets;
+* Spec Review remediation → the Spec Review is the native parent of its Review Remediation Tickets.
+
+Do not use transitive provenance as native hierarchy. In particular, the originating Spec remains the branch/baseline and lifecycle provenance owner for remediation, but it is **not** the native parent of tickets created from a Spec Review. A Spec Review is likewise lifecycle provenance for the Spec, not an implementation child of the Spec.
+
 New tickets must:
 
-* link to the same parent Spec;
+* record lineage according to ticket mode:
+  * ordinary Spec ticket → `Parent Spec: #<spec_issue_number>`;
+  * Spec Review remediation ticket → `Remediation parent: Spec Review #<review_issue_number>` and `Parent Spec: #<spec_issue_number>`;
+* use the direct decomposition artifact above as the native GitHub parent;
 * carry applicable Architecture context;
 * use the shared **Ticket branch**;
 * declare **Ticket baseline** as `Pending`;
@@ -270,7 +310,20 @@ More generally, state only what the workflow has established. Do not turn curren
 
 ## Parent
 
-Reference the parent Spec.
+For an ordinary Implementation Ticket:
+
+```text
+Parent Spec: #<spec_issue_number>
+```
+
+For a Review Remediation Ticket:
+
+```text
+Remediation parent: Spec Review #<review_issue_number>
+Parent Spec: #<spec_issue_number>
+```
+
+The first line identifies immediate decomposition ownership. `Parent Spec` on a remediation ticket is transitive lifecycle provenance and branch/baseline ownership only; do not use it as the native GitHub parent.
 
 ## Root blocker
 
@@ -333,6 +386,8 @@ Work the frontier one ticket at a time with `$implement-ticket`, clearing contex
 All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline.
 
 Each ticket has its own `Ticket baseline`.
+
+The originating Spec's branch/baseline ownership does not make it the native parent of Spec Review remediation tickets. Native hierarchy follows direct decomposition ownership from Step 5.
 
 ### 0. Resolve the Spec Issue Number
 

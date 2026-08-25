@@ -106,6 +106,10 @@ Re-run immediately before persisting Pending Review Remediation or the final Exi
 
 ## 3. Recover Durable Review State
 
+The **conventional Spec Review issue** is the durable owner of review state for the parent Spec. Pending Review Remediation, Root Blocker ledger/reconciliation state, Scope corrections, and the final **Spec Review Exit Receipt** all belong on that one review issue, not on the parent Spec issue.
+
+Resolve exactly one conventional Spec Review for the parent Spec before any review-state persistence. If none exists yet and this review reaches a persistence point, create/reuse the conventional Spec Review issue first. More than one matching review issue is ambiguous durable state and fails closed.
+
 If a Spec Review exists, recover privately:
 
 * existing `RB-*` IDs and stable invariants;
@@ -453,7 +457,11 @@ Advisories and unrelated inherited findings may remain.
 
 ### Persist Exit Receipt
 
-Re-run Project Delivery Actionability Guard and persist:
+Re-run Project Delivery Actionability Guard and persist the Exit Receipt on the **conventional Spec Review issue** resolved in Section 3. Do not persist the review Exit Receipt on the parent Spec issue.
+
+Require the review issue to durably identify the current parent Spec before writing. The receipt is review-owned authorization consumed later by `$spec-merge-cleanup`; the parent Spec continues to own its Spec Verification Receipt and workspace metadata.
+
+Persist:
 
 ```markdown
 ## Spec Review Exit Receipt

@@ -307,14 +307,17 @@ If the branch exists, continue with the standard merge path.
 
    if [ -z "$EXISTING_PR" ]; then
      SPEC_TITLE=$(gh issue view <spec_issue_number> --json title -q .title)
+     PR_TITLE_BODY=${SPEC_TITLE#Spec: }
 
      gh pr create \
        --base main \
        --head spec-<spec_issue_number> \
-       --title "Spec #<spec_issue_number>: ${SPEC_TITLE}" \
+       --title "Spec #<spec_issue_number>: ${PR_TITLE_BODY}" \
        --body "Closes #<spec_issue_number>"
    fi
    ```
+
+   Strip at most one leading `Spec: ` from the issue title when composing the PR title. If the issue title does not use that conventional prefix, preserve it unchanged.
 
    `Closes #<spec_issue_number>` closes the Spec when the PR merges.
 
@@ -365,7 +368,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
 
    ```bash
    git checkout main
-   git pull origin main
+   git pull --ff-only origin main
    ```
 
    Reconfirm that the matching merge commit is reachable from `main` and that `Reviewed HEAD` is an ancestor of `main` before deleting either branch ref.

@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-24] MCP approval-state transport | read-only review state surfaced
+
+Recorded the MCP V1 catalog expansion from six to seven read-only tools after approval/review state was exposed through the request-scoped `AutomatedDecisionAuditService` query path, with review mutation and bypass operations remaining prohibited.
+
 ## [2026-08-21] governed invocation correlation | platform-owned evidence selection clarified
 
 Clarified the runtime workflow invariant after RB-1 remediation preserved ADR-0018's platform-owned execution correlation and catalog-owned Baseline evidence-selection boundary across governed invocation paths.
@@ -7,10 +11,6 @@ Clarified the runtime workflow invariant after RB-1 remediation preserved ADR-00
 ## [2026-08-21] output-release review work | approval-required release blocking made durable
 
 Updated the approval-lifecycle invariant after governed output-release evaluation began persisting evidence-scoped review work before returning a blocked/pending release decision, matching the existing durable approval lifecycle boundary.
-
-## [2026-08-24] MCP approval-state transport | read-only review state surfaced
-
-Recorded the MCP V1 catalog expansion from six to seven read-only tools after approval/review state was exposed through the request-scoped `AutomatedDecisionAuditService` query path, with review mutation and bypass operations remaining prohibited.
 
 ## [2026-08-15] workflow-output promotion authority | materializer-owned output evidence clarified
 

@@ -48,7 +48,6 @@ class BacktestGovernedWorkflowExecutionService(Protocol):
         self,
         *,
         workflow_name: str,
-        execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
         simulation_time: datetime | None = None,
@@ -253,7 +252,6 @@ class BacktestApplicationService(
             raise RuntimeError("Governed workflow execution service is required.")
         return await self.governed_workflow_execution_service.run_workflow(
             workflow_name=request.workflow_name,
-            execution_id=request.execution_id,
             mode="backtest",
             workflow_inputs=request.workflow_inputs(),
             simulation_time=request.simulation_time,

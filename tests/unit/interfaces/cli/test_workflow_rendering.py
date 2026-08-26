@@ -250,6 +250,81 @@ def test_morning_report_command_renders_professional_report_by_default(
     assert "```json" not in result.output
 
 
+def test_morning_report_postgres_persistence_defaults_to_disabled(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(
+        tmp_path,
+    )
+    monkeypatch.delenv(
+        "POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE",
+        raising=False,
+    )
+
+    async def fail_persistence(**_: object) -> object:
+        raise AssertionError("postgres persistence should remain disabled")
+
+    monkeypatch.setattr(
+        morning_report_command,
+        "_persist_morning_report_to_postgres",
+        fail_persistence,
+    )
+
+    morning_report_command._persist_rendered_morning_report(
+        workflow_result_to_render_envelope(
+            _professional_morning_report_workflow_result(),
+        ),
+        raw=False,
+        written_path=None,
+    )
+
+
+def test_morning_report_postgres_persistence_reads_typed_setting(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(
+        tmp_path,
+    )
+    monkeypatch.setenv(
+        "POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE",
+        "true",
+    )
+    captured: dict[str, object] = {}
+
+    async def persist_report(
+        document: object,
+        *,
+        markdown_body: str,
+        artifact_references: tuple[object, ...],
+    ) -> SimpleNamespace:
+        captured["document"] = document
+        captured["markdown_body"] = markdown_body
+        captured["artifact_references"] = artifact_references
+        return SimpleNamespace(
+            success=True,
+            error=None,
+        )
+
+    monkeypatch.setattr(
+        morning_report_command,
+        "_persist_morning_report_to_postgres",
+        persist_report,
+    )
+
+    morning_report_command._persist_rendered_morning_report(
+        workflow_result_to_render_envelope(
+            _professional_morning_report_workflow_result(),
+        ),
+        raw=False,
+        written_path=None,
+    )
+
+    assert captured["markdown_body"]
+    assert captured["artifact_references"] == ()
+
+
 def test_morning_report_command_markdown_renders_professional_report(
     monkeypatch,
     tmp_path,

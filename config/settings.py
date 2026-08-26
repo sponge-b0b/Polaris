@@ -638,6 +638,13 @@ class Settings(BaseSettings):
     # ============================================================
 
     REPORT_OUTPUT_DIR: str = "storage/reports"
+    ENABLE_POSTGRES_REPORT_PERSISTENCE: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE",
+            "ENABLE_POSTGRES_REPORT_PERSISTENCE",
+        ),
+    )
 
     # ============================================================
     # LOGGING

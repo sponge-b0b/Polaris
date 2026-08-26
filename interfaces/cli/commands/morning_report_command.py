@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +12,7 @@ from application.reports import (
     MorningReportPersistenceService,
     ReportArtifactReference,
 )
+from config.settings import Settings
 from core.bootstrap.di_providers import application_request_scope
 from core.storage.persistence.reports import ReportPersistenceResult
 from interfaces.cli.commands.workflow_command_boundary import (
@@ -150,7 +150,7 @@ def _persist_rendered_morning_report(
     if raw or envelope.workflow_name != DEFAULT_MORNING_REPORT_WORKFLOW:
         return
 
-    if not _postgres_report_persistence_enabled():
+    if not Settings().ENABLE_POSTGRES_REPORT_PERSISTENCE:
         return
 
     try:
@@ -197,16 +197,3 @@ async def _persist_morning_report_to_postgres(
             markdown_body=markdown_body,
             artifact_references=artifact_references,
         )
-
-
-def _postgres_report_persistence_enabled() -> bool:
-    value = os.environ.get(
-        "POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE",
-        "",
-    )
-    return value.strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }

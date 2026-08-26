@@ -6,6 +6,9 @@ from core.workflow.bootstrap.workflow_bootstrap import (
     WorkflowBootstrapConfig,
     build_workflow_runtime_async,
 )
+from tests.helpers.governed_workflow_execution import (
+    governed_workflow_execution_harness,
+)
 
 
 @pytest.mark.asyncio
@@ -29,13 +32,16 @@ async def test_workflow_bootstrap_autoloads_plugins_and_registers_workflows() ->
         "example_plugin_workflow",
     )
 
-    run_result = await runtime.facade.run_workflow(
+    governed_execution = governed_workflow_execution_harness(runtime.facade)
+    run_result = await governed_execution.execution_service.run_workflow(
         workflow_name="example_plugin_workflow",
         mode="simulation",
         archive_on_completion=False,
         checkpoint_on_completion=False,
     )
 
+    governed_execution.evidence_lifecycle.prepare.assert_awaited_once()
+    governed_execution.evidence_resolver.resolve.assert_awaited_once()
     assert run_result.success is True
 
     execution_result = run_result.execution_result

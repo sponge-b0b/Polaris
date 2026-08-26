@@ -23,6 +23,9 @@ from core.workflow.models.workflow_graph_definition import (
 from core.workflow.models.workflow_node_definition import (
     WorkflowNodeDefinition,
 )
+from tests.helpers.governed_workflow_execution import (
+    governed_workflow_execution_harness,
+)
 
 
 class PolicyTestNode(RuntimeNode):
@@ -185,16 +188,20 @@ async def test_policy_denies_workflow_run_preflight() -> None:
         policy_engine=policy_engine,
     )
 
+    governed_execution = governed_workflow_execution_harness(runtime.facade)
     with pytest.raises(
         RuntimeError,
         match="run_blocked",
-    ):
-        await runtime.facade.run_workflow(
+    ) as exc_info:
+        await governed_execution.execution_service.run_workflow(
             workflow_name="policy_test_workflow",
             mode="simulation",
             archive_on_completion=False,
             checkpoint_on_completion=False,
         )
+
+    assert "execution audit capability" not in str(exc_info.value)
+    governed_execution.audit_service.record_policy_evaluation.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -211,13 +218,16 @@ async def test_policy_allows_workflow_registration_and_run_when_no_denial() -> N
         ],
     )
 
-    result = await runtime.facade.run_workflow(
+    governed_execution = governed_workflow_execution_harness(runtime.facade)
+    result = await governed_execution.execution_service.run_workflow(
         workflow_name="policy_test_workflow",
         mode="simulation",
         archive_on_completion=False,
         checkpoint_on_completion=False,
     )
 
+    governed_execution.evidence_lifecycle.prepare.assert_awaited_once()
+    governed_execution.evidence_resolver.resolve.assert_awaited_once()
     assert result.success is True
 
     output = result.execution_result.final_context.node_outputs["policy_node"]

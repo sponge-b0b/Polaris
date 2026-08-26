@@ -18,6 +18,14 @@ from application.evaluations import (
     EvaluationResultService,
     EvaluationRunService,
 )
+from application.evaluations.evaluation_gate_evidence import (
+    GovernedOutputReleaseService,
+)
+from application.governance import (
+    GovernanceReviewApprovalState,
+    GovernedOutputReleaseDecision,
+    GovernedOutputReleaseRequest,
+)
 from core.storage.persistence.decision_evidence import (
     DecisionEvidencePacketPersistenceResult,
 )
@@ -30,6 +38,7 @@ from core.storage.persistence.evaluation import (
     EvaluationPersistenceResult,
     EvaluationRunRecord,
 )
+from core.storage.persistence.governance_audit import GovernanceReviewDecisionOutcome
 from core.workflow.registry.workflow_registry import WorkflowRegistry
 from domain.decision_evidence import DecisionEvidencePacket
 from domain.evaluation import (
@@ -159,12 +168,15 @@ class FakeEvaluationRepository:
 @dataclass(slots=True)
 class RecordingProvider:
     requests: list[EvaluationProviderRequest]
+    events: list[str] | None = None
 
     async def evaluate(
         self,
         request: EvaluationProviderRequest,
     ) -> EvaluationProviderResult:
         self.requests.append(request)
+        if self.events is not None:
+            self.events.append("provider")
         metric_results = tuple(
             EvaluationMetricResult(
                 run_id=request.run_id,
@@ -211,16 +223,36 @@ class RecordingProjectionService:
 class FakeDecisionEvidencePacketPersistenceService:
     def __init__(self) -> None:
         self.packets: dict[str, DecisionEvidencePacket] = {}
+        self.persisted_packet_ids: list[str] = []
+        self.reconstructed_packet_ids: list[str] = []
 
     async def persist_packet(
         self,
         packet: DecisionEvidencePacket,
     ) -> DecisionEvidencePacketPersistenceResult:
         self.packets[packet.packet_id] = packet
+        self.persisted_packet_ids.append(packet.packet_id)
         return DecisionEvidencePacketPersistenceResult.succeeded(packet.packet_id)
 
     async def reconstruct_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        self.reconstructed_packet_ids.append(packet_id)
         return self.packets[packet_id]
+
+
+@dataclass(slots=True)
+class FakeGovernedOutputReleaseService:
+    decision: GovernedOutputReleaseDecision
+    requests: list[GovernedOutputReleaseRequest]
+    events: list[str] | None = None
+
+    async def evaluate_governed_output_release(
+        self,
+        request: GovernedOutputReleaseRequest,
+    ) -> GovernedOutputReleaseDecision:
+        self.requests.append(request)
+        if self.events is not None:
+            self.events.append("release")
+        return self.decision
 
 
 def _repository() -> FakeEvaluationRepository:
@@ -250,16 +282,23 @@ def _workflow_registry() -> WorkflowRegistry:
 
 def _processor(
     repository: FakeEvaluationRepository,
+    *,
+    packet_persistence_service: DecisionEvidencePacketPersistenceService | None = None,
+    governed_output_release_service: GovernedOutputReleaseService | None = None,
+    events: list[str] | None = None,
 ) -> tuple[EvaluationJobProcessor, RecordingProvider, RecordingProjectionService]:
-    provider = RecordingProvider([])
+    provider = RecordingProvider([], events=events)
     projection_service = RecordingProjectionService([])
     result_service = EvaluationResultService(repository)
     run_service = EvaluationRunService(
         provider,
         repository,
         projection_service,
-        decision_evidence_packet_persistence_service=_packet_persistence(),
+        decision_evidence_packet_persistence_service=(
+            packet_persistence_service or _packet_persistence()
+        ),
         workflow_registry=_workflow_registry(),
+        governed_output_release_service=governed_output_release_service,
     )
     return (
         EvaluationJobProcessor(
@@ -269,6 +308,24 @@ def _processor(
         ),
         provider,
         projection_service,
+    )
+
+
+def _approved_vigilant_release_service(
+    *,
+    events: list[str] | None = None,
+) -> FakeGovernedOutputReleaseService:
+    return FakeGovernedOutputReleaseService(
+        decision=GovernedOutputReleaseDecision(
+            allowed=True,
+            reason="governance review and residual-risk acceptance permit release",
+            approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+            review_task_id="governance-review-task-1",
+            residual_risk_acceptance_id="residual-risk-acceptance-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+        ),
+        requests=[],
+        events=events,
     )
 
 
@@ -344,7 +401,18 @@ async def test_evaluate_strategy_output_job_uses_strategy_metric_policy() -> Non
     repository.cases["case-strategy_synthesis"] = _case_record(
         EvaluationTargetType.STRATEGY_SYNTHESIS,
     )
-    processor, provider, _projection_service = _processor(repository)
+    events: list[str] = []
+    packet_persistence = FakeDecisionEvidencePacketPersistenceService()
+    release_service = _approved_vigilant_release_service(events=events)
+    processor, provider, _projection_service = _processor(
+        repository,
+        packet_persistence_service=cast(
+            DecisionEvidencePacketPersistenceService,
+            packet_persistence,
+        ),
+        governed_output_release_service=release_service,
+        events=events,
+    )
 
     result = await processor.process(
         EvaluationJobRequest(
@@ -357,9 +425,23 @@ async def test_evaluate_strategy_output_job_uses_strategy_metric_policy() -> Non
         )
     )
 
+    packet_id = "evaluation_run:strategy-run-1:readiness-packet"
+    assert packet_persistence.persisted_packet_ids == [packet_id]
+    assert packet_persistence.reconstructed_packet_ids == [packet_id]
+    assert len(release_service.requests) == 1
+    release_request = release_service.requests[0]
+    assert release_request.evidence.packet_id == packet_id
+    assert release_request.evidence.packet_version == (
+        packet_persistence.packets[packet_id].schema_version
+    )
+    assert release_request.residual_risk_acceptance_required is True
+    assert release_request.residual_risk_scope == "strategy_synthesis"
+    assert events == ["release", "provider"]
+
     metric_names = {metric.metric_name for metric in provider.requests[0].metrics}
     assert result.status is EvaluationJobStatus.COMPLETED
     assert result.run_id == "strategy-run-1"
+    assert repository.runs["strategy-run-1"].status is EvaluationStatus.PASSED
     assert "strategy_synthesis_quality" in metric_names
     assert "report_completeness" not in metric_names
 

@@ -225,7 +225,6 @@ class WorkflowCommandService:
         if governed_execution_service is not None:
             return await governed_execution_service.run_workflow(
                 workflow_name=workflow_name,
-                execution_id=None,
                 mode=mode,
                 workflow_inputs=workflow_inputs,
                 metadata=metadata,

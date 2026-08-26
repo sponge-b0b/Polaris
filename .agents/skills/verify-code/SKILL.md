@@ -1,6 +1,6 @@
 ---
 name: verify-code
-description: Performs diff hygiene, syntax/format/static typing verification, and targeted testing on Python files modified in the workspace or active ticket.
+description: Performs diff hygiene, contract-impact closure, syntax/format/static typing verification, and targeted testing on Python files modified in the workspace or active ticket.
 compatibility: product=codex product=claude-code system=git system=python network=none
 ---
 
@@ -8,14 +8,17 @@ compatibility: product=codex product=claude-code system=git system=python networ
 
 ## Objective
 
-Verify changes introduced by the current workspace or active ticket without broadening into repository-wide verification.
+Verify changes introduced by the current workspace or active ticket without broadening execution into repository-wide verification.
 
 `$coding-standards` owns coding policy. Verify applicable requirements without duplicating that skill.
+
+Repository-wide discovery is required when necessary to prove that an authoritative contract change has no stale internal consumers. Broaden discovery, not verification indiscriminately.
 
 ## Guardrails
 
 * Verify only the active change and directly affected tests.
 * Resolve target files before verification.
+* When a shared contract changes, discover its complete affected consumer set before declaring verification scope complete.
 * Do not refactor unrelated code, weaken configuration, or add pass-only suppressions.
 * Shell permissions do not authorize broader verification.
 * Do not bypass repository command guards.
@@ -44,6 +47,26 @@ Use the deduplicated union as Python verification targets.
 If no ticket baseline applies, use workspace changes only.
 
 Do not broaden scope because no Python targets exist.
+
+### Contract-Impact Closure
+
+Inspect the active diff before finalizing the target set.
+
+This gate applies when the change modifies a shared internal contract or semantic owner, including an API/call signature, protocol/interface, identity source, lifecycle responsibility, canonical representation, enum/value contract, configuration key, or other reusable boundary.
+
+When applicable:
+
+1. identify the superseded contract or ownership rule;
+2. search the repository for every affected caller, implementation, protocol, adapter, fake, fixture, test, configuration surface, registry/bootstrap path, and other consumer;
+3. inspect dynamic/indirect consumers when literal search cannot establish closure;
+4. add consumers requiring migration to the affected verification set;
+5. require zero unexplained consumers of the superseded contract before verification may pass.
+
+Internal source compatibility is not assumed. Apply `$coding-standards` **Authoritative Contract Changes and Compatibility** exactly; do not preserve stale consumers with ignored parameters, compatibility sinks, aliases, shims, fallback paths, or similar residue merely to keep them compiling.
+
+If explicit authority requires genuine compatibility, verify that it is isolated at the compatibility boundary and that the canonical internal contract remains clean.
+
+Repository-wide consumer discovery does not by itself authorize a full-suite pytest run or unrelated cleanup. Keep Ruff, Mypy, and test execution targeted to the changed contract and affected consumers.
 
 ## 2. Diff Hygiene
 
@@ -127,6 +150,7 @@ Inspect changed code for `$coding-standards` requirements implicated by the diff
 * async behavior;
 * observability;
 * resource ownership;
+* authoritative contract changes and compatibility;
 * structural design rules.
 
 Do not manufacture work for unrelated standards.
@@ -138,6 +162,8 @@ When a targeted check fails:
 1. determine whether the active change owns it;
 2. fix the narrowest authoritative point within scope;
 3. rerun the affected check.
+
+A stale or unexplained consumer found by Contract-Impact Closure is Blocking for the active contract change. Fix the consumer or identify explicit compatibility authority; do not weaken the authoritative contract to make the stale consumer pass.
 
 For deterministic whitespace-only failures, fix mechanically without confirmation.
 
@@ -155,6 +181,7 @@ If a failure cannot be safely resolved within scope, report the affected file/te
 Distinguish:
 
 * targeted verification actually run;
+* contract-impact closure status when applicable;
 * whitespace defects mechanically fixed;
 * unresolved/skipped targeted checks;
 * broader verification not run.
@@ -164,6 +191,7 @@ On success:
 ```text
 Targeted verification passed.
 
+- Contract-impact closure: passed | not applicable
 - Diff hygiene: passed
 - Ruff format: passed
 - Ruff lint: passed
@@ -174,4 +202,4 @@ Targeted verification passed.
 Full repository verification was not run.
 ```
 
-If any required targeted check remains unresolved, do not report targeted verification as passed.
+If any required contract-impact discovery or targeted check remains unresolved, do not report targeted verification as passed.

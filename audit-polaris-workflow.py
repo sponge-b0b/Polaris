@@ -167,6 +167,7 @@ STATIC_FILES = [
     ".agents/skills/spec-merge-cleanup/SKILL.md",
     ".agents/skills/spec-contract/SKILL.md",
     ".agents/skills/architecture-remediation/SKILL.md",
+    "docs/process/project-board-guide.md",
 ]
 
 STATIC_FORBIDDEN_PHRASES = {
@@ -448,6 +449,131 @@ def parse_project_tracking_route_table(text: str) -> dict[tuple[str, str], str]:
     return result
 
 
+def markdown_section(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == heading)
+    except StopIteration:
+        return ""
+
+    level = len(heading) - len(heading.lstrip("#"))
+    body: list[str] = []
+    for line in lines[start + 1:]:
+        match = re.match(r"^(#+)\s+", line)
+        if match and len(match.group(1)) <= level:
+            break
+        body.append(line)
+    return "\n".join(body)
+
+
+def parse_value_meaning_table(text: str, heading: str) -> set[str]:
+    section = markdown_section(text, heading)
+    result: set[str] = set()
+    in_table = False
+
+    for line in section.splitlines():
+        stripped = line.strip()
+        if stripped == "| Value | Meaning |":
+            in_table = True
+            continue
+        if not in_table:
+            continue
+        if not stripped.startswith("|"):
+            if result:
+                break
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) != 2 or cells[0].startswith("---"):
+            continue
+        result.add(normalize_route_cell(cells[0]))
+
+    return result
+
+
+def parse_next_skill_examples(text: str) -> set[str]:
+    section = markdown_section(text, "### Next Skill")
+    match = re.search(
+        r"Examples:\s*\n+```text\n(?P<body>.*?)\n```",
+        section,
+        re.DOTALL,
+    )
+    if not match:
+        return set()
+    return {
+        line.strip()
+        for line in match.group("body").splitlines()
+        if line.strip()
+    }
+
+
+def parse_board_guide_route_table(text: str) -> dict[tuple[str, str], str]:
+    section = markdown_section(text, "## Base Lifecycle Routing Matrix")
+    result: dict[tuple[str, str], str] = {}
+    artifact: str | None = None
+    in_table = False
+
+    for line in section.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("### "):
+            artifact = stripped[4:].strip()
+            in_table = False
+            continue
+        if stripped == (
+            "| Workflow State | Base Next Skill | "
+            "What the state means / what normally causes it |"
+        ):
+            in_table = artifact in FORMAL_TYPES
+            continue
+        if not in_table:
+            continue
+        if not stripped.startswith("|"):
+            in_table = False
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) != 3 or cells[0].startswith("---"):
+            continue
+        if artifact is None:
+            continue
+        workflow = normalize_route_cell(cells[0])
+        next_skill = normalize_route_cell(cells[1])
+        result[(artifact, workflow)] = next_skill
+
+    return result
+
+
+def parse_board_guide_overlay_table(
+    text: str,
+    heading: str,
+) -> dict[str, tuple[str, str, str]]:
+    section = markdown_section(text, "## Delivery Overlay Matrix")
+    subsection = markdown_section(section, heading)
+    result: dict[str, tuple[str, str, str]] = {}
+    in_table = False
+
+    for line in subsection.splitlines():
+        stripped = line.strip()
+        if stripped == (
+            "| Project Delivery State | Final Work Status | "
+            "Final Next Skill | Final Delivery State |"
+        ):
+            in_table = True
+            continue
+        if not in_table:
+            continue
+        if not stripped.startswith("|"):
+            if result:
+                break
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) != 4 or cells[0].startswith("---"):
+            continue
+        state = normalize_route_cell(cells[0])
+        values = tuple(normalize_route_cell(c) for c in cells[1:])
+        result[state] = (values[0], values[1], values[2])
+
+    return result
+
+
 def static_contract_audit(repo_root: Path, audit: Audit) -> dict[str, str]:
     contents: dict[str, str] = {}
 
@@ -517,6 +643,7 @@ def static_contract_audit(repo_root: Path, audit: Audit) -> dict[str, str]:
     readme = contents.get(".agents/skills/README.md", "")
     review = contents.get(".agents/skills/review-spec/SKILL.md", "")
     cleanup = contents.get(".agents/skills/spec-merge-cleanup/SKILL.md", "")
+    board_guide = contents.get("docs/process/project-board-guide.md", "")
 
     required_tracking_phrases = [
         "### Delivery Overlay Sync",
@@ -664,6 +791,172 @@ def static_contract_audit(repo_root: Path, audit: Audit) -> dict[str, str]:
                 "changed": [f"{a} / {w}" for a, w in changed_routes],
             },
         )
+
+    board_guide_authority = [
+        "It is **process documentation, not workflow authority**.",
+        ".agents/skills/*/SKILL.md\n    executable workflow behavior",
+        (
+            "If this guide disagrees with an authoritative skill contract, "
+            "treat the guide as stale documentation and fix it."
+        ),
+        (
+            "The Project board is a **projection of durable workflow state**, "
+            "not the source of that state."
+        ),
+    ]
+    for phrase in board_guide_authority:
+        if phrase not in board_guide:
+            audit.fail(
+                "STATIC CONTRACT",
+                "Project Board Guide authority boundary",
+                "docs/process/project-board-guide.md",
+                f"required non-authoritative guide contract is missing: {phrase}",
+            )
+
+    guide_field_headings = [
+        "### Artifact Type",
+        "### Delivery State",
+        "### Workflow State",
+        "### Next Skill",
+        "### Work Status",
+        "### Intake State",
+        "### Priority",
+        "### Area",
+        "### Root Blocker",
+        "### Completed On",
+    ]
+    for heading in guide_field_headings:
+        if heading not in board_guide:
+            audit.fail(
+                "STATIC CONTRACT",
+                "Project Board Guide field coverage",
+                "docs/process/project-board-guide.md",
+                f"Project field documentation is missing: {heading}",
+            )
+
+    guide_vocabularies = {
+        "Artifact Type": (
+            parse_value_meaning_table(board_guide, "### Artifact Type"),
+            set(FORMAL_TYPES),
+        ),
+        "Delivery State": (
+            parse_value_meaning_table(board_guide, "### Delivery State"),
+            set(EXPECTED_DELIVERY_OPTIONS),
+        ),
+        "Workflow State": (
+            parse_value_meaning_table(board_guide, "### Workflow State"),
+            set(REQUIRED_WORKFLOW_OPTIONS),
+        ),
+        "Work Status": (
+            parse_value_meaning_table(board_guide, "### Work Status"),
+            set(EXPECTED_WORK_STATUS_OPTIONS),
+        ),
+        "Next Skill": (
+            parse_next_skill_examples(board_guide),
+            set(EXPECTED_NEXT_SKILL_OPTIONS),
+        ),
+    }
+    for field, (actual, expected) in guide_vocabularies.items():
+        if actual != expected:
+            audit.fail(
+                "STATIC CONTRACT",
+                "Project Board Guide vocabulary",
+                f"docs/process/project-board-guide.md / {field}",
+                "guide vocabulary differs from the audited workflow contract",
+                expected=sorted(expected),
+                actual=sorted(actual),
+            )
+
+    if "`Idea` belongs to the pre-workflow intake layer" not in board_guide:
+        audit.fail(
+            "STATIC CONTRACT",
+            "Project Board Guide Artifact Type boundary",
+            "docs/process/project-board-guide.md",
+            "guide no longer distinguishes Idea from formal workflow artifact types",
+        )
+
+    guide_routes = parse_board_guide_route_table(board_guide)
+    missing_guide_routes = sorted(set(EXPECTED_ROUTE_TABLE) - set(guide_routes))
+    extra_guide_routes = sorted(set(guide_routes) - set(EXPECTED_ROUTE_TABLE))
+    changed_guide_routes = sorted(
+        key for key in set(guide_routes) & set(EXPECTED_ROUTE_TABLE)
+        if guide_routes[key] != EXPECTED_ROUTE_TABLE[key]
+    )
+    if missing_guide_routes or extra_guide_routes or changed_guide_routes:
+        audit.fail(
+            "STATIC CONTRACT",
+            "Project Board Guide base route table",
+            "docs/process/project-board-guide.md",
+            "human-facing lifecycle route matrix differs from the authoritative audited route table",
+            expected={
+                f"{a} / {w}": n
+                for (a, w), n in sorted(EXPECTED_ROUTE_TABLE.items())
+            },
+            actual={
+                f"{a} / {w}": n
+                for (a, w), n in sorted(guide_routes.items())
+            },
+            evidence={
+                "missing": [f"{a} / {w}" for a, w in missing_guide_routes],
+                "extra": [f"{a} / {w}" for a, w in extra_guide_routes],
+                "changed": [f"{a} / {w}" for a, w in changed_guide_routes],
+            },
+        )
+
+    expected_wayfinder_overlay = {
+        "in-focus": ("In Progress", "preserve base lifecycle route", "In Focus"),
+        "eligible": ("Ready", "$project-delivery-management", "Eligible"),
+        "blocked": ("Blocked", "None", "Denied"),
+    }
+    actual_wayfinder_overlay = parse_board_guide_overlay_table(
+        board_guide,
+        "### Wayfinder Map",
+    )
+    if actual_wayfinder_overlay != expected_wayfinder_overlay:
+        audit.fail(
+            "STATIC CONTRACT",
+            "Project Board Guide Wayfinder overlay",
+            "docs/process/project-board-guide.md",
+            "Wayfinder delivery-overlay matrix differs from the audited projection contract",
+            expected=expected_wayfinder_overlay,
+            actual=actual_wayfinder_overlay,
+        )
+
+    expected_descendant_overlay = {
+        "in-focus": ("preserve base", "preserve base", "In Focus"),
+        "eligible": ("preserve base", "preserve base", "Eligible"),
+        "blocked": ("Blocked", "preserve base", "Denied"),
+    }
+    actual_descendant_overlay = parse_board_guide_overlay_table(
+        board_guide,
+        "### Wayfinder-managed descendants",
+    )
+    if actual_descendant_overlay != expected_descendant_overlay:
+        audit.fail(
+            "STATIC CONTRACT",
+            "Project Board Guide descendant overlay",
+            "docs/process/project-board-guide.md",
+            "descendant delivery-overlay matrix differs from the audited projection contract",
+            expected=expected_descendant_overlay,
+            actual=actual_descendant_overlay,
+        )
+
+    completion_projection = [
+        "Workflow State = Complete",
+        "Delivery State = Released",
+        "Work Status    = Done",
+        "Next Skill     = None",
+        "Completed On   = <ISO date>",
+    ]
+    complete_section = markdown_section(board_guide, "### Complete artifact")
+    for phrase in completion_projection:
+        if phrase not in complete_section:
+            audit.fail(
+                "STATIC CONTRACT",
+                "Project Board Guide completion projection",
+                "docs/process/project-board-guide.md",
+                f"completion projection is missing audited invariant: {phrase}",
+            )
 
     # Best-effort scan for explicit Project projection blocks in lifecycle skills.
     # This is intentionally conservative: only compare when Artifact Type,
@@ -2078,7 +2371,7 @@ def write_report(
 ) -> None:
     payload = {
         "audit": "Polaris workflow consistency",
-        "auditor_version": 4,
+        "auditor_version": 5,
         "contract_base": CONTRACT_BASE,
         "repository": repo,
         "repository_root": str(repo_root),
@@ -2223,13 +2516,20 @@ def main() -> int:
                 f"required base {CONTRACT_BASE} is not an ancestor of HEAD {head}"
             )
 
-        skill_drift = run(
-            ["git", "status", "--porcelain", "--", ".agents/skills"],
+        contract_drift = run(
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "--",
+                ".agents/skills",
+                "docs/process/project-board-guide.md",
+            ],
             cwd=repo_root,
         ).strip()
-        if skill_drift:
+        if contract_drift:
             raise AuditExecutionError(
-                "local .agents/skills working tree differs from the bound contract; "
+                "local workflow contract documentation differs from the bound contract; "
                 "commit/stash/revert those changes before auditing"
             )
 

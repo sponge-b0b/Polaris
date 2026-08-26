@@ -1,6 +1,6 @@
 ---
 name: coding-standards
-description: Apply the repository's Python coding standards whenever creating, modifying, refactoring, fixing, or reviewing Python source code. Enforce repository configuration, project-specific data-contract, scoring, precision, async and observability requirements, modern typing, simple Pythonic design, minimum total complexity, and root-cause fixes. Use for any task that writes or changes Python files.
+description: Apply the repository's Python coding standards whenever creating, modifying, refactoring, fixing, or reviewing Python source code. Enforce repository configuration, project-specific data-contract, scoring, precision, async and observability requirements, modern typing, simple Pythonic design, authoritative contract migrations, minimum total complexity, and root-cause fixes. Use for any task that writes or changes Python files.
 ---
 
 # Coding Standards
@@ -258,6 +258,7 @@ Ask:
 * Did it create another representation of an existing concept?
 * Is every new abstraction or layer performing meaningful work?
 * Did obsolete behavior remain after being superseded?
+* Does every input accepted by a changed internal contract still have real semantic effect?
 * Did defensive validation spread beyond the boundary that owns it?
 * Can the same behavior remain clear and correct with fewer concepts?
 
@@ -295,20 +296,29 @@ Do not introduce another DTO, model, wrapper, context object, enum, state contai
 
 Convert representations at genuine boundaries.
 
-### Replace, Don't Accumulate
+### Authoritative Contract Changes and Compatibility
 
-When new behavior supersedes old behavior and compatibility is not required, remove the obsolete path in the same change.
+Internal source compatibility is **not** a default Polaris requirement.
 
-Remove related:
+Compatibility exists only when an explicit user requirement, accepted architecture, versioned migration contract, or genuine external/public compatibility obligation requires it. Existing internal callers, tests, or implementation history do not by themselves establish a compatibility requirement.
 
-* dead branches;
-* compatibility shims;
-* stale aliases;
-* obsolete configuration;
-* unreachable code;
-* stale comments and imports.
+When ownership, an internal contract, an API, or an invariant changes:
 
-Do not leave old and new architectures operating in parallel without a real compatibility requirement.
+1. make the authoritative layer correct first, even when downstream callers break;
+2. update every affected caller, implementation, protocol, adapter, fake, fixture, test, configuration surface, registry/bootstrap path, and other consumer;
+3. remove the superseded internal contract and representation in the same change.
+
+Do not preserve obsolete internal behavior by:
+
+* accepting and ignoring, discarding, overwriting, or neutralizing obsolete inputs;
+* absorbing stale calls through `*args` or `**kwargs`;
+* retaining stale aliases, compatibility shims, wrappers, flags, or no-op parameters;
+* maintaining parallel old/new execution paths;
+* falling back to behavior that the authoritative contract replaced.
+
+If genuine compatibility is explicitly required, isolate it at the compatibility boundary, identify the authority requiring it, and keep the canonical internal contract free of compatibility residue.
+
+If the correct implementation is blocked by unresolved architecture or an external requirement, surface the blocker. Do not substitute a hack, workaround, bypass, compromise design, or silent behavioral degradation.
 
 ### Root-Cause Fixes
 

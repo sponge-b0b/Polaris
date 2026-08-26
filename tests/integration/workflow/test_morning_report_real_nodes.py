@@ -194,10 +194,11 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
         for verification in result.verifications
         if not verification.passed
     ]
+    assert result.backtest_run_id == "backtest-real-golden"
     assert result.started_at == _FIXED_BACKTEST_TIME
     assert result.completed_at == _FIXED_BACKTEST_TIME
     assert result.steps[0].timestamp == datetime(2026, 1, 1, tzinfo=UTC)
-    assert result.steps[0].workflow_run_id == "backtest-real-golden-step-000000"
+    assert result.steps[0].workflow_run_id.startswith("governed-")
     assert tuple(result.steps[0].node_outputs) == (
         "attribution_engine",
         "bear_agent",
@@ -235,6 +236,10 @@ def _configure_synthetic_providers(
     for name, value in _PROVIDER_ENV.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setattr(LLMService, "chat", _deterministic_llm_chat)
+    monkeypatch.setattr(
+        "interfaces.cli.bootstrap.container.subscribe_default_workflow_output_projection",
+        lambda **_kwargs: False,
+    )
 
 
 async def _deterministic_llm_chat(

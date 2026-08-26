@@ -133,7 +133,9 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
 
-   Do not assume the invocation source remains the Spec's only or currently focused governor. If the governing set is ambiguous or no governing Wayfinder is authorized, exclude the Spec from the actionable frontier and report the exact reason. One currently focused governing Wayfinder is sufficient.
+   An intentionally non-Wayfinder Spec is durably outside Wayfinder delivery governance. Treat its `Project Delivery State` as `independent`. If it is in the Spec dependency frontier, include it directly in the actionable Spec frontier without invoking or inventing a Wayfinder/project-delivery guard.
+
+   Do not assume the invocation source remains the Spec's only or currently focused governor. If a Wayfinder-managed governing set is ambiguous or no governing Wayfinder is authorized, exclude the Spec from the actionable frontier and report the exact reason. One currently focused governing Wayfinder is sufficient.
 
    Do not persist an active-Spec field, queue, WIP=1 marker, or frontier snapshot. Multiple independent actionable Specs inside the same focused Wayfinder are concurrently actionable.
 
@@ -141,7 +143,26 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    Native dependency state is re-read on every reduction. If a blocker Spec is legitimately reopened, the unchanged edge makes the dependent Spec ineligible again automatically; do not invent replacement state.
 
-7. **Project the source Wayfinder into Spec Delivery.** When the planning source is a Wayfinder map, re-read its reconciled Derived/Remediation Spec set after all handoff and dependency mutations above.
+7. **Project every handled Spec.** After Spec provenance and native dependencies are durable and the actionable frontier has been derived, invoke `$project-tracking` for every Spec created or reconciled by this invocation. A published formal Spec is not fully projected until its GitHub Project membership and fields are synchronized.
+
+   Supply this base formal-artifact projection for each non-complete Spec:
+
+   ```text
+   Artifact Type: Spec
+   Workflow State: Ready to Ticket
+   Next Skill: $to-tickets
+   Work Status: Ready when no open native blocker exists; Blocked when one or more open native blockers exist
+   Root Blocker: None
+   Completed On: None
+   ```
+
+   Supply the Spec's authoritative `Project Delivery State` as derived above: `in-focus`, `eligible`, or `blocked` for Wayfinder-managed Specs; `independent` for intentionally non-Wayfinder Specs.
+
+   Preserve existing Project `Area`/`Priority` presentation unless this invocation has separate authority to change them; do not derive those values from planning prose.
+
+   Invoke `$project-tracking` only after the issue, provenance, and dependency state are durable. Project drift never rolls back or deletes a valid Spec. Do not rely on Project auto-add, labels, views, or issue creation itself as proof that projection occurred.
+
+8. **Project the source Wayfinder into Spec Delivery.** When the planning source is a Wayfinder map, re-read its reconciled Derived/Remediation Spec set after all handoff and dependency mutations above.
 
    If at least one durably governed Spec remains open, the Wayfinder has crossed the specification boundary. Its Project lifecycle projection is now:
 
@@ -162,7 +183,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    If no governed Spec remains open, do not manufacture `Spec Delivery`; let the owning completion/re-entry lifecycle project the map's resulting state.
 
-8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, and source-Wayfinder projection is complete, output handoffs only for Specs in the actionable Spec frontier.
+9. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, Spec projection, and source-Wayfinder projection is complete, output handoffs only for Specs in the actionable Spec frontier.
 
    Output one copy-ready handoff line per actionable Spec:
 

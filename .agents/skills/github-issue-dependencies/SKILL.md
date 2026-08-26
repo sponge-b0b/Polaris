@@ -62,6 +62,14 @@ gh --version   # needs >= 2.94.0
 
 If an authorized caller needs a native operation the installed CLI cannot perform, return the tool/version blocker to that caller. Do not silently replace native relationships with text or raw GraphQL from this helper unless the owning lifecycle explicitly defines that fallback.
 
+### Deterministic execution rule
+
+The commands and flags in this helper are the prescribed mechanics for authorized native issue relationships. Use them directly.
+
+Do **not** browse GitHub documentation, search the web, probe REST or GraphQL alternatives, try raw `gh api` relationship mutations, or experiment with alternate command forms while executing a lifecycle transition.
+
+If the required `gh` version or prescribed flag is unavailable, unsupported, or fails because the local CLI/API contract has drifted, return that exact blocker to the lifecycle owner. Do not discover or invent a fallback during the lifecycle run.
+
 ## Editing relationships on an already-published issue
 
 Use `gh issue edit` directly for existing issue relationships.

@@ -193,24 +193,94 @@ The audit does not weaken these settings to make the current code look healthier
 
 ## Quantitative baseline
 
-**Status: pending local whole-repository runs.**
+Tool versions recorded for this snapshot:
+
+```text
+uv       0.11.17
+Python   3.12.3
+Ruff     0.15.22
+Mypy     2.3.0
+Pytest   9.1.1
+Arid     2.0.0
+jscpd    5.0.12 (CLI reports `cpd`)
+```
 
 | Measure | Production | Tests | Notes |
 | --- | ---: | ---: | --- |
-| Python files | pending | pending | Exact audited corpus will be recorded. |
-| Physical/source lines | pending | pending | Tool/version recorded with result. |
-| Arid duplicate groups | pending | pending | Production and tests measured separately. |
-| Arid duplicate effective lines | pending | pending | Python-aware normalized metric. |
-| Arid duplication % | pending | pending | Do not compare directly to jscpd percentage. |
-| jscpd clones | pending | pending | Independent cross-check. |
-| jscpd duplicated lines/tokens | pending | pending | Exact reporter/version recorded. |
-| Ruff C90 violations | pending | — | Repository threshold = 10. |
-| Mypy result | pending | — | Repository configuration. |
-| Pytest result | pending | — | Full suite unless a deterministic blocker prevents it. |
-| Coverage | pending | — | Repository floor = 75%. |
-| High-risk/hotspot files | pending | — | Repowise/structural evidence. |
-| Dead-code candidates | pending | pending | Must be verified before finding status. |
-| God-class/divergent-responsibility candidates | pending | — | Requires responsibility/coupling review. |
+| Python files / sources | 966 Arid files / 716 jscpd sources | 469 Arid files | Detector corpus semantics differ. |
+| Physical/source lines | 186,422 Arid source lines / 185,455 jscpd lines | 125,011 Arid source lines | Do not compare detector line bases directly. |
+| Arid analyzed effective lines | 99,930 | 74,221 | Comments/docstrings/imports/signatures ignored. |
+| Arid duplicate groups | 1,288 | 1,512 | Complete scans; both exited `1` because findings exist. |
+| Arid duplicate effective lines | 11,885 | 12,877 | Redundant normalized lines. |
+| Arid duplication % | 11.89% | 17.35% | Python-aware normalized metric. |
+| jscpd clones | 587 | invalid run | Test run analyzed zero files because repository config ignores `**/tests/**`. |
+| jscpd duplicated lines | 10,296 | invalid run | Production = 5.55% of jscpd line basis. |
+| jscpd duplicated tokens | 50,386 | invalid run | Production = 6.66% of jscpd token basis. |
+| Ruff | PASS | included | No configured lint or C90 violations. |
+| Mypy | PASS | included | `Success: no issues found in 1435 source files`. |
+| Pytest | **FAIL** | — | 33 failed, 3006 passed, 9 skipped. |
+| Coverage | 90.07% | — | 47,279 / 52,489 statements; repository floor 75%. |
+| High-risk/hotspot files | structural pass pending | — | Targeted Repowise analysis next. |
+| Dead-code candidates | structural pass pending | structural pass pending | Must be verified before finding status. |
+| God-class/divergent-responsibility candidates | structural pass pending | — | Requires responsibility/coupling review. |
+
+### Duplicate-code interpretation
+
+The Arid and jscpd percentages intentionally differ because the tools normalize and count clones differently. The important signal is that both independently identify substantial production duplication; neither percentage is treated as a quality score or direct refactoring target.
+
+Arid production findings are predominantly executable by finding count (`816` executable, `301` declarative, `171` mixed), while the largest raw duplicated regions include substantial declarative model repetition. This makes blanket DRY extraction unsafe: SQLAlchemy/model declarations may repeat syntax while preserving independent schema ownership.
+
+The first high-signal production clusters to inspect are:
+
+1. **Database model declarations** — especially `core/database/models/telemetry.py`, `recommendations.py`, `market.py`, `runtime.py`, `reports.py`, `sentiment.py`, `rag.py`, `portfolio.py`, `agent_intelligence.py`, and `macro.py`. Both detectors repeatedly identify these files. The likely mix is intentional declarative repetition plus possible duplicated schema knowledge; structural review must separate the two.
+2. **Persistence services/models/repositories** — repeated executable patterns appear across agent-intelligence, attribution, market, news, portfolio, sentiment, recommendation, projection-job, and observability persistence code. This is a stronger candidate for shared knowledge/ownership defects than model-column syntax alone.
+3. **Workflow execution/bootstrap** — `core/workflow/execution/workflow_facade.py` and workflow bootstrap paths recur in executable duplicate findings, including overlap with governed-workflow execution behavior.
+4. **Workflow-output projectors** — macro, market, news, portfolio, and sentiment projectors show repeated executable structures and cross-projector clone pairs.
+5. **Evaluation infrastructure** — evaluation contracts, datasets, jobs, run service, model-replacement gate, provider adapters, and CLI evaluation services contain repeated blocks across representation and orchestration boundaries.
+
+These are hotspot candidates, not instructions to introduce base classes, generic repositories, generic projectors, or other abstractions. Each cluster must first establish whether the duplicated code represents one piece of knowledge with multiple owners.
+
+### Baseline test health
+
+The current full-suite behavioral baseline is **not green**, despite clean Ruff/Mypy results and 90.07% aggregate coverage.
+
+The 33 failures are not one homogeneous defect. Initial clustering shows:
+
+- governed workflow/plugin/policy tests failing because `WorkflowFacade` now requires an execution-audit capability that several test/runtime constructions do not supply;
+- a live Neo4j integration test attempting to connect to unavailable localhost Neo4j instead of cleanly skipping/failing its environment prerequisite;
+- a broad telemetry/operational-logging cluster where expected emergency/error/lifecycle records are absent or static architecture checks detect direct logging/event imports outside the expected ownership boundary;
+- three model-allocation-readiness tests referencing missing `docs/model_allocation_readiness.md`;
+- isolated evaluation-policy, morning-report claim-audit, provider telemetry, and command-guard failures.
+
+This is a material pre-refactor confidence issue. The failures must be separated into stale-test/configuration problems versus actual implementation regressions before cleanup implementation begins.
+
+### Coverage risk candidates
+
+Aggregate coverage is strong enough to support refactoring, but it hides several zero- or low-coverage production surfaces that deserve dead-code/reachability or risk review.
+
+Notable zero-coverage non-trivial files include:
+
+```text
+intelligence/strategy/evolution/strategy_evolution_engine.py      42 statements
+core/telemetry/lifecycle/telemetry_lifecycle.py                    35
+domain/portfolio/portfolio_decision_engine.py                      34
+core/telemetry/decorators/instrumented.py                          25
+core/telemetry/decorators/timed.py                                 23
+core/telemetry/decorators/trace.py                                 18
+integration/contracts/execution/execution_decision.py              12
+```
+
+Notable low-coverage larger surfaces include:
+
+```text
+core/storage/persistence/repositories/postgres_ai_observability_export_job_repository.py   20.2% / 178 statements
+core/storage/persistence/repositories/postgres_evaluation_persistence_repository.py         26.5% / 211
+intelligence/attribution/attribution_engine.py                                              21.0% / 62
+interfaces/cli/services/workflow_control_input_service.py                                   38.0% / 108
+core/runtime/artifacts/artifact_store.py                                                    46.2% / 93
+```
+
+Low coverage does not prove dead code or bad design. These files are priority inputs to the reachability/risk pass because they combine meaningful size with weak behavioral protection.
 
 ## Initial repository-inventory candidates
 
@@ -241,20 +311,46 @@ Repository code search currently finds no references to either module name.
 
 Before promotion to a finding, verify import/dependency analysis and whether they serve any packaging or external compatibility role.
 
+### CH-CANDIDATE-003 — persistence-layer executable duplication
+
+Both Arid and jscpd repeatedly identify executable clone families across application persistence services and core persistence models/repositories.
+
+This candidate is higher priority than declarative ORM repetition because repeated transaction, conversion, failure, telemetry, projection, or repository lifecycle behavior may represent duplicated knowledge rather than merely similar syntax.
+
+Next validation: targeted health/risk analysis plus inspection of representative clone families and their architectural ownership.
+
+### CH-CANDIDATE-004 — workflow execution/bootstrap duplication and wiring drift
+
+`core/workflow/execution/workflow_facade.py` and workflow bootstrap paths are duplicate-code hotspots, and the failing test cluster independently indicates governed-execution construction drift around the required execution-audit capability.
+
+The duplicate and test signals may share a root cause, or they may be unrelated symptoms. Do not consolidate them until call/dependency evidence establishes ownership.
+
+### CH-CANDIDATE-005 — observability/telemetry ownership drift
+
+A large share of the failing suite concerns missing telemetry failure reporting, emergency logging, or static restrictions on direct telemetry/logging ownership. This intersects code-health concerns because duplicated fallback/logging behavior and competing emission paths are explicitly prohibited by `$coding-standards`.
+
+Next validation: identify canonical emission ownership, direct callers/importers, and whether failures come from one centralized behavior change or multiple local workarounds.
+
+### CH-CANDIDATE-006 — zero-/low-coverage potentially stale surfaces
+
+Several non-trivial production modules have zero coverage, while larger persistence/runtime modules have materially low coverage. These are not dead-code findings yet.
+
+Next validation: Repowise dead-code/reference analysis, followed by graph-backed reachability checks only for ambiguous/dynamic paths.
+
 ## Findings
 
-**Status: audit in progress. No candidate is considered an accepted finding until its evidence is cross-checked.**
+**Status: audit in progress. No candidate is considered an accepted finding until its evidence is cross-checked, except direct baseline facts explicitly stated below.**
 
 | ID | Area | Finding | Evidence | Impact | Route | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| — | — | Quantitative and structural analysis pending. | — | — | — | In progress |
+| CH-FINDING-001 | Behavioral baseline | The audited full test suite is not green. | 33 failed, 3006 passed, 9 skipped; Ruff/Mypy pass and coverage = 90.07%. | Refactoring cannot rely on a clean regression baseline until failures are classified and resolved. | Pending failure decomposition | Confirmed fact |
 
 ## Exit criteria
 
 The audit is complete when:
 
 1. baseline lint/type/test/coverage results are recorded or a deterministic blocker is documented;
-2. production and test duplication are independently measured by Arid and jscpd;
+2. production and test duplication are independently measured by Arid and jscpd, or a detector limitation is explicitly documented;
 3. complexity/hotspot evidence is collected and material candidates are inspected;
 4. God-class/divergent-responsibility candidates are confirmed or rejected from responsibility/coupling evidence;
 5. dead/stale-code candidates are cross-checked for dynamic reachability and compatibility ownership;

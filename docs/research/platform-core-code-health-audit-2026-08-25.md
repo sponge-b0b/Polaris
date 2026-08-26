@@ -488,3 +488,32 @@ The objective is not to force every metric downward. A successful remediation sh
 9. **Follow-up re-audit plan:** documented above.
 
 **Audit result:** Complete for the audited snapshot. Proceed to baseline remediation, then direct cleanup and focused Refactor Specs, followed by re-audit.
+
+## Post-audit remediation discoveries
+
+This section is additive remediation evidence discovered **after** the audited August 25 snapshot. It does not rewrite the point-in-time findings above.
+
+### `CH-POST-001` — semantic dead API / contract ownership drift
+
+During post-audit verification of real-node workflow and backtest behavior, Polaris exposed a governed-execution contract defect introduced after the audited snapshot: `GovernedWorkflowExecutionService.run_workflow()` still accepted a caller-supplied `execution_id` even though the service had become the authoritative owner of governed execution correlations. The implementation silently discarded the caller value while backtesting continued constructing and passing deterministic step execution IDs.
+
+This was not conventional dead code. The parameter remained referenced and type-correct, and tests could stay behaviorally green. The defect was that the API advertised caller authority that no longer existed while downstream consumers preserved a superseded contract.
+
+The production migration was completed by removing the obsolete caller-owned execution-ID contract from the governed boundary, backtest protocol/request path, governance tests, and stale test doubles. The remediation then exposed a standards-enforcement gap:
+
+- internal source compatibility had been treated as an implicit reason to retain obsolete API shape;
+- `$coding-standards` did not explicitly prohibit accepting and ignoring/discarding/overwriting superseded inputs or equivalent compatibility sinks;
+- `$verify-code` did not require repository-wide consumer discovery/closure when an authoritative shared contract changed.
+
+The enforcement gap was remediated by:
+
+- `aa8a3e5ae9cfd7360c223b8cc71ad51435fe7034` — `fix(standards): enforce complete internal contract migrations`;
+- `123296731a44f54b58adaeadff0bf6cad4a86b19` — `fix(verification): enforce contract impact closure`.
+
+`$coding-standards` now establishes that internal source compatibility is not a default Polaris requirement, authoritative layers become correct first, all affected internal consumers are migrated, and obsolete compatibility residue is forbidden unless explicit authority requires a genuine compatibility boundary. `$verify-code` now requires contract-impact closure with repository-wide consumer discovery while keeping Ruff, Mypy, and Pytest execution targeted.
+
+**Disposition:** Remediated. Treat semantic dead API / contract ownership drift as an explicit defect class in the next repository-wide code-health pass.
+
+**Methodology consequence:** Before resuming the original direct-cleanup queue, perform an adversarial semantic/migration-completeness audit. For authoritative contracts and invariants, inspect callers, implementations, protocols, adapters, fakes, fixtures, configuration, bootstrap/registries, alternate/fallback/bypass paths, and migration history. Any newly discovered defect class must receive a repository-wide saturation sweep rather than a one-off fix.
+
+A temporary GitHub issue (`#239`) was created directly while recording this remediation. That issue bypassed the repository's lifecycle-owning skill workflow and is explicitly **not** workflow authority; it is closed as `not planned` and retained only as historical evidence of the process defect. Durable authority for this post-audit finding is this repository record and the committed implementation/policy changes above.

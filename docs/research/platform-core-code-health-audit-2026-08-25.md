@@ -4,7 +4,7 @@
 
 This document is **point-in-time research input only**. It records the structural health of the Polaris codebase at the repository snapshot below.
 
-It does **not** establish architecture, authorize refactoring, supersede accepted ADRs, modify existing Specs, satisfy or close `$wayfinder` work, or imply that a finding remains current after the audited repository snapshot. Any finding promoted into architectural work must be independently revalidated against current repository state through the normal `$wayfinder` workflow.
+It does **not** establish architecture, authorize refactoring, supersede accepted ADRs, modify existing Specs, satisfy or close `$wayfinder` work, or imply that a finding remains current after the audited repository snapshot. Any finding promoted into implementation or architectural work must be revalidated against current repository state through the applicable workflow.
 
 **Audit date:** 2026-08-25
 
@@ -14,6 +14,8 @@ It does **not** establish architecture, authorize refactoring, supersede accepte
 branch: main
 commit: 37150063f77903ac58880da5ef0b68ec0381850f
 ```
+
+**Audit status:** Complete for the audited snapshot. Structural candidate validation and behavioral-baseline classification are complete; remediation and post-remediation re-audit remain future work.
 
 Because Polaris is actively evolving, this audit becomes historical evidence after the snapshot above. Future code-health decisions must revalidate findings against the then-current repository state.
 
@@ -34,6 +36,33 @@ The audit focuses on existing-code housekeeping rather than feature completeness
 - baseline lint, type, test, and coverage health that affects refactoring confidence.
 
 The objective is not to maximize DRYness or minimize line count. The objective is the **smallest correct, readable, maintainable resulting system**, consistent with `$coding-standards`.
+
+## Executive conclusion
+
+The audited Polaris core is structurally healthier than the raw detector output initially suggested.
+
+The multi-signal investigation rejected several tempting metric-driven conclusions:
+
+- broad SQLAlchemy/repository repetition does not justify a generic repository abstraction;
+- repeated ORM declarations largely preserve independent schema ownership;
+- `WorkflowFacade` breadth is consistent with a facade and is not itself a structural defect;
+- `WorkflowRuntimeAssembler` breadth is expected at a composition root;
+- `ServiceRunner` remains cohesive around one application-service execution lifecycle;
+- `AutomatedDecisionAuditService` is large but cohesive around one approval/governance lifecycle and is **not** supported as a God class;
+- the layered telemetry model is intentional and does not have one missing canonical owner.
+
+The confirmed production code-health work is narrower:
+
+- stale packaging/scaffolding and a small set of verified dead symbols;
+- duplicated durable-job **claim-transition** knowledge across two PostgreSQL job repositories;
+- internal complexity in decision-evidence reconstruction/persistence;
+- workflow-output projection orchestration concentration;
+- local complexity in the fail-closed risk-authority gate;
+- targeted telemetry/logging policy overlap that requires policy synchronization before cleanup.
+
+No confirmed structural finding currently requires a Wayfinder. The desired ownership for the production refactors is sufficiently clear for direct cleanup or focused Refactor Specs.
+
+The historical full-suite baseline is not green, but focused diagnosis found **no reproduced implementation regressions** among the currently reconstructed failures. The failures are explained by stale tests, one environment prerequisite, stale document paths, observability policy drift, and order-dependent logging-capture defects. Those baseline issues should be repaired before relying on the suite as a regression oracle for the affected refactors.
 
 ## Scope
 
@@ -68,8 +97,6 @@ Excluded from production-code metrics unless explicitly noted:
 
 This audit follows repository coding policy rather than generic smell thresholds.
 
-In particular:
-
 1. **DRY applies to duplicated knowledge, policy, invariants, and business rules — not merely similar syntax.**
 2. **Smells are diagnostic signals, not automatic violations.** A large class or repeated block is a candidate for investigation, not proof that extraction is correct.
 3. **No speculative abstractions.** A cleanup that adds more machinery than it removes is not automatically an improvement.
@@ -84,24 +111,11 @@ The audit is intentionally multi-signal. No single tool result is treated as tru
 
 ### 1. Repository and configuration inventory
 
-Inspect:
-
-- package/module layout;
-- repository quality configuration;
-- empty/stale modules and package declarations;
-- repeated or competing infrastructure boundaries;
-- obvious abandoned compatibility/scaffolding.
+Inspect package/module layout, repository quality configuration, empty/stale modules, package declarations, repeated infrastructure boundaries, and abandoned compatibility/scaffolding.
 
 ### 2. Baseline quality gates
 
-Record the current snapshot results for:
-
-- Ruff, including configured McCabe complexity (`C90`, threshold 10);
-- Mypy under repository configuration;
-- Pytest;
-- coverage against the repository's configured 75% floor.
-
-These are not the whole audit; they establish whether refactoring starts from a known-green behavioral baseline.
+Record Ruff, Mypy, Pytest, and coverage under repository configuration so refactoring starts from a known behavioral baseline rather than assuming the suite is green.
 
 ### 3. Duplicate-code analysis
 
@@ -110,66 +124,33 @@ Use two independent detectors:
 - **Arid 2.x** for Python-aware duplicate detection and structural context;
 - **jscpd** as an independent token/text-oriented cross-check.
 
-Production code and tests are measured separately so test-fixture repetition does not distort production-code conclusions.
+Production code and tests are measured separately.
 
-Duplicate findings are triaged as:
-
-- repeated syntax with independent ownership — usually acceptable;
-- repeated construction/serialization/testing pattern — local refactor candidate;
-- duplicated business rule, invariant, normalization, policy, or lifecycle behavior — high-priority ownership defect;
-- duplicate competing abstraction — possible architecture/refactoring decision.
+Duplicate findings are triaged as repeated syntax, repeated construction/serialization/testing, duplicated business policy/invariants, or competing abstractions. Similar syntax is never sufficient by itself to authorize abstraction.
 
 ### 4. Complexity, size, and hotspot analysis
 
-Use repository Ruff complexity checks plus structural health/risk evidence to identify:
-
-- functions above the configured McCabe threshold;
-- large or highly coupled modules;
-- classes with excessive method/state breadth;
-- files with high change risk or blast radius;
-- repeated high-complexity patterns.
-
-Size alone does not establish a God class. Responsibility breadth and coupling must support that conclusion.
+Use Ruff complexity checks and Repowise structural/change-risk evidence to identify functions, modules, and classes requiring inspection. Size alone does not establish a God class.
 
 ### 5. Responsibility and God-class review
 
-For candidate classes/modules, inspect:
-
-- number of unrelated reasons to change;
-- state owned across multiple architectural concepts;
-- feature envy / extensive navigation of collaborators;
-- orchestration mixed with domain policy, persistence, transport, or formatting;
-- repeated internal dispatch suggesting hidden sub-responsibilities;
-- dependency fan-in/fan-out and change blast radius.
-
-A class is recorded as a God-class/divergent-responsibility finding only when responsibility evidence supports it.
+Inspect actual reasons to change, collaborator/state breadth, caller groups, orchestration/policy/persistence mixing, and dependency blast radius before accepting a divergent-responsibility finding.
 
 ### 6. Dead code and stale scaffolding
 
-Cross-check repository search, structural tooling, and call/dependency evidence before declaring code dead.
+Cross-check detector output against repository search, package exports, registries, CLI/MCP/plugin/config lookup, dynamic dispatch, tests, public compatibility evidence, and targeted history before declaring code dead.
 
-Candidates include:
+### 7. Dependency and dynamic-path review
 
-- zero-byte or placeholder modules;
-- unreferenced compatibility aliases;
-- packages/config entries whose implementation no longer exists;
-- superseded paths left beside current architecture;
-- unreachable helpers/classes/files.
+Use `$codebase-memory-mcp` for structural callers, dependencies, impact, and reachability. Use `$codegraph` selectively for event, decorator, callback, registry, plugin, and other implicit runtime paths. Graph blind spots are recorded rather than guessed through.
 
-### 7. Dependency and coupling review
+### 8. Behavioral-baseline decomposition
 
-Use graph-backed analysis selectively after hotspots are identified. The goal is to answer specific questions such as:
+Reconstruct the historical failure areas, rerun the narrowest deterministic test set available, isolate order-dependent behavior, and classify root causes rather than treating every failed test as an independent production defect.
 
-- Is this large class actually a high-fan-in architectural boundary?
-- Do two modules form a cycle or duplicate ownership?
-- Which callers would be affected by extraction or consolidation?
-- Is apparent dead code reachable through dynamic dispatch?
+### 9. Finding disposition
 
-Broad graph output is evidence, not an architecture decision.
-
-### 8. Finding disposition
-
-Each material finding will be assigned one recommended route:
+Structural findings use these routes:
 
 | Route | Meaning |
 | --- | --- |
@@ -219,79 +200,33 @@ Repowise 0.34.0
 | jscpd duplicated tokens | 50,386 | invalid run | Production = 6.66% of jscpd token basis. |
 | Ruff | PASS | included | No configured lint or C90 violations. |
 | Mypy | PASS | included | `Success: no issues found in 1435 source files`. |
-| Pytest | **FAIL** | — | 33 failed, 3006 passed, 9 skipped. |
+| Pytest | **FAIL** | — | Historical full-suite baseline: 33 failed, 3006 passed, 9 skipped. |
 | Coverage | 90.07% | — | 47,279 / 52,489 statements; repository floor 75%. |
 | Repowise health | 8.18 average / 5.95 hotspot | — | 1,066 files analyzed; worst score 1.13. |
-| Dead-code candidates | 19 Repowise safe-only unused exports plus broader low-confidence unreachable-file candidates | — | Dynamic/public compatibility verification still required. |
-| God-class labels | 3 Repowise-labelled candidates | — | Tool labels require responsibility review; two are not confirmed after source inspection. |
+| Dead-code candidates | 19 Repowise safe-only unused exports plus broader low-confidence candidates | — | Strong subset later verified; several detector labels rejected. |
+| God-class labels | 3 Repowise-labelled candidates | — | All three rejected as class-level God-class findings after responsibility review. |
+
+## Structural analysis
 
 ### Duplicate-code interpretation
 
 The Arid and jscpd percentages intentionally differ because the tools normalize and count clones differently. The important signal is that both independently identify substantial production duplication; neither percentage is treated as a quality score or direct refactoring target.
 
-Arid production findings are predominantly executable by finding count (`816` executable, `301` declarative, `171` mixed), while the largest raw duplicated regions include substantial declarative model repetition. This makes blanket DRY extraction unsafe: SQLAlchemy/model declarations may repeat syntax while preserving independent schema ownership.
+Arid production findings are predominantly executable by finding count (`816` executable, `301` declarative, `171` mixed), while the largest raw duplicated regions include substantial declarative model repetition. Blanket DRY extraction would be unsafe.
 
-The first high-signal production clusters to inspect are:
+Final validation produced these conclusions:
 
-1. **Database model declarations** — especially `core/database/models/telemetry.py`, `recommendations.py`, `market.py`, `runtime.py`, `reports.py`, `sentiment.py`, `rag.py`, `portfolio.py`, `agent_intelligence.py`, and `macro.py`. Both detectors repeatedly identify these files. The likely mix is intentional declarative repetition plus possible duplicated schema knowledge; structural review must separate the two.
-2. **Persistence services/models/repositories** — repeated executable patterns appear across agent-intelligence, attribution, market, news, portfolio, sentiment, recommendation, projection-job, and observability persistence code. This is a stronger candidate for shared knowledge/ownership defects than model-column syntax alone.
-3. **Workflow execution/bootstrap** — `core/workflow/execution/workflow_facade.py` and workflow bootstrap paths recur in executable duplicate findings, including overlap with governed-workflow execution behavior.
-4. **Workflow-output projectors** — macro, market, news, portfolio, and sentiment projectors show repeated executable structures and cross-projector clone pairs.
-5. **Evaluation infrastructure** — evaluation contracts, datasets, jobs, run service, model-replacement gate, provider adapters, and CLI evaluation services contain repeated blocks across representation and orchestration boundaries.
+- **Database model declarations:** mostly intentional declarative repetition preserving independent schema ownership. No broad abstraction finding.
+- **Persistence repositories:** broad SQLAlchemy repetition is mostly independent record-specific behavior. The supported duplicated knowledge is the narrower durable-job claim transition described below.
+- **Workflow execution/bootstrap:** facade/composition-root breadth is broadly justified. The missing execution-audit-capability failures were traced to stale tests using an obsolete governed-facade path, not a confirmed production ownership defect.
+- **Workflow-output projectors:** output-specific mapping remains intentionally parallel. The confirmed problem is orchestration concentration in `WorkflowOutputProjectionService`, not missing projector inheritance.
+- **Telemetry:** multiple semantic emitters are intentional by layer. The confirmed issue is local reporting/policy overlap, not a missing global telemetry owner.
 
-These are hotspot candidates, not instructions to introduce base classes, generic repositories, generic projectors, or other abstractions. Each cluster must first establish whether the duplicated code represents one piece of knowledge with multiple owners.
+### Repowise structural pass
 
-### Baseline test health
+Repowise 0.34.0 analyzed 1,066 files. Repository-wide average health was `8.18/10`; hotspot health was `5.95/10`.
 
-The current full-suite behavioral baseline is **not green**, despite clean Ruff/Mypy results and 90.07% aggregate coverage.
-
-The 33 failures are not one homogeneous defect. Initial clustering shows:
-
-- governed workflow/plugin/policy tests failing because `WorkflowFacade` now requires an execution-audit capability that several test/runtime constructions do not supply;
-- a live Neo4j integration test attempting to connect to unavailable localhost Neo4j instead of cleanly skipping/failing its environment prerequisite;
-- a broad telemetry/operational-logging cluster where expected emergency/error/lifecycle records are absent or static architecture checks detect direct logging/event imports outside the expected ownership boundary;
-- three model-allocation-readiness tests referencing missing `docs/model_allocation_readiness.md`;
-- isolated evaluation-policy, morning-report claim-audit, provider telemetry, and command-guard failures.
-
-This is a material pre-refactor confidence issue. The failures must be separated into stale-test/configuration problems versus actual implementation regressions before cleanup implementation begins.
-
-### Coverage risk candidates
-
-Aggregate coverage is strong enough to support refactoring, but it hides several zero- or low-coverage production surfaces that deserve dead-code/reachability or risk review.
-
-Notable zero-coverage non-trivial files include:
-
-```text
-intelligence/strategy/evolution/strategy_evolution_engine.py      42 statements
-core/telemetry/lifecycle/telemetry_lifecycle.py                    35
-domain/portfolio/portfolio_decision_engine.py                      34
-core/telemetry/decorators/instrumented.py                          25
-core/telemetry/decorators/timed.py                                 23
-core/telemetry/decorators/trace.py                                 18
-integration/contracts/execution/execution_decision.py              12
-```
-
-Notable low-coverage larger surfaces include:
-
-```text
-core/storage/persistence/repositories/postgres_ai_observability_export_job_repository.py   20.2% / 178 statements
-core/storage/persistence/repositories/postgres_evaluation_persistence_repository.py         26.5% / 211
-intelligence/attribution/attribution_engine.py                                              21.0% / 62
-interfaces/cli/services/workflow_control_input_service.py                                   38.0% / 108
-core/runtime/artifacts/artifact_store.py                                                    46.2% / 93
-```
-
-Low coverage does not prove dead code or bad design. These files are priority inputs to the reachability/risk pass because they combine meaningful size with weak behavioral protection.
-
-## Repowise structural pass
-
-Repowise 0.34.0 analyzed 1,066 files. Repository-wide average health was `8.18/10`; hotspot health was `5.95/10`. The lowest-scoring files were concentrated in decision-evidence persistence, workflow-output projection, workflow execution, evaluation gates, governance, settings, and persistence infrastructure.
-
-### Coverage integration caveat
-
-Repowise reported many `untested_hotspot` biomarkers because its health run did not have coverage data loaded. Those biomarkers are **not valid evidence of missing test coverage in this audit**.
-
-Cross-checking the actual pytest coverage report shows, for example:
+Repowise reported many `untested_hotspot` biomarkers because its health run did not ingest coverage. Those biomarkers are rejected as evidence of missing tests. Actual coverage for major hotspots is strong, including:
 
 ```text
 application/decision_evidence/persistence.py                         88.43%
@@ -305,183 +240,251 @@ core/workflow/bootstrap/workflow_runtime_assembler.py                 96.60%
 application/services/base/service_runner.py                           93.85%
 ```
 
-Repowise's change-history, complexity, duplication, cohesion, and dependency-count signals remain usable; only the un-ingested coverage inference is rejected.
+The strongest structural hotspots were:
 
-### Strong structural hotspot candidates
+| File | Repowise score | Final interpretation |
+| --- | ---: | --- |
+| `application/decision_evidence/persistence.py` | 1.13 | Large but cohesive around durable evidence reconstruction; internal decomposition is warranted. |
+| `application/projections/workflow_outputs/projection_service.py` | 1.34 | Confirmed orchestration concentration; projector ownership remains appropriate. |
+| `core/workflow/execution/workflow_facade.py` | 1.80 | Broad facade surface is expected; no class-level split finding promoted. |
+| `application/evaluations/risk_authority_gate.py` | 2.34 | One cohesive fail-closed domain decision with local decomposition opportunity. |
+| `application/governance/automated_decision_audit.py` | 2.64 | Large but cohesive approval/governance lifecycle; God-class label rejected. |
+| `core/workflow/bootstrap/workflow_runtime_assembler.py` | 4.45 | Broad composition-root construction is expected; class-level God-class label rejected. |
 
-The strongest multi-signal candidates from the health pass are:
+### God-class and responsibility conclusions
 
-| File | Repowise score | Structural signals | Audit interpretation |
-| --- | ---: | --- | --- |
-| `application/decision_evidence/persistence.py` | 1.13 | 1,300 NLOC; max CCN 12; nesting 5; 11.46% duplication; `_validate_reconstruction_sources` nests 5 levels | Strong complexity/size hotspot; ownership review needed before decomposition. |
-| `application/projections/workflow_outputs/projection_service.py` | 1.34 | 814 NLOC; max CCN 10; 21.13% duplication; high change/ripple risk | Strong refactoring candidate, especially against repeated projector behavior. |
-| `core/workflow/execution/workflow_facade.py` | 1.80 | 1,007 NLOC; 41 methods; LCOM4 2; 63.93% duplication; 15 co-change partners; 9 recent bug-fix commits | Strong structural-risk candidate, but facade semantics make low cohesion partly expected. |
-| `application/evaluations/risk_authority_gate.py` | 2.34 | `select_risk_authority_gate` = 130 lines / CCN 19; repeated modification history | Strong brain-method candidate with clear local complexity. |
-| `application/governance/automated_decision_audit.py` | 2.64 | 1,191 NLOC; 34.34% duplication; 617-line service / 20 methods | Responsibility breadth remains ambiguous and needs graph-backed review. |
-| `core/workflow/bootstrap/workflow_runtime_assembler.py` | 4.45 | max CCN 19; nesting 4; `assemble_facade` = 145 lines; 25.71% duplication | Real method-complexity hotspot, but class-level breadth is expected at a composition root. |
+Repowise labelled `AutomatedDecisionAuditService`, `ServiceRunner`, and `WorkflowRuntimeAssembler` as God classes. Responsibility/caller analysis does not support those labels:
 
-These rankings are diagnostic evidence, not a mandate to split each file.
+1. **`WorkflowRuntimeAssembler` — reject God-class finding.** It owns construction of the canonical workflow runtime object graph. High fan-out is intrinsic to the composition-root responsibility. Local method decomposition may still be useful, but architectural ownership is not divergent.
+2. **`ServiceRunner` — reject God-class finding.** Validation, policy enforcement, retries, runtime metadata, telemetry context, and lifecycle emission participate in one canonical application-service execution lifecycle.
+3. **`AutomatedDecisionAuditService` — reject God-class finding.** Automated policy/governance audit recording, human review tasks/decisions, residual-risk acceptance, and governed-output release form one coherent approval/governance lifecycle with a small collaborator surface.
 
-### God-class label review
+`WorkflowFacade` also has broad surface area and low-cohesion metrics, but that is expected for a facade. Graph and behavioral analysis did not establish a competing-owner or divergent-responsibility defect.
 
-Repowise labelled exactly three classes as God classes:
+## Candidate validation and disposition
 
-- `AutomatedDecisionAuditService` — 617 lines, 20 methods;
-- `ServiceRunner` — 475 class NLOC, 16 methods, `_run_with_retries` CCN 13;
-- `WorkflowRuntimeAssembler` — 563 class NLOC, 16 methods, `assemble_facade` CCN 19.
+| Candidate | Final disposition | Route / result |
+| --- | --- | --- |
+| `CH-CANDIDATE-001` stale `web` package/config declaration | Supported. `pyproject.toml` still names `web` in wheel packages and coverage sources while no top-level `web/` package exists. | `Direct cleanup` |
+| `CH-CANDIDATE-002` empty bootstrap modules | Supported. Both modules are zero-byte, have no observed references/exports/dynamic lookup, and history shows no implemented responsibility. | `Direct cleanup` |
+| `CH-CANDIDATE-003` persistence executable duplication | Partially supported. Broad repository duplication rejected; shared durable-job claim-transition invariant confirmed between projection-job and AI-observability export-job repositories. | `Refactor Spec` for narrow claim transition; otherwise `Accept` |
+| `CH-CANDIDATE-004` workflow execution/bootstrap duplication and wiring drift | Structural production finding rejected. `WorkflowFacade`/composition breadth is justified; audited capability failures are stale tests bypassing `GovernedWorkflowExecutionService`. | `Accept` production structure; test remediation |
+| `CH-CANDIDATE-005` observability/telemetry ownership drift | Partially supported. Layered ownership is valid; isolated semantic logging/telemetry overlap and static policy drift remain. | `Refactor Spec` after policy synchronization |
+| `CH-CANDIDATE-006` zero-/low-coverage stale surfaces | Partially supported. Several zero-coverage symbols are verified stale; low coverage alone is not a finding for the remaining modules. | `Direct cleanup` for verified subset |
+| `CH-CANDIDATE-007` decision-evidence persistence complexity | Supported as internal structural complexity, not ownership divergence. | `Refactor Spec` |
+| `CH-CANDIDATE-008` workflow-output projection concentration | Supported as service-internal orchestration concentration. | `Refactor Spec` |
+| `CH-CANDIDATE-009` risk-authority gate brain method | Partially supported. One cohesive fail-closed decision; local named decomposition is warranted without changing authority semantics. | `Refactor Spec` |
+| `CH-CANDIDATE-010` approval-lifecycle service breadth | Rejected. `AutomatedDecisionAuditService` forms one coherent governance approval lifecycle. | `Accept` |
+| `CH-CANDIDATE-011` safe-only dead export set | Partially supported. Detector list contained both genuinely stale and demonstrably live/test/public surfaces. | `Direct cleanup` only for verified subset |
 
-Source review changes the interpretation:
+### Verified direct-cleanup set
 
-1. **`WorkflowRuntimeAssembler` is not yet a confirmed God class.** Its explicit responsibility is to build the canonical workflow runtime object graph. High fan-out and broad construction are expected for a composition root. `assemble_facade` remains a legitimate complexity/refactoring candidate, but splitting architectural ownership merely to reduce class size would be the wrong optimization.
-2. **`ServiceRunner` is not yet a confirmed God class.** Its validation, policy enforcement, retry lifecycle, runtime metadata, telemetry context, and lifecycle emission all participate in one canonical application-service execution operation. `_run_with_retries` is large and complex enough to inspect, but class extraction is not justified by the metric alone.
-3. **`AutomatedDecisionAuditService` remains an unresolved divergent-responsibility candidate.** It owns automated policy/governance audit persistence plus human review lifecycle querying/resolution and governed-output release decisions. These may form one coherent approval-lifecycle service or may represent multiple application responsibilities. Call/fan-in evidence is required before deciding.
-
-Repowise also reports `WorkflowFacade` as low-cohesion (`LCOM4=2`, 41 methods). A facade intentionally exposes operations spanning multiple subsystems, so low cohesion is not itself a defect. Its unusually high duplication, change entropy, co-change scatter, recent defect history, and constructor surface make it worth deeper consumer/ownership analysis.
-
-### Dead-code and stale-surface pass
-
-The ordinary Repowise dead-code pass found multiple low-confidence `unreachable_file` candidates. Most are unsuitable for immediate deletion because top-level entrypoints, bootstrap/configuration surfaces, examples, plugin loading, and externally imported APIs can legitimately have zero static in-degree.
-
-The two empty bootstrap modules remain corroborated stale-scaffolding candidates:
+The following have no observed supported repository compatibility surface and are ready for direct cleanup after revalidation against the implementation branch:
 
 ```text
+pyproject.toml: stale `web` wheel/coverage entries
 core/bootstrap/application_bootstrap.py
 core/bootstrap/service_registry.py
-```
-
-Repowise independently reports both as unreachable with no importers, but marks them `safe_to_delete=false` because of bootstrap risk. This strengthens the stale-scaffolding hypothesis without yet proving deletion safety.
-
-Repowise's `--safe-only` pass reports 19 cleanup-ready unused exports totaling 697 lines. Particularly important intersections with the coverage audit are:
-
-```text
 domain/portfolio/portfolio_decision_engine.py::PortfolioDecisionEngine
 intelligence/strategy/evolution/strategy_evolution_engine.py::StrategyEvolutionEngine
 integration/contracts/execution/execution_decision.py::ExecutionDecision
+require_non_empty
+workflow_result_to_dict
 ```
 
-All three have zero measured coverage and no static importers according to Repowise. This is substantially stronger dead/stale-code evidence than either signal alone, but public/dynamic reachability still must be checked before deletion.
+`build_chunks` is not included in the unconditional set. It has no current repository consumer, but its docstring explicitly claims backward compatibility. Cleanup must first make an explicit compatibility decision rather than deleting it blindly.
 
-Other 100%-confidence safe-only symbols include `NonFatalPersistenceAuditEmitter`, `require_non_empty`, `build_chunks`, `InMemoryRuntimeTelemetrySink`, `InMemoryTelemetrySink`, `sanitize_web_content`, `workflow_result_to_dict`, `build_interactive_input_reader`, `emit_control_notification`, and `get_builtin_workflows`. These are high-priority verification candidates, not automatic deletion instructions.
+Repowise-labelled symbols such as `InMemoryRuntimeTelemetrySink`, `InMemoryTelemetrySink`, `sanitize_web_content`, `build_interactive_input_reader`, and `get_builtin_workflows` were found to have legitimate current roles and are not dead-code findings.
 
-### Repowise refactoring-plan caution
+### Durable job claim-transition duplication
 
-Repowise's generated `Extract Class` and `Extract Helper` plans are suggestions, not accepted architecture. In particular, a generic helper proposed from dozens of syntactically similar persistence/model sites would violate the audit's DRY rule unless those sites actually encode one shared piece of knowledge or policy.
+`PostgresWorkflowOutputProjectionJobRepository` and `PostgresAiObservabilityExportJobRepository` do **not** implement one generic durable-job repository contract. Their terminal states, retry behavior, idempotency identity, queue-status behavior, metadata, and cleanup semantics differ materially.
 
-The audit therefore uses Repowise to rank investigation targets, not to choose abstractions.
+They do share one narrower invariant:
 
-## Initial repository-inventory candidates
+- select a claimable row using concurrency-safe locking;
+- transition it to `RUNNING`;
+- increment `attempt_count`;
+- set `started_at`;
+- clear prior error state;
+- commit or roll back on `SQLAlchemyError`;
+- return the updated typed record.
 
-These are **candidates under validation**, not final findings.
+Stale-running recovery also overlaps partially, but repository-specific timestamp/retry semantics differ.
 
-### CH-CANDIDATE-001 — stale `web` package/config declaration
+The smallest plausible consolidation boundary is therefore a claim-transition helper or similarly narrow durable-job transition utility. A generic repository abstraction would erase meaningful domain-specific queue semantics and is rejected.
 
-`pyproject.toml` declares `web` in both the wheel package list and coverage source list, while the audited repository root contains no top-level `web/` directory.
+### Decision-evidence persistence
 
-Possible interpretations:
+`DecisionEvidencePacketPersistenceService` owns persistence and reconstruction of decision-evidence packets from canonical durable sources. Serialization, source-kind validation, RAG/evaluation/trace/domain-source reconstruction, tamper/staleness checks, and reconstruction telemetry are tied by one invariant: reconstructed evidence must match canonical durable sources.
 
-- stale package/coverage configuration left after a removed interface;
-- intentionally reserved future package (which would conflict with the repository's no-speculative-scaffolding rule);
-- another build-layout convention not yet identified.
+The module is therefore large but mostly cohesive. The finding is internal decomposition of source-specific validators/parsers and reconstruction steps while preserving one canonical owner, not splitting architectural ownership.
 
-Before promotion to a finding, validate packaging/test behavior and search for any dynamic/tooling dependency on the declaration.
+### Workflow-output projection
 
-### CH-CANDIDATE-002 — empty bootstrap modules
+`WorkflowOutputProjectionService` owns the shared projection lifecycle: eligibility, job creation/claiming, idempotency, trace context, telemetry, retry/reconcile behavior, and outcome persistence. Individual projectors own output-specific mapping and persistence.
 
-The audited `core/bootstrap/` tree contains zero-byte modules:
+The supported finding is service-internal orchestration concentration, especially around repeated skip/block/start/fail/succeed branches. A base-projector hierarchy or generic projector abstraction is not justified by the evidence.
+
+### Risk-authority gate
+
+`select_risk_authority_gate` is complex because it implements one sequential fail-closed domain decision:
 
 ```text
-core/bootstrap/application_bootstrap.py
-core/bootstrap/service_registry.py
+metadata present
+→ metadata valid
+→ authority consistent
+→ boundary permitted
+→ required packet evidence present
+→ output-governance evidence present
+→ decision evidence present
+→ provenance evidence present
+→ pass
 ```
 
-Repository search and Repowise both find no importers. Repowise does not mark them deletion-safe because bootstrap paths carry dynamic-entrypoint risk.
+The method can be decomposed into named internal checks, but graph/source evidence does not show multiple independent policy owners. Refactoring must preserve risk-authority semantics and fail-closed behavior.
 
-Next validation: graph-backed reachability and git-history/compatibility intent.
+### Telemetry and logging ownership
 
-### CH-CANDIDATE-003 — persistence-layer executable duplication
+Final validation supports a layered model:
 
-Both Arid and jscpd repeatedly identify executable clone families across application persistence services and core persistence models/repositories.
+- generic observability infrastructure owns transport/mechanics;
+- semantic emitters own separate application/runtime event vocabularies;
+- bootstrap configuration telemetry owns canonical configuration-failure reporting;
+- explicit emergency/fallback logging is permitted when observability cannot safely report itself.
 
-This candidate is higher priority than declarative ORM repetition because repeated transaction, conversion, failure, telemetry, projection, or repository lifecycle behavior may represent duplicated knowledge rather than merely similar syntax.
+There is no single telemetry root-ownership defect.
 
-Next validation: inspect representative clone families and determine whether they encode one canonical persistence policy or independent record-specific behavior.
+The remaining issue is local overlap and policy synchronization. Representative production paths log semantic failure/block events in addition to structured telemetry or outcomes, while static architecture tests enforce tighter direct-operational-logging restrictions. This requires deciding which direct logs are valid documented exceptions and which are production bypasses, then removing duplicate knowledge rather than broadening the architecture unnecessarily.
 
-### CH-CANDIDATE-004 — workflow execution/bootstrap duplication and wiring drift
+CodeGraph resolved representative `EventBus.emit` subscriber dispatch and telemetry decorator emitter calls. Runtime-selected decorator emitters and unnamed event-bus subscriber paths remain graph blind spots; no finding depends solely on those unresolved edges.
 
-`core/workflow/execution/workflow_facade.py` and workflow bootstrap paths are duplicate-code hotspots, and the failing test cluster independently indicates governed-execution construction drift around the required execution-audit capability.
+## Behavioral baseline classification
 
-Repowise strengthens the hotspot signal: `WorkflowFacade` scores 1.80, has 41 methods, LCOM4 2, 63.93% duplication, 15 co-change partners, and 9 recent bug-fix commits. The facade pattern prevents treating low cohesion alone as a violation.
+### Historical baseline and focused reproduction
 
-Next validation: graph the actual consumer surface, duplicated governance/policy paths, and ownership split among facade/service/runner/runtime engine/bootstrap.
+The audited full-suite result remains:
 
-### CH-CANDIDATE-005 — observability/telemetry ownership drift
+```text
+33 failed
+3006 passed
+9 skipped
+```
 
-A large share of the failing suite concerns missing telemetry failure reporting, emergency logging, or static restrictions on direct telemetry/logging ownership. This intersects code-health concerns because duplicated fallback/logging behavior and competing emission paths are explicitly prohibited by `$coding-standards`.
+The existing `.pytest_cache/v/cache/lastfailed` could not be treated as the authoritative 33-test inventory. It contained 51 entries, a missing path, and renamed/missing nodeids.
 
-Repowise also identifies meaningful duplication and complexity in telemetry lifecycle/decorator paths, but those metrics alone do not establish competing ownership.
+A focused reconstruction across the surviving cached failure-area files produced:
 
-Next validation: identify canonical emission ownership, direct callers/importers, and whether failures come from one centralized behavior change or multiple local workarounds.
+```text
+32 failed
+302 passed
+```
 
-### CH-CANDIDATE-006 — zero-/low-coverage potentially stale surfaces
+This was **not** a replacement full-suite baseline; it was a targeted diagnostic reproduction. The historical 33rd failure could not be deterministically recovered from the stale cache/current test names and remains documented as a historical-count limitation.
 
-Several non-trivial production modules have zero coverage, while larger persistence/runtime modules have materially low coverage.
+Targeted isolation then showed that 20 of the 32 failures were order-dependent logging-capture failures: the same tests passed in focused groups.
 
-Repowise independently marks `PortfolioDecisionEngine`, `StrategyEvolutionEngine`, and `ExecutionDecision` as cleanup-ready unused exports with no importers. This intersection materially raises confidence that at least some zero-coverage surfaces are stale.
+### Root-cause groups
 
-Next validation: dynamic reachability/public API check before promotion to dead-code findings.
+| Group | Failures | Classification | Root cause | Remediation owner | Refactor gate |
+| --- | ---: | --- | --- | --- | --- |
+| `GROUP-001` governed facade audit capability | 5 | Stale test | Tests call governed `WorkflowFacade.run_workflow` directly instead of using the current issue-only `WorkflowExecutionAuditCapability` path through `GovernedWorkflowExecutionService`. | Tests | Only affected workflow/governance area |
+| `GROUP-002` live Neo4j unavailable | 1 | Environment prerequisite | Live integration test expects Neo4j on localhost:7687; service was unavailable. | Test infrastructure/environment | Only Neo4j/RAG projection work |
+| `GROUP-003` model-allocation readiness path | 3 | Stale/missing repository artifact | Tests still read `docs/model_allocation_readiness.md`; the document was moved/reclassified to `docs/reference/model-gateway-profile-policy-model-allocation-readiness.md`. | Tests | No production blocker |
+| `GROUP-004` evaluation job risk-authority prerequisite | 1 | Stale test | Test expects provider invocation without satisfying the current output-governance readiness prerequisite for the strategy-synthesis authority gate. | Tests | Only evaluation/gate area |
+| `GROUP-005` observability static policy drift | 2 | Architecture-policy drift | Static policy forbids two noncanonical `TelemetryEvent` imports and eight direct operational logging sites; behavioral tests also expect some direct logs. | Architecture-policy synchronization | Telemetry/logging refactors |
+| `GROUP-006` order-dependent `caplog` failures | 20 | Test defect | Logging capture is contaminated by test order/batch state; the same call sites emit expected logs in isolated grouped reruns. | Test infrastructure/environment | Broad regression trust until fixed |
 
-### CH-CANDIDATE-007 — decision-evidence persistence complexity concentration
+### Behavioral assessment
 
-`application/decision_evidence/persistence.py` is Repowise's worst-scoring file (`1.13/10`): 1,300 NLOC, max CCN 12, nesting 5, and multiple function hotspots. Actual coverage is 88.43%, so the concern is structural complexity rather than missing tests.
+For the 32 currently reproduced failures:
 
-Next validation: determine whether reconstruction, canonical-source validation, RAG-source parsing, and persistence orchestration are one coherent responsibility or multiple owners accumulated in one module.
+- implementation regressions: **0**;
+- stale tests: **6**;
+- environment-prerequisite failures: **1**;
+- stale/missing repository artifact failures: **3**;
+- architecture-policy drift failures: **2**;
+- test defects: **20**.
 
-### CH-CANDIDATE-008 — workflow-output projection concentration
+The historical audited 33rd failure was not reproduced because the cached failure inventory was stale. This limitation is explicit rather than silently reclassifying the historical baseline.
 
-`application/projections/workflow_outputs/projection_service.py` scores `1.34/10`, is 814 NLOC, and has 21.13% duplication. It also co-changes broadly with projector infrastructure.
-
-Next validation: determine whether repeated per-output projection behavior belongs in canonical shared projection policy, individual projectors, or the orchestration service.
-
-### CH-CANDIDATE-009 — risk-authority gate brain method
-
-`application/evaluations/risk_authority_gate.py::select_risk_authority_gate` is 130 lines with CCN 19 and has repeated modification history. Unlike a class-size smell, this is a directly localized complexity signal.
-
-Next validation: inspect whether the method is one indivisible domain decision or a sequence of independently owned gate/evidence steps that can be decomposed without weakening authority semantics.
-
-### CH-CANDIDATE-010 — unresolved approval-lifecycle service breadth
-
-Repowise labels `AutomatedDecisionAuditService` a God class. Source inspection shows it spans automated audit recording plus governance review task/query/resolution and governed-output release behavior.
-
-The label is not accepted yet because those responsibilities may intentionally form one approval lifecycle.
-
-Next validation: fan-in/caller groups and whether consumers use distinct subsets that imply separate application-service boundaries.
-
-### CH-CANDIDATE-011 — safe-only dead export set
-
-Repowise reports 19 cleanup-ready unused exports totaling 697 lines. The strongest candidates are symbols that also have zero test coverage or 100% no-importer confidence.
-
-Next validation: dynamic dispatch, package export, CLI/plugin/configuration, and external API reachability. Only then should individual symbols move to `Direct cleanup`.
+No broad architecture re-entry is justified by the behavioral pass. `GROUP-005` requires synchronization of existing observability policy, static tests, and intentional logging exceptions; it does not currently require a Wayfinder.
 
 ## Findings
 
-**Status: audit in progress. No candidate is considered an accepted finding until its evidence is cross-checked, except direct baseline facts explicitly stated below.**
-
 | ID | Area | Finding | Evidence | Impact | Route | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| CH-FINDING-001 | Behavioral baseline | The audited full test suite is not green. | 33 failed, 3006 passed, 9 skipped; Ruff/Mypy pass and coverage = 90.07%. | Refactoring cannot rely on a clean regression baseline until failures are classified and resolved. | Pending failure decomposition | Confirmed fact |
+| `CH-FINDING-001` | Behavioral baseline | The audited full suite is not green, but the currently reconstructable failures contain no confirmed implementation regression. | Historical 33/3006/9 baseline; focused 32-failure reconstruction decomposes into six root causes. | Baseline must be repaired before affected refactors can rely on the suite as a trustworthy regression oracle. | Pre-refactor remediation | Confirmed |
+| `CH-FINDING-002` | Packaging | `web` remains in wheel/coverage configuration without a corresponding package. | `pyproject.toml`; repository inventory. | Stale configuration and misleading coverage/package intent. | `Direct cleanup` | Confirmed |
+| `CH-FINDING-003` | Bootstrap scaffolding | `application_bootstrap.py` and `service_registry.py` are empty, unreferenced bootstrap scaffolding. | Repository search, Repowise, graph reachability, history. | Dead surface and misleading ownership signals. | `Direct cleanup` | Confirmed |
+| `CH-FINDING-004` | Dead code | A narrow set of unused symbols has no observed static, dynamic, export, registry, CLI/MCP/plugin, test, or supported compatibility role. | Repowise safe-only + zero coverage where applicable + graph/search compatibility pass. | Unnecessary maintenance surface. | `Direct cleanup` | Confirmed subset |
+| `CH-FINDING-005` | Persistence jobs | Projection and AI-observability job repositories duplicate one durable claim-transition invariant while their broader lifecycle semantics differ. | Arid/jscpd + repository semantic comparison. | Shared concurrency/state-transition knowledge has multiple owners. | `Refactor Spec` | Confirmed |
+| `CH-FINDING-006` | Decision evidence | Decision-evidence persistence/reconstruction is cohesive but internally over-concentrated. | Repowise 1.13; 1,300 NLOC; graph/caller responsibility review; 88.43% coverage. | High maintenance complexity around canonical reconstruction logic. | `Refactor Spec` | Confirmed |
+| `CH-FINDING-007` | Workflow projection | `WorkflowOutputProjectionService` concentrates the shared projection orchestration lifecycle. | Repowise 1.34; 814 NLOC; 21.13% duplication; graph/caller review. | High change/ripple risk and repeated lifecycle branches. | `Refactor Spec` | Confirmed |
+| `CH-FINDING-008` | Risk authority | `select_risk_authority_gate` is a 130-line / CCN-19 cohesive fail-closed decision that can be locally decomposed. | Ruff/Repowise/source/caller review. | Local readability and maintainability risk in a critical decision path. | `Refactor Spec` | Confirmed |
+| `CH-FINDING-009` | Observability | Layered telemetry ownership is valid, but local semantic logging/telemetry overlap and static-policy disagreement remain. | Graph-backed telemetry pass + two static architecture-policy failures. | Duplicate reporting knowledge and unreliable policy enforcement until synchronized. | `Refactor Spec` after policy synchronization | Confirmed |
 
-## Exit criteria
+## Explicitly rejected or accepted smells
 
-The audit is complete when:
+The following should **not** become refactoring projects merely because a tool produced a poor score or label:
 
-1. baseline lint/type/test/coverage results are recorded or a deterministic blocker is documented;
-2. production and test duplication are independently measured by Arid and jscpd, or a detector limitation is explicitly documented;
-3. complexity/hotspot evidence is collected and material candidates are inspected;
-4. God-class/divergent-responsibility candidates are confirmed or rejected from responsibility/coupling evidence;
-5. dead/stale-code candidates are cross-checked for dynamic reachability and compatibility ownership;
-6. material findings are consolidated so one root cause is not reported as many symptoms;
-7. every material finding has a recommended route (`Direct cleanup`, `Refactor Spec`, `Wayfinder`, or `Accept`);
-8. the audit clearly distinguishes measured facts from architectural inference;
-9. a follow-up re-audit plan identifies which metrics should be compared after cleanup.
+- generic repository abstraction across persistence families — **rejected**;
+- generic/base projector abstraction — **rejected**;
+- `AutomatedDecisionAuditService` God-class split — **rejected**;
+- `WorkflowRuntimeAssembler` God-class split — **rejected**;
+- `ServiceRunner` God-class split — **rejected**;
+- `WorkflowFacade` class-level split based on breadth/LCOM alone — **rejected**;
+- broad telemetry-owner consolidation — **rejected**;
+- low coverage as proof of dead code — **rejected**;
+- ORM/model declarative repetition as a blanket DRY violation — **rejected**.
 
-The audit is not complete merely because tools produced reports.
+These rejections are findings in the methodological sense: they prevent detector-driven cleanup from making the architecture worse.
+
+## Recommended remediation order
+
+Restore a trustworthy behavioral baseline before production structural refactors whose verification depends on it.
+
+1. Isolate and repair the order-dependent logging-capture contamination (`GROUP-006`).
+2. Update governed workflow/plugin/policy/telemetry tests to use the current governed execution capability path (`GROUP-001`).
+3. Synchronize observability policy, static tests, valid direct-logging exceptions, and actual production bypasses (`GROUP-005`).
+4. Update model-allocation readiness tests to the classified reference document (`GROUP-003`).
+5. Update the evaluation metric-policy test to satisfy current risk-authority/output-governance prerequisites (`GROUP-004`).
+6. Make the live Neo4j prerequisite consistently explicit in test execution/documentation (`GROUP-002`).
+7. Re-establish the full-suite baseline.
+8. Perform verified direct cleanup.
+9. Create focused Refactor Specs for the confirmed production findings.
+
+No Wayfinder is required by the current audit evidence. Architecture re-entry remains available if implementation revalidation later discovers genuine ownership or contract ambiguity.
+
+## Follow-up re-audit plan
+
+After baseline remediation and code-health changes, rerun the same signals against the then-current repository snapshot.
+
+At minimum compare:
+
+- Ruff and Mypy status;
+- full Pytest pass/fail/skip counts;
+- aggregate and affected-module coverage;
+- Arid production/test duplication using the same normalization options;
+- jscpd production duplication using the same repository configuration;
+- Repowise repository and hotspot health;
+- size/complexity for `DecisionEvidencePacketPersistenceService`, `WorkflowOutputProjectionService`, and `select_risk_authority_gate`;
+- duplicate job-claim lifecycle evidence;
+- dead/stale symbol count;
+- observability architecture-policy tests and representative behavioral logging tests.
+
+The objective is not to force every metric downward. A successful remediation should reduce duplicated knowledge and structural risk while preserving or improving behavioral confidence and architectural clarity.
+
+## Exit criteria assessment
+
+1. **Baseline lint/type/test/coverage recorded:** complete. The non-green test baseline and focused diagnostic limitation are documented.
+2. **Independent duplicate measurement:** complete. Arid and jscpd production results are recorded; jscpd test-corpus limitation is explicit.
+3. **Complexity/hotspot inspection:** complete.
+4. **God-class/divergent-responsibility validation:** complete; detector labels were reviewed and rejected where unsupported.
+5. **Dead/stale-code reachability and compatibility validation:** complete for the promoted cleanup subset; ambiguous/live symbols were not promoted.
+6. **Root-cause consolidation:** complete.
+7. **Finding routing:** complete; no finding currently requires a Wayfinder.
+8. **Measured facts vs architectural inference:** separated throughout the audit.
+9. **Follow-up re-audit plan:** documented above.
+
+**Audit result:** Complete for the audited snapshot. Proceed to baseline remediation, then direct cleanup and focused Refactor Specs, followed by re-audit.

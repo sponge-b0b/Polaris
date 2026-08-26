@@ -280,10 +280,6 @@ class BacktestWorkflowStepRequest:
     def workflow_name(self) -> str:
         return self.scenario.workflow_name
 
-    @property
-    def execution_id(self) -> str:
-        return f"{self.backtest_run_id}-step-{self.step_index:06d}"
-
     def workflow_inputs(self) -> dict[str, object]:
         workflow_inputs = deepcopy(dict(self.scenario.parameters))
         workflow_inputs.update(

@@ -203,6 +203,7 @@ Mypy     2.3.0
 Pytest   9.1.1
 Arid     2.0.0
 jscpd    5.0.12 (CLI reports `cpd`)
+Repowise 0.34.0
 ```
 
 | Measure | Production | Tests | Notes |
@@ -220,9 +221,9 @@ jscpd    5.0.12 (CLI reports `cpd`)
 | Mypy | PASS | included | `Success: no issues found in 1435 source files`. |
 | Pytest | **FAIL** | — | 33 failed, 3006 passed, 9 skipped. |
 | Coverage | 90.07% | — | 47,279 / 52,489 statements; repository floor 75%. |
-| High-risk/hotspot files | structural pass pending | — | Targeted Repowise analysis next. |
-| Dead-code candidates | structural pass pending | structural pass pending | Must be verified before finding status. |
-| God-class/divergent-responsibility candidates | structural pass pending | — | Requires responsibility/coupling review. |
+| Repowise health | 8.18 average / 5.95 hotspot | — | 1,066 files analyzed; worst score 1.13. |
+| Dead-code candidates | 19 Repowise safe-only unused exports plus broader low-confidence unreachable-file candidates | — | Dynamic/public compatibility verification still required. |
+| God-class labels | 3 Repowise-labelled candidates | — | Tool labels require responsibility review; two are not confirmed after source inspection. |
 
 ### Duplicate-code interpretation
 
@@ -282,6 +283,92 @@ core/runtime/artifacts/artifact_store.py                                        
 
 Low coverage does not prove dead code or bad design. These files are priority inputs to the reachability/risk pass because they combine meaningful size with weak behavioral protection.
 
+## Repowise structural pass
+
+Repowise 0.34.0 analyzed 1,066 files. Repository-wide average health was `8.18/10`; hotspot health was `5.95/10`. The lowest-scoring files were concentrated in decision-evidence persistence, workflow-output projection, workflow execution, evaluation gates, governance, settings, and persistence infrastructure.
+
+### Coverage integration caveat
+
+Repowise reported many `untested_hotspot` biomarkers because its health run did not have coverage data loaded. Those biomarkers are **not valid evidence of missing test coverage in this audit**.
+
+Cross-checking the actual pytest coverage report shows, for example:
+
+```text
+application/decision_evidence/persistence.py                         88.43%
+application/projections/workflow_outputs/projection_service.py       87.10%
+core/workflow/execution/workflow_facade.py                            87.31%
+application/evaluations/risk_authority_gate.py                        91.30%
+application/governance/automated_decision_audit.py                    93.62%
+config/settings.py                                                     97.61%
+core/storage/persistence/governance_audit/governance_audit_models.py  89.57%
+core/workflow/bootstrap/workflow_runtime_assembler.py                 96.60%
+application/services/base/service_runner.py                           93.85%
+```
+
+Repowise's change-history, complexity, duplication, cohesion, and dependency-count signals remain usable; only the un-ingested coverage inference is rejected.
+
+### Strong structural hotspot candidates
+
+The strongest multi-signal candidates from the health pass are:
+
+| File | Repowise score | Structural signals | Audit interpretation |
+| --- | ---: | --- | --- |
+| `application/decision_evidence/persistence.py` | 1.13 | 1,300 NLOC; max CCN 12; nesting 5; 11.46% duplication; `_validate_reconstruction_sources` nests 5 levels | Strong complexity/size hotspot; ownership review needed before decomposition. |
+| `application/projections/workflow_outputs/projection_service.py` | 1.34 | 814 NLOC; max CCN 10; 21.13% duplication; high change/ripple risk | Strong refactoring candidate, especially against repeated projector behavior. |
+| `core/workflow/execution/workflow_facade.py` | 1.80 | 1,007 NLOC; 41 methods; LCOM4 2; 63.93% duplication; 15 co-change partners; 9 recent bug-fix commits | Strong structural-risk candidate, but facade semantics make low cohesion partly expected. |
+| `application/evaluations/risk_authority_gate.py` | 2.34 | `select_risk_authority_gate` = 130 lines / CCN 19; repeated modification history | Strong brain-method candidate with clear local complexity. |
+| `application/governance/automated_decision_audit.py` | 2.64 | 1,191 NLOC; 34.34% duplication; 617-line service / 20 methods | Responsibility breadth remains ambiguous and needs graph-backed review. |
+| `core/workflow/bootstrap/workflow_runtime_assembler.py` | 4.45 | max CCN 19; nesting 4; `assemble_facade` = 145 lines; 25.71% duplication | Real method-complexity hotspot, but class-level breadth is expected at a composition root. |
+
+These rankings are diagnostic evidence, not a mandate to split each file.
+
+### God-class label review
+
+Repowise labelled exactly three classes as God classes:
+
+- `AutomatedDecisionAuditService` — 617 lines, 20 methods;
+- `ServiceRunner` — 475 class NLOC, 16 methods, `_run_with_retries` CCN 13;
+- `WorkflowRuntimeAssembler` — 563 class NLOC, 16 methods, `assemble_facade` CCN 19.
+
+Source review changes the interpretation:
+
+1. **`WorkflowRuntimeAssembler` is not yet a confirmed God class.** Its explicit responsibility is to build the canonical workflow runtime object graph. High fan-out and broad construction are expected for a composition root. `assemble_facade` remains a legitimate complexity/refactoring candidate, but splitting architectural ownership merely to reduce class size would be the wrong optimization.
+2. **`ServiceRunner` is not yet a confirmed God class.** Its validation, policy enforcement, retry lifecycle, runtime metadata, telemetry context, and lifecycle emission all participate in one canonical application-service execution operation. `_run_with_retries` is large and complex enough to inspect, but class extraction is not justified by the metric alone.
+3. **`AutomatedDecisionAuditService` remains an unresolved divergent-responsibility candidate.** It owns automated policy/governance audit persistence plus human review lifecycle querying/resolution and governed-output release decisions. These may form one coherent approval-lifecycle service or may represent multiple application responsibilities. Call/fan-in evidence is required before deciding.
+
+Repowise also reports `WorkflowFacade` as low-cohesion (`LCOM4=2`, 41 methods). A facade intentionally exposes operations spanning multiple subsystems, so low cohesion is not itself a defect. Its unusually high duplication, change entropy, co-change scatter, recent defect history, and constructor surface make it worth deeper consumer/ownership analysis.
+
+### Dead-code and stale-surface pass
+
+The ordinary Repowise dead-code pass found multiple low-confidence `unreachable_file` candidates. Most are unsuitable for immediate deletion because top-level entrypoints, bootstrap/configuration surfaces, examples, plugin loading, and externally imported APIs can legitimately have zero static in-degree.
+
+The two empty bootstrap modules remain corroborated stale-scaffolding candidates:
+
+```text
+core/bootstrap/application_bootstrap.py
+core/bootstrap/service_registry.py
+```
+
+Repowise independently reports both as unreachable with no importers, but marks them `safe_to_delete=false` because of bootstrap risk. This strengthens the stale-scaffolding hypothesis without yet proving deletion safety.
+
+Repowise's `--safe-only` pass reports 19 cleanup-ready unused exports totaling 697 lines. Particularly important intersections with the coverage audit are:
+
+```text
+domain/portfolio/portfolio_decision_engine.py::PortfolioDecisionEngine
+intelligence/strategy/evolution/strategy_evolution_engine.py::StrategyEvolutionEngine
+integration/contracts/execution/execution_decision.py::ExecutionDecision
+```
+
+All three have zero measured coverage and no static importers according to Repowise. This is substantially stronger dead/stale-code evidence than either signal alone, but public/dynamic reachability still must be checked before deletion.
+
+Other 100%-confidence safe-only symbols include `NonFatalPersistenceAuditEmitter`, `require_non_empty`, `build_chunks`, `InMemoryRuntimeTelemetrySink`, `InMemoryTelemetrySink`, `sanitize_web_content`, `workflow_result_to_dict`, `build_interactive_input_reader`, `emit_control_notification`, and `get_builtin_workflows`. These are high-priority verification candidates, not automatic deletion instructions.
+
+### Repowise refactoring-plan caution
+
+Repowise's generated `Extract Class` and `Extract Helper` plans are suggestions, not accepted architecture. In particular, a generic helper proposed from dozens of syntactically similar persistence/model sites would violate the audit's DRY rule unless those sites actually encode one shared piece of knowledge or policy.
+
+The audit therefore uses Repowise to rank investigation targets, not to choose abstractions.
+
 ## Initial repository-inventory candidates
 
 These are **candidates under validation**, not final findings.
@@ -307,9 +394,9 @@ core/bootstrap/application_bootstrap.py
 core/bootstrap/service_registry.py
 ```
 
-Repository code search currently finds no references to either module name.
+Repository search and Repowise both find no importers. Repowise does not mark them deletion-safe because bootstrap paths carry dynamic-entrypoint risk.
 
-Before promotion to a finding, verify import/dependency analysis and whether they serve any packaging or external compatibility role.
+Next validation: graph-backed reachability and git-history/compatibility intent.
 
 ### CH-CANDIDATE-003 — persistence-layer executable duplication
 
@@ -317,25 +404,63 @@ Both Arid and jscpd repeatedly identify executable clone families across applica
 
 This candidate is higher priority than declarative ORM repetition because repeated transaction, conversion, failure, telemetry, projection, or repository lifecycle behavior may represent duplicated knowledge rather than merely similar syntax.
 
-Next validation: targeted health/risk analysis plus inspection of representative clone families and their architectural ownership.
+Next validation: inspect representative clone families and determine whether they encode one canonical persistence policy or independent record-specific behavior.
 
 ### CH-CANDIDATE-004 — workflow execution/bootstrap duplication and wiring drift
 
 `core/workflow/execution/workflow_facade.py` and workflow bootstrap paths are duplicate-code hotspots, and the failing test cluster independently indicates governed-execution construction drift around the required execution-audit capability.
 
-The duplicate and test signals may share a root cause, or they may be unrelated symptoms. Do not consolidate them until call/dependency evidence establishes ownership.
+Repowise strengthens the hotspot signal: `WorkflowFacade` scores 1.80, has 41 methods, LCOM4 2, 63.93% duplication, 15 co-change partners, and 9 recent bug-fix commits. The facade pattern prevents treating low cohesion alone as a violation.
+
+Next validation: graph the actual consumer surface, duplicated governance/policy paths, and ownership split among facade/service/runner/runtime engine/bootstrap.
 
 ### CH-CANDIDATE-005 — observability/telemetry ownership drift
 
 A large share of the failing suite concerns missing telemetry failure reporting, emergency logging, or static restrictions on direct telemetry/logging ownership. This intersects code-health concerns because duplicated fallback/logging behavior and competing emission paths are explicitly prohibited by `$coding-standards`.
 
+Repowise also identifies meaningful duplication and complexity in telemetry lifecycle/decorator paths, but those metrics alone do not establish competing ownership.
+
 Next validation: identify canonical emission ownership, direct callers/importers, and whether failures come from one centralized behavior change or multiple local workarounds.
 
 ### CH-CANDIDATE-006 — zero-/low-coverage potentially stale surfaces
 
-Several non-trivial production modules have zero coverage, while larger persistence/runtime modules have materially low coverage. These are not dead-code findings yet.
+Several non-trivial production modules have zero coverage, while larger persistence/runtime modules have materially low coverage.
 
-Next validation: Repowise dead-code/reference analysis, followed by graph-backed reachability checks only for ambiguous/dynamic paths.
+Repowise independently marks `PortfolioDecisionEngine`, `StrategyEvolutionEngine`, and `ExecutionDecision` as cleanup-ready unused exports with no importers. This intersection materially raises confidence that at least some zero-coverage surfaces are stale.
+
+Next validation: dynamic reachability/public API check before promotion to dead-code findings.
+
+### CH-CANDIDATE-007 — decision-evidence persistence complexity concentration
+
+`application/decision_evidence/persistence.py` is Repowise's worst-scoring file (`1.13/10`): 1,300 NLOC, max CCN 12, nesting 5, and multiple function hotspots. Actual coverage is 88.43%, so the concern is structural complexity rather than missing tests.
+
+Next validation: determine whether reconstruction, canonical-source validation, RAG-source parsing, and persistence orchestration are one coherent responsibility or multiple owners accumulated in one module.
+
+### CH-CANDIDATE-008 — workflow-output projection concentration
+
+`application/projections/workflow_outputs/projection_service.py` scores `1.34/10`, is 814 NLOC, and has 21.13% duplication. It also co-changes broadly with projector infrastructure.
+
+Next validation: determine whether repeated per-output projection behavior belongs in canonical shared projection policy, individual projectors, or the orchestration service.
+
+### CH-CANDIDATE-009 — risk-authority gate brain method
+
+`application/evaluations/risk_authority_gate.py::select_risk_authority_gate` is 130 lines with CCN 19 and has repeated modification history. Unlike a class-size smell, this is a directly localized complexity signal.
+
+Next validation: inspect whether the method is one indivisible domain decision or a sequence of independently owned gate/evidence steps that can be decomposed without weakening authority semantics.
+
+### CH-CANDIDATE-010 — unresolved approval-lifecycle service breadth
+
+Repowise labels `AutomatedDecisionAuditService` a God class. Source inspection shows it spans automated audit recording plus governance review task/query/resolution and governed-output release behavior.
+
+The label is not accepted yet because those responsibilities may intentionally form one approval lifecycle.
+
+Next validation: fan-in/caller groups and whether consumers use distinct subsets that imply separate application-service boundaries.
+
+### CH-CANDIDATE-011 — safe-only dead export set
+
+Repowise reports 19 cleanup-ready unused exports totaling 697 lines. The strongest candidates are symbols that also have zero test coverage or 100% no-importer confidence.
+
+Next validation: dynamic dispatch, package export, CLI/plugin/configuration, and external API reachability. Only then should individual symbols move to `Direct cleanup`.
 
 ## Findings
 

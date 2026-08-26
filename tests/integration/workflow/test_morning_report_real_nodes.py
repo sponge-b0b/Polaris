@@ -13,6 +13,7 @@ from application.services.backtesting import (
     BacktestScenario,
 )
 from application.services.base import ServiceRequest
+from core.llm.llm_service import LLMService
 from interfaces.cli.bootstrap.container import cli_runtime_scope
 from tests.helpers.governed_workflow_execution import (
     governed_workflow_execution_harness,
@@ -233,6 +234,18 @@ def _configure_synthetic_providers(
 ) -> None:
     for name, value in _PROVIDER_ENV.items():
         monkeypatch.setenv(name, value)
+    monkeypatch.setattr(LLMService, "chat", _deterministic_llm_chat)
+
+
+async def _deterministic_llm_chat(
+    _self: LLMService,
+    *_args: object,
+    response_format: str | None = None,
+    **_kwargs: object,
+) -> str | dict[str, object]:
+    if response_format == "json":
+        return {}
+    return "Deterministic test LLM response."
 
 
 def _real_golden_scenario() -> BacktestScenario:

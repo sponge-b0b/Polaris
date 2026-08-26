@@ -125,7 +125,7 @@ async def test_workflow_command_service_uses_governed_execution_service(
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "execution_id": "governed-test",
                 "execution_result": {"success": True, "final_context": {}},
             }
 
@@ -149,7 +149,8 @@ async def test_workflow_command_service_uses_governed_execution_service(
     )
 
     assert envelope.success is True
-    assert captured["execution_id"] is None
+    assert envelope.execution_id == "governed-test"
+    assert "execution_id" not in captured
     assert "governed_execution_evidence" not in captured
 
 

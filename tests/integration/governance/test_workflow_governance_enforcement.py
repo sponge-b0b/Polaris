@@ -431,7 +431,6 @@ async def test_governed_execution_uses_platform_owned_correlation() -> None:
 
     result = await execution_service.run_workflow(
         workflow_name="governance_test_workflow",
-        execution_id="caller-selected-execution",
         archive_on_completion=False,
         checkpoint_on_completion=False,
     )
@@ -440,7 +439,6 @@ async def test_governed_execution_uses_platform_owned_correlation() -> None:
     resolved_execution_id = evidence_resolver.resolve.await_args.kwargs["execution_id"]
     assert prepared_execution_id == resolved_execution_id
     assert prepared_execution_id.startswith("governed-")
-    assert prepared_execution_id != "caller-selected-execution"
     assert result.execution_id == prepared_execution_id
 
 

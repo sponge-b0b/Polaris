@@ -106,9 +106,13 @@ select = [
 max-complexity = 10 # Triggers an error if a function exceeds 10
 
 [tool.arid]
-exclude = [
-    "**/tests/**",
-]
+min-lines = 4
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+same-file = true
+hidden = false
 
 [tool.mypy]
 python_version = "3.12"

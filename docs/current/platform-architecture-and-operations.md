@@ -392,8 +392,8 @@ persistence, workflow, provider, or approval implementation. Its detailed
 transport contract is documented in
 [`mcp-server-transport-boundary.md`](mcp-server-transport-boundary.md).
 
-The HTTP API tree under `interfaces/api/` remains empty non-production
-scaffolding. API, scheduler, and UI surfaces are not production interfaces until
+HTTP API and UI implementation trees are not part of the current repository
+topology. API, scheduler, and UI surfaces are not production interfaces until
 their transport, request-scope lifecycle, persistence, security, and governance
 contracts are intentionally implemented.
 

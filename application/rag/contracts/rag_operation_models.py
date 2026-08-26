@@ -241,10 +241,6 @@ class RagProjectionReadinessResult:
         return self.success
 
 
-def require_non_empty(value: str | None, field_name: str) -> None:
-    _require_non_empty(value, field_name)
-
-
 def _require_non_empty(value: str | None, field_name: str) -> None:
     if value is None or not value.strip():
         raise ValueError(f"{field_name} cannot be empty.")

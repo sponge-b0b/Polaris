@@ -13,7 +13,7 @@ from interfaces.cli.commands.workflow_command_boundary import (
     validate_workflow_artifact_format,
 )
 from interfaces.cli.formatters.console_formatter import format_workflow_list
-from interfaces.cli.formatters.json_formatter import format_json, to_jsonable
+from interfaces.cli.formatters.json_formatter import format_json
 from interfaces.cli.rendering.workflow_rendering import (
     workflow_exception_to_render_envelope,
 )
@@ -284,11 +284,3 @@ def _parse_metadata(
         parsed[key] = value
 
     return parsed
-
-
-def workflow_result_to_dict(
-    value: Any,
-) -> dict[str, Any]:
-    return to_jsonable(
-        value,
-    )

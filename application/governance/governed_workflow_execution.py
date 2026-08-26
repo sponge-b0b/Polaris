@@ -63,7 +63,6 @@ class GovernedWorkflowExecutionService:
         self,
         *,
         workflow_name: str,
-        execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
         simulation_time: datetime | None = None,
@@ -71,7 +70,6 @@ class GovernedWorkflowExecutionService:
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> WorkflowRunResult:
-        del execution_id
         correlation_id = f"governed-{uuid4().hex}"
         capability = await self._audit_capability_for_run(
             workflow_name=workflow_name,

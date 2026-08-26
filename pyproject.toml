@@ -12,7 +12,6 @@ packages = [
     "intelligence",
     "interfaces",
     "mcp_server",
-    "web",
     "workflows"
 ]
 
@@ -36,7 +35,6 @@ dependencies = [
     "massive",
     "newsapi-python",
     "numpy",
-    "ollama",
     "openai",
     "opentelemetry-api",
     "opentelemetry-exporter-otlp",
@@ -173,7 +171,6 @@ source = [
     "intelligence",
     "interfaces",
     "mcp_server",
-    "web",
     "workflows"
 ]
 

@@ -387,6 +387,8 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 Each ticket has its own `Ticket baseline`.
 
+The Spec branch is a durable GitHub development branch, not a local-only workspace convenience. On first use, `$to-tickets` owns creating it on `origin`, linking it to the originating Spec's GitHub Development section, and establishing the local upstream. Later ticketing/remediation reuses that same linked branch.
+
 The originating Spec's branch/baseline ownership does not make it the native parent of Spec Review remediation tickets. Native hierarchy follows direct decomposition ownership from Step 5.
 
 ### 0. Resolve the Spec Issue Number
@@ -433,19 +435,79 @@ BASELINE_COMMIT=$(git rev-parse main)
 
 This value is used only if the Spec branch does not already exist.
 
-### 3. Create or Reuse the Spec Branch
+### 3. Create or Reuse the Linked Spec Branch
+
+Require a clean worktree before branch setup. Do not carry unrelated work across this checkout.
+
+Determine local and remote branch existence once:
 
 ```bash
-if git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH"; then
+LOCAL_BRANCH_EXISTS=false
+REMOTE_BRANCH_EXISTS=false
+
+git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH" \
+  && LOCAL_BRANCH_EXISTS=true
+
+git ls-remote --exit-code --heads origin "$SPEC_BRANCH" >/dev/null 2>&1 \
+  && REMOTE_BRANCH_EXISTS=true
+```
+
+On first use, neither branch exists. Require local `main` to match `origin/main`, then create the remote branch through GitHub's issue-development boundary so branch creation and Spec linkage happen together:
+
+```bash
+if [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = false ]; then
+  git fetch origin main
+  REMOTE_MAIN=$(git rev-parse origin/main)
+
+  if [ "$BASELINE_COMMIT" != "$REMOTE_MAIN" ]; then
+    echo "❌ Local main does not match origin/main. Synchronize main before creating the Spec branch."
+    exit 1
+  fi
+
+  gh issue develop "$spec_issue_number" \
+    --name "$SPEC_BRANCH" \
+    --base main \
+    --checkout
+
+  git push -u origin "$SPEC_BRANCH"
+elif [ "$LOCAL_BRANCH_EXISTS" = true ] && [ "$REMOTE_BRANCH_EXISTS" = true ]; then
   git checkout "$SPEC_BRANCH"
+  git branch --set-upstream-to="origin/$SPEC_BRANCH" "$SPEC_BRANCH"
+elif [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = true ]; then
+  git fetch origin "$SPEC_BRANCH"
+  git checkout -b "$SPEC_BRANCH" --track "origin/$SPEC_BRANCH"
 else
-  git checkout -b "$SPEC_BRANCH" "$BASELINE_COMMIT"
+  echo "❌ Local Spec branch exists without its required remote linked branch. Reconcile branch publication/linkage before continuing."
+  exit 1
 fi
 ```
 
-Do not create another branch for remediation or amended-Spec ticket deltas.
+Do not create another branch for remediation or amended-Spec ticket deltas. Do not silently fall back to a local-only branch if `gh issue develop`, the remote push, or Development linkage is unavailable.
 
-Ensure unrelated uncommitted work is not carried across the checkout.
+Verify branch identity, upstream, and GitHub Development linkage before continuing:
+
+```bash
+if [ "$(git branch --show-current)" != "$SPEC_BRANCH" ]; then
+  echo "❌ Expected Spec branch $SPEC_BRANCH is not checked out."
+  exit 1
+fi
+
+if [ "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/$SPEC_BRANCH" ]; then
+  echo "❌ Spec branch is not tracking origin/$SPEC_BRANCH."
+  exit 1
+fi
+
+if ! gh issue develop --list "$spec_issue_number" | grep -Fq "$SPEC_BRANCH"; then
+  echo "❌ Spec branch is not linked to the parent Spec's GitHub Development section."
+  exit 1
+fi
+
+if [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = false ] \
+  && [ "$(git rev-parse HEAD)" != "$BASELINE_COMMIT" ]; then
+  echo "❌ Newly created Spec branch does not match the captured Spec baseline."
+  exit 1
+fi
+```
 
 ### 4. Record Spec Baseline Metadata Once
 

@@ -21,11 +21,8 @@ from core.storage.persistence.serializers import (
 )
 from core.telemetry.context import get_active_telemetry_context
 from core.telemetry.contracts import TelemetryContext
-from core.telemetry.events import (
-    TelemetryEvent,
-    TelemetryEventLevel,
-    TelemetryExceptionDetails,
-)
+from core.telemetry.events import TelemetryEventLevel, TelemetryExceptionDetails
+from core.telemetry.events.telemetry_event import TelemetryEvent
 from core.telemetry.observability import ObservabilityManager
 
 logger = logging.getLogger(__name__)
@@ -69,13 +66,6 @@ class PostgresDecisionEvidencePacketRepository(
             await self._session.commit()
         except SQLAlchemyError as exc:
             await self._session.rollback()
-            logger.exception(
-                "Decision evidence PostgreSQL packet write failed.",
-                extra=_log_context(
-                    operation=_WRITE_OPERATION,
-                    packet_id=record.packet_id,
-                ),
-            )
             await self._record_postgres_operation(
                 operation=_WRITE_OPERATION,
                 packet_id=record.packet_id,
@@ -114,13 +104,6 @@ class PostgresDecisionEvidencePacketRepository(
             )
             model = result.scalar_one_or_none()
         except SQLAlchemyError as exc:
-            logger.exception(
-                "Decision evidence PostgreSQL packet read failed.",
-                extra=_log_context(
-                    operation=_READ_OPERATION,
-                    packet_id=packet_id,
-                ),
-            )
             await self._record_postgres_operation(
                 operation=_READ_OPERATION,
                 packet_id=packet_id,
@@ -237,7 +220,7 @@ class PostgresDecisionEvidencePacketRepository(
                 )
             )
         except (RuntimeError, OSError) as observability_error:
-            logger.error(
+            logger.debug(
                 "Decision evidence PostgreSQL observability recording failed.",
                 extra=_log_context(
                     operation=operation,

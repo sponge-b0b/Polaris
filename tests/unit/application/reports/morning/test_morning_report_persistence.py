@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -570,9 +569,7 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
 
 
 @pytest.mark.asyncio
-async def test_morning_report_fails_closed_without_claim_audit_treatment(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_morning_report_fails_closed_without_claim_audit_treatment() -> None:
     document = _document()
     repository = FakeReportRepository()
     service = MorningReportPersistenceService(
@@ -580,22 +577,14 @@ async def test_morning_report_fails_closed_without_claim_audit_treatment(
         governed_output_release_service=_approved_release_gate(),
     )
 
-    with caplog.at_level(
-        logging.WARNING,
-        logger="application.reports.morning_report_persistence",
-    ):
-        result = await service.persist(
-            document,
-            markdown_body=MorningReportMarkdownRenderer().render(document),
-        )
+    result = await service.persist(
+        document,
+        markdown_body=MorningReportMarkdownRenderer().render(document),
+    )
 
     assert result.success is False
     assert "materializer-owned decision evidence packet" in str(result.error)
     assert repository.report is None
-    assert any(
-        "Morning report claim-evidence binding failed closed." in record.message
-        for record in caplog.records
-    )
 
 
 @pytest.mark.asyncio

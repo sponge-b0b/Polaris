@@ -402,7 +402,7 @@ async def test_persist_report_claim_links_survives_observability_failure(
     )
 
     with caplog.at_level(
-        logging.ERROR,
+        logging.DEBUG,
         logger="core.storage.persistence.claim_evidence_links",
     ):
         result = await repository.persist_report_bundle(
@@ -427,12 +427,11 @@ async def test_persist_report_claim_links_survives_observability_failure(
     assert exc_type is ClaimEvidenceObservabilityError
     assert exc is not None
     assert isinstance(exc.__cause__, RuntimeError)
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
 @pytest.mark.asyncio
-async def test_persist_report_claim_evidence_links_logs_and_records_failures(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_persist_report_claim_evidence_links_records_failures() -> None:
     observability_manager, sink = _observability()
     session = FakeAsyncSession(
         execute_errors={2: SQLAlchemyError("database unavailable")},
@@ -442,13 +441,12 @@ async def test_persist_report_claim_evidence_links_logs_and_records_failures(
         observability_manager=observability_manager,
     )
 
-    with caplog.at_level(logging.ERROR):
-        result = await repository.persist_report_bundle(
-            ReportPersistenceBundle(
-                report=_report(),
-                claim_evidence_links=(_claim_evidence_link(),),
-            )
+    result = await repository.persist_report_bundle(
+        ReportPersistenceBundle(
+            report=_report(),
+            claim_evidence_links=(_claim_evidence_link(),),
         )
+    )
 
     assert result.success is False
     assert session.rollbacks == 1
@@ -463,16 +461,6 @@ async def test_persist_report_claim_evidence_links_logs_and_records_failures(
     assert (
         "storage.postgres.report_claim_evidence_link.operations.failed" in metric_names
     )
-    failure_logs = [
-        record
-        for record in caplog.records
-        if record.message == "Report PostgreSQL claim-evidence link write failed."
-    ]
-    assert failure_logs
-    assert failure_logs[0].exc_info is not None
-    failure_context = vars(failure_logs[0])
-    assert failure_context["report_id"] == "morning_report:exec-1"
-    assert failure_context["operation"] == "report_claim_evidence_link_write"
 
 
 @pytest.mark.asyncio
@@ -564,9 +552,7 @@ async def test_list_report_claim_evidence_links_records_success_observability() 
 
 
 @pytest.mark.asyncio
-async def test_list_report_claim_evidence_links_logs_and_records_failures(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_list_report_claim_evidence_links_records_failures() -> None:
     observability_manager, sink = _observability()
     session = FakeAsyncSession(error=SQLAlchemyError("database unavailable"))
     repository = PostgresReportPersistenceRepository(
@@ -574,7 +560,7 @@ async def test_list_report_claim_evidence_links_logs_and_records_failures(
         observability_manager=observability_manager,
     )
 
-    with caplog.at_level(logging.ERROR), pytest.raises(SQLAlchemyError):
+    with pytest.raises(SQLAlchemyError):
         await repository.list_claim_evidence_links(
             report_id="morning_report:exec-1",
             section_id="morning_report:exec-1:section:macro",
@@ -593,16 +579,6 @@ async def test_list_report_claim_evidence_links_logs_and_records_failures(
     assert (
         "storage.postgres.report_claim_evidence_link.operations.failed" in metric_names
     )
-    failure_logs = [
-        record
-        for record in caplog.records
-        if record.message == "Report PostgreSQL claim-evidence link read failed."
-    ]
-    assert failure_logs
-    assert failure_logs[0].exc_info is not None
-    failure_context = vars(failure_logs[0])
-    assert failure_context["report_id"] == "morning_report:exec-1"
-    assert failure_context["operation"] == "report_claim_evidence_link_read"
 
 
 def _observability() -> tuple[ObservabilityManager, InMemoryTelemetrySink]:

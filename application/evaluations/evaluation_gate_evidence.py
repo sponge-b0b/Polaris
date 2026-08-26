@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Protocol
@@ -40,7 +39,6 @@ from domain.evaluation import EvaluationCase
 
 _EVALUATION_READINESS_RETENTION_UNTIL = "2031-07-29T00:00:00Z"
 _EVALUATION_READINESS_RETENTION_POLICY_ID = "evaluation-readiness-5y"
-logger = logging.getLogger(__name__)
 
 
 class GovernedOutputReleaseService(Protocol):
@@ -197,10 +195,6 @@ async def reacquire_authority_gate_decision_evidence(
     if evidence is None or not evidence.decision_evidence_packets:
         return evidence
     if persistence_service is None:
-        logger.warning(
-            "Authority gate decision evidence persistence is not configured.",
-            extra={"decision_evidence_ids": evidence.decision_evidence_ids},
-        )
         return _reject_decision_evidence_packets(evidence)
 
     reconstructed_packets = []
@@ -223,15 +217,7 @@ async def reacquire_authority_gate_decision_evidence(
                     "authority gate decision evidence changed during reconstruction."
                 )
             reconstructed_packets.append(reconstructed)
-    except Exception as exc:
-        logger.warning(
-            "Authority gate decision evidence reconstruction failed closed.",
-            extra={
-                "decision_evidence_ids": evidence.decision_evidence_ids,
-                "error_type": type(exc).__name__,
-            },
-            exc_info=True,
-        )
+    except Exception:
         return _reject_decision_evidence_packets(evidence)
 
     return replace(
@@ -254,10 +240,6 @@ async def reacquire_output_governance_gate_evidence(
     if not evidence.decision_evidence_packets:
         return evidence
     if release_service is None:
-        logger.warning(
-            "Output governance release service is not configured for readiness gate.",
-            extra={"decision_evidence_ids": evidence.decision_evidence_ids},
-        )
         return evidence
     output_governance_evidence = []
     for packet in evidence.decision_evidence_packets:
@@ -269,11 +251,6 @@ async def reacquire_output_governance_gate_evidence(
                 release_request,
             )
         except Exception:
-            logger.warning(
-                "Output governance release decision re-acquisition failed closed.",
-                extra={"decision_evidence_id": packet.packet_id},
-                exc_info=True,
-            )
             continue
         output_governance_evidence.append(
             OutputGovernanceGateEvidence.from_release_decision(

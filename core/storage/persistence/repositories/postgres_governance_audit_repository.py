@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -31,8 +30,6 @@ from core.storage.persistence.governance_audit import (
 from core.storage.persistence.serializers import (
     AutomatedDecisionAuditPersistenceSerializer,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -65,10 +62,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Automated policy audit record write failed.",
-                extra={"audit_record_id": record.audit_record_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=record.audit_record_id,
@@ -88,10 +81,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Automated governance audit record write failed.",
-                extra={"audit_record_id": record.audit_record_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=record.audit_record_id,
@@ -111,10 +100,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Governance review task write failed.",
-                extra={"review_task_id": task.review_task_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=task.review_task_id,
@@ -174,10 +159,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Governance review task status update failed.",
-                extra={"review_task_id": review_task_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=review_task_id,
@@ -267,10 +248,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
                 _records_persisted(status_result)
         except (SQLAlchemyError, ValueError):
             await self._session.rollback()
-            logger.exception(
-                "Atomic governance review resolution failed.",
-                extra={"review_task_id": decision.review_task_id},
-            )
             raise
         return decision, acceptance
 
@@ -335,10 +312,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Governance review decision write failed.",
-                extra={"review_decision_id": decision.review_decision_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=decision.review_decision_id,
@@ -376,10 +349,6 @@ class PostgresAutomatedDecisionAuditRepository(AutomatedDecisionAuditRepository)
             await self._session.commit()
         except (SQLAlchemyError, ValueError) as exc:
             await self._session.rollback()
-            logger.exception(
-                "Governance residual-risk acceptance write failed.",
-                extra={"acceptance_id": acceptance.acceptance_id},
-            )
             return AutomatedDecisionAuditPersistenceResult.failed(
                 str(exc),
                 audit_record_id=acceptance.acceptance_id,

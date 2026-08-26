@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -40,8 +39,6 @@ from core.storage.persistence.serializers.report_persistence_serializer import (
     ReportPersistenceSerializer,
 )
 from core.telemetry.observability import ObservabilityManager
-
-logger = logging.getLogger(__name__)
 
 _COMPONENT_NAME = "PostgresReportPersistenceRepository"
 _REPORT_CLAIM_EVIDENCE_LINK_TABLE = "report_claim_evidence_links"
@@ -155,13 +152,6 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
         except SQLAlchemyError as exc:
             await self._session.rollback()
             if claim_evidence_started_at is not None:
-                logger.exception(
-                    "Report PostgreSQL claim-evidence link write failed.",
-                    extra=_report_claim_evidence_link_log_context(
-                        operation=_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
-                        report_id=bundle.report.report_id,
-                    ),
-                )
                 await self._claim_evidence_observability.record_operation(
                     operation=_REPORT_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
                     owner_id=bundle.report.report_id,
@@ -443,14 +433,6 @@ class PostgresReportPersistenceRepository(ReportPersistenceRepository):
                 for model in result.scalars().all()
             )
         except SQLAlchemyError as exc:
-            logger.exception(
-                "Report PostgreSQL claim-evidence link read failed.",
-                extra=_report_claim_evidence_link_log_context(
-                    operation=_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION,
-                    report_id=report_id,
-                    filters=filters,
-                ),
-            )
             await self._claim_evidence_observability.record_operation(
                 operation=_REPORT_CLAIM_EVIDENCE_LINK_READ_OPERATION,
                 owner_id=report_id,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -40,8 +39,6 @@ from core.storage.persistence.serializers.recommendation_persistence_serializer 
     RecommendationPersistenceSerializer,
 )
 from core.telemetry.observability import ObservabilityManager
-
-logger = logging.getLogger(__name__)
 
 _COMPONENT_NAME = "PostgresRecommendationPersistenceRepository"
 _RECOMMENDATION_CLAIM_EVIDENCE_LINK_TABLE = "recommendation_claim_evidence_links"
@@ -130,13 +127,6 @@ class PostgresRecommendationPersistenceRepository(
         except SQLAlchemyError as exc:
             await self._session.rollback()
             if claim_evidence_started_at is not None:
-                logger.exception(
-                    "Recommendation PostgreSQL claim-evidence link write failed.",
-                    extra=_recommendation_claim_evidence_link_log_context(
-                        operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
-                        recommendation_id=bundle.recommendation.recommendation_id,
-                    ),
-                )
                 await self._claim_evidence_observability.record_operation(
                     operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_WRITE_OPERATION,
                     owner_id=bundle.recommendation.recommendation_id,
@@ -374,14 +364,6 @@ class PostgresRecommendationPersistenceRepository(
                 for model in result.scalars().all()
             )
         except SQLAlchemyError as exc:
-            logger.exception(
-                "Recommendation PostgreSQL claim-evidence link read failed.",
-                extra=_recommendation_claim_evidence_link_log_context(
-                    operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION,
-                    recommendation_id=recommendation_id,
-                    filters=filters,
-                ),
-            )
             await self._claim_evidence_observability.record_operation(
                 operation=_RECOMMENDATION_CLAIM_EVIDENCE_LINK_READ_OPERATION,
                 owner_id=recommendation_id,

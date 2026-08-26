@@ -11,11 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.telemetry.context import get_active_telemetry_context
 from core.telemetry.contracts import TelemetryContext
-from core.telemetry.events import (
-    TelemetryEvent,
-    TelemetryEventLevel,
-    TelemetryExceptionDetails,
-)
+from core.telemetry.events import TelemetryEventLevel, TelemetryExceptionDetails
+from core.telemetry.events.telemetry_event import TelemetryEvent
 from core.telemetry.observability import ObservabilityManager
 from domain.authority import RiskTier
 
@@ -102,7 +99,7 @@ class PostgresClaimEvidenceLinkObservability:
                 records_returned=records_returned,
             )
         except ClaimEvidenceObservabilityError:
-            logger.exception(
+            logger.debug(
                 "Claim-evidence PostgreSQL observability recording failed.",
                 extra={
                     "component_name": self.component_name,
@@ -110,6 +107,7 @@ class PostgresClaimEvidenceLinkObservability:
                     "operation": operation,
                     "table": self.table_name,
                 },
+                exc_info=True,
             )
 
 

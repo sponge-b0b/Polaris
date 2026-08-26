@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -59,7 +58,6 @@ from domain.llm import (
     sanitize_reasoning_trace_text_for_boundary,
 )
 
-logger = logging.getLogger(__name__)
 _HIGH_RISK_REPORT_CLAIM_PROVENANCE_TIERS = frozenset(
     (RiskTier.ENHANCED, RiskTier.VIGILANT),
 )
@@ -267,16 +265,6 @@ class MorningReportPersistenceService:
             DecisionEvidencePacketReconstructionError,
             DecisionEvidencePacketValidationError,
         ) as exc:
-            logger.warning(
-                "Morning report claim-evidence binding failed closed.",
-                extra={
-                    "report_id": bundle.report.report_id,
-                    "execution_id": document.execution_id,
-                    "risk_tier": document.authority.risk_tier.value,
-                    "error_type": type(exc).__name__,
-                },
-                exc_info=True,
-            )
             return ReportPersistenceResult.failed(str(exc))
 
         release_decision = await self._evaluate_publication_release(
@@ -284,20 +272,6 @@ class MorningReportPersistenceService:
             claim_references=claim_evidence_binding.validated_claim_references,
         )
         if release_decision is not None and not release_decision.allowed:
-            logger.warning(
-                "morning_report.persistence.governance_review_blocked",
-                extra={
-                    "execution_id": document.execution_id,
-                    "risk_tier": document.authority.risk_tier.value,
-                    "approval_state": (
-                        release_decision.approval_state.value
-                        if release_decision.approval_state is not None
-                        else None
-                    ),
-                    "review_task_id": release_decision.review_task_id,
-                    "reason": release_decision.reason,
-                },
-            )
             return ReportPersistenceResult.failed(release_decision.reason)
 
         return await self._repository.persist_report(

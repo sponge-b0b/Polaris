@@ -1695,7 +1695,7 @@ async def test_observability_failure_does_not_block_domain_persistence(
     repository = FakeAutomatedDecisionAuditRepository()
     service = AutomatedDecisionAuditService(repository, FailingObservabilityManager())
 
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.DEBUG):
         result = await service.record_governance_decision(
             context=_context(),
             result=GovernanceResult.require_approval(
@@ -1712,6 +1712,7 @@ async def test_observability_failure_does_not_block_domain_persistence(
     assert len(repository.review_tasks) == 1
     assert "governance_approval_lifecycle.metrics_failed" in caplog.messages
     assert "governance_approval_lifecycle.telemetry_emit_failed" in caplog.messages
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
 @pytest.mark.asyncio

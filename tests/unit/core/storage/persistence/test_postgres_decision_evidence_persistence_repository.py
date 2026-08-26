@@ -149,9 +149,7 @@ async def test_get_packet_record_records_success_observability() -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_packet_record_logs_and_records_database_failures(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_persist_packet_record_records_database_failures() -> None:
     observability_manager, sink = _observability()
     session = FakeAsyncSession(error=SQLAlchemyError("database unavailable"))
     repository = PostgresDecisionEvidencePacketRepository(
@@ -159,8 +157,7 @@ async def test_persist_packet_record_logs_and_records_database_failures(
         observability_manager=observability_manager,
     )
 
-    with caplog.at_level(logging.ERROR):
-        result = await repository.persist_packet_record(_record())
+    result = await repository.persist_packet_record(_record())
 
     assert result.success is False
     assert session.rolled_back is True
@@ -173,22 +170,10 @@ async def test_persist_packet_record_logs_and_records_database_failures(
     assert event.attributes["operation"] == "decision_evidence_packet_write"
     metric_names = _metric_names(observability_manager)
     assert "storage.postgres.decision_evidence_packet.operations.failed" in metric_names
-    failure_logs = [
-        record
-        for record in caplog.records
-        if record.message == "Decision evidence PostgreSQL packet write failed."
-    ]
-    assert failure_logs
-    assert failure_logs[0].exc_info is not None
-    failure_context = vars(failure_logs[0])
-    assert failure_context["packet_id"] == "packet-1"
-    assert failure_context["operation"] == "decision_evidence_packet_write"
 
 
 @pytest.mark.asyncio
-async def test_get_packet_record_logs_and_records_database_failures(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_get_packet_record_records_database_failures() -> None:
     observability_manager, sink = _observability()
     session = FakeAsyncSession(error=SQLAlchemyError("database unavailable"))
     repository = PostgresDecisionEvidencePacketRepository(
@@ -196,7 +181,7 @@ async def test_get_packet_record_logs_and_records_database_failures(
         observability_manager=observability_manager,
     )
 
-    with caplog.at_level(logging.ERROR), pytest.raises(SQLAlchemyError):
+    with pytest.raises(SQLAlchemyError):
         await repository.get_packet_record("packet-1")
 
     event = _datastore_event(sink)
@@ -208,46 +193,27 @@ async def test_get_packet_record_logs_and_records_database_failures(
     assert event.attributes["operation"] == "decision_evidence_packet_read"
     metric_names = _metric_names(observability_manager)
     assert "storage.postgres.decision_evidence_packet.operations.failed" in metric_names
-    failure_logs = [
-        record
-        for record in caplog.records
-        if record.message == "Decision evidence PostgreSQL packet read failed."
-    ]
-    assert failure_logs
-    assert failure_logs[0].exc_info is not None
-    failure_context = vars(failure_logs[0])
-    assert failure_context["packet_id"] == "packet-1"
-    assert failure_context["operation"] == "decision_evidence_packet_read"
 
 
 @pytest.mark.asyncio
-async def test_persist_packet_record_keeps_success_when_observability_degrades(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_persist_packet_record_keeps_success_when_observability_degrades() -> (
+    None
+):
     session = FakeAsyncSession(result=FakeExecuteResult(rowcount=1))
     repository = PostgresDecisionEvidencePacketRepository(
         cast(AsyncSession, session),
         observability_manager=FailingObservabilityManager(),
     )
 
-    with caplog.at_level(logging.ERROR):
-        result = await repository.persist_packet_record(_record())
+    result = await repository.persist_packet_record(_record())
 
     assert result.success is True
     assert result.records_persisted == 1
     assert session.committed is True
-    observability_logs = _observability_failure_logs(caplog)
-    assert len(observability_logs) == 1
-    assert observability_logs[0].exc_info is not None
-    failure_context = vars(observability_logs[0])
-    assert failure_context["packet_id"] == "packet-1"
-    assert failure_context["operation"] == "decision_evidence_packet_write"
 
 
 @pytest.mark.asyncio
-async def test_get_packet_record_keeps_result_when_observability_degrades(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_get_packet_record_keeps_result_when_observability_degrades() -> None:
     record = _record()
     session = FakeAsyncSession(result=FakeExecuteResult(model=_model(record)))
     repository = PostgresDecisionEvidencePacketRepository(
@@ -255,17 +221,10 @@ async def test_get_packet_record_keeps_result_when_observability_degrades(
         observability_manager=FailingObservabilityManager(),
     )
 
-    with caplog.at_level(logging.ERROR):
-        loaded = await repository.get_packet_record("packet-1")
+    loaded = await repository.get_packet_record("packet-1")
 
     assert loaded is not None
     assert loaded.packet_id == record.packet_id
-    observability_logs = _observability_failure_logs(caplog)
-    assert len(observability_logs) == 1
-    assert observability_logs[0].exc_info is not None
-    failure_context = vars(observability_logs[0])
-    assert failure_context["packet_id"] == "packet-1"
-    assert failure_context["operation"] == "decision_evidence_packet_read"
 
 
 def _observability() -> tuple[ObservabilityManager, InMemoryTelemetrySink]:
@@ -287,17 +246,6 @@ def _datastore_event(sink: InMemoryTelemetrySink) -> TelemetryEvent:
 
 def _metric_names(observability_manager: ObservabilityManager) -> set[str]:
     return {point.name for point in observability_manager.metrics_store.points()}
-
-
-def _observability_failure_logs(
-    caplog: pytest.LogCaptureFixture,
-) -> list[logging.LogRecord]:
-    return [
-        record
-        for record in caplog.records
-        if record.message
-        == "Decision evidence PostgreSQL observability recording failed."
-    ]
 
 
 class FakeExecuteResult:

@@ -259,26 +259,6 @@ class ApprovalLifecycleObservability:
             trace_context=trace_context,
             attributes=attributes,
         )
-        log_extra = {
-            **dict(attributes),
-            **_trace_attributes(resolved_trace_context),
-            "event_type": f"{_APPROVAL_LIFECYCLE_EVENT_PREFIX}.{lifecycle_outcome}",
-        }
-        if error is None:
-            logger.log(
-                _logging_level(level),
-                "governance_approval_lifecycle.%s",
-                lifecycle_outcome,
-                extra=log_extra,
-            )
-        else:
-            logger.error(
-                "governance_approval_lifecycle.%s",
-                lifecycle_outcome,
-                exc_info=(type(error), error, error.__traceback__),
-                extra=log_extra,
-            )
-
         self._increment(
             _APPROVAL_LIFECYCLE_EVENTS_TOTAL,
             attributes=_metric_attributes(
@@ -298,11 +278,10 @@ class ApprovalLifecycleObservability:
         if self._observability_manager is None:
             return
         try:
+            event_type = f"{_APPROVAL_LIFECYCLE_EVENT_PREFIX}.{lifecycle_outcome}"
             await self._observability_manager.emit(
                 TelemetryEvent(
-                    event_type=(
-                        f"{_APPROVAL_LIFECYCLE_EVENT_PREFIX}.{lifecycle_outcome}"
-                    ),
+                    event_type=event_type,
                     source=_APPROVAL_LIFECYCLE_SOURCE,
                     level=level,
                     workflow_id=(
@@ -360,9 +339,14 @@ class ApprovalLifecycleObservability:
                 )
             )
         except RuntimeError:
-            logger.exception(
+            logger.debug(
                 "governance_approval_lifecycle.telemetry_emit_failed",
-                extra=log_extra,
+                extra={
+                    **dict(attributes),
+                    **_trace_attributes(resolved_trace_context),
+                    "event_type": event_type,
+                },
+                exc_info=True,
             )
 
     def _trace_context(
@@ -392,9 +376,10 @@ class ApprovalLifecycleObservability:
                 },
             )
         except RuntimeError:
-            logger.exception(
+            logger.debug(
                 "governance_approval_lifecycle.trace_context_failed",
                 extra=dict(attributes),
+                exc_info=True,
             )
             return None
 
@@ -412,9 +397,10 @@ class ApprovalLifecycleObservability:
                 attributes=dict(attributes),
             )
         except RuntimeError:
-            logger.exception(
+            logger.debug(
                 "governance_approval_lifecycle.metrics_failed",
                 extra=dict(attributes),
+                exc_info=True,
             )
 
 
@@ -555,13 +541,3 @@ def _metadata_text(metadata: Mapping[str, Any], key: str) -> str | None:
     if isinstance(value, str) and value.strip():
         return value
     return None
-
-
-def _logging_level(level: TelemetryEventLevel) -> int:
-    return {
-        TelemetryEventLevel.DEBUG: logging.DEBUG,
-        TelemetryEventLevel.INFO: logging.INFO,
-        TelemetryEventLevel.WARNING: logging.WARNING,
-        TelemetryEventLevel.ERROR: logging.ERROR,
-        TelemetryEventLevel.CRITICAL: logging.CRITICAL,
-    }[level]

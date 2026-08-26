@@ -2,7 +2,19 @@
 
 Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Lifecycle authority
+
+GitHub commands and connector operations are tracker mechanics, not permission to create or mutate workflow artifacts.
+
+Agents must create, publish, close, reopen, or otherwise perform lifecycle-significant mutation of a workflow issue only through the skill that owns that artifact's lifecycle. A tool capability, this document, repository write access, or a request to "record" or "track" work does not by itself authorize direct issue creation or lifecycle mutation.
+
+Before creating any issue, identify the lifecycle-owning skill and follow its publication/approval contract. If no existing skill owns the proposed artifact type, do not create the issue directly; keep the information in the appropriate repository artifact or surface the missing workflow owner.
+
+Direct issue reads and mechanical operations are allowed only when an owning skill or explicit repository procedure authorizes them for the active lifecycle.
+
 ## Conventions
+
+The commands below describe mechanics to use when the applicable lifecycle owner authorizes the operation.
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.

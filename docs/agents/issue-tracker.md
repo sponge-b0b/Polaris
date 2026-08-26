@@ -16,7 +16,17 @@ Direct issue reads and mechanical operations are allowed only when an owning ski
 
 The commands below describe mechanics to use when the applicable lifecycle owner authorizes the operation.
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Create an issue**: use `gh issue create --title "..." --body "..."` only for simple single-line bodies. For Markdown or any multi-line body, use a literal heredoc through `--body-file -` so shell syntax is never expanded:
+
+  ```bash
+  gh issue create \
+    --title "..." \
+    --body-file - <<'EOF'
+  Markdown containing `symbols`, $variables, $(commands), and other shell-sensitive text stays literal.
+  EOF
+  ```
+
+  Do not use an unquoted heredoc delimiter or interpolate a multi-line body through the shell.
 - **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
@@ -49,7 +59,7 @@ gh issue view <ISSUE_NUMBER> --json labels
 
 When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
 
-- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
+- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>`.
 - **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 

@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import pytest
 
-from application.governance import GovernedWorkflowExecutionService
 from application.services.backtesting import (
     BacktestApplicationService,
     BacktestExpectedOutcome,
@@ -15,6 +14,9 @@ from application.services.backtesting import (
 )
 from application.services.base import ServiceRequest
 from interfaces.cli.bootstrap.container import cli_runtime_scope
+from tests.helpers.governed_workflow_execution import (
+    governed_workflow_execution_harness,
+)
 
 _FIXED_BACKTEST_TIME = datetime(2026, 1, 10, 12, 0, tzinfo=UTC)
 _PROVIDER_ENV = {
@@ -43,7 +45,8 @@ async def test_morning_report_runs_real_intelligence_nodes(
     _configure_synthetic_providers(monkeypatch)
 
     async with cli_runtime_scope() as scope:
-        result = await scope.runtime.facade.run_workflow(
+        governed_execution = governed_workflow_execution_harness(scope.runtime.facade)
+        result = await governed_execution.execution_service.run_workflow(
             workflow_name="morning_report",
             workflow_inputs={
                 "symbol": "SPY",
@@ -167,10 +170,9 @@ async def test_runtime_native_backtest_verifies_real_synthetic_decision_chain(
     scenario = _real_golden_scenario()
 
     async with cli_runtime_scope() as scope:
+        governed_execution = governed_workflow_execution_harness(scope.runtime.facade)
         service = BacktestApplicationService(
-            governed_workflow_execution_service=scope.get(
-                GovernedWorkflowExecutionService
-            ),
+            governed_workflow_execution_service=governed_execution.execution_service,
             clock=lambda: _FIXED_BACKTEST_TIME,
             run_id_factory=lambda: "backtest-real-golden",
         )

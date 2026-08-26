@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging.config
 import os
 import uuid
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from pytest_alembic import Config as PytestAlembicConfig
@@ -57,6 +59,32 @@ def test_database_url() -> str:
 @pytest.fixture()
 def migration_test_schema() -> str:
     return f"polaris_migration_test_{uuid.uuid4().hex}"
+
+
+@pytest.fixture(autouse=True)
+def _preserve_existing_loggers_for_in_process_alembic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_file_config = logging.config.fileConfig
+
+    def file_config_preserving_existing_loggers(
+        fname: Any,
+        defaults: Any = None,
+        disable_existing_loggers: bool = True,
+        encoding: str | None = None,
+    ) -> None:
+        original_file_config(
+            fname,
+            defaults=defaults,
+            disable_existing_loggers=False,
+            encoding=encoding,
+        )
+
+    monkeypatch.setattr(
+        logging.config,
+        "fileConfig",
+        file_config_preserving_existing_loggers,
+    )
 
 
 @pytest.fixture()

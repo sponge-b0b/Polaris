@@ -30,6 +30,12 @@ Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give
 
 Build the right feedback loop, and the bug is 90% fixed.
 
+Before using any pytest command as a diagnostic feedback loop, follow the
+mandatory test-service preflight in `AGENTS.md` and
+`docs/process/testing-guide.md`. Determine the selected scope's complete
+external prerequisites and verify them before pytest starts. Missing
+prerequisites leave the loop unresolved.
+
 ### Tighten the loop
 
 Treat the loop as a product. Once you have _a_ loop, **tighten** it:

@@ -69,6 +69,18 @@ Manage only services needed for the active task.
 
 ---
 
+## Pytest Service Preflight
+
+No pytest command may launch until the exact selected test scope's external-service prerequisites have been identified and, when applicable, verified ready.
+
+Before every pytest invocation, identify the exact selected test scope, consult `docs/process/testing-guide.md` and the selected tests/fixtures as necessary, and classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts.
+
+Do not use pytest startup, a client timeout, a connection exception, or a skip as the readiness probe. If prerequisites cannot be verified, do not launch pytest; report the verification as unresolved.
+
+`POLARIS_BROAD_VERIFY_AUTHORIZED` must be supplied only for the individual command requiring authorization, for example `POLARIS_BROAD_VERIFY_AUTHORIZED=<task-specific-value> uv run pytest ...`. Never export it globally or persist it into a shell/session environment.
+
+---
+
 ## Dependencies and Shell
 
 Use:

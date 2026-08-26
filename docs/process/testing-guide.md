@@ -48,6 +48,40 @@ The project currently selects tests by path rather than custom pytest markers.
 Use focused paths to avoid accidentally waiting on live services that are not
 needed for the change under review.
 
+## Mandatory pre-pytest service preflight
+
+Before any pytest command, classify the complete selected collection. For a
+multi-file, directory, marker, or broad scope, use the union of all external
+service prerequisites from this guide plus the selected tests and fixtures.
+
+A **service-free scope** is one whose selected tests and fixtures do not require
+external process or service dependencies. No Docker startup is required.
+
+A **service-backed scope** requires external services or live configured
+providers. Before pytest:
+
+1. identify required services from this guide plus the selected tests/fixtures;
+2. identify required environment/configuration without printing sensitive values;
+3. verify service state/readiness;
+4. verify application configuration alignment when authentication, database
+   selection, endpoint configuration, or equivalent settings affect
+   connectivity;
+5. use a bounded service/application probe where a running container alone does
+   not establish usable readiness;
+6. only then launch pytest.
+
+Use the smallest readiness evidence appropriate to the service/test contract.
+Evidence may include Compose/container state, container healthcheck or process
+status, bounded HTTP/TCP/application client probes, required env/config
+presence, and database/service accessibility.
+
+A pytest/client timeout or skip is not service preflight. A required test whose
+prerequisites cannot be safely established is unresolved; it is not passed
+merely because it was skipped or not run.
+
+Preserve secret safety: check presence without printing sensitive values, and
+never print passwords, API keys, or authenticated URLs.
+
 ## Test suite structure
 
 ### Unit tests: `tests/unit/`

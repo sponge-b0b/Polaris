@@ -100,7 +100,10 @@ UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.p
 
 Do not run the full suite by default.
 
-Before targeted integration/live-service tests, identify required local services.
+Before any pytest invocation, follow the mandatory test-service preflight in
+`AGENTS.md` and `docs/process/testing-guide.md`. Determine the selected scope's
+complete external prerequisites and verify them before pytest starts. Missing
+prerequisites leave required verification unresolved.
 
 If a required targeted test skips solely because repository-local setup is absent:
 

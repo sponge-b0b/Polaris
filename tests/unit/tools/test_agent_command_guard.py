@@ -12,6 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CODEX_ENV = {"CODEX_CI": "1"}
 
 
+def unauthorized_codex_subprocess_env(**overrides: str) -> dict[str, str]:
+    env = {**os.environ, "CODEX_CI": "1", **overrides}
+    env.pop(BROAD_VERIFY_ENV, None)
+    return env
+
+
 def test_blocks_full_uv_pytest_suite() -> None:
     decision = classify_command(
         ["uv", "run", "pytest", "-q"], cwd=REPO_ROOT, env=CODEX_ENV
@@ -124,7 +130,7 @@ def test_uv_shim_blocks_before_real_executable(tmp_path: Path) -> None:
     result = subprocess.run(
         [str(REPO_ROOT / ".agents/command-guard/bin/uv"), "run", "pytest", "-q"],
         cwd=REPO_ROOT,
-        env={**os.environ, "POLARIS_REAL_UV": str(fake_uv)},
+        env=unauthorized_codex_subprocess_env(POLARIS_REAL_UV=str(fake_uv)),
         text=True,
         capture_output=True,
         check=False,
@@ -149,7 +155,7 @@ def test_uv_shim_execs_allowed_targeted_command(tmp_path: Path) -> None:
             "tests/unit/foo/test_bar.py",
         ],
         cwd=REPO_ROOT,
-        env={**os.environ, "POLARIS_REAL_UV": str(fake_uv)},
+        env=unauthorized_codex_subprocess_env(POLARIS_REAL_UV=str(fake_uv)),
         text=True,
         capture_output=True,
         check=False,

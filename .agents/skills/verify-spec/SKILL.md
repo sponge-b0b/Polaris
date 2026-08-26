@@ -281,7 +281,7 @@ Do not run a gate solely because an Inherited-only surface exists in fixed-basel
 * Broad commands are authorized only when applicability requires them.
 * Every pytest command must set `POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>`.
 * Do not run untargeted broad live/service suites unless required by the Spec.
-* Read `docs/process/testing-guide.md` when tests apply.
+* Before any pytest invocation, follow the mandatory test-service preflight in `AGENTS.md` and `docs/process/testing-guide.md`.
 * Do not weaken configuration or add pass-only suppressions.
 * Report unrelated inherited/pre-existing repository defects separately.
 
@@ -326,6 +326,10 @@ A helper/unit test is insufficient when a manifest cell requires a higher author
 A required check skipped solely because local setup is absent remains unresolved.
 
 Never expose secrets or authenticated connection strings.
+
+Determine the selected pytest scope's complete external prerequisites and verify
+them before pytest starts. Missing prerequisites leave required verification
+unresolved.
 
 ### Documentation, Workflow, Configuration, and Tracker Proof
 

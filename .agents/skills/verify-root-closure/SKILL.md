@@ -320,6 +320,11 @@ Inspecting unchanged sibling/source/tracker paths required to prove that invaria
 
 Run targeted tests only when tests are necessary proof for the applicable root surface. Do not run unrelated full test suites, repository-wide lint/type checks, coverage suites, or integration suites unrelated to the root.
 
+Before any pytest invocation, follow the mandatory test-service preflight in
+`AGENTS.md` and `docs/process/testing-guide.md`. Determine the selected scope's
+complete external prerequisites and verify them before pytest starts. Missing
+prerequisites leave required verification unresolved.
+
 Do not fix failures. A failed targeted check is recorded and does not terminate the bounded scan unless it invalidates verifier integrity.
 
 ## 9. Candidate-State Integrity

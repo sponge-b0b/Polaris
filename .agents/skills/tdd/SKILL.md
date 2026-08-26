@@ -33,6 +33,12 @@ Never invent an unresolved seam merely to avoid asking.
 
 ## Rules of the loop
 
+Before any pytest invocation in the red-green-refactor loop, follow the
+mandatory test-service preflight in `AGENTS.md` and
+`docs/process/testing-guide.md`. Determine the selected scope's complete
+external prerequisites and verify them before pytest starts. Missing
+prerequisites leave the test cycle unresolved.
+
 * **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 * **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 * **Refactoring is not part of the loop.** It belongs to the review stage, not the red → green implementation cycle.

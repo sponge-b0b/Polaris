@@ -26,6 +26,11 @@ Before modifying database-affecting code:
 
 `[project].version` is authoritative for migration lifecycle. Git tags are corroborating only.
 
+Before any pytest invocation, follow the mandatory test-service preflight in
+`AGENTS.md` and `docs/process/testing-guide.md`. Determine the selected scope's
+complete external prerequisites and verify them before pytest starts. Missing
+prerequisites leave required verification unresolved.
+
 ## 1. Select the Migration Strategy
 
 ### Before 1.0

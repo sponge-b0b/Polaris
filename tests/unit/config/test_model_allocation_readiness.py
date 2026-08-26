@@ -1,7 +1,12 @@
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-READINESS_DOC = REPO_ROOT / "docs" / "model_allocation_readiness.md"
+READINESS_DOC = (
+    REPO_ROOT
+    / "docs"
+    / "reference"
+    / "model-gateway-profile-policy-model-allocation-readiness.md"
+)
 
 SERVICE_FREE_READINESS_PATHS = (
     "tests/unit/config/test_litellm_model_alias_config.py",

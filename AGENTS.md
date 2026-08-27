@@ -200,6 +200,16 @@ Use `$wiki-synthesize` manually for higher-inference recurring-pattern analysis;
 
 ## Agent Skills
 
+### Internal Skill Composition
+
+When a skill prescribes another repository skill as internal composition:
+
+1. Do not use the session skill list or tool registry to determine whether the child exists.
+2. Resolve the child directly from `.agents/skills/<skill-name>/SKILL.md`.
+3. Read that `SKILL.md` and execute its procedure as prescribed internal composition.
+4. `disable-model-invocation: true` and `allow_implicit_invocation: false` do not prohibit prescribed parent → child composition.
+5. Report the child unavailable only when its repository `SKILL.md` is absent or unreadable.
+
 ### Workflow Project tracking
 
 The public Polaris GitHub Project is an operational projection, not workflow authority.

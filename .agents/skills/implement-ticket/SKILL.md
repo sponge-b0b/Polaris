@@ -790,7 +790,7 @@ For an open direct dependent that is durably an ordinary Implementation Ticket o
 
 Do not overwrite another durable lifecycle state such as Architecture Remediation or Awaiting Root Verification. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
 
-After current project-delivery context is recovered, invoke `$project-tracking` for every dependent whose base projection changed, in the same post-transition reconciliation as the completed ticket and any changed parent/frontier artifact. `$project-tracking` must consume the recovered dependency/lifecycle truth; it must not be asked to discover dependents or infer blocker satisfaction from Project fields.
+After current project-delivery context is recovered, include every dependent whose base projection changed in the same post-transition Project reconciliation set as the completed ticket and any changed parent/frontier artifact. Supply the recovered dependency/lifecycle truth; Project reconciliation must not discover dependents or infer blocker satisfaction from Project fields.
 
 If the direct-dependent read, blocker read, lifecycle recovery, or Project synchronization cannot be completed, the completed ticket remains authoritatively closed. Report projection drift and do not advertise a downstream lifecycle handoff whose actionability depends on the unreadable or stale dependent state.
 

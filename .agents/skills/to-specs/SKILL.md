@@ -158,9 +158,9 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    `Spec Delivery` means specification has already happened and active governed Specs now own downstream execution. Never leave such a map projected as `Ready to Spec` merely because the map itself remains open.
 
-   Re-read `$project-delivery-management` state after dependency reconciliation and supply the source map's current authoritative `Project Delivery State` to `$project-tracking`. Preserve existing Project `Area`/`Priority` presentation unless this invocation has separate authority to change them; do not derive those values from planning prose.
+   Re-read `$project-delivery-management` state after dependency reconciliation and include the source map's current authoritative `Project Delivery State` in the post-transition Project reconciliation set. Preserve existing Project `Area`/`Priority` presentation unless this invocation has separate authority to change them; do not derive those values from planning prose.
 
-   Invoke `$project-tracking` only after the Spec handoffs/provenance/dependencies are durable. Project drift never rolls back or deletes valid Spec handoffs.
+   Include the source map in Project reconciliation only after the Spec handoffs/provenance/dependencies are durable. Project drift never rolls back or deletes valid Spec handoffs.
 
    If no governed Spec remains open, do not manufacture `Spec Delivery`; let the owning completion/re-entry lifecycle project the map's resulting state.
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from interfaces.cli.bootstrap.container import cli_runtime_scope
+from interfaces.cli.bootstrap.container import CliRuntimeScope, cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
     WorkflowRenderEnvelope,
     workflow_exception_to_render_envelope,
@@ -71,6 +71,12 @@ class WorkflowCommandServiceError(RuntimeError):
 class WorkflowNotRegisteredError(WorkflowCommandServiceError):
     """
     Raised when a requested workflow is not registered in the runtime facade.
+    """
+
+
+class GovernedWorkflowExecutionDependencyError(WorkflowCommandServiceError):
+    """
+    Raised when governed CLI execution cannot resolve its request-scoped service.
     """
 
 
@@ -145,10 +151,8 @@ class WorkflowCommandService:
                 request.plugin_dirs,
             ),
         ) as scope:
-            governed_execution_service = (
-                await scope.get(GovernedWorkflowExecutionService)
-                if _requires_governed_execution(scope.runtime)
-                else None
+            governed_execution_service = await _resolve_governed_execution_service(
+                scope,
             )
             return await self._execute_with_runtime(
                 request,
@@ -270,3 +274,18 @@ class WorkflowCommandService:
 
 def _requires_governed_execution(runtime: WorkflowBootstrapResult) -> bool:
     return runtime.policy_engine is not None or runtime.governance_engine is not None
+
+
+async def _resolve_governed_execution_service(
+    scope: CliRuntimeScope,
+) -> GovernedWorkflowExecutionService | None:
+    if not _requires_governed_execution(scope.runtime):
+        return None
+
+    try:
+        return await scope.get(GovernedWorkflowExecutionService)
+    except Exception as exc:
+        raise GovernedWorkflowExecutionDependencyError(
+            "governed workflow execution requires request-scoped "
+            "GovernedWorkflowExecutionService and its audit/evidence dependencies"
+        ) from exc

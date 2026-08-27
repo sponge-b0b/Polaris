@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
-from types import SimpleNamespace
+from dataclasses import fields
+from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -19,13 +20,22 @@ from interfaces.cli.services.workflow_command_service import (
 
 def _runtime_scope_from_builder(
     builder: Callable[..., Any],
+    *,
+    dependencies: Mapping[type[object], object] | None = None,
 ) -> Callable[..., Any]:
+    resolved_dependencies = MappingProxyType(dict(dependencies or {}))
+
     @asynccontextmanager
     async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
         runtime = await builder(**kwargs)
 
-        async def get(_: type[object]) -> object:
-            return runtime.governed_execution_service
+        async def get(dependency_type: type[object]) -> object:
+            try:
+                return resolved_dependencies[dependency_type]
+            except KeyError as exc:
+                raise RuntimeError(
+                    f"dependency not available: {dependency_type.__name__}"
+                ) from exc
 
         yield SimpleNamespace(
             runtime=runtime,
@@ -114,10 +124,23 @@ async def test_workflow_command_service_uses_governed_execution_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
+    direct_facade_calls: list[dict[str, Any]] = []
 
     class FakeFacade:
         def workflow_exists(self, workflow_name: str) -> bool:
             return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            direct_facade_calls.append(kwargs)
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": kwargs["execution_id"],
+                "execution_result": {"success": True, "final_context": {}},
+            }
 
     class FakeGovernedExecutionService:
         async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
@@ -131,9 +154,66 @@ async def test_workflow_command_service_uses_governed_execution_service(
 
     class FakeRuntime:
         facade = FakeFacade()
-        governed_execution_service = FakeGovernedExecutionService()
         policy_engine = object()
         governance_engine = None
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    governed_execution_service = FakeGovernedExecutionService()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(
+            build_runtime,
+            dependencies={
+                workflow_command_service.GovernedWorkflowExecutionService: (
+                    governed_execution_service
+                ),
+            },
+        ),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+        )
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "governed-test"
+    assert "execution_id" not in captured
+    assert "governed_execution_evidence" not in captured
+    assert direct_facade_calls == []
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_fails_closed_when_governed_dependency_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    direct_facade_calls: list[dict[str, Any]] = []
+
+    class FakeFacade:
+        def workflow_exists(self, workflow_name: str) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            direct_facade_calls.append(kwargs)
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": kwargs["execution_id"],
+                "execution_result": {"success": True, "final_context": {}},
+            }
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        policy_engine = None
+        governance_engine = object()
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -150,10 +230,9 @@ async def test_workflow_command_service_uses_governed_execution_service(
         )
     )
 
-    assert envelope.success is True
-    assert envelope.execution_id == "governed-test"
-    assert "execution_id" not in captured
-    assert "governed_execution_evidence" not in captured
+    assert envelope.success is False
+    assert direct_facade_calls == []
+    assert "GovernedWorkflowExecutionService" in (envelope.error_message or "")
 
 
 @pytest.mark.asyncio
@@ -421,7 +500,6 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
             self.event_bus = EventBus()
             self.policy_engine = object()
             self.governance_engine = None
-            self.governed_execution_service = FakeGovernedExecutionService()
 
     class FakeGovernedExecutionService:
         async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
@@ -447,7 +525,14 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
     monkeypatch.setattr(
         workflow_command_service,
         "cli_runtime_scope",
-        _runtime_scope_from_builder(build_runtime),
+        _runtime_scope_from_builder(
+            build_runtime,
+            dependencies={
+                workflow_command_service.GovernedWorkflowExecutionService: (
+                    FakeGovernedExecutionService()
+                ),
+            },
+        ),
     )
 
     envelope = await WorkflowCommandService().run_workflow(
@@ -477,3 +562,10 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         "[control] control command accepted execution=governed-control "
         "command=cancel state=cancelling",
     ]
+
+
+def test_workflow_run_request_has_no_caller_selected_execution_id() -> None:
+    request_fields = {field.name for field in fields(WorkflowRunCommandRequest)}
+
+    assert "execution_id" not in request_fields
+    assert "governed_execution_id" not in request_fields

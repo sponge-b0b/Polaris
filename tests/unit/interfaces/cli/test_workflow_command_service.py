@@ -61,6 +61,7 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
             **kwargs: Any,
         ) -> dict[str, Any]:
             execution_id = kwargs["execution_id"] or "runtime-issued"
+            kwargs["execution_started_handler"](execution_id)
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
@@ -493,10 +494,12 @@ async def test_workflow_command_service_forwards_progress_notifications(
             self,
             **kwargs: Any,
         ) -> dict[str, Any]:
+            execution_id = kwargs["execution_id"] or "exec-123"
+            kwargs["execution_started_handler"](execution_id)
             await event_bus.emit(
                 RuntimeEvent(
                     event_type=RuntimeEventType.WORKFLOW_PROGRESS_STARTED,
-                    execution_id=kwargs["execution_id"] or "exec-123",
+                    execution_id=execution_id,
                     workflow_id=kwargs["workflow_name"],
                     runtime_id="runtime-123",
                     payload={
@@ -507,9 +510,10 @@ async def test_workflow_command_service_forwards_progress_notifications(
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "execution_id": execution_id,
                 "execution_result": {
                     "success": True,
+                    "execution_id": execution_id,
                     "final_context": {},
                 },
             }
@@ -695,6 +699,403 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         "command=resume state=resuming",
         "[control] control command accepted execution=governed-control "
         "command=cancel state=cancelling",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_starts_control_for_facade_issued_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from core.runtime.control import WorkflowControlSnapshot, WorkflowControlState
+
+    commands: list[tuple[str, str]] = []
+    messages: list[str] = []
+    processed = asyncio.Event()
+    inputs = [
+        "help",
+        "pause",
+        "resume",
+        "cancel",
+    ]
+
+    async def read_input() -> str | None:
+        await asyncio.sleep(
+            0,
+        )
+        if inputs:
+            return inputs.pop(
+                0,
+            )
+        return None
+
+    class FakeFacade:
+        def workflow_exists(
+            self,
+            workflow_name: str,
+        ) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            execution_id = "facade-issued-control"
+            kwargs["execution_started_handler"](execution_id)
+            await asyncio.wait_for(
+                processed.wait(),
+                timeout=1,
+            )
+            return {
+                "success": False,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": execution_id,
+                "execution_result": {
+                    "success": False,
+                    "execution_id": execution_id,
+                    "status": "cancelled",
+                    "final_context": {
+                        "execution_id": execution_id,
+                    },
+                },
+            }
+
+        async def pause_workflow(
+            self,
+            **kwargs: Any,
+        ) -> WorkflowControlSnapshot:
+            commands.append(
+                (
+                    "pause",
+                    kwargs["execution_id"],
+                )
+            )
+            return WorkflowControlSnapshot(
+                execution_id=kwargs["execution_id"],
+                state=WorkflowControlState.PAUSING,
+            )
+
+        async def resume_workflow(
+            self,
+            **kwargs: Any,
+        ) -> WorkflowControlSnapshot:
+            commands.append(
+                (
+                    "resume",
+                    kwargs["execution_id"],
+                )
+            )
+            return WorkflowControlSnapshot(
+                execution_id=kwargs["execution_id"],
+                state=WorkflowControlState.RESUMING,
+            )
+
+        async def cancel_workflow(
+            self,
+            **kwargs: Any,
+        ) -> WorkflowControlSnapshot:
+            commands.append(
+                (
+                    "cancel",
+                    kwargs["execution_id"],
+                )
+            )
+            processed.set()
+            return WorkflowControlSnapshot(
+                execution_id=kwargs["execution_id"],
+                state=WorkflowControlState.CANCELLING,
+            )
+
+    class FakeRuntime:
+        def __init__(
+            self,
+        ) -> None:
+            self.facade = FakeFacade()
+            self.event_bus = EventBus()
+            self.policy_engine = None
+            self.governance_engine = None
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            interactive_control=True,
+            interactive_input=read_input,
+            control_handler=lambda notification: messages.append(
+                notification.to_console(),
+            ),
+        )
+    )
+
+    assert envelope.success is False
+    assert envelope.status == "cancelled"
+    assert envelope.execution_id == "facade-issued-control"
+    assert commands == [
+        ("pause", "facade-issued-control"),
+        ("resume", "facade-issued-control"),
+        ("cancel", "facade-issued-control"),
+    ]
+    assert messages == [
+        "[control] interactive control enabled (pause/resume/cancel/help) "
+        "execution=facade-issued-control",
+        "[control] available commands: pause, resume, cancel, help "
+        "execution=facade-issued-control command=help",
+        "[control] control command accepted execution=facade-issued-control "
+        "command=pause state=pausing",
+        "[control] control command accepted execution=facade-issued-control "
+        "command=resume state=resuming",
+        "[control] control command accepted execution=facade-issued-control "
+        "command=cancel state=cancelling",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_stops_control_on_eof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    messages: list[str] = []
+    read_attempts = 0
+
+    async def read_input() -> str | None:
+        nonlocal read_attempts
+        read_attempts += 1
+        return None
+
+    class FakeFacade:
+        def workflow_exists(
+            self,
+            workflow_name: str,
+        ) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            execution_id = "facade-eof"
+            kwargs["execution_started_handler"](execution_id)
+            await asyncio.sleep(
+                0,
+            )
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": execution_id,
+                "execution_result": {
+                    "success": True,
+                    "execution_id": execution_id,
+                    "status": "succeeded",
+                    "final_context": {
+                        "execution_id": execution_id,
+                    },
+                },
+            }
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        event_bus = EventBus()
+        policy_engine = None
+        governance_engine = None
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            interactive_control=True,
+            interactive_input=read_input,
+            control_handler=lambda notification: messages.append(
+                notification.to_console(),
+            ),
+        )
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "facade-eof"
+    assert read_attempts == 1
+    assert messages == [
+        "[control] interactive control enabled (pause/resume/cancel/help) "
+        "execution=facade-eof",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_stops_control_when_workflow_finishes_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_cancelled = asyncio.Event()
+
+    async def read_input() -> str | None:
+        try:
+            await asyncio.sleep(
+                60,
+            )
+        except asyncio.CancelledError:
+            read_cancelled.set()
+            raise
+        return None
+
+    class FakeFacade:
+        def workflow_exists(
+            self,
+            workflow_name: str,
+        ) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            execution_id = "facade-fast-complete"
+            kwargs["execution_started_handler"](execution_id)
+            await asyncio.sleep(
+                0,
+            )
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": execution_id,
+                "execution_result": {
+                    "success": True,
+                    "execution_id": execution_id,
+                    "status": "succeeded",
+                    "final_context": {
+                        "execution_id": execution_id,
+                    },
+                },
+            }
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        event_bus = EventBus()
+        policy_engine = None
+        governance_engine = None
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await asyncio.wait_for(
+        WorkflowCommandService().run_workflow(
+            WorkflowRunCommandRequest(
+                workflow_name="morning_report",
+                interactive_control=True,
+                interactive_input=read_input,
+            )
+        ),
+        timeout=1,
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "facade-fast-complete"
+    assert read_cancelled.is_set()
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_reports_control_failure_without_corruption(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    messages: list[str] = []
+    processed = asyncio.Event()
+    inputs = [
+        "pause",
+    ]
+
+    async def read_input() -> str | None:
+        if inputs:
+            return inputs.pop()
+        processed.set()
+        return None
+
+    class FakeFacade:
+        def workflow_exists(
+            self,
+            workflow_name: str,
+        ) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            execution_id = "facade-control-failure"
+            kwargs["execution_started_handler"](execution_id)
+            await asyncio.wait_for(
+                processed.wait(),
+                timeout=1,
+            )
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_id": execution_id,
+                "execution_result": {
+                    "success": True,
+                    "execution_id": execution_id,
+                    "status": "succeeded",
+                    "final_context": {
+                        "execution_id": execution_id,
+                    },
+                },
+            }
+
+        async def pause_workflow(
+            self,
+            **_: Any,
+        ) -> None:
+            raise RuntimeError("pause rejected")
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        event_bus = EventBus()
+        policy_engine = None
+        governance_engine = None
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            interactive_control=True,
+            interactive_input=read_input,
+            control_handler=lambda notification: messages.append(
+                notification.to_console(),
+            ),
+        )
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "facade-control-failure"
+    assert messages == [
+        "[control] interactive control enabled (pause/resume/cancel/help) "
+        "execution=facade-control-failure",
+        "[control] control command failed execution=facade-control-failure "
+        "command=pause error=pause rejected",
     ]
 
 

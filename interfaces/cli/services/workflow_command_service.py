@@ -275,6 +275,7 @@ class WorkflowCommandService:
             mode=mode,
             workflow_inputs=workflow_inputs,
             metadata=metadata,
+            execution_started_handler=execution_started_handler,
         )
 
     def _error_summary(

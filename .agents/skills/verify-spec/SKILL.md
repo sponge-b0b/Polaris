@@ -569,6 +569,25 @@ Never POST/PATCH a partial receipt, repair a malformed persisted receipt in plac
 
 Receipt persistence failure means verification is incomplete. Any later commit or Spec-body change makes the receipt stale.
 
+### Successful Lifecycle Transition
+
+A successfully persisted and validated Spec Verification Receipt is the authoritative verification transition for this lifecycle. From that exact receipt and `FINAL_HEAD`, establish the Spec's base lifecycle as:
+
+```text
+Artifact Type: Spec
+Workflow State: Ready to Review
+Work Status: Ready
+Next Skill: $review-spec
+Root Blocker: None
+Completed On: None
+```
+
+Recover current project-delivery context and include the Spec in post-transition Project reconciliation only after receipt persistence, exact readback, and post-validation succeed. For an intentionally non-Wayfinder Spec, use `Project Delivery State = independent`; for a Wayfinder-managed Spec, supply the current authoritative project-delivery classification recovered from durable project-delivery state.
+
+The Project projection and downstream Human Handoff must derive from the same validated receipt and `FINAL_HEAD`. Do not project `Ready to Review` before receipt persistence succeeds, and do not emit `$review-spec` when verification or receipt persistence is incomplete.
+
+`PROJECT TRACKING: DRIFT` does not invalidate the passing verification receipt or revert the authoritative `Ready to Review` lifecycle state. Report projection drift and continue to emit the otherwise-authorized `$review-spec` handoff. Do not infer lifecycle truth from Project fields.
+
 ## 11. Reporting and Human Handoff
 
 Report:

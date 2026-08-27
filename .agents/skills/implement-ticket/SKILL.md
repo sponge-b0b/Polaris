@@ -747,6 +747,53 @@ For Spec Review remediation also report Root Blocker ID/invariant, authoritative
 
 After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` after closure is durable. Ticket closure remains authoritative even if reconciliation fails; report projection/coordination drift and do not present a downstream lifecycle handoff that depends on stale project-delivery state.
 
+### Downstream Dependency Reconciliation
+
+After every successful ticket closure, re-read direct native dependents because closure may change their actionability without changing the dependency relationship itself.
+
+Use the native REST dependency endpoint exactly once to read every direct dependent:
+
+```bash
+DEPENDENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$TICKET_NUMBER/dependencies/blocking?per_page=100"
+)
+
+OPEN_DEPENDENTS=$(
+  printf '%s\n' "$DEPENDENT_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url, parent_issue_url}]'
+)
+```
+
+For each open direct dependent, read its complete native `blocked by` set exactly once and keep only open blockers:
+
+```bash
+DEPENDENT_BLOCKER_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$DEPENDENT_NUMBER/dependencies/blocked_by?per_page=100"
+)
+
+DEPENDENT_OPEN_BLOCKERS=$(
+  printf '%s\n' "$DEPENDENT_BLOCKER_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
+)
+```
+
+The native dependency edge remains authoritative history. Do **not** remove it merely because the blocker closed, and do not rewrite the dependent ticket's `## Blocked by` prose to erase the relationship.
+
+For an open direct dependent that is durably an ordinary Implementation Ticket or Review Remediation Ticket and whose current `Blocked` lifecycle state is dependency-derived:
+
+* one or more open native blockers → keep base `Workflow State = Blocked`, `Work Status = Blocked`, `Next Skill = None`;
+* zero open native blockers → advance the base ticket route to `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.
+
+Do not overwrite another durable lifecycle state such as Architecture Remediation or Awaiting Root Verification. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
+
+After current project-delivery context is recovered, invoke `$project-tracking` for every dependent whose base projection changed, in the same post-transition reconciliation as the completed ticket and any changed parent/frontier artifact. `$project-tracking` must consume the recovered dependency/lifecycle truth; it must not be asked to discover dependents or infer blocker satisfaction from Project fields.
+
+If the direct-dependent read, blocker read, lifecycle recovery, or Project synchronization cannot be completed, the completed ticket remains authoritatively closed. Report projection drift and do not advertise a downstream lifecycle handoff whose actionability depends on the unreadable or stale dependent state.
+
 Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again.
 
 If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.

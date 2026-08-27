@@ -29,8 +29,11 @@ async def test_application_request_scope_closes_request_and_app_resources(
             lifecycle.append("app_closed")
 
     class FakeWorkflowProvider:
+        def __init__(self, *, config: object | None = None) -> None:
+            assert config is None
+
         def bind_di_container(self, container: Any) -> None:
-            assert isinstance(container, FakeContainer)
+            assert container == "request-container"
             lifecycle.append("container_bound")
 
     monkeypatch.setattr(
@@ -48,8 +51,8 @@ async def test_application_request_scope_closes_request_and_app_resources(
         assert request_container == "request-container"
 
     assert lifecycle == [
-        "container_bound",
         "request_entered",
+        "container_bound",
         "request_closed",
         "app_closed",
     ]

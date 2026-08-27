@@ -23,9 +23,13 @@ def _runtime_scope_from_builder(
     @asynccontextmanager
     async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
         runtime = await builder(**kwargs)
+
+        async def get(_: type[object]) -> object:
+            return runtime.governed_execution_service
+
         yield SimpleNamespace(
             runtime=runtime,
-            get=lambda _: runtime.governed_execution_service,
+            get=get,
         )
 
     return scope
@@ -36,9 +40,6 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
-        policy_engine = None
-        governance_engine = None
-
         def workflow_exists(
             self,
             workflow_name: str,
@@ -76,6 +77,8 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
 
     class FakeRuntime:
         facade = FakeFacade()
+        policy_engine = None
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -113,9 +116,6 @@ async def test_workflow_command_service_uses_governed_execution_service(
     captured: dict[str, Any] = {}
 
     class FakeFacade:
-        policy_engine = object()
-        governance_engine = None
-
         def workflow_exists(self, workflow_name: str) -> bool:
             return workflow_name == "morning_report"
 
@@ -132,6 +132,8 @@ async def test_workflow_command_service_uses_governed_execution_service(
     class FakeRuntime:
         facade = FakeFacade()
         governed_execution_service = FakeGovernedExecutionService()
+        policy_engine = object()
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -159,9 +161,6 @@ async def test_workflow_command_service_renders_missing_workflow_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeFacade:
-        policy_engine = None
-        governance_engine = None
-
         def workflow_exists(
             self,
             workflow_name: str,
@@ -177,6 +176,8 @@ async def test_workflow_command_service_renders_missing_workflow_error(
 
     class FakeRuntime:
         facade = FakeFacade()
+        policy_engine = None
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -207,9 +208,6 @@ async def test_morning_report_command_service_builds_workflow_inputs(
     captured: dict[str, Any] = {}
 
     class FakeFacade:
-        policy_engine = None
-        governance_engine = None
-
         def workflow_exists(
             self,
             workflow_name: str,
@@ -234,6 +232,8 @@ async def test_morning_report_command_service_builds_workflow_inputs(
 
     class FakeRuntime:
         facade = FakeFacade()
+        policy_engine = None
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -270,9 +270,6 @@ async def test_workflow_command_service_forwards_progress_notifications(
     notifications: list[str] = []
 
     class FakeFacade:
-        policy_engine = None
-        governance_engine = None
-
         def workflow_exists(
             self,
             workflow_name: str,
@@ -310,6 +307,8 @@ async def test_workflow_command_service_forwards_progress_notifications(
         ) -> None:
             self.facade = FakeFacade()
             self.event_bus = event_bus
+            self.policy_engine = None
+            self.governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -362,9 +361,6 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         return None
 
     class FakeFacade:
-        policy_engine = None
-        governance_engine = None
-
         def workflow_exists(
             self,
             workflow_name: str,
@@ -417,10 +413,19 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
                 state=WorkflowControlState.CANCELLING,
             )
 
-        async def run_workflow(
+    class FakeRuntime:
+        def __init__(
             self,
-            **kwargs: Any,
-        ) -> dict[str, Any]:
+        ) -> None:
+            self.facade = FakeFacade()
+            self.event_bus = EventBus()
+            self.policy_engine = object()
+            self.governance_engine = None
+            self.governed_execution_service = FakeGovernedExecutionService()
+
+    class FakeGovernedExecutionService:
+        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+            kwargs["execution_started_handler"]("governed-control")
             await asyncio.wait_for(
                 processed.wait(),
                 timeout=1,
@@ -428,20 +433,13 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "execution_id": "governed-control",
                 "execution_result": {
                     "success": True,
                     "status": "succeeded",
                     "final_context": {},
                 },
             }
-
-    class FakeRuntime:
-        def __init__(
-            self,
-        ) -> None:
-            self.facade = FakeFacade()
-            self.event_bus = EventBus()
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -463,6 +461,19 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
         )
     )
 
-    assert envelope.success is False
-    assert commands == []
-    assert messages == []
+    assert envelope.success is True
+    assert commands == [
+        ("pause", "governed-control"),
+        ("resume", "governed-control"),
+        ("cancel", "governed-control"),
+    ]
+    assert messages == [
+        "[control] interactive control enabled (pause/resume/cancel/help) "
+        "execution=governed-control",
+        "[control] control command accepted execution=governed-control "
+        "command=pause state=pausing",
+        "[control] control command accepted execution=governed-control "
+        "command=resume state=resuming",
+        "[control] control command accepted execution=governed-control "
+        "command=cancel state=cancelling",
+    ]

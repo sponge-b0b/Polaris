@@ -499,6 +499,8 @@ def test_workflow_run_command_renders_failed_workflow_result(
     class FakeRuntime:
         facade = FakeFacade()
         event_bus = FakeEventBus()
+        policy_engine = None
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()
@@ -614,7 +616,7 @@ def test_workflow_run_command_rejects_removed_interactive_control_flag() -> None
     assert "--interactive-control" in result.output
 
 
-def test_workflow_run_command_enables_progress_without_control_by_default(
+def test_workflow_run_command_enables_progress_and_control_by_default(
     monkeypatch,
 ) -> None:
     captured_request: dict[str, object] = {}
@@ -651,7 +653,7 @@ def test_workflow_run_command_enables_progress_without_control_by_default(
 
     assert result.exit_code == 0
     assert request.progress_handler is not None
-    assert request.interactive_control is False
+    assert request.interactive_control is True
     assert request.control_handler is None
 
 
@@ -1176,6 +1178,8 @@ def _patch_cli_runtime(
     class FakeRuntime:
         facade = FakeFacade()
         event_bus = FakeEventBus()
+        policy_engine = None
+        governance_engine = None
 
     async def build_runtime(**_: object) -> FakeRuntime:
         return FakeRuntime()

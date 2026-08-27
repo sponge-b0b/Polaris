@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
+from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.elements import ColumnElement
 
 from core.database.models.ai_observability import AiObservabilityExportJobModel
@@ -18,6 +19,9 @@ from core.storage.persistence.ai_observability import (
     AiObservabilityExportJobStatus,
     AiObservabilityExportQueueStatus,
     JsonObject,
+)
+from core.storage.persistence.repositories.postgres_durable_job_claim import (
+    claim_locked_durable_job,
 )
 
 
@@ -347,33 +351,28 @@ class PostgresAiObservabilityExportJobRepository:
         self,
         stmt: Select[tuple[AiObservabilityExportJobModel]],
     ) -> AiObservabilityExportJobRecord | None:
-        try:
-            result = await self._session.execute(stmt)
-            model = result.scalar_one_or_none()
-            if model is None:
-                return None
+        model = await claim_locked_durable_job(
+            self._session,
+            stmt,
+            update_for=_ai_observability_claim_update,
+            attempt_count_column=AiObservabilityExportJobModel.attempt_count,
+            running_status=AiObservabilityExportJobStatus.RUNNING.value,
+        )
+        if model is None:
+            return None
+        return _job_record_from_model(model)
 
-            update_result = await self._session.execute(
-                update(AiObservabilityExportJobModel)
-                .where(
-                    AiObservabilityExportJobModel.export_job_id == model.export_job_id,
-                )
-                .values(
-                    status=AiObservabilityExportJobStatus.RUNNING.value,
-                    attempt_count=AiObservabilityExportJobModel.attempt_count + 1,
-                    started_at=func.now(),
-                    last_error=None,
-                    updated_at=func.now(),
-                )
-                .returning(AiObservabilityExportJobModel)
-            )
-            await self._session.commit()
-        except SQLAlchemyError:
-            await self._session.rollback()
-            raise
 
-        updated_model = update_result.scalar_one()
-        return _job_record_from_model(updated_model)
+def _ai_observability_claim_update(
+    model: AiObservabilityExportJobModel,
+) -> Update:
+    return (
+        update(AiObservabilityExportJobModel)
+        .where(
+            AiObservabilityExportJobModel.export_job_id == model.export_job_id,
+        )
+        .returning(AiObservabilityExportJobModel)
+    )
 
 
 def _upsert_job_statement(record: AiObservabilityExportJobRecord) -> Executable:

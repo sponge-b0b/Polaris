@@ -112,7 +112,7 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
             return await service.run(request)
 
     class FakeScope:
-        def get(self, dependency_type: type[Any]) -> Any:
+        async def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
                 return BacktestApplicationService(
                     governed_workflow_execution_service=facade
@@ -191,7 +191,7 @@ async def test_backtest_command_preserves_typed_governed_evidence_failures(
             )
 
     class FakeScope:
-        def get(self, dependency_type: type[Any]) -> Any:
+        async def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
                 return object()
             if dependency_type is ServiceRunner:

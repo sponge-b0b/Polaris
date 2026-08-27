@@ -62,6 +62,21 @@ class MorningReportCommandRequest:
     control_handler: WorkflowControlNotificationHandler | None = None
 
 
+@dataclass(slots=True)
+class _ObservedWorkflowExecution:
+    execution_id: str | None = None
+
+    def record_started(
+        self,
+        execution_id: str,
+    ) -> None:
+        if self.execution_id is not None and self.execution_id != execution_id:
+            raise WorkflowCommandServiceError(
+                "workflow execution correlation changed during CLI run"
+            )
+        self.execution_id = execution_id
+
+
 class WorkflowCommandServiceError(RuntimeError):
     """
     Base command-service error rendered by the CLI output layer.
@@ -96,20 +111,22 @@ class WorkflowCommandService:
         self,
         request: WorkflowRunCommandRequest,
     ) -> WorkflowRenderEnvelope:
+        observed_execution = _ObservedWorkflowExecution()
         try:
             result = await self._run_workflow_result(
                 request,
+                observed_execution=observed_execution,
             )
             return workflow_result_to_render_envelope(
                 result,
                 workflow_name=request.workflow_name,
-                execution_id=None,
+                execution_id=observed_execution.execution_id,
             )
         except Exception as exc:
             return workflow_exception_to_render_envelope(
                 exc,
                 workflow_name=request.workflow_name,
-                execution_id=None,
+                execution_id=observed_execution.execution_id,
                 summary=self._error_summary(
                     request,
                 ),
@@ -144,6 +161,8 @@ class WorkflowCommandService:
     async def _run_workflow_result(
         self,
         request: WorkflowRunCommandRequest,
+        *,
+        observed_execution: _ObservedWorkflowExecution,
     ) -> Any:
         async with cli_runtime_scope(
             plugin_dirs=request.plugin_dirs,
@@ -158,6 +177,7 @@ class WorkflowCommandService:
                 request,
                 runtime=scope.runtime,
                 governed_execution_service=governed_execution_service,
+                observed_execution=observed_execution,
             )
 
     async def _execute_with_runtime(
@@ -166,6 +186,7 @@ class WorkflowCommandService:
         *,
         runtime: WorkflowBootstrapResult,
         governed_execution_service: GovernedWorkflowExecutionService | None,
+        observed_execution: _ObservedWorkflowExecution,
     ) -> Any:
 
         subscription: WorkflowProgressSubscription | None = None
@@ -190,6 +211,9 @@ class WorkflowCommandService:
 
             def start_control_session(execution_id: str) -> None:
                 nonlocal control_session
+                observed_execution.record_started(
+                    execution_id,
+                )
                 if not request.interactive_control:
                     return
                 control_session = WorkflowInteractiveControlSession(

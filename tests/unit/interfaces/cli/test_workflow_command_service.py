@@ -60,14 +60,17 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
             self,
             **kwargs: Any,
         ) -> dict[str, Any]:
+            execution_id = kwargs["execution_id"] or "runtime-issued"
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "execution_id": execution_id,
                 "execution_result": {
                     "success": True,
+                    "execution_id": execution_id,
                     "status": "succeeded",
                     "final_context": {
+                        "execution_id": execution_id,
                         "workflow_inputs": {
                             "symbol": "SPY",
                         },
@@ -110,7 +113,7 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
 
     assert envelope.success is True
     assert envelope.workflow_name == "morning_report"
-    assert envelope.execution_id is None
+    assert envelope.execution_id == "runtime-issued"
     assert (
         envelope.payload["node_outputs"]["technical_agent"]["outputs"][
             "technical_signal"
@@ -145,11 +148,15 @@ async def test_workflow_command_service_uses_governed_execution_service(
     class FakeGovernedExecutionService:
         async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
             captured.update(kwargs)
+            kwargs["execution_started_handler"]("governed-test")
             return {
                 "success": True,
                 "workflow_name": kwargs["workflow_name"],
-                "execution_id": "governed-test",
-                "execution_result": {"success": True, "final_context": {}},
+                "execution_result": {
+                    "success": True,
+                    "execution_id": "governed-test",
+                    "final_context": {"execution_id": "governed-test"},
+                },
             }
 
     class FakeRuntime:
@@ -186,6 +193,133 @@ async def test_workflow_command_service_uses_governed_execution_service(
     assert "execution_id" not in captured
     assert "governed_execution_evidence" not in captured
     assert direct_facade_calls == []
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_uses_platform_execution_for_governed_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_bus = EventBus()
+    notifications: list[tuple[str, str]] = []
+
+    class FakeFacade:
+        def workflow_exists(self, workflow_name: str) -> bool:
+            return workflow_name == "morning_report"
+
+    class FakeRuntime:
+        def __init__(
+            self,
+        ) -> None:
+            self.facade = FakeFacade()
+            self.event_bus = event_bus
+            self.policy_engine = object()
+            self.governance_engine = None
+
+    class FakeGovernedExecutionService:
+        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+            execution_id = "governed-platform-progress"
+            kwargs["execution_started_handler"](execution_id)
+            await event_bus.emit(
+                RuntimeEvent(
+                    event_type=RuntimeEventType.WORKFLOW_PROGRESS_STARTED,
+                    execution_id=execution_id,
+                    workflow_id=kwargs["workflow_name"],
+                    runtime_id="runtime-platform-progress",
+                    payload={"state": "running"},
+                )
+            )
+            return {
+                "success": True,
+                "workflow_name": kwargs["workflow_name"],
+                "execution_result": {
+                    "success": True,
+                    "execution_id": execution_id,
+                    "final_context": {"execution_id": execution_id},
+                },
+            }
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(
+            build_runtime,
+            dependencies={
+                workflow_command_service.GovernedWorkflowExecutionService: (
+                    FakeGovernedExecutionService()
+                ),
+            },
+        ),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            progress_handler=lambda notification: notifications.append(
+                (
+                    notification.event_type,
+                    notification.execution_id,
+                )
+            ),
+        )
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "governed-platform-progress"
+    assert notifications == [
+        (
+            "runtime.workflow.started",
+            "governed-platform-progress",
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_command_service_preserves_platform_execution_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeFacade:
+        def workflow_exists(self, workflow_name: str) -> bool:
+            return workflow_name == "morning_report"
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        event_bus = EventBus()
+        policy_engine = object()
+        governance_engine = None
+
+    class FakeGovernedExecutionService:
+        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+            kwargs["execution_started_handler"]("governed-platform-error")
+            raise RuntimeError("workflow failed after execution start")
+
+    async def build_runtime(**_: object) -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(
+            build_runtime,
+            dependencies={
+                workflow_command_service.GovernedWorkflowExecutionService: (
+                    FakeGovernedExecutionService()
+                ),
+            },
+        ),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+        )
+    )
+
+    assert envelope.success is False
+    assert envelope.execution_id == "governed-platform-error"
+    assert envelope.error_message == "workflow failed after execution start"
 
 
 @pytest.mark.asyncio

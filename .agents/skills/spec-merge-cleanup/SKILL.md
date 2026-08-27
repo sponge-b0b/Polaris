@@ -1,6 +1,6 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and Spec Review, and reconciles completion with every governing Wayfinder map.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and any remediation Spec Review, and reconciles completion with every governing Wayfinder map.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -23,13 +23,36 @@ Never assume an invocation is pre-merge merely because cleanup work remains. Det
 
 ## Review Exit Authorization
 
-Before closing or merging anything, and before resuming interrupted post-completion cleanup, resolve the parent Spec's **one conventional Spec Review issue** and recover the latest **Spec Review Exit Receipt** from that review issue. The parent Spec owns workspace metadata and Spec Verification Receipts; the Spec Review owns review/remediation state and the final review Exit Receipt.
+Before closing or merging anything, and before resuming interrupted post-completion cleanup, recover the latest **Spec Review Exit Receipt** from the parent Spec issue. The parent Spec owns workspace metadata, Spec Verification Receipts, and the final review Exit Receipt. A conventional Spec Review issue is optional remediation history and must not be required for a clean first-pass review.
 
-Resolve the review issue deterministically from durable issue state. Do not probe unsupported `gh issue view --json` fields or infer it from Project fields, labels, prior conversation, or a receipt copied onto the parent Spec.
+Read the parent Spec's complete durable comment history once:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 SPEC_NUMBER=<parent Spec issue number>
+
+SPEC_COMMENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
+)
+
+REVIEW_EXIT_RECEIPT_JSON=$(
+  printf '%s\n' "$SPEC_COMMENT_PAGES" \
+    | jq -c '
+        [.[][]
+         | select((.body // "") | contains("## Spec Review Exit Receipt"))
+         | {id, created_at, html_url, body}]
+        | sort_by(.created_at, .id)
+        | last // empty'
+)
+```
+
+That newest parent-Spec receipt is the only review-authorization candidate. Do not use a receipt copied onto a Spec Review issue, an unpaginated comment read, or walk backward to an older receipt when the newest one is malformed or stale.
+
+Resolve an optional conventional Spec Review issue separately for remediation cleanup:
+
+```bash
 PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
 
 REVIEW_PAGES=$(
@@ -47,13 +70,22 @@ REVIEW_MATCHES=$(
          | select((.body // "") | contains($parent))
          | {number, state, url: .html_url}]'
 )
+
+REVIEW_COUNT=$(printf '%s\n' "$REVIEW_MATCHES" | jq 'length')
+
+if [ "$REVIEW_COUNT" -gt 1 ]; then
+  echo "❌ More than one conventional Spec Review identifies parent Spec #$SPEC_NUMBER."
+  exit 1
+elif [ "$REVIEW_COUNT" -eq 1 ]; then
+  SPEC_REVIEW_ISSUE_NUMBER=$(printf '%s\n' "$REVIEW_MATCHES" | jq -r '.[0].number')
+else
+  SPEC_REVIEW_ISSUE_NUMBER=""
+fi
 ```
 
-Require exactly one match. Zero means review authorization is missing; more than one means durable review ownership is ambiguous. Set `SPEC_REVIEW_ISSUE_NUMBER` from that one match.
+Zero conventional Spec Review matches is valid: it means the review passed without entering blocker/remediation state. More than one remains ambiguous durable remediation ownership and fails closed.
 
-Read all review comments once and select the latest well-formed `## Spec Review Exit Receipt` by durable comment order/date. Do not substitute a Spec Verification Receipt or historical Pending Review Remediation entry.
-
-The receipt must have been persisted by `$review-spec` only after its Exit Gate passed and must match the current producer schema:
+The parent-Spec receipt must have been persisted by `$review-spec` only after its Exit Gate passed and must match the current producer schema:
 
 ```markdown
 ## Spec Review Exit Receipt
@@ -71,11 +103,10 @@ The receipt must have been persisted by `$review-spec` only after its Exit Gate 
 **Unchecked coverage cells:** 0
 ```
 
-Recover the current Spec baseline from its durable workspace metadata and the latest passing Spec Verification Receipt on the parent Spec for the same candidate HEAD.
+Recover the current Spec baseline from its durable workspace metadata and the latest passing Spec Verification Receipt from `SPEC_COMMENT_PAGES` for the same candidate HEAD.
 
 Require:
 
-* the Spec Review issue durably identifies `Parent Spec: #<spec_issue_number>`;
 * `Status` is `passed`;
 * `Reviewed Baseline` equals the current Spec baseline;
 * `Spec Body Hash` and `Spec Contract Hash` equal the parent Spec's latest passing Spec Verification Receipt for the same `Reviewed HEAD`;
@@ -90,7 +121,7 @@ Any commit after the receipt and before merge makes the authorization stale.
 
 A later commit on a still-existing Spec branch **after** the reviewed HEAD was merged does not retroactively invalidate the completed merge, but it makes that branch unsafe to delete automatically. Post-merge cleanup must fail closed on branch-tip drift rather than deleting unmerged work.
 
-If the review issue/receipt is missing, malformed, ambiguous, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
+If the parent-Spec receipt is missing, malformed, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
 
 > ⚠️ **Spec cleanup requires durable review authorization.**
 >
@@ -100,7 +131,7 @@ If the review issue/receipt is missing, malformed, ambiguous, or cannot be bound
 > $review-spec - <Spec Title> (<Spec URL>)
 > ```
 
-Do not invoke `$review-spec` implicitly and do not copy/recreate the receipt on the parent Spec merely to satisfy cleanup.
+Do not invoke `$review-spec` implicitly and do not copy/recreate the receipt on a Spec Review issue merely to satisfy cleanup.
 
 ### Canonical Lifecycle Reads
 
@@ -450,7 +481,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
 
 Cleanup is complete only when the applicable path has:
 
-* validated a current passing Spec Review Exit Receipt from the parent Spec's one conventional Spec Review issue and bound it to the current Spec verification/branch state;
+* validated a current passing Spec Review Exit Receipt from the parent Spec and bound it to the current Spec verification/branch state;
 * either passed the current project-delivery actionability guard before a new authoritative completion transition **or** proven an exact post-completion recovery path from durable evidence;
 * successfully closed the Spec exactly once through the applicable authoritative path;
 * closed its Spec Review issue when one exists, or confirmed it was already closed;

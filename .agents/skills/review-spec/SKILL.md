@@ -151,9 +151,9 @@ Re-run immediately before persisting Pending Review Remediation or the final Exi
 
 ## 3. Recover Durable Review State
 
-The **conventional Spec Review issue** is the durable owner of review state for the parent Spec. Pending Review Remediation, Root Blocker ledger/reconciliation state, Scope corrections, and the final **Spec Review Exit Receipt** all belong on that one review issue, not on the parent Spec issue.
+A **conventional Spec Review issue** is a blocker/remediation artifact, not the owner of a clean review pass. It exists only when review enters blocker/remediation state or when existing durable review state must be reconciled. The parent Spec owns the final **Spec Review Exit Receipt**.
 
-Resolve the conventional review issue through one prescribed REST read:
+Resolve any existing conventional review issue through one prescribed REST read:
 
 ```bash
 PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
@@ -194,7 +194,9 @@ resolve_spec_review_issue
 
 Do not infer review ownership from Project fields, labels, prior conversation, title similarity alone, or a receipt copied onto the parent Spec.
 
-If no conventional Spec Review exists yet, keep `SPEC_REVIEW_ISSUE_NUMBER` empty until review reaches a persistence point. At the first persistence point, create it once and immediately re-resolve through the same canonical read:
+If no conventional Spec Review exists, keep `SPEC_REVIEW_ISSUE_NUMBER` empty. A clean first-pass review with zero Blocking findings must not create one.
+
+Create a conventional Spec Review only when Blocking findings require remediation. At that blocker persistence point, create it once and immediately re-resolve through the same canonical read:
 
 ```bash
 ensure_spec_review_issue() {
@@ -220,7 +222,7 @@ ensure_spec_review_issue() {
 }
 ```
 
-Re-resolution after creation is mandatory. If a concurrent or historical duplicate makes the result ambiguous, fail closed rather than choosing one.
+Do not call `ensure_spec_review_issue` from a clean PASS path. Re-resolution after blocker-driven creation is mandatory. If a concurrent or historical duplicate makes the result ambiguous, fail closed rather than choosing one.
 
 If a Spec Review exists, recover privately:
 
@@ -498,7 +500,9 @@ Do not propose the architectural answer.
 
 If architecture-conforming Blocking findings remain **or Scope corrections must update existing durable review state**, re-run the Project Delivery Actionability Guard.
 
-Call `ensure_spec_review_issue` from Section 3, then persist on that resolved conventional Spec Review issue:
+If architecture-conforming Blocking findings remain, call `ensure_spec_review_issue` from Section 3 and persist on that resolved conventional Spec Review issue.
+
+If no Blocking findings remain and only Scope corrections must update existing durable review state, require an already-existing conventional Spec Review issue and persist there. Do not create a Spec Review issue solely for Scope corrections.
 
 ```markdown
 ## Pending Review Remediation [YYYY-MM-DD HH:MM]
@@ -569,9 +573,9 @@ Advisories and unrelated inherited findings may remain.
 
 ### Persist Exit Receipt
 
-Re-run Project Delivery Actionability Guard, call `ensure_spec_review_issue` from Section 3, and persist the Exit Receipt on that resolved **conventional Spec Review issue**. Do not persist the review Exit Receipt on the parent Spec issue.
+Re-run Project Delivery Actionability Guard and persist the Exit Receipt on the **parent Spec issue**. Do not call `ensure_spec_review_issue` from the PASS path and do not create a conventional Spec Review issue merely to store successful review authorization.
 
-Require the review issue to durably identify the current parent Spec before writing. The receipt is review-owned authorization consumed later by `$spec-merge-cleanup`; the parent Spec continues to own its Spec Verification Receipt and workspace metadata.
+The parent Spec owns workspace metadata, the Spec Verification Receipt, and the final review Exit Receipt consumed later by `$spec-merge-cleanup`. If a conventional Spec Review exists from an earlier blocker/remediation cycle, preserve it as remediation history; it does not own the Exit Receipt.
 
 Persist:
 

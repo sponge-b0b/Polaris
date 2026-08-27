@@ -497,6 +497,7 @@ Persist this body on the Spec:
 **Default branch:** <DEFAULT_BRANCH>
 **Default branch head used for ownership:** <DEFAULT_HEAD>
 **Change surfaces:** <Spec-owned/Mixed surface classes>
+
 ### Spec Contract Integrity
 - User Stories: <source count>
 - Implementation Decisions: <source count>

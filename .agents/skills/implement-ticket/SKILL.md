@@ -747,6 +747,80 @@ For Spec Review remediation also report Root Blocker ID/invariant, authoritative
 
 After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` after closure is durable. Ticket closure remains authoritative even if reconciliation fails; report projection/coordination drift and do not present a downstream lifecycle handoff that depends on stale project-delivery state.
 
+### Deterministic Post-Closure Frontier
+
+After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier **before** post-transition Project reconciliation. The same recovered frontier must drive both affected parent/frontier projections and the final Human Handoff.
+
+Use the already recovered repository and decomposition parent:
+
+* ordinary Implementation Ticket → frontier parent is its native parent Spec;
+* Review Remediation Ticket → frontier parent is its native parent Spec Review; the durable `Parent Spec` remains the lifecycle provenance owner and downstream verification target.
+
+Do not infer the frontier from Project fields, labels, prior conversation, or prose in issue comments.
+
+Use the native REST sub-issue endpoint exactly once to read all direct children:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+FRONTIER_PARENT=<native parent issue number>
+
+FRONTIER_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$FRONTIER_PARENT/sub_issues?per_page=100"
+)
+
+OPEN_CHILDREN=$(
+  printf '%s\n' "$FRONTIER_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
+)
+```
+
+For each open direct child, use the native dependency endpoint exactly once to recover its complete `blocked by` set:
+
+```bash
+BLOCKER_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$CHILD_NUMBER/dependencies/blocked_by?per_page=100"
+)
+
+OPEN_BLOCKERS=$(
+  printf '%s\n' "$BLOCKER_PAGES" \
+    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
+)
+```
+
+A child is executable only when `OPEN_BLOCKERS` is empty.
+
+Execution rules:
+
+* use these prescribed REST reads; do not probe `gh issue view --json subIssues`, alternate JSON shapes, GraphQL relationship queries, or help output;
+* capture raw paginated payloads locally and inspect only the reduced `jq` results required by this workflow; do not print raw page payloads merely for model inspection;
+* a successful prescribed `gh api --paginate --slurp` command plus successful local `jq` reduction is authoritative for this read; UI, harness, or tool-rendering truncation of an otherwise successful raw payload is **not** pagination failure and must not make the frontier unreadable;
+* treat the frontier as unreadable only when a prescribed command fails, pagination itself fails, local reduction fails, or required relationship data is otherwise proven incomplete;
+* do not retry a failed frontier/dependency read through another interface;
+* do not narrate successful frontier discovery, per-child blocker reads, intermediate counts, or retries;
+* preserve native hierarchy as the decomposition authority and native `blocked by` relationships as dependency authority.
+
+### Parent / Frontier Lifecycle Reconciliation
+
+Derive parent/frontier lifecycle state from this same post-closure snapshot before Project reconciliation.
+
+For an ordinary Implementation Ticket:
+
+* if one or more implementation-ticket children remain open, preserve the parent Spec's current implementation lifecycle unless another durable lifecycle transition independently changed it;
+* if no implementation-ticket children remain open, advance the parent Spec to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.
+
+For a Review Remediation Ticket:
+
+* re-read the latest durable Spec Review Root Blocker Ledger after ticket-local Root Closure Reconciliation;
+* if remediation children remain open or the ledger still establishes `open` / `regressed` implementation remediation, preserve the parent Spec's `Review Remediation` lifecycle and derive the Spec Review projection from that durable remediation state;
+* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, advance the durable `Parent Spec` to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;
+* include the Spec Review itself as an affected artifact only when its own durable remediation state changes. Never infer `Spec Review = Complete` merely because its child count reached zero.
+
+Child absence is frontier evidence, not sufficient authority to erase Architecture Remediation, unresolved durable remediation state, or another independently owned lifecycle state.
+
 ### Downstream Dependency Reconciliation
 
 After every successful ticket closure, re-read direct native dependents because closure may change their actionability without changing the dependency relationship itself.
@@ -790,69 +864,26 @@ For an open direct dependent that is durably an ordinary Implementation Ticket o
 
 Do not overwrite another durable lifecycle state such as Architecture Remediation or Awaiting Root Verification. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
 
-After current project-delivery context is recovered, include every dependent whose base projection changed in the same post-transition Project reconciliation set as the completed ticket and any changed parent/frontier artifact. Supply the recovered dependency/lifecycle truth; Project reconciliation must not discover dependents or infer blocker satisfaction from Project fields.
+### Post-Closure Project Reconciliation
 
-If the direct-dependent read, blocker read, lifecycle recovery, or Project synchronization cannot be completed, the completed ticket remains authoritatively closed. Report projection drift and do not advertise a downstream lifecycle handoff whose actionability depends on the unreadable or stale dependent state.
+After frontier and dependent state are recovered, assemble one post-transition Project reconciliation set containing every affected artifact:
 
-Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again.
+* the completed ticket;
+* every direct dependent whose base projection changed;
+* every parent/frontier artifact whose lifecycle projection changed from the recovered post-closure frontier;
+* for remediation, the Spec Review when its durable remediation projection changed and the durable Parent Spec when its lifecycle changed.
 
-If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
+Recover current project-delivery context before submitting that set. Do not synchronize the completed ticket first and derive its affected parent/frontier afterward. Project reconciliation consumes the already-recovered dependency/frontier truth; it must not discover dependents or infer lifecycle transitions from Project fields.
 
-### Deterministic Ticket Frontier
+If authoritative frontier, blocker, lineage, or remediation-ledger reads cannot be completed, the completed ticket remains authoritatively closed. Report the exact unreadable state and do not advertise a downstream lifecycle handoff whose actionability cannot be proven.
 
-After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier from native GitHub relationships only.
+Project synchronization failure by itself is projection drift: it never rolls back authoritative ticket closure or changes the recovered native frontier. Report the drift; do not suppress an otherwise-proven downstream handoff solely because the non-authoritative Project projection failed to update.
 
-Use the already recovered repository and decomposition parent:
+Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again. If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
 
-* ordinary Implementation Ticket → frontier parent is its native parent Spec;
-* Review Remediation Ticket → frontier parent is its native parent Spec Review.
+### Handoff From the Recovered Frontier
 
-Do not infer the frontier from Project fields, labels, prior conversation, or prose in issue comments.
-
-Use the native REST sub-issue endpoint exactly once to read all direct children:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
-FRONTIER_PARENT=<native parent issue number>
-
-FRONTIER_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$FRONTIER_PARENT/sub_issues?per_page=100"
-)
-
-OPEN_CHILDREN=$(
-  printf '%s\n' "$FRONTIER_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
-)
-```
-
-For each open direct child, use the native dependency endpoint exactly once to recover its complete `blocked by` set:
-
-```bash
-BLOCKER_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$CHILD_NUMBER/dependencies/blocked_by?per_page=100"
-)
-
-OPEN_BLOCKERS=$(
-  printf '%s\n' "$BLOCKER_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
-)
-```
-
-A child is executable only when `OPEN_BLOCKERS` is empty.
-
-Execution rules:
-
-* use these prescribed REST reads; do not probe `gh issue view --json subIssues`, alternate JSON shapes, GraphQL relationship queries, or help output;
-* do not retry a failed frontier/dependency read through another interface;
-* if a prescribed read fails or cannot be fully paginated, report frontier state as unreadable and do not advertise downstream work as actionable;
-* do not narrate successful frontier discovery, per-child blocker reads, intermediate counts, or retries;
-* preserve native hierarchy as the decomposition authority and native `blocked by` relationships as dependency authority.
-
-Only when current project-delivery authorization permits advancement should the normal frontier handoff be emitted:
+Emit the normal frontier handoff from the **same** recovered post-closure snapshot used for parent/frontier Project reconciliation. Do not perform a second frontier read for handoff selection.
 
 * exactly one open unblocked ticket → emit exactly one copy-ready line:
 
@@ -861,12 +892,13 @@ Only when current project-delivery authorization permits advancement should the 
   ```
 
 * multiple open unblocked tickets → emit one copy-ready line per ticket in stable issue-number order and let the user choose;
-* no open implementation/remediation tickets → emit exactly one copy-ready line:
+* no open implementation/remediation tickets and the parent Spec is durably `Ready to Verify` → emit exactly one copy-ready line:
 
   ```text
   $verify-spec - <Spec Title> (<Spec URL>)
   ```
 
+  For Review Remediation Ticket mode, use the durable `Parent Spec` title and URL, not the Spec Review title/URL.
 * open tickets but all blocked → report the open blockers and stop.
 
 A prose sentence that merely names the next artifact does **not** satisfy the handoff requirement. The required copy-ready `$implement-ticket` or `$verify-spec` command must be present in the final response when that lifecycle is actionable.

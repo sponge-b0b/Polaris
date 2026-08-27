@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable, Mapping
-from contextlib import asynccontextmanager
-from dataclasses import fields
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass, fields
+from datetime import datetime
+from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
-from typing import Any
+from typing import Any, Protocol
 
 import pytest
 
 import interfaces.cli.services.workflow_command_service as workflow_command_service
+from core.runtime.control import WorkflowControlSnapshot, WorkflowControlState
 from core.runtime.events import EventBus, RuntimeEvent, RuntimeEventType
 from interfaces.cli.services.workflow_command_service import (
     MorningReportCommandRequest,
@@ -18,16 +21,155 @@ from interfaces.cli.services.workflow_command_service import (
 )
 
 
+class _CliRuntimeScopeFactory(Protocol):
+    def __call__(
+        self,
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AbstractAsyncContextManager[SimpleNamespace]: ...
+
+
+@dataclass(slots=True)
+class _WorkflowControlFacadeFake:
+    execution_id: str
+    commands: list[tuple[str, str]]
+    workflow_success: bool = True
+    workflow_status: str = "succeeded"
+    processed: asyncio.Event | None = None
+    pause_error: str | None = None
+
+    def workflow_exists(
+        self,
+        workflow_name: str,
+    ) -> bool:
+        return workflow_name == "morning_report"
+
+    async def run_workflow(
+        self,
+        *,
+        workflow_name: str,
+        execution_id: str | None = None,
+        mode: str = "live",
+        workflow_inputs: Mapping[str, Any] | None = None,
+        simulation_time: datetime | None = None,
+        archive_on_completion: bool = True,
+        checkpoint_on_completion: bool = False,
+        metadata: dict[str, Any] | None = None,
+        execution_started_handler: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
+        del execution_id, mode, workflow_inputs, simulation_time
+        del archive_on_completion, checkpoint_on_completion, metadata
+        if execution_started_handler is not None:
+            execution_started_handler(self.execution_id)
+        if self.processed is not None:
+            await asyncio.wait_for(
+                self.processed.wait(),
+                timeout=1,
+            )
+        else:
+            await asyncio.sleep(
+                0,
+            )
+        return {
+            "success": self.workflow_success,
+            "workflow_name": workflow_name,
+            "execution_id": self.execution_id,
+            "execution_result": {
+                "success": self.workflow_success,
+                "execution_id": self.execution_id,
+                "status": self.workflow_status,
+                "final_context": {
+                    "execution_id": self.execution_id,
+                },
+            },
+        }
+
+    async def pause_workflow(
+        self,
+        execution_id: str,
+        reason: str | None = None,
+        requested_by: str | None = "workflow_facade",
+        metadata: dict[str, Any] | None = None,
+    ) -> WorkflowControlSnapshot:
+        del reason, requested_by, metadata
+        if self.pause_error is not None:
+            raise RuntimeError(
+                self.pause_error,
+            )
+        return self._record_control(
+            command="pause",
+            execution_id=execution_id,
+            state=WorkflowControlState.PAUSING,
+        )
+
+    async def resume_workflow(
+        self,
+        execution_id: str,
+        reason: str | None = None,
+        requested_by: str | None = "workflow_facade",
+        metadata: dict[str, Any] | None = None,
+    ) -> WorkflowControlSnapshot:
+        del reason, requested_by, metadata
+        return self._record_control(
+            command="resume",
+            execution_id=execution_id,
+            state=WorkflowControlState.RESUMING,
+        )
+
+    async def cancel_workflow(
+        self,
+        execution_id: str,
+        reason: str | None = None,
+        requested_by: str | None = "workflow_facade",
+        metadata: dict[str, Any] | None = None,
+    ) -> WorkflowControlSnapshot:
+        del reason, requested_by, metadata
+        snapshot = self._record_control(
+            command="cancel",
+            execution_id=execution_id,
+            state=WorkflowControlState.CANCELLING,
+        )
+        if self.processed is not None:
+            self.processed.set()
+        return snapshot
+
+    def _record_control(
+        self,
+        *,
+        command: str,
+        execution_id: str,
+        state: WorkflowControlState,
+    ) -> WorkflowControlSnapshot:
+        self.commands.append(
+            (
+                command,
+                execution_id,
+            )
+        )
+        return WorkflowControlSnapshot(
+            execution_id=execution_id,
+            state=state,
+        )
+
+
 def _runtime_scope_from_builder(
-    builder: Callable[..., Any],
+    builder: Callable[[], Any],
     *,
     dependencies: Mapping[type[object], object] | None = None,
-) -> Callable[..., Any]:
+) -> _CliRuntimeScopeFactory:
     resolved_dependencies = MappingProxyType(dict(dependencies or {}))
 
     @asynccontextmanager
-    async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
-        runtime = await builder(**kwargs)
+    async def scope(
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AsyncIterator[SimpleNamespace]:
+        del plugin_dirs, autoload_plugins, provider_profile
+        runtime = await builder()
 
         async def get(dependency_type: type[object]) -> object:
             try:
@@ -58,23 +200,33 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            execution_id = kwargs["execution_id"] or "runtime-issued"
-            kwargs["execution_started_handler"](execution_id)
+            del mode, simulation_time, archive_on_completion
+            del checkpoint_on_completion, metadata
+            runtime_execution_id = execution_id or "runtime-issued"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
                 "execution_result": {
                     "success": True,
-                    "execution_id": execution_id,
+                    "execution_id": runtime_execution_id,
                     "status": "succeeded",
                     "final_context": {
-                        "execution_id": execution_id,
-                        "workflow_inputs": {
-                            "symbol": "SPY",
-                        },
+                        "execution_id": runtime_execution_id,
+                        "workflow_inputs": dict(workflow_inputs or {}),
                         "node_outputs": {
                             "technical_agent": {
                                 "success": True,
@@ -94,7 +246,7 @@ async def test_workflow_command_service_runs_workflow_and_returns_envelope(
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -136,23 +288,61 @@ async def test_workflow_command_service_uses_governed_execution_service(
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            direct_facade_calls.append(kwargs)
+            del mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion
+            del metadata, execution_started_handler
+            direct_facade_calls.append(
+                {
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                }
+            )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "workflow_name": workflow_name,
+                "execution_id": execution_id,
                 "execution_result": {"success": True, "final_context": {}},
             }
 
     class FakeGovernedExecutionService:
-        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
-            captured.update(kwargs)
-            kwargs["execution_started_handler"]("governed-test")
+        async def run_workflow(
+            self,
+            *,
+            workflow_name: str,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
+        ) -> dict[str, Any]:
+            del simulation_time, archive_on_completion, checkpoint_on_completion
+            captured.update(
+                {
+                    "workflow_name": workflow_name,
+                    "mode": mode,
+                    "workflow_inputs": workflow_inputs,
+                    "metadata": metadata,
+                    "execution_started_handler": execution_started_handler,
+                }
+            )
+            if execution_started_handler is not None:
+                execution_started_handler("governed-test")
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
+                "workflow_name": workflow_name,
                 "execution_result": {
                     "success": True,
                     "execution_id": "governed-test",
@@ -165,7 +355,7 @@ async def test_workflow_command_service_uses_governed_execution_service(
         policy_engine = object()
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     governed_execution_service = FakeGovernedExecutionService()
@@ -217,21 +407,35 @@ async def test_workflow_command_service_uses_platform_execution_for_governed_pro
             self.governance_engine = None
 
     class FakeGovernedExecutionService:
-        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
+        async def run_workflow(
+            self,
+            *,
+            workflow_name: str,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
+        ) -> dict[str, Any]:
+            del mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
             execution_id = "governed-platform-progress"
-            kwargs["execution_started_handler"](execution_id)
+            if execution_started_handler is not None:
+                execution_started_handler(execution_id)
             await event_bus.emit(
                 RuntimeEvent(
                     event_type=RuntimeEventType.WORKFLOW_PROGRESS_STARTED,
                     execution_id=execution_id,
-                    workflow_id=kwargs["workflow_name"],
+                    workflow_id=workflow_name,
                     runtime_id="runtime-platform-progress",
                     payload={"state": "running"},
                 )
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
+                "workflow_name": workflow_name,
                 "execution_result": {
                     "success": True,
                     "execution_id": execution_id,
@@ -239,7 +443,7 @@ async def test_workflow_command_service_uses_platform_execution_for_governed_pro
                 },
             }
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -292,11 +496,25 @@ async def test_workflow_command_service_preserves_platform_execution_on_error(
         governance_engine = None
 
     class FakeGovernedExecutionService:
-        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
-            kwargs["execution_started_handler"]("governed-platform-error")
+        async def run_workflow(
+            self,
+            *,
+            workflow_name: str,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
+        ) -> dict[str, Any]:
+            del workflow_name, mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            if execution_started_handler is not None:
+                execution_started_handler("governed-platform-error")
             raise RuntimeError("workflow failed after execution start")
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -335,13 +553,30 @@ async def test_workflow_command_service_fails_closed_when_governed_dependency_mi
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            direct_facade_calls.append(kwargs)
+            del mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion
+            del metadata, execution_started_handler
+            direct_facade_calls.append(
+                {
+                    "workflow_name": workflow_name,
+                    "execution_id": execution_id,
+                }
+            )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": kwargs["execution_id"],
+                "workflow_name": workflow_name,
+                "execution_id": execution_id,
                 "execution_result": {"success": True, "final_context": {}},
             }
 
@@ -350,7 +585,7 @@ async def test_workflow_command_service_fails_closed_when_governed_dependency_mi
         policy_engine = None
         governance_engine = object()
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -393,7 +628,7 @@ async def test_workflow_command_service_renders_missing_workflow_error(
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -430,14 +665,29 @@ async def test_morning_report_command_service_builds_workflow_inputs(
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
+            del execution_id, mode, simulation_time, archive_on_completion
+            del checkpoint_on_completion, execution_started_handler
             captured.update(
-                kwargs,
+                {
+                    "workflow_name": workflow_name,
+                    "workflow_inputs": workflow_inputs,
+                    "metadata": metadata,
+                },
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
+                "workflow_name": workflow_name,
                 "execution_result": {
                     "success": True,
                     "final_context": {},
@@ -449,7 +699,7 @@ async def test_morning_report_command_service_builds_workflow_inputs(
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -492,15 +742,27 @@ async def test_workflow_command_service_forwards_progress_notifications(
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            execution_id = kwargs["execution_id"] or "exec-123"
-            kwargs["execution_started_handler"](execution_id)
+            del mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            runtime_execution_id = execution_id or "exec-123"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
             await event_bus.emit(
                 RuntimeEvent(
                     event_type=RuntimeEventType.WORKFLOW_PROGRESS_STARTED,
-                    execution_id=execution_id,
-                    workflow_id=kwargs["workflow_name"],
+                    execution_id=runtime_execution_id,
+                    workflow_id=workflow_name,
                     runtime_id="runtime-123",
                     payload={
                         "state": "running",
@@ -509,11 +771,11 @@ async def test_workflow_command_service_forwards_progress_notifications(
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
                 "execution_result": {
                     "success": True,
-                    "execution_id": execution_id,
+                    "execution_id": runtime_execution_id,
                     "final_context": {},
                 },
             }
@@ -527,7 +789,7 @@ async def test_workflow_command_service_forwards_progress_notifications(
             self.policy_engine = None
             self.governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -556,7 +818,6 @@ async def test_workflow_command_service_forwards_progress_notifications(
 async def test_workflow_command_service_forwards_interactive_control_commands(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from core.runtime.control import WorkflowControlSnapshot, WorkflowControlState
 
     commands: list[tuple[str, str]] = []
     messages: list[str] = []
@@ -577,78 +838,45 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
             )
         return None
 
-    class FakeFacade:
-        def workflow_exists(
-            self,
-            workflow_name: str,
-        ) -> bool:
-            return workflow_name == "morning_report"
-
-        async def pause_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "pause",
-                    kwargs["execution_id"],
-                )
-            )
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.PAUSING,
-            )
-
-        async def resume_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "resume",
-                    kwargs["execution_id"],
-                )
-            )
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.RESUMING,
-            )
-
-        async def cancel_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "cancel",
-                    kwargs["execution_id"],
-                )
-            )
-            processed.set()
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.CANCELLING,
-            )
+    facade = _WorkflowControlFacadeFake(
+        execution_id="governed-control",
+        commands=commands,
+        processed=processed,
+    )
 
     class FakeRuntime:
         def __init__(
             self,
         ) -> None:
-            self.facade = FakeFacade()
+            self.facade = facade
             self.event_bus = EventBus()
             self.policy_engine = object()
             self.governance_engine = None
 
     class FakeGovernedExecutionService:
-        async def run_workflow(self, **kwargs: Any) -> dict[str, Any]:
-            kwargs["execution_started_handler"]("governed-control")
+        async def run_workflow(
+            self,
+            *,
+            workflow_name: str,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
+        ) -> dict[str, Any]:
+            del mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            if execution_started_handler is not None:
+                execution_started_handler("governed-control")
             await asyncio.wait_for(
                 processed.wait(),
                 timeout=1,
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
+                "workflow_name": workflow_name,
                 "execution_id": "governed-control",
                 "execution_result": {
                     "success": True,
@@ -657,7 +885,7 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
                 },
             }
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -706,7 +934,6 @@ async def test_workflow_command_service_forwards_interactive_control_commands(
 async def test_workflow_command_service_starts_control_for_facade_issued_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from core.runtime.control import WorkflowControlSnapshot, WorkflowControlState
 
     commands: list[tuple[str, str]] = []
     messages: list[str] = []
@@ -728,93 +955,24 @@ async def test_workflow_command_service_starts_control_for_facade_issued_executi
             )
         return None
 
-    class FakeFacade:
-        def workflow_exists(
-            self,
-            workflow_name: str,
-        ) -> bool:
-            return workflow_name == "morning_report"
-
-        async def run_workflow(
-            self,
-            **kwargs: Any,
-        ) -> dict[str, Any]:
-            execution_id = "facade-issued-control"
-            kwargs["execution_started_handler"](execution_id)
-            await asyncio.wait_for(
-                processed.wait(),
-                timeout=1,
-            )
-            return {
-                "success": False,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
-                "execution_result": {
-                    "success": False,
-                    "execution_id": execution_id,
-                    "status": "cancelled",
-                    "final_context": {
-                        "execution_id": execution_id,
-                    },
-                },
-            }
-
-        async def pause_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "pause",
-                    kwargs["execution_id"],
-                )
-            )
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.PAUSING,
-            )
-
-        async def resume_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "resume",
-                    kwargs["execution_id"],
-                )
-            )
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.RESUMING,
-            )
-
-        async def cancel_workflow(
-            self,
-            **kwargs: Any,
-        ) -> WorkflowControlSnapshot:
-            commands.append(
-                (
-                    "cancel",
-                    kwargs["execution_id"],
-                )
-            )
-            processed.set()
-            return WorkflowControlSnapshot(
-                execution_id=kwargs["execution_id"],
-                state=WorkflowControlState.CANCELLING,
-            )
+    facade = _WorkflowControlFacadeFake(
+        execution_id="facade-issued-control",
+        commands=commands,
+        workflow_success=False,
+        workflow_status="cancelled",
+        processed=processed,
+    )
 
     class FakeRuntime:
         def __init__(
             self,
         ) -> None:
-            self.facade = FakeFacade()
+            self.facade = facade
             self.event_bus = EventBus()
             self.policy_engine = None
             self.governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -877,23 +1035,35 @@ async def test_workflow_command_service_stops_control_on_eof(
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            execution_id = "facade-eof"
-            kwargs["execution_started_handler"](execution_id)
+            del execution_id, mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            runtime_execution_id = "facade-eof"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
             await asyncio.sleep(
                 0,
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
                 "execution_result": {
                     "success": True,
-                    "execution_id": execution_id,
+                    "execution_id": runtime_execution_id,
                     "status": "succeeded",
                     "final_context": {
-                        "execution_id": execution_id,
+                        "execution_id": runtime_execution_id,
                     },
                 },
             }
@@ -904,7 +1074,7 @@ async def test_workflow_command_service_stops_control_on_eof(
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -958,23 +1128,35 @@ async def test_workflow_command_service_stops_control_when_workflow_finishes_fir
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            execution_id = "facade-fast-complete"
-            kwargs["execution_started_handler"](execution_id)
+            del execution_id, mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            runtime_execution_id = "facade-fast-complete"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
             await asyncio.sleep(
                 0,
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
                 "execution_result": {
                     "success": True,
-                    "execution_id": execution_id,
+                    "execution_id": runtime_execution_id,
                     "status": "succeeded",
                     "final_context": {
-                        "execution_id": execution_id,
+                        "execution_id": runtime_execution_id,
                     },
                 },
             }
@@ -985,7 +1167,7 @@ async def test_workflow_command_service_stops_control_when_workflow_finishes_fir
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -1035,32 +1217,48 @@ async def test_workflow_command_service_reports_control_failure_without_corrupti
 
         async def run_workflow(
             self,
-            **kwargs: Any,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, Any]:
-            execution_id = "facade-control-failure"
-            kwargs["execution_started_handler"](execution_id)
+            del execution_id, mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            runtime_execution_id = "facade-control-failure"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
             await asyncio.wait_for(
                 processed.wait(),
                 timeout=1,
             )
             return {
                 "success": True,
-                "workflow_name": kwargs["workflow_name"],
-                "execution_id": execution_id,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
                 "execution_result": {
                     "success": True,
-                    "execution_id": execution_id,
+                    "execution_id": runtime_execution_id,
                     "status": "succeeded",
                     "final_context": {
-                        "execution_id": execution_id,
+                        "execution_id": runtime_execution_id,
                     },
                 },
             }
 
         async def pause_workflow(
             self,
-            **_: Any,
+            execution_id: str,
+            reason: str | None = None,
+            requested_by: str | None = "workflow_facade",
+            metadata: dict[str, Any] | None = None,
         ) -> None:
+            del execution_id, reason, requested_by, metadata
             raise RuntimeError("pause rejected")
 
     class FakeRuntime:
@@ -1069,7 +1267,7 @@ async def test_workflow_command_service_reports_control_failure_without_corrupti
         policy_engine = None
         governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(

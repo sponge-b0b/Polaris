@@ -98,7 +98,7 @@ def test_inspect_persistence_outputs_json(
             )
 
     class FakeScope:
-        def get(
+        async def get(
             self,
             dependency_type: type[DiagnosticsPersistenceService],
         ) -> FakeDiagnosticsService:
@@ -151,7 +151,7 @@ async def test_inspect_persistence_closes_scope_when_diagnostics_fail(
             raise RuntimeError("diagnostics failed")
 
     class FakeScope:
-        def get(
+        async def get(
             self,
             dependency_type: type[DiagnosticsPersistenceService],
         ) -> FailingDiagnosticsService:

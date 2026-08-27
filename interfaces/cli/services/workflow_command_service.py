@@ -271,7 +271,6 @@ class WorkflowCommandService:
             )
         return await runtime.facade.run_workflow(
             workflow_name=workflow_name,
-            execution_id=None,
             mode=mode,
             workflow_inputs=workflow_inputs,
             metadata=metadata,

@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
+from sqlalchemy.sql.dml import Update
 
 from core.database.models.completed_runs import CompletedWorkflowRunModel
 from core.database.models.projections import WorkflowOutputProjectionJobModel
@@ -17,6 +18,9 @@ from core.storage.persistence.projections import (
     ProjectionJobClaim,
     WorkflowOutputProjectionJobRecord,
     WorkflowOutputProjectionJobStatus,
+)
+from core.storage.persistence.repositories.postgres_durable_job_claim import (
+    claim_locked_durable_job,
 )
 
 
@@ -186,35 +190,17 @@ class PostgresWorkflowOutputProjectionJobRepository:
         self,
         stmt: Select[tuple[WorkflowOutputProjectionJobModel]],
     ) -> WorkflowOutputProjectionJobRecord | None:
-        try:
-            result = await self._session.execute(stmt)
-            model = result.scalar_one_or_none()
-            if model is None:
-                return None
-
-            update_result = await self._session.execute(
-                update(WorkflowOutputProjectionJobModel)
-                .where(
-                    WorkflowOutputProjectionJobModel.projection_job_id
-                    == model.projection_job_id,
-                )
-                .values(
-                    status=WorkflowOutputProjectionJobStatus.RUNNING.value,
-                    attempt_count=WorkflowOutputProjectionJobModel.attempt_count + 1,
-                    started_at=func.now(),
-                    completed_at=None,
-                    last_error=None,
-                    updated_at=func.now(),
-                )
-                .returning(WorkflowOutputProjectionJobModel)
-            )
-            await self._session.commit()
-        except SQLAlchemyError:
-            await self._session.rollback()
-            raise
-
-        updated_model = update_result.scalar_one()
-        return _job_record_from_model(updated_model)
+        model = await claim_locked_durable_job(
+            self._session,
+            stmt,
+            update_for=_projection_claim_update,
+            attempt_count_column=WorkflowOutputProjectionJobModel.attempt_count,
+            running_status=WorkflowOutputProjectionJobStatus.RUNNING.value,
+            reset_values={"completed_at": None},
+        )
+        if model is None:
+            return None
+        return _job_record_from_model(model)
 
     async def _mark_terminal(
         self,
@@ -248,6 +234,19 @@ class PostgresWorkflowOutputProjectionJobRepository:
         if model is None:
             return None
         return _job_record_from_model(model)
+
+
+def _projection_claim_update(
+    model: WorkflowOutputProjectionJobModel,
+) -> Update:
+    return (
+        update(WorkflowOutputProjectionJobModel)
+        .where(
+            WorkflowOutputProjectionJobModel.projection_job_id
+            == model.projection_job_id,
+        )
+        .returning(WorkflowOutputProjectionJobModel)
+    )
 
 
 def _upsert_job_statement(record: WorkflowOutputProjectionJobRecord) -> Executable:

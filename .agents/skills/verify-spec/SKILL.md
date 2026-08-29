@@ -286,6 +286,32 @@ Do not run a gate solely because an Inherited-only surface exists in fixed-basel
 
 ## 5. Execute Applicable Verification
 
+### Semantic-First Verification Order
+
+Verification separates **candidate proof work** from **final broad gates** so semantic defects are discovered before repeatedly paying for expensive whole-Spec checks. This changes execution order only; it does not weaken any required gate or final exact-HEAD condition.
+
+#### Candidate Proof Tier
+
+Before semantic proof certification converges, run only the checks needed to construct trustworthy Proof Objects, expose likely counterexamples, and validate a narrow verification-owned repair:
+
+* direct source/runtime/tracker/document inspection required by a manifest predicate;
+* targeted tests that are direct evidence for a Proof Object;
+* the mandatory service preflight only when a selected candidate-tier test requires that service;
+* narrow static/reference checks that directly establish a predicate, nested universe, or repair;
+* architecture/wiki checks when they are themselves required semantic evidence.
+
+Do **not** run broad formatter/linter/type-check suites, the complete selected regression pytest scope, or other expensive final gates merely to establish readiness for the first proof certifier unless that exact gate is itself direct evidence for a Proof Object.
+
+When a certifier rejects or leaves a Proof Object unresolved and verification repairs repository state, rerun only the affected candidate-tier checks needed to establish the repair and rebuild affected proof. Do not rerun the complete final gate set between semantic repair iterations.
+
+Semantic proof has **converged** when every current Proof Object is independently certified for the candidate state and there are no rejected, unresolved, stale, or uncertified Proof Objects.
+
+#### Final Gate Tier
+
+After semantic proof convergence, run every applicable final verification gate required by Sections 4 and 5 against the stable candidate `HEAD`. A required final gate that was already executed at that same exact `HEAD`, after the last repository mutation, with its complete final scope may be reused; do not rerun it solely because it was also useful during candidate proof.
+
+If a final-gate failure requires repository mutation, repair narrowly, rerun the affected final gate(s), apply Proof Object invalidation from Section 6.5, and independently recertify only stale Proof Objects. Final PASS still requires every applicable gate and every Proof Object valid at the exact final `HEAD`.
+
 ### Guardrails
 
 * Broad commands are authorized only when applicability requires them.
@@ -409,6 +435,9 @@ Domain Boundary: <authoritative semantic boundary>
 Nested Universe: <explicit members/dispositions | equivalent exhaustive mechanism | not-applicable-with-reason>
 Evidence: <direct current evidence>
 Assumptions: <None | material assumption + authority/direct proof>
+Invalidation Boundary: <complete repository paths/patterns and durable evidence surfaces whose change could invalidate this proof>
+Evidence Stability: <repository-immutable | mutable>
+Proof Object Hash: <sha256 of canonical semantic proof object excluding this hash>
 ```
 
 Rules:
@@ -417,7 +446,9 @@ Rules:
 * `Predicate` must preserve every material clause, quantifier, condition, exception, and surface from every mapped claim. A broader-sounding summary that drops a clause is invalid.
 * `Falsifier` must be a real logical counterexample to the mapped predicate, not merely a known historical bug pattern.
 * Evidence must address the proof object's subject and predicate directly. Nearby repository health is supporting evidence only.
-* The parent may propose evidence and domain witnesses, but it does **not** assign semantic sufficiency, survivability, or the final cell disposition.
+* `Invalidation Boundary` must include every direct and transitive repository/durable-evidence surface whose mutation could make the certified predicate false while the proof object's own wording remained unchanged. Use deterministic path/pattern semantics; vague labels such as `related code` are invalid.
+* `Evidence Stability: repository-immutable` is allowed only when every material evidence fact needed for certification is recoverable from immutable repository state bound by the object. Tracker/runtime/service/time-dependent evidence is `mutable` unless an authoritative immutable snapshot makes it otherwise.
+* The parent may propose evidence, domain witnesses, invalidation boundaries, and stability, but it does **not** assign semantic sufficiency, survivability, or the final cell disposition. The fresh certifier validates those proposed boundaries too.
 
 #### Nested Universe Closure
 
@@ -471,13 +502,16 @@ Unreferenced proof objects: 0
 Missing proof-object required fields: 0
 ```
 
-Compute:
+Compute each object's semantic identity before the packet hash:
 
 ```text
+PROOF_OBJECT_HASH[P-<n>] = sha256(canonical proof object bytes excluding Proof Object Hash)
 PROOF_PACKET_HASH = sha256(canonical proof packet bytes)
 ```
 
-The hash binds independent certification to the exact proof proposal. Any packet change invalidates prior certification even when repository `HEAD` is unchanged. A revised packet must be certified by a **new fresh proof certifier**; do not ask the certifier that rejected or evaluated the prior packet to approve the revision.
+`PROOF_PACKET_HASH` binds the complete candidate packet to its exact global state. `PROOF_OBJECT_HASH` is the reusable semantic identity for one proof object. A packet hash change does **not** by itself invalidate an unchanged already-certified Proof Object; Section 6.5 determines whether that certification survives the actual delta.
+
+If a Proof Object's hash changes, that object requires a **new fresh proof certifier**. Do not ask the certifier that rejected or evaluated the prior version of that object's lineage to approve the revised version. Unchanged objects are not recertified merely because another object or the packet-level `HEAD` binding changed.
 
 ### 6.4 Independent Proof Certification Integrity
 
@@ -485,13 +519,15 @@ Semantic proof certification is an independent verification role, not parent sel
 
 A **fresh proof certifier** means a genuinely separate agent/subagent context that:
 
-* did not participate in implementation, parent verification, proof-object construction, or prior certification for the current packet;
-* receives only the authoritative Spec/manifest, exact repository `HEAD`, proof packet, and evidence references needed to inspect the current state;
+* did not participate in implementation, parent verification, proof-object construction, or prior certification for any assigned Proof Object lineage in the current invocation;
+* receives the authoritative global bindings plus only the assigned manifest claims, assigned Proof Objects, and evidence references needed to inspect those objects at the exact candidate `HEAD`; unrelated Proof Objects are omitted;
 * is non-mutating;
 * may not delegate or spawn another certifier;
-* does not receive prior Spec Review findings, Root Blocker history, or the parent's intended verdict.
+* does not receive prior Spec Review findings, Root Blocker history, the parent's intended verdict, or prior certifier conclusions for the objects it is asked to certify.
 
-Default to exactly one fresh proof certifier for the complete packet. If context limits require partitioning, partition proof objects deterministically, use one fresh certifier per partition, and assign every proof object to exactly one certifier. Do not create overlapping certifiers merely to vote on the same proof.
+Generate a deterministic **certification slice** for the currently stale/uncertified Proof Objects. Bind the slice to the Spec issue, exact candidate `HEAD`, `SPEC_CONTRACT_HASH`, assigned manifest claims, assigned `PROOF_OBJECT_HASH` values, and only their required evidence references. Compute `CERTIFICATION_SLICE_HASH`.
+
+Default to one fresh proof certifier for all currently stale/uncertified objects when that slice is bounded. If context limits or unrelated evidence domains make partitioning materially cheaper, partition deterministically and assign each stale object to exactly one fresh certifier. Never resend already-valid retained Proof Objects merely to make the slice complete, and do not create overlapping certifiers merely to vote on the same proof.
 
 If the execution environment cannot create the required genuinely fresh context, fail closed before receipt persistence:
 
@@ -511,12 +547,17 @@ For every assigned proof object, the certifier independently verifies:
 4. every required Nested Universe witness is complete, or its claimed exhaustive mechanism really covers the full domain;
 5. direct current evidence establishes the predicate rather than merely nearby health;
 6. all material assumptions are authoritative or directly proven;
-7. after independent inspection of current `HEAD`, no counterexample survives.
+7. after independent inspection of current `HEAD`, no counterexample survives;
+8. the proposed Invalidation Boundary is complete enough to capture direct and transitive repository/durable-evidence mutations that could invalidate the proof;
+9. the proposed Evidence Stability classification is correct.
 
 The certifier returns exactly one result per proof object:
 
 ```text
 Proof: P-<n>
+Proof Object Hash: <PROOF_OBJECT_HASH>
+Certified HEAD: <exact candidate HEAD inspected>
+Certification Slice Hash: <CERTIFICATION_SLICE_HASH>
 Certification: <certified | rejected | unresolved>
 Disposition: <proven | not-applicable | unresolved>
 Certification Evidence: <concise direct evidence / counterexample / insufficiency>
@@ -546,9 +587,44 @@ missing certification      -> unresolved
 
 The parent does not independently assign a stronger state.
 
-If verification repairs repository state, changes the proof packet, changes `HEAD`, or changes `SPEC_CONTRACT_HASH`, all affected certification is stale. After any repository mutation, rerun final proof construction at the exact new `HEAD` and use a **new fresh proof certifier** before PASS.
+#### Incremental Proof Object Invalidation
 
-Checkpoint inheritance may reuse a prior certified proof object only when its exact proof-object definition, Nested Universe witness, evidence-bearing state, proof policy, and mapped claims remain immutable and unaffected by the complete checkpoint delta. Any uncertainty requires fresh proof construction/certification.
+After any repository mutation, proof-packet revision, candidate `HEAD` change, or relevant evidence refresh, rebuild the current Proof Objects and compute a **Proof Certification Invalidation Matrix** before dispatching another certifier.
+
+For every previously certified Proof Object record:
+
+```text
+Proof: <P-n>
+Prior Proof Object Hash: <hash>
+Current Proof Object Hash: <hash>
+Certified HEAD: <sha>
+Candidate HEAD: <sha>
+Evidence Stability: <repository-immutable | mutable>
+Repository delta: <complete changed-path set/digest from Certified HEAD..Candidate HEAD>
+Invalidation Boundary intersection: <0 | nonzero | uncertain>
+Proof-policy impact: <none | invalidating | uncertain>
+Certification state: <retained-certified | stale>
+Reason: <deterministic result>
+```
+
+A certification may become `retained-certified` only when **all** of these are true:
+
+1. current `PROOF_OBJECT_HASH` exactly equals the certified hash;
+2. mapped manifest claims and `SPEC_CONTRACT_HASH` are unchanged for that object;
+3. current proof policy does not invalidate that object's certification;
+4. `Evidence Stability` is `repository-immutable`;
+5. the complete repository changed-path set from `Certified HEAD..Candidate HEAD` has deterministic zero intersection with the certifier-approved Invalidation Boundary;
+6. no changed surface has an uncertain transitive relationship to that boundary.
+
+Otherwise the object is `stale` and returns to `pending-certification`. `Evidence Stability: mutable` fails closed to `stale` whenever the candidate state advances or the relevant external evidence could have changed. If delta-to-boundary matching cannot be computed confidently, mark the object stale; never preserve certification by optimistic interpretation.
+
+A global proof-policy change that alters semantic sufficiency, nested-universe requirements, certifier integrity, object hashing, invalidation semantics, or the meaning of `proven` invalidates every affected object; if impact cannot be bounded, invalidate all semantic certification.
+
+Only stale/uncertified objects are sent to a **new fresh proof certifier**. Retained certifications remain valid without consuming another semantic-review context. This is proof-object-granular reuse, not same-agent self-certification: the original fresh certifier approved the semantic proof and its invalidation boundary; the parent performs only deterministic delta-to-boundary invalidation afterward.
+
+If a final-gate repair later changes repository state, run this same matrix again and recertify only newly stale objects.
+
+Checkpoint inheritance may reuse a prior certified proof object only when the durable receipt contains the same independently certified Proof Object hash, certifier-approved Invalidation Boundary/Evidence Stability, and enough exact-HEAD provenance to apply these same fail-closed invalidation rules across the checkpoint delta. Any uncertainty requires fresh proof construction/certification.
 
 Before success reconcile:
 
@@ -558,6 +634,10 @@ Coverage rows: <n>
 Proof objects: <n>
 Proof packet hash: <PROOF_PACKET_HASH>
 Certified proof objects: <n>
+Freshly certified proof objects at candidate HEAD: <n>
+Retained certified proof objects: <n>
+Proof invalidation rows: <n>
+Stale proof objects: 0
 Rejected proof objects: 0
 Unresolved proof objects: 0
 Missing proof certifications: 0
@@ -579,8 +659,9 @@ For an ordinary failure:
    * a Spec-owned repository-standard/tooling failure;
    * an inherited-only unrelated repository defect;
 2. fix the narrowest authoritative point only for the first two categories;
-3. rerun affected proof;
-4. continue.
+3. rerun the narrow affected candidate-tier checks;
+4. rebuild affected Proof Objects, apply the Proof Certification Invalidation Matrix, and recertify only stale objects;
+5. continue semantic convergence without rerunning unaffected expensive final gates.
 
 An inherited-only unrelated defect is report-only for this Spec. Do not mutate it merely to make verification green.
 
@@ -622,20 +703,33 @@ Do not propose the architectural answer.
 
 ## 9. Final Verification Pass and Persistence
 
-After verification-owned fixes:
+Use this order after any verification-owned semantic repair:
 
-* recompute fixed-baseline integration inventory;
-* rerun `$spec-contract` in `build` mode at final `HEAD`;
-* require the Spec body/contract to remain valid and reconcile any changed ownership;
-* in checkpoint mode, recompute checkpoint delta/invalidation, including **Proof-Policy Invalidation**;
-* rerun every newly affected gate;
-* rebuild the complete cell-to-proof map and Proof Objects at exact final `HEAD`;
-* close every required Nested Universe or leave the mapped proof unresolved;
-* render and deterministically validate the final proof packet and compute `PROOF_PACKET_HASH`;
-* dispatch the required genuinely fresh proof certifier(s);
-* derive cell coverage only from the independent certification result;
-* require rejected proof objects `0`, unresolved proof objects `0`, missing proof certifications `0`, and manifest `unresolved 0`;
-* reconcile every manifest cell and require every required non-semantic gate passed.
+1. **Converge semantic proof first.**
+   * recompute the fixed-baseline integration inventory and `$spec-contract` state required by the repair;
+   * rebuild changed Proof Objects and their hashes;
+   * apply the Proof Certification Invalidation Matrix;
+   * run only affected candidate-tier evidence checks;
+   * dispatch new fresh certifier(s) only for stale/uncertified objects;
+   * repeat until rejected/unresolved/stale/uncertified Proof Objects are all zero at a stable candidate `HEAD`.
+2. **Run the Final Gate Tier once semantic proof has converged.**
+   * execute every applicable broad/non-semantic final gate not already valid at the same post-mutation `HEAD`;
+   * preserve exact command/service evidence required by the final receipt.
+3. **If a final gate requires another repository repair, invalidate narrowly.**
+   * repair the narrowest authoritative point;
+   * rerun the failed/affected final gate(s) and any required targeted checks;
+   * rerun `$spec-contract`/ownership only when the mutation can affect them;
+   * apply the Proof Certification Invalidation Matrix from each object's certified `HEAD` to the new candidate `HEAD`;
+   * retain only deterministically unaffected repository-immutable certifications and use new fresh certifier(s) for stale objects.
+4. **Establish the exact final state.**
+   * rerun `$spec-contract` in `build` mode at final `HEAD`;
+   * require the Spec body/contract to remain valid and reconcile any changed ownership;
+   * in checkpoint mode, recompute checkpoint delta/invalidation, including **Proof-Policy Invalidation**;
+   * render and deterministically validate the complete final proof packet and compute `PROOF_PACKET_HASH`;
+   * require every Proof Object either freshly certified at final `HEAD` or retained through a complete valid invalidation row to final `HEAD`;
+   * require stale/rejected/unresolved/missing proof certifications `0`, manifest `unresolved 0`, and every applicable final gate passed at the exact final `HEAD`.
+
+Do not rerun a whole final suite simply because one semantic Proof Object changed when that suite was not affected. Conversely, token/runtime economy never permits retaining a certification or gate when impact is uncertain.
 
 If repository files changed:
 
@@ -705,14 +799,19 @@ Persist this body on the Spec:
 | <ID> | <source anchor> | <requirement> |
 
 ### Spec Proof Objects
-| Proof | Cells | Predicate | Falsifier | Domain / Nested Universe | Evidence / Assumptions |
-| --- | --- | --- | --- | --- | --- |
-| P-1 | <IDs> | <predicate> | <falsifier> | <authoritative boundary + nested-universe witness> | <direct evidence + proven assumptions> |
+| Proof | Object Hash | Cells | Predicate | Falsifier | Domain / Nested Universe | Evidence / Assumptions | Invalidation Boundary | Evidence Stability |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P-1 | <hash> | <IDs> | <predicate> | <falsifier> | <authoritative boundary + nested-universe witness> | <direct evidence + proven assumptions> | <certifier-approved boundary> | repository-immutable |
 
 ### Independent Proof Certification
-| Proof | Certification | Disposition | Certification Evidence |
-| --- | --- | --- | --- |
-| P-1 | certified | proven | <fresh certifier evidence> |
+| Proof | Object Hash | Certified HEAD | Slice Hash | Certification | Disposition | Certification Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| P-1 | <hash> | <sha> | <CERTIFICATION_SLICE_HASH> | certified | proven | <fresh certifier evidence> |
+
+### Proof Certification Carry-Forward
+| Proof | From HEAD | To HEAD | Repository Delta Digest | Boundary Intersection | Result |
+| --- | --- | --- | --- | --- | --- |
+| P-1 | <certified sha> | <final sha> | <digest> | 0 | retained-certified |
 
 ### Spec Contract Coverage
 | Cell | State | Proof |
@@ -728,12 +827,12 @@ Persist this body on the Spec:
 - <finding or None>
 ```
 
-The receipt must contain the complete manifest, the complete durable Proof Object set, exactly one independent certification row per Proof Object, and exactly one coverage row per manifest cell. The durable Proof Object sections are the independently checkable semantic witness; do not replace them with a parent-authored summary such as `survivability excluded` or aggregate zero counts.
+The receipt must contain the complete manifest, the complete durable Proof Object set with object hashes/invalidation boundaries/evidence stability, exactly one independent certification row per Proof Object, exactly one coverage row per manifest cell, and a carry-forward row for every object whose `Certified HEAD` differs from final `HEAD`. Freshly certified-at-final-HEAD objects do not need a carry-forward row. The durable Proof Object and provenance sections are the independently checkable semantic witness; do not replace them with a parent-authored summary such as `survivability excluded` or aggregate zero counts.
 
 ### Atomic Receipt Persistence
 
 1. Render the **complete** receipt into `RECEIPT_FILE=$(mktemp)` before any GitHub mutation. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
-2. Pre-validate `RECEIPT_FILE` with one Python invocation. Require exact equality for Status, HEAD, baseline, branch, verification mode/checkpoint, body/contract hashes, `PROOF_PACKET_HASH`, proof-certification execution, default branch/head; require every required receipt section exactly once; require the three manifest-integrity zero lines; parse manifest and coverage IDs matching `(?:US|ID|TD|OOS|NORM)-<n>[.<suffix>]`; require both ordered ID lists to equal the final `$spec-contract` manifest exactly with no duplicates; require every coverage row to reference exactly one declared Proof Object; require every Proof Object to be referenced; require exactly one certification row per Proof Object; require every certification to be `certified` with disposition equal to the derived coverage state for all mapped cells; require no `rejected`, `unresolved`, missing certification, or unknown Proof Object; reconstruct the canonical proof packet from the persisted receipt fields that bind it — exact HEAD/baseline/body/contract hashes, ordered manifest IDs and claims, cell-to-proof map, and complete Proof Object data — and require that hash to equal `PROOF_PACKET_HASH`. Do not substitute an improvised `grep`/`sed`/`awk`/regex pipeline.
+2. Pre-validate `RECEIPT_FILE` with one Python invocation. Require exact equality for Status, HEAD, baseline, branch, verification mode/checkpoint, body/contract hashes, `PROOF_PACKET_HASH`, proof-certification execution, default branch/head; require every required receipt section exactly once; require the three manifest-integrity zero lines; parse manifest and coverage IDs matching `(?:US|ID|TD|OOS|NORM)-<n>[.<suffix>]`; require both ordered ID lists to equal the final `$spec-contract` manifest exactly with no duplicates; require every coverage row to reference exactly one declared Proof Object; require every Proof Object to be referenced; require exactly one certification row per Proof Object with matching Object Hash, exact Certified HEAD, and non-empty Certification Slice Hash; require every certification to be `certified` with disposition equal to the derived coverage state for all mapped cells; for every certification whose `Certified HEAD` differs from final `HEAD`, require a complete carry-forward chain to final `HEAD`, recompute each repository delta and digest, require `Evidence Stability: repository-immutable`, require deterministic zero intersection with the certified Invalidation Boundary, and reject any chain containing an invalidating/uncertain proof-policy change; require no `stale`, `rejected`, `unresolved`, missing certification, or unknown Proof Object; reconstruct the canonical proof packet from the persisted receipt fields that bind it — exact HEAD/baseline/body/contract hashes, ordered manifest IDs and claims, cell-to-proof map, and complete Proof Object data — and require that hash to equal `PROOF_PACKET_HASH`. Do not substitute an improvised `grep`/`sed`/`awk`/regex pipeline.
 3. If pre-validation passes, POST the validated body **once**:
 
 ```bash
@@ -807,7 +906,7 @@ Report:
 * ownership classification;
 * applicable gates;
 * complete manifest coverage summary;
-* proof-object count/hash and independent proof-certification summary;
+* proof-object count/hash and independent proof-certification summary, including fresh-versus-retained certification counts;
 * repaired failures;
 * unrelated inherited findings;
 * commit/push/final worktree;

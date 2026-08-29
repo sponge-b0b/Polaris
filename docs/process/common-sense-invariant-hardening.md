@@ -204,6 +204,22 @@ This rule is recursive. `Outer coverage = 100%` does not establish a universal i
 
 Unknown-unknowns cannot be eliminated, but known/discoverable members must not disappear before counting begins.
 
+### Certified Invalidation Boundaries
+
+Independent semantic certification does not require blanket re-execution after every unrelated mutation. A fresh certifier may approve not only a proof result but also a bounded **Invalidation Boundary** and evidence-stability classification for that Proof Object.
+
+> **A previously certified semantic proof may survive a later repository mutation only when deterministic delta analysis proves that the exact Proof Object is unchanged, its evidence is repository-immutable, proof policy remains compatible, and the complete changed-surface set has zero intersection with its certifier-approved invalidation boundary. Any uncertainty makes the proof stale.**
+
+This preserves **No Self-Certifying Semantic Transition**: the parent does not decide semantic sufficiency after the fact. The independent certifier established the proof and the boundary; the parent may only apply deterministic invalidation mechanics to decide whether that existing certification still applies.
+
+### Semantic-First Cost Control
+
+Correctness gates should be ordered to avoid paying repeatedly for expensive whole-system checks during semantic discovery.
+
+> **Run the minimum direct evidence needed to construct and independently certify semantic proof first. Defer broad final gates until semantic proof converges, then run them once at the stable candidate HEAD. If a later repair mutates state, rerun only affected gates and recertify only Proof Objects made stale by fail-closed invalidation analysis.**
+
+This is an execution-efficiency rule, not a waiver. Every required final gate and every semantic proof must still be valid at the exact final state.
+
 ### Local Enforcement
 
 Do not solve this by creating a universal helper that every skill merely says it invoked.
@@ -863,6 +879,7 @@ As of 2026-08-29, the hardening sequence defined by this audit is implemented on
 * The remaining proof, decomposition, semantic-mutation, route/audit-completeness, migration-safety, and cleanup gates were hardened together in `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
 * The coordinated commit changes only the 17 intended skill contracts: the 16 remaining audit targets plus the `$spec-contract` caller integration required by `$to-tickets`.
 * The audit principles remain design guidance; each `SKILL.md` is the executable enforcement point.
+* `$verify-spec` additionally uses proof-object-granular certification reuse and semantic-first final-gate ordering: fresh independence remains mandatory for stale proof, while certifier-approved immutable proof survives only through deterministic fail-closed invalidation.
 
 A subsequent full `$verify-spec` rerun of Spec #240 exposed a false PASS despite the first hardening: the parent verifier created/declared complete proof state while durable cell evidence did not establish the direct subject of several claims. That demonstrated that explicit state can still be self-certifying and that outer-universe closure does not close nested quantified domains.
 

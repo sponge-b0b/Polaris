@@ -23,6 +23,16 @@ Recover correctness-critical inputs from the invocation, repository, and durable
 
 If required durable state cannot be recovered, report the missing artifact rather than infer it.
 
+### Prescribed Command Integrity
+
+When this skill provides a concrete command sequence for a workflow-critical operation and makes that command normative through language such as `exactly once`, `deterministically`, `use these prescribed`, or an equivalent explicit execution requirement, treat the command shape as part of the workflow contract.
+
+Execute it as written except for substituting declared variables or values.
+
+Do not rewrite pipelines into tool-specific flags, combine commands because another CLI option appears equivalent, substitute alternate API/query forms, or probe alternative command shapes before using the prescribed one.
+
+If the prescribed command itself fails because the installed tool does not support it, report that incompatibility and adapt only the minimum necessary portion while preserving the prescribed semantics. Illustrative or example commands that are not made normative remain adaptable.
+
 ### Durable Root-Verification Checkpoint
 
 For an open Spec Review remediation ticket, the root-verification Human Handoff and verifier result must survive complete conversational/session context loss.

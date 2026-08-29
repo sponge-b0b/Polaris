@@ -297,23 +297,27 @@ That keeps reconstitution durable without turning this document into a second so
 
 # Current Session Ledger
 
-> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves the conflict otherwise.
+> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves it otherwise.
 
 **Last maintained:** 2026-08-29
 
 ## Active thread
 
-- The decision-evidence persistence/reconstruction code-health remediation (Spec #254) has just completed its full lifecycle, including merge/cleanup and final GitHub Project synchronization. Its authoritative state is in GitHub/repository history; do not replay that workflow from this ledger.
-- The user intentionally paused before continuing the next code-health remediation step in order to establish this Current Session Ledger process.
-- After this process-document change is complete, the intended next product/engineering thread is the previously planned **local risk-authority-gate decomposition** in the code-health remediation sequence. Revalidate the current planning/audit source before creating or advancing work rather than relying on this sentence as authority.
+- The active thread is **common-sense invariant hardening across Polaris agent workflows**: converting correctness-critical prose reasoning into transition-bound state where a mistaken or skipped reasoning step could otherwise authorize `PASS`, `proven`, publication, mutation, closure, routing, or another durable lifecycle transition.
+- The complete audit, design principles, per-skill findings, counterexamples, and hardening order are durably recorded in `docs/process/common-sense-invariant-hardening.md`.
+- The first hardening target, `$spec-contract`, is complete on `main`. It now requires a complete Source Unit Inventory before manifest construction so zero unmapped obligations cannot be achieved by silently failing to notice a normative source unit.
+- The intended next hardening target is `$implement-ticket`, followed by `$verify-root-closure`, `$review-spec`, `$review-architecture`, and `$verify-code` unless new evidence changes the order.
 
 ## Session-only continuation notes
 
-- The user no longer intends to provide a routine `LAST ACTIVE THREAD` during session reconstitution. This ledger is the normal ephemeral handoff mechanism.
-- The agent is responsible for deciding when this ledger needs another checkpoint update and for keeping it current on `main`.
-- When the available connector cannot perform a required GitHub operation but the user's authenticated `gh` CLI can, the preferred collaboration pattern is for the agent to complete everything it can, provide the exact guarded `gh`/Bash commands for only the missing operation, consume the returned output as evidence, and continue.
+- The user intentionally paused the active Spec #240 / ticket #260 execution thread to complete the common-sense invariant audit and hardening sequence first.
+- Review/remediation work should become progressively harder to surprise upstream stages: ordinary explicit obligations should be caught by Spec contract, ticket decomposition, implementation, or verification rather than repeatedly rediscovered during review.
+- Hardening must remain generic. Do not encode the latest historical symptom (for example, one fake/fixture or CLI-help defect) as the invariant; bind the underlying proof/universe/semantic-transition rule instead.
+- Avoid creating a universal `$reasoning-integrity` helper that can itself become another checkbox. Enforcement belongs in the transition-owning skill's local state schema.
+- After the hardening sequence is paused or completed and work returns to Spec #240, revalidate current durable branch/tracker state. Because `main` has advanced during hardening, `spec-240` may need another clean `main` merge before ticket #260 pins its `Ticket baseline`.
 - All Bash command blocks supplied to the user must use a subshell `(...)`.
 
 ## Outstanding ephemeral state
 
-- No known uncommitted Polaris code change or active feature branch is being carried forward by this ledger. Local repository state must still be verified when relevant in the next session.
+- No local-only command result is required to continue the hardening thread; the relevant audit and completed `$spec-contract` change are already durable on `main`.
+- Do not begin ticket #260 from remembered branch state. Re-read current `main`, `spec-240`, issue #260, and applicable skills before resuming that lifecycle.

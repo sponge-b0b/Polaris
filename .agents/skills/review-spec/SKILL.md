@@ -389,12 +389,23 @@ Give each primary role:
 * only the evidence slices relevant to those cells;
 * no Root Blocker history or prior reviewer findings.
 
+### Reviewer Claim-Proof Integrity
+
+Every primary, targeted challenger, and saturation challenger derives proof from its assigned authoritative claim before treating supplied evidence as a proof plan.
+
+For each material cell, normalize the claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**, then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the claim false. Derive the inspection strategy from that claim and falsifier, and actively seek counterexamples within the permitted axis/domain.
+
+A `checked-no-finding` disposition requires evidence that excludes the falsification condition across the required domain. Ask: **Could every inspected/cited check succeed while this cell is still false?** If yes, the cell is not clean and must trigger blocking/advisory/unresolved handling under its axis contract. Any material assumption connecting evidence to conclusion must itself be established by the axis authority or direct evidence.
+
+Known defect patterns, prior implementation choices, changed-file lists, existing tests, and the passing verification receipt are supporting evidence only. They must not define the claim, falsifier, or proof boundary. This reasoning discipline does not require a verbose transcript in the durable review packet.
+
 ### Primary Strategy
 
 Use a combined coverage strategy:
 
-1. authority-first: trace every supplied cell into all relevant surfaces;
-2. adversarial-surface check: for each cell inspect applicable defaults/fallbacks/alternate entries/bypasses/fail-open paths before disposition.
+1. **claim-first:** apply **Reviewer Claim-Proof Integrity** before accepting supplied evidence as proof;
+2. **authority-first:** trace every supplied cell into all relevant surfaces;
+3. **adversarial-surface:** inspect applicable defaults/fallbacks/alternate entries/bypasses/fail-open paths as possible counterexample witnesses before disposition.
 
 The primary must:
 
@@ -445,7 +456,7 @@ Challenge triggers:
 3. **evidence trigger** — evidence is materially contradictory or insufficient to accept/reject a blocker;
 4. **convergence trigger** — after root reconciliation, a newly accepted finding is a Missed prior finding against a previously satisfied root or exposes a root-definition gap.
 
-For triggers 1–3, dispatch or execute one targeted challenger over only the affected cells/question. Do not intentionally provide it the primary's conclusion. Its job is resolution of the trigger, not a second full-axis review.
+For triggers 1–3, dispatch or execute one targeted challenger over only the affected cells/question. Do not intentionally provide it the primary's conclusion. Its job is resolution of the trigger, not a second full-axis review. The challenger applies **Reviewer Claim-Proof Integrity** independently to its assigned cells/question.
 
 A valid challenger finding does not require primary agreement.
 
@@ -495,7 +506,7 @@ Before Pending Review Remediation:
 
 1. derive a **Root Closure Domain Manifest** from the stable root invariant, current Spec contract, applicable architecture, current semantic surface families, and explicitly required sibling/alternate paths;
 2. execute exactly one **saturation challenger** under the originating axis authority using the current Reviewer Execution mode;
-3. instruct it to inspect every domain item and to add/check any newly discovered sibling surface before returning;
+3. instruct it to inspect every domain item, apply **Reviewer Claim-Proof Integrity**, and add/check any newly discovered sibling surface before returning;
 4. require its final domain coverage to reach `unchecked 0`;
 5. validate any additional findings through the normal Axis-Provenance Gate;
 6. add supported findings to the current frozen set/root mapping before remediation persistence.

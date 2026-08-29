@@ -383,11 +383,21 @@ Requirements:
 
 A cell may be `proven` only when its evidence directly establishes the exact subject, required behavior, and material conditions expressed by that manifest cell. Evidence that merely demonstrates nearby health is supporting evidence, not proof of the cell.
 
+#### Claim-Proof Integrity
+
+Before using implementation history, ticket evidence, known defect patterns, changed-file inventories, prior receipts, or existing tests as a proof plan, normalize the authoritative manifest claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**. Then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the cell false.
+
+Derive the proof strategy independently from that claim and falsifier, and actively seek counterexamples. Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while this manifest cell is still false?** If yes, leave the cell `unresolved`.
+
+Any material assumption that bridges evidence to the conclusion must itself be established by current authority or direct proof. Pattern searches, passing tests, static checks, closed tickets, known-defect sweeps, and prior evidence are supporting evidence only unless they are logically sufficient to exclude the falsifying condition.
+
+This is an execution invariant, not a requirement to bloat the receipt. Persist concise traceable evidence rather than a verbose reasoning transcript.
+
 #### Manifest Cell Domain Integrity
 
 The domain stated by a manifest cell is part of its predicate. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `repository-wide`, or an explicit surface list into only Spec-owned changes, changed files, targeted tests, cited examples, or surfaces previously covered by implementation tickets.
 
-Ownership classification controls repository Standards/tooling responsibility; it does not shrink the behavioral acceptance domain. If a cell requires all affected fakes/fixtures, absence of stale references, agreement between help/defaults and behavior, or another named/universal surface set, inspect and prove that stated domain even when relevant surfaces are unchanged or Inherited-only.
+Ownership classification controls repository Standards/tooling responsibility; it does not shrink the behavioral acceptance domain. If a cell requires a named or universal surface set, inspect and prove that stated domain even when relevant surfaces are unchanged or Inherited-only.
 
 Evidence that proves only a subset cannot be strengthened by wording. A statement such as `no targeted <X> on changed surfaces` does not prove `no <X> remains` unless the originating cell is explicitly bounded that way. If the full stated domain cannot be established, leave the cell `unresolved`.
 
@@ -396,8 +406,6 @@ Apply these rules before assigning `proven`:
 * identify the concrete runtime, source, tracker, document, interface, test seam, or other authoritative surface that embodies the cell;
 * trace the evidence to that surface and to the cell's actual predicate; a nearby file path, closed ticket, successful broad suite, Ruff/Mypy result, or generic repository sweep cannot establish an unrelated semantic obligation by itself;
 * for prohibition/absence obligations, perform a bounded negative sweep or equivalent direct proof over the affected semantic domain rather than inferring absence from positive tests;
-* for help/default/interface-to-behavior consistency, inspect both the declared interface/default and the effective behavior, plus applicable regression proof;
-* for contract migrations involving fakes, fixtures, mocks, monkeypatches, adapters, or test doubles, inspect the affected seams themselves for contract/signature closure; production-path success alone is insufficient;
 * when one cell contains multiple required clauses or surfaces, prove every material clause/surface or leave the cell `unresolved`; several precise evidence items are preferable to one generic umbrella result;
 * checkpoint inheritance is allowed only when the prior cell's same direct-subject evidence remains immutable and unaffected by the complete checkpoint delta.
 

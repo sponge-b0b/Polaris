@@ -117,6 +117,16 @@ Return the invalidation reason to `$implement-ticket`, which owns recovery and f
 
 The stable Root Blocker invariant is authoritative over enumerated symptoms. The cumulative acceptance contract remains required evidence and must not be silently narrowed.
 
+### Claim-Proof Integrity
+
+Before using Proposed Root Closure Evidence, implementation history, changed-file inventories, prior PASS state, known defect patterns, or existing tests as a proof plan, normalize each material root obligation into its **subject, quantifier, domain, predicate, and material conditions/exceptions**. Then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the obligation false.
+
+Derive the proof strategy independently from the stable invariant, durable acceptance contract, and falsification condition, and actively seek counterexamples. Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while this obligation is still false?** If yes, mark the cell `unproven`.
+
+Any material assumption that bridges evidence to the conclusion must itself be established by current authority or direct proof. Pattern searches, passing tests, static checks, previous closure evidence, and known-defect sweeps are supporting evidence only unless they are logically sufficient to exclude the falsifying condition.
+
+This is an execution invariant, not a requirement to persist a verbose reasoning transcript. The Coverage Manifest and verdict may remain concise and traceable.
+
 Classify every surface needed to prove the root using these classes as applicable:
 
 * **Code** — production/library/runtime source;
@@ -223,7 +233,7 @@ For each:
 1. inspect the actual current authoritative surface;
 2. verify required composition/wiring/lifecycle/state transition where relevant;
 3. identify concrete current evidence appropriate to that surface;
-4. determine whether the evidence proves the invariant at the required boundary;
+4. apply **Claim-Proof Integrity**: require the evidence to exclude the cell's falsification condition across its full domain without an unproven material assumption;
 5. record `proven`, `violated`, or `unproven` with evidence.
 
 A result is `proven` only when current evidence establishes the required behavior/state.

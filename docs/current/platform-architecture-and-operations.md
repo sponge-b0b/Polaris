@@ -418,8 +418,10 @@ uv run polaris workflow run morning_report
 ```
 
 Terminal output, progress notifications, and interactive pause/resume/cancel
-control are enabled for workflow runs. `--format` adds an HTML, JSON, Markdown,
-or PDF artifact; it does not suppress terminal output.
+control are enabled for generic `workflow run` executions. The top-level
+`morning-report` command preserves its explicit non-interactive default while
+still rendering terminal output and progress notifications. `--format` adds an
+HTML, JSON, Markdown, or PDF artifact; it does not suppress terminal output.
 
 Start PostgreSQL and apply/inspect migrations:
 

@@ -317,7 +317,7 @@ def test_workflow_run_help_describes_default_control_and_file_formats() -> None:
     assert "format: console" not in result.output.lower()
 
 
-def test_morning_report_help_describes_default_control_and_file_formats() -> None:
+def test_morning_report_help_describes_non_interactive_default_and_formats() -> None:
     runner = CliRunner()
 
     result = runner.invoke(
@@ -331,9 +331,10 @@ def test_morning_report_help_describes_default_control_and_file_formats() -> Non
     assert result.exit_code == 0
     assert "Terminal output" in result.output
     assert "progress notifications" in result.output
-    assert "interactive" in result.output
-    assert "workflow control" in result.output
-    assert "--format writes an" in result.output
+    assert "no interactive workflow control is started" in result.output
+    assert "interactive workflow control are enabled by default" not in result.output
+    assert "--format" in result.output
+    assert "writes an additional report file" in result.output
     assert "additional report file" in result.output
     assert "html, json, markdown, or pdf" in result.output
     assert "--progress" not in result.output

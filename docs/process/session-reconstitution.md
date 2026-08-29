@@ -189,6 +189,8 @@ The normal collaboration model is:
 
 A connector limitation is not, by itself, a reason to abandon an otherwise executable workflow. For example, when the connected GitHub tool cannot perform an operation that the authenticated GitHub CLI can perform, provide the exact `gh` commands for the user to run outside Codex and continue from the returned result.
 
+When the user explicitly asks for the literal `gh`/Bash commands that a workflow or skill would execute, answer at that command layer. Do not substitute another skill invocation or redirect the user back through the workflow when the requested underlying commands can be provided safely.
+
 Ask the user to run local commands only when the required state or operation is unavailable remotely, such as:
 
 - uncommitted local changes;
@@ -261,7 +263,7 @@ Treat the ledger as a maintained scratch pad, not an append-only historical log.
 - keep the ledger short enough to scan during every reconstitution;
 - preserve only the **current** recovery state, not a narrative history of prior sessions.
 
-Ledger updates are normal process-document maintenance and may be committed directly to `main` when this document is being maintained outside an active Spec branch. Follow `$conventional-commits` for the commit message.
+Ledger maintenance is always committed directly to `main`, even when active product work is occurring on another branch. Do not write the ledger checkpoint onto the feature/Spec branch or wait for that branch to merge. Update only this process document for the ledger checkpoint and follow `$conventional-commits` for the commit message.
 
 ## Recommended New-Session Prompt
 

@@ -35,7 +35,7 @@ The audit therefore used this test:
 
 If yes, the invariant is bypassable.
 
-## Three Failure Modes
+## Five Failure Modes
 
 ### 1. Unbound Reasoning
 
@@ -89,6 +89,56 @@ Common escape meanings include:
 
 When those states are valid, they should be explicit. Omission must not be a hidden state transition.
 
+### 4. Self-Certifying Semantic State
+
+The first transition-bound hardening pass exposed a deeper loophole: explicit state is not automatically enforceable when the same semantic actor creates the state, interprets it, and certifies that it is complete.
+
+Observed failure shape:
+
+```text
+parent creates proof fields
+    ↓
+parent declares falsifier excluded
+    ↓
+parent declares incomplete proof records = 0
+    ↓
+deterministic validator checks only that those declarations exist
+    ↓
+PASS
+```
+
+A state machine can therefore reproduce prose-only bypass under more formal names. Aggregate declarations such as `survivability excluded`, `route clear`, `architecture resolved`, or `unclassified = 0` are not independently checkable merely because they are fields.
+
+The stronger test is:
+
+> **Can a different actor or deterministic mechanism verify the semantic authorization from the persisted/inspectable witness without trusting the actor that wants the transition?**
+
+If no, the transition may still be self-certifying.
+
+### 5. Nested Universe Omission
+
+Closing the outer workflow universe is not enough when one outer claim itself quantifies over another domain.
+
+Example shape:
+
+```text
+Outer Spec universe: 86/86 cells accounted for
+
+US-X:
+  "all affected substitutes conform to their contracts"
+
+Inner universe:
+  which affected substitutes?
+```
+
+If the inner domain is never materialized, the verifier can prove the outer cell with evidence about a convenient subset while reporting perfect outer coverage.
+
+The generic rule is:
+
+> Exhaustive predicates require closure of the domain they quantify over, recursively when necessary.
+
+The nested domain may be proven by explicit enumeration or by an equivalent independently checkable exhaustive mechanism. A known-pattern search is not domain closure unless the authoritative predicate is itself defined by that pattern.
+
 ## Cross-Skill Hardening Principles
 
 ### Transition-Bound Reasoning
@@ -133,6 +183,26 @@ These are not the same question.
 ### Explicit Escape Disposition
 
 > **`not-applicable`, inherited, already-covered, duplicate, no-work, verification-only, scope-retired, existing-authority-covered, and similar escape states must be explicit dispositions with supporting authority or evidence. They may not be represented by omission.**
+
+### No Self-Certifying Semantic Transition
+
+> **A consequential semantic transition may not be authorized solely by semantic state whose correctness is asserted by the same actor that created it. The transition requires an independently checkable witness: deterministic validation when the predicate is mechanically decidable, or genuinely fresh semantic certification when judgment remains.**
+
+Deterministic validation is appropriate for facts such as exact IDs, hashes, counts, branch ancestry, schema membership, and command results.
+
+Fresh semantic certification is required when transition authority depends on judgments such as evidence entailment, completeness of a semantic domain, architecture sufficiency, requirement coverage, or whether a counterexample survives and those judgments cannot be mechanically recomputed from authoritative state.
+
+The fresh certifier does not need private reasoning transcripts. It needs the authoritative claim, bounded proof object, current evidence references, and enough inspectable state to challenge the transition.
+
+A same-agent or owner override must not be offered when it would recreate the exact self-certifying semantic transition the gate exists to prevent.
+
+### Nested Universe Closure
+
+> **When an obligation inside an already-complete outer universe quantifies over its own finite or discoverable domain, that nested domain must itself be materialized and completely dispositioned, or replaced by an independently checkable exhaustive mechanism whose semantics cover the full authoritative boundary.**
+
+This rule is recursive. `Outer coverage = 100%` does not establish a universal inner predicate if the inner candidates were never enumerated.
+
+Unknown-unknowns cannot be eliminated, but known/discoverable members must not disappear before counting begins.
 
 ### Local Enforcement
 
@@ -655,7 +725,7 @@ Semantic authorization                 Mechanical transition
 
 Polaris has already hardened many mechanical transitions. The next maturity step is to bind the semantic authorization immediately upstream of those transitions.
 
-The goal is not to eliminate reasoning. It is to make the **result of consequential reasoning inspectable and consumable by the state transition**.
+The goal is not to eliminate reasoning. It is to make the **result of consequential reasoning inspectable, independently checkable where semantic judgment remains, and consumable by the state transition**.
 
 ## Preferred Generic State Shapes
 
@@ -764,6 +834,8 @@ A common-sense invariant is considered transition-bound when:
 * escape states cannot be represented by omission;
 * the reasoning result needed for the consequential transition is explicit enough to audit;
 * the transition checks/consumes that state;
+* quantified inner domains are closed recursively or by an independently checkable exhaustive mechanism;
+* semantic transition authority is independently checkable rather than self-certified by the actor requesting the transition;
 * missing, ambiguous, or contradictory state fails closed when correctness requires it;
 * the design does not persist private reasoning transcripts or redundant derivable state;
 * the hardening remains generic and is not merely a patch for one historical symptom.
@@ -792,4 +864,8 @@ As of 2026-08-29, the hardening sequence defined by this audit is implemented on
 * The coordinated commit changes only the 17 intended skill contracts: the 16 remaining audit targets plus the `$spec-contract` caller integration required by `$to-tickets`.
 * The audit principles remain design guidance; each `SKILL.md` is the executable enforcement point.
 
-Future defects should first be evaluated against Transition-Bound Reasoning, Universe Closure, Explicit Escape Disposition, falsification-first proof, and evidence entailment before adding any defect-specific rule.
+A subsequent full `$verify-spec` rerun of Spec #240 exposed a false PASS despite the first hardening: the parent verifier created/declared complete proof state while durable cell evidence did not establish the direct subject of several claims. That demonstrated that explicit state can still be self-certifying and that outer-universe closure does not close nested quantified domains.
+
+The second-stage model therefore adds **No Self-Certifying Semantic Transition** and **Nested Universe Closure**. `$verify-spec` now binds semantic proof to durable Proof Objects and genuinely fresh non-mutating proof certification before a cell may derive `proven` or `not-applicable`.
+
+Future defects should first be evaluated against Transition-Bound Reasoning, Universe Closure, Nested Universe Closure, Explicit Escape Disposition, No Self-Certifying Semantic Transition, falsification-first proof, and evidence entailment before adding any defect-specific rule.

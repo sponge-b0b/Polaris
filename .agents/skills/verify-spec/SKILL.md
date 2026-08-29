@@ -211,7 +211,7 @@ Before inheriting a gate or Spec-contract cell:
 
 Never inherit mutable tracker, dependency, project-focus, hierarchy, authorization, or lifecycle truth.
 
-A prior cell disposition may be inherited only when its exact evidence remains immutable and unaffected. Otherwise prove that manifest cell fresh.
+A prior cell disposition may be inherited only through a previously **independently certified Proof Object** whose exact claims, predicate, falsifier, Domain Boundary, Nested Universe witness, assumptions, evidence-bearing state, and certification remain immutable and unaffected. A legacy receipt without independent proof certification cannot supply inheritable semantic cell proof under the current policy. Otherwise rebuild and recertify that proof fresh.
 
 #### Proof-Policy Invalidation
 
@@ -370,82 +370,205 @@ Apply **Accepted ADR Realization Maintenance** before routing `[source-conflict]
 
 Invoke `$deduplicate-code` only when Spec-owned/Mixed work introduces or materially changes a behavior for which duplicate implementation is a real risk.
 
-## 6. Prove Every Spec Contract Cell
+## 6. Build and Independently Certify Spec Proof Objects
 
-Maintain a working coverage table for the exact manifest:
+A manifest cell may not transition to `proven` or `not-applicable` solely from semantic state authored and certified by the parent verifier. The parent constructs candidate proof; a genuinely fresh non-mutating proof certifier determines whether that proof actually establishes the cell.
+
+This is intentionally narrower than `$review-spec`. Proof certification checks whether the current verification evidence entails the already-authoritative Spec Contract claims. It does not perform open-ended product review, create Root Blockers, or replace later independent review.
+
+### 6.1 Build the Cell-to-Proof Map
+
+Maintain exactly one working coverage row for every manifest cell:
 
 ```text
 Cell: <ID>
 Claim: <authoritative manifest requirement>
-Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
-Falsifier: <concrete current state that would make the claim false>
-Evidence: <test/runtime/source/tracker/document evidence that excludes the falsifier>
-Survivability: <excluded | survives>
-Assumptions: <None | material assumption + authority/direct proof>
-State: <proven | not-applicable | unresolved>
+Proof Object: <P-<n>>
+State: <pending-certification | proven | not-applicable | unresolved>
 ```
 
-The working proof record is mandatory verification state. It does not need to be persisted verbatim in the final receipt.
-
-Requirements:
+Before certification:
 
 * every manifest ID appears exactly once;
-* no receipt row exists for an unknown manifest ID;
-* before a cell may become `proven`, its working record has a concrete Predicate, Falsifier, Evidence, `Survivability: excluded`, and either `Assumptions: None` or current proof for every material assumption;
-* a missing, generic, circular, or post-hoc proof-record field leaves the cell `unresolved`;
-* `proven` cites identifiable evidence appropriate to the obligation;
-* `not-applicable` cites the exact conditional reason;
-* no cell is inferred satisfied merely because related tickets are closed;
-* no generic test count substitutes for cell-level proof.
+* no unknown manifest ID exists;
+* every cell maps to exactly one proof object;
+* every proof object is referenced by at least one cell;
+* `proven` and `not-applicable` are illegal states; use `pending-certification` until independent certification returns.
 
-### Direct-Subject Evidence Gate
+### 6.2 Construct Proof Objects
 
-A cell may be `proven` only when its evidence directly establishes the exact subject, required behavior, and material conditions expressed by that manifest cell. Evidence that merely demonstrates nearby health is supporting evidence, not proof of the cell.
+A **Proof Object** is the smallest reusable semantic proof that genuinely establishes one or more manifest cells.
 
-#### Claim-Proof Integrity
+```text
+Proof: P-<n>
+Cells: <manifest IDs>
+Claims: <exact assigned manifest claims>
+Predicate: <normalized proposition sufficient for every assigned claim>
+Falsifier: <concrete current state that would make any assigned claim false>
+Domain Boundary: <authoritative semantic boundary>
+Nested Universe: <explicit members/dispositions | equivalent exhaustive mechanism | not-applicable-with-reason>
+Evidence: <direct current evidence>
+Assumptions: <None | material assumption + authority/direct proof>
+```
 
-Before using implementation history, ticket evidence, known defect patterns, changed-file inventories, prior receipts, or existing tests as a proof plan, normalize the authoritative manifest claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**. Then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the cell false.
+Rules:
 
-Derive the proof strategy independently from that claim and falsifier, and actively seek counterexamples. Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while this manifest cell is still false?** If yes, record `Survivability: survives` and leave the cell `unresolved`; only `Survivability: excluded` permits `proven`.
+* Group cells only when one proof object actually establishes every mapped claim. Shared files, tests, terminology, or convenient evidence reuse are not sufficient reasons to group claims.
+* `Predicate` must preserve every material clause, quantifier, condition, exception, and surface from every mapped claim. A broader-sounding summary that drops a clause is invalid.
+* `Falsifier` must be a real logical counterexample to the mapped predicate, not merely a known historical bug pattern.
+* Evidence must address the proof object's subject and predicate directly. Nearby repository health is supporting evidence only.
+* The parent may propose evidence and domain witnesses, but it does **not** assign semantic sufficiency, survivability, or the final cell disposition.
 
-Any material assumption that bridges evidence to the conclusion must itself be established by current authority or direct proof and recorded in the working proof record. Pattern searches, passing tests, static checks, closed tickets, known-defect sweeps, and prior evidence are supporting evidence only unless they are logically sufficient to exclude the falsifying condition.
+#### Nested Universe Closure
 
-Do not merely acknowledge this reasoning discipline in prose and then disposition cells from familiar checks. The completed working proof record is the enforcement point. Persist concise traceable evidence in the receipt rather than the verbose working record.
+Outer manifest completeness does not prove completeness inside a quantified claim.
 
-#### Manifest Cell Domain Integrity
+When a proof predicate quantifies over a finite or discoverable domain — for example `all`, `every`, `no`, `none`, `only`, `complete`, `repository-wide`, a named surface set, or equivalent closure language — the proof object must include a **Nested Universe** witness.
 
-The domain stated by a manifest cell is part of its predicate. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `repository-wide`, or an explicit surface list into only Spec-owned changes, changed files, targeted tests, cited examples, or surfaces previously covered by implementation tickets.
+A Nested Universe witness must use one of these forms:
 
-Ownership classification controls repository Standards/tooling responsibility; it does not shrink the behavioral acceptance domain. If a cell requires a named or universal surface set, inspect and prove that stated domain even when relevant surfaces are unchanged or Inherited-only.
+1. **explicit enumeration** — identify the authoritative boundary, enumerate every current member, and disposition every member against the predicate; for a large deterministic set, a reproducible generation method plus canonical member count and member-set digest may stand in for printing every member when the certifier independently recomputes and validates that exact set; or
+2. **equivalent exhaustive mechanism** — identify a deterministic/queryable mechanism whose semantics cover the full authoritative boundary and record the complete result needed to exclude the falsifier.
 
-Evidence that proves only a subset cannot be strengthened by wording. A statement such as `no targeted <X> on changed surfaces` does not prove `no <X> remains` unless the originating cell is explicitly bounded that way. If the full stated domain cannot be established, leave the cell `unresolved`.
+`searched relevant files`, a changed-file list, a known-bad-pattern grep, targeted tests, or examples are not exhaustive mechanisms unless the claim's authoritative domain is explicitly limited to exactly that set.
 
-Apply these rules before assigning `proven`:
+For an open-world predicate, define the strongest authoritative boundary available and the unresolved remainder. If the falsifier cannot be excluded over the claim's actual domain, the proof object cannot certify `proven`.
 
-* identify the concrete runtime, source, tracker, document, interface, test seam, or other authoritative surface that embodies the cell;
-* trace the evidence to that surface and to the cell's actual predicate; a nearby file path, closed ticket, successful broad suite, Ruff/Mypy result, or generic repository sweep cannot establish an unrelated semantic obligation by itself;
-* for prohibition/absence obligations, perform a bounded negative sweep or equivalent direct proof over the affected semantic domain rather than inferring absence from positive tests;
-* when one cell contains multiple required clauses or surfaces, prove every material clause/surface or leave the cell `unresolved`; several precise evidence items are preferable to one generic umbrella result;
-* checkpoint inheritance is allowed only when the prior cell's same direct-subject evidence remains immutable, unaffected by the complete checkpoint delta, and still sufficient under current proof policy.
+A claim may use `Nested Universe: not-applicable` only when it has no material exhaustive/domain-closure predicate; record the reason.
 
-Evidence may be concise, but it must be traceable enough that an independent reviewer can determine why it proves this cell rather than merely why the repository appears healthy.
+### 6.3 Render and Validate the Proof Packet
 
-Before success, reconcile counts:
+Before any proof-certifier dispatch, render the complete candidate proof packet to a temporary structured file. JSON is preferred.
+
+The packet must bind:
+
+```text
+Spec issue
+Verified candidate HEAD
+BASELINE_COMMIT
+SPEC_BODY_HASH
+SPEC_CONTRACT_HASH
+Complete ordered manifest IDs and claims
+Complete cell-to-proof map
+Complete proof objects
+```
+
+Do **not** include:
+
+* a parent-authored `proven`/`not-applicable` conclusion;
+* expected certification results;
+* prior Spec Review findings or Root Blocker history;
+* language telling the certifier which objects are believed to pass.
+
+Pre-validate the packet deterministically before dispatch. Require:
+
+```text
+Manifest cells == cell-to-proof rows
+Missing manifest cells: 0
+Unknown manifest cells: 0
+Duplicate cell mappings: 0
+Unreferenced proof objects: 0
+Missing proof-object required fields: 0
+```
+
+Compute:
+
+```text
+PROOF_PACKET_HASH = sha256(canonical proof packet bytes)
+```
+
+The hash binds independent certification to the exact proof proposal. Any packet change invalidates prior certification even when repository `HEAD` is unchanged. A revised packet must be certified by a **new fresh proof certifier**; do not ask the certifier that rejected or evaluated the prior packet to approve the revision.
+
+### 6.4 Independent Proof Certification Integrity
+
+Semantic proof certification is an independent verification role, not parent self-certification.
+
+A **fresh proof certifier** means a genuinely separate agent/subagent context that:
+
+* did not participate in implementation, parent verification, proof-object construction, or prior certification for the current packet;
+* receives only the authoritative Spec/manifest, exact repository `HEAD`, proof packet, and evidence references needed to inspect the current state;
+* is non-mutating;
+* may not delegate or spawn another certifier;
+* does not receive prior Spec Review findings, Root Blocker history, or the parent's intended verdict.
+
+Default to exactly one fresh proof certifier for the complete packet. If context limits require partitioning, partition proof objects deterministically, use one fresh certifier per partition, and assign every proof object to exactly one certifier. Do not create overlapping certifiers merely to vote on the same proof.
+
+If the execution environment cannot create the required genuinely fresh context, fail closed before receipt persistence:
+
+```text
+VERIFICATION PROOF CERTIFICATION: INDEPENDENCE UNAVAILABLE
+Status: verification incomplete
+Required: genuinely fresh non-mutating proof certifier
+```
+
+There is **no same-agent or owner override** for semantic proof certification. Such an override would recreate the self-certifying transition this gate exists to prevent.
+
+For every assigned proof object, the certifier independently verifies:
+
+1. every mapped manifest claim is represented by the proposed Predicate without dropped material clauses;
+2. the proposed Falsifier is a valid counterexample to that predicate;
+3. the Domain Boundary is authoritative and not silently narrowed;
+4. every required Nested Universe witness is complete, or its claimed exhaustive mechanism really covers the full domain;
+5. direct current evidence establishes the predicate rather than merely nearby health;
+6. all material assumptions are authoritative or directly proven;
+7. after independent inspection of current `HEAD`, no counterexample survives.
+
+The certifier returns exactly one result per proof object:
+
+```text
+Proof: P-<n>
+Certification: <certified | rejected | unresolved>
+Disposition: <proven | not-applicable | unresolved>
+Certification Evidence: <concise direct evidence / counterexample / insufficiency>
+```
+
+Rules:
+
+* `certified + proven` means the evidence excludes the falsifier over the required domain.
+* `certified + not-applicable` requires the certifier to establish the exact authoritative condition that makes every mapped claim inapplicable.
+* `rejected` means the proposed proof is logically unsound, materially incomplete, or contradicted by a counterexample.
+* `unresolved` means sufficiency cannot be established from current authority/evidence.
+* The parent may not upgrade, reinterpret, suppress, or override a certifier's `rejected`/`unresolved` result.
+* If one grouped proof object cannot yield one valid disposition for all mapped cells, certification rejects the grouping; split the proof object and recertify.
+
+A real omitted originating-Spec obligation discovered during certification is a Spec Contract defect. Halt with `SPEC CONTRACT: INCOMPLETE`; do not silently expand the verified manifest.
+
+### 6.5 Derive Coverage State from Certification
+
+Only after complete certification may the parent derive manifest coverage:
+
+```text
+certified + proven         -> proven
+certified + not-applicable -> not-applicable
+rejected / unresolved      -> unresolved
+missing certification      -> unresolved
+```
+
+The parent does not independently assign a stronger state.
+
+If verification repairs repository state, changes the proof packet, changes `HEAD`, or changes `SPEC_CONTRACT_HASH`, all affected certification is stale. After any repository mutation, rerun final proof construction at the exact new `HEAD` and use a **new fresh proof certifier** before PASS.
+
+Checkpoint inheritance may reuse a prior certified proof object only when its exact proof-object definition, Nested Universe witness, evidence-bearing state, proof policy, and mapped claims remain immutable and unaffected by the complete checkpoint delta. Any uncertainty requires fresh proof construction/certification.
+
+Before success reconcile:
 
 ```text
 Manifest cells: <n>
 Coverage rows: <n>
-Proven: <n>
-Not applicable: <n>
-Unresolved: 0
+Proof objects: <n>
+Proof packet hash: <PROOF_PACKET_HASH>
+Certified proof objects: <n>
+Rejected proof objects: 0
+Unresolved proof objects: 0
+Missing proof certifications: 0
+Proven cells: <n>
+Not applicable cells: <n>
+Unresolved cells: 0
 Missing rows: 0
 Unknown rows: 0
-Incomplete working proof records: 0
-Survivability not excluded for proven cells: 0
-Unproven material assumptions: 0
 ```
 
-If the manifest contains 27 numbered User Stories, coverage must map all 27 User Story source items before any other manifest cells are considered complete.
+A deterministic packet/receipt validator checks structural integrity. The fresh certifier supplies the semantic authorization. Neither substitutes for the other.
 
 ## 7. Failure Handling
 
@@ -506,10 +629,13 @@ After verification-owned fixes:
 * require the Spec body/contract to remain valid and reconcile any changed ownership;
 * in checkpoint mode, recompute checkpoint delta/invalidation, including **Proof-Policy Invalidation**;
 * rerun every newly affected gate;
-* reapply the **Direct-Subject Evidence Gate** and **Claim-Proof Integrity** to every `proven` manifest cell;
-* require every `proven` cell to retain a complete working proof record with `Survivability: excluded` and no unproven material assumption;
-* reconcile every manifest cell;
-* require every required gate passed and `unresolved 0`.
+* rebuild the complete cell-to-proof map and Proof Objects at exact final `HEAD`;
+* close every required Nested Universe or leave the mapped proof unresolved;
+* render and deterministically validate the final proof packet and compute `PROOF_PACKET_HASH`;
+* dispatch the required genuinely fresh proof certifier(s);
+* derive cell coverage only from the independent certification result;
+* require rejected proof objects `0`, unresolved proof objects `0`, missing proof certifications `0`, and manifest `unresolved 0`;
+* reconcile every manifest cell and require every required non-semantic gate passed.
 
 If repository files changed:
 
@@ -550,6 +676,8 @@ Persist this body on the Spec:
 **Prior verified checkpoint:** None | <SHA>
 **Spec Body Hash:** <SPEC_BODY_HASH>
 **Spec Contract Hash:** <SPEC_CONTRACT_HASH>
+**Proof Packet Hash:** <PROOF_PACKET_HASH>
+**Proof certification execution:** independent-subagent
 **Default branch:** <DEFAULT_BRANCH>
 **Default branch head used for ownership:** <DEFAULT_HEAD>
 **Change surfaces:** <Spec-owned/Mixed surface classes>
@@ -576,10 +704,20 @@ Persist this body on the Spec:
 | --- | --- | --- |
 | <ID> | <source anchor> | <requirement> |
 
+### Spec Proof Objects
+| Proof | Cells | Predicate | Falsifier | Domain / Nested Universe | Evidence / Assumptions |
+| --- | --- | --- | --- | --- | --- |
+| P-1 | <IDs> | <predicate> | <falsifier> | <authoritative boundary + nested-universe witness> | <direct evidence + proven assumptions> |
+
+### Independent Proof Certification
+| Proof | Certification | Disposition | Certification Evidence |
+| --- | --- | --- | --- |
+| P-1 | certified | proven | <fresh certifier evidence> |
+
 ### Spec Contract Coverage
-| Cell | State | Evidence |
+| Cell | State | Proof |
 | --- | --- | --- |
-| <ID> | proven | <evidence> |
+| <ID> | proven | P-1 |
 
 ### Verification Gates
 - <gate>: passed — <fresh evidence>
@@ -590,12 +728,12 @@ Persist this body on the Spec:
 - <finding or None>
 ```
 
-The receipt must contain the complete manifest and exactly one coverage row per manifest cell. Working Predicate/Falsifier/Survivability/Assumptions records are execution state and are intentionally not duplicated into the durable receipt.
+The receipt must contain the complete manifest, the complete durable Proof Object set, exactly one independent certification row per Proof Object, and exactly one coverage row per manifest cell. The durable Proof Object sections are the independently checkable semantic witness; do not replace them with a parent-authored summary such as `survivability excluded` or aggregate zero counts.
 
 ### Atomic Receipt Persistence
 
 1. Render the **complete** receipt into `RECEIPT_FILE=$(mktemp)` before any GitHub mutation. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
-2. Pre-validate `RECEIPT_FILE` with one Python invocation. Require exact equality for Status, HEAD, baseline, branch, verification mode/checkpoint, body/contract hashes, default branch/head; require all six receipt sections exactly once; require the three manifest-integrity zero lines; parse manifest and coverage IDs matching `(?:US|ID|TD|OOS|NORM)-<n>[.<suffix>]`; require both ordered ID lists to equal the final `$spec-contract` manifest exactly, with no duplicates, coverage count equal to `MANIFEST_CELL_COUNT`, and no `unresolved` state. Do not substitute an improvised `grep`/`sed`/`awk`/regex pipeline.
+2. Pre-validate `RECEIPT_FILE` with one Python invocation. Require exact equality for Status, HEAD, baseline, branch, verification mode/checkpoint, body/contract hashes, `PROOF_PACKET_HASH`, proof-certification execution, default branch/head; require every required receipt section exactly once; require the three manifest-integrity zero lines; parse manifest and coverage IDs matching `(?:US|ID|TD|OOS|NORM)-<n>[.<suffix>]`; require both ordered ID lists to equal the final `$spec-contract` manifest exactly with no duplicates; require every coverage row to reference exactly one declared Proof Object; require every Proof Object to be referenced; require exactly one certification row per Proof Object; require every certification to be `certified` with disposition equal to the derived coverage state for all mapped cells; require no `rejected`, `unresolved`, missing certification, or unknown Proof Object; reconstruct the canonical proof packet from the persisted receipt fields that bind it — exact HEAD/baseline/body/contract hashes, ordered manifest IDs and claims, cell-to-proof map, and complete Proof Object data — and require that hash to equal `PROOF_PACKET_HASH`. Do not substitute an improvised `grep`/`sed`/`awk`/regex pipeline.
 3. If pre-validation passes, POST the validated body **once**:
 
 ```bash
@@ -669,6 +807,7 @@ Report:
 * ownership classification;
 * applicable gates;
 * complete manifest coverage summary;
+* proof-object count/hash and independent proof-certification summary;
 * repaired failures;
 * unrelated inherited findings;
 * commit/push/final worktree;

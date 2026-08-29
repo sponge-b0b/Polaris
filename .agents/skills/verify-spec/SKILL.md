@@ -213,6 +213,16 @@ Never inherit mutable tracker, dependency, project-focus, hierarchy, authorizati
 
 A prior cell disposition may be inherited only when its exact evidence remains immutable and unaffected. Otherwise prove that manifest cell fresh.
 
+#### Proof-Policy Invalidation
+
+Checkpoint invalidation includes changes to **proof semantics**, not only changes to the implementation or evidence-bearing surfaces.
+
+Inspect the checkpoint→current delta for normative changes to this skill or to an invoked verification owner/helper whose contract governs the affected proof. If such a change alters what counts as sufficient evidence, required proof domain, gate applicability, cell disposition, verifier integrity, or another rule that could change whether prior evidence proves the claim, that prior proof is non-inheritable and must be re-evaluated under the current policy.
+
+A change to universal cell-proof semantics or to the meaning/requirements of `proven` invalidates inherited per-cell proof for the entire manifest; re-prove every manifest cell fresh even when the implementation is unchanged. If a proof-policy change is material but its affected proof set cannot be bounded confidently, fall back to full verification from the fixed baseline.
+
+Presentation-only wording, formatting, or other policy edits that cannot alter proof validity do not invalidate prior proof merely because a verification-policy file changed.
+
 ### Verification-Owned Changes
 
 If verification changes repository files, those changes extend the checkpoint delta. Recompute ownership/delta/invalidation before the final pass.
@@ -362,18 +372,27 @@ Invoke `$deduplicate-code` only when Spec-owned/Mixed work introduces or materia
 
 ## 6. Prove Every Spec Contract Cell
 
-Maintain a coverage table for the exact manifest:
+Maintain a working coverage table for the exact manifest:
 
 ```text
 Cell: <ID>
+Claim: <authoritative manifest requirement>
+Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
+Falsifier: <concrete current state that would make the claim false>
+Evidence: <test/runtime/source/tracker/document evidence that excludes the falsifier>
+Survivability: <excluded | survives>
+Assumptions: <None | material assumption + authority/direct proof>
 State: <proven | not-applicable | unresolved>
-Evidence: <test/runtime/source/tracker/document evidence>
 ```
+
+The working proof record is mandatory verification state. It does not need to be persisted verbatim in the final receipt.
 
 Requirements:
 
 * every manifest ID appears exactly once;
 * no receipt row exists for an unknown manifest ID;
+* before a cell may become `proven`, its working record has a concrete Predicate, Falsifier, Evidence, `Survivability: excluded`, and either `Assumptions: None` or current proof for every material assumption;
+* a missing, generic, circular, or post-hoc proof-record field leaves the cell `unresolved`;
 * `proven` cites identifiable evidence appropriate to the obligation;
 * `not-applicable` cites the exact conditional reason;
 * no cell is inferred satisfied merely because related tickets are closed;
@@ -387,11 +406,11 @@ A cell may be `proven` only when its evidence directly establishes the exact sub
 
 Before using implementation history, ticket evidence, known defect patterns, changed-file inventories, prior receipts, or existing tests as a proof plan, normalize the authoritative manifest claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**. Then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the cell false.
 
-Derive the proof strategy independently from that claim and falsifier, and actively seek counterexamples. Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while this manifest cell is still false?** If yes, leave the cell `unresolved`.
+Derive the proof strategy independently from that claim and falsifier, and actively seek counterexamples. Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while this manifest cell is still false?** If yes, record `Survivability: survives` and leave the cell `unresolved`; only `Survivability: excluded` permits `proven`.
 
-Any material assumption that bridges evidence to the conclusion must itself be established by current authority or direct proof. Pattern searches, passing tests, static checks, closed tickets, known-defect sweeps, and prior evidence are supporting evidence only unless they are logically sufficient to exclude the falsifying condition.
+Any material assumption that bridges evidence to the conclusion must itself be established by current authority or direct proof and recorded in the working proof record. Pattern searches, passing tests, static checks, closed tickets, known-defect sweeps, and prior evidence are supporting evidence only unless they are logically sufficient to exclude the falsifying condition.
 
-This is an execution invariant, not a requirement to bloat the receipt. Persist concise traceable evidence rather than a verbose reasoning transcript.
+Do not merely acknowledge this reasoning discipline in prose and then disposition cells from familiar checks. The completed working proof record is the enforcement point. Persist concise traceable evidence in the receipt rather than the verbose working record.
 
 #### Manifest Cell Domain Integrity
 
@@ -407,7 +426,7 @@ Apply these rules before assigning `proven`:
 * trace the evidence to that surface and to the cell's actual predicate; a nearby file path, closed ticket, successful broad suite, Ruff/Mypy result, or generic repository sweep cannot establish an unrelated semantic obligation by itself;
 * for prohibition/absence obligations, perform a bounded negative sweep or equivalent direct proof over the affected semantic domain rather than inferring absence from positive tests;
 * when one cell contains multiple required clauses or surfaces, prove every material clause/surface or leave the cell `unresolved`; several precise evidence items are preferable to one generic umbrella result;
-* checkpoint inheritance is allowed only when the prior cell's same direct-subject evidence remains immutable and unaffected by the complete checkpoint delta.
+* checkpoint inheritance is allowed only when the prior cell's same direct-subject evidence remains immutable, unaffected by the complete checkpoint delta, and still sufficient under current proof policy.
 
 Evidence may be concise, but it must be traceable enough that an independent reviewer can determine why it proves this cell rather than merely why the repository appears healthy.
 
@@ -421,6 +440,9 @@ Not applicable: <n>
 Unresolved: 0
 Missing rows: 0
 Unknown rows: 0
+Incomplete working proof records: 0
+Survivability not excluded for proven cells: 0
+Unproven material assumptions: 0
 ```
 
 If the manifest contains 27 numbered User Stories, coverage must map all 27 User Story source items before any other manifest cells are considered complete.
@@ -482,9 +504,10 @@ After verification-owned fixes:
 * recompute fixed-baseline integration inventory;
 * rerun `$spec-contract` in `build` mode at final `HEAD`;
 * require the Spec body/contract to remain valid and reconcile any changed ownership;
-* in checkpoint mode, recompute checkpoint delta/invalidation;
+* in checkpoint mode, recompute checkpoint delta/invalidation, including **Proof-Policy Invalidation**;
 * rerun every newly affected gate;
-* reapply the **Direct-Subject Evidence Gate** to every `proven` manifest cell;
+* reapply the **Direct-Subject Evidence Gate** and **Claim-Proof Integrity** to every `proven` manifest cell;
+* require every `proven` cell to retain a complete working proof record with `Survivability: excluded` and no unproven material assumption;
 * reconcile every manifest cell;
 * require every required gate passed and `unresolved 0`.
 
@@ -567,7 +590,7 @@ Persist this body on the Spec:
 - <finding or None>
 ```
 
-The receipt must contain the complete manifest and exactly one coverage row per manifest cell.
+The receipt must contain the complete manifest and exactly one coverage row per manifest cell. Working Predicate/Falsifier/Survivability/Assumptions records are execution state and are intentionally not duplicated into the durable receipt.
 
 ### Atomic Receipt Persistence
 

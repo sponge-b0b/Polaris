@@ -77,7 +77,7 @@ Polaris derives the async SQLAlchemy URL from `POLARIS_POSTGRES_*` variables.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `POLARIS_DATABASE_URL` | unset | Preferred full URL override. `postgresql://...` is normalized to the async driver form. |
+| `POLARIS_DATABASE_URL` | unset | Preferred application/runtime and ordinary Alembic full URL override. `postgresql://...` is normalized to the async driver form. |
 | `POLARIS_POSTGRES_HOST` | `localhost` | Compose-compatible local host. |
 | `POLARIS_POSTGRES_PORT` | `5432` | Must be an integer. |
 | `POLARIS_POSTGRES_DB` | `polaris` | Database name. |
@@ -86,8 +86,21 @@ Polaris derives the async SQLAlchemy URL from `POLARIS_POSTGRES_*` variables.
 | `POLARIS_POSTGRES_DRIVER` | `asyncpg` | SQLAlchemy async driver suffix. |
 | `POLARIS_POSTGRES_ECHO` | `false` | Enables SQLAlchemy SQL logging when truthy. |
 | `POLARIS_POSTGRES_POOL_PRE_PING` | `true` | Enables SQLAlchemy pool pre-ping. |
-| `POLARIS_TEST_DATABASE_URL` | unset | Required only for guarded PostgreSQL integration and migration tests. |
+| `POLARIS_TEST_DATABASE_URL` | unset | Explicit PostgreSQL target and opt-in for guarded integration and migration tests; a separate physical database is optional. |
 | `POLARIS_ENABLE_POSTGRES_REPORT_PERSISTENCE` | unset / false | Enables CLI morning-report persistence as a report artifact path when truthy. |
+
+`POLARIS_DATABASE_URL` and `POLARIS_TEST_DATABASE_URL` are separate semantic
+roles, not necessarily separate database locations. Tests must never implicitly
+fall back to `POLARIS_DATABASE_URL` when `POLARIS_TEST_DATABASE_URL` is absent.
+Before 1.0, when the repository-local database is clearly disposable, local
+`.env` may intentionally set both variables to the same `polaris` database.
+Ephemeral CI should normally set both variables explicitly to the same job-local
+PostgreSQL database; CI must not depend on a developer `.env` file.
+
+For local database-backed commands, load ignored `.env` through
+`uv run --env-file .env ...` rather than manually sourcing it into the current
+shell. Any Python database preflight must likewise use
+`uv run --env-file .env python ...`, never bare `python`.
 
 Runtime workflow persistence is enabled by `WorkflowBootstrapConfig`:
 
@@ -112,19 +125,19 @@ Install or synchronize dependencies:
 uv sync
 ```
 
-Apply all migrations to the configured database:
+Apply all migrations to the configured local database:
 
 ```bash
-uv run alembic upgrade head
+uv run --env-file .env alembic upgrade head
 ```
 
 Inspect current and target revisions, then check for physical schema drift:
 
 ```bash
-uv run alembic current
-uv run alembic heads
-uv run alembic check
-uv run polaris inspect persistence
+uv run --env-file .env alembic current
+uv run --env-file .env alembic heads
+uv run --env-file .env alembic check
+uv run --env-file .env polaris inspect persistence
 ```
 
 `alembic current` only reports the revision stamp stored in the database. During
@@ -137,7 +150,7 @@ For a disposable local database, destructively rebuild the `public` schema and
 apply Alembic head:
 
 ```bash
-uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+uv run --env-file .env python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
 ```
 
 The reset script refuses non-local hosts and protected database names, destroys
@@ -147,21 +160,22 @@ runs persistence diagnostics.
 Generate a new migration only after updating SQLAlchemy models:
 
 ```bash
-uv run alembic revision --autogenerate -m "describe schema change"
+uv run --env-file .env alembic revision --autogenerate -m "describe schema change"
 ```
 
 Development-only rollback of one revision:
 
 ```bash
-uv run alembic downgrade -1
+uv run --env-file .env alembic downgrade -1
 ```
 
 Migration files may be squashed during development because Polaris is still
 pre-1.0.0. Documentation must describe schema ownership and validation contracts
 rather than maintaining migration-file inventories, which become stale after
 squashes. After any squashed migration rewrite, refresh disposable local
-databases with the reset script or verify that `uv run alembic check` and
-`uv run polaris inspect persistence` both report no schema drift.
+databases with the reset script or verify that
+`uv run --env-file .env alembic check` and
+`uv run --env-file .env polaris inspect persistence` both report no schema drift.
 
 ## Data contract convention
 
@@ -440,26 +454,25 @@ Run application persistence integration tests with fakes:
 uv run pytest -q tests/integration/application/persistence
 ```
 
-Run guarded PostgreSQL integration tests after starting PostgreSQL and setting
-`POLARIS_TEST_DATABASE_URL` in your shell:
+Run guarded PostgreSQL integration tests after starting PostgreSQL and explicitly
+configuring `POLARIS_TEST_DATABASE_URL` in local `.env`:
 
 ```bash
-uv run pytest -q tests/integration/core/storage/persistence
+uv run --env-file .env pytest -q tests/integration/core/storage/persistence
 ```
 
-Run migration contract tests after starting PostgreSQL and setting
-`POLARIS_TEST_DATABASE_URL`:
+Run migration contract tests against the same explicit PostgreSQL test target:
 
 ```bash
-uv run pytest -q tests/database
+uv run --env-file .env pytest -q tests/database
 ```
 
 Run migration and metadata checks:
 
 ```bash
-uv run alembic heads
-uv run alembic current
-uv run python -c "import core.database.models; print('database models import ok')"
+uv run --env-file .env alembic heads
+uv run --env-file .env alembic current
+uv run --env-file .env python -c "import core.database.models; print('database models import ok')"
 ```
 
 Run static checks for changed Python persistence code:

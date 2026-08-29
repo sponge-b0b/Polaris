@@ -11,14 +11,14 @@ and verification intent rather than listing every test file.
 | Fast local regression for most code changes | `uv run pytest -q tests/unit` | None |
 | Runtime/workflow behavior with in-process fakes | `uv run pytest -q tests/integration/runtime tests/integration/workflow` | None for the default fake-backed tests |
 | Persistence contracts without a live database | `uv run pytest -q tests/unit/core/storage/persistence tests/unit/application/persistence` | None |
-| PostgreSQL repository and migration validation | `uv run pytest -q tests/database tests/integration/core/storage/persistence` | PostgreSQL and `POLARIS_TEST_DATABASE_URL` |
+| PostgreSQL repository and migration validation | `uv run --env-file .env pytest -q tests/database tests/integration/core/storage/persistence` | PostgreSQL and explicit `POLARIS_TEST_DATABASE_URL` test target |
 | RAG unit and boundary behavior | `uv run pytest -q tests/unit/application/rag tests/unit/integration/providers/rag tests/unit/integration/clients/rag` | None |
 | Live RAG projection and reranker checks | `uv run pytest -q tests/integration/rag` | Qdrant, Neo4j, and/or BGE reranker depending on file |
 | Observability contracts without live infrastructure | `uv run pytest -q tests/unit/telemetry tests/integration/telemetry/test_bootstrap_observability.py tests/integration/telemetry/test_opentelemetry_sink.py` | None |
 | Langfuse AI-observability contracts without live infrastructure | `uv run pytest -q tests/unit/application/observability tests/unit/config/test_langfuse_observability_settings.py` | None |
 | LLM evaluation contracts without live judge models | `uv run pytest -q tests/unit/application/evaluations tests/unit/integration/providers/llm_evaluation tests/unit/config/test_deepeval_evaluation_settings.py tests/evaluation -m "not live_deepeval"` | None |
 | Live DeepEval smoke checks | `uv run pytest -q tests/evaluation -m live_deepeval` | Configured judge provider/model and `POLARIS_RUN_LIVE_EVALS=true` |
-| Live trace topology parity | `uv run pytest -q tests/integration/telemetry/test_live_trace_topology.py` | PostgreSQL, Jaeger/OTLP endpoint, and required env vars |
+| Live trace topology parity | `uv run --env-file .env pytest -q tests/integration/telemetry/test_live_trace_topology.py` | PostgreSQL, Jaeger/OTLP endpoint, and required env vars |
 | CLI contract checks | `uv run pytest -q tests/unit/interfaces/cli` | None |
 | MCP transport/tool boundary checks | `uv run pytest -q tests/unit/mcp_server tests/integration/mcp_server` | None for the current mocked transport contracts |
 | Deterministic backtesting behavior | `uv run pytest -q tests/unit/application/services/backtesting tests/unit/integration/providers/backtesting tests/integration/backtesting` | None unless a future historical-provider test opts into PostgreSQL |
@@ -74,6 +74,13 @@ Use the smallest readiness evidence appropriate to the service/test contract.
 Evidence may include Compose/container state, container healthcheck or process
 status, bounded HTTP/TCP/application client probes, required env/config
 presence, and database/service accessibility.
+
+For local PostgreSQL-backed scopes, `.env` is the canonical local environment
+input. Run database preflights, PostgreSQL-backed pytest, and Python database
+probes through `uv run --env-file .env ...`. Do not manually source `.env` just
+to populate the current shell. Never use bare `python` for a database preflight;
+use `uv run --env-file .env python ...` so project dependencies and database
+configuration are established by the same command.
 
 A pytest/client timeout or skip is not service preflight. A required test whose
 prerequisites cannot be safely established is unresolved; it is not passed
@@ -175,7 +182,8 @@ Key groups:
 - `tests/integration/application/persistence/` — application persistence services
   using fake repositories; no Docker required.
 - `tests/integration/core/storage/persistence/` — live PostgreSQL repository and
-  persistence integration; requires PostgreSQL and `POLARIS_TEST_DATABASE_URL`.
+  persistence integration; requires PostgreSQL and an explicit
+  `POLARIS_TEST_DATABASE_URL` target.
 - `tests/integration/dishka/` — request/session scope behavior and scoped runtime
   node composition; no Docker required.
 - `tests/integration/governance/` and `tests/integration/policies/` — workflow,
@@ -205,14 +213,20 @@ metadata and that targeted data migrations preserve expected state.
 Requirements:
 
 - PostgreSQL running.
-- `POLARIS_TEST_DATABASE_URL` set to a local test database URL.
-- Do not commit full authenticated connection strings; keep them in your shell or
-  local `.env` only.
+- `POLARIS_TEST_DATABASE_URL` explicitly configured as an authorized local
+  PostgreSQL test target. It does not need to name a separate physical database.
+- Do not commit full authenticated connection strings; keep them in local `.env`
+  or an approved secret manager.
 
-Run:
+Migration tests create a unique temporary PostgreSQL schema for isolation and
+drop it afterward. Before 1.0, local `.env` may intentionally set
+`POLARIS_TEST_DATABASE_URL` equal to `POLARIS_DATABASE_URL` when both identify the
+clearly disposable repository-local `polaris` database.
+
+Run locally with `.env` loaded by `uv`:
 
 ```bash
-uv run pytest -q tests/database
+uv run --env-file .env pytest -q tests/database
 ```
 
 ### Property tests: `tests/property/`
@@ -247,7 +261,7 @@ live-service tests as part of a routine unit-test loop.
 
 | Service | Compose service | Typical local endpoint | Required by |
 | --- | --- | --- | --- |
-| PostgreSQL | `postgres` | configured by `POLARIS_TEST_DATABASE_URL` | `tests/database`, `tests/integration/core/storage/persistence`, and live trace topology |
+| PostgreSQL | `postgres` | explicit target configured by `POLARIS_TEST_DATABASE_URL` | `tests/database`, `tests/integration/core/storage/persistence`, and live trace topology |
 | Qdrant | `qdrant` | `http://localhost:6333` | `tests/integration/rag/test_qdrant_collection_lifecycle.py` |
 | Neo4j | `neo4j` | Bolt on `localhost:7687`; browser on `http://localhost:7474` | `tests/integration/rag/test_neo4j_graph_projection.py` |
 | BGE reranker | `bge-reranker` | `http://localhost:8080/rerank` by default | `tests/integration/rag/test_bge_reranker.py` |
@@ -283,9 +297,22 @@ docker compose ps postgres qdrant neo4j bge-reranker jaeger prometheus grafana
 Some tests skip unless explicit environment variables are set. This is
 intentional: live-service checks should be opt-in.
 
+`POLARIS_DATABASE_URL` and `POLARIS_TEST_DATABASE_URL` have distinct semantic
+roles even when they contain the same URL:
+
+- `POLARIS_DATABASE_URL` is the application/runtime and ordinary Alembic
+  migration target.
+- `POLARIS_TEST_DATABASE_URL` is the explicit PostgreSQL test target and live-test
+  opt-in. Tests must never implicitly fall back to `POLARIS_DATABASE_URL` when it
+  is unset.
+- Before 1.0, local development may intentionally set both variables to the same
+  disposable repository-local `polaris` database.
+- Ephemeral CI should normally set both variables explicitly to the same
+  job-local PostgreSQL database. CI must not depend on a developer `.env` file.
+
 | Variable | Used by | Notes |
 | --- | --- | --- |
-| `POLARIS_TEST_DATABASE_URL` | `tests/database`, PostgreSQL persistence integration, live trace topology | Use a local test database. Keep credentials out of source, tests, docs, and plans. |
+| `POLARIS_TEST_DATABASE_URL` | `tests/database`, PostgreSQL persistence integration, live trace topology | Explicit PostgreSQL test target; a separate physical database is optional. Keep credentials out of source, tests, docs, and plans. |
 | `POLARIS_TEST_JAEGER_URL` | `tests/integration/telemetry/test_live_trace_topology.py` | Usually the Jaeger query/UI base URL, for example `http://localhost:16686`. |
 | `POLARIS_TEST_OTEL_ENDPOINT` | `tests/integration/telemetry/test_live_trace_topology.py` | OTLP endpoint used by the test exporter. |
 | `POLARIS_LANGFUSE_HOST` | optional live Langfuse smoke checks and production export worker configuration | Self-hosted or approved Langfuse endpoint. |
@@ -309,12 +336,14 @@ intentional: live-service checks should be opt-in.
 | `POLARIS_RUN_LIVE_EVALS` | `tests/evaluation -m live_deepeval` | Explicit opt-in gate for live judge-model tests. |
 | `POLARIS_EVAL_REQUIRED` | evaluation release gates | Fails missing live evaluation configuration instead of skipping. |
 
-Example with redacted placeholders:
+For local development, place the explicit targets in ignored `.env`; do not
+export them manually just to run a repository command:
 
-```bash
-export POLARIS_TEST_DATABASE_URL="<async-postgresql-test-url>"
-export POLARIS_TEST_JAEGER_URL="http://localhost:16686"
-export POLARIS_TEST_OTEL_ENDPOINT="http://localhost:4317"
+```dotenv
+POLARIS_DATABASE_URL=<async-postgresql-local-url>
+POLARIS_TEST_DATABASE_URL=<same-explicit-url-is-valid-before-1.0>
+POLARIS_TEST_JAEGER_URL=http://localhost:16686
+POLARIS_TEST_OTEL_ENDPOINT=http://localhost:4317
 ```
 
 Do not paste real passwords or tokens into tracked files or shared command logs.
@@ -342,10 +371,11 @@ uv run pytest -q \
   tests/unit/application/rag/test_workflow_output_projection_rag_compatibility.py
 ```
 
-With PostgreSQL running and `POLARIS_TEST_DATABASE_URL` set, add:
+With PostgreSQL running and `POLARIS_TEST_DATABASE_URL` explicitly configured in
+`.env`, add:
 
 ```bash
-uv run pytest -q tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py
+uv run --env-file .env pytest -q tests/integration/core/storage/persistence/test_postgres_workflow_output_projection_integration.py
 ```
 
 ### Did persistence models, repositories, or migrations remain valid?
@@ -357,10 +387,11 @@ uv run pytest -q \
   tests/unit/application/persistence
 ```
 
-With PostgreSQL running and `POLARIS_TEST_DATABASE_URL` set, add:
+With PostgreSQL running and `POLARIS_TEST_DATABASE_URL` explicitly configured in
+`.env`, add:
 
 ```bash
-uv run pytest -q tests/database tests/integration/core/storage/persistence
+uv run --env-file .env pytest -q tests/database tests/integration/core/storage/persistence
 ```
 
 ### Did the RAG pipeline remain correct without live services?
@@ -491,11 +522,11 @@ uv run pytest -q \
   tests/integration/telemetry/test_telemetry_coverage_audit.py
 ```
 
-For live Jaeger/PostgreSQL parity, start PostgreSQL and Jaeger, set the three
-live trace env vars, then run:
+For live Jaeger/PostgreSQL parity, start PostgreSQL and Jaeger, configure the
+three live trace env vars in `.env`, then run:
 
 ```bash
-uv run pytest -q tests/integration/telemetry/test_live_trace_topology.py
+uv run --env-file .env pytest -q tests/integration/telemetry/test_live_trace_topology.py
 ```
 
 ### Did deterministic backtesting remain valid?
@@ -553,8 +584,9 @@ large merges.
 - Confirm services are healthy before running tests that will otherwise wait on
   network timeouts.
 - Use reasonable command timeouts based on expected duration.
-- Keep live connection strings, passwords, and tokens in local shell state or
-  ignored environment files only.
+- Keep live connection strings, passwords, and tokens in ignored environment
+  files or an approved secret manager; load local PostgreSQL configuration with
+  `uv run --env-file .env ...` rather than manual shell sourcing.
 - If a live test is not required for the change, do not run it merely because a
   service might be available.
 - Treat PostgreSQL as the authoritative system of record. Qdrant, Neo4j,

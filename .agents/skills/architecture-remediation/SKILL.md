@@ -196,7 +196,7 @@ Synchronize only formal artifacts whose authoritative lifecycle state this skill
 
 * a governing Wayfinder map reopened or kept active because unresolved architectural decision work now exists → base `Wayfinder Map / Architecture Decision / $wayfinder / Ready`;
 * each newly created or lifecycle-changed open Wayfinder decision → base `Wayfinder Decision / Architecture Decision / $wayfinder / Ready`;
-* a source Spec, Implementation Ticket, Spec Review, or Review Remediation Ticket only when this skill itself durably records that artifact in `Architecture Remediation` → use that artifact type's `Architecture Remediation / $architecture-remediation / Blocked` base route;
+* a source Spec, Implementation Ticket, Spec Review, or Review Remediation Ticket only when this skill itself durably records that artifact in `Architecture Remediation` → use that artifact type's `Architecture Remediation / $architecture-remediation / Ready` base route;
 * any additional formal artifact whose lifecycle state this skill durably changes.
 
 Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.

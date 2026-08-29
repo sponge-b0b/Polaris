@@ -208,6 +208,10 @@ For any delta that is not metadata-only deterministic normalization, ask:
 * Are the blocking edges correct?
 * Should anything be merged, split, or adjusted?
 
+Then end the approval prompt with:
+
+> **Reply `approve` to publish exactly as proposed.** Otherwise, tell me what you want changed.
+
 Iterate until approved.
 
 An unqualified `yes`, `approved`, or equivalent approves the proposal exactly as presented.

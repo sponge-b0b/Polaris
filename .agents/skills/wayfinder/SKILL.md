@@ -72,6 +72,28 @@ Reconciliation may remove completed/directly ineligible focused maps but must ne
 
 A focused map that remains map-eligible but has no currently actionable lower-level decision work because narrower blockers remain is **focused-but-stalled**. Retain focus, surface the blockers, and do not promote them to a synthetic map blocker or silently switch/release focus.
 
+## Mandatory Project Reconciliation
+
+After a Wayfinder-owned tracker/repository transition is durable and after required `$project-delivery-management` reconciliation, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
+
+Derive one reconciliation set from the same post-transition map/frontier state used for the handoff:
+
+* an open Wayfinder map with unresolved decision work or in-scope fog → base `Wayfinder Map / Architecture Decision / $wayfinder / Ready`, unless the map itself has an open native blocker, in which case use `Wayfinder Map / Blocked / None / Blocked`;
+* a Wayfinder map whose route is clear and whose next destination is specification → base `Wayfinder Map / Ready to Spec / $to-specs / Ready`;
+* a newly created, reopened, or otherwise affected open Wayfinder decision with zero open native blockers → base `Wayfinder Decision / Architecture Decision / $wayfinder / Ready`;
+* an affected open Wayfinder decision with one or more open native blockers → base `Wayfinder Decision / Blocked / None / Blocked`;
+* a decision closed by this invocation → base `Wayfinder Decision / Complete / None / Done` with `Completed On` set to the authoritative closure date;
+* a map closed by this invocation only when the Wayfinder lifecycle itself establishes map completion → base `Wayfinder Map / Complete / None / Done` with authoritative `Completed On`;
+* any other formal artifact whose lifecycle or open-blocker state this Wayfinder transition changed.
+
+Do not project `Spec Delivery`; `$to-specs` owns that transition after durable Spec handoffs exist. Do not infer map completion from the absence of a frontier when unresolved fog, architectural work, or an unfinished destination remains.
+
+Supply current authoritative Project Delivery State separately from the base lifecycle projection. Preserve `Area` and `Priority` unless this invocation has separate authority to change them.
+
+`$wayfinder` owns the affected-artifact set, decision/frontier reads, and base lifecycle states. `$project-tracking` owns validation, delivery overlay, and Project mutation. Project fields never determine route clarity, decision completion, or focus.
+
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not roll back durable map/decision state and do not suppress an otherwise-authorized `$wayfinder` or `$to-specs` handoff.
+
 ## Plan, Don't Do
 
 Wayfinder is **planning** by default.
@@ -417,10 +439,10 @@ User invokes with a loose idea.
 5. Create currently specifiable tickets and wire blocking edges.
 6. Fire research subagents for research tickets.
 7. Persist repository artifacts through **Repository Persistence** when applicable.
-8. After the map/ticket/dependency state is durable, invoke `$project-delivery-management` `reconcile`. Do not establish or change focus as part of charting.
+8. After the map/ticket/dependency state is durable, invoke `$project-delivery-management` `reconcile`, then perform **Mandatory Project Reconciliation** for every created/affected formal artifact. Do not establish or change focus as part of charting.
 9. Stop. Charting does not hand-resolve tickets.
 
-The same persistence rule applies when charting collapses into a single `$grill-with-docs` session. A collapse that creates no Wayfinder map has no Wayfinder focus to reconcile.
+The same persistence rule applies when charting collapses into a single `$grill-with-docs` session. A collapse that creates no Wayfinder map has no Wayfinder focus or formal Wayfinder artifact to reconcile.
 
 ### Work Through the Map
 
@@ -440,7 +462,7 @@ If given a ticket, resolve its parent Wayfinder map using the tracker's native r
    * if repository files changed, complete **Repository Persistence**;
    * only after persistence succeeds, post the concise resolution comment, close the ticket, and append its context pointer to **Decisions so far**.
 8. Add newly surfaced decisions, wire dependencies, graduate newly specifiable fog, and move newly out-of-scope work. If the decision invalidates other map state, update or delete affected tickets.
-9. After all Wayfinder-owned tracker/repository mutations from this decision are durable, invoke `$project-delivery-management` `reconcile` before the Post-Resolution Gate.
+9. After all Wayfinder-owned tracker/repository mutations from this decision are durable, invoke `$project-delivery-management` `reconcile`, then perform **Mandatory Project Reconciliation** before the Post-Resolution Gate.
 
 ## Post-Resolution Gate
 
@@ -466,7 +488,7 @@ If another unresolved decision, missing implementability choice, or newly specif
 
 Except for additional research tickets permitted by **Invocation**, do not resolve another ticket in the same session.
 
-After updating the map, identify the current frontier:
+After updating the map, identify the current frontier and require **Mandatory Project Reconciliation** to reflect that same post-resolution state before emitting any handoff or returning:
 
 * If one open, unblocked, unclaimed frontier ticket is available, halt with:
 
@@ -494,7 +516,7 @@ The route is not clear while:
 * Wayfinder-owned repository changes remain uncommitted or unpushed;
 * project-delivery reconciliation required by the current transition remains unresolved.
 
-When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept:
+When the Post-Resolution Gate passes and the destination is an implementation specification, require **Mandatory Project Reconciliation** to project the map as `Ready to Spec` from this same clear-route state, then halt with a Human Handoff Intercept:
 
 > ✅ **Wayfinder route is clear.**
 >

@@ -214,13 +214,13 @@ When a skill prescribes another repository skill as internal composition:
 
 The public Polaris GitHub Project is an operational projection, not workflow authority.
 
-Whenever a lifecycle owner durably creates, changes, re-enters, or completes a formal workflow artifact, it must invoke `$project-tracking` as internal composition **after** the authoritative tracker/repository transition succeeds and **before** the owner's Human Handoff or ordinary return.
+Every formal lifecycle owner must carry an explicit **Project Reconciliation** step in its own `SKILL.md`. That local step identifies the artifacts affected by the transition, supplies their desired base lifecycle projection, and invokes `$project-tracking` as prescribed internal composition **after** the authoritative tracker/repository transition succeeds and **before** Human Handoff or ordinary return.
 
 This applies to `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$spec-merge-cleanup`, and `$architecture-remediation`.
 
-The owner supplies the desired projection from the durable state it just established. If one transition changes multiple artifacts, synchronize every affected artifact. Internal helpers return their result to the lifecycle owner; independent verifiers do not synchronize Project state.
+This section establishes the global invariant; it is not a substitute for the lifecycle owner's local call-site instruction. If one transition changes multiple artifacts, the owning skill must synchronize every affected artifact in one reconciliation set.
 
-Follow `.agents/skills/project-tracking/WIRING.md` for the cross-skill call contract and `$project-tracking` for projection mechanics. Project synchronization failure is projection drift and must never roll back or rewrite the authoritative workflow transition.
+Follow `.agents/skills/project-tracking/WIRING.md` for the cross-skill call contract and `$project-tracking` for projection mechanics. Internal helpers return their result to the lifecycle owner; independent verifiers do not synchronize Project state. Project synchronization failure is projection drift and must never roll back or rewrite the authoritative workflow transition or suppress an otherwise-authorized downstream handoff.
 
 ### Issue tracker
 

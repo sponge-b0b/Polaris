@@ -277,13 +277,42 @@ After all Spec/Wayfinder authoritative transitions are durable, invoke `$project
 
 Failure to determine a governing relationship is not permission to guess and is not a reason to roll back an otherwise successful merge. Report the reconciliation failure, leave ambiguous Wayfinder state untouched, and do not claim Wayfinder completion for that relationship.
 
+## Mandatory Project Reconciliation
+
+After authoritative Spec completion, optional Spec Review cleanup, dependent-Spec actionability recovery, Wayfinder Completion Reconciliation, and required `$project-delivery-management` reconciliation are durable, invoke `$project-tracking` as prescribed internal composition **before** successful return.
+
+First re-read the completed Spec's direct native dependents because Spec closure may change their actionability without removing the dependency relationship. For each open direct dependent, read its complete native `blocked by` set. Do not delete the historical dependency edge.
+
+When an open dependent is durably a Spec whose current `Blocked` lifecycle is dependency-derived:
+
+* one or more open native Spec blockers → keep base `Spec / Blocked / None / Blocked`;
+* zero open native Spec blockers → advance to base `Spec / Ready to Ticket / $to-tickets / Ready`.
+
+Do not overwrite a dependent that has another durable lifecycle owner/state; ambiguous restoration fails closed and is reported rather than guessed.
+
+Build one completion reconciliation set containing every affected formal artifact:
+
+* completed parent Spec → base `Spec / Complete / None / Done` with `Completed On` set to the authoritative Spec completion date;
+* conventional Spec Review when this skill closes it → base `Spec Review / Complete / None / Done` with authoritative `Completed On`;
+* each governing Wayfinder map closed by this skill → base `Wayfinder Map / Complete / None / Done` with authoritative `Completed On`;
+* each direct dependent Spec whose dependency-derived base projection changed after this Spec closed;
+* any other formal artifact whose lifecycle or open-blocker projection this cleanup durably changed.
+
+A governing Wayfinder that remains open and whose base lifecycle projection did not change need not be rewritten merely because one governed Spec completed. If its lifecycle projection did change, derive that state from its durable Wayfinder lifecycle rather than from Project fields.
+
+For `Complete` artifacts, Project delivery is `Released`; for non-complete affected artifacts, supply current authoritative Project Delivery State separately. Preserve `Area` and `Priority` unless separately authorized.
+
+`$spec-merge-cleanup` owns the completion/dependent/Wayfinder state supplied to `$project-tracking`; `$project-tracking` owns validation, delivery overlay, and Project mutation. Project state never determines whether the merge, close, cleanup, dependency satisfaction, or Wayfinder completion succeeded.
+
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not reopen the Spec or Spec Review, restore deleted branches, reopen completed Wayfinders, or otherwise roll back authoritative completion.
+
 ## Step 0 — Route: Pre-completion vs. Recovery
 
 Require a current passing **Spec Review Exit Receipt**, then run **Lifecycle Phase Detection**.
 
 If **Post-merge recovery** is proven, skip the pre-completion actionability guard and continue directly to **Phase B — Cleanup and Finalize** with the recovered `PR_NUMBER`.
 
-If **Post-direct-close recovery** is proven, skip the pre-completion actionability guard, finish any still-open Spec Review, perform **Wayfinder Completion Reconciliation**, invoke project-delivery reconciliation, and exit successfully when the completion criteria are satisfied.
+If **Post-direct-close recovery** is proven, skip the pre-completion actionability guard, finish any still-open Spec Review, perform **Wayfinder Completion Reconciliation**, invoke project-delivery reconciliation, perform **Mandatory Project Reconciliation**, and exit successfully when the completion criteria are satisfied.
 
 If the Spec is open, apply the **Project Delivery Actionability Guard** before selecting either pre-completion path.
 
@@ -306,7 +335,8 @@ if ! git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>" && \
     echo "No Spec Review issue exists — nothing to close."
   fi
 
-  # Perform Wayfinder Completion Reconciliation here, then project-delivery reconciliation.
+  # Perform Wayfinder Completion Reconciliation, project-delivery reconciliation,
+  # and Mandatory Project Reconciliation before successful return.
 
   exit 0
 fi
@@ -477,6 +507,10 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
 
    Recovery must tolerate already-correct completion state: an already-closed Wayfinder whose invariant still holds and an already-released project focus are successful no-op reconciliation results, not errors.
 
+7. **Reconcile Project Projection**
+
+   Perform **Mandatory Project Reconciliation** from the final durable completion/dependency/Wayfinder state before returning success.
+
 ## Completion
 
 Cleanup is complete only when the applicable path has:
@@ -487,7 +521,8 @@ Cleanup is complete only when the applicable path has:
 * closed its Spec Review issue when one exists, or confirmed it was already closed;
 * for a branch-backed Spec, confirmed the exact reviewed HEAD was merged to `main` and removed any still-existing local/remote Spec branch without deleting drifted post-merge work;
 * reconciled every unambiguously recovered governing Wayfinder against its full Derived+Remediation governed Spec set and decision/fog state;
-* invoked project-delivery reconciliation after authoritative completion transitions, with already-correct reconciled state accepted as a no-op.
+* invoked project-delivery reconciliation after authoritative completion transitions, with already-correct reconciled state accepted as a no-op;
+* invoked `$project-tracking` for the completed Spec and every other formal artifact whose lifecycle/open-blocker projection changed, with Project drift reported but never treated as workflow authority.
 
 A failed cleanup step after successful Spec completion does not invalidate the completed merge/direct close. A later invocation must recover from durable completion evidence and resume the remaining idempotent cleanup instead of requiring the Spec to be open, re-establishing focus, or repeating the completion transition.
 

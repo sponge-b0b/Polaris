@@ -42,9 +42,8 @@ class FakeWorkflowFacade:
 
     async def run_workflow(
         self,
+        *,
         workflow_name: str,
-        governed_execution_evidence: object | None = None,
-        execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
         simulation_time: datetime | None = None,
@@ -58,7 +57,6 @@ class FakeWorkflowFacade:
         self.calls.append(
             {
                 "workflow_name": workflow_name,
-                "execution_id": execution_id,
                 "mode": mode,
                 "workflow_inputs": workflow_inputs,
                 "simulation_time": simulation_time,

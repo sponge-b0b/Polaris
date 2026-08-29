@@ -31,6 +31,37 @@ Before any pytest invocation, follow the mandatory test-service preflight in
 complete external prerequisites and verify them before pytest starts. Missing
 prerequisites leave required verification unresolved.
 
+For local PostgreSQL-backed work, `.env` is the canonical local environment
+input. Run database preflights, migrations, database-backed pytest, and Python
+database probes through `uv run --env-file .env ...`. Do not manually source
+`.env` merely to populate the current shell, and never use bare `python` for a
+database preflight; use `uv run --env-file .env python ...` so project
+dependencies and database configuration are established by the same command.
+
+CI must provide its database environment explicitly at the job level. CI does
+not depend on a developer `.env` file.
+
+## PostgreSQL URL Roles
+
+`POLARIS_DATABASE_URL` is the canonical application/runtime and ordinary Alembic
+migration target.
+
+`POLARIS_TEST_DATABASE_URL` is an explicit PostgreSQL test target and live-test
+opt-in. It does **not** imply that a second physical database must exist. Tests
+must never implicitly fall back from `POLARIS_TEST_DATABASE_URL` to
+`POLARIS_DATABASE_URL` when the test target is absent.
+
+Before 1.0, when the repository-local development database is clearly disposable,
+`.env` may intentionally set `POLARIS_TEST_DATABASE_URL` equal to
+`POLARIS_DATABASE_URL`. Ephemeral CI should normally set both variables
+explicitly to the same job-local PostgreSQL database. The explicit second
+variable remains valuable because it records authorization to use that target for
+PostgreSQL-backed tests even when both values happen to be identical.
+
+Do not synthesize `POLARIS_TEST_DATABASE_URL` at runtime by rewriting or copying
+`POLARIS_DATABASE_URL`. Load the explicit configured value. If a required test
+target is absent, the required live verification remains unresolved.
+
 ## 1. Select the Migration Strategy
 
 ### Before 1.0
@@ -80,8 +111,8 @@ Preserve persisted data unless an explicitly authorized migration says otherwise
 Inspect current history:
 
 ```bash id="8ymxg6"
-uv run alembic heads
-uv run alembic history
+uv run --env-file .env alembic heads
+uv run --env-file .env alembic history
 git status --short migrations/versions
 git log --oneline -- migrations/versions
 ```
@@ -96,7 +127,7 @@ Autogenerate may assist with the diff, but audit the result. Preserve intentiona
 If intentionally regenerating a mutable revision with its existing ID:
 
 ```bash id="bb3jra"
-uv run alembic revision --autogenerate -m "<description>" --rev-id=<EXISTING_REVISION_ID>
+uv run --env-file .env alembic revision --autogenerate -m "<description>" --rev-id=<EXISTING_REVISION_ID>
 ```
 
 Audit the complete generated revision before keeping it.
@@ -125,14 +156,14 @@ After 1.0, identify data that destructive operations cannot reconstruct.
 
 Use repository-standard environment variables and `uv`.
 
-If `POLARIS_DATABASE_URL` is absent but `.env` contains canonical local PostgreSQL configuration, load it without printing secrets:
+For local work, load canonical local PostgreSQL configuration from `.env` through
+`uv` without exporting secrets into the current shell:
 
 ```bash id="tg0jp5"
-set -a; source .env; set +a
-uv run alembic current
-uv run alembic upgrade head
-uv run alembic check
-uv run polaris inspect persistence
+uv run --env-file .env alembic current
+uv run --env-file .env alembic upgrade head
+uv run --env-file .env alembic check
+uv run --env-file .env polaris inspect persistence
 ```
 
 `alembic current` verifies the revision stamp only.
@@ -142,20 +173,22 @@ Always run `alembic check` after migration application.
 When local PostgreSQL is available, also run:
 
 ```bash id="g4f58m"
-uv run polaris inspect persistence
+uv run --env-file .env polaris inspect persistence
 ```
 
-### Test Database
+### PostgreSQL Test Target
 
-If targeted tests require `POLARIS_TEST_DATABASE_URL`, derive safe local configuration from repository-owned sources such as:
+If targeted tests require `POLARIS_TEST_DATABASE_URL`, require that explicit test
+target from the active environment source. For local development, load `.env`
+with `uv run --env-file .env ...`. Do not derive a replacement from
+`POLARIS_DATABASE_URL`, `POLARIS_POSTGRES_*`, `docker-compose.yml`, or other
+repository defaults.
 
-* `.env`;
-* `.env.example`;
-* `docker-compose.yml`;
-* test fixtures;
-* `PostgresSettings`.
-
-Prefer an isolated test database/schema.
+A separate physical test database is optional. Before 1.0, the explicit test URL
+may equal `POLARIS_DATABASE_URL` when both identify the clearly disposable
+repository-local database. Migration contract tests still isolate their work in
+temporary PostgreSQL schemas. Ephemeral CI should normally set both URLs to the
+same ephemeral job database.
 
 Never print connection strings or secrets.
 
@@ -164,6 +197,15 @@ If the required repository-local PostgreSQL service is not running and repositor
 ```bash id="sw9k7m"
 docker compose up -d postgres
 ```
+
+For a bounded Python connectivity or metadata probe, always use the project
+environment and local env file:
+
+```bash id="database-python-preflight"
+uv run --env-file .env python <probe-script-or--c-expression>
+```
+
+Never run a database preflight with bare `python`.
 
 A required DB-backed test skipped solely because local setup is missing is unresolved verification, not a pass.
 
@@ -174,7 +216,7 @@ If `alembic current` references a revision removed or rewritten on the current b
 Do not blindly use:
 
 ```bash id="h4mzt1"
-uv run alembic stamp head
+uv run --env-file .env alembic stamp head
 ```
 
 because stamping can hide unapplied schema operations.
@@ -184,10 +226,10 @@ because stamping can hide unapplied schema operations.
 For a stale or incompatible local development/test schema, reset and rebuild:
 
 ```bash id="lis3ya"
-uv run python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
-uv run alembic upgrade head
-uv run alembic check
-uv run polaris inspect persistence
+uv run --env-file .env python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+uv run --env-file .env alembic upgrade head
+uv run --env-file .env alembic check
+uv run --env-file .env polaris inspect persistence
 ```
 
 Do this without additional user confirmation when the target is clearly the repository's local development/test database.
@@ -204,15 +246,15 @@ Stop and report the migration/schema mismatch and required remediation.
 
 For migrations changed by the current work, run the applicable round trip against a disposable/isolated database:
 
-1. `uv run alembic upgrade head`
-2. `uv run alembic check`
-3. `uv run polaris inspect persistence` when available
+1. `uv run --env-file .env alembic upgrade head`
+2. `uv run --env-file .env alembic check`
+3. `uv run --env-file .env polaris inspect persistence` when available
 4. inspect affected tables, columns, constraints, and indexes
-5. `uv run alembic downgrade -1`
+5. `uv run --env-file .env alembic downgrade -1`
 6. verify the intended prior schema
-7. `uv run alembic upgrade head`
-8. `uv run alembic check`
-9. run targeted migration-contract and PostgreSQL integration tests
+7. `uv run --env-file .env alembic upgrade head`
+8. `uv run --env-file .env alembic check`
+9. run targeted migration-contract and PostgreSQL integration tests through `uv run --env-file .env pytest ...`
 
 Before 1.0, reset/rebuild the disposable database whenever mutable migration history makes an in-place round trip invalid or misleading.
 

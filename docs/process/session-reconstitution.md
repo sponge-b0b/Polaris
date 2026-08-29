@@ -6,20 +6,21 @@ This guide defines how a new agent session should reconstruct enough Polaris con
 
 It is a **bootstrap and recovery procedure**, not a source of architectural truth, workflow state, or domain semantics.
 
-The goal is to avoid rebuilding project context from large conversation transcripts when the repository and tracker already preserve the durable state.
+The goal is to avoid rebuilding project context from large conversation transcripts when the repository and tracker already preserve durable state, while also preserving the small amount of important session-only context that has not yet acquired another durable home.
 
 ## Core Principle
 
-Reconstitute from durable project state first.
+Reconstitute from durable project state first, then restore the minimum necessary ephemeral state from the **Current Session Ledger** at the bottom of this document.
 
-Use prior conversation only for ephemeral session state such as:
+Durable repository/tracker state remains authoritative. The ledger exists only for context that would otherwise be stranded in a conversation, such as:
 
-- the exact task that was in progress;
-- the last command or result exchanged;
-- an uncommitted local change that is not visible remotely;
-- a decision that has not yet been persisted to an authoritative artifact.
+- the exact task or thread that was in progress;
+- the last local-only command/result needed to resume safely;
+- an uncommitted or unpushed local state that is not visible remotely;
+- a temporary decision, sequencing choice, or working assumption that has not yet been persisted to its authoritative artifact;
+- a tool/capability handoff that requires the user to perform the next mechanical step outside the agent's available tooling.
 
-If remembered conversation conflicts with current durable state, surface the conflict and prefer the applicable authority defined by `AGENTS.md` unless the user explicitly resolves it otherwise.
+If remembered conversation or the Current Session Ledger conflicts with current durable state, surface the conflict and prefer the applicable authority defined by `AGENTS.md` unless the user explicitly resolves it otherwise.
 
 ## Authority
 
@@ -32,7 +33,8 @@ In particular:
 - `docs/current/` describes current architecture;
 - `wiki/entities/` contains derived architectural knowledge;
 - workflow artifacts and native tracker relationships define delivery state;
-- the GitHub Project is an operational projection and does not override authoritative repository or tracker state.
+- the GitHub Project is an operational projection and does not override authoritative repository or tracker state;
+- the Current Session Ledger is an ephemeral recovery aid and never overrides any of the above.
 
 Do **not** read `CONTEXT.md` merely because a session is being reconstructed. Follow the `AGENTS.md` rules for when canonical domain vocabulary actually requires it.
 
@@ -135,28 +137,26 @@ Typical routing:
 
 Do not infer architectural uncertainty merely from file size, complexity, duplication, or poor metrics.
 
-### 6. Restore only the ephemeral handoff from conversation
+### 6. Restore the Current Session Ledger
 
-After durable state is reconstructed, use the previous session handoff to locate the exact stopping point.
+After durable state is reconstructed, read the **Current Session Ledger** at the bottom of this document.
 
-A useful handoff should be short and contain only facts that are not cheaply recoverable from the repository, for example:
+Use it only to restore the exact stopping point and session-only context that cannot be recovered cheaply or reliably from the repository/tracker.
 
-```markdown
-### LAST ACTIVE THREAD
+For every ledger entry that matters to the resumed task:
 
-We were validating candidate CH-CANDIDATE-007 in the current code-health audit.
-The deterministic measurements are already committed.
-The last local command was `...`, which produced `...`.
-No remediation has been started yet.
-```
+1. verify any repository/tracker facts against current durable state;
+2. treat local-only state as provisional until the user confirms it or supplies current output;
+3. discard or revise entries that have become stale, contradicted, completed, or durably persisted elsewhere;
+4. continue from the smallest correct next action rather than replaying completed work.
 
-A few final materially relevant exchanges may be included when necessary, but avoid pasting full historical sessions unless the durable state is genuinely insufficient.
+The user should not need to provide a separate `LAST ACTIVE THREAD` when the ledger is current.
 
 ### 7. Check for conflicts before continuing
 
 Before resuming work, identify any material conflict among:
 
-- the user's handoff;
+- the Current Session Ledger;
 - current repository state;
 - current tracker state;
 - applicable skill contracts;
@@ -180,15 +180,90 @@ Do not respond with a generic Polaris overview or repeat every artifact inspecte
 
 Perform work directly through available repository, GitHub, and other connected tooling whenever possible.
 
-Ask the user to run local commands only when the required state or tool is unavailable remotely, such as:
+The normal collaboration model is:
+
+1. the agent performs every safe workflow/repository/tracker step that its available tools support;
+2. when a required step depends on local state or an unavailable connector capability, the agent gives the user the exact command(s) needed to perform only that missing step;
+3. the user runs the command(s) and returns the output;
+4. the agent treats that output as evidence and resumes the workflow from the correct durable checkpoint rather than restarting completed work.
+
+A connector limitation is not, by itself, a reason to abandon an otherwise executable workflow. For example, when the connected GitHub tool cannot perform an operation that the authenticated GitHub CLI can perform, provide the exact `gh` commands for the user to run outside Codex and continue from the returned result.
+
+When the user explicitly asks for the literal `gh`/Bash commands that a workflow or skill would execute, answer at that command layer. Do not substitute another skill invocation or redirect the user back through the workflow when the requested underlying commands can be provided safely.
+
+Ask the user to run local commands only when the required state or operation is unavailable remotely, such as:
 
 - uncommitted local changes;
 - local test execution;
 - profiling;
 - local repository-analysis tools;
-- environment-specific scripts or services.
+- environment-specific scripts or services;
+- GitHub operations that are supported by the user's authenticated `gh` CLI but not by the available connector.
 
-When local execution is required, provide exact Linux/bash commands and use the returned output as evidence.
+When local execution is required:
+
+- provide exact Linux/bash commands;
+- **every Bash command block must be a subshell using `(...)`**;
+- make the block fail closed where practical (`set -euo pipefail`, explicit expected-state checks, or equivalent safeguards);
+- minimize the commands to the missing operation rather than handing the whole workflow back to the user;
+- use the returned output as evidence before mutating subsequent durable state.
+
+## Current Session Ledger Maintenance
+
+The agent owns maintenance of the **Current Session Ledger** appended to this document.
+
+### Maintenance responsibility
+
+Update the ledger on `main` whenever materially important session context has accumulated that is needed for accurate continuation but is not durably persisted in another authoritative repository/tracker artifact.
+
+The user should not need to notice that the ledger is stale or ask for an update. The agent decides when an update is warranted.
+
+Natural maintenance checkpoints include:
+
+- after a meaningful workflow transition when some continuation context remains session-only;
+- after the user supplies important local-only command output that affects the next action;
+- after an accepted decision or sequencing choice that has not yet acquired its authoritative home;
+- before moving into another long or multi-stage thread when the current stopping point would otherwise exist only in conversation;
+- when a tool limitation creates a user-executed handoff that must survive session loss;
+- when the active objective or exact next action changes materially.
+
+Do not update the ledger for every exchange. Prefer compact, high-signal checkpoint updates.
+
+### What belongs in the ledger
+
+Record only context whose loss would materially reduce reconstitution accuracy or force the user to explain the session again, for example:
+
+- current active thread and exact stopping point;
+- current intended next action when it is not already obvious from durable workflow state;
+- local-only state or command results that remain relevant;
+- temporary unresolved decisions/assumptions awaiting durable persistence;
+- important collaboration/tool handoffs in progress;
+- explicit user direction about near-term sequencing that is not represented by tracker dependencies or another durable artifact.
+
+### What does not belong in the ledger
+
+Do not duplicate facts that are already cheaply recoverable from their authoritative source, including:
+
+- full Spec requirements or contracts;
+- issue bodies, verification/review receipts, or blocker ledgers;
+- current architecture already defined by ADRs/docs/wiki;
+- commit histories or branch contents;
+- GitHub Project fields;
+- large command logs once their result is durably reflected elsewhere.
+
+Reference the authoritative artifact instead when useful.
+
+### Ledger lifecycle
+
+Treat the ledger as a maintained scratch pad, not an append-only historical log.
+
+- revise existing entries when the active state changes;
+- remove entries once their information becomes durably persisted elsewhere or is no longer relevant;
+- remove stale local-only assumptions after they are verified or superseded;
+- keep the ledger short enough to scan during every reconstitution;
+- preserve only the **current** recovery state, not a narrative history of prior sessions.
+
+Ledger maintenance is always committed directly to `main`, even when active product work is occurring on another branch. Do not write the ledger checkpoint onto the feature/Spec branch or wait for that branch to merge. Update only this process document for the ledger checkpoint and follow `$conventional-commits` for the commit message.
 
 ## Recommended New-Session Prompt
 
@@ -201,22 +276,44 @@ https://github.com/sponge-b0b/Polaris
 Reconstitute our working session using
 `docs/process/session-reconstitution.md`.
 
-Read the repository's current durable state rather than assuming previous
-conversation state is still correct.
-
-### LAST ACTIVE THREAD
-
-[Briefly describe the exact task and stopping point. Include local-only state
-or the last few materially relevant exchanges only when needed.]
+Read the repository's current durable state and the Current Session Ledger;
+do not assume previous conversation state is still correct.
 
 After reconstructing the state, tell me where we are, what should happen next,
 and whether you have any genuine blocking questions.
 ```
 
+The user may add local-only information when something changed after the ledger was last maintained, but a routine session restart should not require a manually written handoff.
+
 ## Design Constraint
 
-Keep this document focused on **how to recover context**, not on preserving the context itself.
+Keep the permanent portion of this document focused on **how to recover context**. Keep the Current Session Ledger focused on the small amount of **current ephemeral context** needed to finish recovery.
 
-If a rule, architectural decision, workflow contract, domain definition, audit finding, or delivery state already has an authoritative home elsewhere in Polaris, reference that source rather than copying it here.
+If a rule, architectural decision, workflow contract, domain definition, audit finding, or delivery state already has an authoritative home elsewhere in Polaris, reference that source rather than copying it into the ledger.
 
-That keeps session reconstitution stable even as the project evolves.
+That keeps reconstitution durable without turning this document into a second source of truth.
+
+---
+
+# Current Session Ledger
+
+> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves the conflict otherwise.
+
+**Last maintained:** 2026-08-29
+
+## Active thread
+
+- The decision-evidence persistence/reconstruction code-health remediation (Spec #254) has just completed its full lifecycle, including merge/cleanup and final GitHub Project synchronization. Its authoritative state is in GitHub/repository history; do not replay that workflow from this ledger.
+- The user intentionally paused before continuing the next code-health remediation step in order to establish this Current Session Ledger process.
+- After this process-document change is complete, the intended next product/engineering thread is the previously planned **local risk-authority-gate decomposition** in the code-health remediation sequence. Revalidate the current planning/audit source before creating or advancing work rather than relying on this sentence as authority.
+
+## Session-only continuation notes
+
+- The user no longer intends to provide a routine `LAST ACTIVE THREAD` during session reconstitution. This ledger is the normal ephemeral handoff mechanism.
+- The agent is responsible for deciding when this ledger needs another checkpoint update and for keeping it current on `main`.
+- When the available connector cannot perform a required GitHub operation but the user's authenticated `gh` CLI can, the preferred collaboration pattern is for the agent to complete everything it can, provide the exact guarded `gh`/Bash commands for only the missing operation, consume the returned output as evidence, and continue.
+- All Bash command blocks supplied to the user must use a subshell `(...)`.
+
+## Outstanding ephemeral state
+
+- No known uncommitted Polaris code change or active feature branch is being carried forward by this ledger. Local repository state must still be verified when relevant in the next session.

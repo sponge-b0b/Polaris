@@ -188,6 +188,23 @@ The ticket must preserve enough context for `$wayfinder` to determine whether au
 
 After the required decision-ticket/map mutations are durable, invoke `$project-delivery-management` `reconcile`. This reduction may remove invalid focus but must never select, switch, or broaden focus.
 
+## Mandatory Project Reconciliation
+
+After every architecture-remediation tracker transition is durable and after `$project-delivery-management` reconciliation, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
+
+Synchronize only formal artifacts whose authoritative lifecycle state this skill actually created, reopened, or changed:
+
+* a governing Wayfinder map reopened or kept active because unresolved architectural decision work now exists → base `Wayfinder Map / Architecture Decision / $wayfinder / Ready`;
+* each newly created or lifecycle-changed open Wayfinder decision → base `Wayfinder Decision / Architecture Decision / $wayfinder / Ready`;
+* a source Spec, Implementation Ticket, Spec Review, or Review Remediation Ticket only when this skill itself durably records that artifact in `Architecture Remediation` → use that artifact type's `Architecture Remediation / $architecture-remediation / Blocked` base route;
+* any additional formal artifact whose lifecycle state this skill durably changes.
+
+Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.
+
+Supply current Project Delivery State separately from the base lifecycle projection. `$project-tracking` owns validation, delivery overlay, and mutation; it does not discover which artifacts this skill changed.
+
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not undo durable Wayfinder/decision state and do not suppress an otherwise-authorized handoff or resolved-authority return.
+
 ## 6. Human Handoff Intercept
 
 ### Unresolved Decisions Remain
@@ -259,6 +276,7 @@ This skill is complete when:
 * every unresolved decision is represented by exactly one open Wayfinder ticket;
 * blocked obligations are preserved when applicable;
 * project-delivery reconciliation runs after authoritative reopen/decision-tracker transitions without auto-focusing a map;
+* mandatory `$project-tracking` reconciliation runs for every formal artifact whose lifecycle state this skill changed;
 * no duplicate or artificially split decisions were introduced;
 * the appropriate Human Handoff or resolved-authority return is presented.
 

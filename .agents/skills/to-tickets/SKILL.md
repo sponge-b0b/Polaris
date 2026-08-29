@@ -531,10 +531,7 @@ ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comment
 
 if [ "$ALREADY_POSTED" -eq 0 ]; then
   gh issue comment "$spec_issue_number" --body "$(printf \
-'## Workspace Metadata\
-**Baseline Commit Hash:** %s\
-**Branch:** %s\
-' \
+'## Workspace Metadata\n**Baseline Commit Hash:** %s\n**Branch:** %s\n' \
 "$BASELINE_COMMIT" "$SPEC_BRANCH")"
 fi
 ```

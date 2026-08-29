@@ -21,6 +21,7 @@ from core.storage.persistence.completed_run_archive import (
     CompletedRunBundle,
     CompletedRunExecutionMode,
     CompletedRunRecord,
+    JsonObject,
 )
 from core.storage.persistence.projections import (
     WorkflowOutputProjectionJobRecord,
@@ -222,7 +223,10 @@ def _service(
         supported_node_names=("technical_agent",),
     )
     node_output = _node_output(
-        authority_metadata=registration.expected_authority_contract.to_metadata()
+        authority_metadata=cast(
+            JsonObject,
+            registration.expected_authority_contract.to_metadata(),
+        )
     )
     repository = TerminalPathProjectionJobRepository(claimable=claimable)
     archive = TerminalPathCompletedRunArchive(
@@ -271,7 +275,7 @@ def _run() -> CompletedRunRecord:
     )
 
 
-def _node_output(*, authority_metadata: dict[str, object]) -> CompletedNodeOutputRecord:
+def _node_output(*, authority_metadata: JsonObject) -> CompletedNodeOutputRecord:
     return CompletedNodeOutputRecord(
         node_output_id="node-output-1",
         run_id="run-1",

@@ -379,6 +379,22 @@ Requirements:
 * no cell is inferred satisfied merely because related tickets are closed;
 * no generic test count substitutes for cell-level proof.
 
+### Direct-Subject Evidence Gate
+
+A cell may be `proven` only when its evidence directly establishes the exact subject, required behavior, and material conditions expressed by that manifest cell. Evidence that merely demonstrates nearby health is supporting evidence, not proof of the cell.
+
+Apply these rules before assigning `proven`:
+
+* identify the concrete runtime, source, tracker, document, interface, test seam, or other authoritative surface that embodies the cell;
+* trace the evidence to that surface and to the cell's actual predicate; a nearby file path, closed ticket, successful broad suite, Ruff/Mypy result, or generic repository sweep cannot establish an unrelated semantic obligation by itself;
+* for prohibition/absence obligations, perform a bounded negative sweep or equivalent direct proof over the affected semantic domain rather than inferring absence from positive tests;
+* for help/default/interface-to-behavior consistency, inspect both the declared interface/default and the effective behavior, plus applicable regression proof;
+* for contract migrations involving fakes, fixtures, mocks, monkeypatches, adapters, or test doubles, inspect the affected seams themselves for contract/signature closure; production-path success alone is insufficient;
+* when one cell contains multiple required clauses or surfaces, prove every material clause/surface or leave the cell `unresolved`; several precise evidence items are preferable to one generic umbrella result;
+* checkpoint inheritance is allowed only when the prior cell's same direct-subject evidence remains immutable and unaffected by the complete checkpoint delta.
+
+Evidence may be concise, but it must be traceable enough that an independent reviewer can determine why it proves this cell rather than merely why the repository appears healthy.
+
 Before success, reconcile counts:
 
 ```text
@@ -452,6 +468,7 @@ After verification-owned fixes:
 * require the Spec body/contract to remain valid and reconcile any changed ownership;
 * in checkpoint mode, recompute checkpoint delta/invalidation;
 * rerun every newly affected gate;
+* reapply the **Direct-Subject Evidence Gate** to every `proven` manifest cell;
 * reconcile every manifest cell;
 * require every required gate passed and `unresolved 0`.
 

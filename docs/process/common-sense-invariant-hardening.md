@@ -782,3 +782,14 @@ review
 ```
 
 Review should not repeatedly rediscover ordinary obligations that were already explicit upstream. When it does, the default response should be to inspect whether an upstream common-sense invariant was prose-only or whether its universe was incompletely constructed, then harden the earliest authoritative transition rather than adding a special-case rule for the latest symptom.
+
+## Hardening Execution Status
+
+As of 2026-08-29, the hardening sequence defined by this audit is implemented on `main`.
+
+* `$spec-contract` source-universe closure landed first, including deterministic Source Unit Inventory hashing.
+* The remaining proof, decomposition, semantic-mutation, route/audit-completeness, migration-safety, and cleanup gates were hardened together in `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
+* The coordinated commit changes only the 17 intended skill contracts: the 16 remaining audit targets plus the `$spec-contract` caller integration required by `$to-tickets`.
+* The audit principles remain design guidance; each `SKILL.md` is the executable enforcement point.
+
+Future defects should first be evaluated against Transition-Bound Reasoning, Universe Closure, Explicit Escape Disposition, falsification-first proof, and evidence entailment before adding any defect-specific rule.

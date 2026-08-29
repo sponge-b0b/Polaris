@@ -208,116 +208,32 @@ When local execution is required:
 - minimize the commands to the missing operation rather than handing the whole workflow back to the user;
 - use the returned output as evidence before mutating subsequent durable state.
 
-## Current Session Ledger Maintenance
-
-The agent owns maintenance of the **Current Session Ledger** appended to this document.
-
-### Maintenance responsibility
-
-Update the ledger on `main` whenever materially important session context has accumulated that is needed for accurate continuation but is not durably persisted in another authoritative repository/tracker artifact.
-
-The user should not need to notice that the ledger is stale or ask for an update. The agent decides when an update is warranted.
-
-Natural maintenance checkpoints include:
-
-- after a meaningful workflow transition when some continuation context remains session-only;
-- after the user supplies important local-only command output that affects the next action;
-- after an accepted decision or sequencing choice that has not yet acquired its authoritative home;
-- before moving into another long or multi-stage thread when the current stopping point would otherwise exist only in conversation;
-- when a tool limitation creates a user-executed handoff that must survive session loss;
-- when the active objective or exact next action changes materially.
-
-Do not update the ledger for every exchange. Prefer compact, high-signal checkpoint updates.
-
-### What belongs in the ledger
-
-Record only context whose loss would materially reduce reconstitution accuracy or force the user to explain the session again, for example:
-
-- current active thread and exact stopping point;
-- current intended next action when it is not already obvious from durable workflow state;
-- local-only state or command results that remain relevant;
-- temporary unresolved decisions/assumptions awaiting durable persistence;
-- important collaboration/tool handoffs in progress;
-- explicit user direction about near-term sequencing that is not represented by tracker dependencies or another durable artifact.
-
-### What does not belong in the ledger
-
-Do not duplicate facts that are already cheaply recoverable from their authoritative source, including:
-
-- full Spec requirements or contracts;
-- issue bodies, verification/review receipts, or blocker ledgers;
-- current architecture already defined by ADRs/docs/wiki;
-- commit histories or branch contents;
-- GitHub Project fields;
-- large command logs once their result is durably reflected elsewhere.
-
-Reference the authoritative artifact instead when useful.
-
-### Ledger lifecycle
-
-Treat the ledger as a maintained scratch pad, not an append-only historical log.
-
-- revise existing entries when the active state changes;
-- remove entries once their information becomes durably persisted elsewhere or is no longer relevant;
-- remove stale local-only assumptions after they are verified or superseded;
-- keep the ledger short enough to scan during every reconstitution;
-- preserve only the **current** recovery state, not a narrative history of prior sessions.
-
-Ledger maintenance is always committed directly to `main`, even when active product work is occurring on another branch. Do not write the ledger checkpoint onto the feature/Spec branch or wait for that branch to merge. Update only this process document for the ledger checkpoint and follow `$conventional-commits` for the commit message.
-
-## Recommended New-Session Prompt
-
-A new session normally needs only this bootstrap message:
-
-```markdown
-We are continuing work on Polaris:
-https://github.com/sponge-b0b/Polaris
-
-Reconstitute our working session using
-`docs/process/session-reconstitution.md`.
-
-Read the repository's current durable state and the Current Session Ledger;
-do not assume previous conversation state is still correct.
-
-After reconstructing the state, tell me where we are, what should happen next,
-and whether you have any genuine blocking questions.
-```
-
-The user may add local-only information when something changed after the ledger was last maintained, but a routine session restart should not require a manually written handoff.
-
-## Design Constraint
-
-Keep the permanent portion of this document focused on **how to recover context**. Keep the Current Session Ledger focused on the small amount of **current ephemeral context** needed to finish recovery.
-
-If a rule, architectural decision, workflow contract, domain definition, audit finding, or delivery state already has an authoritative home elsewhere in Polaris, reference that source rather than copying it into the ledger.
-
-That keeps reconstitution durable without turning this document into a second source of truth.
+#
 
 ---
 
 # Current Session Ledger
 
-> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves it otherwise.
+> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves the conflict otherwise.
 
 **Last maintained:** 2026-08-29
 
 ## Active thread
 
-- The active thread is **common-sense invariant hardening across Polaris agent workflows**: converting correctness-critical prose reasoning into transition-bound state where a mistaken or skipped reasoning step could otherwise authorize `PASS`, `proven`, publication, mutation, closure, routing, or another durable lifecycle transition.
-- The complete audit, design principles, per-skill findings, counterexamples, and hardening order are durably recorded in `docs/process/common-sense-invariant-hardening.md`.
-- The first hardening target, `$spec-contract`, is complete on `main`. It now requires a complete Source Unit Inventory before manifest construction so zero unmapped obligations cannot be achieved by silently failing to notice a normative source unit.
-- The intended next hardening target is `$implement-ticket`, followed by `$verify-root-closure`, `$review-spec`, `$review-architecture`, and `$verify-code` unless new evidence changes the order.
+- The common-sense invariant audit and reasoning model are durable in `docs/process/common-sense-invariant-hardening.md`.
+- The complete audit hardening sequence has been implemented on `main`. Source-universe closure is in the preceding `$spec-contract` commits; the coordinated remaining-skill hardening is commit `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
+- The hardening binds previously prose-only reasoning to explicit working state across proof gates, decomposition, architecture/dependency routing, route clarity, wiki audit/sync, database migration safety, and Wayfinder completion reconciliation.
+- No product/feature branch was modified by this hardening. The next product workflow must be reconstructed from current durable GitHub/repository state rather than from older conversation state.
 
 ## Session-only continuation notes
 
-- The user intentionally paused the active Spec #240 / ticket #260 execution thread to complete the common-sense invariant audit and hardening sequence first.
-- Review/remediation work should become progressively harder to surprise upstream stages: ordinary explicit obligations should be caught by Spec contract, ticket decomposition, implementation, or verification rather than repeatedly rediscovered during review.
-- Hardening must remain generic. Do not encode the latest historical symptom (for example, one fake/fixture or CLI-help defect) as the invariant; bind the underlying proof/universe/semantic-transition rule instead.
-- Avoid creating a universal `$reasoning-integrity` helper that can itself become another checkbox. Enforcement belongs in the transition-owning skill's local state schema.
-- After the hardening sequence is paused or completed and work returns to Spec #240, revalidate current durable branch/tracker state. Because `main` has advanced during hardening, `spec-240` may need another clean `main` merge before ticket #260 pins its `Ticket baseline`.
+- The immediate hardening objective is complete; do not add more defect-specific workflow rules merely because a new example is discovered. First test whether the generic invariant/state machinery already covers the failure.
+- If Spec #240 remains the active delivery thread after durable-state reconstitution, current `main` hardening must be integrated into its branch before relying on the new proof semantics; any HEAD change makes prior exact-HEAD verification/review receipts stale under their owning skills.
+- A temporary remote scratch branch named `workflow-invariant-hardening` was used only to apply deterministic edits and may still exist if the available connector cannot delete refs. Its temporary workflow/script are not present on `main` and are not workflow authority.
+- The agent owns future ledger maintenance on `main`.
 - All Bash command blocks supplied to the user must use a subshell `(...)`.
 
 ## Outstanding ephemeral state
 
-- No local-only command result is required to continue the hardening thread; the relevant audit and completed `$spec-contract` change are already durable on `main`.
-- Do not begin ticket #260 from remembered branch state. Re-read current `main`, `spec-240`, issue #260, and applicable skills before resuming that lifecycle.
+- No known uncommitted Polaris product-code change is represented by this ledger. Local repository state must still be verified when relevant.
+- Re-read the current tracker/branch state before deciding whether the next action is Spec #240 verification/review continuation or the next code-health objective.

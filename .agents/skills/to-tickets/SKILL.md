@@ -214,6 +214,16 @@ An unqualified `yes`, `approved`, or equivalent approves the proposal exactly as
 
 After approval, do not add, remove, merge, split, reinterpret, or reclassify ticket semantics. If a semantic defect is discovered during publishing, return to Step 4 for approval instead of silently repairing it.
 
+### Pre-Publication Spec Branch Guard
+
+After approval and before any mutation in Step 5, execute the complete **Spec Branch Rule** below through Step 4. Treat that rule as a hard precondition to publication even though its procedure is documented later in this file.
+
+Do not create, update, close, label, parent, or change dependencies for any ticket until branch identity, local/remote branch state, upstream tracking, GitHub Development linkage, and Spec baseline metadata have all been verified or persisted as required by that rule.
+
+If any Spec Branch Rule check fails, halt before Step 5 with zero ticket-publication mutations. Do not weaken, bypass, or defer the guard merely because an existing branch is otherwise usable.
+
+After the guard succeeds, continue to Step 5. Do not execute branch setup a second time in the same uninterrupted invocation; reuse the verified branch/baseline state.
+
 ### 5. Publish to the Configured Tracker
 
 Apply only the approved changes, or deterministic metadata-only normalization authorized by Step 4.
@@ -383,6 +393,8 @@ Work the frontier one ticket at a time with `$implement-ticket`, clearing contex
 
 ## Spec Branch Rule
 
+The **Pre-Publication Spec Branch Guard** executes this complete section before Step 5. When this section is reached later in document order during the same uninterrupted invocation, reuse the already verified branch/baseline state rather than rerunning setup. On a resumed invocation, re-run the guard before any new Step 5 mutation.
+
 All tickets for a Spec — initial, Spec Review remediation, or amended-Spec delta — use the same Spec branch and fixed Spec baseline.
 
 Each ticket has its own `Ticket baseline`.
@@ -519,7 +531,10 @@ ALREADY_POSTED=$(gh issue view "$spec_issue_number" --json comments -q '.comment
 
 if [ "$ALREADY_POSTED" -eq 0 ]; then
   gh issue comment "$spec_issue_number" --body "$(printf \
-'## Workspace Metadata\n**Baseline Commit Hash:** %s\n**Branch:** %s\n' \
+'## Workspace Metadata\
+**Baseline Commit Hash:** %s\
+**Branch:** %s\
+' \
 "$BASELINE_COMMIT" "$SPEC_BRANCH")"
 fi
 ```

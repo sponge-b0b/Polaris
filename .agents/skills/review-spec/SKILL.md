@@ -15,7 +15,7 @@ Review the exact verified Spec state along applicable independent axes:
 
 This is review-only. `$verify-spec` owns verification/tool execution and produces the contract being reviewed.
 
-The default review uses **one fresh primary reviewer per applicable axis**. Additional fresh challengers are conditional and targeted; reviewer count is not a substitute for a complete review universe.
+The default review requires **one genuinely fresh primary reviewer per applicable axis**. Additional genuinely fresh challengers are conditional and targeted; reviewer count is not a substitute for a complete review universe. If required fresh reviewer execution is unavailable, review fails closed unless the human owner explicitly authorizes the same-agent fallback defined in **Reviewer Execution Integrity** for the current invocation.
 
 ## Session Independence
 
@@ -37,6 +37,8 @@ Rules:
 * Architecture violations returned by `$review-architecture` are Blocking;
 * inherited-only repository defects unrelated to an exact Spec/Architecture obligation are not current-Spec Blocking findings;
 * smells remain Advisory unless authority explicitly makes them mandatory.
+
+A **reviewer execution override** is distinct from an `Owner-overridden` finding/root disposition. It waives only the fresh-context execution requirement described below; it does not accept, reject, suppress, or reclassify any review finding.
 
 ## 1. Pin Baseline, Branch, and Verified HEAD
 
@@ -304,17 +306,83 @@ Create `ARCH-<n>` cells covering:
 
 `$review-architecture` owns architecture evidence procedure.
 
+### Reviewer Execution Integrity
+
+Independent reviewer execution is part of review validity, not presentation.
+
+A **fresh reviewer** means a genuinely separate agent/subagent context that did not participate in parent orchestration and receives only the authority, cells, and evidence slice assigned to that reviewer role. The parent must never silently simulate multiple fresh reviewer identities inside one context.
+
+Before the first reviewer dispatch, determine whether the current execution environment can create the required genuinely fresh reviewer contexts.
+
+When fresh contexts are available:
+
+```text
+Reviewer execution: independent-subagents
+Reviewer execution override: None
+```
+
+Use genuine fresh contexts for every primary, targeted challenger, and saturation challenger required by this review.
+
+When fresh contexts are unavailable and the current human invocation does **not** contain an explicit reviewer-execution override, halt before any axis review, Pending Review Remediation persistence, or Exit Receipt persistence:
+
+```text
+REVIEW EXECUTION: INDEPENDENCE UNAVAILABLE
+Required: genuinely fresh reviewer contexts
+Review state: not started
+Owner options:
+- re-run `$review-spec` in an environment that supports fresh subagents; or
+- explicitly authorize same-agent reviewer fallback for this review
+```
+
+Do not substitute the parent agent merely because reviewer spawning is unavailable.
+
+#### Human Owner Reviewer-Execution Override
+
+The human owner may explicitly waive the fresh-context requirement for the **current `$review-spec` invocation**. A canonical authorization is:
+
+```text
+OWNER REVIEWER EXECUTION OVERRIDE: authorize same-agent reviewer fallback for this review
+```
+
+Equivalent unambiguous current-prompt wording is acceptable, but the override must be explicit. Do not infer it from:
+
+* the human being repository owner;
+* a prior invocation or prior-session authorization;
+* a finding/root Owner Override;
+* issue comments or Project fields;
+* inability to spawn subagents;
+* a general instruction to continue or use best effort.
+
+The override authorizes the parent agent to execute reviewer roles sequentially in the same context when genuine fresh reviewer contexts are unavailable. Unless the human explicitly narrows the authorization, it covers required primary, targeted challenger, and saturation challenger roles for that one review invocation.
+
+Set:
+
+```text
+Reviewer execution: owner-overridden-same-agent
+Reviewer execution override: explicit current-invocation owner authorization
+```
+
+This override:
+
+* waives **only** genuine fresh-context execution;
+* does not make the same-agent roles fresh or independent, and they must never be reported as such;
+* does not waive review-universe completeness, per-cell disposition, axis authority, Axis-Provenance Gate, challenge/saturation triggers, Root reconciliation, or Exit Gate requirements;
+* does not authorize accepting, rejecting, suppressing, or reclassifying findings merely because the same agent is performing multiple roles;
+* does not override any higher-priority system, safety, security, or tool-execution constraint outside this repository workflow.
+
+Under same-agent fallback, preserve reviewer information separation as far as the environment permits: execute one reviewer role at a time from its assigned authority/cells/evidence, do not intentionally consult Root Blocker history or prior axis findings while acting in a primary role, and do not use the primary conclusion as challenger authority. The durable receipt must disclose the reduced execution independence.
+
 ## 5. Dispatch One Primary Reviewer per Applicable Axis
 
-Spawn exactly one fresh primary reviewer for each applicable axis:
+Execute exactly one primary reviewer role for each applicable axis:
 
 * Standards primary when Standards applies;
 * Spec primary always;
 * Architecture primary when Architecture applies.
 
-Do not spawn a default challenger.
+In `independent-subagents` mode, spawn exactly one genuinely fresh primary reviewer for each applicable axis. In `owner-overridden-same-agent` mode, the parent executes each primary role sequentially under the information-separation discipline above. Do not spawn or simulate a default challenger.
 
-Give each primary:
+Give each primary role:
 
 * only its axis authority;
 * its complete parent-built cells;
@@ -368,7 +436,7 @@ Routing: existing-authority remediation | architecture resolution
 
 ## 6. Conditional Challenge
 
-A fresh targeted challenger is allowed only when a concrete trigger exists.
+A targeted challenger is allowed only when a concrete trigger exists. In `independent-subagents` mode it must be genuinely fresh; in `owner-overridden-same-agent` mode the parent may execute the challenger role under the explicit current-invocation override and must not report it as fresh or independent.
 
 Challenge triggers:
 
@@ -377,7 +445,7 @@ Challenge triggers:
 3. **evidence trigger** — evidence is materially contradictory or insufficient to accept/reject a blocker;
 4. **convergence trigger** — after root reconciliation, a newly accepted finding is a Missed prior finding against a previously satisfied root or exposes a root-definition gap.
 
-For triggers 1–3, dispatch one fresh challenger over only the affected cells/question. Do not show it the primary's conclusion. Its job is independent resolution of the trigger, not a second full-axis review.
+For triggers 1–3, dispatch or execute one targeted challenger over only the affected cells/question. Do not intentionally provide it the primary's conclusion. Its job is resolution of the trigger, not a second full-axis review.
 
 A valid challenger finding does not require primary agreement.
 
@@ -426,13 +494,15 @@ A **Missed prior finding** against a previously satisfied root, or a **root-defi
 Before Pending Review Remediation:
 
 1. derive a **Root Closure Domain Manifest** from the stable root invariant, current Spec contract, applicable architecture, current semantic surface families, and explicitly required sibling/alternate paths;
-2. spawn exactly one fresh **saturation challenger** under the originating axis authority;
+2. execute exactly one **saturation challenger** under the originating axis authority using the current Reviewer Execution mode;
 3. instruct it to inspect every domain item and to add/check any newly discovered sibling surface before returning;
 4. require its final domain coverage to reach `unchecked 0`;
 5. validate any additional findings through the normal Axis-Provenance Gate;
 6. add supported findings to the current frozen set/root mapping before remediation persistence.
 
-Do not spawn another generic whole-axis reviewer.
+In `independent-subagents` mode the saturation challenger must be genuinely fresh. In `owner-overridden-same-agent` mode the parent may execute the role under the explicit current-invocation override and must disclose that reduced independence in durable review provenance.
+
+Do not spawn or simulate another generic whole-axis reviewer.
 
 The saturation challenger must search to a fixed point within the bounded root invariant. If it returns unresolved domain coverage, review is incomplete.
 
@@ -476,6 +546,7 @@ Present:
 Then coverage:
 
 ```text
+Reviewer execution: <independent-subagents | owner-overridden-same-agent>
 Standards: <n cells | N/A>; primary complete; targeted challengers <n>; unchecked 0
 Spec: <manifest n> cells; primary complete; targeted challengers <n>; unchecked 0
 Architecture: <n cells | N/A>; primary complete; targeted challengers <n>; unchecked 0
@@ -523,6 +594,8 @@ If no Blocking findings remain and only Scope corrections must update existing d
 **Branch:** spec-<n>
 **Spec Body Hash:** <hash>
 **Spec Contract Hash:** <hash>
+**Reviewer execution:** <independent-subagents | owner-overridden-same-agent>
+**Reviewer execution override:** <None | explicit current-invocation owner authorization>
 
 ### Standards
 <accepted current Blocking findings / None / N/A>
@@ -564,7 +637,7 @@ If no Blocking findings remain and only Scope corrections must update existing d
 
 Before any Pending Review Remediation comment mutation, render the **complete** packet into `PENDING_REVIEW_FILE=$(mktemp)`. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
 
-Pre-validate the rendered file before POST. Require the exact pending header/status, reviewed HEAD/baseline/branch, Spec body/contract hashes, all packet sections exactly once, and no unresolved template placeholders. Immediately before POST require `HEAD` still equals the passing verification receipt.
+Pre-validate the rendered file before POST. Require the exact pending header/status, reviewed HEAD/baseline/branch, Spec body/contract hashes, reviewer execution mode/override provenance, all packet sections exactly once, and no unresolved template placeholders. Immediately before POST require `HEAD` still equals the passing verification receipt.
 
 POST the validated packet exactly once to the resolved conventional Spec Review issue using file-based JSON encoding, then read back that exact comment and compare bytes before invoking `$review-spec-remediation`:
 
@@ -614,6 +687,7 @@ PASS requires:
 
 * current `HEAD` still matches current verification receipt;
 * `$spec-contract` remains valid;
+* reviewer execution integrity is satisfied by genuine fresh reviewer contexts or an explicit current-invocation human owner reviewer-execution override;
 * every manifest cell reviewed;
 * every applicable Standards/Architecture cell reviewed;
 * no unresolved challenge/saturation coverage;
@@ -648,7 +722,11 @@ Persist:
 **Targeted challengers:** <n>
 **Saturation challengers:** <n>
 **Unchecked coverage cells:** 0
+**Reviewer execution:** <independent-subagents | owner-overridden-same-agent>
+**Reviewer execution override:** <None | explicit current-invocation owner authorization>
 ```
+
+`Primary reviewers`, `Targeted challengers`, and `Saturation challengers` count logical reviewer roles. When `Reviewer execution = owner-overridden-same-agent`, those counts must not be interpreted or described as fresh-subagent counts.
 
 Any later commit or Spec-body change makes the receipt stale.
 

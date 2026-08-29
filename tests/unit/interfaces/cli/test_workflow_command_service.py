@@ -1297,6 +1297,111 @@ async def test_workflow_command_service_reports_control_failure_without_corrupti
     ]
 
 
+@pytest.mark.asyncio
+async def test_workflow_command_service_reports_invalid_control_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    messages: list[str] = []
+    processed = asyncio.Event()
+    inputs = [
+        "unknown-control",
+    ]
+
+    async def read_input() -> str | None:
+        if inputs:
+            return inputs.pop()
+        processed.set()
+        return None
+
+    class FakeFacade:
+        def workflow_exists(
+            self,
+            workflow_name: str,
+        ) -> bool:
+            return workflow_name == "morning_report"
+
+        async def run_workflow(
+            self,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
+        ) -> dict[str, Any]:
+            del execution_id, mode, workflow_inputs, simulation_time
+            del archive_on_completion, checkpoint_on_completion, metadata
+            runtime_execution_id = "facade-invalid-control"
+            if execution_started_handler is not None:
+                execution_started_handler(runtime_execution_id)
+            await asyncio.wait_for(
+                processed.wait(),
+                timeout=1,
+            )
+            return {
+                "success": True,
+                "workflow_name": workflow_name,
+                "execution_id": runtime_execution_id,
+                "execution_result": {
+                    "success": True,
+                    "execution_id": runtime_execution_id,
+                    "status": "succeeded",
+                    "final_context": {
+                        "execution_id": runtime_execution_id,
+                    },
+                },
+            }
+
+        async def pause_workflow(
+            self,
+            execution_id: str,
+            reason: str | None = None,
+            requested_by: str | None = "workflow_facade",
+            metadata: dict[str, Any] | None = None,
+        ) -> None:
+            del execution_id, reason, requested_by, metadata
+            raise AssertionError("invalid input must not call facade control APIs")
+
+    class FakeRuntime:
+        facade = FakeFacade()
+        event_bus = EventBus()
+        policy_engine = None
+        governance_engine = None
+
+    async def build_runtime() -> FakeRuntime:
+        return FakeRuntime()
+
+    monkeypatch.setattr(
+        workflow_command_service,
+        "cli_runtime_scope",
+        _runtime_scope_from_builder(build_runtime),
+    )
+
+    envelope = await WorkflowCommandService().run_workflow(
+        WorkflowRunCommandRequest(
+            workflow_name="morning_report",
+            interactive_control=True,
+            interactive_input=read_input,
+            control_handler=lambda notification: messages.append(
+                notification.to_console(),
+            ),
+        )
+    )
+
+    assert envelope.success is True
+    assert envelope.execution_id == "facade-invalid-control"
+    assert messages == [
+        "[control] interactive control enabled (pause/resume/cancel/help) "
+        "execution=facade-invalid-control",
+        "[control] control command failed execution=facade-invalid-control "
+        "command=unknown-control error=unknown command",
+    ]
+
+
 def test_workflow_run_request_has_no_caller_selected_execution_id() -> None:
     request_fields = {field.name for field in fields(WorkflowRunCommandRequest)}
 

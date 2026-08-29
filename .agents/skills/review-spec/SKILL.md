@@ -554,7 +554,21 @@ Immediately before persistence require `HEAD` still equals the passing receipt.
 
 Invoke `$review-spec-remediation` internally and wait.
 
-If it returns a `$to-tickets` handoff, present the aggregate review first and append the handoff exactly. If no active Blocking remains after corrections, continue to Exit Gate.
+### Mandatory Project Reconciliation — Review Remediation
+
+When `$review-spec-remediation` durably leaves one or more architecture-conforming Blocking roots active and returns a `$to-tickets` handoff, derive the remediation lifecycle from that persisted state and invoke `$project-tracking` as prescribed internal composition **before** presenting the handoff.
+
+Use one reconciliation set:
+
+* parent Spec → base `Spec / Review Remediation / None / Ready`;
+* conventional Spec Review → base `Spec Review / Review Remediation / $to-tickets / Ready` while no executable remediation-ticket children exist;
+* any other formal review artifact whose lifecycle state was durably changed by `$review-spec-remediation`.
+
+Do not create a Spec Review merely for projection. The review issue must already exist because Blocking remediation state required it. Supply current Project Delivery State separately; preserve `Area` and `Priority` unless separately authorized.
+
+`$review-spec` owns these post-review base states; `$project-tracking` owns validation, delivery overlay, and Project mutation. `PROJECT TRACKING: DRIFT` does not roll back the Root Blocker ledger or suppress an otherwise-authorized `$to-tickets` handoff.
+
+If `$review-spec-remediation` returns a `$to-tickets` handoff, present the aggregate review first and append the handoff exactly after mandatory Project reconciliation. If no active Blocking remains after corrections, continue to Exit Gate.
 
 ## Exit Gate
 
@@ -600,9 +614,28 @@ Persist:
 
 Any later commit or Spec-body change makes the receipt stale.
 
+### Mandatory Project Reconciliation — Ready to Merge
+
+A successfully persisted Exit Receipt is the authoritative clean-review transition. From that exact receipt and reviewed `HEAD`, establish the parent Spec's base lifecycle as:
+
+```text
+Artifact Type: Spec
+Workflow State: Ready to Merge
+Work Status: Ready
+Next Skill: $spec-merge-cleanup
+Root Blocker: None
+Completed On: None
+```
+
+Invoke `$project-tracking` as prescribed internal composition for the parent Spec **after** Exit Receipt persistence and **before** the Spec Merge Cleanup Human Handoff. Supply current Project Delivery State separately; preserve `Area` and `Priority` unless separately authorized.
+
+If a conventional Spec Review exists from earlier remediation, include it only when this invocation durably changed its own lifecycle state. Do not manufacture `Spec Review / Complete` merely because the parent Spec passed review; `$spec-merge-cleanup` owns review-issue closure/finalization.
+
+The Project projection and `$spec-merge-cleanup` handoff must derive from the same persisted Exit Receipt. `PROJECT TRACKING: DRIFT` does not invalidate the receipt, roll back `Ready to Merge`, or suppress the otherwise-authorized handoff.
+
 ### Spec Merge Cleanup Human Handoff
 
-After receipt persistence, halt with:
+After receipt persistence and mandatory Project reconciliation, halt with:
 
 > ✅ **Spec review passed.**
 >

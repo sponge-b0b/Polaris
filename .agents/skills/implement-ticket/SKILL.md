@@ -873,11 +873,15 @@ After frontier and dependent state are recovered, assemble one post-transition P
 * every parent/frontier artifact whose lifecycle projection changed from the recovered post-closure frontier;
 * for remediation, the Spec Review when its durable remediation projection changed and the durable Parent Spec when its lifecycle changed.
 
-Recover current project-delivery context before submitting that set. Do not synchronize the completed ticket first and derive its affected parent/frontier afterward. Project reconciliation consumes the already-recovered dependency/frontier truth; it must not discover dependents or infer lifecycle transitions from Project fields.
+For the completed ticket, use its actual artifact type with base `Workflow State = Complete`, `Work Status = Done`, `Next Skill = None`, `Root Blocker` preserved only for a Review Remediation Ticket, and `Completed On` set to the authoritative closure date.
+
+Recover current project-delivery context before submitting that set. Then invoke `$project-tracking` as prescribed internal composition with the **complete** set **before** `Handoff From the Recovered Frontier`. Do not synchronize the completed ticket first and derive its affected parent/frontier afterward. Project reconciliation consumes the already-recovered dependency/frontier truth; it must not discover dependents or infer lifecycle transitions from Project fields.
+
+`$implement-ticket` owns the affected-artifact set and all base lifecycle states derived above. `$project-tracking` owns validation, delivery overlay, and Project mutation.
 
 If authoritative frontier, blocker, lineage, or remediation-ledger reads cannot be completed, the completed ticket remains authoritatively closed. Report the exact unreadable state and do not advertise a downstream lifecycle handoff whose actionability cannot be proven.
 
-Project synchronization failure by itself is projection drift: it never rolls back authoritative ticket closure or changes the recovered native frontier. Report the drift; do not suppress an otherwise-proven downstream handoff solely because the non-authoritative Project projection failed to update.
+Project synchronization failure by itself is projection drift: it never rolls back authoritative ticket closure or changes the recovered native frontier. Report `PROJECT TRACKING: DRIFT`; do not suppress an otherwise-proven downstream handoff solely because the non-authoritative Project projection failed to update.
 
 Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again. If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
 

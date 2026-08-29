@@ -164,7 +164,24 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    If no governed Spec remains open, do not manufacture `Spec Delivery`; let the owning completion/re-entry lifecycle project the map's resulting state.
 
-8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, and source-Wayfinder projection is complete, output handoffs only for Specs in the actionable Spec frontier.
+### Mandatory Project Reconciliation
+
+After all Spec publication/amendment, provenance, and native dependency mutations are durable, and after the source-Wayfinder state in Step 7 has been derived, invoke `$project-tracking` as prescribed internal composition **before** Step 8 or any ordinary return.
+
+Build one reconciliation set from the durable post-transition state:
+
+* every handled open Spec with zero open native Spec blockers → base `Spec / Ready to Ticket / $to-tickets / Ready`;
+* every handled open Spec with one or more open native Spec blockers → base `Spec / Blocked / None / Blocked`;
+* the source Wayfinder map when Step 7 establishes `Spec Delivery` → the exact `Wayfinder Map / Spec Delivery / None / In Progress` projection defined there;
+* any other formal artifact whose base lifecycle state changed during this invocation.
+
+Supply current authoritative Project Delivery State separately from the base lifecycle projection. Preserve existing `Area` and `Priority` unless this invocation has separate authority to change them.
+
+Do not ask `$project-tracking` to discover affected artifacts or infer the lifecycle transition. `$to-specs` owns this set and these base states; `$project-tracking` owns validation, delivery overlay, and Project mutation.
+
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not roll back durable Spec/Wayfinder state and do not suppress an otherwise-authorized Step 8 handoff.
+
+8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, source-Wayfinder projection, and mandatory Project reconciliation are complete, output handoffs only for Specs in the actionable Spec frontier.
 
    Output one copy-ready handoff line per actionable Spec:
 

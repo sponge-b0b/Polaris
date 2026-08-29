@@ -383,6 +383,14 @@ Requirements:
 
 A cell may be `proven` only when its evidence directly establishes the exact subject, required behavior, and material conditions expressed by that manifest cell. Evidence that merely demonstrates nearby health is supporting evidence, not proof of the cell.
 
+#### Manifest Cell Domain Integrity
+
+The domain stated by a manifest cell is part of its predicate. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `repository-wide`, or an explicit surface list into only Spec-owned changes, changed files, targeted tests, cited examples, or surfaces previously covered by implementation tickets.
+
+Ownership classification controls repository Standards/tooling responsibility; it does not shrink the behavioral acceptance domain. If a cell requires all affected fakes/fixtures, absence of stale references, agreement between help/defaults and behavior, or another named/universal surface set, inspect and prove that stated domain even when relevant surfaces are unchanged or Inherited-only.
+
+Evidence that proves only a subset cannot be strengthened by wording. A statement such as `no targeted <X> on changed surfaces` does not prove `no <X> remains` unless the originating cell is explicitly bounded that way. If the full stated domain cannot be established, leave the cell `unresolved`.
+
 Apply these rules before assigning `proven`:
 
 * identify the concrete runtime, source, tracker, document, interface, test seam, or other authoritative surface that embodies the cell;

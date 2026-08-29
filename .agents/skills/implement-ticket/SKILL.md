@@ -414,6 +414,19 @@ Do not automatically run full-suite tests, repository-wide lint/type checks, cov
 
 Do not claim an acceptance criterion is proven without identifiable source/test/document/configuration/tracker evidence appropriate to that criterion.
 
+### Acceptance Domain Integrity
+
+The domain stated by each ticket acceptance criterion is normative. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `root-complete sweep`, `repository-wide`, or an explicit surface list into only changed files, targeted tests, cited examples, or the subset touched during implementation.
+
+Before marking a criterion proven:
+
+1. recover its exact predicate and stated domain;
+2. enumerate the required surfaces/reference kinds from the criterion and parent Spec;
+3. select evidence that covers that whole domain;
+4. if evidence covers only a subset, leave the criterion unresolved and continue implementation/verification.
+
+The changed-surface inventory may guide what this ticket edits, but it does not reduce the verification domain of an acceptance criterion. Closure evidence must preserve that domain: evidence such as `no targeted <X> on changed surfaces` cannot prove `no <X> remains` unless the criterion itself is explicitly bounded that way.
+
 If required verification fails, fix it within ticket scope and rerun it. Do not persist completion or close while required verification remains unresolved.
 
 ## Spec Review Root Closure

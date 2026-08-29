@@ -278,3 +278,47 @@ Keep findings concise and evidence-based. Coverage may be longer because it is a
 * treat unmerged branch work as current implementation.
 
 The caller owns remediation and lifecycle routing.
+
+## Transition-Bound Architecture Review Coverage
+
+Architecture review completeness has two separate gates: complete construction of the applicable architecture universe, then sound disposition of every cell. Neither may be inferred from `checked = all cells the reviewer happened to create`.
+
+Before dispositioning `ARCH-*` cells, build a working **Architecture Candidate Inventory** from the supplied Architecture Impact plus current accepted authorities and directly implicated canonical owners, paths, boundaries, lifecycles, sources of truth, and authority-required sibling/alternate surfaces.
+
+Each candidate records:
+
+```text
+Candidate: AC-<n>
+Source/authority: <exact source>
+Architectural dimension/surface: <exact concern>
+Disposition: <ARCH-<n> | excluded>
+Reason: <None | exact authority/scope reason for exclusion>
+```
+
+Every candidate must be dispositioned. Exclusion is explicit evidence-bearing state, not omission. Before review can complete require `Unclassified architecture candidates: 0` and `Excluded candidates without reason: 0`.
+
+For every `ARCH-*` cell maintain:
+
+```text
+Claim: <authoritative architecture obligation>
+Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
+Falsifier: <concrete current state that would make the claim false>
+Evidence: <direct current evidence>
+Survivability: <excluded | survives>
+Assumptions: <None | material assumption + authority/direct proof>
+Disposition: <checked-no-finding | Blocking | Advisory | not-applicable | unresolved>
+```
+
+`checked-no-finding` requires `Survivability: excluded` and no unproven material assumption. If all inspected evidence could succeed while the architecture claim remains false, the cell is unresolved or finding-bearing, never clean by default.
+
+Return architecture coverage counts with the existing review result and require:
+
+```text
+Missing ARCH cells: 0
+Unknown ARCH cells: 0
+Unchecked/unresolved ARCH cells: 0
+Incomplete checked-no-finding proof records: 0
+Unclassified architecture candidates: 0
+```
+
+These are working review records; concise human reporting remains acceptable.

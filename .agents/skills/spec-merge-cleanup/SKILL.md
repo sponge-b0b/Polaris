@@ -527,3 +527,38 @@ Cleanup is complete only when the applicable path has:
 A failed cleanup step after successful Spec completion does not invalidate the completed merge/direct close. A later invocation must recover from durable completion evidence and resume the remaining idempotent cleanup instead of requiring the Spec to be open, re-establishing focus, or repeating the completion transition.
 
 Wayfinder reconciliation must never guess missing lineage or roll back an otherwise successful Spec merge solely because provenance cannot be recovered. Report ambiguity/inconsistency explicitly and leave the affected map untouched rather than manufacturing lifecycle truth.
+
+## Transition-Bound Wayfinder Completion Reconciliation
+
+Spec completion and branch cleanup remain governed by the existing receipt/phase mechanics. The semantic decision to close or leave each governing Wayfinder must additionally be represented explicitly.
+
+For every current governing Wayfinder recovered for the completed Spec, build one working **Wayfinder Completion Record**:
+
+```text
+Wayfinder: #<n>
+Governed Specs: <complete exact set + open/closed state>
+Open Wayfinder decisions: <count + identities>
+Unresolved in-scope fog: <count + items>
+Governance/provenance ambiguity: <None | exact ambiguity>
+Disposition: <complete | remain-open | ambiguous>
+Evidence: <canonical handoffs/provenance/current tracker state>
+```
+
+Rules:
+
+* `complete` requires every currently governed Derived/Remediation Spec closed, zero open Wayfinder decisions, zero unresolved in-scope fog, and no governance ambiguity;
+* `remain-open` requires the exact remaining governed Spec/decision/fog state and never creates a synthetic blocker;
+* `ambiguous` leaves that Wayfinder untouched and reports the reconciliation failure; a successful Spec merge is not rolled back;
+* a governing Wayfinder may not disappear from reconciliation because another governor was already dispositioned.
+
+Before successful cleanup return require:
+
+```text
+Governing Wayfinders: <n>
+Completion records: <n>
+Missing governors: 0
+Unclassified dispositions: 0
+Complete dispositions with unresolved completion predicates: 0
+```
+
+If ambiguity prevents those counts from reaching zero, report the post-completion reconciliation failure as already required by this skill rather than claiming full cleanup success.

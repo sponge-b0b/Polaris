@@ -334,3 +334,40 @@ If one was omitted from the ticket, the delta is incomplete.
 The returned ticket blocks are the authoritative semantic input to `$to-tickets`' approval proposal. `$to-tickets` may improve presentation but must not condense, merge, reclassify, or omit any returned obligation.
 
 Return control to `$to-tickets` at its approval/publishing step.
+
+## Transition-Bound Root Delta Coverage
+
+For Spec Review remediation, the cumulative active Root Blocker acceptance matrix is a finite source universe. Before returning any ticket delta, materialize one **Root Delta Coverage** row for every active cell of every unresolved root:
+
+```text
+Root: RB-<n>
+Cell: <stable acceptance-cell ID>
+Current status: <open | regressed | unproven | satisfied | owner-overridden | scope-retired>
+Obligation type: <remediation | verification | preservation | retired>
+Ticket mapping: <open/new ticket identity | None>
+Reason/authority: <why the disposition and mapping are complete>
+```
+
+Required mapping:
+
+* `open` / `regressed` → `remediation` and active remediation-ticket coverage;
+* `unproven` → `verification` unless direct evidence establishes missing/incorrect implementation, in which case `remediation`;
+* `satisfied` on an unresolved same root → `preservation`, carried to every applicable remediation ticket and completely to the final root-closing ticket;
+* `owner-overridden` / durably `scope-retired` → `retired` with the exact durable authority; neither status may be inferred here.
+
+Every active cell appears exactly once. A cell may map to more than one ticket only when shared-surface preservation or staged remediation genuinely requires it, and the reason must state why. Closed historical tickets are evidence, not active remediation coverage.
+
+Before returning the delta require:
+
+```text
+Active root cells: <n>
+Root delta rows: <n>
+Missing cells: 0
+Unknown cells: 0
+Unclassified obligation types: 0
+Required remediation without active ticket coverage: 0
+Satisfied same-root cells omitted from preservation: 0
+Rows without reason/authority: 0
+```
+
+An empty remediation delta is legal only after this table proves that every active cell is verification-only, preserved without new work, or durably retired/overridden. Do not derive emptiness from absence of newly noticed symptoms.

@@ -203,3 +203,40 @@ Full repository verification was not run.
 ```
 
 If any required contract-impact discovery or targeted check remains unresolved, do not report targeted verification as passed.
+
+## Transition-Bound Contract Consumer Closure
+
+Whenever Contract Migration Proof applies, `Contract-impact closure: passed` requires an explicit working **Consumer Closure Manifest**. Searching for known obsolete symbols or broad sinks is supporting evidence; it does not define the consumer universe.
+
+Derive candidate consumers from the authoritative contract and repository relationships/callers/composition/test substitutions/configuration surfaces that can exercise or model that contract. Every discovered candidate receives exactly one row:
+
+```text
+Consumer: CC-<n>
+Surface: <path/symbol/config/test seam>
+Role: <caller | implementation | protocol | adapter | fake/fixture | bootstrap/composition | configuration | other>
+Authoritative contract: <exact contract/source>
+Disposition: <conforming | migrated | retained-by-authority | unresolved>
+Evidence: <direct current evidence>
+```
+
+Rules:
+
+* `conforming` means the current consumer directly satisfies the authoritative contract;
+* `migrated` means an old contract use was found and current state proves migration;
+* `retained-by-authority` requires explicit current authority for compatibility; convenience or a passing test is insufficient;
+* `unresolved` prevents contract-impact closure;
+* a candidate may not disappear because it is unchanged, inherited, test-only, indirect, already searched by name, or outside the changed-file list.
+
+Before `Contract-impact closure: passed` require:
+
+```text
+Contract consumer candidates: <n>
+Consumer closure rows: <n>
+Unclassified candidates: 0
+Unresolved consumers: 0
+Retained compatibility without authority: 0
+```
+
+Then apply the general counterexample-survivability question to the closure claim: could every cited check pass while an authoritative consumer still accepts, emits, models, or depends on the obsolete contract? If yes, closure remains unresolved.
+
+The final verification report must include the consumer-closure counts whenever Contract Migration Proof applies. This requirement is contract-neutral and must not be reduced to a catalog of previously seen migration defects.

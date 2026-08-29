@@ -943,3 +943,64 @@ A prose sentence that merely names the next artifact does **not** satisfy the ha
 Do not invoke the next `$implement-ticket` or `$verify-spec` lifecycle stage implicitly.
 
 An unresolved required gate keeps the ticket open, but does not by itself authorize stopping. If actionable in-scope work remains, continue; a pre-completion handoff must identify the concrete blocker that requires the halt.
+
+## Transition-Bound Ticket Completion
+
+The reasoning gates in this skill are part of the ticket state machine, not advisory prose. A ticket may not transition to **Completed**, close, or emit a completion handoff until the working states below are complete.
+
+### Ticket Acceptance Coverage
+
+Before final verification, materialize the complete current **Ticket Acceptance Universe** from the ticket and its authoritative parent/remediation contract. Include every explicit acceptance criterion and every distinct normative build, verification, preservation, negative-path, or root-closure obligation carried by the ticket. Do not build this universe from changed files, implementation notes, tests already written, or known defect patterns.
+
+Create exactly one working row per obligation:
+
+```text
+Acceptance: TA-<n>
+Source: <exact ticket/root/parent obligation>
+Claim: <authoritative obligation>
+Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
+Falsifier: <concrete current state that would make the claim false>
+Evidence: <direct current evidence excluding the falsifier>
+Survivability: <excluded | survives>
+Assumptions: <None | material assumption + authority/direct proof>
+State: <unchecked | proven | not-applicable | unresolved>
+```
+
+`proven` is legal only when Predicate, Falsifier, and Evidence are concrete, `Survivability: excluded`, and every material assumption is authoritative or directly proven. `not-applicable` requires an exact source-grounded condition; it may not mean inconvenient, unchanged, already tested, inherited, or apparently covered elsewhere. If all cited checks could pass while the claim remains false, record `Survivability: survives` and keep the row unresolved.
+
+Before ticket completion require:
+
+```text
+Ticket acceptance obligations: <n>
+Acceptance coverage rows: <n>
+Missing obligations: 0
+Unknown rows: 0
+Unchecked: 0
+Unresolved: 0
+Incomplete proof records: 0
+Survivability not excluded for proven rows: 0
+Unproven material assumptions: 0
+```
+
+A passing test count, closed sibling ticket, changed-surface sweep, or implementation narrative cannot substitute for this reconciliation.
+
+### Applicability Closure
+
+Reconcile the earlier applicability plan against the **actual final change surface** immediately before completion. Every candidate helper/check named by this skill must still have an explicit `applicable` or `not-applicable` disposition with a concrete reason. Newly introduced surfaces must be classified before completion. Omission is not `not-applicable`.
+
+### Architecture Routing Disposition
+
+Before either continuing implementation on a potentially architectural concern or emitting the Architecture Human Handoff, materialize every candidate durable-semantic question discovered during the ticket:
+
+```text
+Candidate: AR-<n>
+Durable semantic at issue: <owner/path/key/boundary/lifecycle/failure semantic or None>
+Current governing authority: <authority/evidence>
+Gap: <None | exact unresolved choice/conflict>
+Disposition: <implementation | architecture-blocker>
+Reason: <why current authority is sufficient or why invention/change is required>
+```
+
+Every candidate must be dispositioned. `implementation` requires current authority to determine the durable semantic without invention. `architecture-blocker` requires a concrete unresolved durable choice or authority conflict. A concern may not disappear merely because implementation found a convenient mechanism, and ordinary missing wiring may not be promoted to architecture merely to halt.
+
+These working records need not be copied verbatim into the final human response; they are mandatory transition state that must exist before the corresponding lifecycle transition is legal.

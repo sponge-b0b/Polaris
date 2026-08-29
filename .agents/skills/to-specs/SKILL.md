@@ -257,3 +257,45 @@ A description of the things that are out of scope for this spec.
 ## Further Notes
 
 Any further notes about the feature.
+
+## Transition-Bound Planning Partition and Spec Readiness
+
+The phrase **complete currently specifiable set** is an enforceable partition, not a prose judgment.
+
+Before publishing or amending Specs, materialize a working **Planning Source Partition** over the complete current planning source. For a Wayfinder source this includes every resolved decision relevant to the destination, every current in-scope `Not yet specified` fog item, and every distinct destination obligation already made explicit by the map.
+
+```text
+Planning item: PI-<n>
+Source: <decision/fog/destination anchor>
+Disposition: <spec-candidate | deferred-architecture | already-represented | out-of-scope>
+Spec: <candidate/existing Spec | None>
+Reason/authority: <why the disposition is complete>
+```
+
+Every planning item must be dispositioned. `already-represented` names the exact existing Spec obligation/handoff. `deferred-architecture` preserves the unresolved question/fog and may not be treated as specifiable. `out-of-scope` requires durable planning-source authority. Omission is not a disposition.
+
+Before any Spec publication require:
+
+```text
+Planning-source items: <n>
+Partition rows: <n>
+Missing/unclassified items: 0
+Specifiable items without a Spec candidate: 0
+Deferred items without unresolved architecture evidence: 0
+Rows without reason/authority: 0
+```
+
+For each Spec candidate also create an **Architecture Readiness Record**:
+
+```text
+Spec candidate: <identity/title>
+Affected architecture obligations: <exact set>
+Current accepted authority: <sources>
+Unresolved durable choices: <count + details>
+Concrete implementability: <pass | blocked>
+Evidence: <contracts/production seams inspected where applicable>
+```
+
+Publication requires `Unresolved durable choices: 0` and `Concrete implementability: pass`. Missing implementation wiring is not an unresolved durable choice when authority already determines its semantics.
+
+After publication/amendment and dependency reconciliation, recompute the partition against durable handoffs and recompute the Spec/actionable frontier before emitting any `$to-tickets` handoff. The final handoff set must be derivable from the completed partition, not from publication order or the subset most recently discussed.

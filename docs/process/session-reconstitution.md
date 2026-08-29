@@ -221,19 +221,23 @@ When local execution is required:
 ## Active thread
 
 - The common-sense invariant audit and reasoning model are durable in `docs/process/common-sense-invariant-hardening.md`.
-- The complete audit hardening sequence has been implemented on `main`. Source-universe closure is in the preceding `$spec-contract` commits; the coordinated remaining-skill hardening is commit `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
-- The hardening binds previously prose-only reasoning to explicit working state across proof gates, decomposition, architecture/dependency routing, route clarity, wiki audit/sync, database migration safety, and Wayfinder completion reconciliation.
-- No product/feature branch was modified by this hardening. The next product workflow must be reconstructed from current durable GitHub/repository state rather than from older conversation state.
+- First-stage transition-bound hardening is durable through `$spec-contract` source-universe closure and commit `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
+- A full `$verify-spec` rerun for Spec #240 at exact HEAD `06118a1709f78f3eed9bb322be161ca2621d8f03` still produced a false PASS: durable receipt evidence for several fake/fixture contract cells did not establish those cells' direct subject, while `tests/unit/interfaces/cli/test_backtest_command.py` still contains a `FakeWorkflowFacade.run_workflow()` contract that accepts stale parameters not present in `BacktestGovernedWorkflowExecutionService`.
+- That false PASS exposed two generic gaps now documented in the audit: **No Self-Certifying Semantic Transition** and **Nested Universe Closure**.
+- Second-stage `$verify-spec` hardening is commit `3abffb3ee05a556ef2e8307a10a03dd32ce640b5` (`fix(verify-spec): require independent proof certification`). It replaces parent self-certified semantic cell proof with durable Proof Objects, nested-domain witnesses, proof-packet hashing, and genuinely fresh non-mutating proof certification before `proven` or `not-applicable` may be derived.
 
 ## Session-only continuation notes
 
-- The immediate hardening objective is complete; do not add more defect-specific workflow rules merely because a new example is discovered. First test whether the generic invariant/state machinery already covers the failure.
-- If Spec #240 remains the active delivery thread after durable-state reconstitution, current `main` hardening must be integrated into its branch before relying on the new proof semantics; any HEAD change makes prior exact-HEAD verification/review receipts stale under their owning skills.
-- A temporary remote scratch branch named `workflow-invariant-hardening` was used only to apply deterministic edits and may still exist if the available connector cannot delete refs. Its temporary workflow/script are not present on `main` and are not workflow authority.
+- The immediate next product step is to merge current `main` into `spec-240` (merge, do not rebase) and rerun `$verify-spec` under the new proof-certification policy.
+- Any merge into `spec-240` changes exact HEAD and therefore stales the current receipt at `06118a1709f78f3eed9bb322be161ca2621d8f03`.
+- The new `$verify-spec` policy also makes legacy semantic cell proof non-inheritable unless it came through independently certified Proof Objects; the next run should therefore rebuild and freshly certify semantic proof.
+- Do not run `$review-spec` merely to rediscover the known surviving counterexample. First test whether the new `$verify-spec` proof-certification gate catches it.
+- Future workflow hardening should remain generic: first test failures against Transition-Bound Reasoning, Universe Closure, Nested Universe Closure, Explicit Escape Disposition, No Self-Certifying Semantic Transition, falsification-first proof, and evidence entailment before adding a defect-specific rule.
+- Temporary hardening branches/scripts/workflows are scratch only and are not workflow authority; the scratch branch used for the second-stage edit is reset to `main` after durable commits are imported.
 - The agent owns future ledger maintenance on `main`.
 - All Bash command blocks supplied to the user must use a subshell `(...)`.
 
 ## Outstanding ephemeral state
 
 - No known uncommitted Polaris product-code change is represented by this ledger. Local repository state must still be verified when relevant.
-- Re-read the current tracker/branch state before deciding whether the next action is Spec #240 verification/review continuation or the next code-health objective.
+- Re-read the current `main`, `spec-240`, issue #240 receipt/history, and Project state before acting in a fresh session; durable state wins if the user has already completed the merge or rerun.

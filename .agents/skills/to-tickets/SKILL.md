@@ -582,3 +582,41 @@ If one frontier ticket is available, halt with:
 If multiple frontier tickets are available, output one copy-ready `$implement-ticket` line per ticket and let the user choose which fresh implementation session to start.
 
 Do not invoke `$implement-ticket` implicitly.
+
+## Transition-Bound Decomposition Coverage
+
+Ticket publication is authorized only after the complete source contract has been dispositioned into executable or explicitly non-executable work. A well-formed set of proposed tickets is not proof that the decomposition universe was complete.
+
+For an originating Spec, use the current `$spec-contract` contract as the decomposition universe. If the current invocation does not already hold a valid contract for the exact Spec body/branch/baseline/HEAD, invoke `$spec-contract` in `build` mode after branch/baseline readiness and before approval. `$spec-contract` is source parsing/contract construction here; it does not verify implementation.
+
+Build one working **Decomposition Coverage** row per manifest cell:
+
+```text
+Cell: <manifest ID>
+Requirement: <authoritative requirement>
+Disposition: <ticket | verification-only | no-implementation-work | out-of-scope>
+Ticket: <proposed/existing ticket identity | None>
+Reason/authority: <why this disposition completely carries the cell>
+```
+
+Rules:
+
+* `ticket` requires the mapped ticket's acceptance contract to preserve the cell's full predicate/domain; several cells may map to one coherent ticket;
+* `verification-only` is valid only when current implementation work is not required and the obligation still receives later proof;
+* `no-implementation-work` requires direct evidence that the Spec obligation is already realized or purely declarative while remaining part of later Spec verification;
+* `out-of-scope` requires the originating Spec itself to establish that disposition; do not invent scope retirement during ticketing;
+* omission is never an escape disposition.
+
+Before presenting the approval proposal and again before publication require:
+
+```text
+Spec contract cells: <n>
+Decomposition coverage rows: <n>
+Missing cells: 0
+Unknown rows: 0
+Ambiguous mappings: 0
+Unclassified dispositions: 0
+Disposition rows without reason/authority: 0
+```
+
+Human approval authorizes publication of the exact complete proposal; it does not waive decomposition completeness. For Spec Review remediation, `$to-remediation-tickets` owns its Root Delta Coverage and returns that complete semantic delta; preserve it without condensation or omission.

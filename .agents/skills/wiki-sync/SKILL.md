@@ -442,3 +442,33 @@ Derived wiki content must never conceal ambiguity in its sources.
 * persist derivable dependency graphs, inventories, or call chains.
 
 `$wiki-sync` maintains derived knowledge around a specific change. The `$wiki-lint` skill independently checks the whole system.
+
+## Transition-Bound Affected Knowledge Routing
+
+For a bounded `$wiki-sync` invocation, `no durable knowledge changed` is a semantic disposition and must be supported by an explicit affected-knowledge universe.
+
+Before deciding mutation vs no-op, build a working **Affected Knowledge Routing Record** from the current change and authoritative routing evidence:
+
+```text
+Candidate: WK-<n>
+Changed surface/authority: <exact source>
+Candidate entity/claim: <exact entity + claim/section>
+Routing basis: <routing anchor | inline citation | changed authority | boundary evidence | other direct evidence>
+Disposition: <affected | not-affected | unresolved>
+Reason/evidence: <why durable knowledge changes or does not>
+```
+
+The candidate universe must include every entity/claim surfaced by applicable Routing Anchors, direct inline citations to changed authoritative documents, and any additional entity boundary directly crossed by the diff/current change. Context-economy rules still apply after this routing universe is established; they may narrow how much text is read, not which surfaced candidates receive a disposition.
+
+`no durable knowledge changed` is legal only when:
+
+```text
+Affected-knowledge candidates: <n>
+Missing/unclassified candidates: 0
+Unresolved candidates: 0
+Affected candidates requiring mutation: 0
+Not-affected candidates without reason/evidence: 0
+Unresolved source conflicts: 0
+```
+
+When durable knowledge changes, the entity/index/log mutation set must correspond to the `affected` candidates and remain atomic under the existing Wiki Mutation rules. Do not create wiki edits for candidates explicitly proven `not-affected`, and do not silently omit an `affected` candidate because another entity was updated.

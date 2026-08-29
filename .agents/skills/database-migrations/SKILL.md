@@ -286,3 +286,42 @@ Database migration work is incomplete while any required condition remains unres
 Before 1.0, **existing disposable data is never a valid reason to leave one of these conditions unresolved**.
 
 Report unresolved database verification explicitly.
+
+## Transition-Bound Migration Safety and Completion
+
+Two judgment-bearing transitions in this skill require explicit working state: destructive pre-1.0 reset authorization and completion of a changed migration contract.
+
+### Environment Disposition Before Destructive Reset
+
+Before any destructive reset, record:
+
+```text
+Target identity: <database/environment identifier without secrets>
+Project version: <pyproject version>
+Repository-local evidence: <evidence>
+Development/test evidence: <evidence>
+Shared/production/data-preserving contrary evidence: <None | evidence>
+Disposable: <yes | no | unknown>
+```
+
+Only `Disposable: yes` authorizes the pre-1.0 destructive reset. `unknown` and `no` halt. The pre-1.0 policy removes the need for an extra human confirmation **after** disposability is proven; it does not permit the agent to assume disposability because reset would be convenient. Never print connection strings while establishing this state.
+
+### Migration Contract Completion Record
+
+For every migration changed by the current work, maintain:
+
+```text
+Migration: <revision/path>
+Authoritative model/schema delta: <exact affected objects>
+Model/migration correspondence: <pass | unresolved>
+Upgrade proof: <pass | unresolved>
+Required schema inspection: <pass | unresolved>
+Downgrade/prior-schema proof: <pass | not-applicable-with-authority | unresolved>
+Final re-upgrade/head/check: <pass | unresolved>
+Required migration/PostgreSQL tests: <pass | not-applicable-with-reason | unresolved>
+External prerequisites: <satisfied | unresolved>
+```
+
+Completion requires every applicable field `pass`, every `not-applicable` disposition to carry the exact policy/environment reason, and zero unresolved fields. A successful `alembic upgrade`, revision stamp, or test subset cannot stand in for the other required lifecycle predicates.
+
+These records are working safety state; concise reporting remains sufficient.

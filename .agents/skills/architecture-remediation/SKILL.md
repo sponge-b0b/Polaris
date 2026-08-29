@@ -283,3 +283,39 @@ This skill is complete when:
 `$wayfinder` owns architectural resolution and authority reconciliation.
 
 `$to-specs` / `$to-remediation-specs` own propagating changed architecture back into an existing Spec before implementation resumes.
+
+## Transition-Bound Architecture Blocker Disposition
+
+Architecture routing decisions that suppress or create durable decision work must be explicit working state.
+
+After capturing the caller blocker set, create one **Architecture Blocker Disposition** row per reported blocker before deduplication:
+
+```text
+Blocker: AB-<n>
+Caller obligation/question: <exact source>
+Underlying durable choice(s): <owner/path/key/boundary/lifecycle/failure semantic>
+Coupling group: <CG-<n>>
+Existing authority: <resolves | partial | unresolved>
+Authority/evidence: <exact accepted source and durable choice>
+Result: <return-to-caller | decision-work>
+Decision ticket: <existing/new ticket | None>
+```
+
+Decision Coupling must itself be reflected by the `Coupling group`: every blocker belongs to exactly one group, and the group must explain why its questions cannot be resolved independently. Do not silently merge caller blockers merely because they concern the same subsystem.
+
+`Existing authority: resolves` and `Result: return-to-caller` are legal only when the recorded authority directly determines every durable choice required by that blocker. Apply this counterexample test: **could the blocked work still have to invent a durable semantic while all cited authority remains true?** If yes, the blocker is `partial` or `unresolved`, not resolved.
+
+For every coupling group containing any unresolved/partial blocker, exactly one open governing Wayfinder decision must represent that independent durable decision unless authoritative existing tracker state already provides that exact ticket.
+
+Before either resolved-authority return or unresolved-decision Human Handoff require:
+
+```text
+Caller blockers: <n>
+Disposition rows: <n>
+Missing blockers: 0
+Unassigned coupling groups: 0
+Resolved blockers with incomplete durable-choice proof: 0
+Unresolved coupling groups without exactly one open decision ticket: 0
+```
+
+These rows are routing state only and need not be persisted as a second architecture registry. The Wayfinder decisions/accepted authorities remain durable truth.

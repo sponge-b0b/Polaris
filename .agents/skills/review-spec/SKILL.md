@@ -777,3 +777,39 @@ After receipt persistence and mandatory Project reconciliation, halt with:
 Then stop.
 
 Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns merge, closure, branch cleanup, and Wayfinder completion reconciliation.
+
+## Transition-Bound Review Proof State
+
+Reviewer Claim-Proof Integrity is an enforceable state transition. A reviewer may not return `checked-no-finding` merely after acknowledging falsification-first reasoning.
+
+For every primary, targeted-challenger, and saturation-challenger cell actually dispositioned, maintain a working record:
+
+```text
+Cell: <STD-* | Spec manifest ID | ARCH-*>
+Claim: <assigned authoritative claim>
+Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
+Falsifier: <concrete current state that would make the claim false>
+Evidence: <direct inspected evidence>
+Survivability: <excluded | survives>
+Assumptions: <None | material assumption + authority/direct proof>
+Disposition: <checked-no-finding | Blocking | Advisory | not-applicable | unresolved>
+```
+
+`checked-no-finding` requires concrete Predicate/Falsifier/Evidence, `Survivability: excluded`, and no unproven material assumption. If every cited inspection could succeed while the claim remains false, the reviewer must not return `checked-no-finding`; use the axis-appropriate finding or `unresolved` result. `not-applicable` must cite the exact condition/authority that removes the cell from applicability.
+
+The parent must require, across the complete review universes before the Exit Gate:
+
+```text
+Review universe cells: <n>
+Disposition rows: <n>
+Missing cells: 0
+Unknown cells: 0
+Unchecked/unresolved cells: 0
+Incomplete checked-no-finding proof records: 0
+Survivability not excluded for checked-no-finding cells: 0
+Unproven material assumptions: 0
+```
+
+Fresh reviewer independence remains mandatory exactly as defined above. These records strengthen each reviewer role; they do not permit the parent to substitute its own reasoning for a required fresh reviewer or to expose historical Root Blocker state to primaries.
+
+The durable Exit Receipt may remain concise. The working proof state must nevertheless exist before the parent may persist a passing Exit Receipt or invoke `$spec-merge-cleanup`.

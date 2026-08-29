@@ -207,3 +207,41 @@ Report:
 If a Spec's decision delta is empty, make no semantic changes to that Spec and report that it is already synchronized with the input Wayfinder.
 
 If the Architecture Completeness Preflight fails, leave all existing Specs and provenance unchanged and present the Human Handoff.
+
+## Transition-Bound Decision Consumption
+
+Wayfinder decision provenance is a state transition. A decision ID may not be added to `wayfinder-source` or `wayfinder-remediation` consumption metadata merely because the decision was read or a Spec was edited.
+
+For every decision in every per-Spec decision delta, create a working **Decision Consumption Record**:
+
+```text
+Decision: #<n>
+Target Spec: #<n>
+Affected obligations/sections: <exact mapping>
+Semantic representation: <complete | incomplete>
+Architecture implementability: <pass | blocked>
+Evidence: <current Spec/authority/concrete-seam evidence>
+Consumption authorized: <yes | no>
+```
+
+`Consumption authorized: yes` requires:
+
+* every material consequence of that decision for the target Spec is mapped to an existing or amended obligation/section, or explicitly shown already represented;
+* `Semantic representation: complete`;
+* `Architecture implementability: pass` under the existing completeness preflight;
+* no unresolved ambiguity about the decision's applicability to that Spec.
+
+A decision that only clarifies or supersedes existing text may legitimately add no new requirement, but its record must name the existing representation. A partially incorporated decision remains `no` and its provenance marker must not advance.
+
+Before any provenance mutation require:
+
+```text
+Decision-delta items: <n>
+Decision consumption records: <n>
+Missing decisions: 0
+Incomplete semantic representations: 0
+Architecture-blocked consumption records: 0
+Unauthorized decisions proposed for consumption: 0
+```
+
+Only after all records for the candidate amendment are authorized may the Spec body and corresponding provenance consumption advance atomically. This prevents durable provenance from claiming a decision was consumed when its semantic effect was only partially represented.

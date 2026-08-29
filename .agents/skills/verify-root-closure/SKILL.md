@@ -480,3 +480,36 @@ A verifier-integrity failure produces no closure verdict and requires fresh disp
 `$implement-ticket` alone owns correcting consolidated failures, applying Architecture vs. Implementation to architecture-blocker candidates, rerunning affected implementation verification, rebuilding Proposed Root Closure Evidence, requesting fresh human authorization, dispatching a fresh verifier, committing/pushing when applicable, persisting final Root Closure Evidence/Reconciliation, and closing the ticket.
 
 This skill does not replace `$verify-code`, `$verify-spec`, or `$review-spec`.
+
+## Transition-Bound Root Proof Records
+
+The Root Closure Coverage Manifest is the verifier's enforceable proof state. The Claim-Proof Integrity rules above are not satisfied by prose acknowledgment alone.
+
+Augment every `RC-*` working row with:
+
+```text
+Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
+Falsifier: <concrete current repository/runtime/tracker state that would make the obligation false>
+Survivability: <excluded | survives>
+Assumptions: <None | material assumption + authority/direct proof>
+```
+
+A row may transition to `State: proven` only when:
+
+* the authoritative Obligation and Surfaces are present;
+* Predicate and Falsifier are concrete and derived before evidence is accepted as sufficient;
+* Evidence directly excludes the Falsifier across the stated domain;
+* `Survivability: excluded`;
+* every material assumption is established by current authority or direct proof.
+
+If all cited checks can pass while the obligation is false, record `Survivability: survives` and use `unproven`. A pattern search, test pass, unchanged file, prior PASS, or Proposed Root Closure Evidence cannot fill a missing proof-record field by implication.
+
+The Root Closure Completeness Gate additionally requires:
+
+```text
+Incomplete RC proof records: 0
+Surviving falsifiers on proven cells: 0
+Unproven material assumptions on proven cells: 0
+```
+
+Do not emit `ROOT CLOSURE: PASS` unless these counts are zero in addition to the existing manifest-completeness requirements. This does not change verifier independence: the fresh non-mutating verifier remains the only actor authorized to certify root closure.

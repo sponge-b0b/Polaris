@@ -533,3 +533,36 @@ Always hand `$to-specs` the **Wayfinder map**, never an individual decision tick
 The project-delivery focus remains on the governing Wayfinder across this handoff; route clarity does not release or switch focus.
 
 The user may run unblocked tickets in parallel, so expect other sessions to edit the tracker concurrently.
+
+## Transition-Bound Route Clarity
+
+`Route is clear` is a lifecycle transition and must be derived from explicit current state rather than from the absence of newly noticed questions.
+
+Immediately before projecting a map as `Ready to Spec`, closing a destination-complete map, or emitting the route-clear Human Handoff, build a working **Route Clarity Record** from the complete current map and applicable architecture state:
+
+```text
+Open decision tickets: <count + identities>
+Blocked/non-actionable open decisions: <count + identities>
+Unresolved in-scope Not yet specified fog: <count + items>
+Unresolved architecture implementability obligations: <count + items>
+Unresolved source/authority conflicts: <count + items>
+Required authoritative records unreconciled: <count + items>
+Wayfinder-owned repository state uncommitted/unpushed: <count/state>
+Required project-delivery reconciliation: <complete | unresolved>
+Route clarity: <clear | not-clear>
+```
+
+`Route clarity: clear` requires:
+
+* open decision tickets = 0;
+* blocked/non-actionable open decisions = 0;
+* unresolved in-scope fog = 0;
+* unresolved architecture implementability obligations = 0;
+* unresolved source/authority conflicts = 0;
+* required authoritative records unreconciled = 0;
+* no required Wayfinder-owned repository persistence remains;
+* required project-delivery reconciliation is complete.
+
+Every current `Not yet specified` item must either remain explicitly unresolved, have graduated to a decision ticket, have been durably resolved/represented, or have moved out of scope with authority. It may not vanish because the known decision tickets are closed.
+
+The existing Post-Resolution Gate remains authoritative procedure; this record is its enforceable transition state. The human-facing handoff may remain concise.

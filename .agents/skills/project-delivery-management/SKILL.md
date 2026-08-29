@@ -665,3 +665,31 @@ This skill must not:
 * auto-select a successor Wayfinder.
 
 Those responsibilities remain with their existing lifecycle owners; `$project-tracking` owns GitHub Project projection mechanics.
+
+## Transition-Bound Dependency Authorization
+
+Cross-Wayfinder dependency mutation requires explicit semantic authorization state before the mechanical `$github-issue-dependencies` call. Native relationship mechanics and successful rereads cannot compensate for an unproven semantic edge.
+
+For every `dependency ensure` or `dependency remove`, create one working **Dependency Authorization Record**:
+
+```text
+Consumer: <artifact>
+Blocker: <artifact>
+Consumer lineage: <validated Wayfinder>
+Blocker lineage: <validated Wayfinder>
+Semantic prerequisite: <exact durable evidence>
+Blocker-completion test: <pass | fail | unresolved> — <does completion fully satisfy this prerequisite?>
+Narrower-boundary test: <pass | fail | unresolved> — <is this the narrowest authoritative placement?>
+Whole-map gate: <pass | fail | not-applicable>
+Cycle proof: <pass | fail | unresolved>
+Operation authority: <ensure-authorized | remove-authorized | reject | ambiguous>
+Evidence: <exact authority/current state>
+```
+
+For `ensure`, mutation is legal only with `ensure-authorized`, both semantic placement tests `pass`, applicable Whole-Map gate `pass`, and Cycle proof `pass`. A broad prose dependency, title similarity, Project state, or convenience cannot fill one of these fields.
+
+For `remove`, mutation is legal only with `remove-authorized` and authoritative evidence that the semantic prerequisite no longer applies or was established in error. Blocker closure, absence of recent prose, or current non-blocking behavior is not removal authority.
+
+`reject` performs no mutation. Any unresolved required field produces `ambiguous`, fails closed, and returns the existing dependency failure result. The record is per-operation working state; do not persist it as a parallel dependency registry.
+
+The existing exact post-mutation relationship reread remains mandatory after authorization. Semantic authorization and mechanical verification are separate gates and both must pass.

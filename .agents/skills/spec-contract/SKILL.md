@@ -372,3 +372,9 @@ Spec Contract Manifest:
 ```
 
 Do not return `SPEC CONTRACT: VALID` when any source-universe, manifest-integrity, or ownership-boundary requirement is unresolved.
+
+## Authorized Decomposition Caller
+
+`$to-tickets` is also an authorized internal caller of `$spec-contract` in `build` mode for the sole purpose of constructing the exact current Spec obligation universe before ticket decomposition.
+
+This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, hashes, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged.

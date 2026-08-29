@@ -129,12 +129,14 @@ For every source unit record:
 
 ```text
 Source Unit: SU-<n>
-Source: <section + item/bullet/paragraph/table/code identity>
+Source: <section + deterministic item/bullet/paragraph/table/code identity>
 Text Hash: <sha256 of normalized source-unit text>
 Classification: normative-new | normative-represented | non-normative
 Manifest cells: <cell IDs | None>
 Reason: <None | concise classification/mapping reason>
 ```
+
+Use structured item numbers where the Spec supplies them. Otherwise identify the unit by its section and stable document-order unit position; do not invent a semantic label whose wording may vary between runs.
 
 Normalize source-unit text only for hashing by normalizing line endings and removing trailing line-ending whitespace. Do not rewrite semantic text before hashing.
 
@@ -224,7 +226,15 @@ Also require:
 
 A contract with unresolved source-unit classification, counting, missing source items, missing mappings, or ambiguous mapping is invalid. Do not return a partial inventory or manifest as complete.
 
-Canonicalize the complete Source Unit Inventory in `SU-*` order and manifest rows in stable cell-ID order. Compute:
+Canonicalize each Source Unit Inventory row as exactly:
+
+```text
+<Source Unit>|<Source>|<Text Hash>|<Classification>|<manifest cell IDs sorted in stable cell-ID order or None>
+```
+
+The human-readable `Reason` is mandatory where required above but is deliberately excluded from the hash so equivalent explanatory wording does not make an unchanged contract stale.
+
+Canonicalize inventory rows in `SU-*` order and manifest rows in stable cell-ID order. Compute:
 
 ```text
 SPEC_CONTRACT_HASH = SHA-256(
@@ -233,7 +243,7 @@ SPEC_CONTRACT_HASH = SHA-256(
 )
 ```
 
-The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**.
+The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, without binding incidental explanatory prose.
 
 ## 3. Classify Change Ownership
 

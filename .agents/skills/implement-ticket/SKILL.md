@@ -414,6 +414,16 @@ Do not automatically run full-suite tests, repository-wide lint/type checks, cov
 
 Do not claim an acceptance criterion is proven without identifiable source/test/document/configuration/tracker evidence appropriate to that criterion.
 
+### Claim-Proof Integrity
+
+Before marking any acceptance criterion `proven`, derive its proof obligation from the authoritative criterion and parent Spec before using implementation notes, changed-file inventories, prior closure evidence, known defect patterns, or existing tests as a proof plan.
+
+Normalize the claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**, then state the concrete **falsification condition**: a repository/runtime/tracker state that would make the claim false. Derive verification from that claim and falsifier, and actively seek counterexamples within the required domain.
+
+Evidence is sufficient only when it excludes the falsification condition across the required domain. Ask: **Could every cited check pass while the authoritative claim is still false?** If yes, the criterion remains unresolved. Any material assumption needed to bridge evidence to the conclusion must itself be established by current authority or direct proof.
+
+Pattern searches, passing tests, static checks, changed-surface inventories, previous ticket evidence, and known-defect sweeps are supporting evidence only unless they are logically sufficient to exclude the falsifying condition. Do not require verbose proof-model persistence; this is an execution invariant, while durable evidence may remain concise and traceable.
+
 ### Acceptance Domain Integrity
 
 The domain stated by each ticket acceptance criterion is normative. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `root-complete sweep`, `repository-wide`, or an explicit surface list into only changed files, targeted tests, cited examples, or the subset touched during implementation.

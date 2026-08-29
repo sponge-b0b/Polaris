@@ -196,7 +196,7 @@ Do not infer review ownership from Project fields, labels, prior conversation, t
 
 If no conventional Spec Review exists, keep `SPEC_REVIEW_ISSUE_NUMBER` empty. A clean first-pass review with zero Blocking findings must not create one.
 
-Create a conventional Spec Review only when Blocking findings require remediation. At that blocker persistence point, create it once and immediately re-resolve through the same canonical read:
+Create a conventional Spec Review only when Blocking findings require remediation. At that blocker persistence point, create it once and re-resolve only through the same canonical read:
 
 ```bash
 ensure_spec_review_issue() {
@@ -213,14 +213,24 @@ ensure_spec_review_issue() {
     -f title="Spec Review: $REVIEW_TITLE_BODY" \
     -f body="$PARENT_MARKER" >/dev/null
 
-  resolve_spec_review_issue
+  for attempt in 1 2 3 4; do
+    resolve_spec_review_issue
 
-  if [ -z "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-    echo "❌ Conventional Spec Review creation could not be confirmed."
-    exit 1
-  fi
+    if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
+      return 0
+    fi
+
+    if [ "$attempt" -lt 4 ]; then
+      sleep 1
+    fi
+  done
+
+  echo "❌ Conventional Spec Review creation could not be confirmed after bounded canonical re-resolution."
+  exit 1
 }
 ```
+
+The POST is single-shot. A transient read-after-write miss is handled only by bounded retries of `resolve_spec_review_issue`; never POST a second Spec Review merely because the first canonical reread is empty.
 
 Do not call `ensure_spec_review_issue` from a clean PASS path. Re-resolution after blocker-driven creation is mandatory. If a concurrent or historical duplicate makes the result ambiguous, fail closed rather than choosing one.
 
@@ -550,9 +560,37 @@ If no Blocking findings remain and only Scope corrections must update existing d
 <triggered root/domain/result or None>
 ```
 
-Immediately before persistence require `HEAD` still equals the passing receipt.
+### Atomic Pending Packet Persistence
 
-Invoke `$review-spec-remediation` internally and wait.
+Before any Pending Review Remediation comment mutation, render the **complete** packet into `PENDING_REVIEW_FILE=$(mktemp)`. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
+
+Pre-validate the rendered file before POST. Require the exact pending header/status, reviewed HEAD/baseline/branch, Spec body/contract hashes, all packet sections exactly once, and no unresolved template placeholders. Immediately before POST require `HEAD` still equals the passing verification receipt.
+
+POST the validated packet exactly once to the resolved conventional Spec Review issue using file-based JSON encoding, then read back that exact comment and compare bytes before invoking `$review-spec-remediation`:
+
+```bash
+PENDING_JSON=$(mktemp)
+COMMENT_JSON=$(mktemp)
+READBACK_FILE=$(mktemp)
+
+jq -Rs '{body: .}' "$PENDING_REVIEW_FILE" > "$PENDING_JSON"
+gh api --method POST \
+  "repos/$REPO/issues/$SPEC_REVIEW_ISSUE_NUMBER/comments" \
+  --input "$PENDING_JSON" > "$COMMENT_JSON"
+
+COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
+COMMENT_URL=$(jq -r .html_url "$COMMENT_JSON")
+[ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]
+
+gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+  | jq -j '.body' > "$READBACK_FILE"
+
+cmp -s "$PENDING_REVIEW_FILE" "$READBACK_FILE"
+```
+
+Run the same deterministic packet validation against `READBACK_FILE`. Only exact readback plus post-validation completes persistence. If POST succeeds but readback or validation fails, stop, report `COMMENT_URL`, and do not invoke `$review-spec-remediation`, create a corrective second packet, or patch the malformed comment in the same invocation.
+
+Invoke `$review-spec-remediation` internally only after Pending packet persistence is complete, and wait.
 
 ### Mandatory Project Reconciliation — Review Remediation
 

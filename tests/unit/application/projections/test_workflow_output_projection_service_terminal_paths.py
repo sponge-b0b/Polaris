@@ -52,7 +52,9 @@ class TerminalOutcomeProjector:
             source_fingerprint=request.source_fingerprint,
             message=message,
             error_message=(
-                message if self.status is WorkflowOutputProjectionStatus.FAILED else None
+                message
+                if self.status is WorkflowOutputProjectionStatus.FAILED
+                else None
             ),
         )
 
@@ -191,7 +193,9 @@ async def test_project_completed_run_persists_and_emits_projector_terminal_outco
 
     if status is WorkflowOutputProjectionStatus.SKIPPED:
         assert summary.skipped_jobs == 1
-        assert repository.skipped == [(job_id, "Projector returned a terminal outcome.")]
+        assert repository.skipped == [
+            (job_id, "Projector returned a terminal outcome.")
+        ]
         assert repository.failed == []
     else:
         assert summary.failed_jobs == 1

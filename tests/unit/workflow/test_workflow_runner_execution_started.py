@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -42,8 +44,17 @@ async def test_workflow_runner_reports_execution_id_before_execution() -> None:
             self,
             *,
             compiled_workflow: SimpleNamespace,
-            **_: Any,
+            workflow_inputs: Mapping[str, Any] | None = None,
+            mode: str = "live",
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
         ) -> SimpleNamespace:
+            assert workflow_inputs is None
+            assert mode == "live"
+            assert simulation_time is None
+            assert archive_on_completion is True
+            assert checkpoint_on_completion is False
             events.append(
                 f"execute:{compiled_workflow.execution_id}",
             )

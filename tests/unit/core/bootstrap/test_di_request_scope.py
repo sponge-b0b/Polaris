@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from types import TracebackType
 from typing import Any
 
 import pytest
+from dishka import Provider
 
 import core.bootstrap.di_providers as di_providers
+from config.settings import Settings
 
 
 @pytest.mark.asyncio
@@ -18,7 +22,12 @@ async def test_application_request_scope_closes_request_and_app_resources(
             lifecycle.append("request_entered")
             return "request-container"
 
-        async def __aexit__(self, *_: object) -> None:
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> None:
             lifecycle.append("request_closed")
 
     class FakeContainer:
@@ -36,6 +45,17 @@ async def test_application_request_scope_closes_request_and_app_resources(
             assert container == "request-container"
             lifecycle.append("container_bound")
 
+    def fake_get_async_di_container(
+        settings: Settings | None = None,
+        *,
+        workflow_provider: object | None = None,
+        extra_providers: Sequence[Provider] = (),
+    ) -> FakeContainer:
+        assert settings is None
+        assert workflow_provider is not None
+        assert extra_providers == ()
+        return FakeContainer()
+
     monkeypatch.setattr(
         di_providers,
         "WorkflowInfrastructureProvider",
@@ -44,7 +64,7 @@ async def test_application_request_scope_closes_request_and_app_resources(
     monkeypatch.setattr(
         di_providers,
         "get_async_di_container",
-        lambda *_, **__: FakeContainer(),
+        fake_get_async_di_container,
     )
 
     async with di_providers.application_request_scope() as request_container:
@@ -68,7 +88,12 @@ def test_application_sync_request_scope_closes_request_and_app_resources(
             lifecycle.append("request_entered")
             return "request-container"
 
-        def __exit__(self, *_: object) -> None:
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> None:
             lifecycle.append("request_closed")
 
     class FakeContainer:
@@ -86,6 +111,17 @@ def test_application_sync_request_scope_closes_request_and_app_resources(
             assert container == "request-container"
             lifecycle.append("container_bound")
 
+    def fake_get_di_container(
+        settings: Settings | None = None,
+        *,
+        workflow_provider: object | None = None,
+        extra_providers: Sequence[Provider] = (),
+    ) -> FakeContainer:
+        assert settings is None
+        assert workflow_provider is not None
+        assert extra_providers == ()
+        return FakeContainer()
+
     monkeypatch.setattr(
         di_providers,
         "WorkflowInfrastructureProvider",
@@ -94,7 +130,7 @@ def test_application_sync_request_scope_closes_request_and_app_resources(
     monkeypatch.setattr(
         di_providers,
         "get_di_container",
-        lambda *_, **__: FakeContainer(),
+        fake_get_di_container,
     )
 
     with di_providers.application_sync_request_scope() as request_container:

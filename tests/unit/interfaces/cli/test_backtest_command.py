@@ -123,9 +123,14 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
 
     @asynccontextmanager
     async def fake_cli_runtime_scope(
-        **kwargs: object,
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
     ) -> AsyncIterator[FakeScope]:
-        assert kwargs["provider_profile"] == "backtest_synthetic"
+        assert plugin_dirs == ()
+        assert autoload_plugins is False
+        assert provider_profile == "backtest_synthetic"
         yield FakeScope()
 
     monkeypatch.setattr(
@@ -199,7 +204,15 @@ async def test_backtest_command_preserves_typed_governed_evidence_failures(
             raise AssertionError(f"Unexpected dependency: {dependency_type}")
 
     @asynccontextmanager
-    async def fake_cli_runtime_scope(**kwargs: object) -> AsyncIterator[FakeScope]:
+    async def fake_cli_runtime_scope(
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AsyncIterator[FakeScope]:
+        assert plugin_dirs == ()
+        assert autoload_plugins is False
+        assert provider_profile == "backtest_synthetic"
         yield FakeScope()
 
     monkeypatch.setattr(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Final, Protocol, cast
@@ -78,6 +78,15 @@ class GovernedOutputReleaseService(Protocol):
 
 class CompletedRunProjectionNotFoundError(LookupError):
     """Raised when a requested completed run archive cannot be found."""
+
+
+@dataclass(frozen=True, slots=True)
+class _ProjectionSkip:
+    """Terminal projection exit before projector execution."""
+
+    outcome: WorkflowOutputProjectionOutcome
+    skip_reason: str | None
+    job: WorkflowOutputProjectionJobRecord | None = None
 
 
 class WorkflowOutputProjectionService:
@@ -222,47 +231,82 @@ class WorkflowOutputProjectionService:
             self._registry,
         )
         registration = _registration_from_decision(decision)
-        if not decision.eligible or registration is None:
-            outcome = _skipped_outcome(
-                decision=decision,
-                node_output=node_output,
-                source_fingerprint=source_fingerprint,
-            )
-            await self._telemetry.emit_projector_skipped(
+
+        pre_execution_skip = await self._pre_execution_skip(
+            decision=decision,
+            registration=registration,
+            node_output=node_output,
+            request=request,
+            source_fingerprint=source_fingerprint,
+        )
+        if pre_execution_skip is not None:
+            return await self._emit_projection_skip(
                 run=run,
                 node_output=node_output,
-                outcome=outcome,
-                skip_reason=decision.skip_reason.value
-                if decision.skip_reason
-                else None,
-                trace_context=_projector_trace_context(
-                    run_trace_context=run_trace_context,
-                    node_name=node_output.node_name,
-                    projector_name=outcome.projector_name,
-                ),
+                skip=pre_execution_skip,
+                run_trace_context=run_trace_context,
                 authority_contract=decision.authority_contract,
             )
-            return outcome
+
+        registration = cast(WorkflowOutputProjectorRegistration, registration)
+        job_or_skip = await self._acquire_projection_job(
+            run=run,
+            node_output=node_output,
+            registration=registration,
+            request=request,
+            source_fingerprint=source_fingerprint,
+        )
+        if isinstance(job_or_skip, _ProjectionSkip):
+            return await self._emit_projection_skip(
+                run=run,
+                node_output=node_output,
+                skip=job_or_skip,
+                run_trace_context=run_trace_context,
+                authority_contract=decision.authority_contract,
+            )
+
+        return await self._execute_claimed_projector(
+            run=run,
+            bundle=bundle,
+            node_output=node_output,
+            request=request,
+            registration=registration,
+            claimed_job=job_or_skip,
+            source_fingerprint=source_fingerprint,
+            run_trace_context=run_trace_context,
+            authority_contract=decision.authority_contract,
+        )
+
+    async def _pre_execution_skip(
+        self,
+        *,
+        decision: WorkflowOutputProjectionEligibilityDecision,
+        registration: WorkflowOutputProjectorRegistration | None,
+        node_output: CompletedNodeOutputRecord,
+        request: WorkflowOutputProjectionRequest,
+        source_fingerprint: str,
+    ) -> _ProjectionSkip | None:
+        if not decision.eligible or registration is None:
+            return _ProjectionSkip(
+                outcome=_skipped_outcome(
+                    decision=decision,
+                    node_output=node_output,
+                    source_fingerprint=source_fingerprint,
+                ),
+                skip_reason=(
+                    decision.skip_reason.value if decision.skip_reason else None
+                ),
+            )
 
         if request.dry_run:
-            outcome = _dry_run_outcome(
-                registration=registration,
-                node_output=node_output,
-                source_fingerprint=source_fingerprint,
-            )
-            await self._telemetry.emit_projector_skipped(
-                run=run,
-                node_output=node_output,
-                outcome=outcome,
-                skip_reason="dry_run",
-                trace_context=_projector_trace_context(
-                    run_trace_context=run_trace_context,
-                    node_name=node_output.node_name,
-                    projector_name=registration.projector_name,
+            return _ProjectionSkip(
+                outcome=_dry_run_outcome(
+                    registration=registration,
+                    node_output=node_output,
+                    source_fingerprint=source_fingerprint,
                 ),
-                authority_contract=decision.authority_contract,
+                skip_reason="dry_run",
             )
-            return outcome
 
         release_outcome = await self._governed_release_skip_outcome(
             decision=decision,
@@ -270,21 +314,22 @@ class WorkflowOutputProjectionService:
             node_output=node_output,
             source_fingerprint=source_fingerprint,
         )
-        if release_outcome is not None:
-            await self._telemetry.emit_projector_skipped(
-                run=run,
-                node_output=node_output,
-                outcome=release_outcome,
-                skip_reason=_GOVERNED_RELEASE_SKIP_REASON,
-                trace_context=_projector_trace_context(
-                    run_trace_context=run_trace_context,
-                    node_name=node_output.node_name,
-                    projector_name=registration.projector_name,
-                ),
-                authority_contract=decision.authority_contract,
-            )
-            return release_outcome
+        if release_outcome is None:
+            return None
+        return _ProjectionSkip(
+            outcome=release_outcome,
+            skip_reason=_GOVERNED_RELEASE_SKIP_REASON,
+        )
 
+    async def _acquire_projection_job(
+        self,
+        *,
+        run: CompletedRunRecord,
+        node_output: CompletedNodeOutputRecord,
+        registration: WorkflowOutputProjectorRegistration,
+        request: WorkflowOutputProjectionRequest,
+        source_fingerprint: str,
+    ) -> WorkflowOutputProjectionJobRecord | _ProjectionSkip:
         job = await self._projection_job_repository.create_job(
             _new_projection_job_record(
                 run=run,
@@ -298,50 +343,67 @@ class WorkflowOutputProjectionService:
             is WorkflowOutputProjectionJobStatus.SUCCEEDED
             and not request.force_reproject
         ):
-            outcome = _already_succeeded_outcome(
-                job=job,
-                node_output=node_output,
-            )
-            await self._telemetry.emit_projector_skipped(
-                run=run,
-                node_output=node_output,
-                outcome=outcome,
-                job=job,
-                skip_reason="already_succeeded",
-                trace_context=_projector_trace_context(
-                    run_trace_context=run_trace_context,
-                    node_name=node_output.node_name,
-                    projector_name=registration.projector_name,
+            return _ProjectionSkip(
+                outcome=_already_succeeded_outcome(
+                    job=job,
+                    node_output=node_output,
                 ),
-                authority_contract=decision.authority_contract,
+                skip_reason="already_succeeded",
+                job=job,
             )
-            return outcome
 
-        claim_statuses = _claimable_statuses(force_reproject=request.force_reproject)
         claimed_job = await self._projection_job_repository.claim_job(
             job.projection_job_id,
-            statuses=claim_statuses,
+            statuses=_claimable_statuses(force_reproject=request.force_reproject),
         )
-        if claimed_job is None:
-            outcome = _not_claimed_outcome(
+        if claimed_job is not None:
+            return claimed_job
+        return _ProjectionSkip(
+            outcome=_not_claimed_outcome(
                 job=job,
                 node_output=node_output,
-            )
-            await self._telemetry.emit_projector_skipped(
-                run=run,
-                node_output=node_output,
-                outcome=outcome,
-                job=job,
-                skip_reason="not_claimed",
-                trace_context=_projector_trace_context(
-                    run_trace_context=run_trace_context,
-                    node_name=node_output.node_name,
-                    projector_name=registration.projector_name,
-                ),
-                authority_contract=decision.authority_contract,
-            )
-            return outcome
+            ),
+            skip_reason="not_claimed",
+            job=job,
+        )
 
+    async def _emit_projection_skip(
+        self,
+        *,
+        run: CompletedRunRecord,
+        node_output: CompletedNodeOutputRecord,
+        skip: _ProjectionSkip,
+        run_trace_context: TraceContext | None,
+        authority_contract: RiskAuthorityContract | None,
+    ) -> WorkflowOutputProjectionOutcome:
+        await self._telemetry.emit_projector_skipped(
+            run=run,
+            node_output=node_output,
+            outcome=skip.outcome,
+            job=skip.job,
+            skip_reason=skip.skip_reason,
+            trace_context=_projector_trace_context(
+                run_trace_context=run_trace_context,
+                node_name=node_output.node_name,
+                projector_name=skip.outcome.projector_name,
+            ),
+            authority_contract=authority_contract,
+        )
+        return skip.outcome
+
+    async def _execute_claimed_projector(
+        self,
+        *,
+        run: CompletedRunRecord,
+        bundle: CompletedRunBundle,
+        node_output: CompletedNodeOutputRecord,
+        request: WorkflowOutputProjectionRequest,
+        registration: WorkflowOutputProjectorRegistration,
+        claimed_job: WorkflowOutputProjectionJobRecord,
+        source_fingerprint: str,
+        run_trace_context: TraceContext | None,
+        authority_contract: RiskAuthorityContract | None,
+    ) -> WorkflowOutputProjectionOutcome:
         projector_trace_context = _projector_trace_context(
             run_trace_context=run_trace_context,
             node_name=node_output.node_name,
@@ -354,7 +416,7 @@ class WorkflowOutputProjectionService:
             registration=registration,
             job=claimed_job,
             trace_context=projector_trace_context,
-            authority_contract=decision.authority_contract,
+            authority_contract=authority_contract,
         )
 
         try:
@@ -368,7 +430,7 @@ class WorkflowOutputProjectionService:
                         run=run,
                         node_output=node_output,
                     ),
-                    authority_contract=decision.authority_contract,
+                    authority_contract=authority_contract,
                     requested_at=request.requested_at,
                     force_reproject=request.force_reproject,
                     dry_run=request.dry_run,
@@ -416,7 +478,7 @@ class WorkflowOutputProjectionService:
                 error=exc,
                 duration_seconds=perf_counter() - projector_started_at,
                 trace_context=projector_trace_context,
-                authority_contract=decision.authority_contract,
+                authority_contract=authority_contract,
             )
             return outcome
 
@@ -435,7 +497,7 @@ class WorkflowOutputProjectionService:
             job=claimed_job,
             duration_seconds=perf_counter() - projector_started_at,
             trace_context=projector_trace_context,
-            authority_contract=decision.authority_contract,
+            authority_contract=authority_contract,
         )
         return persisted_outcome
 

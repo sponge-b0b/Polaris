@@ -32,7 +32,8 @@ async def validate_completed_workflow_run(
     )
     if reference.snapshot_id is None:
         raise MalformedDecisionEvidenceReconstructionIdentifierError(
-            "completed workflow run reconstruction reference must include a snapshot_id."
+            "completed workflow run reconstruction reference must include "
+            "a snapshot_id."
         )
     if bundle.run.run_id != reference.snapshot_id:
         raise StaleDecisionEvidenceSourceError(
@@ -69,7 +70,8 @@ async def validate_workflow_node_output(
         )
     if reference.content_digest is None:
         raise MalformedDecisionEvidenceReconstructionIdentifierError(
-            "workflow node output reconstruction reference must include a content digest."
+            "workflow node output reconstruction reference must include "
+            "a content digest."
         )
     content_digest = calculate_completed_workflow_node_evidence_digest(
         run=bundle.run,

@@ -55,6 +55,8 @@ SPEC_COMMENT_PAGES=$(
 )
 ```
 
+Treat the following baseline and verification-receipt extractions as two prescribed reads over that one snapshot. Execute them separately exactly as written; do not combine their scalar/object outputs into an ad hoc `jq` array/program or reinterpret one extraction's output as the other's input.
+
 Resolve `BASELINE_COMMIT` from that complete snapshot:
 
 ```bash
@@ -112,6 +114,8 @@ Any commit after verification requires fresh `$verify-spec`.
 Invoke `$spec-contract` in `validate` mode using the manifest/counts/hash from the passing receipt.
 
 Require `SPEC CONTRACT: VALID`.
+
+`$spec-contract` exclusively owns current default-branch head resolution, local object availability/fetch, and Spec Change Ownership comparison. Consume the helper's returned `Default branch`, `Default branch ref`, and ownership classification directly. Do not independently resolve or fetch the default branch, probe its Git object, or run `git diff` / `git rev-list` against a GitHub-pinned default head before or after the helper. If fresh ownership is needed later in the invocation, re-invoke `$spec-contract` rather than reproducing its pin/fetch logic.
 
 This proves:
 

@@ -9,6 +9,7 @@
 * Service inputs and outputs must remain typed and persistence-aware only through explicit use-case or persistence-service boundaries, because application behavior should not smuggle durable semantics through arbitrary payloads. (source: docs/current/platform-architecture-and-operations.md)
 * Completed-run archival is broad and automatic, while curated domain-record projection is narrow and policy-driven through registered projectors, because not every runtime output deserves durable product authority. (source: docs/current/application-services-output-curation-workflow-output-curation.md)
 * Retrieval projections are downstream of curated PostgreSQL records and must be reproducible from them, because RAG and graph/vector stores cannot become the original source of product facts. (source: docs/current/application-services-output-curation-workflow-output-curation.md)
+* External presentation eligibility is a separate application-level decision from durable curation and RAG eligibility, and report, RAG, MCP, and future sinks must consume that shared decision rather than recreate risk, evidence-readiness, governance, or release policy locally. (source: docs/current/application-services-output-curation-workflow-output-curation.md; docs/current/mcp-server-transport-boundary.md)
 
 ### Planned
 

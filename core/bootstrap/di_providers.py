@@ -240,17 +240,19 @@ def get_async_di_container(
 @asynccontextmanager
 async def application_request_scope(
     settings: Settings | None = None,
+    *,
+    workflow_config: WorkflowBootstrapConfig | None = None,
 ) -> AsyncIterator[AsyncContainer]:
     """Own one canonical async application container and request scope."""
 
-    workflow_provider = WorkflowInfrastructureProvider()
+    workflow_provider = WorkflowInfrastructureProvider(config=workflow_config)
     container = get_async_di_container(
         settings,
         workflow_provider=workflow_provider,
     )
-    workflow_provider.bind_di_container(container)
     try:
         async with container() as request_container:
+            workflow_provider.bind_di_container(request_container)
             yield request_container
     finally:
         await container.close()

@@ -208,10 +208,21 @@ class WorkflowInteractiveControlSession:
         self,
         line: str,
     ) -> None:
+        if not line.strip():
+            return
+
         command = _normalize_command(
             line,
         )
         if command is None:
+            self._emit(
+                WorkflowControlNotification(
+                    message="control command failed",
+                    execution_id=self.request.execution_id,
+                    command=line.strip().lower(),
+                    error="unknown command",
+                )
+            )
             return
 
         if command == "help":

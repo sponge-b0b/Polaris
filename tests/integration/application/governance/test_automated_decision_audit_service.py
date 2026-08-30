@@ -401,7 +401,6 @@ async def test_workflow_facade_requires_approval_records_postgres_audit_and_revi
             with pytest.raises(RuntimeError, match="live_mode_requires_approval"):
                 await execution_service.run_workflow(
                     workflow_name="governance_audit_workflow",
-                    execution_id="ticket-138-workflow-run",
                     mode="live",
                     archive_on_completion=False,
                     checkpoint_on_completion=False,
@@ -827,7 +826,6 @@ async def test_governed_execution_persists_nonapproval_outcomes(
             )
             run = execution_service.run_workflow(
                 workflow_name="governance_audit_workflow",
-                execution_id="ticket-143-workflow-run",
                 mode="live",
                 archive_on_completion=False,
                 checkpoint_on_completion=False,

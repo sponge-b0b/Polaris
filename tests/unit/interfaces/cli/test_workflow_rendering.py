@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Mapping
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from typer.testing import CliRunner
 
@@ -25,13 +27,29 @@ from interfaces.cli.services.workflow_command_service import (
 )
 
 
+class _CliRuntimeScopeFactory(Protocol):
+    def __call__(
+        self,
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AbstractAsyncContextManager[SimpleNamespace]: ...
+
+
 def _runtime_scope_from_builder(
-    builder: Callable[..., Any],
-) -> Callable[..., Any]:
+    builder: Callable[[], Any],
+) -> _CliRuntimeScopeFactory:
     @asynccontextmanager
-    async def scope(**kwargs: object) -> AsyncIterator[SimpleNamespace]:
+    async def scope(
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AsyncIterator[SimpleNamespace]:
+        del plugin_dirs, autoload_plugins, provider_profile
         yield SimpleNamespace(
-            runtime=await builder(**kwargs),
+            runtime=await builder(),
         )
 
     return scope
@@ -191,7 +209,7 @@ def test_exception_envelope_renders_without_runtime_result() -> None:
 def test_morning_report_command_renders_output_when_runtime_setup_raises(
     monkeypatch,
 ) -> None:
-    async def raise_runtime_error(**_: object) -> object:
+    async def raise_runtime_error() -> object:
         raise RuntimeError(
             "provider key missing",
         )
@@ -262,7 +280,13 @@ def test_morning_report_postgres_persistence_defaults_to_disabled(
         raising=False,
     )
 
-    async def fail_persistence(**_: object) -> object:
+    async def fail_persistence(
+        document: object,
+        *,
+        markdown_body: str,
+        artifact_references: tuple[object, ...],
+    ) -> object:
+        del document, markdown_body, artifact_references
         raise AssertionError("postgres persistence should remain disabled")
 
     monkeypatch.setattr(
@@ -429,9 +453,10 @@ def test_morning_report_command_enables_progress_without_control_by_default(
     class FakeWorkflowCommandService:
         def __init__(
             self,
-            **_: object,
+            *,
+            default_morning_report_workflow: str = "morning_report",
         ) -> None:
-            pass
+            self.default_morning_report_workflow = default_morning_report_workflow
 
         async def run_morning_report(
             self,
@@ -479,8 +504,20 @@ def test_workflow_run_command_renders_failed_workflow_result(
 
         async def run_workflow(
             self,
-            **_: object,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, object]:
+            del workflow_name, execution_id, mode, workflow_inputs
+            del simulation_time, archive_on_completion
+            del checkpoint_on_completion, metadata, execution_started_handler
             return _failed_workflow_result()
 
     class FakeEventBus:
@@ -499,8 +536,10 @@ def test_workflow_run_command_renders_failed_workflow_result(
     class FakeRuntime:
         facade = FakeFacade()
         event_bus = FakeEventBus()
+        policy_engine = None
+        governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(
@@ -614,7 +653,7 @@ def test_workflow_run_command_rejects_removed_interactive_control_flag() -> None
     assert "--interactive-control" in result.output
 
 
-def test_workflow_run_command_enables_progress_without_control_by_default(
+def test_workflow_run_command_enables_progress_and_control_by_default(
     monkeypatch,
 ) -> None:
     captured_request: dict[str, object] = {}
@@ -651,7 +690,7 @@ def test_workflow_run_command_enables_progress_without_control_by_default(
 
     assert result.exit_code == 0
     assert request.progress_handler is not None
-    assert request.interactive_control is False
+    assert request.interactive_control is True
     assert request.control_handler is None
 
 
@@ -1156,8 +1195,20 @@ def _patch_cli_runtime(
 
         async def run_workflow(
             self,
-            **_: object,
+            *,
+            workflow_name: str,
+            execution_id: str | None = None,
+            mode: str = "live",
+            workflow_inputs: Mapping[str, Any] | None = None,
+            simulation_time: datetime | None = None,
+            archive_on_completion: bool = True,
+            checkpoint_on_completion: bool = False,
+            metadata: dict[str, Any] | None = None,
+            execution_started_handler: Callable[[str], None] | None = None,
         ) -> dict[str, object]:
+            del workflow_name, execution_id, mode, workflow_inputs
+            del simulation_time, archive_on_completion
+            del checkpoint_on_completion, metadata, execution_started_handler
             return workflow_result
 
     class FakeEventBus:
@@ -1176,8 +1227,10 @@ def _patch_cli_runtime(
     class FakeRuntime:
         facade = FakeFacade()
         event_bus = FakeEventBus()
+        policy_engine = None
+        governance_engine = None
 
-    async def build_runtime(**_: object) -> FakeRuntime:
+    async def build_runtime() -> FakeRuntime:
         return FakeRuntime()
 
     monkeypatch.setattr(

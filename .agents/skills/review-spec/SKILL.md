@@ -55,6 +55,8 @@ SPEC_COMMENT_PAGES=$(
 )
 ```
 
+Treat the following baseline and verification-receipt extractions as two prescribed reads over that one snapshot. Execute them separately exactly as written; do not combine their scalar/object outputs into an ad hoc `jq` array/program or reinterpret one extraction's output as the other's input.
+
 Resolve `BASELINE_COMMIT` from that complete snapshot:
 
 ```bash
@@ -112,6 +114,8 @@ Any commit after verification requires fresh `$verify-spec`.
 Invoke `$spec-contract` in `validate` mode using the manifest/counts/hash from the passing receipt.
 
 Require `SPEC CONTRACT: VALID`.
+
+`$spec-contract` exclusively owns current default-branch head resolution, local object availability/fetch, and Spec Change Ownership comparison. Consume the helper's returned `Default branch`, `Default branch ref`, and ownership classification directly. Do not independently resolve or fetch the default branch, probe its Git object, or run `git diff` / `git rev-list` against a GitHub-pinned default head before or after the helper. If fresh ownership is needed later in the invocation, re-invoke `$spec-contract` rather than reproducing its pin/fetch logic.
 
 This proves:
 
@@ -247,6 +251,8 @@ If a Spec Review exists, recover privately:
 
 Do not expose this historical state to axis reviewers.
 
+For operator-facing halt/status reporting only, also distinguish **prior durable review state** from the **current review pass**. Existing review/remediation history remains valid historical state even when the current verified `HEAD` requires a new review pass. Never describe the overall review as `not started` when durable review history exists; `not started` may describe only reviewer dispatch for the current pass.
+
 ### Scope Attribution Gate
 
 Using current `$spec-contract` ownership, evaluate active historical roots/cells only for attribution:
@@ -328,11 +334,16 @@ When fresh contexts are unavailable and the current human invocation does **not*
 ```text
 REVIEW EXECUTION: INDEPENDENCE UNAVAILABLE
 Required: genuinely fresh reviewer contexts
-Review state: not started
+Current review pass: reviewer dispatch not started
+Prior durable review state: <None | concise recovered review/remediation history>
+Verified target: HEAD <SHA>; baseline <SHA>; contract <review-cell count> cells
+Persistence: no Pending Review Remediation or Exit Receipt written by this halted invocation
 Owner options:
 - re-run `$review-spec` in an environment that supports fresh subagents; or
 - explicitly authorize same-agent reviewer fallback for this review
 ```
+
+When prior durable review/remediation state exists, summarize it truthfully here (for example, prior review completed, conventional Spec Review issue, and current root statuses). Do not collapse historical review state into `Current review pass: reviewer dispatch not started` or imply that prior review/remediation never occurred.
 
 Do not substitute the parent agent merely because reviewer spawning is unavailable.
 

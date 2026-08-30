@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -201,6 +201,7 @@ class WorkflowService:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        execution_started_handler: Callable[[str], None] | None = None,
     ) -> WorkflowRunResult:
         request = WorkflowRunRequest(
             workflow_name=workflow_name,
@@ -211,6 +212,7 @@ class WorkflowService:
             archive_on_completion=archive_on_completion,
             checkpoint_on_completion=checkpoint_on_completion,
             metadata=metadata,
+            execution_started_handler=execution_started_handler,
         )
 
         return await self.runner.run(

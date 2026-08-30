@@ -35,6 +35,8 @@ The parent supplies:
 
 The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
 
+Default-branch ownership resolution is an ordered gate owned by this helper. Callers must not preflight, probe, fetch, or independently compare the GitHub-pinned default head before this helper completes Section 1 and returns `DEFAULT_REF`. If ownership must be refreshed because the default branch advanced, invoke `$spec-contract` again rather than reproducing its pin/fetch logic in the caller.
+
 ## 1. Pin the Spec Source
 
 Read the current Spec body from GitHub and capture:
@@ -46,7 +48,7 @@ SPEC_BODY_HASH=$(
 )
 ```
 
-Resolve the repository default branch and the exact GitHub head used for ownership:
+Resolve the repository default branch and the exact GitHub head used for ownership. Execute this block as one ordered unit. The silenced `git cat-file -e` inside the block is the only permitted pre-fetch local object probe. If the pinned object is absent, fetch immediately through the canonical HTTPS path before running any `git diff`, `git rev-list`, unsilenced object probe, or other ownership command against that SHA.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -76,6 +78,8 @@ DEFAULT_REF="$DEFAULT_HEAD"
 ```
 
 Do not fall back from this procedure to SSH, a configured remote URL, a stale `origin/<branch>` ref, or another transport. If the canonical HTTPS fetch fails or the fetched head differs from the GitHub-pinned SHA, return ambiguous rather than improvising another refresh path.
+
+Only after `DEFAULT_REF` is set may Section 3 run ownership comparison commands. Do not resolve, fetch, or probe the default branch again later in the same helper invocation.
 
 Require the supplied branch, `BASELINE_COMMIT`, and `HEAD` to resolve.
 

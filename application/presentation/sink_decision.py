@@ -13,17 +13,10 @@ from application.evaluations.risk_authority_gate import (
 )
 from application.governance.automated_decision_audit import (
     GovernanceReviewApprovalState,
-    GovernedOutputReleaseDecision,
-    requires_governed_output_release_review,
 )
 from core.telemetry.observability import ObservabilityManager
 from core.telemetry.tracing import TraceContext
-from domain.authority import (
-    GateProfile,
-    RiskAuthorityContract,
-    RiskTier,
-    validate_risk_authority_metadata,
-)
+from domain.authority import GateProfile, RiskAuthorityContract, RiskTier
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +41,6 @@ class PresentationSinkDecision:
     gate_decision: RiskAuthorityGateDecision
     reasons: tuple[str, ...]
     limitations: tuple[str, ...] = ()
-    governed_release_decisions: tuple[GovernedOutputReleaseDecision, ...] = ()
 
     @property
     def may_present(self) -> bool:
@@ -74,10 +66,6 @@ class PresentationSinkDecision:
         return self.gate_decision.failure_mode
 
     @property
-    def readiness_passed(self) -> bool:
-        return self.gate_decision.passed
-
-    @property
     def provenance_record_ids(self) -> tuple[str, ...]:
         return self.gate_decision.evidence.provenance_record_ids
 
@@ -89,17 +77,11 @@ class PresentationSinkDecision:
         )
 
     @property
-    def governed_release_allowed(self) -> bool | None:
-        if not self.governed_release_decisions:
-            return None
-        return all(decision.allowed for decision in self.governed_release_decisions)
-
-    @property
     def governance_approval_states(self) -> tuple[GovernanceReviewApprovalState, ...]:
         return tuple(
-            decision.approval_state
-            for decision in self.governed_release_decisions
-            if decision.approval_state is not None
+            evidence.approval_state
+            for evidence in self.gate_decision.evidence.output_governance_evidence
+            if evidence.approval_state is not None
         )
 
 
@@ -120,7 +102,6 @@ class PresentationSinkDecisionService:
         expected_authority_metadata: (
             Mapping[str, object] | RiskAuthorityContract | None
         ) = None,
-        governed_release_decisions: tuple[GovernedOutputReleaseDecision, ...] = (),
         limitations: tuple[str, ...] = (),
         degradation_reasons: tuple[str, ...] = (),
         withholding_reasons: tuple[str, ...] = (),
@@ -134,18 +115,8 @@ class PresentationSinkDecisionService:
             evidence=evidence,
             expected_authority_metadata=expected_authority_metadata,
         )
-        release_decisions = governed_release_decisions or tuple(
-            item.release_decision
-            for item in gate_decision.evidence.output_governance_evidence
-        )
-        governed_release_reasons = _governed_release_reasons(
-            gate_decision,
-            release_decisions,
-        )
         decision = _presentation_decision(
             gate_decision,
-            governed_release_decisions=release_decisions,
-            governed_release_reasons=governed_release_reasons,
             limitations=_clean_strings(limitations, "limitations"),
             degradation_reasons=_clean_strings(
                 degradation_reasons,
@@ -200,48 +171,18 @@ class PresentationSinkDecisionService:
             logger.exception("Failed to emit presentation sink decision telemetry.")
 
 
-def _governed_release_reasons(
-    gate_decision: RiskAuthorityGateDecision,
-    release_decisions: tuple[GovernedOutputReleaseDecision, ...],
-) -> tuple[str, ...]:
-    if not gate_decision.passed or gate_decision.authority_metadata is None:
-        return ()
-
-    authority = validate_risk_authority_metadata(
-        gate_decision.authority_metadata,
-    ).expected_contract
-    if not requires_governed_output_release_review(authority):
-        return ()
-    if not release_decisions:
-        return ("Canonical governed output release decision is required.",)
-
-    blocked_reasons = tuple(
-        decision.reason.strip()
-        or "Canonical governed output release decision does not permit release."
-        for decision in release_decisions
-        if not decision.allowed
-    )
-    return blocked_reasons
-
-
 def _presentation_decision(
     gate_decision: RiskAuthorityGateDecision,
     *,
-    governed_release_decisions: tuple[GovernedOutputReleaseDecision, ...],
-    governed_release_reasons: tuple[str, ...],
     limitations: tuple[str, ...],
     degradation_reasons: tuple[str, ...],
     withholding_reasons: tuple[str, ...],
     blocking_reasons: tuple[str, ...],
 ) -> PresentationSinkDecision:
-    effective_withholding_reasons = (
-        *withholding_reasons,
-        *governed_release_reasons,
-    )
     gate_disposition = _gate_disposition(gate_decision)
     boundary_disposition = _boundary_disposition(
         degradation_reasons=degradation_reasons,
-        withholding_reasons=effective_withholding_reasons,
+        withholding_reasons=withholding_reasons,
         blocking_reasons=blocking_reasons,
     )
     disposition = max(
@@ -254,11 +195,10 @@ def _presentation_decision(
         reasons=(
             gate_decision.message,
             *degradation_reasons,
-            *effective_withholding_reasons,
+            *withholding_reasons,
             *blocking_reasons,
         ),
         limitations=limitations,
-        governed_release_decisions=governed_release_decisions,
     )
 
 

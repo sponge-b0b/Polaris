@@ -18,14 +18,13 @@ from application.presentation import (
     PresentationSinkDecisionService,
     PresentationSinkDisposition,
 )
-from application.reports.authority import morning_report_authority
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
     AutomatedDecisionSubject,
     GovernanceReviewDecisionOutcome,
 )
 from core.telemetry.observability import ObservabilityManager
-from domain.authority import RiskAuthorityContract, RiskTier, classify_risk_authority
+from domain.authority import RiskTier, classify_risk_authority
 from domain.decision_evidence import (
     ClaimEvidenceBinding,
     DecisionEvidencePacket,
@@ -48,14 +47,12 @@ def _packet(
     tier: RiskTier,
     *,
     packet_id: str = "packet-1",
-    authority: RiskAuthorityContract | None = None,
 ) -> DecisionEvidencePacket:
     evidence_id = "evidence-1"
     return DecisionEvidencePacket(
         packet_id=packet_id,
         output_id="output-1",
-        authority=authority
-        or classify_risk_authority(authority_input_for_tier(tier)),
+        authority=classify_risk_authority(authority_input_for_tier(tier)),
         claims=(
             MaterialClaim(
                 claim_id="claim-1",
@@ -125,16 +122,6 @@ def _governance_evidence(
     )
 
 
-def _enhanced_report_evidence(
-    authority: RiskAuthorityContract,
-) -> RiskAuthorityGateEvidence:
-    packet = _packet(RiskTier.ENHANCED, authority=authority)
-    return RiskAuthorityGateEvidence(
-        provenance_record_ids=("report-source-1",),
-        decision_evidence_packets=(packet,),
-    )
-
-
 @pytest.mark.asyncio
 async def test_baseline_internal_missing_metadata_remains_eligible() -> None:
     expected = classify_risk_authority(runtime_evidence_authority_input())
@@ -192,80 +179,6 @@ async def test_enhanced_complete_readiness_is_eligible() -> None:
 
 
 @pytest.mark.asyncio
-async def test_capital_relevant_enhanced_missing_governed_release_is_withheld() -> None:
-    authority = morning_report_authority()
-
-    decision = await PresentationSinkDecisionService().evaluate(
-        authority,
-        evidence=_enhanced_report_evidence(authority),
-    )
-
-    assert decision.readiness_passed
-    assert decision.gate_failure_mode is RiskAuthorityGateFailureMode.NONE
-    assert decision.disposition is PresentationSinkDisposition.WITHHELD
-    assert not decision.may_present
-    assert decision.governed_release_allowed is None
-    assert "Canonical governed output release decision is required." in decision.reasons
-
-
-@pytest.mark.asyncio
-async def test_capital_relevant_enhanced_allowed_release_is_eligible() -> None:
-    authority = morning_report_authority()
-    release_decision = GovernedOutputReleaseDecision(
-        allowed=True,
-        reason="canonical governance permits release",
-        approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
-        review_task_id="governance-review-task-1",
-        review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
-    )
-
-    decision = await PresentationSinkDecisionService().evaluate(
-        authority,
-        evidence=_enhanced_report_evidence(authority),
-        governed_release_decisions=(release_decision,),
-    )
-
-    assert decision.disposition is PresentationSinkDisposition.ELIGIBLE
-    assert decision.governed_release_allowed
-    assert decision.governance_approval_states == (
-        GovernanceReviewApprovalState.REVIEW_APPROVED,
-    )
-
-
-@pytest.mark.parametrize(
-    "approval_state",
-    [
-        GovernanceReviewApprovalState.PENDING_REVIEW,
-        GovernanceReviewApprovalState.REVIEW_DENIED,
-        GovernanceReviewApprovalState.REVIEW_CONTESTED,
-        GovernanceReviewApprovalState.CHANGES_REQUESTED,
-    ],
-)
-@pytest.mark.asyncio
-async def test_capital_relevant_enhanced_non_releasable_governance_is_withheld(
-    approval_state: GovernanceReviewApprovalState,
-) -> None:
-    authority = morning_report_authority()
-    release_decision = GovernedOutputReleaseDecision(
-        allowed=False,
-        reason=f"canonical governance blocks release: {approval_state.value}",
-        approval_state=approval_state,
-        review_task_id="governance-review-task-1",
-    )
-
-    decision = await PresentationSinkDecisionService().evaluate(
-        authority,
-        evidence=_enhanced_report_evidence(authority),
-        governed_release_decisions=(release_decision,),
-    )
-
-    assert decision.disposition is PresentationSinkDisposition.WITHHELD
-    assert not decision.may_present
-    assert decision.governed_release_allowed is False
-    assert release_decision.reason in decision.reasons
-
-
-@pytest.mark.asyncio
 async def test_vigilant_missing_governance_accountability_is_withheld() -> None:
     packet = _packet(RiskTier.VIGILANT)
 
@@ -298,7 +211,6 @@ async def test_vigilant_complete_governance_accountability_is_eligible() -> None
     )
 
     assert decision.disposition is PresentationSinkDisposition.ELIGIBLE
-    assert decision.governed_release_allowed
     assert decision.governance_approval_states == (
         GovernanceReviewApprovalState.REVIEW_APPROVED,
     )

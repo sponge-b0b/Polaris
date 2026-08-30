@@ -233,7 +233,7 @@ def run_workflow(
                         "command": "workflow run",
                     },
                     progress_handler=progress_renderer.handle,
-                    interactive_control=False,
+                    interactive_control=True,
                 )
             )
         )

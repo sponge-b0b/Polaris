@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -89,7 +90,15 @@ def _runtime(
 
 def _runtime_scope(runtime: SimpleNamespace):
     @asynccontextmanager
-    async def scope(**_: object) -> AsyncIterator[SimpleNamespace]:
+    async def scope(
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AsyncIterator[SimpleNamespace]:
+        assert plugin_dirs == ()
+        assert autoload_plugins is False
+        assert provider_profile is None
         yield SimpleNamespace(runtime=runtime)
 
     return scope

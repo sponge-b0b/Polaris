@@ -23,9 +23,9 @@ def create_app() -> typer.Typer:
     app.command(
         "morning-report",
         help=(
-            "Run the morning report workflow. Terminal output, progress "
-            "notifications, and interactive workflow control are enabled by "
-            "default; --format writes an additional report file."
+            "Run the morning report workflow. Terminal output and progress "
+            "notifications are enabled by default; no interactive workflow "
+            "control is started. --format writes an additional report file."
         ),
     )(
         morning_report,

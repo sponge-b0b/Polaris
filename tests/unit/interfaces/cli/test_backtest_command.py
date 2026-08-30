@@ -42,9 +42,8 @@ class FakeWorkflowFacade:
 
     async def run_workflow(
         self,
+        *,
         workflow_name: str,
-        governed_execution_evidence: object | None = None,
-        execution_id: str | None = None,
         mode: str = "live",
         workflow_inputs: Mapping[str, Any] | None = None,
         simulation_time: datetime | None = None,
@@ -58,7 +57,6 @@ class FakeWorkflowFacade:
         self.calls.append(
             {
                 "workflow_name": workflow_name,
-                "execution_id": execution_id,
                 "mode": mode,
                 "workflow_inputs": workflow_inputs,
                 "simulation_time": simulation_time,
@@ -112,7 +110,7 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
             return await service.run(request)
 
     class FakeScope:
-        def get(self, dependency_type: type[Any]) -> Any:
+        async def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
                 return BacktestApplicationService(
                     governed_workflow_execution_service=facade
@@ -123,9 +121,14 @@ async def test_backtest_command_service_runs_scenario_through_workflow_facade(
 
     @asynccontextmanager
     async def fake_cli_runtime_scope(
-        **kwargs: object,
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
     ) -> AsyncIterator[FakeScope]:
-        assert kwargs["provider_profile"] == "backtest_synthetic"
+        assert plugin_dirs == ()
+        assert autoload_plugins is False
+        assert provider_profile == "backtest_synthetic"
         yield FakeScope()
 
     monkeypatch.setattr(
@@ -191,7 +194,7 @@ async def test_backtest_command_preserves_typed_governed_evidence_failures(
             )
 
     class FakeScope:
-        def get(self, dependency_type: type[Any]) -> Any:
+        async def get(self, dependency_type: type[Any]) -> Any:
             if dependency_type is BacktestApplicationService:
                 return object()
             if dependency_type is ServiceRunner:
@@ -199,7 +202,15 @@ async def test_backtest_command_preserves_typed_governed_evidence_failures(
             raise AssertionError(f"Unexpected dependency: {dependency_type}")
 
     @asynccontextmanager
-    async def fake_cli_runtime_scope(**kwargs: object) -> AsyncIterator[FakeScope]:
+    async def fake_cli_runtime_scope(
+        *,
+        plugin_dirs: tuple[Path, ...] = (),
+        autoload_plugins: bool = False,
+        provider_profile: str | None = None,
+    ) -> AsyncIterator[FakeScope]:
+        assert plugin_dirs == ()
+        assert autoload_plugins is False
+        assert provider_profile == "backtest_synthetic"
         yield FakeScope()
 
     monkeypatch.setattr(

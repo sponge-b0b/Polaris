@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -564,6 +564,7 @@ class WorkflowFacade:
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
         execution_audit_capability: WorkflowExecutionAuditCapability | None = None,
+        execution_started_handler: Callable[[str], None] | None = None,
     ) -> WorkflowRunResult:
         audit_capability = self._require_execution_audit_capability(
             execution_audit_capability,
@@ -624,6 +625,7 @@ class WorkflowFacade:
             archive_on_completion=archive_on_completion,
             checkpoint_on_completion=checkpoint_on_completion,
             metadata=metadata,
+            execution_started_handler=execution_started_handler,
         )
 
     async def run_from_context(

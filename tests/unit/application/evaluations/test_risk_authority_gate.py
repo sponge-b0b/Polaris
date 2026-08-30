@@ -416,6 +416,31 @@ def test_vigilant_readiness_requires_governance_evidence_for_every_packet() -> N
     assert "missing for a selected vigilant" in decision.message.lower()
 
 
+def test_vigilant_ready_packet_and_governance_still_require_provenance() -> None:
+    packet = _packet(RiskTier.VIGILANT)
+
+    decision = select_risk_authority_gate(
+        _metadata(strategy_synthesis_authority_input()),
+        evidence=RiskAuthorityGateEvidence(
+            decision_evidence_packets=(packet,),
+            output_governance_evidence=(
+                _output_governance_evidence(
+                    packet=packet,
+                    approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
+                    review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
+                    allowed=True,
+                ),
+            ),
+        ),
+    )
+
+    assert decision.status is RiskAuthorityGateDecisionStatus.FAILED
+    assert (
+        decision.failure_mode
+        is RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED
+    )
+
+
 @pytest.mark.parametrize(
     ("approval_state", "review_outcome", "acceptance_id"),
     [

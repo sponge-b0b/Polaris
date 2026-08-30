@@ -345,6 +345,37 @@ def select_risk_authority_gate(
     """Select and enforce the readiness gate profile from canonical metadata."""
 
     gate_evidence = evidence or RiskAuthorityGateEvidence()
+    authority_resolution = _resolve_authoritative_authority(
+        authority_metadata,
+        expected_authority_metadata=expected_authority_metadata,
+        gate_evidence=gate_evidence,
+    )
+    if isinstance(authority_resolution, RiskAuthorityGateDecision):
+        return authority_resolution
+
+    readiness_failure = _selected_profile_readiness_failure(
+        authority_resolution,
+        gate_evidence,
+    )
+    if readiness_failure is not None:
+        return readiness_failure
+
+    return _gate_decision(
+        status=RiskAuthorityGateDecisionStatus.PASSED,
+        failure_mode=RiskAuthorityGateFailureMode.NONE,
+        message="Risk authority gate profile selected from canonical metadata.",
+        contract=authority_resolution,
+        authority_metadata=authority_resolution.to_metadata(),
+        evidence=gate_evidence,
+    )
+
+
+def _resolve_authoritative_authority(
+    authority_metadata: Mapping[str, object] | RiskAuthorityContract | None,
+    *,
+    expected_authority_metadata: Mapping[str, object] | RiskAuthorityContract | None,
+    gate_evidence: RiskAuthorityGateEvidence,
+) -> RiskAuthorityContract | RiskAuthorityGateDecision:
     expected_contract = _expected_contract(expected_authority_metadata)
     if authority_metadata is None:
         return _missing_metadata_decision(
@@ -355,63 +386,52 @@ def select_risk_authority_gate(
     try:
         validation = validate_risk_authority_metadata(authority_metadata)
     except ValueError as exc:
-        return RiskAuthorityGateDecision(
+        return _gate_decision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.METADATA_MALFORMED,
             message=f"Risk authority metadata is malformed: {exc}",
-            risk_tier=(
-                None if expected_contract is None else expected_contract.risk_tier
-            ),
-            gate_profile=None
-            if expected_contract is None
-            else expected_contract.gate_profile,
+            contract=expected_contract,
             authority_metadata=_metadata_copy(authority_metadata),
             evidence=gate_evidence,
-            expected_risk_tier=None
-            if expected_contract is None
-            else expected_contract.risk_tier,
-            expected_gate_profile=None
-            if expected_contract is None
-            else expected_contract.gate_profile,
         )
 
     supplied_contract = validation.contract
-    supplied_metadata = supplied_contract.to_metadata()
-    platform_expected_contract = validation.expected_contract
-    authoritative_contract = expected_contract or platform_expected_contract
+    authoritative_contract = expected_contract or validation.expected_contract
     if not validation.platform_consistent or not _same_authority_contract(
         supplied_contract,
         authoritative_contract,
     ):
-        return RiskAuthorityGateDecision(
+        return _gate_decision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.METADATA_INCONSISTENT,
             message=(
                 "Risk authority metadata attempted to select a lower or "
                 "inconsistent gate profile than the platform target allows."
             ),
-            risk_tier=authoritative_contract.risk_tier,
-            gate_profile=authoritative_contract.gate_profile,
-            authority_metadata=supplied_metadata,
+            contract=authoritative_contract,
+            authority_metadata=supplied_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=authoritative_contract.risk_tier,
-            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
+    return authoritative_contract
+
+
+def _selected_profile_readiness_failure(
+    authoritative_contract: RiskAuthorityContract,
+    gate_evidence: RiskAuthorityGateEvidence,
+) -> RiskAuthorityGateDecision | None:
     decision_profile = risk_authority_decision_profile_for_tier(
         authoritative_contract.risk_tier,
     )
+
     if decision_profile.prohibits_boundary:
-        return RiskAuthorityGateDecision(
+        return _gate_decision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.PROHIBITED_BOUNDARY,
             message="The output boundary is outside platform authority.",
-            risk_tier=authoritative_contract.risk_tier,
-            gate_profile=authoritative_contract.gate_profile,
+            contract=authoritative_contract,
             authority_metadata=authoritative_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=authoritative_contract.risk_tier,
-            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
     if authoritative_contract.risk_tier in {RiskTier.ENHANCED, RiskTier.VIGILANT}:
@@ -419,69 +439,46 @@ def select_risk_authority_gate(
             required_risk_tier=authoritative_contract.risk_tier,
         )
         if not packet_readiness.passed:
-            return RiskAuthorityGateDecision(
+            return _gate_decision(
                 status=RiskAuthorityGateDecisionStatus.FAILED,
                 failure_mode=RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED,
                 message=(
                     "Selected authority gate profile requires complete decision "
                     f"evidence packet support: {packet_readiness.message}"
                 ),
-                risk_tier=authoritative_contract.risk_tier,
-                gate_profile=authoritative_contract.gate_profile,
+                contract=authoritative_contract,
                 authority_metadata=authoritative_contract.to_metadata(),
                 evidence=gate_evidence,
-                expected_risk_tier=authoritative_contract.risk_tier,
-                expected_gate_profile=authoritative_contract.gate_profile,
             )
 
-    output_governance_failure = _output_governance_required_decision(
-        authoritative_contract,
-        gate_evidence,
-    )
-    if output_governance_failure is not None:
-        return output_governance_failure
+    if authoritative_contract.risk_tier is RiskTier.VIGILANT:
+        output_governance_readiness = gate_evidence.output_governance_readiness()
+        if not output_governance_readiness.passed:
+            return _gate_decision(
+                status=RiskAuthorityGateDecisionStatus.FAILED,
+                failure_mode=(
+                    RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED
+                ),
+                message=output_governance_readiness.message,
+                contract=authoritative_contract,
+                authority_metadata=authoritative_contract.to_metadata(),
+                evidence=gate_evidence,
+            )
 
-    if decision_profile.requires_decision_evidence and not (
-        gate_evidence.has_decision_evidence
+    if (
+        decision_profile.requires_provenance_evidence
+        and not gate_evidence.has_provenance_evidence
     ):
-        return RiskAuthorityGateDecision(
-            status=RiskAuthorityGateDecisionStatus.FAILED,
-            failure_mode=RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED,
-            message="Selected authority gate profile requires decision evidence.",
-            risk_tier=authoritative_contract.risk_tier,
-            gate_profile=authoritative_contract.gate_profile,
-            authority_metadata=authoritative_contract.to_metadata(),
-            evidence=gate_evidence,
-            expected_risk_tier=authoritative_contract.risk_tier,
-            expected_gate_profile=authoritative_contract.gate_profile,
-        )
-
-    if decision_profile.requires_provenance_evidence and not (
-        gate_evidence.has_provenance_evidence
-    ):
-        return RiskAuthorityGateDecision(
+        return _gate_decision(
             status=RiskAuthorityGateDecisionStatus.FAILED,
             failure_mode=RiskAuthorityGateFailureMode.PROVENANCE_EVIDENCE_REQUIRED,
             message="Selected authority gate profile requires provenance evidence.",
-            risk_tier=authoritative_contract.risk_tier,
-            gate_profile=authoritative_contract.gate_profile,
+            contract=authoritative_contract,
             authority_metadata=authoritative_contract.to_metadata(),
             evidence=gate_evidence,
-            expected_risk_tier=authoritative_contract.risk_tier,
-            expected_gate_profile=authoritative_contract.gate_profile,
         )
 
-    return RiskAuthorityGateDecision(
-        status=RiskAuthorityGateDecisionStatus.PASSED,
-        failure_mode=RiskAuthorityGateFailureMode.NONE,
-        message="Risk authority gate profile selected from canonical metadata.",
-        risk_tier=authoritative_contract.risk_tier,
-        gate_profile=authoritative_contract.gate_profile,
-        authority_metadata=authoritative_contract.to_metadata(),
-        evidence=gate_evidence,
-        expected_risk_tier=authoritative_contract.risk_tier,
-        expected_gate_profile=authoritative_contract.gate_profile,
-    )
+    return None
 
 
 def _expected_contract(
@@ -504,59 +501,47 @@ def _missing_metadata_decision(
         and expected_contract.risk_tier is RiskTier.BASELINE
         and expected_contract.intended_sink is IntendedSink.INTERNAL_RUNTIME_EVIDENCE
     ):
-        return RiskAuthorityGateDecision(
+        return _gate_decision(
             status=RiskAuthorityGateDecisionStatus.PASSED,
             failure_mode=RiskAuthorityGateFailureMode.NONE,
             message=(
                 "Missing risk authority metadata is accepted only for explicit "
                 "Baseline internal runtime evidence."
             ),
-            risk_tier=expected_contract.risk_tier,
-            gate_profile=expected_contract.gate_profile,
+            contract=expected_contract,
             authority_metadata=None,
             evidence=gate_evidence,
-            expected_risk_tier=expected_contract.risk_tier,
-            expected_gate_profile=expected_contract.gate_profile,
         )
 
-    return RiskAuthorityGateDecision(
+    return _gate_decision(
         status=RiskAuthorityGateDecisionStatus.FAILED,
         failure_mode=RiskAuthorityGateFailureMode.METADATA_MISSING,
         message="Risk authority metadata is required before selecting a gate profile.",
-        risk_tier=None if expected_contract is None else expected_contract.risk_tier,
-        gate_profile=(
-            None if expected_contract is None else expected_contract.gate_profile
-        ),
+        contract=expected_contract,
         authority_metadata=None,
         evidence=gate_evidence,
-        expected_risk_tier=(
-            None if expected_contract is None else expected_contract.risk_tier
-        ),
-        expected_gate_profile=None
-        if expected_contract is None
-        else expected_contract.gate_profile,
     )
 
 
-def _output_governance_required_decision(
-    authoritative_contract: RiskAuthorityContract,
-    gate_evidence: RiskAuthorityGateEvidence,
-) -> RiskAuthorityGateDecision | None:
-    if authoritative_contract.risk_tier is not RiskTier.VIGILANT:
-        return None
-    output_governance_readiness = gate_evidence.output_governance_readiness()
-    if output_governance_readiness.passed:
-        return None
+def _gate_decision(
+    *,
+    status: RiskAuthorityGateDecisionStatus,
+    failure_mode: RiskAuthorityGateFailureMode,
+    message: str,
+    contract: RiskAuthorityContract | None,
+    authority_metadata: Mapping[str, object] | None,
+    evidence: RiskAuthorityGateEvidence,
+) -> RiskAuthorityGateDecision:
     return RiskAuthorityGateDecision(
-        status=RiskAuthorityGateDecisionStatus.FAILED,
-        failure_mode=RiskAuthorityGateFailureMode.OUTPUT_GOVERNANCE_EVIDENCE_REQUIRED,
-        message=output_governance_readiness.message,
-        risk_tier=authoritative_contract.risk_tier,
-        gate_profile=authoritative_contract.gate_profile,
-        authority_metadata=authoritative_contract.to_metadata(),
-        evidence=gate_evidence,
-        expected_risk_tier=authoritative_contract.risk_tier,
-        expected_gate_profile=authoritative_contract.gate_profile,
+        status=status,
+        failure_mode=failure_mode,
+        message=message,
+        risk_tier=None if contract is None else contract.risk_tier,
+        gate_profile=None if contract is None else contract.gate_profile,
+        authority_metadata=authority_metadata,
+        evidence=evidence,
+        expected_risk_tier=None if contract is None else contract.risk_tier,
+        expected_gate_profile=None if contract is None else contract.gate_profile,
     )
 
 

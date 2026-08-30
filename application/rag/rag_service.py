@@ -8,6 +8,11 @@ from time import perf_counter
 from typing import Any, Protocol, cast
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
+from application.presentation.evidence import (
+    presentation_gate_evidence,
+    presentation_sink_decision_metadata,
+)
+from application.presentation.sink_decision import PresentationSinkDecisionService
 from application.rag.authority import (
     RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY,
     RagAuthorityFailureMode,
@@ -25,6 +30,7 @@ from application.rag.observability import (
     RagAiObservabilityRecorder,
     record_rag_query_observation,
 )
+from application.rag.security.rag_security import safe_grounding_failure_answer
 from core.storage.persistence.rag import (
     JsonObject,
     RagAnswerLogRecord,
@@ -91,6 +97,7 @@ class RagService:
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagServiceConfig | None = None,
         ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
+        presentation_sink_decision_service: PresentationSinkDecisionService | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._repository = repository
@@ -101,6 +108,9 @@ class RagService:
         self._telemetry = telemetry
         self._config = config or RagServiceConfig()
         self._ai_observability = RagAiObservabilityRecorder(ai_observability_projector)
+        self._presentation_sink_decision_service = (
+            presentation_sink_decision_service or PresentationSinkDecisionService()
+        )
 
     async def run(
         self,
@@ -150,6 +160,7 @@ class RagService:
             request=request,
             result=result,
         )
+        result = await self._apply_presentation_decision(result)
         await self._persist_answer_log(
             _answer_log_from_result(
                 result=result,
@@ -228,6 +239,36 @@ class RagService:
                 ),
             )
         return replace(result, evidence_packet=reconstructed)
+
+    async def _apply_presentation_decision(self, result: RagResult) -> RagResult:
+        authority = result.authority
+        packets = () if result.evidence_packet is None else (result.evidence_packet,)
+        evidence = presentation_gate_evidence(packets=packets)
+        blocking_reasons, withholding_reasons = _rag_presentation_boundary_reasons(
+            result
+        )
+        decision = await self._presentation_sink_decision_service.evaluate(
+            authority,
+            evidence=evidence,
+            expected_authority_metadata=authority,
+            blocking_reasons=blocking_reasons,
+            withholding_reasons=withholding_reasons,
+        )
+        metadata = {
+            **result.metadata,
+            **presentation_sink_decision_metadata(decision),
+        }
+        if decision.may_present or result.status != "answered":
+            return replace(result, metadata=metadata)
+        return replace(
+            result,
+            answer_text=safe_grounding_failure_answer(),
+            status="no_results",
+            citations=(),
+            confidence_score=None,
+            error=None,
+            metadata=metadata,
+        )
 
     def _workflow_facts(
         self,
@@ -362,7 +403,7 @@ class RagService:
             "context_count": len(result.contexts),
             "citation_count": len(result.citations),
         }
-        if result.status == "failed":
+        if error is not None or result.status == "failed":
             await self._telemetry.emit_operation_failed(
                 "RagService",
                 self._config.operation_name,
@@ -428,6 +469,42 @@ class RagService:
                 "persistence_success": False,
             },
         )
+
+
+def _rag_presentation_boundary_reasons(
+    result: RagResult,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    blocking_reasons: list[str] = []
+    withholding_reasons: list[str] = []
+    if result.injection_detected:
+        blocking_reasons.append(
+            "RAG presentation is blocked because prompt-injection evidence was detected."
+        )
+
+    failure_mode = _rag_authority_failure_mode(result.metadata)
+    if failure_mode in {
+        RagAuthorityFailureMode.CITATION_SPOOFING,
+        RagAuthorityFailureMode.MODEL_AUTHORITY_CLAIM,
+        RagAuthorityFailureMode.OUTSIDE_AUTHORITY,
+    }:
+        blocking_reasons.append(
+            f"RAG authority boundary rejected {failure_mode.value}."
+        )
+    elif failure_mode is not RagAuthorityFailureMode.NONE:
+        withholding_reasons.append(
+            f"RAG presentation lacks releasable evidence: {failure_mode.value}."
+        )
+    return tuple(blocking_reasons), tuple(withholding_reasons)
+
+
+def _rag_authority_failure_mode(metadata: JsonObject) -> RagAuthorityFailureMode:
+    raw_failure_mode = metadata.get(RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY)
+    if not isinstance(raw_failure_mode, str):
+        return RagAuthorityFailureMode.UNSUPPORTED_EVIDENCE
+    try:
+        return RagAuthorityFailureMode(raw_failure_mode)
+    except ValueError:
+        return RagAuthorityFailureMode.OUTSIDE_AUTHORITY
 
 
 def _query_log_from_request(

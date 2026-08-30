@@ -17,7 +17,10 @@ from application.governance import (
     GovernedOutputReleaseRequest,
 )
 from application.reports import MorningReportMarkdownRenderer
-from application.reports.authority import ReportAuthorityViolationError
+from application.reports.authority import (
+    ReportAuthorityViolationError,
+    morning_report_authority,
+)
 from application.reports.morning_report_models import (
     MorningReportDocument,
     ReportBullet,
@@ -33,6 +36,7 @@ from application.reports.morning_report_persistence import (
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
     AutomatedDecisionSubject,
+    GovernanceReviewDecisionOutcome,
 )
 from core.storage.persistence.reports import (
     ReportArtifactRecord,
@@ -44,12 +48,23 @@ from core.storage.persistence.reports import (
     ReportSectionRecord,
     ReportVersionRecord,
 )
-from domain.authority import RiskTier
+from domain.authority import RiskTier, SourceOfTruthCategory
 from domain.decision_evidence import (
     DECISION_EVIDENCE_CLAIM_REFERENCES_METADATA_KEY,
+    ClaimEvidenceBinding,
     ClaimMaterialityTier,
+    DecisionEvidencePacket,
     DecisionEvidencePacketValidationError,
     EvidenceClaimReference,
+    EvidenceLimitation,
+    EvidenceReference,
+    EvidenceReferenceKind,
+    EvidenceRetentionRequirement,
+    EvidenceUncertainty,
+    MaterialClaim,
+    ReconstructionReference,
+    ReconstructionReferenceKind,
+    SupportingEvidenceSnapshot,
 )
 from domain.llm import ReasoningTraceViolationError
 
@@ -313,6 +328,8 @@ async def test_morning_report_persistence_uses_claim_packet_for_release() -> Non
             reason="governance review permits release",
             approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
             review_task_id="review-task-1",
+            residual_risk_acceptance_id="acceptance-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
         )
     )
     service = MorningReportPersistenceService(
@@ -352,6 +369,8 @@ async def test_morning_report_persistence_ignores_document_publication_review() 
             reason="governance review permits release",
             approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
             review_task_id="review-task-1",
+            residual_risk_acceptance_id="acceptance-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
         )
     )
     service = MorningReportPersistenceService(
@@ -399,6 +418,7 @@ async def test_morning_report_persistence_blocks_missing_claim_packet() -> None:
     )
 
     assert result.success is False
+    assert "Presentation withheld" in str(result.error)
     assert "materializer-owned decision evidence packet" in str(result.error)
     assert repository.report is None
     assert gate.requests == []
@@ -419,6 +439,7 @@ async def test_morning_report_persistence_blocks_missing_release_service() -> No
     )
 
     assert result.success is False
+    assert "Presentation withheld" in str(result.error)
     assert "canonical governed output release service" in str(result.error)
     assert repository.report is None
 
@@ -435,6 +456,7 @@ async def test_morning_report_persistence_blocks_denied_publication() -> None:
             ),
             approval_state=GovernanceReviewApprovalState.REVIEW_DENIED,
             review_task_id="review-task-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.DENIED,
         )
     )
     service = MorningReportPersistenceService(
@@ -450,6 +472,7 @@ async def test_morning_report_persistence_blocks_denied_publication() -> None:
     )
 
     assert result.success is False
+    assert "Presentation withheld" in str(result.error)
     assert "review_denied" in str(result.error)
     assert repository.report is None
     assert gate.requests == [
@@ -476,6 +499,7 @@ async def test_morning_report_persistence_persists_after_review_approval() -> No
             approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
             review_task_id="review-task-1",
             residual_risk_acceptance_id="acceptance-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
         )
     )
     service = MorningReportPersistenceService(
@@ -763,6 +787,29 @@ async def test_morning_report_allows_contextual_claim_after_binding() -> None:
     assert "claim-context" not in str(repository.sections[0].metadata)
 
 
+@pytest.mark.asyncio
+async def test_morning_report_persistence_blocks_unsafe_capital_advice() -> None:
+    document = replace(
+        _document(),
+        executive_summary=ReportSection(
+            title="Executive Summary",
+            summary="Buy 100 shares of SPY at the open.",
+        ),
+    )
+    repository = FakeReportRepository()
+    service = MorningReportPersistenceService(repository)
+
+    result = await service.persist(
+        document,
+        markdown_body="# Published report\n\nBuy 100 shares of SPY at the open.",
+    )
+
+    assert result.success is False
+    assert "Presentation blocked" in str(result.error)
+    assert "unsupported_capital_advice" in str(result.error)
+    assert repository.report is None
+
+
 def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
     document = _document()
     markdown = MorningReportMarkdownRenderer().render(
@@ -919,6 +966,15 @@ class _FakeReportClaimBindingService(DecisionEvidenceClaimBindingService):
         self.targets = tuple(targets)
         return self.links
 
+    async def validated_packets_for_references(
+        self,
+        references: Sequence[EvidenceClaimReference],
+    ) -> tuple[DecisionEvidencePacket, ...]:
+        packets: dict[str, DecisionEvidencePacket] = {}
+        for reference in references:
+            packets.setdefault(reference.packet_id, _packet_for_reference(reference))
+        return tuple(packets.values())
+
 
 def _approved_release_gate() -> _FakeGovernedOutputReleaseService:
     return _FakeGovernedOutputReleaseService(
@@ -928,6 +984,7 @@ def _approved_release_gate() -> _FakeGovernedOutputReleaseService:
             approval_state=GovernanceReviewApprovalState.REVIEW_APPROVED,
             review_task_id="review-task-1",
             residual_risk_acceptance_id="acceptance-1",
+            review_decision_outcome=GovernanceReviewDecisionOutcome.APPROVED,
         )
     )
 
@@ -994,6 +1051,89 @@ def _material_claim_reference() -> EvidenceClaimReference:
         reconstruction_reference_ids=("workflow-node",),
         uncertainty_ids=("uncertainty-1",),
         limitation_ids=("limitation-1",),
+    )
+
+
+def _packet_for_reference(reference: EvidenceClaimReference) -> DecisionEvidencePacket:
+    reconstruction_reference_id = (
+        reference.reconstruction_reference_ids[0]
+        if reference.reconstruction_reference_ids
+        else "report-packet-provenance"
+    )
+    evidence_id = (
+        reference.supporting_evidence_ids[0]
+        if reference.supporting_evidence_ids
+        else "report-context-evidence"
+    )
+    supporting_evidence_ids = (
+        reference.supporting_evidence_ids if reference.material else ()
+    )
+    evidence = EvidenceReference(
+        evidence_id=evidence_id,
+        kind=EvidenceReferenceKind.WORKFLOW_NODE_OUTPUT,
+        reconstruction_reference_ids=(reconstruction_reference_id,),
+        summary="Canonical report test evidence.",
+        source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+        support_snapshot=(
+            SupportingEvidenceSnapshot(
+                snapshot_id=f"snapshot:{reference.packet_id}:{reference.claim_id}",
+                summary="Canonical report test support.",
+                redacted_content="Canonical report support content.",
+                source_label="report-test",
+            )
+            if reference.material
+            else None
+        ),
+    )
+    return DecisionEvidencePacket(
+        packet_id=reference.packet_id,
+        output_id=reference.output_id,
+        authority=morning_report_authority(),
+        claims=(
+            MaterialClaim(
+                claim_id=reference.claim_id,
+                text="Canonical report claim.",
+                materiality=reference.materiality,
+                material=reference.material,
+                evidence=ClaimEvidenceBinding(
+                    supporting_evidence_ids=supporting_evidence_ids,
+                    uncertainty_ids=reference.uncertainty_ids,
+                    limitation_ids=reference.limitation_ids,
+                ),
+            ),
+        ),
+        evidence=(evidence,),
+        reconstruction_references=(
+            ReconstructionReference(
+                reference_id=reconstruction_reference_id,
+                kind=ReconstructionReferenceKind.WORKFLOW_NODE_OUTPUT,
+                record_id=f"record:{reference.packet_id}",
+                source_of_truth=SourceOfTruthCategory.CANONICAL_DOMAIN_RECORD,
+            ),
+        ),
+        uncertainties=tuple(
+            EvidenceUncertainty(
+                uncertainty_id=uncertainty_id,
+                summary="Canonical report test uncertainty.",
+                evidence_ids=supporting_evidence_ids,
+            )
+            for uncertainty_id in reference.uncertainty_ids
+        ),
+        limitations=tuple(
+            EvidenceLimitation(
+                limitation_id=limitation_id,
+                summary="Canonical report test limitation.",
+                evidence_ids=supporting_evidence_ids,
+            )
+            for limitation_id in reference.limitation_ids
+        ),
+        retention=EvidenceRetentionRequirement(
+            retain_until="2031-05-30T13:30:00Z",
+            policy_id="report-test-retention",
+        ),
+        workflow_name="morning_report",
+        workflow_definition_fingerprint="workflow-fingerprint",
+        execution_id="exec-report-test",
     )
 
 

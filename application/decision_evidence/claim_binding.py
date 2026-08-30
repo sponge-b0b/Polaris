@@ -160,6 +160,25 @@ class DecisionEvidenceClaimBindingService:
             ),
         )
 
+    async def validated_packets_for_references(
+        self,
+        references: Sequence[EvidenceClaimReference],
+    ) -> tuple[DecisionEvidencePacket, ...]:
+        """Return canonical packets after validating every supplied claim reference."""
+
+        packets_by_id: dict[str, DecisionEvidencePacket] = {}
+        for reference in references:
+            packet = packets_by_id.get(reference.packet_id)
+            if packet is None:
+                packet = await self._validated_packet(reference.packet_id)
+                packets_by_id[reference.packet_id] = packet
+            canonical = _canonical_reference_for_claim(packet, reference.claim_id)
+            _assert_reference_matches_canonical(
+                reference=reference,
+                canonical=canonical,
+            )
+        return tuple(packets_by_id.values())
+
     async def _bind_claim_links(
         self,
         *,
@@ -180,12 +199,7 @@ class DecisionEvidenceClaimBindingService:
         self,
         reference: EvidenceClaimReference,
     ) -> EvidenceClaimReference:
-        packet = await self._packet_reader.reconstruct_packet(reference.packet_id)
-        if packet.packet_id != reference.packet_id:
-            raise ClaimEvidenceBindingError(
-                "decision evidence packet reader returned substituted packet "
-                f"{packet.packet_id!r} for reference {reference.packet_id!r}."
-            )
+        packet = await self._validated_packet(reference.packet_id)
         canonical = _canonical_reference_for_claim(
             packet,
             reference.claim_id,
@@ -195,6 +209,15 @@ class DecisionEvidenceClaimBindingService:
             canonical=canonical,
         )
         return canonical
+
+    async def _validated_packet(self, packet_id: str) -> DecisionEvidencePacket:
+        packet = await self._packet_reader.reconstruct_packet(packet_id)
+        if packet.packet_id != packet_id:
+            raise ClaimEvidenceBindingError(
+                "decision evidence packet reader returned substituted packet "
+                f"{packet.packet_id!r} for reference {packet_id!r}."
+            )
+        return packet
 
 
 def has_material_claim_references(

@@ -106,8 +106,8 @@ class BacktestCommandService:
             autoload_plugins=bool(request.plugin_dirs),
             provider_profile=scenario.provider_profile,
         ) as scope:
-            service = scope.get(BacktestApplicationService)
-            service_runner = scope.get(ServiceRunner)
+            service = await scope.get(BacktestApplicationService)
+            service_runner = await scope.get(ServiceRunner)
             result = await service_runner.run(
                 service,
                 ServiceRequest(

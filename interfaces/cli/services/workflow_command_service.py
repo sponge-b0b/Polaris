@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from application.governance import GovernedWorkflowExecutionService
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from core.workflow.execution.workflow_facade import WorkflowFacade
-from interfaces.cli.bootstrap.container import cli_runtime_scope
+from interfaces.cli.bootstrap.container import CliRuntimeScope, cli_runtime_scope
 from interfaces.cli.rendering.workflow_rendering import (
     WorkflowRenderEnvelope,
     workflow_exception_to_render_envelope,
@@ -18,6 +17,7 @@ from interfaces.cli.rendering.workflow_rendering import (
 from interfaces.cli.services.workflow_control_input_service import (
     AsyncLineReader,
     WorkflowControlNotificationHandler,
+    WorkflowInteractiveControlRequest,
     WorkflowInteractiveControlSession,
 )
 from interfaces.cli.services.workflow_progress_service import (
@@ -62,6 +62,21 @@ class MorningReportCommandRequest:
     control_handler: WorkflowControlNotificationHandler | None = None
 
 
+@dataclass(slots=True)
+class _ObservedWorkflowExecution:
+    execution_id: str | None = None
+
+    def record_started(
+        self,
+        execution_id: str,
+    ) -> None:
+        if self.execution_id is not None and self.execution_id != execution_id:
+            raise WorkflowCommandServiceError(
+                "workflow execution correlation changed during CLI run"
+            )
+        self.execution_id = execution_id
+
+
 class WorkflowCommandServiceError(RuntimeError):
     """
     Base command-service error rendered by the CLI output layer.
@@ -71,6 +86,12 @@ class WorkflowCommandServiceError(RuntimeError):
 class WorkflowNotRegisteredError(WorkflowCommandServiceError):
     """
     Raised when a requested workflow is not registered in the runtime facade.
+    """
+
+
+class GovernedWorkflowExecutionDependencyError(WorkflowCommandServiceError):
+    """
+    Raised when governed CLI execution cannot resolve its request-scoped service.
     """
 
 
@@ -90,20 +111,22 @@ class WorkflowCommandService:
         self,
         request: WorkflowRunCommandRequest,
     ) -> WorkflowRenderEnvelope:
+        observed_execution = _ObservedWorkflowExecution()
         try:
             result = await self._run_workflow_result(
                 request,
+                observed_execution=observed_execution,
             )
             return workflow_result_to_render_envelope(
                 result,
                 workflow_name=request.workflow_name,
-                execution_id=None,
+                execution_id=observed_execution.execution_id,
             )
         except Exception as exc:
             return workflow_exception_to_render_envelope(
                 exc,
                 workflow_name=request.workflow_name,
-                execution_id=None,
+                execution_id=observed_execution.execution_id,
                 summary=self._error_summary(
                     request,
                 ),
@@ -138,6 +161,8 @@ class WorkflowCommandService:
     async def _run_workflow_result(
         self,
         request: WorkflowRunCommandRequest,
+        *,
+        observed_execution: _ObservedWorkflowExecution,
     ) -> Any:
         async with cli_runtime_scope(
             plugin_dirs=request.plugin_dirs,
@@ -145,14 +170,14 @@ class WorkflowCommandService:
                 request.plugin_dirs,
             ),
         ) as scope:
+            governed_execution_service = await _resolve_governed_execution_service(
+                scope,
+            )
             return await self._execute_with_runtime(
                 request,
                 runtime=scope.runtime,
-                governed_execution_service=(
-                    scope.get(GovernedWorkflowExecutionService)
-                    if _is_governed_facade(scope.runtime.facade)
-                    else None
-                ),
+                governed_execution_service=governed_execution_service,
+                observed_execution=observed_execution,
             )
 
     async def _execute_with_runtime(
@@ -161,6 +186,7 @@ class WorkflowCommandService:
         *,
         runtime: WorkflowBootstrapResult,
         governed_execution_service: GovernedWorkflowExecutionService | None,
+        observed_execution: _ObservedWorkflowExecution,
     ) -> Any:
 
         subscription: WorkflowProgressSubscription | None = None
@@ -182,11 +208,24 @@ class WorkflowCommandService:
                 )
 
             control_session: WorkflowInteractiveControlSession | None = None
-            if request.interactive_control:
-                raise WorkflowCommandServiceError(
-                    "interactive control is unavailable without a "
-                    "platform-issued correlation"
+
+            def start_control_session(execution_id: str) -> None:
+                nonlocal control_session
+                observed_execution.record_started(
+                    execution_id,
                 )
+                if not request.interactive_control:
+                    return
+                control_session = WorkflowInteractiveControlSession(
+                    facade=runtime.facade,
+                    request=WorkflowInteractiveControlRequest(
+                        execution_id=execution_id,
+                        metadata=dict(request.metadata),
+                    ),
+                    input_reader=request.interactive_input,
+                    notification_handler=request.control_handler,
+                )
+                control_session.start()
 
             workflow_task = asyncio.create_task(
                 self._run_workflow(
@@ -198,10 +237,9 @@ class WorkflowCommandService:
                     metadata=dict(
                         request.metadata,
                     ),
+                    execution_started_handler=start_control_session,
                 )
             )
-            if control_session is not None:
-                control_session.start()
 
             try:
                 return await workflow_task
@@ -221,6 +259,7 @@ class WorkflowCommandService:
         mode: str,
         workflow_inputs: Mapping[str, Any] | None,
         metadata: dict[str, Any],
+        execution_started_handler: Callable[[str], None] | None,
     ) -> Any:
         if governed_execution_service is not None:
             return await governed_execution_service.run_workflow(
@@ -228,13 +267,14 @@ class WorkflowCommandService:
                 mode=mode,
                 workflow_inputs=workflow_inputs,
                 metadata=metadata,
+                execution_started_handler=execution_started_handler,
             )
         return await runtime.facade.run_workflow(
             workflow_name=workflow_name,
-            execution_id=None,
             mode=mode,
             workflow_inputs=workflow_inputs,
             metadata=metadata,
+            execution_started_handler=execution_started_handler,
         )
 
     def _error_summary(
@@ -256,8 +296,20 @@ class WorkflowCommandService:
         }
 
 
-def _is_governed_facade(facade: WorkflowFacade) -> bool:
-    return (
-        getattr(facade, "policy_engine", None) is not None
-        or getattr(facade, "governance_engine", None) is not None
-    )
+def _requires_governed_execution(runtime: WorkflowBootstrapResult) -> bool:
+    return runtime.policy_engine is not None or runtime.governance_engine is not None
+
+
+async def _resolve_governed_execution_service(
+    scope: CliRuntimeScope,
+) -> GovernedWorkflowExecutionService | None:
+    if not _requires_governed_execution(scope.runtime):
+        return None
+
+    try:
+        return await scope.get(GovernedWorkflowExecutionService)
+    except Exception as exc:
+        raise GovernedWorkflowExecutionDependencyError(
+            "governed workflow execution requires request-scoped "
+            "GovernedWorkflowExecutionService and its audit/evidence dependencies"
+        ) from exc

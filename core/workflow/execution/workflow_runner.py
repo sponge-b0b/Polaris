@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -36,6 +36,8 @@ class WorkflowRunRequest:
     checkpoint_on_completion: bool = False
 
     metadata: dict[str, Any] | None = None
+
+    execution_started_handler: Callable[[str], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +133,10 @@ class WorkflowRunner:
             workflow_definition=workflow_definition,
             execution_id=execution_id,
         )
+        if request.execution_started_handler is not None:
+            request.execution_started_handler(
+                execution_id,
+            )
 
         execution_result = await self.workflow_engine.execute(
             compiled_workflow=compiled_workflow,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -69,12 +69,15 @@ class GovernedWorkflowExecutionService:
         archive_on_completion: bool = True,
         checkpoint_on_completion: bool = False,
         metadata: dict[str, Any] | None = None,
+        execution_started_handler: Callable[[str], None] | None = None,
     ) -> WorkflowRunResult:
         correlation_id = f"governed-{uuid4().hex}"
         capability = await self._audit_capability_for_run(
             workflow_name=workflow_name,
             execution_id=correlation_id,
         )
+        if execution_started_handler is not None:
+            execution_started_handler(correlation_id)
         return await self._workflow_facade.run_workflow(
             workflow_name=workflow_name,
             execution_id=correlation_id,

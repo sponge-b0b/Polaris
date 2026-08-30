@@ -6,14 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
-from dishka import Container
+from dishka import AsyncContainer
 
 from application.projections.workflow_outputs import (
     subscribe_default_workflow_output_projection,
 )
 from config.provider_profiles import apply_provider_profile
 from config.settings import Settings
-from core.bootstrap.di_providers import application_sync_request_scope
+from core.bootstrap.di_providers import application_request_scope
 from core.telemetry.emitters.bootstrap_configuration_telemetry import (
     configuration_setting_names,
     emergency_log_configuration_failure,
@@ -36,13 +36,13 @@ class CliRuntimeScope:
     """Dependencies owned by one CLI invocation."""
 
     runtime: WorkflowBootstrapResult
-    request_container: Container
+    request_container: AsyncContainer
 
-    def get(
+    async def get(
         self,
         dependency_type: type[DependencyT],
     ) -> DependencyT:
-        return self.request_container.get(dependency_type)
+        return await self.request_container.get(dependency_type)
 
 
 @asynccontextmanager
@@ -85,11 +85,11 @@ async def cli_runtime_scope(
             details={"configuration_source": "provider_profile"},
         )
         raise
-    with application_sync_request_scope(
+    async with application_request_scope(
         settings,
         workflow_config=_workflow_bootstrap_config(cli_settings),
     ) as request_container:
-        runtime = request_container.get(WorkflowBootstrapResult)
+        runtime = await request_container.get(WorkflowBootstrapResult)
         subscribe_default_workflow_output_projection(
             event_bus=runtime.event_bus,
             workflow_registry=runtime.facade.registry,

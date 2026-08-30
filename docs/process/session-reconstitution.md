@@ -15,10 +15,13 @@ Reconstitute from durable project state first, then restore the minimum necessar
 Durable repository/tracker state remains authoritative. The ledger exists only for context that would otherwise be stranded in a conversation, such as:
 
 - the exact task or thread that was in progress;
+- the exact workflow checkpoint at which work stopped;
 - the last local-only command/result needed to resume safely;
 - an uncommitted or unpushed local state that is not visible remotely;
 - a temporary decision, sequencing choice, or working assumption that has not yet been persisted to its authoritative artifact;
 - a tool/capability handoff that requires the user to perform the next mechanical step outside the agent's available tooling.
+
+The ledger must contain **one active continuation record**, not an accumulating session history. Once older context is durably represented elsewhere or no longer describes the active thread, remove it from the ledger rather than preserving it as background narrative.
 
 If remembered conversation or the Current Session Ledger conflicts with current durable state, surface the conflict and prefer the applicable authority defined by `AGENTS.md` unless the user explicitly resolves it otherwise.
 
@@ -43,6 +46,8 @@ Do **not** read `CONTEXT.md` merely because a session is being reconstructed. Fo
 ### 1. Establish repository state
 
 Inspect the current default branch and recent relevant commits.
+
+When the active workflow has a durable branch and baseline/anchor, compare that exact baseline/anchor to the branch `HEAD` and confirm the changed-file surface before assuming what work is present. Do not substitute a broad recent-commit scan when a durable comparison anchor exists.
 
 Determine whether the user's local working tree may contain uncommitted or unpushed state that cannot be observed remotely. Never assume remote repository state includes those changes.
 
@@ -143,11 +148,64 @@ After durable state is reconstructed, read the **Current Session Ledger** at the
 
 Use it only to restore the exact stopping point and session-only context that cannot be recovered cheaply or reliably from the repository/tracker.
 
-For every ledger entry that matters to the resumed task:
+#### Active Continuation Record
 
-1. verify any repository/tracker facts against current durable state;
-2. treat local-only state as provisional until the user confirms it or supplies current output;
-3. discard or revise entries that have become stale, contradicted, completed, or durably persisted elsewhere;
+The ledger must contain exactly one **Active Continuation Record** with these re-entry coordinates:
+
+```text
+Active branch: <branch | None>
+Active artifact: <canonical issue/PR/artifact reference>
+Workflow owner: <$skill | direct>
+Workflow checkpoint: <precise completed stage / next suspended stage>
+Last durable commit: <full SHA | None>
+Baseline / anchor: <full SHA or durable artifact anchor | None>
+Expected next transition: <one concise transition>
+```
+
+These fields are routing coordinates, not workflow authority. Verify every applicable coordinate against current durable state before using ledger prose.
+
+Treat the record as stale when any coordinate that should still be true is contradicted by durable state, for example:
+
+- the active artifact has closed or changed lifecycle owner;
+- the declared branch no longer exists or no longer points at the recorded durable candidate;
+- the baseline/anchor no longer matches the durable workflow artifact;
+- the recorded checkpoint has already been completed durably;
+- the expected next transition is no longer reachable from the current native frontier.
+
+A stale coordinate does not authorize guessing a replacement from the rest of the ledger. Reconstruct the replacement from durable repository/tracker state, report the conflict when material, and continue from the smallest correct next action.
+
+#### Workflow-Specific Re-entry Coordinates
+
+Use the applicable workflow's current `SKILL.md` as authority for exact guards and semantics. The bundles below are only the minimum recovery coordinates that should normally be checked before reading broader context.
+
+| Workflow owner | Minimum durable re-entry bundle |
+| --- | --- |
+| `$wayfinder` | active Wayfinder issue/map; current decision/handoff state; native blockers/dependents relevant to the active decision; current governing branch/commit when repository work is involved |
+| `$to-specs` | governing Wayfinder/handoff; current derived/remediation Spec children; native dependency state; current branch/anchor required by the handoff |
+| `$to-tickets` | parent Spec; Spec branch/workspace baseline; current native ticket children; ticket dependency relationships; current Spec lifecycle state |
+| `$implement-ticket` | current default-branch `HEAD`; Ticket branch `HEAD`; Ticket baseline; native direct parent; ticket open/closed state; parent native child frontier; direct ticket dependents; remediation checkpoint/root state when applicable |
+| `$verify-spec` | Spec branch candidate `HEAD`; Spec/workspace baseline; Spec state; open implementation/remediation children; current verification receipt/checkpoint or proof state; native blockers relevant to verification actionability |
+| `$review-spec` | exact verified candidate `HEAD`; latest valid verification receipt; Spec state; current review/remediation artifact state; open remediation children when any exist |
+| `$spec-merge-cleanup` | exact reviewed candidate `HEAD`; current default-branch `HEAD`; durable review/merge authorization state; current PR/merge state when applicable; remaining child/remediation state |
+| `$architecture-remediation` | blocked artifact; exact unresolved architecture question/conflict; governing authority set; current remediation/decision artifact and native relationship state |
+
+For an active branch with a durable SHA baseline, compare baseline → `HEAD` and confirm the exact changed-file set. For a suspended workflow, recover the owning skill's current contract and resume at the first incomplete authoritative stage rather than replaying already completed stages.
+
+#### Session-Only Evidence
+
+After the coordinates validate, restore only evidence that is not durably recoverable, such as:
+
+- local clean/dirty working-tree state;
+- results of local-only tests, profiling, or service probes;
+- an unpushed commit or local branch position;
+- the exact output of a human-run `gh`/shell step required by a connector boundary;
+- a temporary assumption that has not yet acquired an authoritative home.
+
+For every ledger fact that matters to the resumed task:
+
+1. verify repository/tracker facts against current durable state;
+2. treat local-only state as provisional unless the ledger contains the exact result from the prior session or the user confirms current state;
+3. discard or revise facts that have become stale, contradicted, completed, or durably persisted elsewhere;
 4. continue from the smallest correct next action rather than replaying completed work.
 
 The user should not need to provide a separate `LAST ACTIVE THREAD` when the ledger is current.
@@ -175,6 +233,23 @@ The initial response after reconstitution should state only:
 - any genuine uncertainty or blocker.
 
 Do not respond with a generic Polaris overview or repeat every artifact inspected.
+
+## Ledger Maintenance
+
+The agent owns ledger maintenance on `main` whenever a session reaches a continuation point worth preserving.
+
+Update the ledger when the active artifact, workflow owner, candidate commit, baseline/anchor, workflow checkpoint, or expected next transition materially changes and the new continuation state is not already cheaply reconstructable from durable workflow artifacts alone.
+
+When updating:
+
+- keep exactly one Active Continuation Record;
+- replace superseded continuation notes rather than appending history;
+- remove facts that have acquired another durable authoritative home unless they are still needed as re-entry coordinates;
+- preserve only current session-only evidence needed to avoid repeating completed local work;
+- use full commit SHAs for durable commit/baseline coordinates;
+- never turn the ledger into a substitute verification receipt, review record, architecture decision, root checkpoint, or Project state store.
+
+If there is no meaningful ephemeral continuation state, record that explicitly and keep the ledger minimal.
 
 ## Collaboration Boundary
 
@@ -214,33 +289,28 @@ When local execution is required:
 
 # Current Session Ledger
 
-> **Ephemeral recovery state only.** Validate repository/tracker facts against their authoritative sources during reconstitution. If this section conflicts with durable state, durable state wins unless the user explicitly resolves the conflict otherwise.
+> **Ephemeral recovery state only.** Validate every re-entry coordinate against its authoritative repository/tracker source. If this ledger conflicts with durable state, durable state wins unless the user explicitly resolves the conflict otherwise.
 
 **Last maintained:** 2026-08-29
 
-## Active thread
+## Active Continuation Record
 
-- The common-sense invariant audit and reasoning model are durable in `docs/process/common-sense-invariant-hardening.md`.
-- First-stage transition-bound hardening is durable through `$spec-contract` source-universe closure and commit `91cb99fa7f58f5e145050126b764d1f34792ff7c` (`fix(workflow): enforce transition-bound invariants`).
-- A full `$verify-spec` rerun for Spec #240 at exact HEAD `06118a1709f78f3eed9bb322be161ca2621d8f03` produced a false PASS, which exposed **No Self-Certifying Semantic Transition** and **Nested Universe Closure**.
-- Second-stage `$verify-spec` hardening is commit `3abffb3ee05a556ef2e8307a10a03dd32ce640b5` (`fix(verify-spec): require independent proof certification`). It introduced durable Proof Objects, nested-domain witnesses, proof-packet hashing, and genuinely fresh non-mutating semantic proof certification.
-- The first real run under that model worked adversarially: fresh certifiers rejected proof, exposed the stale backtest fake-contract defect, then exposed an invalid non-empty control-command behavior. Verification repaired those on `spec-240` as `cd6ece5` and `ac6c1b8` respectively. A third fresh certifier was spawned for the final packet, but the Codex usage limit terminated the run before a result or passing receipt was produced. Do not infer that certification result.
-- Current `spec-240` candidate HEAD from that interrupted run is `ac6c1b8865fd4e9a1da4ff43c0f171d34f1a1de8`; verify against durable branch state before acting because the user may have advanced it.
-- Efficiency hardening is now on `main` in `5ec01e2bcb460f4f364d7aa70558d39f41d65dc5` (`fix(verify-spec): make proof certification incremental`). `$verify-spec` now uses certifier-approved Proof Object invalidation boundaries/evidence stability, deterministic fail-closed carry-forward for unaffected repository-immutable certification, reduced certification slices containing only stale objects, and semantic-first execution that delays broad final gates until proof convergence.
+**Active branch:** `spec-261`  
+**Active artifact:** Implementation Ticket #262 — `https://github.com/sponge-b0b/Polaris/issues/262`  
+**Workflow owner:** `$implement-ticket`  
+**Workflow checkpoint:** repository implementation, targeted verification, commit, and push complete; suspended immediately before ticket closure and deterministic post-closure frontier/dependency/Project reconciliation  
+**Last durable commit:** `76067f3af7edf96ea16ffb17cc71f101b564323a`  
+**Baseline / anchor:** Ticket baseline `b377381ad236ba0f02e3272b62b20c18dd29bc4d`  
+**Expected next transition:** re-run the current `$implement-ticket` pre-closure guards, close #262 if they still pass, derive the native post-closure frontier/dependents, reconcile #262/#261 Project projection, and hand off #261 to `$verify-spec` if no implementation-ticket child remains open
 
-## Session-only continuation notes
+## Session-Only Evidence
 
-- The immediate product step is to merge current `main` into `spec-240` (merge, do not rebase) before relying on the new incremental policy, then rerun `$verify-spec`.
-- That merge changes exact HEAD and includes a normative `$verify-spec` proof-policy change. Therefore semantic certification produced under the previous policy is non-inheritable for the first run after the merge; expect one fresh certification pass over the current Proof Objects. The efficiency gain applies to subsequent repair iterations in that run: only stale/uncertified Proof Objects should be sent to new fresh certifiers.
-- The first run under `5ec01e2...` should perform candidate semantic proof before broad final gates. Expensive final formatter/linter/type/regression gates are delayed until semantic proof converges unless one is direct Proof Object evidence.
-- After a repository repair, retain a prior certification only when the Proof Object hash is unchanged, its fresh certifier approved a complete invalidation boundary and `repository-immutable` evidence stability, proof policy remains compatible, and deterministic changed-path analysis has zero boundary intersection. Any uncertainty makes the object stale.
-- Fresh-certifier independence remains mandatory for stale Proof Objects; there is no same-agent/owner override. Token economy must never weaken fail-closed invalidation.
-- Do not run `$review-spec` merely to rediscover defects while `$verify-spec` is still incomplete. Complete verification under the current policy first.
-- Future workflow hardening should remain generic: first test failures against Transition-Bound Reasoning, Universe Closure, Nested Universe Closure, Explicit Escape Disposition, No Self-Certifying Semantic Transition, falsification-first proof, evidence entailment, and certifier-approved invalidation boundaries before adding a defect-specific rule.
-- Temporary hardening branches/scripts/workflows are scratch only and are not workflow authority. The agent owns future ledger maintenance on `main`.
-- All Bash command blocks supplied to the user must use a subshell `(...)`.
+- The user ran the final persistence block from the `spec-261` checkout after targeted verification succeeded.
+- Targeted verification before persistence: focused Ruff and Mypy passed; the selected pytest scope was classified service-free; all 72 selected tests passed.
+- Final local persistence output reported `BRANCH=spec-261`, `HEAD=76067f3af7edf96ea16ffb17cc71f101b564323a`, `UPSTREAM=origin/spec-261`, and no `git status --short` entries.
+- The pushed ticket commit is `76067f3af7edf96ea16ffb17cc71f101b564323a` (`refactor(evaluations): decompose risk-authority gate stages`).
 
-## Outstanding ephemeral state
+## Outstanding Ephemeral State
 
-- No known uncommitted Polaris product-code change is represented by this ledger. Local repository state must still be verified when relevant.
-- Re-read current `main`, `spec-240`, issue #240 verification receipt/history, and Project state before acting in a fresh session; durable state wins if the user has already completed the merge or another verification attempt.
+- No known uncommitted Polaris product-code change is represented by this ledger.
+- Re-read current `main`, remote `spec-261`, #262 native parent/state, #261 native child frontier, #262 direct dependents, and the current `$implement-ticket` contract before acting. This process-document commit advances `main` independently of the already-pushed #262 product candidate; do not infer that `spec-261` also contains this ledger update.

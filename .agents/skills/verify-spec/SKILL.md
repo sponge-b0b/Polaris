@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Perform authorized Spec-wide verification against a deterministic Spec contract, reuse safe ancestor checkpoints, repair Spec-owned failures, independently certify semantic proof, and record a passing receipt for the exact final HEAD.
+description: Perform authorized Spec-wide verification against a deterministic Spec contract, run fail-fast deterministic gates, establish complete evidence-backed per-cell proof, repair Spec-owned failures, and record a passing receipt for the exact final HEAD.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Verify the completed Spec against its fixed baseline as one integrated acceptance universe.
 
-A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` requires that receipt.
+A successful run records a **Spec Verification Receipt** for the exact final committed `HEAD`. `$review-spec` owns the independent adversarial review that follows verification.
 
 Verification discipline is applicability-driven:
 
@@ -25,6 +25,14 @@ Recover every correctness-critical input from the invocation, repository, durabl
 
 If required durable state cannot be recovered, report the missing artifact rather than infer it.
 
+## Verification / Review Boundary
+
+`$verify-spec` owns evidence-backed verification of the completed implementation. The verifier may establish semantic proof directly from authoritative current evidence; it does **not** spawn a second agent to certify its own proof.
+
+`$review-spec` is the independent layer. It owns fresh reviewer execution and adversarial re-evaluation after verification.
+
+Do not duplicate `$review-spec` inside `$verify-spec` by spawning proof certifiers, shadow reviewers, or semantic challenger agents.
+
 ## Deterministic Mechanics Boundary
 
 The reasoning agent owns:
@@ -33,8 +41,7 @@ The reasoning agent owns:
 - semantic proof design;
 - falsifiers and authoritative domain boundaries;
 - Nested Universe reasoning;
-- evidence sufficiency candidates;
-- proof-policy impact classification;
+- evidence sufficiency;
 - repair decisions;
 - final lifecycle judgment.
 
@@ -48,18 +55,15 @@ Use it for:
 
 - paginated Spec-comment normalization and baseline/latest-receipt extraction;
 - proof-packet structure validation and canonical hashing;
-- deterministic certifier-admission checks;
-- bounded certification-slice generation;
-- carry-forward delta/digest/boundary validation;
-- final certification/coverage consistency validation;
+- final proof/coverage/gate consistency validation;
 - complete receipt rendering;
 - byte-for-byte receipt validation before and after GitHub persistence.
 
 Do **not** recreate an operation owned by this utility with ad hoc Python, heredoc scripts, custom `jq` pipelines, or one-off receipt parsers. If the utility rejects valid input or cannot represent a required invariant, fix the utility as verification infrastructure rather than bypassing it.
 
-For deterministic repository checks not owned by this utility, prefer an existing checked-in repository tool. Use inline Python only when no reusable owner exists; keep it short, invoke it through `uv run python`, and avoid heredocs where a stable command/file can express the check. If a heredoc is unavoidable, quote its delimiter.
+Do not generate a program whose sole purpose is to generate the proof JSON. Construct the packet as data. A temporary 100+ line Python builder for JSON bookkeeping is a workflow defect, not verification evidence.
 
-This boundary is an efficiency rule, not an authority change. Deterministic tooling never supplies semantic certification.
+For deterministic repository checks not owned by this utility, prefer an existing checked-in repository tool. Use inline Python only when no reusable owner exists; keep it short and invoke it through `uv run python`.
 
 ## 1. Pin the Fixed Point
 
@@ -157,60 +161,24 @@ For a Wayfinder-managed Spec:
 
 If no governor is allowed, stop and report the explicit human focus/switch/parallel choices. `$verify-spec` never changes focus.
 
-Re-run this guard immediately before persisting a passing receipt.
+Do not repeatedly re-read unchanged delivery state during proof construction. Re-run this guard only immediately before persisting a passing receipt, unless a repository/tracker mutation can materially change actionability sooner.
 
-## 3. Select an Incremental Checkpoint
+## 3. Exact-HEAD Checkpoint
 
-The fixed Spec baseline remains the canonical verification origin.
+Use only the `latest_receipt` returned by the deterministic comments summary.
 
-Use only the `latest_receipt` returned by the deterministic comments summary. Do not search backward for a convenient older receipt.
+A prior receipt may short-circuit immutable verification work only when it is a passing receipt for the **exact current `HEAD`**, current branch, fixed baseline, `SPEC_BODY_HASH`, and `SPEC_CONTRACT_HASH`.
 
-Checkpoint mode is permitted only when the newest receipt is well formed and all of these hold:
+Even on an exact-HEAD checkpoint:
 
-1. `Status: passed`;
-2. `Verified Baseline == BASELINE_COMMIT`;
-3. receipt branch equals current Spec branch;
-4. receipt `Verified HEAD` resolves and is an ancestor of current `HEAD`;
-5. receipt `Spec Body Hash == SPEC_BODY_HASH`;
-6. receipt `Spec Contract Hash == SPEC_CONTRACT_HASH`;
-7. complete per-cell contract coverage exists;
-8. complete checkpoint→current repository delta is bounded.
+- revalidate current mutable ticket/hierarchy/dependency/focus state;
+- re-run any gate whose authoritative result is mutable or time/service-dependent;
+- require the worktree clean;
+- repair Project projection drift if needed.
 
-Prove ancestry and inspect the complete delta:
+If the prior receipt is for an ancestor rather than exact current `HEAD`, perform full verification. Do not carry semantic proof or gate results across a changed `HEAD`.
 
-```bash
-git merge-base --is-ancestor "$CHECKPOINT_HEAD" HEAD
-git log "$CHECKPOINT_HEAD"..HEAD --oneline
-git diff --name-status "$CHECKPOINT_HEAD"..HEAD
-git diff "$CHECKPOINT_HEAD"..HEAD
-```
-
-If any condition fails, use full verification from the fixed baseline.
-
-### Inherit Only Independently Certified Immutable Proof
-
-Never inherit mutable tracker, dependency, project-focus, hierarchy, authorization, lifecycle, runtime, or service truth.
-
-A prior proof object may survive only when:
-
-- its exact object hash is unchanged;
-- mapped manifest claims and `SPEC_CONTRACT_HASH` are unchanged;
-- current proof policy does not invalidate it;
-- its certifier-approved evidence stability is `repository-immutable`;
-- the complete certified-HEAD→candidate-HEAD changed-path set has deterministic zero intersection with the certifier-approved invalidation boundary;
-- no changed surface has an uncertain transitive relationship to that boundary.
-
-Any uncertainty makes the object stale.
-
-### Proof-Policy Invalidation
-
-Checkpoint invalidation includes proof semantics, not only implementation changes.
-
-If the checkpoint delta contains a normative change to this skill or an invoked proof owner/helper that could change semantic sufficiency, required proof domain, applicability, cell disposition, verifier integrity, object hashing, evidence stability, or invalidation semantics, re-prove the affected objects. If impact cannot be bounded confidently, invalidate all semantic certification.
-
-A universal change to the meaning of `proven` or cell-proof sufficiency invalidates all inherited manifest proof.
-
-Presentation-only edits that cannot affect proof validity do not invalidate proof merely because a verification-policy file changed.
+This intentionally replaces proof-certification carry-forward machinery with a simpler exact-state rule.
 
 ## 4. Classify Surfaces and Gates
 
@@ -253,48 +221,103 @@ Universal obligations:
 
 Do not run a gate solely because an Inherited-only surface appears in baseline history.
 
-## 5. Candidate Proof Tier
+## 5. Fail-Fast Deterministic Gates
 
-Semantic proof is deliberately performed before expensive broad final gates.
+Run cheap deterministic gates **before** model-expensive semantic proof. Machine runtime is cheaper than consuming most of a Codex session before discovering a deterministic failure.
 
-Before certification convergence, run only evidence needed to build or falsify Proof Objects:
+When Spec-owned/Mixed repository content changed:
 
-- direct source/runtime/tracker/document inspection;
-- targeted tests that are direct proof evidence;
-- mandatory service preflight only for selected tests that require it;
-- narrow static/reference checks that establish a predicate, Nested Universe, or repair;
-- applicable architecture/wiki proof.
+```bash
+git diff --check "$BASELINE_COMMIT"
+```
 
-Do not run broad formatter/linter/type suites or the complete regression scope merely to prepare the first certifier unless that exact gate is direct evidence for a Proof Object.
+When code quality applies:
 
-When a certifier rejects an object or verification repairs repository state, rerun only affected candidate-tier evidence and rebuild only affected objects.
+```bash
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
+  uv run mypy . --explicit-package-bases
+```
 
-## 6. Build Proof Objects
+Never use Ruff `--add-noqa`.
 
-The parent verifier constructs candidate semantic proof. It may not self-certify it.
+If Living Entity Wiki routing is relevant, invoke `$wiki-lint`; do not recreate wiki structural/citation checking inside `$verify-spec`.
 
-### 6.1 Cell-to-Proof Map
+Invoke `$deduplicate-code` only when Spec-owned/Mixed work introduces or materially changes behavior for which duplicate implementation is a real risk. When invoked, the transcript must make both Arid and JSCPD execution visible.
+
+Run other deterministic repository/configuration/schema checks when their artifact classes are applicable.
+
+Inherited-only unrelated failures are report-only for this Spec.
+
+### Visible Gate Evidence
+
+The operator must be able to see what ran. For every deterministic or test gate, emit a concise execution record in the transcript:
+
+```text
+GATE: <name>
+COMMAND: <exact command or owning skill>
+RESULT: PASS | FAIL | NOT APPLICABLE
+EXIT: <exit code | N/A>
+SUMMARY: <concise native result>
+```
+
+Do not suppress successful command output solely to save presentation space.
+
+If native output is naturally large, preserve it in a temporary log and show the command, exit code, and meaningful summary rather than injecting the full log into model context. Do not claim a gate ran when only applicability was inferred.
+
+## 6. Acceptance Tests and Service Preflight
+
+Derive the smallest complete pytest scope that directly exercises the Spec acceptance behavior.
+
+Every pytest invocation must set:
+
+```text
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>
+```
+
+Before pytest, perform the mandatory exact-scope service preflight from `AGENTS.md` and `docs/process/testing-guide.md`.
+
+For service-backed scopes, verify required environment/configuration and service readiness before pytest. A timeout, connection failure, or skip is not a preflight.
+
+Never expose secrets or authenticated connection strings.
+
+Where multiple required test files share the same service classification and prerequisites, run them in one cohesive pytest invocation rather than serial tiny invocations.
+
+A required check skipped because prerequisites are absent remains unresolved.
+
+Record every pytest invocation through **Visible Gate Evidence**.
+
+## 7. Establish Semantic Proof
+
+Only after fail-fast deterministic gates and required acceptance tests pass, establish semantic proof for every Spec Contract Manifest cell.
+
+Use direct current evidence. Prefer:
+
+1. exact implementation/configuration/document/tracker inspection;
+2. already-executed deterministic gate/test evidence;
+3. narrow reference/search checks required to exclude a falsifier;
+4. CodeGraph or equivalent transitive exploration only when an exact cell requires call-path/blast-radius proof that direct evidence cannot establish cheaply.
+
+Do not perform broad exploratory analysis merely because a tool is available.
+
+### Cell-to-Proof Map
 
 Maintain exactly one coverage row for every manifest cell:
 
 ```text
 Cell: <ID>
 Proof Object: <P-n>
-State: pending-certification
+State: proven | not-applicable | unresolved
 ```
 
-Before certification:
+Manifest and coverage order must match exactly. Every manifest cell appears once, no unknown cell exists, every cell maps to one proof object, and every proof object is referenced.
 
-- manifest and coverage order must match exactly;
-- every manifest cell appears once;
-- no unknown cell exists;
-- every cell maps to one proof object;
-- every proof object is referenced;
-- `proven` and `not-applicable` are forbidden before independent certification.
+### Proof Object Contract
 
-### 6.2 Structured Proof Object Contract
+Group cells only when one predicate/falsifier/domain/evidence set truly proves every mapped claim.
 
-Represent each working Proof Object in the machine packet as:
+Represent each Proof Object as data:
 
 ```json
 {
@@ -308,31 +331,19 @@ Represent each working Proof Object in the machine packet as:
     {"kind": "repository", "ref": "path:lines", "path": "path/to/file.py"}
   ],
   "assumptions": [],
-  "invalidation_boundary": ["path/to/file.py", "tests/area/**"],
-  "evidence_stability": "repository-immutable|mutable"
+  "disposition": "proven|not-applicable|unresolved"
 }
 ```
 
-For non-repository evidence use its actual kind (`tracker`, `runtime`, `service`, `time`, etc.). Such evidence is mutable unless `immutable_snapshot: true` identifies an authoritative immutable snapshot.
+Semantic rules:
 
-The semantic rules remain:
-
-- group cells only when one predicate/falsifier/domain/evidence set truly establishes every mapped claim;
-- shared files or vocabulary alone do not justify grouping;
 - preserve every material clause, quantifier, condition, exception, and named surface;
 - the falsifier must be a real logical counterexample;
 - evidence must address the predicate directly;
-- invalidation boundaries must include every direct/transitive repository or durable-evidence surface whose mutation could falsify the certified predicate while wording remained unchanged;
-- `repository-immutable` is permitted only when every material evidence fact is recoverable from immutable repository state or an authoritative immutable snapshot;
-- semantic sufficiency, boundary authority, transitive completeness, and final disposition remain certifier judgments.
-
-### Conservative Grouping
-
-Prefer smaller semantically cohesive Proof Objects over aggressive packing.
-
-The artifact utility warns when one object maps more than 12 cells. A warning is not an automatic failure, but it requires explicit cohesion review before dispatch. Split the object unless one predicate/falsifier/domain/boundary genuinely proves every assigned cell without conditional subdomains.
-
-This rule intentionally trades a modest increase in object count for fewer expensive rejected-certifier iterations.
+- `proven` requires the verifier to establish that the falsifier does not survive across the authoritative domain;
+- material assumptions must be authoritative/directly proven;
+- `not-applicable` requires an exact originating-Spec reason;
+- uncertainty is `unresolved`, which blocks PASS.
 
 ### Nested Universe Closure
 
@@ -345,9 +356,9 @@ Use `not-applicable` only when there is no material exhaustive/domain-closure pr
 
 A changed-file list, examples, targeted tests, or “searched relevant files” is not exhaustive unless the authoritative domain is exactly that set.
 
-## 7. Deterministic Certifier Admission
+### Deterministic Packet Admission
 
-Write the working packet input once as JSON with these top-level bindings:
+Construct the packet **as JSON data**, not a generated Python program, with:
 
 ```text
 spec_issue
@@ -371,189 +382,11 @@ uv run python "$ARTIFACT_TOOL" prepare-packet \
   --output "$PACKET_FILE"
 ```
 
-`prepare-packet` is the mandatory admission gate before **every** certifier dispatch. It deterministically checks at least:
+`prepare-packet` validates complete manifest↔coverage↔proof mapping, Proof Object structure, Nested Universe form, disposition consistency, and stable hashes.
 
-- exact manifest↔coverage order and cardinality;
-- no missing/unknown/duplicate cell mappings;
-- no unreferenced Proof Objects;
-- required Proof Object fields;
-- valid Nested Universe structural form;
-- every repository evidence path is covered by the proposed invalidation boundary;
-- `repository-immutable` is rejected when non-immutable tracker/runtime/service/time evidence is present;
-- stable canonical `PROOF_OBJECT_HASH` values;
-- stable canonical `PROOF_PACKET_HASH`.
+Resolve admission errors locally. No subagent certification step exists.
 
-Resolve every admission error before spending a fresh certifier context.
-
-Do not ask the certifier to discover packet bookkeeping defects that deterministic admission can prove locally.
-
-The utility cannot prove semantic sufficiency or transitive boundary completeness. Those remain independent-certifier responsibilities.
-
-## 8. Independent Proof Certification
-
-A manifest cell may transition to `proven` or `not-applicable` only from a genuinely fresh non-mutating certifier.
-
-A **fresh proof certifier**:
-
-- did not participate in implementation, parent verification, proof construction, or prior certification for any assigned object lineage in the current invocation;
-- receives only the global bindings plus assigned manifest claims, assigned Proof Objects, and evidence references needed for those objects;
-- is non-mutating;
-- may not delegate/spawn another certifier;
-- does not receive prior review findings, Root Blocker history, parent intended verdict, or prior conclusions for the object lineage.
-
-### Bounded Certification Slices
-
-After admission, generate the exact stale/uncertified slice with the utility:
-
-```bash
-SLICE_FILE=$(mktemp)
-
-uv run python "$ARTIFACT_TOOL" make-slice \
-  --packet "$PACKET_FILE" \
-  --proof P-1 \
-  --proof P-2 \
-  --output "$SLICE_FILE"
-```
-
-The slice contains only assigned manifest claims, assigned Proof Objects/evidence, exact candidate `HEAD`, `SPEC_CONTRACT_HASH`, object hashes, and `CERTIFICATION_SLICE_HASH`.
-
-Default to one fresh certifier for all stale objects when the slice is bounded. Partition deterministically only when unrelated evidence domains/context size make multiple smaller slices materially cheaper.
-
-Never resend already-valid retained objects merely to make a slice complete.
-
-If a required fresh context cannot be created, fail closed:
-
-```text
-VERIFICATION PROOF CERTIFICATION: INDEPENDENCE UNAVAILABLE
-Status: verification incomplete
-Required: genuinely fresh non-mutating proof certifier
-```
-
-There is no same-agent/owner override.
-
-### Certifier Judgment
-
-For every assigned Proof Object the certifier independently verifies:
-
-1. mapped claims are fully represented by the predicate;
-2. the falsifier is a real counterexample;
-3. the domain boundary is authoritative;
-4. Nested Universe evidence is complete where required;
-5. direct current evidence establishes the predicate;
-6. material assumptions are authoritative/directly proven;
-7. no counterexample survives current `HEAD` inspection;
-8. the invalidation boundary includes direct/transitive invalidators;
-9. evidence stability is correctly classified.
-
-Return exactly one result per object:
-
-```text
-Proof: P-<n>
-Proof Object Hash: <hash>
-Certified HEAD: <sha>
-Certification Slice Hash: <hash>
-Certification: certified | rejected | unresolved
-Disposition: proven | not-applicable | unresolved
-Certification Evidence: <concise direct evidence/counterexample/insufficiency>
-```
-
-The parent may not upgrade, suppress, reinterpret, or override `rejected`/`unresolved`.
-
-If a grouped object cannot receive one valid disposition for all cells, split it and use a **new fresh certifier** for revised object lineages.
-
-If certification exposes an omitted originating-Spec obligation, halt with `SPEC CONTRACT: INCOMPLETE`; do not silently add it.
-
-### Retry Economy
-
-A rejected object does not invalidate unrelated certified objects.
-
-For a proof-construction rejection:
-
-1. revise only rejected/unresolved objects;
-2. rerun deterministic admission;
-3. preserve unchanged certified object hashes only when Section 3 invalidation rules permit;
-4. create a new slice containing only revised/stale objects;
-5. dispatch a new fresh certifier only for those objects.
-
-Do not rerun broad gates or resend unrelated proof because an object boundary/grouping was corrected.
-
-## 9. Semantic Convergence and Final Gates
-
-Semantic proof converges when every current Proof Object is independently certified, with:
-
-```text
-Stale proof objects: 0
-Rejected proof objects: 0
-Unresolved proof objects: 0
-Missing proof certifications: 0
-Unresolved manifest cells: 0
-```
-
-Only after convergence run every applicable final gate at the stable candidate `HEAD`.
-
-### Repository Diff Hygiene
-
-When Spec-owned/Mixed repository content changed:
-
-```bash
-git diff --check "$BASELINE_COMMIT"
-```
-
-Fix only deterministic Spec-owned whitespace defects that are semantics-preserving.
-
-### Code Quality
-
-When applicable:
-
-```bash
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
-  uv run mypy . --explicit-package-bases
-```
-
-Never use Ruff `--add-noqa`.
-
-Inherited-only unrelated failures are report-only for this Spec.
-
-### Tests, Services, and Persistence
-
-Every pytest invocation must set:
-
-```text
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number>
-```
-
-Before pytest, perform the mandatory exact-scope service preflight from `AGENTS.md` and `docs/process/testing-guide.md`.
-
-For service-backed scopes, verify required environment/configuration and service readiness before pytest. A timeout, connection failure, or skip is not a preflight.
-
-Never expose secrets or authenticated connection strings.
-
-A required check skipped because prerequisites are absent remains unresolved.
-
-### Documentation / Workflow / Architecture
-
-Verify non-code contracts directly where applicable. Use owning skills rather than parallel ad hoc implementations.
-
-If Living Entity Wiki routing is relevant, invoke `$wiki-lint`; do not recreate wiki structural/citation checking inside `$verify-spec`.
-
-Invoke `$deduplicate-code` only when Spec-owned/Mixed work introduces or materially changes behavior for which duplicate implementation is a real risk.
-
-### Final-Gate Repair
-
-If a final gate requires repository mutation:
-
-1. repair the narrowest authoritative point;
-2. rerun only affected final/candidate evidence;
-3. rebuild affected Proof Objects;
-4. apply proof invalidation from the prior certified `HEAD` to the new candidate;
-5. recertify only stale objects with new fresh certifiers;
-6. rerun only final gates invalidated by the mutation.
-
-Token/runtime economy never permits retaining a proof/gate when impact is uncertain.
-
-## 10. Failure and Architecture Routing
+## 8. Failure and Repair
 
 For an ordinary failure classify it as:
 
@@ -583,17 +416,15 @@ If correction requires choosing/changing a durable invariant, owner/path, bounda
 
 Do not propose the architectural answer.
 
-## 11. Establish Final State
+### Repair Economy
 
-After semantic convergence and final gates:
+If verification changes repository state:
 
-1. rerun `$spec-contract` in `build` mode at final `HEAD`;
-2. require body/contract validity and reconcile ownership;
-3. recompute checkpoint delta/proof-policy invalidation if checkpoint mode;
-4. rebuild the final packet through `prepare-packet`;
-5. require every Proof Object freshly certified at final `HEAD` or retained through a complete valid carry-forward result;
-6. require every applicable final gate passed at exact final `HEAD`;
-7. require clean worktree.
+1. repair the narrowest authoritative point;
+2. rerun only gates/tests/proof evidence invalidated by the mutation;
+3. rebuild affected Proof Objects;
+4. require all coverage states resolved at the new candidate `HEAD`;
+5. rerun any final mutable guard invalidated by the mutation.
 
 If verification made repository changes:
 
@@ -602,17 +433,27 @@ If verification made repository changes:
 3. invoke `$conventional-commits`;
 4. commit;
 5. push with `git push -u origin HEAD`;
-6. rebuild final packet/state for the new exact `HEAD` and invalidate/recertify as required.
+6. rebuild final contract/packet/state for the new exact `HEAD`.
 
-## 12. Deterministic Final State and Receipt
+Do not preserve proof across an uncertain mutation.
+
+## 9. Establish Final State
+
+At the stable candidate `HEAD`:
+
+1. rerun `$spec-contract` in `build` mode;
+2. require body/contract validity and reconcile ownership;
+3. require every applicable gate passed or explicitly not applicable;
+4. require every manifest cell `proven` or `not-applicable`;
+5. require current ticket/hierarchy/dependency state valid;
+6. require clean worktree;
+7. rebuild the packet through `prepare-packet` if any binding changed.
 
 Build one final JSON state containing:
 
 ```text
 packet
 verification
-certifications
-carry_forward
 ```
 
 `verification` must include at least:
@@ -631,88 +472,54 @@ gates
 unrelated_inherited_findings
 ```
 
-Each certification row must contain:
+Every gate row must contain:
 
 ```text
-proof
-proof_object_hash
-certified_head
-certification_slice_hash
-certification
-disposition
+name
+status
+command
 evidence
 ```
 
-For any object certified before final `HEAD`, the parent must first classify proof-policy impact for that object as exactly one of:
-
-```text
-none | invalidating | uncertain
-```
-
-Do not hand-calculate repository delta digests or boundary intersections. Generate carry-forward rows deterministically:
-
-```bash
-CERTIFICATIONS_FILE=$(mktemp)
-POLICY_IMPACT_FILE=$(mktemp)
-CARRY_FORWARD_FILE=$(mktemp)
-
-uv run python "$ARTIFACT_TOOL" build-carry-forward \
-  --packet "$PACKET_FILE" \
-  --certifications "$CERTIFICATIONS_FILE" \
-  --policy-impact "$POLICY_IMPACT_FILE" \
-  --final-head "$FINAL_HEAD" \
-  --repo-root . \
-  --output "$CARRY_FORWARD_FILE"
-```
-
-The utility recomputes the complete Git changed-path set, delta digest, and invalidation-boundary intersection. Any intersection, mutable evidence, invalidating/uncertain proof-policy impact, or unresolvable Git delta fails closed.
-
-Run final deterministic validation:
+Run deterministic validation:
 
 ```bash
 FINAL_STATE=$(mktemp)
 
 uv run python "$ARTIFACT_TOOL" validate-final \
-  --input "$FINAL_STATE" \
-  --repo-root .
+  --input "$FINAL_STATE"
 ```
 
-Final validation derives cell dispositions from certification. The parent does not assign a stronger state.
+No certification or carry-forward state exists.
 
-### Receipt Rendering
+## 10. Receipt Rendering and Persistence
 
 Do not hand-author the receipt or construct another Markdown parser.
 
-Render the complete backward-compatible receipt from final state:
+Render and validate the complete receipt:
 
 ```bash
 RECEIPT_FILE=$(mktemp)
 
 uv run python "$ARTIFACT_TOOL" render-receipt \
   --input "$FINAL_STATE" \
-  --repo-root . \
   --output "$RECEIPT_FILE"
 
 uv run python "$ARTIFACT_TOOL" validate-receipt \
   --input "$FINAL_STATE" \
-  --receipt "$RECEIPT_FILE" \
-  --repo-root .
+  --receipt "$RECEIPT_FILE"
 ```
 
-The rendered receipt contains the complete:
+The rendered receipt contains:
 
 - fixed bindings/hashes;
 - Spec Contract Integrity counts;
 - ownership summary;
 - ordered Spec Contract Manifest;
-- Proof Objects and object hashes;
-- independent certifications;
-- carry-forward rows;
+- evidence-backed Proof Objects;
 - ordered Spec Contract Coverage;
-- verification gates;
+- exact commands/results for verification gates;
 - unrelated inherited findings.
-
-This preserves the durable contract required by `$review-spec` while removing repeated LLM-authored serialization/parsing work.
 
 ### Atomic Receipt Persistence
 
@@ -741,11 +548,10 @@ cmp -s "$RECEIPT_FILE" "$READBACK_FILE"
 
 uv run python "$ARTIFACT_TOOL" validate-receipt \
   --input "$FINAL_STATE" \
-  --receipt "$READBACK_FILE" \
-  --repo-root .
+  --receipt "$READBACK_FILE"
 ```
 
-Because the local receipt was generated from validated final state, exact byte equality plus deterministic re-render validation proves persisted-body integrity. Do not create a second custom parser to reconstruct the same packet again.
+Because the local receipt was generated from validated final state, exact byte equality plus deterministic re-render validation proves persisted-body integrity.
 
 Never POST/PATCH a partial receipt, repair a malformed persisted receipt in place, replace it with a file reference, or create a second corrective receipt in the same invocation.
 
@@ -753,7 +559,7 @@ If POST succeeds but exact readback/validation fails, verification is incomplete
 
 Any later Spec-body change or candidate commit makes the receipt stale.
 
-## 13. Successful Lifecycle Transition
+## 11. Successful Lifecycle Transition
 
 A successfully persisted and readback-validated receipt establishes:
 
@@ -779,7 +585,7 @@ Preserve `Area` and `Priority` unless separately authorized to change them.
 
 `PROJECT TRACKING: DRIFT` does not invalidate the passing receipt or roll back `Ready to Review`. Report projection drift and continue the otherwise-authorized handoff.
 
-## 14. Reporting and Human Handoff
+## 12. Reporting and Human Handoff
 
 Report concisely:
 
@@ -787,9 +593,9 @@ Report concisely:
 - verification mode/checkpoint;
 - Spec contract counts/hash;
 - ownership classification;
-- applicable gates;
+- every applicable gate and exact result;
 - manifest coverage summary;
-- proof-object count/hash and fresh-versus-retained certification summary;
+- proof-object count/hash;
 - repaired failures;
 - unrelated inherited findings;
 - commit/push/final worktree;

@@ -13,9 +13,7 @@ PRESENTATION_SINK_DISPOSITION_METADATA_KEY = "presentation_sink_disposition"
 PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY = "presentation_sink_may_present"
 PRESENTATION_SINK_REASONS_METADATA_KEY = "presentation_sink_reasons"
 PRESENTATION_SINK_LIMITATIONS_METADATA_KEY = "presentation_sink_limitations"
-PRESENTATION_SINK_GATE_FAILURE_MODE_METADATA_KEY = (
-    "presentation_sink_gate_failure_mode"
-)
+PRESENTATION_SINK_GATE_FAILURE_MODE_METADATA_KEY = "presentation_sink_gate_failure_mode"
 
 
 def presentation_gate_evidence(

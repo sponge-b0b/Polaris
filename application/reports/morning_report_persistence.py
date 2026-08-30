@@ -239,7 +239,9 @@ class MorningReportPersistenceService:
         mapper: MorningReportPersistenceMapper | None = None,
         claim_binding_service: DecisionEvidenceClaimBindingService | None = None,
         governed_output_release_service: GovernedOutputReleaseService | None = None,
-        presentation_sink_decision_service: PresentationSinkDecisionService | None = None,
+        presentation_sink_decision_service: (
+            PresentationSinkDecisionService | None
+        ) = None,
     ) -> None:
         self._repository = repository
         self._mapper = mapper or MorningReportPersistenceMapper()
@@ -273,7 +275,9 @@ class MorningReportPersistenceService:
                 limitations=document.authority_limitations,
                 blocking_reasons=(str(exc),),
             )
-            return ReportPersistenceResult.failed(_presentation_failure_reason(decision))
+            return ReportPersistenceResult.failed(
+                _presentation_failure_reason(decision)
+            )
 
         try:
             claim_evidence_binding = await _bind_report_claim_evidence(
@@ -292,13 +296,16 @@ class MorningReportPersistenceService:
                 limitations=document.authority_limitations,
                 withholding_reasons=(str(exc),),
             )
-            return ReportPersistenceResult.failed(_presentation_failure_reason(decision))
-
-        output_governance_evidence, withholding_reasons = (
-            await self._publication_governance_evidence(
-                document,
-                claim_references=claim_evidence_binding.validated_claim_references,
+            return ReportPersistenceResult.failed(
+                _presentation_failure_reason(decision)
             )
+
+        (
+            output_governance_evidence,
+            withholding_reasons,
+        ) = await self._publication_governance_evidence(
+            document,
+            claim_references=claim_evidence_binding.validated_claim_references,
         )
         evidence = presentation_gate_evidence(
             packets=claim_evidence_binding.decision_evidence_packets,
@@ -313,7 +320,9 @@ class MorningReportPersistenceService:
             withholding_reasons=withholding_reasons,
         )
         if not decision.may_present:
-            return ReportPersistenceResult.failed(_presentation_failure_reason(decision))
+            return ReportPersistenceResult.failed(
+                _presentation_failure_reason(decision)
+            )
 
         return await self._repository.persist_report(
             bundle.report,
@@ -354,7 +363,9 @@ class MorningReportPersistenceService:
             request=release_request,
             decision=release_decision,
         )
-        withholding_reasons = () if release_decision.allowed else (release_decision.reason,)
+        withholding_reasons = (
+            () if release_decision.allowed else (release_decision.reason,)
+        )
         return (governance_evidence,), withholding_reasons
 
 

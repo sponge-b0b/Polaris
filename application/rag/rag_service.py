@@ -97,7 +97,9 @@ class RagService:
         telemetry: ApplicationRagTelemetry | None = None,
         config: RagServiceConfig | None = None,
         ai_observability_projector: RagAiObservabilityProjectorPort | None = None,
-        presentation_sink_decision_service: PresentationSinkDecisionService | None = None,
+        presentation_sink_decision_service: (
+            PresentationSinkDecisionService | None
+        ) = None,
     ) -> None:
         self._pipeline = pipeline
         self._repository = repository
@@ -254,10 +256,13 @@ class RagService:
             blocking_reasons=blocking_reasons,
             withholding_reasons=withholding_reasons,
         )
-        metadata = {
-            **result.metadata,
-            **presentation_sink_decision_metadata(decision),
-        }
+        metadata = cast(
+            JsonObject,
+            {
+                **result.metadata,
+                **presentation_sink_decision_metadata(decision),
+            },
+        )
         if decision.may_present or result.status != "answered":
             return replace(result, metadata=metadata)
         return replace(
@@ -478,7 +483,8 @@ def _rag_presentation_boundary_reasons(
     withholding_reasons: list[str] = []
     if result.injection_detected:
         blocking_reasons.append(
-            "RAG presentation is blocked because prompt-injection evidence was detected."
+            "RAG presentation is blocked because prompt-injection evidence "
+            "was detected."
         )
 
     failure_mode = _rag_authority_failure_mode(result.metadata)

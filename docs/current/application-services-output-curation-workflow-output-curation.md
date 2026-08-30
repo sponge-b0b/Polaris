@@ -363,6 +363,36 @@ Before promoting a node output into a curated record, answer these questions:
 
 If questions 1 through 8 do not have clear answers, the output should remain in the completed-run archive until a deliberate domain contract and projection policy are approved.
 
+## External Presentation Eligibility
+
+Durable curation and RAG eligibility do not by themselves authorize external
+presentation. A curated fact may be authoritative in PostgreSQL and useful for
+retrieval while a particular rendered or generated output is still degraded,
+withheld, blocked, or outside the allowed authority boundary.
+
+External presentation is therefore a separate application-level decision after
+the relevant canonical evidence, governance/release, and readiness facts are
+available. Report, RAG, MCP, and future external sinks consume that shared
+presentation decision rather than recreating risk classification, evidence
+readiness, governance approval, or release policy at each renderer or transport.
+
+Presentation boundaries must preserve the externally relevant disposition,
+platform-owned authority, provenance/citations, and limitations. A degraded
+result may remain presentable only when the canonical decision says so, with the
+degradation visible. Withheld, blocked, Prohibited / Outside Authority, or
+missing required presentation state must not become a successful external
+claim-bearing response.
+
+Recommendation-oriented text remains advisory, recommendation-driven,
+broker-neutral / non-broker-execution decision support unless another canonical
+contract explicitly owns stronger authority. Rendered language cannot promote
+itself into portfolio state, strategy score, execution safety, governance
+approval, production readiness, or residual-risk acceptance.
+
+Canonical numeric values retain full precision internally. Any display rounding
+belongs only to the presentation boundary and must not mutate the underlying
+curated value.
+
 ## Governance Rule
 
 No LLM, report formatter, generic serializer, or arbitrary projector should decide at runtime which output is “worthy.” Curation is a platform policy expressed through typed contracts, projector registration, schema versions, validation, and tests.

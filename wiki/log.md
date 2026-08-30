@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-08-30] external presentation eligibility | MCP transport contract realized
+
+Recorded the shared external-presentation invariant after `polaris_rag_ask` began consuming application-owned sink eligibility, preserving visible degraded/withheld/blocked state and limitations while refusing missing or non-presentable claim-bearing answers without adding MCP-local risk, readiness, governance, or persistence policy.
+
 ## [2026-08-24] MCP approval-state transport | read-only review state surfaced
 
 Recorded the MCP V1 catalog expansion from six to seven read-only tools after approval/review state was exposed through the request-scoped `AutomatedDecisionAuditService` query path, with review mutation and bypass operations remaining prohibited.

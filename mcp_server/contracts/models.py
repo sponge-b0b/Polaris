@@ -180,6 +180,9 @@ class RagAskResponse(McpBoundaryModel):
     status: NonEmptyString
     route: NonEmptyString
     authority_metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    presentation_disposition: NonEmptyString | None = None
+    presentation_may_present: bool | None = None
+    presentation_limitations: tuple[NonEmptyString, ...] = ()
     citations: tuple[RagCitation, ...] = ()
     contexts: tuple[RagRetrievedContext, ...] | None = None
     confidence_score: Score | None = None
@@ -209,6 +212,22 @@ class RagAskResponse(McpBoundaryModel):
         return _sanitize_mcp_json_value(
             value,
             boundary_name="mcp.rag_response.authority_metadata",
+        )
+
+    @field_validator("presentation_disposition", mode="before")
+    @classmethod
+    def sanitize_presentation_disposition(cls, value: object) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name="mcp.rag_response.presentation_disposition",
+        )
+
+    @field_validator("presentation_limitations", mode="before")
+    @classmethod
+    def sanitize_presentation_limitations(cls, value: object) -> object:
+        return _sanitize_mcp_text_sequence(
+            value,
+            boundary_name="mcp.rag_response.presentation_limitations",
         )
 
     @field_validator("corrective_actions", mode="before")

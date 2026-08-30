@@ -9,6 +9,7 @@
 * MCP handlers must not directly query or import internal Postgres, Qdrant, Neo4j, provider, RAG, or runtime internals; missing behavior must be implemented in the canonical service first, because transport-specific shortcuts create alternate APIs. (source: docs/current/mcp-server-transport-boundary.md)
 * MCP governance and release capabilities must delegate through the request scope and must not create local approval queues, caches, tables, gates, direct repository writers, audit stores, or RAG approval stacks, because approval state belongs to governance services. (source: docs/current/mcp-server-transport-boundary.md)
 * The MCP approval-state surface is read-only and delegates to `AutomatedDecisionAuditService` through a request scope; MCP may list canonical review state but cannot approve, deny, override, accept residual risk, mutate review state, or bypass review. (source: docs/current/mcp-server-transport-boundary.md)
+* `polaris_rag_ask` must consume application-owned presentation eligibility rather than recompute it: eligible/degraded answers retain the canonical disposition and limitations, while withheld/blocked or missing presentation state cannot cross MCP as a claim-bearing successful answer, because MCP is a transport rather than a presentation-policy authority. (source: docs/current/mcp-server-transport-boundary.md)
 
 ### Planned
 

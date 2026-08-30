@@ -49,6 +49,42 @@ create a local approval queue, review-state cache, residual-risk table,
 publication gate, RAG approval stack, direct repository writer, or separate audit
 store.
 
+## Canonical external presentation eligibility
+
+`polaris_rag_ask` transports the presentation decision already made by the
+canonical RAG application service. MCP does not rerun risk classification,
+decision-evidence readiness, governance/release review, or presentation policy.
+
+For an answered RAG result, the application-owned presentation facts are part of
+the transport contract:
+
+- `eligible` with `may_present=true` may cross the MCP boundary.
+- `degraded` with `may_present=true` may cross the boundary, but the degraded
+  disposition and its visible limitations must remain explicit.
+- `withheld` or `blocked` results cannot cross as claim-bearing successful
+  answers; MCP suppresses answer/citation content and preserves the canonical
+  disposition and limitations.
+- Missing, malformed, or inconsistent canonical presentation state fails closed
+  and cannot become a successful MCP answer.
+- Prohibited / Outside Authority results therefore cannot become successful
+  external answers by passing through MCP.
+
+MCP may serialize platform-owned authority metadata, presentation disposition,
+limitations, and citation/provenance facts. It must not infer approval,
+readiness, recommendation eligibility, execution safety, residual-risk
+acceptance, or stronger authority from answer text, model confidence, citations,
+or transport-local state.
+
+Recommendation-oriented output remains decision support and broker-neutral /
+non-broker-execution context unless a separate canonical service explicitly owns
+a stronger authority contract. This boundary is an architectural authority rule,
+not a claim of formal regulatory compliance.
+
+The same rule applies to future external sinks: consume the canonical
+application-level presentation decision and serialize its externally relevant
+facts. Do not create a sink-local risk classifier, approval gate, readiness
+stack, governance cache, or alternate persistence/audit path.
+
 ## Supported transports
 
 ### Trusted local stdio
@@ -198,6 +234,9 @@ Response highlights:
 - optional `contexts`
 - confidence, grounding, utility, injection, reflection, corrective-action, and
   generated-at fields
+- canonical presentation disposition and `may_present` state
+- visible presentation limitations
+- platform-owned risk/authority metadata
 
 Successful answers and explicitly requested retrieved contexts are not silently
 truncated or summarized by the MCP layer.

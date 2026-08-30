@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from typing import cast
 
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import JsonValue
 
+from application.presentation.evidence import (
+    PRESENTATION_SINK_DISPOSITION_METADATA_KEY,
+    PRESENTATION_SINK_LIMITATIONS_METADATA_KEY,
+    PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY,
+)
+from application.presentation.sink_decision import PresentationSinkDisposition
 from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagRetrievedContext,
@@ -34,6 +40,9 @@ logger = logging.getLogger(__name__)
 
 _TOOL_NAME = "polaris_rag_ask"
 _SAFE_FAILURE_MESSAGE = "Polaris RAG request failed."
+_SAFE_PRESENTATION_MESSAGE = (
+    "Polaris RAG response is unavailable for external presentation."
+)
 
 
 class McpRagPolicyError(ValueError):
@@ -95,7 +104,7 @@ async def execute_rag_ask(
 
     await application_context.telemetry.tool_completed(
         invocation,
-        result_status=result.status,
+        result_status=response.status,
     )
     return response
 
@@ -144,27 +153,105 @@ def _to_rag_request(request: RagAskRequest, *, request_id: str) -> RagRequest:
     )
 
 
+_PresentationState = tuple[
+    PresentationSinkDisposition,
+    bool,
+    tuple[str, ...],
+]
+
+
 def _to_response(result: RagResult, *, include_contexts: bool) -> RagAskResponse:
-    failed = result.status == "failed"
+    presentation = _presentation_state(result.metadata)
+
+    if result.status == "failed":
+        return _response_from_result(
+            result,
+            include_contexts=False,
+            presentation=presentation,
+            answer_text=_SAFE_FAILURE_MESSAGE,
+            status="failed",
+            error=_SAFE_FAILURE_MESSAGE,
+            include_claim_content=False,
+        )
+
+    if result.status == "answered":
+        if presentation is None:
+            return _response_from_result(
+                result,
+                include_contexts=False,
+                presentation=None,
+                answer_text=_SAFE_PRESENTATION_MESSAGE,
+                status="failed",
+                error=_SAFE_PRESENTATION_MESSAGE,
+                include_claim_content=False,
+            )
+
+        disposition, may_present, _ = presentation
+        if not may_present or disposition not in {
+            PresentationSinkDisposition.ELIGIBLE,
+            PresentationSinkDisposition.DEGRADED,
+        }:
+            return _response_from_result(
+                result,
+                include_contexts=False,
+                presentation=presentation,
+                answer_text=_SAFE_PRESENTATION_MESSAGE,
+                status="no_results",
+                error=None,
+                include_claim_content=False,
+            )
+
+    return _response_from_result(
+        result,
+        include_contexts=include_contexts,
+        presentation=presentation,
+        answer_text=result.answer_text,
+        status=result.status,
+        error=result.error,
+        include_claim_content=True,
+    )
+
+
+def _response_from_result(
+    result: RagResult,
+    *,
+    include_contexts: bool,
+    presentation: _PresentationState | None,
+    answer_text: str,
+    status: str,
+    error: str | None,
+    include_claim_content: bool,
+) -> RagAskResponse:
+    disposition = presentation[0].value if presentation is not None else None
+    may_present = presentation[1] if presentation is not None else None
+    limitations = presentation[2] if presentation is not None else ()
+
     return RagAskResponse(
         query_id=result.query_id,
-        answer_text=_SAFE_FAILURE_MESSAGE if failed else result.answer_text,
-        status=result.status,
+        answer_text=answer_text,
+        status=status,
         route=result.route,
         authority_metadata=_risk_authority_metadata(result.metadata),
-        citations=tuple(_to_citation(source) for source in result.citations),
+        presentation_disposition=disposition,
+        presentation_may_present=may_present,
+        presentation_limitations=limitations,
+        citations=(
+            tuple(_to_citation(source) for source in result.citations)
+            if include_claim_content
+            else ()
+        ),
         contexts=(
             tuple(_to_context(context) for context in result.contexts)
-            if include_contexts
+            if include_claim_content and include_contexts
             else None
         ),
-        confidence_score=result.confidence_score,
-        grounding_score=result.grounding_score,
-        utility_score=result.utility_score,
+        confidence_score=(result.confidence_score if include_claim_content else None),
+        grounding_score=(result.grounding_score if include_claim_content else None),
+        utility_score=result.utility_score if include_claim_content else None,
         injection_detected=result.injection_detected,
         reflection_scores=(
             None
-            if result.reflection_scores is None
+            if not include_claim_content or result.reflection_scores is None
             else RagReflectionScores(
                 retrieval_necessity=result.reflection_scores.retrieval_necessity,
                 source_relevance=result.reflection_scores.source_relevance,
@@ -172,9 +259,47 @@ def _to_response(result: RagResult, *, include_contexts: bool) -> RagAskResponse
                 usefulness=result.reflection_scores.usefulness,
             )
         ),
-        corrective_actions=tuple(action.value for action in result.corrective_actions),
-        error=_SAFE_FAILURE_MESSAGE if failed else result.error,
+        corrective_actions=(
+            tuple(action.value for action in result.corrective_actions)
+            if include_claim_content
+            else ()
+        ),
+        error=error,
         generated_at=result.generated_at,
+    )
+
+
+def _presentation_state(
+    metadata: Mapping[str, object],
+) -> _PresentationState | None:
+    raw_disposition = metadata.get(PRESENTATION_SINK_DISPOSITION_METADATA_KEY)
+    raw_may_present = metadata.get(PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY)
+    raw_limitations = metadata.get(
+        PRESENTATION_SINK_LIMITATIONS_METADATA_KEY,
+        (),
+    )
+
+    if not isinstance(raw_disposition, str):
+        return None
+    if not isinstance(raw_may_present, bool):
+        return None
+    if not isinstance(raw_limitations, Sequence) or isinstance(
+        raw_limitations,
+        str | bytes | bytearray,
+    ):
+        return None
+    if any(not isinstance(item, str) or not item.strip() for item in raw_limitations):
+        return None
+
+    try:
+        disposition = PresentationSinkDisposition(raw_disposition)
+    except ValueError:
+        return None
+
+    return (
+        disposition,
+        raw_may_present,
+        tuple(cast(str, item) for item in raw_limitations),
     )
 
 

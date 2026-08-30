@@ -11,6 +11,11 @@ import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
 
+from application.presentation.evidence import (
+    PRESENTATION_SINK_DISPOSITION_METADATA_KEY,
+    PRESENTATION_SINK_LIMITATIONS_METADATA_KEY,
+    PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY,
+)
 from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagContext,
@@ -39,6 +44,19 @@ def _credential_url(password: str) -> str:
 
 
 _GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
+
+
+def _presentation_metadata(
+    *,
+    disposition: str = "eligible",
+    may_present: bool = True,
+    limitations: tuple[str, ...] = (),
+) -> dict[str, object]:
+    return {
+        PRESENTATION_SINK_DISPOSITION_METADATA_KEY: disposition,
+        PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY: may_present,
+        PRESENTATION_SINK_LIMITATIONS_METADATA_KEY: list(limitations),
+    }
 
 
 class _FakeRagService:
@@ -125,6 +143,7 @@ def _answered(request: RagRequest) -> RagResult:
         ),
         status="answered",
         route=request.route,
+        metadata=_presentation_metadata(),
         generated_at=_GENERATED_AT,
     )
 
@@ -214,6 +233,7 @@ async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
                     "risk_tier": "baseline",
                     "intended_sink": "rag_answer",
                 },
+                **_presentation_metadata(),
             },
         )
         return classify_rag_result_authority(request=request, result=result)
@@ -249,6 +269,133 @@ async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
     serialized = json.loads(response.model_dump_json())
     assert serialized["authority_metadata"]["intended_sink"] == "rag_answer"
     assert serialized["authority_metadata"]["risk_tier"] == "enhanced"
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_preserves_degraded_application_presentation_state() -> None:
+    def result_factory(request: RagRequest) -> RagResult:
+        return RagResult(
+            query_id=request.request_id,
+            request=request,
+            answer_text="Grounded answer with an explicit limitation.",
+            status="answered",
+            route=request.route,
+            metadata=_presentation_metadata(
+                disposition="degraded",
+                may_present=True,
+                limitations=("Evidence coverage is limited.",),
+            ),
+            generated_at=_GENERATED_AT,
+        )
+
+    context, _, _ = _context(_FakeRagService(result_factory))
+
+    response = await execute_rag_ask(
+        RagAskRequest(query="risk"),
+        context,
+    )
+
+    assert response.status == "answered"
+    assert response.answer_text == ("Grounded answer with an explicit limitation.")
+    assert response.presentation_disposition == "degraded"
+    assert response.presentation_may_present is True
+    assert response.presentation_limitations == ("Evidence coverage is limited.",)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "disposition",
+    ("withheld", "blocked"),
+)
+async def test_rag_ask_cannot_bypass_ineligible_application_presentation(
+    disposition: str,
+) -> None:
+    source = RagSource(
+        source_table="curated_rag_documents",
+        source_id="report-1",
+        source_type="morning_report",
+        document_id="document-1",
+        title="Morning Report",
+    )
+
+    def result_factory(request: RagRequest) -> RagResult:
+        return RagResult(
+            query_id=request.request_id,
+            request=request,
+            answer_text="This claim must not cross the MCP boundary.",
+            status="answered",
+            route=request.route,
+            citations=(source,),
+            injection_detected=disposition == "blocked",
+            metadata={
+                RISK_AUTHORITY_METADATA_KEY: {
+                    "risk_tier": (
+                        "prohibited" if disposition == "blocked" else "enhanced"
+                    ),
+                    "intended_sink": "rag_answer",
+                },
+                **_presentation_metadata(
+                    disposition=disposition,
+                    may_present=False,
+                    limitations=("External presentation is not permitted.",),
+                ),
+            },
+            generated_at=_GENERATED_AT,
+        )
+
+    context, _, _ = _context(_FakeRagService(result_factory))
+
+    response = await execute_rag_ask(
+        RagAskRequest(query="risk", include_contexts=True),
+        context,
+    )
+
+    assert response.status == "no_results"
+    assert response.answer_text == (
+        "Polaris RAG response is unavailable for external presentation."
+    )
+    assert response.citations == ()
+    assert response.contexts is None
+    assert response.presentation_disposition == disposition
+    assert response.presentation_may_present is False
+    assert response.presentation_limitations == (
+        "External presentation is not permitted.",
+    )
+    assert response.error is None
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_fails_closed_when_presentation_state_is_missing() -> None:
+    def result_factory(request: RagRequest) -> RagResult:
+        return RagResult(
+            query_id=request.request_id,
+            request=request,
+            answer_text="This answer lacks canonical presentation state.",
+            status="answered",
+            route=request.route,
+            generated_at=_GENERATED_AT,
+        )
+
+    context, sink, _ = _context(_FakeRagService(result_factory))
+
+    response = await execute_rag_ask(
+        RagAskRequest(query="risk"),
+        context,
+    )
+
+    assert response.status == "failed"
+    assert response.answer_text == (
+        "Polaris RAG response is unavailable for external presentation."
+    )
+    assert response.citations == ()
+    assert response.presentation_disposition is None
+    assert response.presentation_may_present is None
+    assert response.presentation_limitations == ()
+    assert response.error == (
+        "Polaris RAG response is unavailable for external presentation."
+    )
+    assert sink.events[-1].event_type == "mcp.tool.completed"
+    assert sink.events[-1].attributes["result_status"] == "failed"
 
 
 @pytest.mark.asyncio
@@ -351,7 +498,8 @@ async def test_rag_ask_preserves_citations_security_scores_and_optional_contexts
             confidence_score=0.92,
             grounding_score=0.93,
             utility_score=0.94,
-            injection_detected=True,
+            injection_detected=False,
+            metadata=_presentation_metadata(),
             reflection_scores=DomainScores(
                 retrieval_necessity=0.8,
                 source_relevance=0.9,
@@ -371,7 +519,7 @@ async def test_rag_ask_preserves_citations_security_scores_and_optional_contexts
 
     assert response.citations[0].document_id == "document-1"
     assert response.citations[0].metadata == {"symbol": "SPY"}
-    assert response.injection_detected is True
+    assert response.injection_detected is False
     assert response.grounding_score == pytest.approx(0.93)
     assert response.reflection_scores is not None
     assert response.reflection_scores.answer_support == pytest.approx(0.95)
@@ -414,6 +562,7 @@ async def test_rag_ask_excludes_reasoning_traces_from_mcp_boundary() -> None:
             route=request.route,
             contexts=(retrieved_context,),
             citations=(source,),
+            metadata=_presentation_metadata(),
             generated_at=_GENERATED_AT,
         )
 

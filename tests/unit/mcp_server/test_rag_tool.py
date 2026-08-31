@@ -10,6 +10,7 @@ from typing import cast
 import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
+from pydantic import JsonValue
 
 from application.presentation.evidence import (
     PRESENTATION_SINK_DISPOSITION_METADATA_KEY,
@@ -51,11 +52,11 @@ def _presentation_metadata(
     disposition: str = "eligible",
     may_present: bool = True,
     limitations: tuple[str, ...] = (),
-) -> dict[str, object]:
+) -> dict[str, JsonValue]:
     return {
         PRESENTATION_SINK_DISPOSITION_METADATA_KEY: disposition,
         PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY: may_present,
-        PRESENTATION_SINK_LIMITATIONS_METADATA_KEY: list(limitations),
+        PRESENTATION_SINK_LIMITATIONS_METADATA_KEY: limitations,
     }
 
 

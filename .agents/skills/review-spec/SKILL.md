@@ -1,654 +1,356 @@
 ---
 name: review-spec
-description: Review a verified completed Spec against its persisted deterministic Spec contract, using ownership-scoped Standards review, independent Spec/Architecture review, and conditional saturation only when convergence risk is demonstrated.
+description: Review a verified completed Spec against its persisted verification contract using ownership-scoped Standards review, independent Spec/Architecture review, and targeted convergence challenge only when justified.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Review Spec
 
-Review the exact verified Spec state along applicable independent axes:
+Review the **exact verified state** of a completed Spec along the applicable independent axes:
 
-* **Standards** — deterministic repository standards applied only to Spec-owned/Mixed artifact classes;
-* **Spec** — every obligation in the verified Spec Contract Manifest;
-* **Architecture** — current applicable architecture governing the Spec's affected boundaries.
+- **Standards** — deterministic repository standards over Spec-owned/Mixed surfaces only;
+- **Spec** — every cell in the persisted Spec Contract Manifest;
+- **Architecture** — current architecture authority governing the affected boundaries.
 
-This is review-only. `$verify-spec` owns verification/tool execution and produces the contract being reviewed.
+This skill is review-only. `$verify-spec` owns verification and tool/gate execution. A passing **Spec Verification Receipt** is the immutable contract checkpoint for review; `$review-spec` does not rebuild or re-prove that contract.
 
-The default review requires **one genuinely fresh primary reviewer per applicable axis**. Additional genuinely fresh challengers are conditional and targeted; reviewer count is not a substitute for a complete review universe. If required fresh reviewer execution is unavailable, review fails closed unless the human owner explicitly authorizes the same-agent fallback defined in **Reviewer Execution Integrity** for the current invocation.
+## Core Invariants
 
-## Session Independence
-
-Assume no prior conversational or agent-session state.
-
-Recover all correctness-critical state from the invocation, repository, current passing **Spec Verification Receipt**, and durable tracker artifacts.
+- Recover durable state; do not rely on prior conversation.
+- The newest passing Spec Verification Receipt for the exact current `HEAD` is the review contract.
+- Do not rerun Ruff, mypy, pytest, duplicate scanners, wiki lint, or other `$verify-spec` gates merely to strengthen a review finding.
+- Fresh current ownership classification is still required because the default branch may advance after verification.
+- One genuinely fresh primary reviewer per applicable axis is the default. Challengers are conditional, not ceremonial.
+- After primary dispatch, the parent orchestrates; it does not become a fourth semantic reviewer.
+- Persist only frozen, provenance-valid findings and compact lifecycle state.
 
 ## Finding Taxonomy
 
-* **Blocking** — must be remediated before review closes.
-* **Advisory** — useful but non-blocking.
-* **Owner-overridden** — explicitly accepted/rejected by the owner.
-* **Scope-retired** — historical Spec Review root/cell proven not owned or required by this Spec under current attribution rules; preserved historically but removed from this Spec's active Blocking state.
+- **Blocking** — must be remediated before review closes.
+- **Advisory** — useful but non-blocking.
+- **Owner-overridden** — explicitly accepted/rejected by the owner.
+- **Scope-retired** — historical root/cell proven no longer owned or required by this Spec; history remains durable.
 
-Rules:
+Exact Spec mismatches are Blocking. Deterministic Standards violations are Blocking only on Spec-owned/Mixed or Spec-owned tracker state. Architecture violations returned under current architecture authority are Blocking. Inherited-only unrelated defects are not current-Spec Standards blockers.
 
-* exact Spec mismatches are Blocking;
-* deterministic Standards violations are Blocking only when the violating surface is Spec-owned/Mixed or Spec-owned tracker state;
-* Architecture violations returned by `$review-architecture` are Blocking;
-* inherited-only repository defects unrelated to an exact Spec/Architecture obligation are not current-Spec Blocking findings;
-* smells remain Advisory unless authority explicitly makes them mandatory.
+## 1. Pin the Verified Checkpoint Once
 
-A **reviewer execution override** is distinct from an `Owner-overridden` finding/root disposition. It waives only the fresh-context execution requirement described below; it does not accept, reject, suppress, or reclassify any review finding.
-
-## 1. Pin Baseline, Branch, and Verified HEAD
-
-Resolve the repository and read the parent Spec's complete durable comment history once through the same deterministic parser used by `$verify-spec`:
+Read the complete parent-Spec comment history once through the same deterministic comment parser used by `$verify-spec`, then validate the latest receipt mechanically through the review artifact utility:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 SPEC_NUMBER=<spec_issue_number>
-ARTIFACT_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
+CURRENT_HEAD=$(git rev-parse HEAD)
+CURRENT_BRANCH=$(git branch --show-current)
+VERIFY_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
+REVIEW_TOOL=.agents/skills/review-spec/scripts/review_spec_artifacts.py
 SPEC_COMMENTS_FILE=$(mktemp)
 SPEC_COMMENTS_SUMMARY=$(mktemp)
+SPEC_BODY_FILE=$(mktemp)
+REVIEW_CHECKPOINT=$(mktemp)
 
 gh api --paginate --slurp \
   -H "X-GitHub-Api-Version: 2026-03-10" \
   "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100" \
   > "$SPEC_COMMENTS_FILE"
 
-uv run python "$ARTIFACT_TOOL" comments \
+uv run python "$VERIFY_TOOL" comments \
   --input "$SPEC_COMMENTS_FILE" \
   > "$SPEC_COMMENTS_SUMMARY"
 
-BASELINE_COMMIT=$(jq -r '.baseline_commit' "$SPEC_COMMENTS_SUMMARY")
-VERIFICATION_RECEIPT_JSON=$(jq -c '.latest_receipt // empty' "$SPEC_COMMENTS_SUMMARY")
-CURRENT_HEAD=$(git rev-parse HEAD)
+gh issue view "$SPEC_NUMBER" --repo "$REPO" --json body --jq .body \
+  > "$SPEC_BODY_FILE"
+
+uv run python "$REVIEW_TOOL" checkpoint \
+  --comments-summary "$SPEC_COMMENTS_SUMMARY" \
+  --spec-body "$SPEC_BODY_FILE" \
+  --spec "$SPEC_NUMBER" \
+  --head "$CURRENT_HEAD" \
+  --branch "$CURRENT_BRANCH" \
+  > "$REVIEW_CHECKPOINT"
 ```
 
-The parser recognizes exactly one authoritative baseline source: one comment containing the standalone header `## Workspace Metadata` and exactly this field format:
+Require the expected `spec-<n>` branch and a clean worktree before review begins.
+
+The checkpoint utility fails closed unless the newest verification receipt is passed, bound to the exact current Spec/HEAD/baseline/branch/body hash, contains one complete manifest, maps every manifest cell exactly once to proven/not-applicable coverage, and has zero unresolved cells.
+
+Do **not** independently parse receipt Markdown, walk backward to an older receipt, or rebuild the source-unit/manifest proof inside review. Any checkpoint failure routes back to fresh `$verify-spec`.
+
+The checkpoint JSON is the immutable review contract for this invocation. Retain exactly its baseline, body/contract hashes, manifest, verification hash, and receipt identity.
+
+## 2. Refresh Ownership Only
+
+The verification receipt proves the immutable contract; review needs only fresh ownership attribution against the **current** default branch.
+
+Use the canonical `$spec-contract` ownership helper:
+
+```bash
+OWNERSHIP_FILE=$(mktemp)
+
+uv run python \
+  .agents/skills/spec-contract/scripts/classify_ownership.py \
+  --baseline "$(jq -r .baseline "$REVIEW_CHECKPOINT")" \
+  --branch "$CURRENT_BRANCH" \
+  --head "$CURRENT_HEAD" \
+  > "$OWNERSHIP_FILE"
+```
+
+This is an ownership refresh, not contract validation. It owns GitHub-pinned default-head resolution/fetch and current Spec-change ownership classification. Do not independently resolve/fetch the default branch or reproduce its diff algorithm in the parent.
+
+Use the resulting ownership as follows:
+
+- Standards universe → Spec-owned/Mixed repository surfaces + Spec-owned tracker surfaces only.
+- Spec universe → the persisted manifest exactly.
+- Architecture universe → current authority plus all owned/Mixed and explicitly required sibling/alternate surfaces.
+- Inherited-only behavior can still violate an exact Spec/Architecture obligation, but it is not a Standards blocker merely because it exists.
+
+## 3. Project Delivery Guard
+
+For a Wayfinder-managed Spec, before reviewer dispatch:
+
+1. require the Spec open and all direct blockers closed;
+2. recover governing Wayfinder(s) from durable lineage;
+3. invoke `$project-delivery-management` `reconcile` once when required by that skill;
+4. invoke `$project-delivery-management` `guard <Wayfinder>` for each governor;
+5. require at least one `PROJECT DELIVERY GUARD: ALLOWED`.
+
+Do not reproduce the guard with custom `sed`, `awk`, regex parsing, Project-field logic, or a parallel frontier implementation.
+
+Immediately before Pending or Exit persistence, invoke `guard <Wayfinder>` again for the already-resolved governor(s). That is mutable-state **revalidation**, not a second delivery-analysis phase. Do not rediscover lineage or explicitly rerun broader reconciliation unless intervening durable mutation invalidated those inputs.
+
+## 4. Recover Durable Review State
+
+A conventional **Spec Review** issue exists only for blocker/remediation history. A clean first-pass review does not create one; the parent Spec owns the final Exit Receipt.
+
+Resolve an existing conventional Spec Review from one paginated issues read and the exact body marker:
 
 ```text
-**Baseline Commit Hash:** <40 lowercase hex SHA>
+**Parent Spec:** #<n>
 ```
 
-The SHA is not backticked, shortened, uppercased, or decorated. A baseline label in any other comment is informational only and never baseline authority. Missing, duplicate, or malformed Workspace Metadata fails closed. Do not parse or recover a baseline independently.
+There must be zero or one matching issue titled `Spec Review: ...`; multiple matches fail closed. Do not infer review identity from Project fields, labels, title similarity alone, or prior conversation.
 
-Verify the expected Spec branch and require a clean worktree.
+When Blocking findings require first-time remediation, create the conventional Spec Review **once**, then boundedly re-resolve the same canonical query. Never POST a second review issue because of read-after-write delay.
 
-The newest `latest_receipt` returned by the deterministic parser is the only verification candidate. Do not use `gh issue view --json comments`, an unpaginated comment read, an independent receipt parser, or walk backward to an older receipt when the newest one is malformed or stale.
+If a conventional Spec Review exists, recover privately:
 
-Require the selected receipt:
+- existing `RB-*` IDs/stable invariants;
+- active/satisfied/owner-overridden/scope-retired cells;
+- cumulative acceptance matrix and semantic surfaces;
+- prior reviewed/satisfied heads and Owner Overrides.
 
-* `Status: passed`;
-* `Verified HEAD == CURRENT_HEAD`;
-* `Verified Baseline == BASELINE_COMMIT`;
-* branch matches;
-* complete Spec Contract Manifest present;
-* complete per-cell Spec Contract Coverage present;
-* `Spec Body Hash` and `Spec Contract Hash` present.
-
-Any commit after verification requires fresh `$verify-spec`.
-
-## 2. Validate the Shared Spec Contract
-
-Invoke `$spec-contract` in `validate` mode using the manifest/counts/hash from the passing receipt.
-
-Require `SPEC CONTRACT: VALID`.
-
-`$spec-contract` exclusively owns current default-branch head resolution, local object availability/fetch, and Spec Change Ownership comparison. Consume the helper's returned `Default branch`, `Default branch ref`, and ownership classification directly. Do not independently resolve or fetch the default branch, probe its Git object, or run `git diff` / `git rev-list` against a GitHub-pinned default head before or after the helper. If fresh ownership is needed later in the invocation, re-invoke `$spec-contract` rather than reproducing its pin/fetch logic.
-
-This proves:
-
-* current Spec body still matches what was verified;
-* manifest counts/mappings are complete;
-* manifest hash is unchanged;
-* the exact verified contract is available;
-* current Spec Change Ownership is freshly classified against the current default branch.
-
-If validation fails, halt:
-
-> ⚠️ **Spec review requires a current complete verification contract.**
->
-> Please run:
->
-> ```
-> $verify-spec - <Spec Title> (<Spec URL>)
-> ```
-
-Do not repair or independently replace the verification manifest inside review.
-
-### Ownership Boundary
-
-Use the fresh ownership classification as follows:
-
-* Standards universe → Spec-owned/Mixed repository surfaces + Spec-owned tracker surfaces only.
-* Spec universe → the complete persisted Spec Contract Manifest; inspect any current surface needed to judge each obligation.
-* Architecture universe → Spec Architecture Impact/current authority plus Spec-owned/Mixed and explicitly named/sibling surfaces required by that authority.
-* Inherited-only repository drift is not Standards Blocking merely because it exists between the fixed baseline and `HEAD`.
-* Inherited-only behavior may still cause a Spec/Architecture blocker when an exact obligation requires that behavior.
-
-## Project Delivery Actionability Guard
-
-Before reviewer dispatch or review-state persistence, perform the current `$project-delivery-management` reconciliation/guard required for a Wayfinder-managed Spec.
-
-Require the Spec open, direct blockers closed, governance unambiguous, and at least one governing Wayfinder allowed.
-
-Re-run immediately before persisting Pending Review Remediation or the final Exit Receipt.
-
-## 3. Recover Durable Review State
-
-A **conventional Spec Review issue** is a blocker/remediation artifact, not the owner of a clean review pass. It exists only when review enters blocker/remediation state or when existing durable review state must be reconciled. The parent Spec owns the final **Spec Review Exit Receipt**.
-
-Resolve any existing conventional review issue through one prescribed REST read:
-
-```bash
-PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
-
-resolve_spec_review_issue() {
-  REVIEW_PAGES=$(
-    gh api --paginate --slurp \
-      -H "X-GitHub-Api-Version: 2026-03-10" \
-      "repos/$REPO/issues?state=all&per_page=100"
-  )
-
-  REVIEW_MATCHES=$(
-    printf '%s\n' "$REVIEW_PAGES" \
-      | jq -c --arg parent "$PARENT_MARKER" '
-          [.[][]
-           | select(.pull_request == null)
-           | select(.title | startswith("Spec Review:"))
-           | select((.body // "") | contains($parent))
-           | {number, state, url: .html_url}]'
-  )
-
-  REVIEW_COUNT=$(printf '%s\n' "$REVIEW_MATCHES" | jq 'length')
-
-  if [ "$REVIEW_COUNT" -gt 1 ]; then
-    echo "❌ More than one conventional Spec Review identifies parent Spec #$SPEC_NUMBER."
-    exit 1
-  fi
-
-  if [ "$REVIEW_COUNT" -eq 1 ]; then
-    SPEC_REVIEW_ISSUE_NUMBER=$(printf '%s\n' "$REVIEW_MATCHES" | jq -r '.[0].number')
-  else
-    SPEC_REVIEW_ISSUE_NUMBER=""
-  fi
-}
-
-resolve_spec_review_issue
-```
-
-Do not infer review ownership from Project fields, labels, prior conversation, title similarity alone, or a receipt copied onto the parent Spec.
-
-If no conventional Spec Review exists, keep `SPEC_REVIEW_ISSUE_NUMBER` empty. A clean first-pass review with zero Blocking findings must not create one.
-
-Create a conventional Spec Review only when Blocking findings require remediation. At that blocker persistence point, create it once and re-resolve only through the same canonical read:
-
-```bash
-ensure_spec_review_issue() {
-  resolve_spec_review_issue
-
-  if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-    return 0
-  fi
-
-  SPEC_TITLE=$(gh api "repos/$REPO/issues/$SPEC_NUMBER" --jq .title)
-  REVIEW_TITLE_BODY=${SPEC_TITLE#Spec: }
-
-  gh api --method POST "repos/$REPO/issues" \
-    -f title="Spec Review: $REVIEW_TITLE_BODY" \
-    -f body="$PARENT_MARKER" >/dev/null
-
-  for attempt in 1 2 3 4; do
-    resolve_spec_review_issue
-
-    if [ -n "$SPEC_REVIEW_ISSUE_NUMBER" ]; then
-      return 0
-    fi
-
-    if [ "$attempt" -lt 4 ]; then
-      sleep 1
-    fi
-  done
-
-  echo "❌ Conventional Spec Review creation could not be confirmed after bounded canonical re-resolution."
-  exit 1
-}
-```
-
-The POST is single-shot. A transient read-after-write miss is handled only by bounded retries of `resolve_spec_review_issue`; never POST a second Spec Review merely because the first canonical reread is empty.
-
-Do not call `ensure_spec_review_issue` from a clean PASS path. Re-resolution after blocker-driven creation is mandatory. If a concurrent or historical duplicate makes the result ambiguous, fail closed rather than choosing one.
-
-If a Spec Review exists, recover privately:
-
-* existing `RB-*` IDs and stable invariants;
-* current root/cell statuses;
-* cumulative acceptance matrix;
-* affected semantic surfaces/reference kinds;
-* Owner Overrides;
-* previous reviewed/satisfied heads.
-
-Do not expose this historical state to axis reviewers.
-
-For operator-facing halt/status reporting only, also distinguish **prior durable review state** from the **current review pass**. Existing review/remediation history remains valid historical state even when the current verified `HEAD` requires a new review pass. Never describe the overall review as `not started` when durable review history exists; `not started` may describe only reviewer dispatch for the current pass.
+Do not expose root history to primary reviewers.
 
 ### Scope Attribution Gate
 
-Using current `$spec-contract` ownership, evaluate active historical roots/cells only for attribution:
+An historical root/cell may scope-retire only when all are proven:
 
-A root/cell is eligible for **Scope retirement** only when durable evidence establishes all of:
+1. implicated surface is inherited-only or otherwise outside this Spec ownership;
+2. no manifest cell requires the behavior;
+3. no current architecture authority requires the behavior for this Spec;
+4. retirement does not remove another active Spec-owned obligation.
 
-1. its implicated repository/tracker surface is inherited-only or otherwise not owned by this Spec;
-2. no Spec Contract Manifest cell requires the behavior;
-3. no applicable Architecture Impact/current authority requires the behavior for this Spec;
-4. retiring it does not remove another active Spec-owned obligation.
+Pre-existing behavior is not automatically out of scope.
 
-Do not scope-retire merely because a violation pre-existed the Spec. Pre-existing behavior can still be required by the Spec/Architecture axes.
+## 5. Build the Review Universes
 
-Record proposed corrections for parent reconciliation only. Reviewers do not receive them.
+Build routing coverage before dispatch.
 
-## 4. Build the Review Universe
+### Standards
 
-The parent builds routing coverage before dispatch. A complete universe is more important than reviewer count.
+Create `STD-*` cells for every Spec-owned/Mixed artifact group and each applicable deterministic Standards rule/category. Include Spec-owned tracker transitions governed by workflow policy. Do not create Standards cells for inherited-only surfaces.
 
-### Standards Universe
+### Spec
 
-Create `STD-<n>` cells for:
+Use the checkpoint manifest **exactly**. Each persisted manifest cell is one Spec review cell. Require no missing/unknown cells before dispatch.
 
-* every Spec-owned/Mixed artifact group governed by deterministic repository standards;
-* every applicable deterministic Standards rule/category for those surfaces;
-* Spec-owned tracker transitions governed by deterministic workflow policy.
+A reviewer-discovered originating-Spec obligation absent from the manifest is a **contract defect**. Halt and require fresh `$verify-spec`; do not silently expand the universe.
 
-Do not create Standards cells for inherited-only repository surfaces.
+### Architecture
 
-### Spec Universe
+Create `ARCH-*` cells covering current affected architecture authorities, canonical owner/path/boundary/lifecycle/source-of-truth, owned/Mixed participants, and any sibling/alternate/named surface that the authority requires to obey the same rule. `$review-architecture` owns architecture evidence procedure.
 
-Use the persisted Spec Contract Manifest **exactly**.
+## 6. Reviewer Execution Integrity
 
-Each manifest cell is one Spec review cell. Do not collapse or substitute cells.
+A fresh reviewer is a genuinely separate context that did not participate in parent orchestration and receives only its axis authority, complete cells, and relevant evidence pointers.
 
-Before dispatch require:
-
-```text
-Manifest cells == Spec review cells
-Missing manifest cells: 0
-Unknown Spec review cells: 0
-```
-
-If the manifest says 27 numbered User Stories, the Spec universe necessarily maps all 27 source items.
-
-A Spec reviewer that identifies a real originating-Spec obligation missing from the manifest has discovered a **contract defect**, not permission to silently expand the verified universe. Halt with `SPEC CONTRACT: INCOMPLETE` and require fresh `$verify-spec` after reporting the exact omitted source anchor.
-
-### Architecture Universe
-
-Create `ARCH-<n>` cells covering:
-
-* every affected entity/delivery-process authority in Architecture Impact;
-* every governing ADR/current architecture document/Wayfinder decision named by the Spec;
-* every canonical owner/path/boundary/lifecycle/source-of-truth implicated by those authorities;
-* Spec-owned/Mixed changed surfaces participating in them;
-* sibling/alternate/named surfaces explicitly required to obey the same authority.
-
-`$review-architecture` owns architecture evidence procedure.
-
-### Reviewer Execution Integrity
-
-Independent reviewer execution is part of review validity, not presentation.
-
-A **fresh reviewer** means a genuinely separate agent/subagent context that did not participate in parent orchestration and receives only the authority, cells, and evidence slice assigned to that reviewer role. The parent must never silently simulate multiple fresh reviewer identities inside one context.
-
-Before the first reviewer dispatch, determine whether the current execution environment can create the required genuinely fresh reviewer contexts.
-
-When fresh contexts are available:
+Default mode:
 
 ```text
 Reviewer execution: independent-subagents
 Reviewer execution override: None
 ```
 
-Use genuine fresh contexts for every primary, targeted challenger, and saturation challenger required by this review.
+If genuinely fresh contexts are unavailable, halt before review/persistence unless the human explicitly authorizes same-agent fallback for the current invocation. The override waives independence only; it never accepts or suppresses findings.
 
-When fresh contexts are unavailable and the current human invocation does **not** contain an explicit reviewer-execution override, halt before any axis review, Pending Review Remediation persistence, or Exit Receipt persistence:
-
-```text
-REVIEW EXECUTION: INDEPENDENCE UNAVAILABLE
-Required: genuinely fresh reviewer contexts
-Current review pass: reviewer dispatch not started
-Prior durable review state: <None | concise recovered review/remediation history>
-Verified target: HEAD <SHA>; baseline <SHA>; contract <review-cell count> cells
-Persistence: no Pending Review Remediation or Exit Receipt written by this halted invocation
-Owner options:
-- re-run `$review-spec` in an environment that supports fresh subagents; or
-- explicitly authorize same-agent reviewer fallback for this review
-```
-
-When prior durable review/remediation state exists, summarize it truthfully here (for example, prior review completed, conventional Spec Review issue, and current root statuses). Do not collapse historical review state into `Current review pass: reviewer dispatch not started` or imply that prior review/remediation never occurred.
-
-Do not substitute the parent agent merely because reviewer spawning is unavailable.
-
-#### Human Owner Reviewer-Execution Override
-
-The human owner may explicitly waive the fresh-context requirement for the **current `$review-spec` invocation**. A canonical authorization is:
+Canonical authorization:
 
 ```text
 OWNER REVIEWER EXECUTION OVERRIDE: authorize same-agent reviewer fallback for this review
 ```
 
-Equivalent unambiguous current-prompt wording is acceptable, but the override must be explicit. Do not infer it from:
+Under fallback, execute roles sequentially and disclose reduced independence. Never describe same-context roles as fresh.
 
-* the human being repository owner;
-* a prior invocation or prior-session authorization;
-* a finding/root Owner Override;
-* issue comments or Project fields;
-* inability to spawn subagents;
-* a general instruction to continue or use best effort.
+## 7. Dispatch Primaries
 
-The override authorizes the parent agent to execute reviewer roles sequentially in the same context when genuine fresh reviewer contexts are unavailable. Unless the human explicitly narrows the authorization, it covers required primary, targeted challenger, and saturation challenger roles for that one review invocation.
+Execute exactly one primary per applicable axis:
 
-Set:
+- Standards primary when applicable;
+- Spec primary always;
+- Architecture primary when applicable.
 
-```text
-Reviewer execution: owner-overridden-same-agent
-Reviewer execution override: explicit current-invocation owner authorization
-```
+Give each primary only:
 
-This override:
+- axis authority;
+- complete cells;
+- relevant evidence pointers/owned surfaces;
+- no Root Blocker history or prior reviewer conclusions.
 
-* waives **only** genuine fresh-context execution;
-* does not make the same-agent roles fresh or independent, and they must never be reported as such;
-* does not waive review-universe completeness, per-cell disposition, axis authority, Axis-Provenance Gate, challenge/saturation triggers, Root reconciliation, or Exit Gate requirements;
-* does not authorize accepting, rejecting, suppressing, or reclassifying findings merely because the same agent is performing multiple roles;
-* does not override any higher-priority system, safety, security, or tool-execution constraint outside this repository workflow.
+Each primary must disposition every supplied cell and continue after discovering a blocker.
 
-Under same-agent fallback, preserve reviewer information separation as far as the environment permits: execute one reviewer role at a time from its assigned authority/cells/evidence, do not intentionally consult Root Blocker history or prior axis findings while acting in a primary role, and do not use the primary conclusion as challenger authority. The durable receipt must disclose the reduced execution independence.
-
-## 5. Dispatch One Primary Reviewer per Applicable Axis
-
-Execute exactly one primary reviewer role for each applicable axis:
-
-* Standards primary when Standards applies;
-* Spec primary always;
-* Architecture primary when Architecture applies.
-
-In `independent-subagents` mode, spawn exactly one genuinely fresh primary reviewer for each applicable axis. In `owner-overridden-same-agent` mode, the parent executes each primary role sequentially under the information-separation discipline above. Do not spawn or simulate a default challenger.
-
-Give each primary role:
-
-* only its axis authority;
-* its complete parent-built cells;
-* only the evidence slices relevant to those cells;
-* no Root Blocker history or prior reviewer findings.
-
-### Reviewer Claim-Proof Integrity
-
-Every primary, targeted challenger, and saturation challenger derives proof from its assigned authoritative claim before treating supplied evidence as a proof plan.
-
-For each material cell, normalize the claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**, then state the concrete **falsification condition**: a current repository/runtime/tracker state that would make the claim false. Derive the inspection strategy from that claim and falsifier, and actively seek counterexamples within the permitted axis/domain.
-
-A `checked-no-finding` disposition requires evidence that excludes the falsification condition across the required domain. Ask: **Could every inspected/cited check succeed while this cell is still false?** If yes, the cell is not clean and must trigger blocking/advisory/unresolved handling under its axis contract. Any material assumption connecting evidence to conclusion must itself be established by the axis authority or direct evidence.
-
-Known defect patterns, prior implementation choices, changed-file lists, existing tests, and the passing verification receipt are supporting evidence only. They must not define the claim, falsifier, or proof boundary. This reasoning discipline does not require a verbose transcript in the durable review packet.
-
-### Primary Strategy
-
-Use a combined coverage strategy:
-
-1. **claim-first:** apply **Reviewer Claim-Proof Integrity** before accepting supplied evidence as proof;
-2. **authority-first:** trace every supplied cell into all relevant surfaces;
-3. **adversarial-surface:** inspect applicable defaults/fallbacks/alternate entries/bypasses/fail-open paths as possible counterexample witnesses before disposition.
-
-The primary must:
-
-1. disposition every supplied cell;
-2. not stop after first blocker;
-3. return every supported Blocking finding;
-4. not perform Root mapping/remediation;
-5. return no `unchecked`, `unknown`, `deferred`, or omitted cells.
-
-Coverage state:
+Coverage states:
 
 ```text
 checked-no-finding | blocking | advisory | not-applicable
 ```
 
-`not-applicable` requires an exact reason.
+`not-applicable` requires exact authority/reason.
 
-### Axis Contracts
+### Claim-Proof Integrity
 
-**Standards**
+For every material cell, the reviewer must internally establish claim/predicate/domain/falsifier/evidence and exclude the falsifier before `checked-no-finding`. Material assumptions must themselves be proven.
 
-Every blocker cites an exact deterministic Standards authority and a Spec-owned/Mixed or Spec-owned tracker surface.
-
-**Spec**
-
-Every blocker cites the exact manifest cell and originating Spec source. Do not import ADR/Root Blocker requirements.
-
-**Architecture**
-
-The reviewer invokes `$review-architecture` and every blocker preserves:
+Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full findings. A useful primary result is:
 
 ```text
-Finding:
-Governing authority:
-Evidence:
-Architecture decision required: Yes | No
-Routing: existing-authority remediation | architecture resolution
+Coverage: <cell IDs grouped by disposition>; missing 0; unchecked 0
+Blocking: <full finding records>
+Advisory: <records>
+N/A: <cells + reasons>
+Challenge triggers: <None | exact cell/question>
 ```
 
-## 6. Conditional Challenge
+This keeps reviewer reasoning rigorous without spending output budget reproducing internal proof records.
 
-A targeted challenger is allowed only when a concrete trigger exists. In `independent-subagents` mode it must be genuinely fresh; in `owner-overridden-same-agent` mode the parent may execute the challenger role under the explicit current-invocation override and must not report it as fresh or independent.
+Axis blocker authority:
 
-Challenge triggers:
+- Standards → exact deterministic standard + owned/Mixed surface.
+- Spec → exact manifest cell + originating Spec source.
+- Architecture → current authority with `Architecture decision required: Yes|No` and routing.
 
-1. **coverage trigger** — a primary cannot disposition a supplied cell or an applicable Standards/Architecture authority reveals a materially omitted cell;
-2. **authority trigger** — source conflict, ambiguous authority, or parent cannot validate the cited native-axis authority;
-3. **evidence trigger** — evidence is materially contradictory or insufficient to accept/reject a blocker;
-4. **convergence trigger** — after root reconciliation, a newly accepted finding is a Missed prior finding against a previously satisfied root or exposes a root-definition gap.
+## 8. Parent Orchestration Boundary
 
-For triggers 1–3, dispatch or execute one targeted challenger over only the affected cells/question. Do not intentionally provide it the primary's conclusion. Its job is resolution of the trigger, not a second full-axis review. The challenger applies **Reviewer Claim-Proof Integrity** independently to its assigned cells/question.
+After primary dispatch, the parent is an **orchestrator**, not another reviewer.
 
-A valid challenger finding does not require primary agreement.
+While reviewers run, the parent may:
 
-If targeted challenge cannot resolve the trigger, review is incomplete; do not persist remediation or PASS.
+- wait/collect results;
+- recover tracker/remediation state not exposed to reviewers;
+- prepare compact persistence metadata;
+- deduplicate returned records mechanically.
 
-## 7. Freeze Axis Findings and Validate Provenance
+The parent must **not**:
 
-Coverage is complete when:
+- independently re-review assigned semantic cells;
+- explore implementation to search for additional findings in parallel;
+- rerun pytest/Ruff/mypy/Arid/JSCPD/wiki lint or other verification gates;
+- use a passing/failing test as substitute review authority;
+- preempt a reviewer by reaching its own semantic disposition.
 
-* every parent-supplied cell is dispositioned;
-* every targeted challenge cell is dispositioned;
-* no Spec manifest cell is missing;
-* no applicable Standards/Architecture cell is unchecked;
-* every N/A axis/cell has a reason.
+After results return, parent inspection is allowed only at these narrow boundaries:
 
-Freeze the de-duplicated current findings.
+1. **Axis-Provenance validation** — confirm that the cited native authority exists and applies to the cited surface/cell;
+2. **concrete challenge trigger** — resolve ambiguity/contradiction through a targeted challenger, not an open-ended parent review;
+3. **root reconciliation** — inspect only historical root evidence implicated by frozen findings.
 
-### Axis-Provenance Gate
+If accepting/rejecting a finding would require broad semantic exploration, dispatch the targeted challenger instead.
 
-Accept Blocking only when native axis authority independently establishes it:
+## 9. Conditional Challenge
 
-* Standards → deterministic repository standard + owned surface;
-* Spec → exact manifest cell/originating Spec;
-* Architecture → `$review-architecture` + current authority.
+Dispatch one targeted challenger only for a concrete trigger:
 
-Do not move a rejected finding to another axis.
+1. coverage gap/materially omitted applicable cell;
+2. authority conflict/ambiguity;
+3. contradictory or materially insufficient finding evidence;
+4. convergence trigger after root reconciliation.
 
-## 8. Reconcile Against Durable Root State
+Challenge only the affected cell/question. Do not intentionally give the challenger the primary conclusion. It applies the same Claim-Proof Integrity. If a required challenge remains unresolved, review is incomplete and nothing is persisted as PASS/remediation-ready.
+
+## 10. Freeze Findings and Validate Provenance
+
+Coverage is complete only when every supplied cell is dispositioned, no manifest cell is missing, no applicable Standards/Architecture cell is unchecked, and every N/A has a reason.
+
+Freeze and deduplicate the current findings. Accept Blocking only when its own axis authority establishes it; do not move a rejected finding to another axis.
+
+## 11. Reconcile Durable Roots
 
 Only after findings are frozen may the parent use Root Blocker history.
 
 Map a finding to an existing root only when the stable invariant already derives it. Otherwise mark `Candidate new root`; if materially related but broader, mark `possible root-definition gap`.
 
-For each newly accepted violation against a previously satisfied/closed root, inspect only implicated historical evidence and classify:
+For a newly accepted violation against a previously satisfied/closed root, classify only from implicated history:
 
-* **Missed prior finding** — defect existed materially unchanged at prior satisfied state;
-* **Regression** — introduced/materially changed afterward;
-* **Origin uncertain**.
+- **Missed prior finding**;
+- **Regression**;
+- **Origin uncertain**.
 
 Previously satisfied sibling cells remain satisfied unless directly contradicted.
 
-### Convergence Saturation Gate
+### Convergence Saturation
 
-A **Missed prior finding** against a previously satisfied root, or a **root-definition gap**, proves that prior closure-domain enumeration was incomplete.
+A Missed prior finding against a satisfied root or a root-definition gap proves incomplete prior closure enumeration. Before persistence:
 
-Before Pending Review Remediation:
+1. derive the bounded Root Closure Domain Manifest;
+2. execute exactly one saturation challenger under the originating axis;
+3. require every domain item checked and `unchecked 0`;
+4. provenance-validate new findings and merge them before persistence.
 
-1. derive a **Root Closure Domain Manifest** from the stable root invariant, current Spec contract, applicable architecture, current semantic surface families, and explicitly required sibling/alternate paths;
-2. execute exactly one **saturation challenger** under the originating axis authority using the current Reviewer Execution mode;
-3. instruct it to inspect every domain item, apply **Reviewer Claim-Proof Integrity**, and add/check any newly discovered sibling surface before returning;
-4. require its final domain coverage to reach `unchecked 0`;
-5. validate any additional findings through the normal Axis-Provenance Gate;
-6. add supported findings to the current frozen set/root mapping before remediation persistence.
+Do not run another generic full-axis review.
 
-In `independent-subagents` mode the saturation challenger must be genuinely fresh. In `owner-overridden-same-agent` mode the parent may execute the role under the explicit current-invocation override and must disclose that reduced independence in durable review provenance.
+## 12. Aggregate
 
-Do not spawn or simulate another generic whole-axis reviewer.
-
-The saturation challenger must search to a fixed point within the bounded root invariant. If it returns unresolved domain coverage, review is incomplete.
-
-This gate is the convergence response to demonstrated prior incompleteness; do not defer sibling discovery to another end-to-end review cycle.
-
-## 9. Scope Corrections
-
-After current finding/root reconciliation and saturation, reconcile proposed Scope retirements from Section 3.
-
-For each correction record:
+Report the three axes and compact coverage/effectiveness:
 
 ```text
-Root/cell:
-Action: scope-retire
-Ownership evidence:
-Spec-contract relationship: none
-Architecture relationship: none
-Historical finding preserved: yes
-External repository follow-up: <optional reference or None>
-```
-
-Scope corrections are not Owner Overrides and do not erase historical findings.
-
-If a root has both scope-retired and active Spec-owned cells, retire only the unrelated cells and recompute root status.
-
-## 10. Aggregate Review Results
-
-Present:
-
-```text
-## Standards
-<Blocking/Advisory/None/N/A>
-
-## Spec
-<Blocking/Advisory/None>
-
-## Architecture
-<Blocking/Advisory/None/N/A>
-```
-
-Then coverage:
-
-```text
-Reviewer execution: <independent-subagents | owner-overridden-same-agent>
-Standards: <n cells | N/A>; primary complete; targeted challengers <n>; unchecked 0
-Spec: <manifest n> cells; primary complete; targeted challengers <n>; unchecked 0
-Architecture: <n cells | N/A>; primary complete; targeted challengers <n>; unchecked 0
+Reviewer execution: <mode>
+Standards: <coverage>; unchecked 0
+Spec: <manifest count>; unchecked 0
+Architecture: <coverage>; unchecked 0
+Targeted challengers: <n>
 Saturation challengers: <n>
-```
-
-Also report reviewer effectiveness:
-
-```text
 Primary validated findings: <n>
-Targeted challenger-only validated findings: <n>
+Targeted-only validated findings: <n>
 Saturation-only validated findings: <n>
 ```
 
-This telemetry is diagnostic; it does not change finding validity.
+If any Blocking Architecture finding requires an architecture decision, halt with `$architecture-remediation`; do not invent the decision.
 
-## Architecture Human Handoff
+## 13. Pending Review Remediation
 
-If any Blocking Architecture finding has `Architecture decision required: Yes`, collect all such blockers and halt with:
+If architecture-conforming Blocking findings remain, or Scope corrections must update existing durable review state:
 
-> ⚠️ **Spec review is blocked by unresolved architecture.**
->
-> Please run:
->
-> ```
-> $architecture-remediation - <Spec Title> (<Spec URL>) — <concise blocker-set summary>
-> ```
+1. revalidate Project Delivery guard for the already-resolved governor(s);
+2. require `HEAD` still equals the verification checkpoint;
+3. create/re-resolve the conventional Spec Review only when Blocking remediation requires one;
+4. render the Pending packet through the deterministic review utility;
+5. POST once, GET that exact comment, and require byte-for-byte equality;
+6. invoke `$review-spec-remediation` only after persistence succeeds.
 
-Do not propose the architectural answer.
-
-## 11. Pending Remediation
-
-If architecture-conforming Blocking findings remain **or Scope corrections must update existing durable review state**, re-run the Project Delivery Actionability Guard.
-
-If architecture-conforming Blocking findings remain, call `ensure_spec_review_issue` from Section 3 and persist on that resolved conventional Spec Review issue.
-
-If no Blocking findings remain and only Scope corrections must update existing durable review state, require an already-existing conventional Spec Review issue and persist there. Do not create a Spec Review issue solely for Scope corrections.
-
-```markdown
-## Pending Review Remediation [YYYY-MM-DD HH:MM]
-
-**Status:** pending
-**Reviewed HEAD:** <SHA>
-**Reviewed Baseline:** <SHA>
-**Branch:** spec-<n>
-**Spec Body Hash:** <hash>
-**Spec Contract Hash:** <hash>
-**Reviewer execution:** <independent-subagents | owner-overridden-same-agent>
-**Reviewer execution override:** <None | explicit current-invocation owner authorization>
-
-### Standards
-<accepted current Blocking findings / None / N/A>
-
-### Spec
-<accepted current Blocking findings / None>
-
-### Architecture
-<accepted Architecture decision required: No findings / None / N/A>
-
-### Review Coverage
-- Standards: <coverage>
-- Spec: <manifest count>; primary complete; targeted challengers <n>; unchecked 0
-- Architecture: <coverage>
-- Saturation challengers: <n>
-
-### Reviewer Effectiveness
-- Primary validated findings: <n>
-- Targeted challenger-only validated findings: <n>
-- Saturation-only validated findings: <n>
-
-### Root Mappings
-<current mappings>
-
-### Root State
-<relevant stable roots/cells>
-
-### Provenance
-<Missed prior | Regression | Origin uncertain>
-
-### Scope Corrections
-<scope-retire entries or None>
-
-### Saturation
-<triggered root/domain/result or None>
-```
-
-### Atomic Pending Packet Persistence
-
-Before any Pending Review Remediation comment mutation, render the **complete** packet into `PENDING_REVIEW_FILE=$(mktemp)`. Treat Markdown as data: use Python or `printf`; never use an unquoted heredoc. If a heredoc contains literal Markdown, quote its delimiter (`<<'EOF'`) and write dynamic values separately. Ensure the file ends with exactly one newline.
-
-Pre-validate the rendered file before POST. Require the exact pending header/status, reviewed HEAD/baseline/branch, Spec body/contract hashes, reviewer execution mode/override provenance, all packet sections exactly once, and no unresolved template placeholders. Immediately before POST require `HEAD` still equals the passing verification receipt.
-
-POST the validated packet exactly once to the resolved conventional Spec Review issue using file-based JSON encoding, then read back that exact comment and compare bytes before invoking `$review-spec-remediation`:
+Build one compact JSON input containing checkpoint bindings, reviewer execution metadata, accepted findings by axis, compact coverage/effectiveness, root mappings/state, provenance, scope corrections, and saturation result. Then:
 
 ```bash
+PENDING_INPUT=$(mktemp)
+PENDING_FILE=$(mktemp)
 PENDING_JSON=$(mktemp)
 COMMENT_JSON=$(mktemp)
 READBACK_FILE=$(mktemp)
 
-jq -Rs '{body: .}' "$PENDING_REVIEW_FILE" > "$PENDING_JSON"
+uv run python "$REVIEW_TOOL" render-pending \
+  --input "$PENDING_INPUT" \
+  --output "$PENDING_FILE"
+
+jq -Rs '{body: .}' "$PENDING_FILE" > "$PENDING_JSON"
 gh api --method POST \
   "repos/$REPO/issues/$SPEC_REVIEW_ISSUE_NUMBER/comments" \
   --input "$PENDING_JSON" > "$COMMENT_JSON"
@@ -656,85 +358,60 @@ gh api --method POST \
 COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
 COMMENT_URL=$(jq -r .html_url "$COMMENT_JSON")
 [ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]
-
 gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
-  | jq -j '.body' > "$READBACK_FILE"
-
-cmp -s "$PENDING_REVIEW_FILE" "$READBACK_FILE"
+  | jq -j .body > "$READBACK_FILE"
+cmp -s "$PENDING_FILE" "$READBACK_FILE"
 ```
 
-Run the same deterministic packet validation against `READBACK_FILE`. Only exact readback plus post-validation completes persistence. If POST succeeds but readback or validation fails, stop, report `COMMENT_URL`, and do not invoke `$review-spec-remediation`, create a corrective second packet, or patch the malformed comment in the same invocation.
+The renderer owns packet shape and validation. Do not hand-build the Markdown with shell substitution, `sed`, regex patching, or a second wrapper object. Exact readback of the deterministic renderer output is sufficient persistence integrity; do not reparse/rewrite the persisted packet merely for ceremony.
 
-Invoke `$review-spec-remediation` internally only after Pending packet persistence is complete, and wait.
+If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, reconcile Project state before presenting that handoff.
 
-### Mandatory Project Reconciliation — Review Remediation
-
-When `$review-spec-remediation` durably leaves one or more architecture-conforming Blocking roots active and returns a `$to-tickets` handoff, derive the remediation lifecycle from that persisted state and invoke `$project-tracking` as prescribed internal composition **before** presenting the handoff.
-
-Use one reconciliation set:
-
-* parent Spec → base `Spec / Review Remediation / None / Ready`;
-* conventional Spec Review → base `Spec Review / Review Remediation / $to-tickets / Ready` while no executable remediation-ticket children exist;
-* any other formal review artifact whose lifecycle state was durably changed by `$review-spec-remediation`.
-
-Do not create a Spec Review merely for projection. The review issue must already exist because Blocking remediation state required it. Supply current Project Delivery State separately; preserve `Area` and `Priority` unless separately authorized.
-
-`$review-spec` owns these post-review base states; `$project-tracking` owns validation, delivery overlay, and Project mutation. `PROJECT TRACKING: DRIFT` does not roll back the Root Blocker ledger or suppress an otherwise-authorized `$to-tickets` handoff.
-
-If `$review-spec-remediation` returns a `$to-tickets` handoff, present the aggregate review first and append the handoff exactly after mandatory Project reconciliation. If no active Blocking remains after corrections, continue to Exit Gate.
-
-## Exit Gate
+## 14. Exit Gate
 
 PASS requires:
 
-* current `HEAD` still matches current verification receipt;
-* `$spec-contract` remains valid;
-* reviewer execution integrity is satisfied by genuine fresh reviewer contexts or an explicit current-invocation human owner reviewer-execution override;
-* every manifest cell reviewed;
-* every applicable Standards/Architecture cell reviewed;
-* no unresolved challenge/saturation coverage;
-* zero current Blocking findings;
-* every existing Root Blocker is `satisfied`, `owner-overridden`, or `scope-retired`;
-* no unresolved Candidate root remains.
+- current `HEAD` and Spec body still match the checkpoint;
+- reviewer execution integrity satisfied;
+- every Spec/Standards/Architecture review cell dispositioned;
+- no unresolved targeted/saturation coverage;
+- zero current Blocking findings;
+- all existing roots `satisfied`, `owner-overridden`, or `scope-retired`;
+- zero Candidate new roots.
 
-Advisories and unrelated inherited findings may remain.
+The immutable contract itself does not need to be rebuilt again at Exit. Re-read current `HEAD`, clean worktree, Spec body hash, and mutable delivery guard; if any checkpoint binding changed, require fresh `$verify-spec`.
 
 ### Persist Exit Receipt
 
-Re-run Project Delivery Actionability Guard and persist the Exit Receipt on the **parent Spec issue**. Do not call `ensure_spec_review_issue` from the PASS path and do not create a conventional Spec Review issue merely to store successful review authorization.
+Revalidate Project Delivery guard, render the Exit Receipt through the same deterministic utility, POST it to the **parent Spec**, GET the exact comment, and require byte equality.
 
-The parent Spec owns workspace metadata, the Spec Verification Receipt, and the final review Exit Receipt consumed later by `$spec-merge-cleanup`. If a conventional Spec Review exists from an earlier blocker/remediation cycle, preserve it as remediation history; it does not own the Exit Receipt.
+```bash
+EXIT_INPUT=$(mktemp)
+EXIT_FILE=$(mktemp)
+EXIT_JSON=$(mktemp)
+COMMENT_JSON=$(mktemp)
+READBACK_FILE=$(mktemp)
 
-Persist:
+uv run python "$REVIEW_TOOL" render-exit \
+  --input "$EXIT_INPUT" \
+  --output "$EXIT_FILE"
 
-```markdown
-## Spec Review Exit Receipt
+jq -Rs '{body: .}' "$EXIT_FILE" > "$EXIT_JSON"
+gh api --method POST \
+  "repos/$REPO/issues/$SPEC_NUMBER/comments" \
+  --input "$EXIT_JSON" > "$COMMENT_JSON"
 
-**Status:** passed
-**Reviewed HEAD:** <SHA>
-**Reviewed Baseline:** <SHA>
-**Branch:** spec-<n>
-**Spec Body Hash:** <hash>
-**Spec Contract Hash:** <hash>
-**Blocking findings:** 0
-**Root blockers:** satisfied/owner-overridden/scope-retired
-**Candidate new roots:** 0
-**Review coverage:** complete
-**Primary reviewers:** Standards <1|N/A>; Spec 1; Architecture <1|N/A>
-**Targeted challengers:** <n>
-**Saturation challengers:** <n>
-**Unchecked coverage cells:** 0
-**Reviewer execution:** <independent-subagents | owner-overridden-same-agent>
-**Reviewer execution override:** <None | explicit current-invocation owner authorization>
+COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
+COMMENT_URL=$(jq -r .html_url "$COMMENT_JSON")
+[ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]
+gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+  | jq -j .body > "$READBACK_FILE"
+cmp -s "$EXIT_FILE" "$READBACK_FILE"
 ```
 
-`Primary reviewers`, `Targeted challengers`, and `Saturation challengers` count logical reviewer roles. When `Reviewer execution = owner-overridden-same-agent`, those counts must not be interpreted or described as fresh-subagent counts.
+Do not create a conventional Spec Review on a clean PASS path.
 
-Any later commit or Spec-body change makes the receipt stale.
-
-### Mandatory Project Reconciliation — Ready to Merge
-
-A successfully persisted Exit Receipt is the authoritative clean-review transition. From that exact receipt and reviewed `HEAD`, establish the parent Spec's base lifecycle as:
+A persisted Exit Receipt establishes the parent Spec base lifecycle:
 
 ```text
 Artifact Type: Spec
@@ -745,15 +422,11 @@ Root Blocker: None
 Completed On: None
 ```
 
-Invoke `$project-tracking` as prescribed internal composition for the parent Spec **after** Exit Receipt persistence and **before** the Spec Merge Cleanup Human Handoff. Supply current Project Delivery State separately; preserve `Area` and `Priority` unless separately authorized.
+Invoke `$project-tracking` after Exit persistence. Project drift does not invalidate the durable review receipt.
 
-If a conventional Spec Review exists from earlier remediation, include it only when this invocation durably changed its own lifecycle state. Do not manufacture `Spec Review / Complete` merely because the parent Spec passed review; `$spec-merge-cleanup` owns review-issue closure/finalization.
+## 15. Human Handoff
 
-The Project projection and `$spec-merge-cleanup` handoff must derive from the same persisted Exit Receipt. `PROJECT TRACKING: DRIFT` does not invalidate the receipt, roll back `Ready to Merge`, or suppress the otherwise-authorized handoff.
-
-### Spec Merge Cleanup Human Handoff
-
-After receipt persistence and mandatory Project reconciliation, halt with:
+On PASS:
 
 > ✅ **Spec review passed.**
 >
@@ -765,42 +438,22 @@ After receipt persistence and mandatory Project reconciliation, halt with:
 > $spec-merge-cleanup - <Spec Title> (<Spec URL>)
 > ```
 
-Then stop.
-
-Do not close the Spec or Spec Review here. `$spec-merge-cleanup` owns merge, closure, branch cleanup, and Wayfinder completion reconciliation.
+Do not close the Spec or Spec Review here; `$spec-merge-cleanup` owns merge/closure/branch cleanup.
 
 ## Transition-Bound Review Proof State
 
-Reviewer Claim-Proof Integrity is an enforceable state transition. A reviewer may not return `checked-no-finding` merely after acknowledging falsification-first reasoning.
-
-For every primary, targeted-challenger, and saturation-challenger cell actually dispositioned, maintain a working record:
+Every reviewer role must maintain enough working proof to justify each disposition:
 
 ```text
-Cell: <STD-* | Spec manifest ID | ARCH-*>
-Claim: <assigned authoritative claim>
-Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
-Falsifier: <concrete current state that would make the claim false>
-Evidence: <direct inspected evidence>
-Survivability: <excluded | survives>
-Assumptions: <None | material assumption + authority/direct proof>
-Disposition: <checked-no-finding | Blocking | Advisory | not-applicable | unresolved>
+Cell
+Claim/predicate/domain
+Falsifier
+Evidence
+Survivability: excluded | survives
+Material assumptions
+Disposition
 ```
 
-`checked-no-finding` requires concrete Predicate/Falsifier/Evidence, `Survivability: excluded`, and no unproven material assumption. If every cited inspection could succeed while the claim remains false, the reviewer must not return `checked-no-finding`; use the axis-appropriate finding or `unresolved` result. `not-applicable` must cite the exact condition/authority that removes the cell from applicability.
+`checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, and no incomplete clean dispositions before PASS.
 
-The parent must require, across the complete review universes before the Exit Gate:
-
-```text
-Review universe cells: <n>
-Disposition rows: <n>
-Missing cells: 0
-Unknown cells: 0
-Unchecked/unresolved cells: 0
-Incomplete checked-no-finding proof records: 0
-Survivability not excluded for checked-no-finding cells: 0
-Unproven material assumptions: 0
-```
-
-Fresh reviewer independence remains mandatory exactly as defined above. These records strengthen each reviewer role; they do not permit the parent to substitute its own reasoning for a required fresh reviewer or to expose historical Root Blocker state to primaries.
-
-The durable Exit Receipt may remain concise. The working proof state must nevertheless exist before the parent may persist a passing Exit Receipt or invoke `$spec-merge-cleanup`.
+These records are **working reasoning state**, not mandatory serialized output. Primaries/challengers should return compact grouped coverage and full findings rather than dumping one verbose proof object per clean cell. Fresh reviewer independence remains mandatory unless explicitly owner-overridden for the current invocation.

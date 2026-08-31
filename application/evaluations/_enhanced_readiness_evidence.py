@@ -123,17 +123,38 @@ def metric_evidence(
     payload: list[JsonObject] = []
     current_result_count = 0
     target_type = cast(EvaluationTargetType, current[0].run.target_type)
+    dataset_keys = {_run_dataset_key(item) for item in current}
+
     for requirement in profile.metric_requirements:
         if not requirement.applies_to(target_type):
             continue
-        current_records = _metric_records(current, requirement)
-        reference_records = _metric_records(reference, requirement)
-        if not current_records or not reference_records:
+
+        current_by_dataset = _metric_records_by_dataset(
+            current,
+            requirement,
+        )
+        reference_by_dataset = _metric_records_by_dataset(
+            reference,
+            requirement,
+        )
+        if (
+            set(current_by_dataset) != dataset_keys
+            or set(reference_by_dataset) != dataset_keys
+        ):
             continue
+
+        current_records = tuple(
+            record for records in current_by_dataset.values() for record in records
+        )
+        reference_records = tuple(
+            record for records in reference_by_dataset.values() for record in records
+        )
+
         current_result_count += len(current_records)
         current_score = min(record.score for record in current_records)
         reference_score = min(record.score for record in reference_records)
         drift = max(0.0, reference_score - current_score)
+
         readiness.append(
             ReadinessMetricEvidence(
                 requirement.metric_name,
@@ -160,16 +181,21 @@ def metric_evidence(
                     "reference_metric_result_ids": sorted(
                         record.metric_result_id for record in reference_records
                     ),
-                    "evaluator_provider": current[0].run.evaluator_provider,
+                    "evaluator_provider": (current[0].run.evaluator_provider),
                     "evaluator_model": current[0].run.evaluator_model,
                 },
             )
         )
+
     return MetricEvidence(
         tuple(readiness),
         tuple(payload),
         current_result_count,
     )
+
+
+def _run_dataset_key(item: RunEvidence) -> tuple[str, str]:
+    return item.dataset.dataset_id, item.dataset.version
 
 
 def _runs_are_comparable(
@@ -178,34 +204,59 @@ def _runs_are_comparable(
 ) -> bool:
     if not current or not reference:
         return False
-    datasets = [
-        {(item.dataset.dataset_id, item.dataset.version) for item in group}
-        for group in (current, reference)
-    ]
+
+    current_datasets = {_run_dataset_key(item) for item in current}
+    reference_datasets = {_run_dataset_key(item) for item in reference}
     judges = {
-        (item.run.evaluator_provider, item.run.evaluator_model)
+        (
+            item.run.evaluator_provider,
+            item.run.evaluator_model,
+        )
         for item in (*current, *reference)
     }
-    return len(datasets[0]) == 1 and datasets[0] == datasets[1] and len(judges) == 1
+
+    return current_datasets == reference_datasets and len(judges) == 1
 
 
-def _metric_records(
+def _metric_records_by_dataset(
     runs: tuple[RunEvidence, ...],
     requirement: ReadinessMetricRequirement,
-) -> tuple[EvaluationMetricResultRecord, ...]:
-    return tuple(
-        record
-        for item in runs
-        for record in item.metrics
-        if record.metric_name == requirement.metric_name
-        and record.status is EvaluationStatus.PASSED
-        and record.passed is True
-        and record.threshold_version == requirement.version
-        and record.threshold == requirement.minimum_score
-        and record.evaluator_provider == item.run.evaluator_provider
-        and record.evaluator_model == item.run.evaluator_model
-        and record.langfuse_projection_status is LangfuseProjectionStatus.PROJECTED
-    )
+) -> dict[
+    tuple[str, str],
+    tuple[EvaluationMetricResultRecord, ...],
+]:
+    result: dict[
+        tuple[str, str],
+        tuple[EvaluationMetricResultRecord, ...],
+    ] = {}
+
+    for item in runs:
+        records = tuple(
+            record
+            for record in item.metrics
+            if record.run_id == item.run.run_id
+            and record.case_id in item.run.case_ids
+            and record.metric_name == requirement.metric_name
+            and record.status is EvaluationStatus.PASSED
+            and record.passed is True
+            and record.threshold_version == requirement.version
+            and record.threshold == requirement.minimum_score
+            and (record.evaluator_provider == item.run.evaluator_provider)
+            and (record.evaluator_model == item.run.evaluator_model)
+            and (
+                record.langfuse_projection_status is LangfuseProjectionStatus.PROJECTED
+            )
+        )
+        if not records:
+            continue
+
+        key = _run_dataset_key(item)
+        result[key] = (
+            *result.get(key, ()),
+            *records,
+        )
+
+    return result
 
 
 def observability_evidence(

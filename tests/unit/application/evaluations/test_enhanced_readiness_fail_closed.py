@@ -43,8 +43,9 @@ async def test_authority_preserves_validated_metric_result_count() -> None:
     verdict = await _service(repository).evaluate(_request())
 
     assert verdict.status is ReadinessVerdictStatus.PASSED
-    assert verdict.evidence.authority.metric_result_count == len(
-        repository.metrics["current-run"]
+    assert verdict.evidence.authority.metric_result_count == sum(
+        len(repository.metrics[run_id])
+        for run_id in verdict.evidence.authority.evaluation_run_ids
     )
 
 

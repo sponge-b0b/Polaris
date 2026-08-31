@@ -164,69 +164,117 @@ def _profile():
     return readiness_profile_for_gate(GateProfile.ENHANCED_PROVENANCE)
 
 
+_RAG_ANSWER_DATASET_DEFINITIONS = tuple(
+    definition
+    for definition in CANONICAL_EVALUATION_DATASET_DEFINITIONS
+    if definition.target_type is EvaluationTargetType.RAG_ANSWER
+)
+
+_CURRENT_RUN_IDS = tuple(
+    "current-run" if index == 0 else f"current-run-{index + 1}"
+    for index, _ in enumerate(_RAG_ANSWER_DATASET_DEFINITIONS)
+)
+
+_REFERENCE_RUN_IDS = tuple(
+    ("reference-run" if index == 0 else f"reference-run-{index + 1}")
+    for index, _ in enumerate(_RAG_ANSWER_DATASET_DEFINITIONS)
+)
+
+
 def _rag_answer_dataset_definition():
-    return next(
-        definition
-        for definition in CANONICAL_EVALUATION_DATASET_DEFINITIONS
-        if definition.target_type is EvaluationTargetType.RAG_ANSWER
-    )
+    return _RAG_ANSWER_DATASET_DEFINITIONS[0]
 
 
 def _seed_repository() -> _FakeRepository:
     repository = _FakeRepository()
-    definition = _rag_answer_dataset_definition()
-    repository.datasets[definition.reference.dataset_id] = EvaluationDatasetRecord(
-        dataset_id=definition.reference.dataset_id,
-        name=definition.reference.name,
-        version=definition.reference.version,
-        target_type=definition.target_type,
-        source_lineage=definition.source_lineage,
-        deterministic_fixture_uri=definition.deterministic_fixture_uri,
-        threshold_profile=definition.threshold_profile,
-    )
-    for run_id in ("current-run", "reference-run"):
-        repository.runs[run_id] = EvaluationRunRecord(
-            run_id=run_id,
-            target_type=EvaluationTargetType.RAG_ANSWER,
-            status=EvaluationStatus.PASSED,
-            evaluator_provider="fake-provider",
-            evaluator_model="fake-judge-v1",
+
+    for definition, current_run_id, reference_run_id in zip(
+        _RAG_ANSWER_DATASET_DEFINITIONS,
+        _CURRENT_RUN_IDS,
+        _REFERENCE_RUN_IDS,
+        strict=True,
+    ):
+        repository.datasets[definition.reference.dataset_id] = EvaluationDatasetRecord(
             dataset_id=definition.reference.dataset_id,
-            case_ids=(f"{run_id}-case",),
-            langfuse_projection_status=LangfuseProjectionStatus.PROJECTED,
+            name=definition.reference.name,
+            version=definition.reference.version,
+            target_type=definition.target_type,
+            source_lineage=definition.source_lineage,
+            deterministic_fixture_uri=(definition.deterministic_fixture_uri),
+            threshold_profile=definition.threshold_profile,
         )
 
-    current: list[EvaluationMetricResultRecord] = []
-    reference: list[EvaluationMetricResultRecord] = []
-    for index, requirement in enumerate(
+        for run_id in (
+            current_run_id,
+            reference_run_id,
+        ):
+            repository.runs[run_id] = EvaluationRunRecord(
+                run_id=run_id,
+                target_type=EvaluationTargetType.RAG_ANSWER,
+                status=EvaluationStatus.PASSED,
+                evaluator_provider="fake-provider",
+                evaluator_model="fake-judge-v1",
+                dataset_id=definition.reference.dataset_id,
+                case_ids=(f"{run_id}-case",),
+                langfuse_projection_status=(LangfuseProjectionStatus.PROJECTED),
+            )
+
+    requirements = tuple(
         item
         for item in _profile().metric_requirements
         if item.applies_to(EvaluationTargetType.RAG_ANSWER)
+    )
+
+    for current_run_id, reference_run_id in zip(
+        _CURRENT_RUN_IDS,
+        _REFERENCE_RUN_IDS,
+        strict=True,
     ):
-        current_score = min(1.0, requirement.minimum_score + 0.08)
-        reference_score = min(1.0, current_score + 0.01)
-        for run_id, score, records in (
-            ("current-run", current_score, current),
-            ("reference-run", reference_score, reference),
-        ):
-            records.append(
-                EvaluationMetricResultRecord(
-                    metric_result_id=f"{run_id}-metric-{index}",
-                    run_id=run_id,
-                    case_id=f"{run_id}-case",
-                    metric_name=requirement.metric_name,
-                    score=score,
-                    status=EvaluationStatus.PASSED,
-                    evaluator_provider="fake-provider",
-                    evaluator_model="fake-judge-v1",
-                    threshold=requirement.minimum_score,
-                    threshold_version=requirement.version,
-                    passed=True,
-                    langfuse_projection_status=LangfuseProjectionStatus.PROJECTED,
-                )
+        current: list[EvaluationMetricResultRecord] = []
+        reference: list[EvaluationMetricResultRecord] = []
+
+        for index, requirement in enumerate(requirements):
+            current_score = min(
+                1.0,
+                requirement.minimum_score + 0.08,
             )
-    repository.metrics["current-run"] = tuple(current)
-    repository.metrics["reference-run"] = tuple(reference)
+            reference_score = min(
+                1.0,
+                current_score + 0.01,
+            )
+
+            for run_id, score, records in (
+                (
+                    current_run_id,
+                    current_score,
+                    current,
+                ),
+                (
+                    reference_run_id,
+                    reference_score,
+                    reference,
+                ),
+            ):
+                records.append(
+                    EvaluationMetricResultRecord(
+                        metric_result_id=(f"{run_id}-metric-{index}"),
+                        run_id=run_id,
+                        case_id=f"{run_id}-case",
+                        metric_name=(requirement.metric_name),
+                        score=score,
+                        status=EvaluationStatus.PASSED,
+                        evaluator_provider=("fake-provider"),
+                        evaluator_model=("fake-judge-v1"),
+                        threshold=(requirement.minimum_score),
+                        threshold_version=(requirement.version),
+                        passed=True,
+                        langfuse_projection_status=(LangfuseProjectionStatus.PROJECTED),
+                    )
+                )
+
+        repository.metrics[current_run_id] = tuple(current)
+        repository.metrics[reference_run_id] = tuple(reference)
+
     for artifact_type in (
         "baseline_architecture_regression",
         "structured_output_conformance",
@@ -239,16 +287,17 @@ def _seed_repository() -> _FakeRepository:
                 payload={"version": "v1"},
             )
         )
+
     return repository
 
 
 def _request(
     *,
     run_mode: ReadinessRunMode = ReadinessRunMode.RELEASE,
-    evaluation_run_ids: tuple[str, ...] = ("current-run",),
-    reference_run_ids: tuple[str, ...] = ("reference-run",),
-    replacement_request: ModelReplacementValidationRequest | None = None,
-    replacement_result: ModelReplacementValidationResult | None = None,
+    evaluation_run_ids: tuple[str, ...] | None = None,
+    reference_run_ids: tuple[str, ...] | None = None,
+    replacement_request: (ModelReplacementValidationRequest | None) = None,
+    replacement_result: (ModelReplacementValidationResult | None) = None,
 ) -> EnhancedReadinessRequest:
     return EnhancedReadinessRequest(
         gate_run_id="enhanced-readiness-1",
@@ -256,8 +305,12 @@ def _request(
         target_type=EvaluationTargetType.RAG_ANSWER,
         run_mode=run_mode,
         persistence_run_id="current-run",
-        evaluation_run_ids=evaluation_run_ids,
-        reference_run_ids=reference_run_ids,
+        evaluation_run_ids=(
+            _CURRENT_RUN_IDS if evaluation_run_ids is None else evaluation_run_ids
+        ),
+        reference_run_ids=(
+            _REFERENCE_RUN_IDS if reference_run_ids is None else reference_run_ids
+        ),
         authority_evidence=RiskAuthorityGateEvidence(
             provenance_record_ids=("rag-source-1",),
             decision_evidence_packets=(_packet(),),
@@ -356,8 +409,8 @@ async def test_complete_persisted_enhanced_evidence_passes() -> None:
     assert READINESS_GATE_ARTIFACT_TYPE in artifacts
     coverage = artifacts["canonical_evaluation_coverage"].payload
     assert coverage is not None
-    assert coverage["current_run_ids"] == ["current-run"]
-    assert coverage["reference_run_ids"] == ["reference-run"]
+    assert coverage["current_run_ids"] == list(_CURRENT_RUN_IDS)
+    assert coverage["reference_run_ids"] == list(_REFERENCE_RUN_IDS)
     assert coverage["metrics"]
 
 

@@ -1,7 +1,7 @@
 ---
 name: spec-contract
 description: Build or validate the deterministic Spec obligation manifest and distinguish Spec-owned changes from inherited integration history for Spec verification and review.
-compatibility: product=codex product=claude-code system=git system=gh network=required
+compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
@@ -14,7 +14,7 @@ It owns two shared facts that must not be independently reinvented by those call
 1. the complete **Spec Contract Manifest** of normative obligations;
 2. the **Spec Change Ownership** classification separating fixed-baseline integration history from work owned by the current Spec.
 
-It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, or decide remediation.
+It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, or decide remediation. A caller-supplied temporary contract-handoff file is permitted working state, not a repository artifact.
 
 ## Session Independence
 
@@ -31,11 +31,47 @@ The parent supplies:
 * current Spec branch;
 * current `HEAD`;
 * mode: `build` or `validate`;
-* in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**.
+* in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**;
+* optionally in `build` mode, a caller-owned temporary `handoff-output` path for the finalizer-facing contract handoff.
 
 The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
 
 Default-branch ownership resolution is an ordered gate owned by this helper. Callers must not preflight, probe, fetch, or independently compare the GitHub-pinned default head before this helper completes Section 1 and returns `DEFAULT_REF`. If ownership must be refreshed because the default branch advanced, invoke `$spec-contract` again rather than reproducing its pin/fetch logic in the caller.
+
+### Build Handoff
+
+When `build` mode receives `handoff-output`, write the finalizer-facing contract state directly while the canonical manifest is already in working context. The caller must not reconstruct this state later.
+
+Write exactly one compact JSON object with these keys and no others:
+
+```json
+{
+  "spec_issue": 68,
+  "head": "<40-char HEAD>",
+  "baseline": "<40-char baseline>",
+  "branch": "spec-68",
+  "spec_body_hash": "<sha256>",
+  "spec_contract_hash": "<sha256>",
+  "default_branch": "main",
+  "default_head": "<40-char default HEAD>",
+  "source_counts": {
+    "user_stories": 0,
+    "implementation_decisions": 0,
+    "testing_decisions": 0,
+    "out_of_scope": 0,
+    "other_normative": 0
+  },
+  "manifest": [
+    {"cell": "US-1", "source": "<exact source>", "requirement": "<exact requirement>"}
+  ]
+}
+```
+
+The example values are illustrative; write the actual current contract. `manifest` rows are the exact `cell` / `source` / `requirement` projection of the same canonical manifest returned by this invocation. Do not rephrase, reorder, summarize, or re-derive them for the handoff. `source_counts` uses the five canonical lowercase keys shown above.
+
+Serialize compactly without pretty-printing. Write to a sibling temporary path first and atomically replace `handoff-output` only after every contract and ownership gate has passed. If handoff persistence fails, return `SPEC CONTRACT: INVALID` rather than leaving an older handoff at a path the caller may trust.
+
+The handoff is ephemeral execution state. Do not commit it, post it to GitHub, include it in the human-readable return, or create a second handoff representation. When `build` is rerun at a new candidate `HEAD`, overwrite the same caller-supplied path with the newly validated contract state.
 
 ## 1. Pin the Spec Source
 
@@ -381,4 +417,4 @@ Do not return `SPEC CONTRACT: VALID` when any source-universe, manifest-integrit
 
 `$to-tickets` is also an authorized internal caller of `$spec-contract` in `build` mode for the sole purpose of constructing the exact current Spec obligation universe before ticket decomposition.
 
-This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, hashes, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged.
+This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, hashes, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged. `$to-tickets` does not request or consume the `$verify-spec` contract handoff unless its own workflow explicitly gains such a need.

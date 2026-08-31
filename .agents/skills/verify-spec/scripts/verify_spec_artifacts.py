@@ -19,6 +19,18 @@ BASELINE_LINE_RE = re.compile(r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{
 RECEIPT_HEADER = "## Spec Verification Receipt"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
+CONTRACT_HANDOFF_KEYS = {
+    "spec_issue",
+    "head",
+    "baseline",
+    "branch",
+    "spec_body_hash",
+    "spec_contract_hash",
+    "default_branch",
+    "default_head",
+    "source_counts",
+    "manifest",
+}
 
 
 class ValidationError(ValueError):
@@ -305,6 +317,37 @@ def finalize(raw: Any) -> dict[str, Any]:
     return result
 
 
+def finalize_parts(
+    contract: Any,
+    proofs: Any,
+    gates: Any,
+    *,
+    mode: str,
+    prior_checkpoint: str | None,
+    repairs: list[str],
+    inherited_findings: list[str],
+) -> dict[str, Any]:
+    _require(isinstance(contract, dict), "contract handoff must be an object")
+    keys = set(contract)
+    _require(
+        keys == CONTRACT_HANDOFF_KEYS,
+        "contract handoff keys mismatch: "
+        f"missing={sorted(CONTRACT_HANDOFF_KEYS - keys)}, "
+        f"extra={sorted(keys - CONTRACT_HANDOFF_KEYS)}",
+    )
+    return finalize(
+        {
+            **contract,
+            "mode": mode,
+            "prior_checkpoint": prior_checkpoint,
+            "proofs": proofs,
+            "gates": gates,
+            "repairs": repairs,
+            "unrelated_inherited_findings": inherited_findings,
+        }
+    )
+
+
 def _coverage_by_state(state: dict[str, Any]) -> dict[str, list[str]]:
     coverage: dict[str, list[str]] = {name: [] for name in PROOF_STATES}
     for proof in state["proofs"]:
@@ -371,6 +414,23 @@ def render_receipt(state: dict[str, Any]) -> str:
     findings = state["unrelated_inherited_findings"] or ["None"]
     lines.extend(f"- {item}" for item in findings)
     return "\n".join(lines) + "\n"
+
+
+def _emit_finalization(state: dict[str, Any], receipt_output: str) -> None:
+    Path(receipt_output).write_text(
+        render_receipt(state),
+        encoding="utf-8",
+    )
+    print(
+        json.dumps(
+            {
+                **state["summary"],
+                "verification_hash": state["verification_hash"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 def self_test() -> None:
@@ -462,6 +522,17 @@ def self_test() -> None:
     }
     state = finalize(raw)
     assert state["verification_hash"] == finalize(raw)["verification_hash"]
+    contract = {key: raw[key] for key in CONTRACT_HANDOFF_KEYS}
+    assembled = finalize_parts(
+        contract,
+        raw["proofs"],
+        raw["gates"],
+        mode="full",
+        prior_checkpoint=None,
+        repairs=[],
+        inherited_findings=[],
+    )
+    assert assembled["verification_hash"] == state["verification_hash"]
     receipt = render_receipt(state)
     assert "### Spec Contract Manifest" in receipt
     assert "### Spec Proof Objects" not in receipt
@@ -496,6 +567,15 @@ def _args() -> argparse.Namespace:
     finish = sub.add_parser("finalize")
     finish.add_argument("--input", required=True)
     finish.add_argument("--receipt-output", required=True)
+    parts = sub.add_parser("finalize-parts")
+    parts.add_argument("--contract-input", required=True)
+    parts.add_argument("--proofs-input", required=True)
+    parts.add_argument("--gates-input", required=True)
+    parts.add_argument("--mode", required=True)
+    parts.add_argument("--prior-checkpoint")
+    parts.add_argument("--repair", action="append", default=[])
+    parts.add_argument("--inherited-finding", action="append", default=[])
+    parts.add_argument("--receipt-output", required=True)
     sub.add_parser("self-test")
     return parser.parse_args()
 
@@ -507,20 +587,22 @@ def main() -> int:
             result = comments_summary(_read_json(args.input))
             print(json.dumps(result, indent=2, sort_keys=True))
         elif args.command == "finalize":
-            state = finalize(_read_json(args.input))
-            Path(args.receipt_output).write_text(
-                render_receipt(state),
-                encoding="utf-8",
+            _emit_finalization(
+                finalize(_read_json(args.input)),
+                args.receipt_output,
             )
-            print(
-                json.dumps(
-                    {
-                        **state["summary"],
-                        "verification_hash": state["verification_hash"],
-                    },
-                    indent=2,
-                    sort_keys=True,
-                )
+        elif args.command == "finalize-parts":
+            _emit_finalization(
+                finalize_parts(
+                    _read_json(args.contract_input),
+                    _read_json(args.proofs_input),
+                    _read_json(args.gates_input),
+                    mode=args.mode,
+                    prior_checkpoint=args.prior_checkpoint,
+                    repairs=args.repair,
+                    inherited_findings=args.inherited_finding,
+                ),
+                args.receipt_output,
             )
         elif args.command == "self-test":
             self_test()

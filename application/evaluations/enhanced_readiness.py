@@ -235,7 +235,7 @@ class EnhancedReadinessService:
                     )
                 )
             ),
-            metric_result_count=len(metrics.readiness),
+            metric_result_count=metrics.current_result_count,
         )
         reconstructed = await reacquire_authority_gate_decision_evidence(
             evidence=evidence,
@@ -260,14 +260,18 @@ class EnhancedReadinessService:
         try:
             for run_id in run_ids:
                 for record in await self.repository.list_artifacts(run_id):
-                    if record.artifact_type in required:
-                        found.append(
-                            ReadinessArtifactEvidence(
-                                record.artifact_type,
-                                record.artifact_id,
-                                artifact_version(record),
-                            )
+                    if record.artifact_type not in required:
+                        continue
+                    version = artifact_version(record)
+                    if version is None:
+                        continue
+                    found.append(
+                        ReadinessArtifactEvidence(
+                            record.artifact_type,
+                            record.artifact_id,
+                            version,
                         )
+                    )
         except Exception:
             return []
         return found

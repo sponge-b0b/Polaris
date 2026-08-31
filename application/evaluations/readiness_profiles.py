@@ -145,6 +145,22 @@ class ReadinessProfile:
         return self.gate_profile.value
 
 
+def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:
+    return tuple(_require_non_empty(value, field_name) for value in values)
+
+
+def _require_non_empty(value: str, field_name: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{field_name} cannot be empty.")
+    return cleaned
+
+
+def _require_unit_score(value: float, field_name: str) -> None:
+    if not isfinite(value) or value < 0.0 or value > 1.0:
+        raise ValueError(f"{field_name} must be between 0.0 and 1.0.")
+
+
 _ENHANCED_DATASETS = tuple(
     ReadinessDatasetRequirement(
         definition.reference.name,
@@ -281,19 +297,3 @@ def canonical_readiness_profiles() -> tuple[ReadinessProfile, ...]:
     """Return canonical profiles in increasing risk order."""
 
     return tuple(_READINESS_PROFILE_BY_GATE[gate] for gate in GateProfile)
-
-
-def _clean_string_tuple(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:
-    return tuple(_require_non_empty(value, field_name) for value in values)
-
-
-def _require_non_empty(value: str, field_name: str) -> str:
-    cleaned = value.strip()
-    if not cleaned:
-        raise ValueError(f"{field_name} cannot be empty.")
-    return cleaned
-
-
-def _require_unit_score(value: float, field_name: str) -> None:
-    if not isfinite(value) or value < 0.0 or value > 1.0:
-        raise ValueError(f"{field_name} must be between 0.0 and 1.0.")

@@ -42,60 +42,40 @@ A **reviewer execution override** is distinct from an `Owner-overridden` finding
 
 ## 1. Pin Baseline, Branch, and Verified HEAD
 
-Resolve the repository and read the parent Spec's complete durable comment history once:
+Resolve the repository and read the parent Spec's complete durable comment history once through the same deterministic parser used by `$verify-spec`:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 SPEC_NUMBER=<spec_issue_number>
+ARTIFACT_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
+SPEC_COMMENTS_FILE=$(mktemp)
+SPEC_COMMENTS_SUMMARY=$(mktemp)
 
-SPEC_COMMENT_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
-)
-```
+gh api --paginate --slurp \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100" \
+  > "$SPEC_COMMENTS_FILE"
 
-Treat the following baseline and verification-receipt extractions as two prescribed reads over that one snapshot. Execute them separately exactly as written; do not combine their scalar/object outputs into an ad hoc `jq` array/program or reinterpret one extraction's output as the other's input.
+uv run python "$ARTIFACT_TOOL" comments \
+  --input "$SPEC_COMMENTS_FILE" \
+  > "$SPEC_COMMENTS_SUMMARY"
 
-Resolve `BASELINE_COMMIT` from that complete snapshot:
-
-```bash
-BASELINE_COMMIT=$(
-  printf '%s\n' "$SPEC_COMMENT_PAGES" \
-    | jq -r '
-        [.[][]
-         | select((.body // "") | contains("**Baseline Commit Hash:**"))
-         | {id, created_at, body}]
-        | sort_by(.created_at, .id)
-        | last
-        | .body // ""
-        | capture("\\*\\*Baseline Commit Hash:\\*\\*\\s+(?<sha>[0-9a-fA-F]{40})").sha // empty'
-)
-```
-
-Verify the expected Spec branch and require a clean worktree.
-
-Capture:
-
-```bash
+BASELINE_COMMIT=$(jq -r '.baseline_commit' "$SPEC_COMMENTS_SUMMARY")
+VERIFICATION_RECEIPT_JSON=$(jq -c '.latest_receipt // empty' "$SPEC_COMMENTS_SUMMARY")
 CURRENT_HEAD=$(git rev-parse HEAD)
 ```
 
-Select exactly the latest durable comment whose body contains `## Spec Verification Receipt`, ordered by `created_at` then comment `id`:
+The parser recognizes exactly one authoritative baseline source: one comment containing the standalone header `## Workspace Metadata` and exactly this field format:
 
-```bash
-VERIFICATION_RECEIPT_JSON=$(
-  printf '%s\n' "$SPEC_COMMENT_PAGES" \
-    | jq -c '
-        [.[][]
-         | select((.body // "") | contains("## Spec Verification Receipt"))
-         | {id, created_at, html_url, body}]
-        | sort_by(.created_at, .id)
-        | last // empty'
-)
+```text
+**Baseline Commit Hash:** <40 lowercase hex SHA>
 ```
 
-That newest receipt is the only verification candidate. Do not use `gh issue view --json comments`, an unpaginated comment read, or walk backward to an older receipt when the newest one is malformed or stale.
+The SHA is not backticked, shortened, uppercased, or decorated. A baseline label in any other comment is informational only and never baseline authority. Missing, duplicate, or malformed Workspace Metadata fails closed. Do not parse or recover a baseline independently.
+
+Verify the expected Spec branch and require a clean worktree.
+
+The newest `latest_receipt` returned by the deterministic parser is the only verification candidate. Do not use `gh issue view --json comments`, an unpaginated comment read, an independent receipt parser, or walk backward to an older receipt when the newest one is malformed or stale.
 
 Require the selected receipt:
 

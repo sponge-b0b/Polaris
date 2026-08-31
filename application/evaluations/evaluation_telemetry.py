@@ -148,6 +148,59 @@ class EvaluationTelemetry:
             exception_details=_exception_details(error),
         )
 
+    async def emit_readiness_gate_verdict(
+        self,
+        *,
+        gate_run_id: str,
+        correlation_id: str,
+        profile_id: str,
+        profile_version: str,
+        status: str,
+        failed_section_count: int,
+        skipped_section_count: int,
+    ) -> None:
+        attributes = {
+            "gate_run_id": gate_run_id,
+            "profile_id": profile_id,
+            "profile_version": profile_version,
+            "status": status,
+            "failed_section_count": failed_section_count,
+            "skipped_section_count": skipped_section_count,
+        }
+        outcome_attributes = {
+            "profile_id": profile_id,
+            "profile_version": profile_version,
+            "outcome": status,
+        }
+        self._increment(
+            "evaluation_readiness_gate_outcomes_total",
+            attributes=outcome_attributes,
+        )
+        if failed_section_count > 0:
+            self._increment(
+                "evaluation_readiness_gate_failed_sections_total",
+                value=float(failed_section_count),
+                attributes=outcome_attributes,
+            )
+        if skipped_section_count > 0:
+            self._increment(
+                "evaluation_readiness_gate_skipped_sections_total",
+                value=float(skipped_section_count),
+                attributes=outcome_attributes,
+            )
+        await self._emit(
+            event_type="evaluation.readiness_gate.completed",
+            level=(
+                TelemetryEventLevel.INFO
+                if status == "passed"
+                else TelemetryEventLevel.WARNING
+            ),
+            success=status == "passed",
+            run_id=correlation_id,
+            attributes=attributes,
+            payload={"gate_run_id": gate_run_id},
+        )
+
     def record_cases_evaluated(
         self,
         *,

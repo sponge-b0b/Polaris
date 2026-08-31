@@ -14,6 +14,7 @@ from application.evaluations.evaluation_telemetry import EvaluationTelemetry
 from application.evaluations.model_replacement_gate import (
     ModelReplacementValidationGate,
 )
+from application.evaluations.readiness_gate import ReadinessGateService
 from application.governance import AutomatedDecisionAuditService
 from application.observability.langfuse_projection import AiObservabilityProjector
 from config.settings import Settings
@@ -101,6 +102,14 @@ class ApplicationEvaluationsDIProvider(Provider):
             workflow_facade.registry,
             automated_decision_audit_service,
         )
+
+    @provide
+    def provide_readiness_gate_service(
+        self,
+        repository: EvaluationPersistenceRepository,
+        telemetry: EvaluationTelemetry,
+    ) -> ReadinessGateService:
+        return ReadinessGateService(repository=repository, telemetry=telemetry)
 
     @provide
     def provide_model_replacement_validation_gate(

@@ -212,6 +212,7 @@ _VIGILANT_METRICS = tuple(
 _BASELINE_ARTIFACTS = ("baseline_architecture_regression",)
 _ENHANCED_ARTIFACTS = (
     *_BASELINE_ARTIFACTS,
+    "structured_output_conformance",
     "canonical_evaluation_coverage",
     "provenance_reconstruction",
     "retention_reconstruction",
@@ -238,7 +239,7 @@ _READINESS_PROFILE_BY_GATE: Mapping[GateProfile, ReadinessProfile] = {
         failure_policy=ReadinessFailurePolicy.FAIL_CLOSED,
     ),
     GateProfile.ENHANCED_PROVENANCE: ReadinessProfile(
-        profile_version="enhanced_v1",
+        profile_version="enhanced_v2",
         risk_tier=RiskTier.ENHANCED,
         gate_profile=GateProfile.ENHANCED_PROVENANCE,
         dataset_requirements=_ENHANCED_DATASETS,
@@ -252,7 +253,7 @@ _READINESS_PROFILE_BY_GATE: Mapping[GateProfile, ReadinessProfile] = {
         failure_policy=ReadinessFailurePolicy.FAIL_CLOSED,
     ),
     GateProfile.VIGILANT_DECISION_EVIDENCE: ReadinessProfile(
-        profile_version="vigilant_v1",
+        profile_version="vigilant_v2",
         risk_tier=RiskTier.VIGILANT,
         gate_profile=GateProfile.VIGILANT_DECISION_EVIDENCE,
         dataset_requirements=_ENHANCED_DATASETS,

@@ -116,12 +116,10 @@ def test_readiness_profiles_are_versioned_and_tier_specific() -> None:
     assert enhanced.dataset_requirements
     assert enhanced.metric_requirements
     assert all(
-        0.0 <= item.minimum_score <= 1.0
-        for item in enhanced.metric_requirements
+        0.0 <= item.minimum_score <= 1.0 for item in enhanced.metric_requirements
     )
     assert all(
-        0.0 <= item.allowed_drift <= 1.0
-        for item in enhanced.metric_requirements
+        0.0 <= item.allowed_drift <= 1.0 for item in enhanced.metric_requirements
     )
     assert vigilant.dataset_requirements
     assert vigilant.metric_requirements
@@ -234,11 +232,14 @@ async def test_prohibited_boundary_is_explicit_negative_gate() -> None:
     assert _section_status(verdict.sections, ReadinessSection.AUTHORITY) is (
         ReadinessSectionStatus.PASSED
     )
-    assert "rejected" in next(
-        item.reason
-        for item in verdict.sections
-        if item.section is ReadinessSection.AUTHORITY
-    ).lower()
+    assert (
+        "rejected"
+        in next(
+            item.reason
+            for item in verdict.sections
+            if item.section is ReadinessSection.AUTHORITY
+        ).lower()
+    )
 
 
 @pytest.mark.asyncio

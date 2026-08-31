@@ -11,10 +11,10 @@ from application.evaluations.evaluation_datasets import (
     EVALUATION_DATASET_VERSION,
 )
 from application.evaluations.rag_evaluation_metrics import (
-    EvaluationMetricDefinition,
     INTELLIGENCE_EVALUATION_METRIC_DEFINITIONS,
     MCP_TOOL_RESPONSE_EVALUATION_METRIC_DEFINITIONS,
     RAG_EVALUATION_METRIC_DEFINITIONS,
+    EvaluationMetricDefinition,
 )
 from domain.authority import GateProfile, RiskTier, gate_profile_for_tier
 from domain.evaluation import EvaluationTargetType

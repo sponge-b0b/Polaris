@@ -717,7 +717,7 @@ def _live_service_section(
     if not profile.live_service_requirements:
         return _skipped(
             ReadinessSection.LIVE_SERVICES,
-                "Profile requires no live-service evidence.",
+            "Profile requires no live-service evidence.",
         )
     observed = {item.service_name: item for item in evidence.live_services}
     missing = [

@@ -29,12 +29,13 @@ Use:
 It owns only:
 
 - paginated Spec-comment normalization, canonical Workspace Metadata parsing, and latest-receipt extraction;
+- contract/proof/gate final-state assembly from the exact `$spec-contract` handoff;
 - compact finalization validation;
 - complete manifest-to-proof coverage validation;
 - one canonical Verification Hash;
 - compact receipt rendering.
 
-Do not recreate those mechanics with ad hoc Python, custom parsers, or multi-stage `jq`. If the utility cannot represent a required invariant, fix it rather than bypassing it.
+Do not recreate those mechanics with ad hoc Python, custom parsers, multi-stage `jq`, or a model-authored final-state wrapper. If the utility cannot represent a required invariant, fix it rather than bypassing it.
 
 ## 1. Pin the Fixed Point
 
@@ -46,6 +47,7 @@ SPEC_NUMBER=<spec_issue_number>
 ARTIFACT_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
 SPEC_COMMENTS_FILE=$(mktemp)
 SPEC_COMMENTS_SUMMARY=$(mktemp)
+CONTRACT_HANDOFF=$(mktemp)
 
 gh api --paginate --slurp \
   -H "X-GitHub-Api-Version: 2026-03-10" \
@@ -67,7 +69,7 @@ The utility recognizes exactly one authoritative baseline source: one comment co
 
 The SHA is not backticked, shortened, uppercased, or decorated. A baseline label in any other comment is informational only and never baseline authority. Missing, duplicate, or malformed Workspace Metadata fails closed. Do not parse or recover a baseline independently.
 
-Do not substitute an unpaginated comment read.
+Do not substitute an unpaginated comment read. This is the invocation's one full comment-history read; do not repeat it after receipt persistence merely to rediscover the comment just posted.
 
 Require:
 
@@ -86,13 +88,15 @@ A tracker-only Spec may have an empty diff only when durable evidence proves no 
 
 ## 2. Build the Contract and Guard Delivery
 
-Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, and current `HEAD`. Require `SPEC CONTRACT: VALID` and retain exactly its:
+Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, current `HEAD`, and `handoff-output = CONTRACT_HANDOFF`. Require `SPEC CONTRACT: VALID`, a non-empty `CONTRACT_HANDOFF`, and retain exactly the returned:
 
 - `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
 - ordered manifest;
 - source counts/integrity counts;
 - ownership classifications;
 - immutable default branch/head.
+
+`$spec-contract` owns serialization of the finalizer-facing contract handoff while the canonical manifest is already in context. Do not independently recreate, pretty-print, copy, or re-key the manifest/source-count payload later in this workflow.
 
 Do not independently refresh or reinterpret default-branch ownership.
 
@@ -144,6 +148,12 @@ POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
 ```
 
 Never use Ruff `--add-noqa`.
+
+Run the deterministic verifier self-test when this workflow utility is in scope:
+
+```bash
+uv run python "$ARTIFACT_TOOL" self-test
+```
 
 Invoke `$wiki-lint` when Living Entity Wiki routing applies. Invoke `$deduplicate-code` only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible. Run other deterministic checks only when their artifact classes apply.
 
@@ -236,60 +246,55 @@ If verification changes the repository, verify branch, stage only verification-o
 
 At stable candidate `HEAD`:
 
-1. rerun `$spec-contract` in `build` mode;
+1. rerun `$spec-contract` in `build` mode with the same `handoff-output = CONTRACT_HANDOFF`, replacing the handoff only after the refreshed contract is valid;
 2. require valid body/contract and reconciled ownership;
 3. require every applicable gate PASS or NOT APPLICABLE;
 4. require every manifest cell proven or not-applicable;
 5. require current hierarchy/dependency state valid;
 6. require clean worktree.
 
-Create **one compact finalization input** containing only:
+Create only the two genuinely verification-owned compact arrays:
 
 ```text
-spec_issue
-head
-baseline
-branch
-mode
-prior_checkpoint
-spec_body_hash
-spec_contract_hash
-default_branch
-default_head
-source_counts
-manifest
-proofs
-gates
-repairs
-unrelated_inherited_findings
+PROOFS_INPUT = [<proof groups>]
+GATES_INPUT = [<gate outcomes>]
 ```
 
 Rules:
 
-- copy the ordered manifest rows returned by `$spec-contract` exactly; do not rewrite them;
-- do not duplicate manifest cells into coverage;
+- do not copy the manifest, source counts, hashes, baseline, branch, `HEAD`, or default ownership point into another wrapper; those already exist in `CONTRACT_HANDOFF`;
 - proofs contain only `cells`, `state`, and `evidence` or `reason`;
 - gates contain only `name`, `status`, and concise native `evidence`; commands are already in the transcript;
-- do not build a giant intermediate packet or wrapper object.
+- serialize the two arrays compactly; do not pretty-print them merely for bookkeeping;
+- do not create `FINALIZE_INPUT`, a giant intermediate packet, or a second final-state object.
 
-Run one deterministic operation:
+Run one deterministic assembly/finalization operation:
 
 ```bash
-FINALIZE_INPUT=$(mktemp)
+PROOFS_INPUT=$(mktemp)
+GATES_INPUT=$(mktemp)
 RECEIPT_FILE=$(mktemp)
 
-uv run python "$ARTIFACT_TOOL" finalize \
-  --input "$FINALIZE_INPUT" \
-  --receipt-output "$RECEIPT_FILE"
+uv run python "$ARTIFACT_TOOL" finalize-parts \
+  --contract-input "$CONTRACT_HANDOFF" \
+  --proofs-input "$PROOFS_INPUT" \
+  --gates-input "$GATES_INPUT" \
+  --mode <full|checkpoint> \
+  --receipt-output "$RECEIPT_FILE" \
+  [--prior-checkpoint <checkpoint>] \
+  [--repair <repair>]... \
+  [--inherited-finding <finding>]...
 ```
 
-`finalize` validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, and renders the receipt. There is no separate packet admission, final-state validation, receipt rendering, or pre-persistence receipt-validation phase.
+`finalize-parts` assembles the already-owned contract/proof/gate pieces, validates bindings/coverage/gates through the same canonical finalizer, rejects unresolved cells, computes one Verification Hash, and renders the receipt. There is no model-authored wrapper, separate packet admission, final-state validation, receipt rendering, or pre-persistence receipt-validation phase.
 
 ## 9. Persist the Compact Receipt
 
 The receipt is a checkpoint/binding record, not a transcript of semantic reasoning. It retains the manifest/source counts needed by `$review-spec`, compact derived coverage, gate outcomes, repairs, inherited findings, and one Verification Hash. It omits proof prose, proof hashes, duplicate coverage structures, and commands already visible in the transcript.
 
-Re-run the Project Delivery guard, then persist exactly once:
+Immediately before persistence, invoke `$project-delivery-management` `guard <Wayfinder>` again for the already-resolved governing Wayfinders. This is revalidation, not a second delivery-analysis phase: do not explicitly invoke another `reconcile`, rediscover lineage, inspect Project schema, or repeat broader frontier analysis before the guard unless repository/tracker mutation since the prior guard invalidated those inputs. The guard remains authoritative for its own canonical reads and any reconciliation it requires.
+
+Then persist exactly once:
 
 ```bash
 RECEIPT_JSON=$(mktemp)
@@ -313,7 +318,7 @@ gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
 cmp -s "$RECEIPT_FILE" "$READBACK_FILE"
 ```
 
-Exact byte equality proves persisted-body integrity because only a successful `finalize` can produce the local receipt.
+Exact byte equality proves persisted-body integrity because only a successful canonical finalization can produce the local receipt. `COMMENT_ID` plus successful exact readback is also sufficient proof that this invocation's receipt is durably persisted; do not reread the full paginated Spec comment history or rerun the comment-summary utility afterward merely to prove the newly posted receipt is latest.
 
 Never patch a malformed persisted receipt or create a second corrective receipt in the same invocation. If POST succeeds but readback differs, report `COMMENT_URL` and stop. Any later Spec-body change or candidate commit makes the receipt stale.
 

@@ -72,7 +72,7 @@ def _baseline_evidence() -> ReadinessGateEvidence:
 def _request(
     *,
     evidence: ReadinessGateEvidence | None = None,
-    target_type: EvaluationTargetType = EvaluationTargetType.AGENT_TASK,
+    target_type: EvaluationTargetType = EvaluationTargetType.RAG_RETRIEVAL,
     run_mode: ReadinessRunMode = ReadinessRunMode.LOCAL_PR,
     persistence_run_id: str | None = None,
 ) -> ReadinessGateRequest:
@@ -191,7 +191,7 @@ async def test_baseline_missing_required_artifact_fails_closed() -> None:
 @pytest.mark.asyncio
 async def test_caller_metadata_cannot_downgrade_selected_profile() -> None:
     baseline_metadata = expected_authority_metadata_for_evaluation_target(
-        EvaluationTargetType.AGENT_TASK
+        EvaluationTargetType.RAG_RETRIEVAL
     )
     request = ReadinessGateRequest(
         gate_run_id="readiness-downgrade",
@@ -246,7 +246,7 @@ async def test_readiness_verdict_persists_reconstructable_evidence() -> None:
     repository = _FakeReadinessRepository(
         run=EvaluationRunRecord(
             run_id="eval-run-1",
-            target_type=EvaluationTargetType.AGENT_TASK,
+            target_type=EvaluationTargetType.RAG_RETRIEVAL,
             status=EvaluationStatus.PASSED,
             evaluator_provider="fake",
             evaluator_model="fake",
@@ -265,7 +265,7 @@ async def test_readiness_verdict_persists_reconstructable_evidence() -> None:
     assert artifact.payload is not None
     assert artifact.payload["gate_run_id"] == "readiness-1"
     assert artifact.payload["correlation_id"] == "correlation-1"
-    assert artifact.payload["target_type"] == EvaluationTargetType.AGENT_TASK.value
+    assert artifact.payload["target_type"] == EvaluationTargetType.RAG_RETRIEVAL.value
     assert artifact.payload["persistence_artifact_id"] == artifact.artifact_id
     profile = artifact.payload["profile"]
     assert isinstance(profile, dict)
@@ -286,7 +286,7 @@ async def test_readiness_persistence_retry_is_idempotent() -> None:
     repository = _FakeReadinessRepository(
         run=EvaluationRunRecord(
             run_id="eval-run-1",
-            target_type=EvaluationTargetType.AGENT_TASK,
+            target_type=EvaluationTargetType.RAG_RETRIEVAL,
             status=EvaluationStatus.PASSED,
             evaluator_provider="fake",
             evaluator_model="fake",

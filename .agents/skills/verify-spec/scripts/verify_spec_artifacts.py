@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic artifact mechanics for the Polaris ``$verify-spec`` skill.
-
-The verifier owns semantic judgment. This utility owns repeatable bookkeeping:
-comment parsing, proof-packet validation/hashing, final-state validation,
-receipt rendering, and receipt byte validation.
-"""
+"""Deterministic bookkeeping for the Polaris ``$verify-spec`` skill."""
 
 from __future__ import annotations
 
@@ -17,30 +12,18 @@ from pathlib import Path
 from typing import Any
 
 CELL_RE = re.compile(r"^(?:US|ID|TD|OOS|NORM)-\d+(?:\.[A-Za-z0-9_-]+)?$")
-PROOF_RE = re.compile(r"^P-\d+$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 BASELINE_RE = re.compile(
     r"\*\*Baseline Commit Hash:\*\*\s+(?P<sha>[0-9a-fA-F]{40})"
 )
 RECEIPT_HEADER = "## Spec Verification Receipt"
-COVERAGE_STATES = {"proven", "not-applicable", "unresolved"}
+PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
-REQUIRED_PROOF_FIELDS = (
-    "proof",
-    "cells",
-    "predicate",
-    "falsifier",
-    "domain_boundary",
-    "nested_universe",
-    "evidence",
-    "assumptions",
-    "disposition",
-)
 
 
 class ValidationError(ValueError):
-    """Raised when a deterministic verifier-artifact invariant fails."""
+    """Raised when verifier artifact data is invalid."""
 
 
 def _require(condition: bool, message: str) -> None:
@@ -49,53 +32,69 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _text(value: Any, label: str) -> str:
-    _require(isinstance(value, str) and bool(value.strip()), f"{label} must be non-empty")
+    _require(
+        isinstance(value, str) and bool(value.strip()),
+        f"{label} must be non-empty",
+    )
     return value.strip()
+
+
+def _sha(value: Any, label: str) -> str:
+    text = _text(value, label)
+    _require(bool(SHA_RE.fullmatch(text)), f"{label} must be a 40-char SHA")
+    return text
+
+
+def _digest_text(value: Any, label: str) -> str:
+    text = _text(value, label)
+    _require(
+        bool(DIGEST_RE.fullmatch(text)),
+        f"{label} must be a SHA-256 digest",
+    )
+    return text
+
+
+def _digest(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def _write_json(path: str | Path, value: Any) -> None:
-    Path(path).write_text(
-        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-
-
-def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    ).encode("utf-8")
-
-
-def _digest(value: Any) -> str:
-    return hashlib.sha256(_canonical(value)).hexdigest()
-
-
-def _flatten_pages(raw: Any) -> list[dict[str, Any]]:
-    _require(isinstance(raw, list), "comment payload must be a JSON list")
-    if not raw:
+def _strings(value: Any, label: str) -> list[str]:
+    if value is None:
         return []
-    if all(isinstance(item, dict) for item in raw):
-        return list(raw)
-    result: list[dict[str, Any]] = []
-    for page in raw:
-        _require(isinstance(page, list), "paginated comment payload contains non-list page")
-        for item in page:
-            _require(isinstance(item, dict), "comment page contains non-object item")
-            result.append(item)
-    return result
+    _require(isinstance(value, list), f"{label} must be a list")
+    return [_text(item, label) for item in value]
+
+
+def _table(value: Any) -> str:
+    if not isinstance(value, str):
+        value = json.dumps(value, sort_keys=True, ensure_ascii=False)
+    return value.replace("|", "\\|").replace("\n", "<br>")
 
 
 def comments_summary(raw: Any) -> dict[str, Any]:
+    _require(isinstance(raw, list), "comment payload must be a JSON list")
+    if raw and not all(isinstance(item, dict) for item in raw):
+        raw = [item for page in raw for item in page]
+    _require(
+        all(isinstance(item, dict) for item in raw),
+        "comment payload contains a non-object item",
+    )
     comments = sorted(
-        _flatten_pages(raw),
-        key=lambda item: (str(item.get("created_at") or ""), int(item.get("id") or 0)),
+        raw,
+        key=lambda item: (
+            str(item.get("created_at") or ""),
+            int(item.get("id") or 0),
+        ),
     )
     baselines: list[str] = []
     receipts: list[dict[str, Any]] = []
@@ -120,533 +119,303 @@ def comments_summary(raw: Any) -> dict[str, Any]:
     }
 
 
-def _manifest_index(manifest: Any) -> tuple[list[str], dict[str, dict[str, Any]]]:
-    _require(isinstance(manifest, list) and bool(manifest), "manifest must be non-empty")
-    order: list[str] = []
-    index: dict[str, dict[str, Any]] = {}
-    for row in manifest:
-        _require(isinstance(row, dict), "manifest rows must be objects")
-        cell = _text(row.get("cell"), "manifest cell")
+def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
+    _require(isinstance(raw, list) and raw, "manifest must be non-empty")
+    rows: list[dict[str, str]] = []
+    cells: list[str] = []
+    for item in raw:
+        _require(isinstance(item, dict), "manifest rows must be objects")
+        cell = _text(item.get("cell"), "manifest cell")
         _require(bool(CELL_RE.fullmatch(cell)), f"invalid manifest cell: {cell}")
-        _require(cell not in index, f"duplicate manifest cell: {cell}")
-        _text(row.get("source"), f"manifest {cell} source")
-        _text(row.get("requirement"), f"manifest {cell} requirement")
-        order.append(cell)
-        index[cell] = row
-    return order, index
-
-
-def _validate_nested(value: Any, proof: str) -> None:
-    _require(isinstance(value, dict), f"{proof} nested_universe must be an object")
-    mode = _text(value.get("mode"), f"{proof} nested_universe.mode")
-    _require(
-        mode in {"explicit", "exhaustive", "not-applicable"},
-        f"{proof} invalid nested universe mode",
-    )
-    if mode == "explicit":
-        members = isinstance(value.get("members"), list) and bool(value["members"])
-        generated = bool(str(value.get("generator") or "").strip()) and bool(
-            str(value.get("member_digest") or "").strip()
+        _require(cell not in cells, f"duplicate manifest cell: {cell}")
+        rows.append(
+            {
+                "cell": cell,
+                "source": _text(item.get("source"), f"manifest {cell} source"),
+                "requirement": _text(
+                    item.get("requirement"),
+                    f"manifest {cell} requirement",
+                ),
+            }
         )
+        cells.append(cell)
+    return rows, cells
+
+
+def _proofs(
+    raw: Any,
+    manifest_cells: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    _require(isinstance(raw, list) and raw, "proofs must be non-empty")
+    manifest = set(manifest_cells)
+    mapped: set[str] = set()
+    counts = {"proven": 0, "not-applicable": 0, "unresolved": 0}
+    proofs: list[dict[str, Any]] = []
+
+    for index, item in enumerate(raw, start=1):
+        label = f"proof {index}"
+        _require(isinstance(item, dict), f"{label} must be an object")
+        cells = _strings(item.get("cells"), f"{label} cells")
+        _require(cells, f"{label} cells must be non-empty")
+        _require(len(cells) == len(set(cells)), f"{label} duplicates cells")
+        unknown = [cell for cell in cells if cell not in manifest]
+        _require(not unknown, f"{label} references unknown cells: {unknown}")
+        duplicate = [cell for cell in cells if cell in mapped]
+        _require(not duplicate, f"cells mapped more than once: {duplicate}")
+
+        state = _text(item.get("state"), f"{label} state")
+        _require(state in PROOF_STATES, f"{label} invalid state: {state}")
+        proof: dict[str, Any] = {"cells": cells, "state": state}
+        if state == "proven":
+            evidence = _strings(item.get("evidence"), f"{label} evidence")
+            _require(evidence, f"{label} evidence must be non-empty")
+            proof["evidence"] = evidence
+        elif state == "not-applicable":
+            proof["reason"] = _text(item.get("reason"), f"{label} reason")
+        elif item.get("reason") is not None:
+            proof["reason"] = _text(item.get("reason"), f"{label} reason")
+
+        mapped.update(cells)
+        counts[state] += len(cells)
+        proofs.append(proof)
+
+    missing = [cell for cell in manifest_cells if cell not in mapped]
+    _require(not missing, f"manifest cells missing proof mapping: {missing}")
+    _require(
+        not counts["unresolved"],
+        "unresolved manifest cells prevent a passing receipt",
+    )
+    return proofs, counts
+
+
+def _gates(raw: Any) -> list[dict[str, str]]:
+    _require(isinstance(raw, list) and raw, "gates must be non-empty")
+    result: list[dict[str, str]] = []
+    names: set[str] = set()
+    for item in raw:
+        _require(isinstance(item, dict), "gate rows must be objects")
+        name = _text(item.get("name"), "gate name")
+        _require(name not in names, f"duplicate gate name: {name}")
+        names.add(name)
+        status = _text(item.get("status"), f"gate {name} status")
         _require(
-            members or generated,
-            f"{proof} explicit nested universe needs members or generator+digest",
+            status in GATE_STATES,
+            f"gate {name} must be PASS or NOT APPLICABLE",
         )
-    elif mode == "exhaustive":
-        _text(value.get("mechanism"), f"{proof} nested_universe mechanism")
-        _require("result" in value, f"{proof} exhaustive nested universe requires result")
-    else:
-        _text(value.get("reason"), f"{proof} nested_universe reason")
+        result.append(
+            {
+                "name": name,
+                "status": status,
+                "evidence": _text(item.get("evidence"), f"gate {name} evidence"),
+            }
+        )
+    return result
 
 
-def _validate_evidence(proof: dict[str, Any]) -> None:
-    proof_id = proof["proof"]
-    evidence = proof["evidence"]
-    _require(
-        isinstance(evidence, list) and bool(evidence),
-        f"{proof_id} evidence must be non-empty",
-    )
-    for item in evidence:
-        _require(isinstance(item, dict), f"{proof_id} evidence entries must be objects")
-        kind = _text(item.get("kind"), f"{proof_id} evidence kind")
-        _text(item.get("ref"), f"{proof_id} evidence ref")
-        if kind == "repository":
-            _text(item.get("path"), f"{proof_id} repository evidence path")
+def _source_counts(raw: Any) -> dict[str, int]:
+    _require(isinstance(raw, dict), "source_counts must be an object")
+    result: dict[str, int] = {}
+    for key, value in raw.items():
+        name = _text(key, "source count name")
+        _require(
+            isinstance(value, int) and value >= 0,
+            f"source count {name} must be a non-negative integer",
+        )
+        result[name] = value
+    return result
 
 
-def prepare_packet(raw: Any) -> dict[str, Any]:
-    _require(isinstance(raw, dict), "packet input must be an object")
+def finalize(raw: Any) -> dict[str, Any]:
+    _require(isinstance(raw, dict), "finalize input must be an object")
     _require(
         isinstance(raw.get("spec_issue"), int) and raw["spec_issue"] > 0,
         "spec_issue must be positive",
     )
-    for field in ("head", "baseline"):
-        _require(
-            bool(SHA_RE.fullmatch(_text(raw.get(field), field))),
-            f"{field} must be a lowercase 40-char SHA",
-        )
-    for field in ("spec_body_hash", "spec_contract_hash"):
-        _require(
-            bool(DIGEST_RE.fullmatch(_text(raw.get(field), field))),
-            f"{field} must be a SHA-256 digest",
-        )
-
-    cells, manifest = _manifest_index(raw.get("manifest"))
-    coverage = raw.get("coverage")
-    _require(
-        isinstance(coverage, list) and len(coverage) == len(cells),
-        "manifest/coverage counts differ",
-    )
-    coverage_index: dict[str, dict[str, Any]] = {}
-    coverage_order: list[str] = []
-    for row in coverage:
-        _require(isinstance(row, dict), "coverage rows must be objects")
-        cell = _text(row.get("cell"), "coverage cell")
-        proof = _text(row.get("proof"), f"coverage {cell} proof")
-        state = _text(row.get("state"), f"coverage {cell} state")
-        _require(bool(PROOF_RE.fullmatch(proof)), f"invalid proof ID: {proof}")
-        _require(state in COVERAGE_STATES, f"invalid coverage state: {state}")
-        _require(cell not in coverage_index, f"duplicate coverage cell: {cell}")
-        coverage_index[cell] = row
-        coverage_order.append(cell)
-    _require(coverage_order == cells, "coverage rows must follow exact manifest order")
-
-    proofs = raw.get("proof_objects")
-    _require(isinstance(proofs, list) and bool(proofs), "proof_objects must be non-empty")
-    prepared: list[dict[str, Any]] = []
-    proof_ids: set[str] = set()
-    mapped: list[str] = []
-    warnings: list[str] = []
-
-    for original in proofs:
-        _require(isinstance(original, dict), "proof objects must be objects")
-        proof = dict(original)
-        for field in REQUIRED_PROOF_FIELDS:
-            _require(field in proof, f"proof object missing field: {field}")
-
-        proof_id = _text(proof["proof"], "proof ID")
-        _require(bool(PROOF_RE.fullmatch(proof_id)), f"invalid proof ID: {proof_id}")
-        _require(proof_id not in proof_ids, f"duplicate proof object: {proof_id}")
-        proof_ids.add(proof_id)
-
-        _require(
-            isinstance(proof["cells"], list) and bool(proof["cells"]),
-            f"{proof_id} cells must be non-empty",
-        )
-        _require(
-            len(proof["cells"]) == len(set(proof["cells"])),
-            f"{proof_id} has duplicate cells",
-        )
-        disposition = _text(proof["disposition"], f"{proof_id} disposition")
-        _require(
-            disposition in COVERAGE_STATES,
-            f"{proof_id} invalid disposition: {disposition}",
-        )
-
-        for cell in proof["cells"]:
-            _require(cell in manifest, f"{proof_id} references unknown cell: {cell}")
-            _require(
-                coverage_index[cell]["proof"] == proof_id,
-                f"coverage/proof mismatch for {cell}",
-            )
-            _require(
-                coverage_index[cell]["state"] == disposition,
-                f"coverage/disposition mismatch for {cell}",
-            )
-            mapped.append(cell)
-
-        _text(proof["predicate"], f"{proof_id} predicate")
-        _text(proof["falsifier"], f"{proof_id} falsifier")
-        _text(proof["domain_boundary"], f"{proof_id} domain boundary")
-        _validate_nested(proof["nested_universe"], proof_id)
-        _validate_evidence(proof)
-        _require(
-            isinstance(proof["assumptions"], list),
-            f"{proof_id} assumptions must be a list",
-        )
-
-        if len(proof["cells"]) > 12:
-            warnings.append(
-                f"{proof_id} maps {len(proof['cells'])} cells; review grouping cohesion"
-            )
-
-        proof.pop("proof_object_hash", None)
-        proof["proof_object_hash"] = _digest(proof)
-        prepared.append(proof)
-
-    _require(
-        len(mapped) == len(set(mapped)),
-        "manifest cell mapped by multiple proof objects",
-    )
-    _require(set(mapped) == set(cells), "proof objects do not cover complete manifest")
-    _require(
-        all(row["proof"] in proof_ids for row in coverage),
-        "coverage references undeclared proof",
-    )
-
-    result = dict(raw)
-    result["proof_objects"] = prepared
-    result.pop("proof_packet_hash", None)
-    result.pop("validation", None)
-    result["proof_packet_hash"] = _digest(result)
-    result["validation"] = {
-        "manifest_cells": len(cells),
-        "coverage_rows": len(coverage),
-        "proof_objects": len(prepared),
-        "missing_manifest_cells": 0,
-        "unknown_manifest_cells": 0,
-        "duplicate_cell_mappings": 0,
-        "unreferenced_proof_objects": 0,
-        "missing_proof_fields": 0,
-        "warnings": warnings,
+    manifest, cells = _manifest(raw.get("manifest"))
+    proofs, counts = _proofs(raw.get("proofs"), cells)
+    gates = _gates(raw.get("gates"))
+    result = {
+        "spec_issue": raw["spec_issue"],
+        "head": _sha(raw.get("head"), "head"),
+        "baseline": _sha(raw.get("baseline"), "baseline"),
+        "branch": _text(raw.get("branch"), "branch"),
+        "mode": _text(raw.get("mode"), "mode"),
+        "prior_checkpoint": raw.get("prior_checkpoint"),
+        "spec_body_hash": _digest_text(raw.get("spec_body_hash"), "spec_body_hash"),
+        "spec_contract_hash": _digest_text(
+            raw.get("spec_contract_hash"),
+            "spec_contract_hash",
+        ),
+        "default_branch": _text(raw.get("default_branch"), "default_branch"),
+        "default_head": _sha(raw.get("default_head"), "default_head"),
+        "source_counts": _source_counts(raw.get("source_counts")),
+        "manifest": manifest,
+        "proofs": proofs,
+        "gates": gates,
+        "repairs": _strings(raw.get("repairs"), "repair"),
+        "unrelated_inherited_findings": _strings(
+            raw.get("unrelated_inherited_findings"),
+            "inherited finding",
+        ),
     }
-    return result
-
-
-def _prepared(packet: Any) -> dict[str, Any]:
-    _require(isinstance(packet, dict), "prepared packet must be an object")
-    expected_hash = packet.get("proof_packet_hash")
-    expected_validation = packet.get("validation")
-    raw = dict(packet)
-    raw.pop("proof_packet_hash", None)
-    raw.pop("validation", None)
-    result = prepare_packet(raw)
-    _require(
-        result["proof_packet_hash"] == expected_hash,
-        "proof_packet_hash mismatch",
-    )
-    _require(
-        result["validation"] == expected_validation,
-        "packet validation metadata mismatch",
-    )
-    return result
-
-
-def _validate_gates(verification: dict[str, Any]) -> list[dict[str, str]]:
-    gates = verification.get("gates")
-    _require(isinstance(gates, list) and bool(gates), "verification gates must be non-empty")
-    validated: list[dict[str, str]] = []
-    names: set[str] = set()
-    for row in gates:
-        _require(isinstance(row, dict), "gate rows must be objects")
-        name = _text(row.get("name"), "gate name")
-        _require(name not in names, f"duplicate gate name: {name}")
-        names.add(name)
-        status = _text(row.get("status"), f"gate {name} status")
-        _require(
-            status in GATE_STATES,
-            f"gate {name} must be PASS or NOT APPLICABLE for final validation",
+    if result["prior_checkpoint"] is not None:
+        result["prior_checkpoint"] = _text(
+            result["prior_checkpoint"],
+            "prior_checkpoint",
         )
-        command = _text(row.get("command"), f"gate {name} command")
-        evidence = _text(row.get("evidence"), f"gate {name} evidence")
-        validated.append(
-            {
-                "name": name,
-                "status": status,
-                "command": command,
-                "evidence": evidence,
-            }
-        )
-    return validated
-
-
-def validate_final(state: Any) -> dict[str, Any]:
-    _require(isinstance(state, dict), "final state must be an object")
-    packet = _prepared(state.get("packet"))
-    verification = state.get("verification")
-    _require(isinstance(verification, dict), "verification metadata must be an object")
-
-    final_head = _text(verification.get("final_head"), "final_head")
-    _require(final_head == packet["head"], "final_head must equal packet head")
-    _require(
-        bool(SHA_RE.fullmatch(final_head)),
-        "final_head must be a lowercase 40-char SHA",
-    )
-
-    for field in ("branch", "mode", "default_branch", "default_head"):
-        _text(verification.get(field), field)
-    _require(
-        bool(SHA_RE.fullmatch(_text(verification["default_head"], "default_head"))),
-        "default_head must be a lowercase 40-char SHA",
-    )
-
-    gates = _validate_gates(verification)
-    unresolved = [
-        row["cell"] for row in packet["coverage"] if row["state"] == "unresolved"
-    ]
-    _require(not unresolved, f"unresolved manifest cells: {unresolved}")
-
-    proven = sum(row["state"] == "proven" for row in packet["coverage"])
-    not_applicable = sum(
-        row["state"] == "not-applicable" for row in packet["coverage"]
-    )
-
-    result = dict(state)
-    result["packet"] = packet
-    result["verification"] = dict(verification)
-    result["verification"]["gates"] = gates
-    result["final_coverage"] = list(packet["coverage"])
     result["summary"] = {
-        "manifest_cells": len(packet["manifest"]),
-        "coverage_rows": len(packet["coverage"]),
-        "proof_objects": len(packet["proof_objects"]),
-        "proven_cells": proven,
-        "not_applicable_cells": not_applicable,
-        "unresolved_cells": 0,
+        "manifest_cells": len(cells),
+        "proof_groups": len(proofs),
+        "proven_cells": counts["proven"],
+        "not_applicable_cells": counts["not-applicable"],
+        "unresolved_cells": counts["unresolved"],
         "verification_gates": len(gates),
     }
+    result["verification_hash"] = _digest(result)
     return result
 
 
-def _table(value: Any) -> str:
-    if not isinstance(value, str):
-        value = json.dumps(
-            value,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        )
-    return value.replace("|", "\\|").replace("\n", "<br>")
+def _coverage_by_state(state: dict[str, Any]) -> dict[str, list[str]]:
+    coverage = {name: [] for name in PROOF_STATES}
+    for proof in state["proofs"]:
+        coverage[proof["state"]].extend(proof["cells"])
+    return coverage
 
 
-def render_receipt(state: Any) -> str:
-    state = validate_final(state)
-    packet = state["packet"]
-    verification = state["verification"]
-    counts = verification.get("source_counts") or {}
-    ownership = verification.get("ownership") or {}
-
+def render_receipt(state: dict[str, Any]) -> str:
+    summary = state["summary"]
+    counts = state["source_counts"]
+    coverage = _coverage_by_state(state)
     lines = [
         RECEIPT_HEADER,
         "",
         "**Status:** passed",
-        f"**Verified HEAD:** {verification['final_head']}",
-        f"**Verified Baseline:** {packet['baseline']}",
-        f"**Branch:** {verification['branch']}",
-        f"**Verification mode:** {verification['mode']}",
-        f"**Prior verified checkpoint:** {verification.get('prior_checkpoint') or 'None'}",
-        f"**Spec Body Hash:** {packet['spec_body_hash']}",
-        f"**Spec Contract Hash:** {packet['spec_contract_hash']}",
-        f"**Proof Packet Hash:** {packet['proof_packet_hash']}",
-        "**Semantic proof owner:** $verify-spec parent verifier",
-        f"**Default branch:** {verification['default_branch']}",
-        f"**Default branch head used for ownership:** {verification['default_head']}",
-        f"**Change surfaces:** {_table(verification.get('change_surfaces', []))}",
+        f"**Spec:** #{state['spec_issue']}",
+        f"**Verified HEAD:** {state['head']}",
+        f"**Verified Baseline:** {state['baseline']}",
+        f"**Branch:** {state['branch']}",
+        f"**Verification mode:** {state['mode']}",
+        f"**Prior verified checkpoint:** {state.get('prior_checkpoint') or 'None'}",
+        f"**Spec Body Hash:** {state['spec_body_hash']}",
+        f"**Spec Contract Hash:** {state['spec_contract_hash']}",
+        f"**Verification Hash:** {state['verification_hash']}",
+        (
+            "**Default ownership point:** "
+            f"{state['default_branch']}@{state['default_head']}"
+        ),
         "",
         "### Spec Contract Integrity",
         f"- User Stories: {counts.get('user_stories', 0)}",
-        f"- Implementation Decisions: {counts.get('implementation_decisions', 0)}",
+        (
+            "- Implementation Decisions: "
+            f"{counts.get('implementation_decisions', 0)}"
+        ),
         f"- Testing Decisions: {counts.get('testing_decisions', 0)}",
         f"- Out of Scope: {counts.get('out_of_scope', 0)}",
         f"- Other normative source items: {counts.get('other_normative', 0)}",
-        f"- Manifest cells: {len(packet['manifest'])}",
+        f"- Manifest cells: {summary['manifest_cells']}",
         "- Unmapped source items: 0",
         "- Duplicate source mappings: 0",
         "- Ambiguous source items: 0",
-        "",
-        "### Spec Change Ownership",
-        f"- Spec-owned repository surfaces: {_table(ownership.get('spec_owned', []))}",
-        f"- Mixed repository surfaces: {_table(ownership.get('mixed', []))}",
-        f"- Inherited-only integration surfaces: {_table(ownership.get('inherited_only', []))}",
-        f"- Spec-owned tracker surfaces: {_table(ownership.get('tracker', []))}",
         "",
         "### Spec Contract Manifest",
         "| Cell | Source | Requirement |",
         "| --- | --- | --- |",
     ]
-    for row in packet["manifest"]:
+    for row in state["manifest"]:
         lines.append(
-            f"| {row['cell']} | {_table(row['source'])} | {_table(row['requirement'])} |"
+            f"| {row['cell']} | {_table(row['source'])} | "
+            f"{_table(row['requirement'])} |"
         )
 
-    lines += [
-        "",
-        "### Spec Proof Objects",
-        "| Proof | Object Hash | Cells | Disposition | Predicate | Falsifier | Domain / Nested Universe | Evidence / Assumptions |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
-    ]
-    for proof in packet["proof_objects"]:
-        domain = {
-            "boundary": proof["domain_boundary"],
-            "nested_universe": proof["nested_universe"],
-        }
-        evidence = {
-            "evidence": proof["evidence"],
-            "assumptions": proof["assumptions"],
-        }
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    proof["proof"],
-                    proof["proof_object_hash"],
-                    _table(proof["cells"]),
-                    proof["disposition"],
-                    _table(proof["predicate"]),
-                    _table(proof["falsifier"]),
-                    _table(domain),
-                    _table(evidence),
-                ]
-            )
-            + " |"
-        )
-
-    lines += [
-        "",
-        "### Spec Contract Coverage",
-        "| Cell | State | Proof |",
-        "| --- | --- | --- |",
-    ]
-    for row in state["final_coverage"]:
-        lines.append(f"| {row['cell']} | {row['state']} | {row['proof']} |")
+    lines += ["", "### Spec Contract Coverage"]
+    for status in ("proven", "not-applicable", "unresolved"):
+        cells = coverage[status]
+        lines.append(f"- {status}: {', '.join(cells) if cells else 'None'}")
 
     lines += ["", "### Verification Gates"]
-    for gate in verification["gates"]:
-        lines.append(
-            f"- {gate['name']}: {gate['status']} — command `{gate['command']}` — {gate['evidence']}"
-        )
-
+    lines.extend(
+        f"- {gate['name']}: {gate['status']} — {gate['evidence']}"
+        for gate in state["gates"]
+    )
+    lines += ["", "### Repairs"]
+    lines.extend(f"- {item}" for item in state["repairs"] or ["None"])
     lines += ["", "### Unrelated Inherited Findings"]
-    findings = verification.get("unrelated_inherited_findings") or []
-    if findings:
-        lines.extend(f"- {item}" for item in findings)
-    else:
-        lines.append("- None")
+    findings = state["unrelated_inherited_findings"] or ["None"]
+    lines.extend(f"- {item}" for item in findings)
     return "\n".join(lines) + "\n"
 
 
-def validate_receipt(state: Any, receipt: str | Path) -> None:
-    _require(
-        Path(receipt).read_text(encoding="utf-8") == render_receipt(state),
-        "receipt bytes differ from deterministic rendering of validated final state",
-    )
-
-
 def self_test() -> None:
-    packet = {
+    raw = {
         "spec_issue": 1,
         "head": "a" * 40,
         "baseline": "b" * 40,
+        "branch": "spec-1",
+        "mode": "full",
+        "prior_checkpoint": None,
         "spec_body_hash": "c" * 64,
         "spec_contract_hash": "d" * 64,
+        "default_branch": "main",
+        "default_head": "e" * 40,
+        "source_counts": {"user_stories": 2, "out_of_scope": 1},
         "manifest": [
-            {
-                "cell": "US-1",
-                "source": "User Stories 1",
-                "requirement": "must hold",
-            }
+            {"cell": "US-1", "source": "User Stories 1", "requirement": "one"},
+            {"cell": "US-2", "source": "User Stories 2", "requirement": "two"},
+            {"cell": "OOS-1", "source": "Out of Scope 1", "requirement": "no"},
         ],
-        "coverage": [{"cell": "US-1", "proof": "P-1", "state": "proven"}],
-        "proof_objects": [
+        "proofs": [
             {
-                "proof": "P-1",
-                "cells": ["US-1"],
-                "predicate": "the required behavior holds",
-                "falsifier": "the required behavior does not hold",
-                "domain_boundary": "application/x.py",
-                "nested_universe": {
-                    "mode": "not-applicable",
-                    "reason": "no quantified domain",
-                },
-                "evidence": [
-                    {
-                        "kind": "repository",
-                        "ref": "application/x.py:1",
-                        "path": "application/x.py",
-                    }
-                ],
-                "assumptions": [],
-                "disposition": "proven",
-            }
+                "cells": ["US-1", "US-2"],
+                "state": "proven",
+                "evidence": ["application/x.py:1-20", "test_x::test_behavior"],
+            },
+            {
+                "cells": ["OOS-1"],
+                "state": "not-applicable",
+                "reason": "Originating Spec excludes this surface.",
+            },
+        ],
+        "gates": [
+            {"name": "Ruff lint", "status": "PASS", "evidence": "clean"},
         ],
     }
-    prepared = prepare_packet(packet)
-    assert prepare_packet(packet)["proof_packet_hash"] == prepared["proof_packet_hash"]
-
-    bad = json.loads(json.dumps(packet))
-    bad["coverage"][0]["state"] = "not-applicable"
-    try:
-        prepare_packet(bad)
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("coverage/disposition mismatch did not fail")
-
-    state = {
-        "packet": prepared,
-        "verification": {
-            "final_head": "a" * 40,
-            "branch": "spec-1",
-            "mode": "full",
-            "prior_checkpoint": None,
-            "default_branch": "main",
-            "default_head": "e" * 40,
-            "change_surfaces": ["application/x.py"],
-            "source_counts": {
-                "user_stories": 1,
-                "implementation_decisions": 0,
-                "testing_decisions": 0,
-                "out_of_scope": 0,
-                "other_normative": 0,
-            },
-            "ownership": {
-                "spec_owned": ["application/x.py"],
-                "mixed": [],
-                "inherited_only": [],
-                "tracker": [],
-            },
-            "gates": [
-                {
-                    "name": "Ruff lint",
-                    "status": "PASS",
-                    "command": "uv run ruff check .",
-                    "evidence": "All checks passed",
-                }
-            ],
-            "unrelated_inherited_findings": [],
-        },
-    }
-    validated = validate_final(state)
-    assert validated["summary"]["unresolved_cells"] == 0
+    state = finalize(raw)
+    assert state["verification_hash"] == finalize(raw)["verification_hash"]
     receipt = render_receipt(state)
-    assert "**Semantic proof owner:** $verify-spec parent verifier" in receipt
+    assert "### Spec Contract Manifest" in receipt
+    assert "### Spec Proof Objects" not in receipt
+    assert "- proven: US-1, US-2" in receipt
 
-    unresolved = json.loads(json.dumps(packet))
-    unresolved["coverage"][0]["state"] = "unresolved"
-    unresolved["proof_objects"][0]["disposition"] = "unresolved"
-    unresolved_state = dict(state)
-    unresolved_state["packet"] = prepare_packet(unresolved)
-    try:
-        validate_final(unresolved_state)
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("unresolved coverage did not fail final validation")
+    cases = []
+    bad = json.loads(json.dumps(raw))
+    bad["proofs"][1]["cells"] = ["US-1", "OOS-1"]
+    cases.append(bad)
+    bad = json.loads(json.dumps(raw))
+    bad["proofs"][0] = {"cells": ["US-1", "US-2"], "state": "unresolved"}
+    cases.append(bad)
+    bad = json.loads(json.dumps(raw))
+    bad["proofs"][0]["evidence"] = []
+    cases.append(bad)
+    bad = json.loads(json.dumps(raw))
+    bad["gates"][0]["status"] = "FAIL"
+    cases.append(bad)
+    for invalid in cases:
+        try:
+            finalize(invalid)
+        except ValidationError:
+            continue
+        raise AssertionError("invalid finalization input was accepted")
 
 
 def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-
-    p = sub.add_parser("comments")
-    p.add_argument("--input", required=True)
-
-    p = sub.add_parser("prepare-packet")
-    p.add_argument("--input", required=True)
-    p.add_argument("--output", required=True)
-
-    p = sub.add_parser("validate-final")
-    p.add_argument("--input", required=True)
-    p.add_argument("--output")
-
-    p = sub.add_parser("render-receipt")
-    p.add_argument("--input", required=True)
-    p.add_argument("--output", required=True)
-
-    p = sub.add_parser("validate-receipt")
-    p.add_argument("--input", required=True)
-    p.add_argument("--receipt", required=True)
-
+    comments = sub.add_parser("comments")
+    comments.add_argument("--input", required=True)
+    finish = sub.add_parser("finalize")
+    finish.add_argument("--input", required=True)
+    finish.add_argument("--receipt-output", required=True)
     sub.add_parser("self-test")
     return parser.parse_args()
 
@@ -655,29 +424,24 @@ def main() -> int:
     args = _args()
     try:
         if args.command == "comments":
+            result = comments_summary(_read_json(args.input))
+            print(json.dumps(result, indent=2, sort_keys=True))
+        elif args.command == "finalize":
+            state = finalize(_read_json(args.input))
+            Path(args.receipt_output).write_text(
+                render_receipt(state),
+                encoding="utf-8",
+            )
             print(
                 json.dumps(
-                    comments_summary(_read_json(args.input)),
+                    {
+                        **state["summary"],
+                        "verification_hash": state["verification_hash"],
+                    },
                     indent=2,
                     sort_keys=True,
                 )
             )
-        elif args.command == "prepare-packet":
-            _write_json(args.output, prepare_packet(_read_json(args.input)))
-        elif args.command == "validate-final":
-            result = validate_final(_read_json(args.input))
-            if args.output:
-                _write_json(args.output, result)
-            else:
-                print(json.dumps(result["summary"], indent=2, sort_keys=True))
-        elif args.command == "render-receipt":
-            Path(args.output).write_text(
-                render_receipt(_read_json(args.input)),
-                encoding="utf-8",
-            )
-        elif args.command == "validate-receipt":
-            validate_receipt(_read_json(args.input), args.receipt)
-            print("RECEIPT VALIDATION: PASS")
         elif args.command == "self-test":
             self_test()
             print("VERIFY-SPEC ARTIFACT SELF-TEST: PASS")

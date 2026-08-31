@@ -307,9 +307,7 @@ def _replacement() -> tuple[
             case_ids=("replacement-case",)
             if section is ModelReplacementGateSection.RAG
             else (),
-            metric_result_count=1
-            if section is ModelReplacementGateSection.RAG
-            else 0,
+            metric_result_count=1 if section is ModelReplacementGateSection.RAG else 0,
         )
         for section in ModelReplacementGateSection
     )

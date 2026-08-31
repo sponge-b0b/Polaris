@@ -15,9 +15,7 @@ CELL_RE = re.compile(r"^(?:US|ID|TD|OOS|NORM)-\d+(?:\.[A-Za-z0-9_-]+)?$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 WORKSPACE_METADATA_HEADER = "## Workspace Metadata"
-BASELINE_LINE_RE = re.compile(
-    r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{40})$"
-)
+BASELINE_LINE_RE = re.compile(r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{40})$")
 RECEIPT_HEADER = "## Spec Verification Receipt"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
@@ -152,7 +150,7 @@ def comments_summary(raw: Any) -> dict[str, Any]:
 
 
 def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
-    _require(isinstance(raw, list) and raw, "manifest must be non-empty")
+    _require(bool(isinstance(raw, list) and raw), "manifest must be non-empty")
     rows: list[dict[str, str]] = []
     cells: list[str] = []
     for item in raw:
@@ -178,7 +176,7 @@ def _proofs(
     raw: Any,
     manifest_cells: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    _require(isinstance(raw, list) and raw, "proofs must be non-empty")
+    _require(bool(isinstance(raw, list) and raw), "proofs must be non-empty")
     manifest = set(manifest_cells)
     mapped: set[str] = set()
     counts = {"proven": 0, "not-applicable": 0, "unresolved": 0}
@@ -188,7 +186,7 @@ def _proofs(
         label = f"proof {index}"
         _require(isinstance(item, dict), f"{label} must be an object")
         cells = _strings(item.get("cells"), f"{label} cells")
-        _require(cells, f"{label} cells must be non-empty")
+        _require(bool(cells), f"{label} cells must be non-empty")
         _require(len(cells) == len(set(cells)), f"{label} duplicates cells")
         unknown = [cell for cell in cells if cell not in manifest]
         _require(not unknown, f"{label} references unknown cells: {unknown}")
@@ -200,7 +198,7 @@ def _proofs(
         proof: dict[str, Any] = {"cells": cells, "state": state}
         if state == "proven":
             evidence = _strings(item.get("evidence"), f"{label} evidence")
-            _require(evidence, f"{label} evidence must be non-empty")
+            _require(bool(evidence), f"{label} evidence must be non-empty")
             proof["evidence"] = evidence
         elif state == "not-applicable":
             proof["reason"] = _text(item.get("reason"), f"{label} reason")
@@ -221,7 +219,7 @@ def _proofs(
 
 
 def _gates(raw: Any) -> list[dict[str, str]]:
-    _require(isinstance(raw, list) and raw, "gates must be non-empty")
+    _require(bool(isinstance(raw, list) and raw), "gates must be non-empty")
     result: list[dict[str, str]] = []
     names: set[str] = set()
     for item in raw:
@@ -308,7 +306,7 @@ def finalize(raw: Any) -> dict[str, Any]:
 
 
 def _coverage_by_state(state: dict[str, Any]) -> dict[str, list[str]]:
-    coverage = {name: [] for name in PROOF_STATES}
+    coverage: dict[str, list[str]] = {name: [] for name in PROOF_STATES}
     for proof in state["proofs"]:
         coverage[proof["state"]].extend(proof["cells"])
     return coverage
@@ -338,10 +336,7 @@ def render_receipt(state: dict[str, Any]) -> str:
         "",
         "### Spec Contract Integrity",
         f"- User Stories: {counts.get('user_stories', 0)}",
-        (
-            "- Implementation Decisions: "
-            f"{counts.get('implementation_decisions', 0)}"
-        ),
+        (f"- Implementation Decisions: {counts.get('implementation_decisions', 0)}"),
         f"- Testing Decisions: {counts.get('testing_decisions', 0)}",
         f"- Out of Scope: {counts.get('out_of_scope', 0)}",
         f"- Other normative source items: {counts.get('other_normative', 0)}",
@@ -393,8 +388,7 @@ def self_test() -> None:
             "id": 2,
             "created_at": "2026-08-31T00:01:00Z",
             "body": (
-                "## Implementation Tickets\n"
-                f"**Baseline Commit Hash:** `{'a' * 40}`"
+                f"## Implementation Tickets\n**Baseline Commit Hash:** `{'a' * 40}`"
             ),
         },
     ]
@@ -407,8 +401,7 @@ def self_test() -> None:
             {
                 "id": 1,
                 "body": (
-                    "## Workspace Metadata\n"
-                    f"**Baseline Commit Hash:** `{'a' * 40}`"
+                    f"## Workspace Metadata\n**Baseline Commit Hash:** `{'a' * 40}`"
                 ),
             }
         ],
@@ -416,15 +409,13 @@ def self_test() -> None:
             {
                 "id": 1,
                 "body": (
-                    "## Workspace Metadata\n"
-                    f"**Baseline Commit Hash:** {'a' * 40}"
+                    f"## Workspace Metadata\n**Baseline Commit Hash:** {'a' * 40}"
                 ),
             },
             {
                 "id": 2,
                 "body": (
-                    "## Workspace Metadata\n"
-                    f"**Baseline Commit Hash:** {'a' * 40}"
+                    f"## Workspace Metadata\n**Baseline Commit Hash:** {'a' * 40}"
                 ),
             },
         ],

@@ -239,9 +239,8 @@ def coverage_payload(
         requirement.applies_to(target_type)
         for requirement in profile.metric_requirements
     )
-    if (
-        len(metrics.readiness) != required
-        or not observability_evidence(current, reference)
+    if len(metrics.readiness) != required or not observability_evidence(
+        current, reference
     ):
         return None
     return cast(

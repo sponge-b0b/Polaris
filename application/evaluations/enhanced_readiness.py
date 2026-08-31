@@ -297,9 +297,7 @@ class EnhancedReadinessService:
         packets = packet_payload(authority)
         if packets is not None:
             for artifact_type in (PROVENANCE_ARTIFACT, RETENTION_ARTIFACT):
-                artifact = await self._persist_artifact(
-                    request, artifact_type, packets
-                )
+                artifact = await self._persist_artifact(request, artifact_type, packets)
                 if artifact is not None:
                     found.append(artifact)
         return found

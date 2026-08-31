@@ -14,8 +14,9 @@ from typing import Any
 CELL_RE = re.compile(r"^(?:US|ID|TD|OOS|NORM)-\d+(?:\.[A-Za-z0-9_-]+)?$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
-BASELINE_RE = re.compile(
-    r"\*\*Baseline Commit Hash:\*\*\s+(?P<sha>[0-9a-fA-F]{40})"
+WORKSPACE_METADATA_HEADER = "## Workspace Metadata"
+BASELINE_LINE_RE = re.compile(
+    r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{40})$"
 )
 RECEIPT_HEADER = "## Spec Verification Receipt"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
@@ -81,6 +82,39 @@ def _table(value: Any) -> str:
     return value.replace("|", "\\|").replace("\n", "<br>")
 
 
+def _workspace_metadata(comments: list[dict[str, Any]]) -> dict[str, Any]:
+    candidates = []
+    for comment in comments:
+        body = str(comment.get("body") or "")
+        lines = body.splitlines()
+        if WORKSPACE_METADATA_HEADER not in lines:
+            continue
+        baseline_lines = [
+            line for line in lines if line.startswith("**Baseline Commit Hash:**")
+        ]
+        _require(
+            len(baseline_lines) == 1,
+            "Workspace Metadata must contain exactly one Baseline Commit Hash line",
+        )
+        match = BASELINE_LINE_RE.fullmatch(baseline_lines[0])
+        _require(
+            match is not None,
+            "Workspace Metadata Baseline Commit Hash must be an unquoted "
+            "lowercase 40-character SHA",
+        )
+        candidates.append(
+            {
+                "comment_id": comment.get("id"),
+                "baseline_commit": match.group("sha"),
+            }
+        )
+    _require(
+        len(candidates) == 1,
+        "exactly one canonical Workspace Metadata comment is required",
+    )
+    return candidates[0]
+
+
 def comments_summary(raw: Any) -> dict[str, Any]:
     _require(isinstance(raw, list), "comment payload must be a JSON list")
     if raw and not all(isinstance(item, dict) for item in raw):
@@ -96,13 +130,10 @@ def comments_summary(raw: Any) -> dict[str, Any]:
             int(item.get("id") or 0),
         ),
     )
-    baselines: list[str] = []
+    metadata = _workspace_metadata(comments)
     receipts: list[dict[str, Any]] = []
     for comment in comments:
         body = str(comment.get("body") or "")
-        match = BASELINE_RE.search(body)
-        if match:
-            baselines.append(match.group("sha").lower())
         if RECEIPT_HEADER in body:
             receipts.append(
                 {
@@ -114,7 +145,8 @@ def comments_summary(raw: Any) -> dict[str, Any]:
             )
     return {
         "comment_count": len(comments),
-        "baseline_commit": baselines[-1] if baselines else None,
+        "workspace_metadata": metadata,
+        "baseline_commit": metadata["baseline_commit"],
         "latest_receipt": receipts[-1] if receipts else None,
     }
 
@@ -347,6 +379,63 @@ def render_receipt(state: dict[str, Any]) -> str:
 
 
 def self_test() -> None:
+    canonical_comments = [
+        {
+            "id": 1,
+            "created_at": "2026-08-31T00:00:00Z",
+            "body": (
+                "## Workspace Metadata\n"
+                f"**Baseline Commit Hash:** {'a' * 40}\n"
+                "**Branch:** spec-1"
+            ),
+        },
+        {
+            "id": 2,
+            "created_at": "2026-08-31T00:01:00Z",
+            "body": (
+                "## Implementation Tickets\n"
+                f"**Baseline Commit Hash:** `{'a' * 40}`"
+            ),
+        },
+    ]
+    summary = comments_summary(canonical_comments)
+    assert summary["baseline_commit"] == "a" * 40
+    assert summary["workspace_metadata"]["comment_id"] == 1
+
+    invalid_comments = [
+        [
+            {
+                "id": 1,
+                "body": (
+                    "## Workspace Metadata\n"
+                    f"**Baseline Commit Hash:** `{'a' * 40}`"
+                ),
+            }
+        ],
+        [
+            {
+                "id": 1,
+                "body": (
+                    "## Workspace Metadata\n"
+                    f"**Baseline Commit Hash:** {'a' * 40}"
+                ),
+            },
+            {
+                "id": 2,
+                "body": (
+                    "## Workspace Metadata\n"
+                    f"**Baseline Commit Hash:** {'a' * 40}"
+                ),
+            },
+        ],
+    ]
+    for invalid in invalid_comments:
+        try:
+            comments_summary(invalid)
+        except ValidationError:
+            continue
+        raise AssertionError("invalid Workspace Metadata was accepted")
+
     raw = {
         "spec_issue": 1,
         "head": "a" * 40,

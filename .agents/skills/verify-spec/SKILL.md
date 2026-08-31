@@ -28,7 +28,7 @@ Use:
 
 It owns only:
 
-- paginated Spec-comment normalization;
+- paginated Spec-comment normalization, canonical Workspace Metadata parsing, and latest-receipt extraction;
 - compact finalization validation;
 - complete manifest-to-proof coverage validation;
 - one canonical Verification Hash;
@@ -56,10 +56,18 @@ uv run python "$ARTIFACT_TOOL" comments \
   --input "$SPEC_COMMENTS_FILE" \
   > "$SPEC_COMMENTS_SUMMARY"
 
-BASELINE_COMMIT=$(jq -r '.baseline_commit // empty' "$SPEC_COMMENTS_SUMMARY")
+BASELINE_COMMIT=$(jq -r '.baseline_commit' "$SPEC_COMMENTS_SUMMARY")
 ```
 
-Do not substitute an unpaginated comment read. If no authoritative baseline exists, stop and ask for it.
+The utility recognizes exactly one authoritative baseline source: one comment containing the standalone header `## Workspace Metadata` and exactly this field format:
+
+```text
+**Baseline Commit Hash:** <40 lowercase hex SHA>
+```
+
+The SHA is not backticked, shortened, uppercased, or decorated. A baseline label in any other comment is informational only and never baseline authority. Missing, duplicate, or malformed Workspace Metadata fails closed. Do not parse or recover a baseline independently.
+
+Do not substitute an unpaginated comment read.
 
 Require:
 

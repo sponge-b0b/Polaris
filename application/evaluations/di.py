@@ -3,6 +3,7 @@ from __future__ import annotations
 from dishka import Provider, Scope, provide
 
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
+from application.evaluations.enhanced_readiness import EnhancedReadinessService
 from application.evaluations.evaluation_dataset_service import EvaluationDatasetService
 from application.evaluations.evaluation_jobs import EvaluationJobProcessor
 from application.evaluations.evaluation_langfuse_projection_service import (
@@ -110,6 +111,23 @@ class ApplicationEvaluationsDIProvider(Provider):
         telemetry: EvaluationTelemetry,
     ) -> ReadinessGateService:
         return ReadinessGateService(repository=repository, telemetry=telemetry)
+
+    @provide
+    def provide_enhanced_readiness_service(
+        self,
+        repository: EvaluationPersistenceRepository,
+        readiness_gate: ReadinessGateService,
+        decision_evidence_packet_persistence_service: (
+            DecisionEvidencePacketPersistenceService
+        ),
+    ) -> EnhancedReadinessService:
+        return EnhancedReadinessService(
+            repository=repository,
+            readiness_gate=readiness_gate,
+            decision_evidence_packet_persistence_service=(
+                decision_evidence_packet_persistence_service
+            ),
+        )
 
     @provide
     def provide_model_replacement_validation_gate(

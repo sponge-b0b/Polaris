@@ -62,6 +62,7 @@ class RunEvidence:
 class MetricEvidence:
     readiness: tuple[ReadinessMetricEvidence, ...]
     payload: tuple[JsonObject, ...]
+    current_result_count: int
 
 
 def enhanced_profile(target_type: EvaluationTargetType) -> ReadinessProfile:
@@ -117,9 +118,10 @@ def metric_evidence(
     reference: tuple[RunEvidence, ...],
 ) -> MetricEvidence:
     if not _runs_are_comparable(current, reference):
-        return MetricEvidence((), ())
+        return MetricEvidence((), (), 0)
     readiness: list[ReadinessMetricEvidence] = []
     payload: list[JsonObject] = []
+    current_result_count = 0
     target_type = cast(EvaluationTargetType, current[0].run.target_type)
     for requirement in profile.metric_requirements:
         if not requirement.applies_to(target_type):
@@ -128,6 +130,7 @@ def metric_evidence(
         reference_records = _metric_records(reference, requirement)
         if not current_records or not reference_records:
             continue
+        current_result_count += len(current_records)
         current_score = min(record.score for record in current_records)
         reference_score = min(record.score for record in reference_records)
         drift = max(0.0, reference_score - current_score)
@@ -162,7 +165,11 @@ def metric_evidence(
                 },
             )
         )
-    return MetricEvidence(tuple(readiness), tuple(payload))
+    return MetricEvidence(
+        tuple(readiness),
+        tuple(payload),
+        current_result_count,
+    )
 
 
 def _runs_are_comparable(

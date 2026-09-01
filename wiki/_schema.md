@@ -41,9 +41,9 @@ ADR lifecycle is owned by `$to-adr-doc`.
 | `docs/reference/` | `reference` |
 | `docs/process/`   | `process`   |
 
-Anything project-owned under `docs/` outside these locations, `docs/adr/`, or a registered external scaffold is unclassified.
+Apply the `docs/.wikiignore` exclusion boundary before classification. Anything project-owned remaining under `docs/` outside these locations or `docs/adr/` is unclassified.
 
-New documents use `$to-doc`; existing documents use `$classify-doc`.
+New classified documents use `$to-doc`; existing classified documents use `$classify-doc`.
 
 ### Class semantics
 
@@ -59,26 +59,37 @@ New documents use `$to-doc`; existing documents use `$classify-doc`.
 
 `research` and `reference` describe document role, not architectural scope.
 
-## External Scaffold Directories
+## Living Entity Wiki Exclusion Boundary
 
-Registered externally owned paths retain the owning skill's location and naming and are treated as `process`.
+`docs/.wikiignore` is the canonical boundary for documentation paths that are intentionally outside the Living Entity Wiki document universe.
 
-| Directory      | Owner                      |
-| -------------- | -------------------------- |
-| `docs/agents/` | `setup-matt-pocock-skills` |
+Ignored paths are ordinary repository documentation, but the Living Entity Wiki does not classify, name, audit, synchronize, or treat them as architectural source material. An ignored document is not `process`, `unclassified`, or another hidden Wiki class. If its content should become Wiki source material, move or promote that content into a normal classified document or ADR through the applicable workflow.
 
-An unfamiliar directory is not automatically externally owned.
+The exclusion boundary is explicit and fail-closed:
+
+* paths are relative to `docs/` and use `/` separators;
+* surrounding whitespace is ignored;
+* blank lines are ignored;
+* a line whose first non-whitespace character is `#` is a comment;
+* a path ending in `/` excludes that directory and all descendants;
+* a path not ending in `/` excludes exactly that file;
+* absolute paths, `.` or `..` path components, backslashes, globbing, and negation/re-inclusion syntax are unsupported and invalid;
+* an entry does not need to exist yet; it may reserve an explicit future exclusion;
+* `docs/.wikiignore` itself is outside document classification and cannot be excluded by one of its own entries.
+
+Do not infer exclusions. An unfamiliar directory that is not explicitly matched by `docs/.wikiignore` remains inside the Wiki document universe and is unclassified unless normal classification rules apply.
+
+Skills that construct a complete `docs/` classification universe must validate `docs/.wikiignore` before applying it. Invalid exclusion syntax is a structural error, not permission to omit a path from the universe.
 
 ## Target Class Rules
 
-For non-ADR documents, classify current content/purpose in this order:
+For non-ADR documents inside the Living Entity Wiki document universe, classify current content/purpose in this order:
 
-1. registered external scaffold → `process`;
-2. structured lookup material → `reference`;
-3. contributor/agent workflow instructions → `process`;
-4. unresolved investigation/evaluation → `research`;
-5. committed future state → `proposed`;
-6. description of current system → `current`.
+1. structured lookup material → `reference`;
+2. contributor/agent workflow instructions → `process`;
+3. unresolved investigation/evaluation → `research`;
+4. committed future state → `proposed`;
+5. description of current system → `current`.
 
 If `current` vs `proposed` is genuinely unclear, choose `proposed`.
 
@@ -193,8 +204,6 @@ Use `platform-` only when no meaningful primary entity exists.
 `<topic-slug>.md`
 
 No entity/platform prefix.
-
-External scaffolds retain owner-defined names.
 
 ## Cross-Cutting Documents
 

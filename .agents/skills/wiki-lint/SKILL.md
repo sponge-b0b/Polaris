@@ -41,6 +41,7 @@ Report `[structural]` for:
 * `present` when implementation cannot reasonably be found;
 * retired/tombstone pages under `wiki/entities/`;
 * obsolete metadata/frontmatter;
+* invalid or unsupported `docs/.wikiignore` syntax;
 * invalid entity-page structure;
 * missing or invalid Boundary Rationale.
 
@@ -85,6 +86,8 @@ Core eligibility:
 ### Rejected Approaches, Open Questions, Boundary Rationale
 
 Use provenance allowed by `wiki/_template.md`.
+
+A `docs/...` path matched by `docs/.wikiignore` is outside the Living Entity Wiki source universe and is not an eligible document citation.
 
 Do not delete claims merely because a citation is broken or stale.
 
@@ -245,17 +248,31 @@ Avoid duplicate findings for the same root cause.
 
 ## 8. Document Classification
 
-Report `[unclassified-doc]` for project-owned files under `docs/` whose classification cannot be derived from:
+Validate `docs/.wikiignore` against the exclusion grammar in `wiki/_schema.md` before using it to construct the classification universe. Invalid syntax is `[structural]`; do not treat an invalid line as permission to omit a path.
+
+Construct the document-classification universe as:
+
+```text
+all project-owned files under docs/
+- docs/.wikiignore
+- paths explicitly matched by valid docs/.wikiignore entries
+= files subject to Living Entity Wiki classification
+```
+
+For every file remaining in that universe, derive classification from:
 
 * `docs/adr/` plus ADR status;
 * `docs/current/`;
 * `docs/proposed/`;
 * `docs/research/`;
 * `docs/reference/`;
-* `docs/process/`;
-* registered external scaffold directories.
+* `docs/process/`.
 
-Use `$classify-doc` for existing non-ADR documents.
+Report `[unclassified-doc]` for any remaining project-owned file whose classification cannot be derived from those rules.
+
+Do not report ignored paths as `process` or `unclassified`, and do not infer that an unfamiliar directory is ignored when it is not explicitly matched by `docs/.wikiignore`.
+
+Use `$classify-doc` only for existing non-ADR documents inside the Living Entity Wiki document universe.
 
 ## Finding Priority
 
@@ -375,6 +392,7 @@ Do not log lint runs or issue counts.
 * treat unmerged work as current implementation;
 * infer intent-level compliance from absence of evidence;
 * maintain obsolete entity metadata;
+* classify `docs/.wikiignore`-excluded documentation as Living Entity Wiki source material;
 * log clean runs;
 * perform cross-entity synthesis.
 
@@ -391,7 +409,7 @@ Before reporting a clean result, build a working **Wiki Audit Coverage** invento
 * every authoritative source referenced by those citations whose lifecycle/eligibility must be checked;
 * every Strict Invariant/Planned/Open Question/Boundary Rationale claim requiring the applicable audit stage;
 * every active entity pair/scope implicated by a possible cross-entity contradiction;
-* every project-owned `docs/` file subject to classification.
+* every project-owned `docs/` file remaining in the classification universe after validated `docs/.wikiignore` exclusions are applied.
 
 Each candidate receives a working disposition:
 

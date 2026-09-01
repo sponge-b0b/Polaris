@@ -563,13 +563,80 @@ This is a product-level relationship, not a commitment to a particular event sch
 
 For the detailed rationale, see [`product-authority-model.md`](./product-authority-model.md).
 
+## Scope Boundaries
+
+Polaris owns the **portfolio decision lifecycle** and the trust, context, provenance, attention, reasoning, authority, continuity, evaluation, and learning responsibilities necessary to make that lifecycle coherent. It does not need to own every system or capability that supplies evidence to, supports, or receives action from that lifecycle.
+
+The governing rules are:
+
+> **Polaris owns decisions, not everything decisions touch.**
+
+> **Dependency does not imply ownership.**
+
+> **Feature presence does not imply product-category ownership.**
+
+### Three scope rings
+
+Polaris scope has three responsibility rings:
+
+1. **Polaris-owned responsibilities.** The decision lifecycle itself: attention and materiality, decision context, evidence use and provenance, interpretation and challenge, portfolio consequences, risk-aware reasoning, authority and governance, recommendation, human-decision continuity, external-action reconciliation, outcome, evaluation, and learning.
+2. **Supporting capabilities.** Capabilities such as charts, research tools, news ingestion, screening, simulation, backtesting, reports, conversation, dashboards, collaboration, and integrations may exist inside Polaris when they materially improve decision quality, reduce friction, support explanation, preserve continuity, or improve evaluation.
+3. **External specialist responsibilities.** Responsibilities such as exchange-speed execution, brokerage operations, official books and records, portfolio accounting, custody, settlement, tax accounting, comprehensive market-data vending, generalized quantitative development, general-purpose AI, and broad regulatory operations remain outside Polaris's defining product responsibility unless the Product Definition is explicitly reconsidered.
+
+Supporting status does not imply low quality. A supporting capability may be sophisticated and differentiated when excellence materially improves the decision experience. Its evolution must remain accountable to the portfolio decision system rather than developing an independent product mandate.
+
+### Integrate rather than duplicate ownership
+
+Where a specialist external system has factual or operational authority, Polaris should normally integrate with it and preserve that authority rather than create a competing shadow system of record.
+
+Polaris may cache, normalize, derive, preserve, reconcile, and reason over external state. Where another system owns the underlying fact, operational reality remains authoritative.
+
+This applies to market data, portfolio state, execution evidence, accounting facts, and other externally authoritative information.
+
+### Decision-oriented scope examples
+
+* **Market data:** decision-relevant acquisition, attribution, freshness, sufficiency, and interpretation are in scope; comprehensive exchange-speed market-data vending is not a defining responsibility.
+* **Portfolio state:** decision-oriented holdings, exposure, concentration, and risk context are in scope; official portfolio accounting and books-and-records ownership are not implied.
+* **Research:** gathering, attributing, synthesizing, challenging, and connecting research to decisions are in scope; comprehensive information possession is not the objective.
+* **Simulation and backtesting:** in scope when they form, challenge, evaluate, or improve decisions; generalized quantitative-programming infrastructure is not itself a Polaris job.
+* **Risk:** portfolio decision risk and configured decision policy are core; exchange-time margin, buying-power, and execution controls remain with specialist operational systems.
+* **Reporting and distribution:** reports, PDFs, email, dashboards, CLI, API, and MCP may project shared decision state; they do not become independent product centers.
+* **Governance:** decision governance is core; broad regulatory operations require separate product justification.
+* **Collaboration:** small-team decision collaboration is in scope; enterprise organization machinery is not presently a design center.
+* **Opportunity discovery:** may support an attentive decision system; generalized screening is not the product center.
+* **Conversation:** an important decision interface, not a general financial chatbot.
+* **Workflow infrastructure:** reusable internal infrastructure is compatible with Polaris; arbitrary workflow construction is not a primary user job.
+
+### Scope decision test
+
+Before a major capability becomes Polaris scope, ask:
+
+1. Does it materially support **Understand, Challenge, Apply portfolio context, Decide under risk, Explain, or Learn**?
+2. Does Polaris need to own the responsibility to fulfill its decision contract?
+3. Can a specialist system own the underlying responsibility while Polaris consumes, reconciles, or projects the necessary evidence?
+4. Would a narrower Polaris-native capability materially improve decision quality or reduce user friction?
+5. Would owning the full category create a new primary user job or materially change Polaris's authority model, latency contract, operational responsibility, regulatory burden, or product identity?
+
+If the final answer is yes, there is a strong presumption that the broader category is outside scope until the Product Definition is explicitly reconsidered.
+
+### Scope consequences
+
+* **Core responsibilities must close the decision lifecycle.**
+* **Supporting features justify themselves through decision value.**
+* **A supporting capability may be excellent without becoming a new product center.**
+* **Authoritative specialist systems should remain authoritative for the responsibilities they own.**
+* **Polaris should integrate and reconcile rather than casually create shadow systems of record.**
+* **Expansion that creates a new primary job, authority domain, latency regime, regulatory burden, or operational contract is presumed outside scope until explicitly reconsidered.**
+
+For the detailed rationale, see [`product-scope-boundaries.md`](./product-scope-boundaries.md).
+
 ## Current product framing
 
 The working product framing is:
 
 > **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; preserves the material authority path behind decisions; observes external execution evidence so decisions remain connected to what actually happened; and preserves the lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; preserves the material authority path behind decisions; observes external execution evidence so decisions remain connected to what actually happened; integrates with specialist systems without assuming their product responsibilities; and preserves the lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 
@@ -577,7 +644,6 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Scope boundaries
-2. Differentiation
-3. Core capabilities
-4. Product principles
+1. Differentiation
+2. Core capabilities
+3. Product principles

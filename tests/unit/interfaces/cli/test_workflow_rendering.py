@@ -11,7 +11,19 @@ from typing import Any, Protocol, cast
 from typer.testing import CliRunner
 
 import interfaces.cli.services.workflow_command_service as workflow_command_service
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
 from application.reports import MorningReportPresentationPreparation
+from application.reports.morning_report_models import MorningReportDocument
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import morning_report_command, workflow_command
 from interfaces.cli.formatters.console_formatter import format_workflow_run
@@ -230,8 +242,9 @@ def test_morning_report_command_renders_output_when_runtime_setup_raises(
 
     assert result.exit_code == 1
     assert "# Polaris Morning Financial Report" in result.output
-    assert "| Workflow Status | Failed |" in result.output
-    assert "provider key missing" in result.output
+    assert "## Presentation Status" in result.output
+    assert "This report is unavailable for external presentation." in result.output
+    assert "- Disposition: withheld" in result.output
 
 
 def test_morning_report_command_renders_professional_report_by_default(
@@ -399,13 +412,9 @@ def test_morning_report_command_raw_uses_generic_workflow_rendering(
         ],
     )
 
-    assert result.exit_code == 0
-    assert "Workflow: morning_report" in result.output
-    assert "Success: True" in result.output
-    assert "Runtime Node Outputs:" in result.output
-    assert "Node: technical_agent" in result.output
-    assert '"directional_score": 0.42' in result.output
-    assert "# Polaris Morning Financial Report" not in result.output
+    assert result.exit_code != 0
+    assert "--raw cannot bypass governed morning-report presentation" in result.output
+    assert "Runtime Node Outputs:" not in result.output
 
 
 def test_morning_report_command_rejects_obsolete_console_format() -> None:
@@ -475,6 +484,7 @@ def test_morning_report_command_enables_progress_without_control_by_default(
         "WorkflowCommandService",
         FakeWorkflowCommandService,
     )
+    _patch_governed_morning_report_presentation(monkeypatch)
 
     result = CliRunner().invoke(
         create_app(),
@@ -571,12 +581,12 @@ def test_workflow_run_command_renders_failed_workflow_result(
     data = json.loads(
         result.stdout,
     )
-    assert data["workflow_name"] == "morning_report"
-    assert data["success"] is False
-    assert data["payload"]["morning_report"]["summary"] == "Partial report"
+    assert data["presentation"]["may_present"] is False
+    assert data["presentation"]["disposition"] == "withheld"
+    assert data["report"] is None
 
 
-def test_workflow_run_command_renders_morning_report_by_default(
+def test_workflow_run_command_withholds_ungoverned_morning_report_by_default(
     monkeypatch,
 ) -> None:
     class FakeWorkflowCommandService:
@@ -605,8 +615,9 @@ def test_workflow_run_command_renders_morning_report_by_default(
 
     assert result.exit_code == 0
     assert "# Polaris Morning Financial Report" in result.output
-    assert "## Executive Summary" in result.output
-    assert "Macro full LLM response for the CLI report." in result.output
+    assert "## Presentation Status" in result.output
+    assert "This report is unavailable for external presentation." in result.output
+    assert "did not provide a governed morning-report result" in result.output
     assert "Runtime Node Outputs:" not in result.output
 
 
@@ -813,8 +824,9 @@ def test_morning_report_command_json_writes_default_artifact_and_clean_stdout(
     )
 
     assert result.exit_code == 0
-    assert stdout_data["workflow_name"] == "morning_report"
-    assert stdout_data["success"] is True
+    assert stdout_data["presentation"]["may_present"] is True
+    assert stdout_data["presentation"]["disposition"] == "eligible"
+    assert stdout_data["report"]["symbol"] == "SPY"
     assert "[control]" not in result.stdout
     assert "[output]" not in result.stdout
     assert (
@@ -1136,7 +1148,9 @@ def test_workflow_run_command_json_output_override_writes_artifact_clean_stdout(
     )
 
     assert result.exit_code == 0
-    assert stdout_data["workflow_name"] == "morning_report"
+    assert stdout_data["presentation"]["may_present"] is False
+    assert stdout_data["presentation"]["disposition"] == "withheld"
+    assert stdout_data["report"] is None
     assert file_data == stdout_data
     assert "[control]" not in result.stdout
     assert f"[output] wrote {output_path}" in result.stderr
@@ -1240,6 +1254,45 @@ def _patch_cli_runtime(
         workflow_command_service,
         "cli_runtime_scope",
         _runtime_scope_from_builder(build_runtime),
+    )
+    _patch_governed_morning_report_presentation(monkeypatch)
+
+
+def _patch_governed_morning_report_presentation(monkeypatch: Any) -> None:
+    async def prepare(
+        document: MorningReportDocument,
+    ) -> MorningReportPresentationPreparation:
+        return MorningReportPresentationPreparation(
+            result=_governed_morning_report(document),
+        )
+
+    monkeypatch.setattr(
+        morning_report_command,
+        "_prepare_morning_report",
+        prepare,
+    )
+
+
+def _governed_morning_report(
+    document: MorningReportDocument,
+) -> GovernedPresentationResult[MorningReportDocument]:
+    authority = document.authority
+    return GovernedPresentationResult(
+        payload=document,
+        decision=PresentationSinkDecision(
+            disposition=PresentationSinkDisposition.ELIGIBLE,
+            gate_decision=RiskAuthorityGateDecision(
+                status=RiskAuthorityGateDecisionStatus.PASSED,
+                failure_mode=RiskAuthorityGateFailureMode.NONE,
+                message="test report is eligible for rendering",
+                risk_tier=authority.risk_tier,
+                gate_profile=authority.gate_profile,
+                authority_metadata=authority.to_metadata(),
+                evidence=RiskAuthorityGateEvidence(),
+            ),
+            reasons=("test report is eligible for rendering",),
+            limitations=document.authority_limitations,
+        ),
     )
 
 

@@ -611,16 +611,411 @@ The Jobs decision implies:
 * the decision record should remain a product concept until later product and architecture work determines its best implementation;
 * supporting capabilities such as news, simulation, retrieval, reporting, and automation must justify themselves through the decision cycle rather than becoming independent product centers.
 
+## 4. Product Identity
+
+### Decision
+
+Polaris is an **AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams**.
+
+It combines investment intelligence, portfolio context, risk-aware reasoning, durable decision evidence, and evaluation into an opinionated decision lifecycle that supports—but does not replace—human investment judgment.
+
+Polaris is delivered through a configurable and extensible product platform, but it is not a general-purpose AI, workflow, or financial-development platform. Its configurability exists to adapt the Polaris decision process to different portfolios, strategies, evidence sources, models, and operating contexts.
+
+### Why "portfolio decision system" is the primary identity
+
+Purpose, Users, and Jobs all converge on the same endpoint: a trustworthy portfolio decision lifecycle.
+
+The intended user is not primarily trying to build software or assemble arbitrary workflows. The user wants help determining what to do with a portfolio, why, what could make that judgment wrong, and what should be learned afterward.
+
+"Portfolio decision system" therefore describes the product in terms of the job it performs rather than the infrastructure it contains.
+
+The identity hierarchy is:
+
+```text
+WHAT IS POLARIS?
+
+Portfolio Decision System
+
+        ↓ supported by
+
+Investment Intelligence
+
+        ↓ delivered through
+
+A configurable product platform
+```
+
+The order matters. Reversing it would allow platform and infrastructure concerns to define the product instead of serving it.
+
+### Why platform is not the primary noun
+
+Polaris clearly contains platform-like mechanisms: runtime orchestration, workflows, providers, persistence, retrieval, telemetry, governance, replay, interfaces, and extensibility.
+
+That does not make "platform" the right primary product identity.
+
+A platform-first identity naturally encourages questions such as:
+
+* What else could users build with this runtime?
+* Which generic plugin system should exist?
+* How arbitrary should workflow composition become?
+* Which additional framework primitives should be exposed?
+
+Those may be reasonable implementation questions in context, but they are dangerous as product drivers because almost any generic infrastructure feature can then justify itself through hypothetical future flexibility.
+
+The governing rule should be:
+
+> Polaris may have a platform architecture without being a platform-first product.
+
+Platform capability is justified when it makes the portfolio decision product more configurable, reliable, extensible, or integratable.
+
+### Why Polaris is more than a conventional application
+
+The opposite extreme is also insufficient.
+
+A conventional financial application could be imagined as:
+
+```text
+Dashboard
+  ↓
+Run analysis
+  ↓
+See recommendation
+```
+
+The accepted Jobs model is much richer:
+
+```text
+observe
+  ↓
+reason
+  ↓
+challenge
+  ↓
+apply portfolio context
+  ↓
+risk-aware recommendation
+  ↓
+human decision
+  ↓
+preserve
+  ↓
+evaluate
+  ↓
+learn
+```
+
+Supporting that lifecycle across different portfolios, strategies, evidence sources, models, risk policies, time horizons, and operating contexts requires meaningful configurability and extensibility.
+
+The correct distinction is therefore not application versus platform. It is **domain product versus blank canvas**.
+
+Polaris should be configurable as a portfolio decision product rather than programmable as an arbitrary financial-AI construction kit.
+
+### Opinionated decision lifecycle, configurable investment process
+
+Polaris should be **very opinionated about the decision lifecycle while remaining flexible about how users configure their investment process**.
+
+A trustworthy Polaris decision should have recognizable concepts such as:
+
+```text
+Decision context
+Evidence
+Portfolio state
+Interpretation
+Challenge / uncertainty
+Risk
+Alternatives
+Recommendation
+Explanation
+Human decision
+Evaluation
+```
+
+Users should be free to vary appropriate domain inputs and policies, including:
+
+* portfolios and asset universes;
+* strategies;
+* indicators and analytical methods;
+* evidence and data providers;
+* models;
+* risk thresholds and policies;
+* investment horizons;
+* reporting and operating preferences.
+
+That flexibility should not remove the product's opinion about what a trustworthy decision process requires.
+
+A useful contrast is:
+
+```text
+Generic platform:
+"Build whatever workflow you want."
+
+Polaris:
+"Configure how Polaris performs portfolio decision work."
+```
+
+### Product identity, capabilities, and delivery architecture
+
+Three layers help keep the product concept coherent:
+
+#### 1. Product identity — Portfolio Decision System
+
+The core is the investment decision lifecycle:
+
+```text
+Evidence
+   ↓
+Decision process
+   ↓
+Recommendation
+   ↓
+Human decision
+   ↓
+Evaluation
+```
+
+Everything else exists to participate in or support that lifecycle.
+
+#### 2. Product capabilities — Investment Intelligence
+
+Capabilities such as market understanding, research, portfolio intelligence, risk, strategy reasoning, historical knowledge, simulation, and evaluation supply the information and reasoning necessary for decisions.
+
+Investment intelligence is therefore important, but it is not the endpoint.
+
+A product that merely tells the user "everything you should know today" stops before the job Polaris has accepted.
+
+#### 3. Delivery architecture — Configurable product platform
+
+The product may need qualities such as:
+
+```text
+configurable
+composable
+extensible
+replayable
+observable
+integratable
+```
+
+These qualities allow Polaris to support different portfolios and investment processes without becoming a fixed monolith.
+
+They remain subordinate to the domain product.
+
+### Why investment intelligence is insufficient as the whole identity
+
+"Investment intelligence" usefully covers research, market understanding, synthesis, knowledge, portfolio context, and risk.
+
+Its weakness is that it does not clearly specify the endpoint.
+
+A pure investment-intelligence product might stop at:
+
+> Here is what matters today.
+
+Polaris is intended to go farther:
+
+> Given what matters today, what are the reasonable portfolio actions, which is preferred, why, what could make that view wrong, and how should the decision be evaluated afterward?
+
+Investment intelligence is therefore a major capability family within the portfolio decision system rather than the fundamental identity itself.
+
+### Why decision support is accurate but incomplete as the primary phrase
+
+"Decision-support system" correctly communicates that the human retains authority.
+
+Its weakness is that it can imply a passive analytical application: data, dashboards, and tools that leave nearly all synthesis to the user.
+
+Polaris is intended to be more active. It gathers evidence, reasons, synthesizes, challenges, applies portfolio and risk context, forms recommendations, preserves decision evidence, and supports evaluation.
+
+For that reason, **AI-assisted portfolio decision system** is the stronger primary identity, while **portfolio intelligence and decision-support platform** remains useful explanatory and positioning language.
+
+### Why "AI-assisted" rather than "AI-native"
+
+AI is central enough to Polaris that hiding it would be misleading, but it should remain a means rather than product ideology.
+
+Calling Polaris "AI-native" risks encouraging future design choices to begin with:
+
+> How can AI do this?
+
+The stronger question is:
+
+> What implementation produces the most trustworthy decision outcome?
+
+The accepted authority direction already points toward:
+
+```text
+AI where reasoning and synthesis add value
+Deterministic software where rules and guarantees matter
+Human judgment where consequential authority matters
+```
+
+"AI-assisted" communicates the importance of AI without implying that every meaningful capability should be model-driven.
+
+Polaris should be perfectly willing to solve a product problem deterministically when that is the better solution.
+
+### Why Polaris is not a portfolio-management system
+
+"Portfolio management system" sounds close to the intended domain but carries a much larger operational contract.
+
+It can imply ownership of:
+
+* portfolio accounting;
+* books and records;
+* reconciliation;
+* trade lifecycle;
+* order management;
+* broker operations;
+* execution;
+* compliance operations;
+* performance accounting;
+* client accounting.
+
+Polaris needs authoritative enough portfolio state to reason about decisions, but that does not mean it should own every operational responsibility associated with managing a portfolio.
+
+"Portfolio decision system" is more precise and avoids accidentally expanding the product contract into a full investment-operations stack.
+
+### The decision lifecycle as the organizing spine
+
+Once Polaris is understood as a portfolio decision system, the decision lifecycle becomes the natural organizing spine of the product.
+
+A conceptual view is:
+
+```text
+                 POLARIS
+
+          Portfolio Decision System
+
+                   │
+       ┌───────────┴───────────┐
+       │                       │
+Decision Intelligence      Decision Memory
+       │                       │
+Market                    Decision records
+Research                  Outcomes
+Portfolio                 Evaluations
+Risk                      Historical context
+Strategy                  Lessons
+       │                       │
+       └───────────┬───────────┘
+                   │
+             Decision Lifecycle
+                   │
+                 Human
+```
+
+Those exact capability labels are not yet frozen. The durable point is that agents, workflows, services, storage technologies, and runtime components should not become the conceptual spine merely because they are prominent in implementation.
+
+This gives later capability and architecture reviews a powerful question:
+
+> Where does this subsystem participate in or support the decision lifecycle?
+
+If the answer is unclear, it is either a supporting platform mechanism whose value should be demonstrated or a candidate for removal from the product.
+
+### Why "runtime-native" is not product identity
+
+A strong runtime may be a significant implementation advantage, but the target user does not primarily need a runtime-native product.
+
+The user needs outcomes such as:
+
+* reliable decision execution;
+* preserved evidence;
+* visible failures and uncertainty;
+* replay where appropriate;
+* enforced governance;
+* inspectable history;
+* evaluable decisions.
+
+A strong runtime can make those outcomes possible. The runtime is therefore a means to trustworthy execution, not the reason the user hires Polaris.
+
+"Runtime-native" should be treated as an architectural or product-quality characteristic rather than the core public identity.
+
+### Why Polaris is not a blank canvas
+
+Freezing this identity means accepting a deliberate limitation:
+
+> Polaris is not a toolkit from which users assemble arbitrary financial AI systems.
+
+The product has an opinion about the domain and about how trustworthy investment decisions are formed.
+
+Even when the implementation exposes powerful workflow composition, the preferred user-facing concepts should trend toward domain language such as:
+
+```text
+research inputs
+decision evidence
+portfolio context
+strategy
+risk policy
+recommendation
+review
+evaluation
+```
+
+rather than forcing product users to think primarily in implementation primitives such as:
+
+```text
+nodes
+edges
+agents
+prompts
+generic tools
+graphs
+```
+
+The latter may remain useful to developers and operators underneath the product surface. They should not define the investment user's conceptual model.
+
+### Alternatives considered
+
+#### Platform-first financial AI product
+
+Rejected because it makes extensibility and generic construction capability the product center. This would make it too easy for runtime and framework features to outrank investment-user value.
+
+#### Conventional portfolio application
+
+Rejected as too narrow because the accepted decision lifecycle requires meaningful configurability, extensibility, multiple evidence sources, durable history, evaluation, and integration with different investment processes.
+
+#### Investment intelligence platform
+
+Useful as a capability and positioning phrase, but insufficient as the core identity because intelligence can stop before a decision and is broad enough to permit uncontrolled analytical expansion.
+
+#### Portfolio decision-support platform
+
+Strong and substantially correct. It remains useful public language, especially because it communicates human authority. "Portfolio decision system" is preferred as the deeper identity because Polaris actively participates in the full decision lifecycle rather than merely supplying passive support surfaces.
+
+#### AI-native investment operating system
+
+Rejected as the primary identity. "Operating system" is too expansive and can justify absorbing every adjacent investment function, while "AI-native" risks turning a means into ideology.
+
+#### Portfolio management system
+
+Rejected because it implies operational ownership well beyond the accepted decision-support product boundary.
+
+#### Generic AI-agent or workflow framework
+
+Explicitly rejected as product identity. The runtime may contain reusable general mechanisms, but generic developer extensibility is not the user job Polaris exists to perform.
+
+### Consequences
+
+The Product Identity decision implies:
+
+* **decision system > investment intelligence > product platform** is the governing hierarchy;
+* platform architecture must justify itself by improving the portfolio decision product;
+* Polaris should be opinionated about the decision lifecycle rather than offering arbitrary workflow construction as the primary experience;
+* users should configure domain concepts and investment process where practical rather than runtime implementation primitives;
+* extensibility should primarily adapt evidence, portfolios, strategies, models, risk policies, and operating contexts to the Polaris decision process;
+* AI remains an important reasoning mechanism but is not privileged over deterministic implementations when deterministic software is more trustworthy;
+* "runtime-native" should be treated as an implementation/product-quality characteristic rather than the fundamental product identity;
+* portfolio state is necessary, but Polaris should not implicitly become the system of record for all portfolio operations;
+* investment intelligence capabilities should be judged by whether they advance the decision lifecycle rather than by analytical breadth alone;
+* the decision lifecycle should organize later capability mapping and provide a test for whether existing subsystems belong in Polaris;
+* public interfaces should increasingly expose investment-domain concepts without requiring the user to understand the runtime's internal graph, agent, prompt, or service topology;
+* a reusable internal platform is compatible with this identity as long as it remains subordinate to the domain product.
+
 ## Open Product Definition sequence
 
 The next Product Definition topics remain:
 
-1. Product identity
-2. Core experience
-3. Authority model
-4. Scope boundaries
-5. Differentiation
-6. Core capabilities
-7. Product principles
+1. Core experience
+2. Authority model
+3. Scope boundaries
+4. Differentiation
+5. Core capabilities
+6. Product principles
 
 New rationale should be added as those decisions are made rather than reconstructed after the full exercise is complete.

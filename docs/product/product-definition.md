@@ -113,13 +113,53 @@ A completed decision process should leave durable evidence sufficient to inspect
 
 Polaris is not primarily hired to provide raw market data, draw charts, screen securities, execute brokerage orders, manage brokerage accounts, build arbitrary AI workflows, act as an unrestricted financial chatbot, consume news, or generate reports. Any such capability must justify itself by serving the decision cycle, explanation, evaluation, or durable knowledge that improves future decisions.
 
+## Product Identity
+
+Polaris is an **AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams**.
+
+It combines investment intelligence, portfolio context, risk-aware reasoning, durable decision evidence, and evaluation into an opinionated decision lifecycle that supports—but does not replace—human investment judgment.
+
+Polaris is delivered through a configurable and extensible product platform, but it is not a general-purpose AI, workflow, or financial-development platform. Its configurability exists to adapt the Polaris decision process to different portfolios, strategies, evidence sources, models, and operating contexts.
+
+### Identity hierarchy
+
+The product hierarchy is:
+
+```text
+Portfolio Decision System
+        ↓ supported by
+Investment Intelligence
+        ↓ delivered through
+Configurable Product Platform
+```
+
+The hierarchy is intentional. The decision system defines the product. Investment intelligence supplies the evidence and reasoning capabilities necessary to support that system. Platform mechanisms make the product configurable, extensible, reliable, and integratable without becoming the product's primary identity.
+
+### Opinionated lifecycle, configurable process
+
+Polaris should be **opinionated about the investment decision lifecycle and flexible about the investment process configured within it**.
+
+A trustworthy Polaris decision should have recognizable concepts such as decision context, attributable evidence, portfolio state, interpretation, challenge or uncertainty, explicit risk, alternatives, recommendation, explanation, a human decision boundary, and later evaluation where applicable.
+
+Users may vary their portfolios, strategies, indicators, evidence providers, models, risk thresholds, time horizons, and other domain configuration. That flexibility must not turn Polaris into a blank canvas for arbitrary workflow construction.
+
+### Identity consequences
+
+* **Decision system before platform.** Platform architecture and extensibility must serve the portfolio decision product rather than compete with it for identity.
+* **Investment intelligence is a capability family, not the endpoint.** Research and analysis are valuable when they advance the decision lifecycle.
+* **Domain configurability, not general-purpose programmability.** Polaris should expose investment-domain concepts where possible rather than requiring users to think in runtime primitives such as nodes, graphs, agents, prompts, or generic tools.
+* **AI-assisted, not AI-governed.** AI is an important reasoning mechanism, but the product must remain free to prefer deterministic software wherever that creates a more trustworthy result.
+* **Not a portfolio-management system of record.** Polaris needs portfolio state and portfolio reasoning without implicitly owning accounting, reconciliation, order management, trade lifecycle, brokerage operations, or every operational aspect of portfolio management.
+* **The decision lifecycle is the organizing spine.** Product capabilities and existing subsystems should be evaluated by where they participate in or support that lifecycle.
+* **Runtime qualities remain subordinate to user value.** Reliability, replayability, observability, provenance, and governance may be enabled by a strong runtime, but "runtime-native" is not the fundamental product purpose.
+
 ## Current product framing
 
 The working product framing is:
 
-> **Polaris is an AI-assisted portfolio intelligence and decision-support platform for sophisticated individual decision-makers and small investment teams.**
+> **Polaris is an AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, repeatable decision process while keeping consequential investment authority human.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process while keeping consequential investment authority human and preserving the decision lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 
@@ -127,10 +167,9 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Product identity
-2. Core experience
-3. Authority model
-4. Scope boundaries
-5. Differentiation
-6. Core capabilities
-7. Product principles
+1. Core experience
+2. Authority model
+3. Scope boundaries
+4. Differentiation
+5. Core capabilities
+6. Product principles

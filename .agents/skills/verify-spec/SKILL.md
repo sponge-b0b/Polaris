@@ -157,7 +157,7 @@ Run the deterministic verifier self-test when this workflow utility is in scope:
 uv run python "$ARTIFACT_TOOL" self-test
 ```
 
-Invoke `$wiki-lint` when Living Entity Wiki routing applies. Invoke `$deduplicate-code` only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible. Run other deterministic checks only when their artifact classes apply.
+Invoke the `$wiki-lint` skill when Living Entity Wiki routing applies. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible. Run other deterministic checks only when their artifact classes apply.
 
 Inherited-only unrelated failures are report-only only after **Observed Failure Disposition** below proves that causal classification. Surface ownership alone is not causal evidence.
 

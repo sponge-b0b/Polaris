@@ -630,13 +630,116 @@ If the final answer is yes, there is a strong presumption that the broader categ
 
 For the detailed rationale, see [`product-scope-boundaries.md`](./product-scope-boundaries.md).
 
+## Differentiation
+
+Polaris differentiates by treating **portfolio decisions as durable, first-class lifecycles** rather than disposable analyses, recommendations, conversations, reports, alerts, workflows, or trades.
+
+A Polaris decision keeps the material evidence, reasoning, challenge, portfolio context, risk, authority path, human judgment, external action evidence, outcome, evaluation, and lessons connected over time. The decision is therefore the durable product object; interfaces, models, reports, workflows, and analytical techniques are replaceable means used to form, inspect, project, or evaluate it.
+
+### Three central differentiators
+
+1. **Durable decisions.** The decision persists as a closed lifecycle rather than ending at analysis or recommendation. Past decisions remain operational context for future attention, evaluation, and learning.
+2. **Trust by architecture.** Polaris creates trust through attributable evidence, decision-appropriate freshness, deterministic constraints, analytical challenge, positive authority provenance, explicit human judgment, and authoritative external operational truth rather than model confidence alone.
+3. **Attentive intelligence.** Durable portfolio and decision context allows Polaris to determine which new information materially affects an active thesis, risk, assumption, review condition, or decision; investigate relevant change proactively; and remain quiet when nothing material changed.
+
+### Portfolio decision quality over generic intelligence
+
+Polaris does not stop at an investment opinion. Investment intelligence must be translated into consequences for the actual portfolio, shaped by risk and policy, challenged before recommendation, and evaluated afterward.
+
+The intended progression is:
+
+```text
+Investment evidence
+        ↓
+Interpretation + challenge
+        ↓
+Portfolio consequences
+        ↓
+Risk + policy
+        ↓
+Recommendation
+        ↓
+Human decision
+        ↓
+Observed result
+        ↓
+Evaluation + learning
+```
+
+This makes the portfolio decision—not a security opinion, chat answer, signal, or model output—the final unit of product value.
+
+### Human-governed initiative
+
+Polaris combines substantial analytical autonomy with constrained capital authority. It may notice, investigate, reassess, challenge, recommend, and proactively bring prepared work to the human without waiting for every prompt. Consequential investment judgment remains human, and external systems remain responsible for execution.
+
+The differentiating interaction is therefore neither passive decision support nor autonomous trading:
+
+> **Maximum useful analytical initiative without surrendering consequential human investment judgment.**
+
+### Decision provenance and historical integrity
+
+Evidence provenance and authority provenance should make the material decision path reconstructable from what was knowable at the time. Historical evaluation should distinguish reasoning quality, policy effects, human judgment, execution fidelity, and realized outcome rather than treating P&L alone as proof of decision quality.
+
+Polaris should not silently use future information to rewrite what a past decision should have known, and stale current context should reduce, qualify, or invalidate a recommendation when the decision requires fresher evidence.
+
+### Differentiation is cumulative, not feature-based
+
+No single supporting feature defines Polaris. Agents, models, RAG, replay, MCP, telemetry, orchestration, databases, reports, and integrations may all improve the product, but they are replaceable implementation means.
+
+The durable differentiation emerges from the combination:
+
+```text
+Attentive
+    +
+Portfolio-aware
+    +
+Decision-centered
+    +
+Challenge-oriented
+    +
+Risk-shaped
+    +
+Evidence-provenanced
+    +
+Authority-provenanced
+    +
+Human-governed
+    +
+Execution-aware
+    +
+Historically faithful
+    +
+Outcome-evaluated
+    +
+Learning
+```
+
+Reproducing the complete behavior would require an adjacent product to adopt the same underlying premise: **the portfolio decision lifecycle is the product**.
+
+### Differentiation consequences
+
+* **The decision is the durable product object.**
+* **Closed loop beats analyze-and-forget.**
+* **Trust comes from provenance and separation of powers, not model confidence alone.**
+* **Portfolio consequence matters more than generic investment opinion.**
+* **Challenge is structural, not optional implementation theater.**
+* **Risk shapes recommendations.**
+* **Human authority coexists with strong AI initiative.**
+* **External execution remains connected without becoming Polaris-controlled.**
+* **Learning evaluates reasoning, authority, execution, and outcome rather than P&L alone.**
+* **Historical evaluation uses what was knowable then.**
+* **Attention quality matters more than notification quantity.**
+* **The coherent system is the differentiation; implementation features are replaceable means.**
+
+For the detailed rationale and adjacent-product comparison, see [`product-differentiation.md`](./product-differentiation.md).
+
 ## Current product framing
 
 The working product framing is:
 
 > **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; preserves the material authority path behind decisions; observes external execution evidence so decisions remain connected to what actually happened; integrates with specialist systems without assuming their product responsibilities; and preserves the lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; treats decisions as durable lifecycles rather than disposable outputs; creates trust through evidence and authority provenance; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; observes external execution evidence so decisions remain connected to what actually happened; integrates with specialist systems without assuming their product responsibilities; and preserves the lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 
@@ -644,6 +747,5 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Differentiation
-2. Core capabilities
-3. Product principles
+1. Core capabilities
+2. Product principles

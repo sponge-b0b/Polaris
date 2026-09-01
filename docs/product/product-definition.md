@@ -63,6 +63,56 @@ Polaris is not primarily designed for:
 
 These exclusions define the primary design center, not an assertion that Polaris can never support adjacent users.
 
+## Problems / Jobs to Be Done
+
+Polaris is hired to help a portfolio decision-maker **turn fragmented and uncertain evidence into a reasoned, risk-aware portfolio decision; understand and defend that decision; preserve what was known and why the recommendation was made; and evaluate the decision process afterward so future decisions can improve**.
+
+The primary job is not to generate activity. A valid result may be to act, wait, reduce, add, rebalance, hedge where appropriate, or deliberately do nothing. The product is responsible for improving decision quality rather than maximizing the number of recommendations or trades.
+
+### Core jobs
+
+The Polaris decision cycle has six durable user jobs:
+
+1. **Understand the current decision context.** Turn fragmented market, macro, news, sentiment, technical, portfolio, historical, and other relevant evidence into a coherent view of what matters now.
+2. **Develop and challenge an investment view.** Move from facts to a reasoned interpretation while exposing competing explanations, disagreement, uncertainty, assumptions, and evidence that could invalidate the leading thesis.
+3. **Translate the view into portfolio consequences.** Determine what the evidence means given current positions, concentration, exposure, strategy, time horizon, risk, and competing opportunities.
+4. **Choose among actions under explicit risk.** Compare reasonable actions and tradeoffs, allow risk to shape the recommendation itself, and explain what conditions would change the preferred action.
+5. **Understand, communicate, and defend the decision.** Preserve enough evidence, assumptions, disagreement, constraints, reasoning, recommendation, and uncertainty to answer why the decision was made without reconstructing the analysis from memory.
+6. **Learn from decisions over time.** Revisit what was known, what was believed, what happened, which assumptions failed, and whether the reasoning process was useful so future decisions and processes can improve.
+
+A concise product shorthand for these jobs is:
+
+> **Understand → Challenge → Apply portfolio context → Decide under risk → Explain → Learn**
+
+### Decision lifecycle
+
+Polaris should support a closed decision loop rather than an analyze-and-forget workflow:
+
+```text
+observe
+  ↓
+reason
+  ↓
+recommend
+  ↓
+human decision
+  ↓
+observe outcome
+  ↓
+evaluate
+  ↓
+learn
+  └────────→ future decisions
+```
+
+A completed decision process should leave durable evidence sufficient to inspect the decision over time. The working product concept is a **decision record**: a durable representation of decision context, evidence, interpretations, disagreement, uncertainty, risk, alternatives, recommendation, reasoning, human decision where recorded, subsequent outcome, evaluation, and lessons as those become available.
+
+`Decision record` is a product concept at this stage, not a commitment to a particular implementation object, storage model, or API.
+
+### Job boundaries
+
+Polaris is not primarily hired to provide raw market data, draw charts, screen securities, execute brokerage orders, manage brokerage accounts, build arbitrary AI workflows, act as an unrestricted financial chatbot, consume news, or generate reports. Any such capability must justify itself by serving the decision cycle, explanation, evaluation, or durable knowledge that improves future decisions.
+
 ## Current product framing
 
 The working product framing is:
@@ -77,11 +127,10 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Problems / jobs to be done
-2. Product identity
-3. Core experience
-4. Authority model
-5. Scope boundaries
-6. Differentiation
-7. Core capabilities
-8. Product principles
+1. Product identity
+2. Core experience
+3. Authority model
+4. Scope boundaries
+5. Differentiation
+6. Core capabilities
+7. Product principles

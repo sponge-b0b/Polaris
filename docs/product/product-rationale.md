@@ -333,17 +333,294 @@ The Users decision implies:
 * SPY and swing trading may remain strong reference scenarios without becoming universal product constraints;
 * generic runtime features must justify their value to Polaris rather than turning Polaris into a general-purpose AI platform.
 
+## 3. Problems / Jobs to Be Done
+
+### Decision
+
+Polaris is hired to help a portfolio decision-maker **turn fragmented and uncertain evidence into a reasoned, risk-aware portfolio decision; understand and defend that decision; preserve what was known and why the recommendation was made; and evaluate the decision process afterward so future decisions can improve**.
+
+The product supports an investment decision cycle rather than a single analytical task. Its value is not measured by how many analyses, recommendations, or trades it produces. A valid outcome may be to act, wait, reduce, add, rebalance, hedge where appropriate, or deliberately do nothing.
+
+The primary job can be expressed as:
+
+> Given an uncertain and changing investment environment, help me determine what—if anything—I should do with my portfolio, why I should do it, what could make that judgment wrong, and whether the decision process proved useful afterward.
+
+### Why the job is a decision cycle
+
+A serious investment decision is not complete when a system emits a directional label, score, or confidence value.
+
+The useful sequence is closer to:
+
+```text
+What is happening?
+        ↓
+What matters?
+        ↓
+What does it mean for this portfolio?
+        ↓
+What are the plausible interpretations?
+        ↓
+What could go wrong?
+        ↓
+What actions are reasonable?
+        ↓
+Which action is preferred, and why?
+        ↓
+What evidence would invalidate that view?
+        ↓
+Human decision
+        ↓
+What happened afterward?
+        ↓
+What should we learn?
+```
+
+This makes decision quality—not recommendation activity—the product objective.
+
+### The six durable jobs
+
+#### 1. Understand the current decision context
+
+The user needs to turn fragmented market conditions, macro information, news, sentiment, technical evidence, portfolio state, exposure, prior decisions, and relevant historical knowledge into a coherent picture of **what matters now**.
+
+The fundamental problem is not lack of data. It is fragmentation, noise, contradictory evidence, changing conditions, and limited human attention.
+
+#### 2. Develop and challenge an investment view
+
+The user needs to move from a collection of facts to a reasoned interpretation.
+
+Polaris should help expose:
+
+* plausible competing explanations;
+* material disagreement;
+* uncertainty;
+* assumptions;
+* evidence that would weaken or invalidate the leading thesis.
+
+The purpose is not artificial debate for its own sake. The purpose is to prevent a plausible first explanation from becoming an unquestioned conclusion.
+
+#### 3. Translate the view into portfolio consequences
+
+An investment thesis is not yet a portfolio decision.
+
+The user needs to understand what the evidence means in the context of:
+
+* existing positions;
+* concentration;
+* exposure;
+* risk tolerance and constraints;
+* strategy;
+* time horizon;
+* competing opportunities.
+
+The same bullish conclusion may rationally imply adding exposure, holding, changing another position, reducing risk elsewhere, or doing nothing depending on portfolio context.
+
+#### 4. Choose among actions under explicit risk
+
+The user needs a recommendation that makes reasonable choices and tradeoffs visible rather than simply producing a directional answer.
+
+Potential choices may include acting, waiting, reducing, adding, rebalancing, hedging where applicable, or remaining unchanged.
+
+Risk must influence the recommendation itself. It should not be reduced to a final compliance stamp saying that an otherwise independent recommendation is approved. Polaris should make clear what risk changed about the preferred action and what conditions would change the recommendation.
+
+#### 5. Understand, communicate, and defend the decision
+
+The user needs to answer **why** without reconstructing the entire analysis from memory.
+
+Polaris should preserve enough of the decision context to make the result inspectable by the same decision-maker later or understandable to another member of the investment team. Relevant material includes evidence, assumptions, disagreement, constraints, reasoning, recommendation, and uncertainty.
+
+This is not merely a reporting job. Explanation is part of making the decision trustworthy.
+
+#### 6. Learn from decisions over time
+
+The user needs to revisit previous decisions and ask:
+
+* What did we know at the time?
+* What did we believe?
+* Which assumptions proved wrong?
+* Was the recommendation reasonable given what was knowable then?
+* Were particular signals, sources, models, reasoning patterns, or strategies consistently useful or misleading?
+* What should change in the future decision process?
+
+This is broader than backtesting a price rule. The job is to improve the **decision process itself**.
+
+It closes the loop from one decision into better future decisions.
+
+### Cognitive fragmentation as a core problem
+
+A serious portfolio decision-maker may use a brokerage platform, market-data tools, economic calendars, news feeds, research notes, spreadsheets, charts, LLM conversations, portfolio records, simulation tools, PDFs, bookmarks, and personal memory.
+
+The problem is not simply that these tools are separate. The deeper problem is that **decision context is fragmented across them**.
+
+The human must mentally connect questions such as:
+
+> What does this new macro evidence mean relative to the technical setup, the current portfolio exposure, the prior thesis, research reviewed weeks ago, the present risk environment, and a recommendation made under similar conditions in the past?
+
+General-purpose LLMs can help with fragments of this work, but they do not by themselves establish durable authoritative context, a stable investment process, portfolio state, reproducible evidence, governance, or historical decision memory.
+
+The resulting product problem is:
+
+> Investment decisions are often made from fragmented evidence without a durable system connecting what was known, how it was interpreted, what action followed, and what was learned afterward.
+
+Polaris should close that chain rather than merely add another analytical surface.
+
+### The closed decision loop
+
+Without durable follow-through, the product degenerates into:
+
+```text
+analyze → recommend → forget
+```
+
+The desired product loop is:
+
+```text
+observe
+  ↓
+reason
+  ↓
+recommend
+  ↓
+human decision
+  ↓
+observe outcome
+  ↓
+evaluate
+  ↓
+learn
+  └────────→ future decisions
+```
+
+This loop explains why persistence, replay, evaluation, historical knowledge, and related mechanisms can be product-relevant. They allow Polaris to learn from the lifecycle of decisions rather than treating every run as an isolated event.
+
+### Decision record as a product concept
+
+A completed Polaris decision process should leave durable evidence that can be inspected over time.
+
+The working product concept is a **decision record** containing or linking the meaningful lifecycle context as it becomes available:
+
+```text
+Decision context
+Evidence
+Interpretations
+Disagreement
+Uncertainty
+Risk
+Alternatives
+Recommendation
+Reasoning
+Human decision
+Subsequent outcome
+Evaluation
+Lessons
+```
+
+This does not yet prescribe a database entity, runtime object, document format, API schema, or user-interface artifact. `Decision record` is product language: it describes the durable thing the user should be able to revisit even if the underlying implementation spans multiple artifacts.
+
+That distinction is intentional. "Persisted workflow run" is an architectural concept; "decision record" describes user value.
+
+### Jobs that do not define Polaris
+
+Users do not primarily hire Polaris to:
+
+* obtain raw market data;
+* draw charts;
+* screen thousands of securities;
+* execute brokerage orders;
+* manage brokerage accounts;
+* build arbitrary AI workflows;
+* use an unrestricted financial chatbot;
+* consume financial news;
+* generate attractive reports or PDFs.
+
+Some of these may be useful supporting capabilities. Their inclusion must be justified by their contribution to the decision cycle, explanation, evaluation, or durable knowledge.
+
+For example, news ingestion is useful when it improves decision context; building a world-class standalone news reader would not automatically follow. Backtesting is useful when it evaluates strategy, reasoning, or recommendation behavior; building a generic quantitative-research framework would not automatically follow.
+
+### Product shorthand
+
+The six jobs can be summarized as:
+
+> **Understand → Challenge → Apply portfolio context → Decide under risk → Explain → Learn**
+
+Together with Purpose and Users, the emerging product logic is:
+
+```text
+WHO?
+Sophisticated individual portfolio decision-makers
+and small investment teams
+
+        ↓
+
+WHAT PROBLEM?
+Investment decisions require synthesizing fragmented,
+uncertain, conflicting evidence in portfolio context
+
+        ↓
+
+WHAT JOB?
+Determine what to do, why, what could make the
+decision wrong, and whether the process worked
+
+        ↓
+
+WHAT DOES POLARIS PROVIDE?
+A systematic, explainable, risk-aware,
+repeatable decision process
+
+        ↓
+
+WHAT REMAINS HUMAN?
+Consequential investment judgment
+
+        ↓
+
+OUTCOME → EVALUATION → LEARNING → BETTER FUTURE DECISION
+```
+
+### Alternatives considered
+
+#### Analytical feature collection
+
+Rejected as the job model because it makes each analytical capability an end in itself and provides no principled way to reject feature growth.
+
+#### Recommendation generator
+
+Rejected because it optimizes for producing answers rather than improving decisions. It also creates pressure to recommend activity when doing nothing may be the correct portfolio decision.
+
+#### Research assistant
+
+Useful but incomplete. Research serves the decision process, but the Polaris job extends through portfolio context, risk, recommendation, explanation, outcome evaluation, and learning.
+
+#### Generic investment workflow automation
+
+Rejected as the primary job because automation describes how work is executed rather than the investment outcome the user is trying to achieve.
+
+### Consequences
+
+The Jobs decision implies:
+
+* every major product capability should map to one or more of the six durable jobs;
+* producing more analysis or more recommendations is not itself a success metric;
+* "do nothing" must remain a legitimate outcome of the decision process;
+* portfolio context and explicit risk are required before an investment view becomes a portfolio recommendation;
+* challenge and falsification are part of decision quality, not decorative multi-agent behavior;
+* explanation is part of the product contract rather than merely report formatting;
+* the lifecycle after a recommendation matters: outcomes, evaluation, and learning are product concerns;
+* historical state should preserve what was knowable at decision time rather than judging the past using future information;
+* the decision record should remain a product concept until later product and architecture work determines its best implementation;
+* supporting capabilities such as news, simulation, retrieval, reporting, and automation must justify themselves through the decision cycle rather than becoming independent product centers.
+
 ## Open Product Definition sequence
 
 The next Product Definition topics remain:
 
-1. Problems / jobs to be done
-2. Product identity
-3. Core experience
-4. Authority model
-5. Scope boundaries
-6. Differentiation
-7. Core capabilities
-8. Product principles
+1. Product identity
+2. Core experience
+3. Authority model
+4. Scope boundaries
+5. Differentiation
+6. Core capabilities
+7. Product principles
 
 New rationale should be added as those decisions are made rather than reconstructed after the full exercise is complete.

@@ -347,9 +347,14 @@ def render_rag_ask_result(command_result: RagAskCommandResult) -> str:
     if command_result.result is None:
         return _render_command_failure(command_result.error or "RAG query failed.")
 
+    presentation = command_result.presentation
+    if command_result.success and (
+        presentation is None or not presentation.may_present
+    ):
+        return _render_rag_unavailable(presentation)
+
     result = command_result.result
     lines = ["RAG Answer"]
-    presentation = command_result.presentation
     if presentation is not None:
         lines.extend(
             [
@@ -486,6 +491,27 @@ def _render_command_failure(error: str) -> str:
             f"Error: {error}",
         ]
     )
+
+
+def _render_rag_unavailable(
+    presentation: GovernedPresentationProjection | None,
+) -> str:
+    lines = ["RAG Answer", "Status: unavailable"]
+    if presentation is None:
+        lines.append("Presentation: missing")
+    else:
+        lines.extend(
+            [
+                f"Presentation: {presentation.disposition}",
+                f"May Present: {presentation.may_present}",
+                *[
+                    f"Limitation: {limitation}"
+                    for limitation in presentation.limitations
+                ],
+            ]
+        )
+    lines.append("Result unavailable for presentation.")
+    return "\n".join(lines)
 
 
 def _format_citation(index: int, source: RagSource) -> str:

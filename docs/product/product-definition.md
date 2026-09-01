@@ -153,13 +153,163 @@ Users may vary their portfolios, strategies, indicators, evidence providers, mod
 * **The decision lifecycle is the organizing spine.** Product capabilities and existing subsystems should be evaluated by where they participate in or support that lifecycle.
 * **Runtime qualities remain subordinate to user value.** Reliability, replayability, observability, provenance, and governance may be enabled by a strong runtime, but "runtime-native" is not the fundamental product purpose.
 
+## Core Experience
+
+Polaris provides an **attentive, decision-centered experience**. The product is organized around decisions that deserve attention rather than around a catalog of features, while keeping analytical and product capabilities directly accessible when the user wants them.
+
+A decision may be initiated by the user, by a scheduled review, or by Polaris itself when new information materially affects an active portfolio condition, thesis, risk, assumption, prior decision, or review condition. All three initiation paths should enter the same disciplined decision lifecycle.
+
+### Decision-first and attention-first
+
+The primary experience should answer:
+
+> **What deserves my attention, and what decision are we trying to make?**
+
+Polaris should assemble relevant known context rather than make the user repeatedly reconstruct their investment world. It should connect current portfolio state, strategy, risk policy, active theses, prior decisions, unresolved questions, invalidation conditions, expected catalysts, historical knowledge, and new evidence where relevant.
+
+Features remain available as tools, but they do not define the main interaction model. The user should not have to manually traverse market data, research, risk, simulation, retrieval, reports, and other capabilities merely to assemble the context for a decision.
+
+### Attentive and proactive
+
+Polaris should not require the user to identify every important question first.
+
+It should continuously relate relevant change to the user's current investment context and distinguish **decision relevance** from general event importance. Immaterial changes may be absorbed quietly. Material changes may cause Polaris to investigate, reassess affected decision state, and surface prepared work for human attention.
+
+A useful initiative progression is:
+
+```text
+Observe
+  ↓
+Connect
+  ↓
+Investigate when warranted
+  ↓
+Surface when materially relevant
+  ↓
+Propose a recommendation
+  ↓
+Escalate to human judgment
+```
+
+Polaris may take substantial initiative in attention, analysis, challenge, preparation, and recommendation. That initiative does not itself grant authority to take consequential investment action.
+
+### Prepared engagement, not alerts
+
+When Polaris interrupts the user, it should preferably bring **prepared decision work rather than merely demand attention**.
+
+A useful proactive interaction explains what changed, why it matters to the portfolio or an existing thesis, what Polaris reassessed, whether the prior view changed, what the current recommendation is, which alternatives and risks remain material, and what now requires human judgment.
+
+The desired distinction is:
+
+```text
+Alert:
+"Something happened. You may want to look at it."
+
+Polaris:
+"Something changed that materially affects a decision we care about.
+I investigated it. Here is what changed, what it means, and what now
+requires your judgment."
+```
+
+Polaris should remain calm and selective. Proactivity that surfaces every market event would recreate the cognitive overload the product exists to reduce.
+
+### Progressive disclosure and interrogation
+
+The default presentation should be concise enough for a decision-maker to understand the current conclusion quickly while allowing progressive inspection of the reasoning and evidence.
+
+A natural depth progression is:
+
+```text
+Current assessment
+Preferred action
+Why
+Material risks
+What could change the view
+        ↓
+Reasoning
+        ↓
+Alternatives and challenge
+        ↓
+Risk analysis
+        ↓
+Evidence
+        ↓
+Sources / provenance
+        ↓
+Underlying analytical detail
+```
+
+Trustworthiness does not require dumping every internal detail into the default view. It requires that meaningful reasoning, evidence, uncertainty, assumptions, and provenance remain available and navigable.
+
+### Recommendation as a decision package
+
+A Polaris recommendation should be more than a directional answer or confidence score. The decision package should be able to communicate, as applicable:
+
+* preferred action;
+* why that action is preferred;
+* material evidence;
+* portfolio consequences;
+* risk constraints;
+* meaningful alternatives;
+* strongest counterarguments or disagreement;
+* key uncertainty;
+* invalidation conditions;
+* time horizon or review conditions.
+
+Challenge should be visible in investment terms rather than as agent or model theater. The user should see meaningful disagreement, counterarguments, uncertainty, and invalidation conditions without needing to understand which internal agent, prompt, model, or workflow produced them.
+
+Risk belongs **inside** the recommendation. It should be possible to understand how portfolio state and risk changed an otherwise plausible investment action rather than seeing risk as a separate approval stamp after the recommendation has already been formed.
+
+### Explicit human decision boundary
+
+The Polaris recommendation and the human decision are distinct facts.
+
+Conceptually, the user may accept, modify, reject, or defer a recommendation and may optionally record their rationale. Polaris should preserve the difference rather than rewriting history as though its recommendation and the user's action were the same.
+
+That distinction supports later evaluation of both the system's recommendations and the user's own decision process.
+
+### Decisions become memory
+
+Every consequential decision should naturally become durable decision memory rather than requiring the user to remember to save a report or transcript.
+
+The decision record should preserve or link the meaningful lifecycle state before, during, and after the decision. Reports, CLI output, conversational responses, APIs, MCP, and future interactive interfaces are projections or interaction surfaces over that decision state rather than separate product identities.
+
+Past decisions should also help Polaris determine what future changes matter. Active theses, assumptions, risks, invalidation conditions, deferred decisions, catalysts, and review conditions can make decision memory operational: they give Polaris context for deciding when the world has changed enough to warrant reassessment.
+
+### The experience continues after the decision
+
+Polaris should follow decisions through outcomes, evaluation, and learning rather than stopping when a recommendation is produced or a human decision is recorded.
+
+Conceptually, a decision may move through states such as forming, recommended, decided, being observed, ready for evaluation, evaluated, and learned from. These are product semantics, not a commitment to a specific implementation state machine.
+
+The product should be able to reconnect later evidence and outcomes to earlier decisions and surface those decisions again when they become materially relevant or ready for evaluation.
+
+### Core experience characteristics
+
+* **Decision-first, not feature-first.** Features remain accessible, but the main experience is organized around decisions and attention.
+* **Attentive, not merely responsive.** Polaris can recognize when relevant changes create a decision that deserves human attention.
+* **Context-aware, not repeatedly re-prompted.** Known portfolio, strategy, risk, history, and decision context should be reused when relevant.
+* **Selective, not noisy.** Materiality is evaluated relative to the user's portfolio and active decision context; immaterial change can be absorbed quietly.
+* **Prepared, not alert-driven.** When possible, Polaris investigates before interrupting and brings implications rather than assigning analysis back to the user.
+* **Concise first, deep on demand.** The recommendation is quickly understandable and progressively interrogable.
+* **Challenge without implementation theater.** Meaningful alternatives, uncertainty, and falsifiers are exposed in investment terms.
+* **Risk inside the recommendation.** Risk shapes the proposed action rather than merely approving or rejecting it afterward.
+* **Recommendation and human decision remain distinct.** Polaris can propose; consequential investment judgment remains explicitly human.
+* **Persistent.** Consequential decisions become durable memory and remain available for future attention, evaluation, and learning.
+* **Calm.** Polaris should not manufacture urgency or equate activity with intelligence; "no action warranted" is a valid and useful conclusion.
+* **Interface-independent.** User questions, scheduled reviews, Polaris-initiated reassessments, reports, CLI, API, MCP, and future interactive surfaces should converge on the same decision model.
+
+A governing experience principle is:
+
+> **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, or authority required to make it.**
+
 ## Current product framing
 
 The working product framing is:
 
-> **Polaris is an AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, delivered through a configurable portfolio intelligence and decision-support platform.**
+> **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process while keeping consequential investment authority human and preserving the decision lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; keeps consequential investment authority human; and preserves the decision lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 
@@ -167,9 +317,8 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Core experience
-2. Authority model
-3. Scope boundaries
-4. Differentiation
-5. Core capabilities
-6. Product principles
+1. Authority model
+2. Scope boundaries
+3. Differentiation
+4. Core capabilities
+5. Product principles

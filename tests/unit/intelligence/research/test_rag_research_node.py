@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.runtime.state.runtime_context import RuntimeContext
@@ -18,21 +30,25 @@ class FakeRagService:
     async def run(
         self,
         request: RagRequest,
-    ) -> RagResult:
+    ) -> GovernedPresentationResult[RagResult]:
         self.requests.append(
             request,
         )
         if self.result_status == "failed":
-            return RagResult.failed(
+            result = RagResult.failed(
                 request=request,
                 error="generation unavailable",
             )
-        return RagResult.answered(
-            request=request,
-            answer_text="The curated records support a neutral risk posture.",
-            contexts=(),
-            confidence_score=0.74,
-        )
+        else:
+            result = RagResult.answered(
+                request=request,
+                answer_text="The curated records support a neutral risk posture.",
+                contexts=(),
+                confidence_score=0.74,
+            )
+        result = classify_rag_result_authority(request=request, result=result)
+        decision = _eligible_decision(result)
+        return GovernedPresentationResult(payload=result, decision=decision)
 
 
 def _context(
@@ -43,6 +59,25 @@ def _context(
         workflow_id="morning_report",
         execution_id="execution-1",
         workflow_inputs=workflow_inputs,
+    )
+
+
+def _eligible_decision(result: RagResult) -> PresentationSinkDecision:
+    authority = result.authority
+    if authority is None:
+        raise ValueError("fake RAG service result lacks authority.")
+    return PresentationSinkDecision(
+        disposition=PresentationSinkDisposition.ELIGIBLE,
+        gate_decision=RiskAuthorityGateDecision(
+            status=RiskAuthorityGateDecisionStatus.PASSED,
+            failure_mode=RiskAuthorityGateFailureMode.NONE,
+            message="test governed RAG result",
+            risk_tier=authority.risk_tier,
+            gate_profile=authority.gate_profile,
+            authority_metadata=authority.to_metadata(),
+            evidence=RiskAuthorityGateEvidence(provenance_record_ids=("runtime-1",)),
+        ),
+        reasons=("test governed RAG result",),
     )
 
 
@@ -75,6 +110,8 @@ async def test_rag_research_node_returns_serialized_result_output() -> None:
     serialized_result = output.outputs["rag_result"]
     assert serialized_result["status"] == "answered"
     assert serialized_result["route"] == "hybrid"
+    assert serialized_result["presentation"]["may_present"] is True
+    assert serialized_result["presentation"]["disposition"] == "eligible"
     assert serialized_result["request"]["top_k"] == 5
     assert serialized_result["request"]["workflow_name"] == "morning_report"
     assert serialized_result["request"]["execution_id"] == "execution-1"
@@ -108,6 +145,7 @@ async def test_rag_research_node_serializes_request_payloads() -> None:
     assert serialized_result["request"]["query"] == request.query
     assert serialized_result["request"]["route"] == "keyword"
     assert serialized_result["request"]["top_k"] == 3
+    assert serialized_result["presentation"]["may_present"] is True
     assert service.requests[0].query == request.query
 
 
@@ -131,6 +169,7 @@ async def test_rag_research_node_keeps_service_failed_result_renderable() -> Non
     serialized_result = output.outputs["rag_result"]
     assert serialized_result["status"] == "failed"
     assert serialized_result["error"] == "generation unavailable"
+    assert serialized_result["presentation"]["may_present"] is True
     assert "RAG request failed" in serialized_result["answer_text"]
 
 

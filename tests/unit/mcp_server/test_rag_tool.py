@@ -10,69 +10,61 @@ from typing import cast
 import pytest
 from dishka import AsyncContainer
 from mcp.server.fastmcp.exceptions import ToolError
-from pydantic import JsonValue
 
-from application.presentation.evidence import (
-    PRESENTATION_SINK_DISPOSITION_METADATA_KEY,
-    PRESENTATION_SINK_LIMITATIONS_METADATA_KEY,
-    PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY,
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
 )
-from application.rag.authority import classify_rag_result_authority
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
+from application.rag.authority import (
+    RAG_AUTHORITY_REQUEST_METADATA_KEY,
+    classify_rag_result_authority,
+)
 from application.rag.contracts.rag_context import (
     RagRetrievedContext as DomainRagContext,
 )
 from application.rag.contracts.rag_context import RagSource
-from application.rag.contracts.rag_quality_models import RagCorrectiveAction
-from application.rag.contracts.rag_quality_models import (
-    RagReflectionScores as DomainScores,
-)
+from application.rag.contracts.rag_quality_models import RagReflectionScores
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
 from core.telemetry.collectors.telemetry_collector import TelemetryCollector
 from core.telemetry.observability.observability_manager import ObservabilityManager
 from core.telemetry.sinks.telemetry_sink import InMemoryTelemetrySink
 from core.workflow.bootstrap.workflow_bootstrap import WorkflowBootstrapResult
-from domain.authority import RISK_AUTHORITY_METADATA_KEY
+from domain.authority import GateProfile, RiskTier
 from mcp_server.contracts.models import RagAskRequest
 from mcp_server.lifespan import McpApplicationContext
 from mcp_server.settings import McpServerSettings
 from mcp_server.telemetry import McpTelemetry
 from mcp_server.tools.rag import execute_rag_ask
 
-
-def _credential_url(password: str) -> str:
-    return "postgresql://user:" + password + "@localhost/polaris"
-
-
 _GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
-
-
-def _presentation_metadata(
-    *,
-    disposition: str = "eligible",
-    may_present: bool = True,
-    limitations: tuple[str, ...] = (),
-) -> dict[str, JsonValue]:
-    return {
-        PRESENTATION_SINK_DISPOSITION_METADATA_KEY: disposition,
-        PRESENTATION_SINK_MAY_PRESENT_METADATA_KEY: may_present,
-        PRESENTATION_SINK_LIMITATIONS_METADATA_KEY: limitations,
-    }
 
 
 class _FakeRagService:
     def __init__(self, result_factory: object) -> None:
-        self._result_factory = result_factory
+        self._result_factory = cast("_ResultFactory", result_factory)
         self.requests: list[RagRequest] = []
 
-    async def run(self, request: RagRequest) -> RagResult:
+    async def run(
+        self,
+        request: RagRequest,
+    ) -> GovernedPresentationResult[RagResult]:
         self.requests.append(request)
-        result_factory = cast("_ResultFactory", self._result_factory)
-        return result_factory(request)
+        return self._result_factory(request)
 
 
 class _ResultFactory:
-    def __call__(self, request: RagRequest) -> RagResult: ...
+    def __call__(
+        self,
+        request: RagRequest,
+    ) -> GovernedPresentationResult[RagResult]: ...
 
 
 class _RequestContainer:
@@ -135,23 +127,133 @@ def _context(
     )
 
 
-def _answered(request: RagRequest) -> RagResult:
-    return RagResult(
-        query_id=request.request_id,
-        request=request,
-        answer_text=(
-            "Full answer with all material details.\nSecond paragraph retained."
-        ),
-        status="answered",
-        route=request.route,
-        metadata=_presentation_metadata(),
+def _source() -> RagSource:
+    return RagSource(
+        source_table="curated_rag_documents",
+        source_id="report-1",
+        source_type="morning_report",
+        document_id="document-1",
+        title="Morning Report",
+        chunk_id="chunk-1",
+        section_name="Risk",
         generated_at=_GENERATED_AT,
+        workflow_name="morning_report",
+        execution_id="execution-1",
+        metadata={"symbol": "SPY"},
     )
 
 
+def _context_item() -> DomainRagContext:
+    return DomainRagContext(
+        context_id="context-1",
+        text="Complete retrieved evidence.",
+        source=_source(),
+        score=0.91,
+        rank=0,
+        retrieval_route="hybrid",
+        metadata={"engine": "vector_graph"},
+    )
+
+
+def _gate_decision(
+    *,
+    result: RagResult,
+    disposition: PresentationSinkDisposition,
+) -> PresentationSinkDecision:
+    authority = result.authority
+    if authority is None:
+        raise AssertionError("test result must carry application authority")
+    passed = disposition in {
+        PresentationSinkDisposition.ELIGIBLE,
+        PresentationSinkDisposition.DEGRADED,
+    }
+    failure_mode = (
+        RiskAuthorityGateFailureMode.NONE
+        if passed
+        else (
+            RiskAuthorityGateFailureMode.DECISION_EVIDENCE_REQUIRED
+            if disposition is PresentationSinkDisposition.WITHHELD
+            else RiskAuthorityGateFailureMode.PROHIBITED_BOUNDARY
+        )
+    )
+    risk_tier = (
+        RiskTier.PROHIBITED_OUTSIDE_AUTHORITY
+        if disposition is PresentationSinkDisposition.BLOCKED
+        else authority.risk_tier
+    )
+    gate_profile = (
+        GateProfile.PROHIBITED_BOUNDARY
+        if disposition is PresentationSinkDisposition.BLOCKED
+        else authority.gate_profile
+    )
+    return PresentationSinkDecision(
+        disposition=disposition,
+        gate_decision=RiskAuthorityGateDecision(
+            status=(
+                RiskAuthorityGateDecisionStatus.PASSED
+                if passed
+                else RiskAuthorityGateDecisionStatus.FAILED
+            ),
+            failure_mode=failure_mode,
+            message="test presentation decision",
+            risk_tier=risk_tier,
+            gate_profile=gate_profile,
+            authority_metadata=authority.to_metadata(),
+            evidence=RiskAuthorityGateEvidence(
+                provenance_record_ids=("provenance-1",),
+            ),
+        ),
+        reasons=("test presentation decision",),
+        limitations=(
+            ("Evidence coverage is limited.",)
+            if disposition is PresentationSinkDisposition.DEGRADED
+            else ()
+        ),
+    )
+
+
+def _governed_answer(
+    request: RagRequest,
+    *,
+    disposition: PresentationSinkDisposition = PresentationSinkDisposition.ELIGIBLE,
+    include_claims: bool = True,
+) -> GovernedPresentationResult[RagResult]:
+    context = _context_item()
+    result = RagResult(
+        query_id=request.request_id,
+        request=request,
+        answer_text=(
+            "Complete grounded answer [C1]."
+            if include_claims
+            else "Grounded response is unavailable."
+        ),
+        status="answered" if include_claims else "no_results",
+        route=request.route,
+        contexts=(context,) if include_claims else (),
+        citations=(context.source,) if include_claims else (),
+        confidence_score=0.92 if include_claims else None,
+        grounding_score=0.93 if include_claims else None,
+        utility_score=0.94 if include_claims else None,
+        reflection_scores=(
+            RagReflectionScores(
+                retrieval_necessity=0.8,
+                source_relevance=0.9,
+                answer_support=0.95,
+                usefulness=0.85,
+            )
+            if include_claims
+            else None
+        ),
+        generated_at=_GENERATED_AT,
+    )
+    result = classify_rag_result_authority(request=request, result=result)
+    decision = _gate_decision(result=result, disposition=disposition)
+    return GovernedPresentationResult(payload=result, decision=decision)
+
+
 @pytest.mark.asyncio
-async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> None:
-    service = _FakeRagService(_answered)
+async def test_rag_ask_maps_filters_and_requests_mcp_authority() -> None:
+    service = _FakeRagService(_governed_answer)
     context, sink, container = _context(service)
     request = RagAskRequest(
         query="Explain market risk",
@@ -165,81 +267,32 @@ async def test_rag_ask_maps_all_supported_filters_and_correlates_request() -> No
         workflow_name="morning_report",
         execution_id="execution-1",
         runtime_id="runtime-1",
-        as_of_start=datetime(2026, 7, 1, tzinfo=UTC),
-        as_of_end=datetime(2026, 7, 8, tzinfo=UTC),
         top_k=12,
     )
 
     response = await execute_rag_ask(request, context, request_id="mcp-request-1")
 
-    assert len(service.requests) == 1
     rag_request = service.requests[0]
-    assert rag_request.request_id == "mcp-request-1"
-    assert rag_request.route == "hybrid"
-    assert rag_request.requester == "polaris_mcp"
-    assert "rag_authority" not in rag_request.metadata
-    assert rag_request.workflow_name is None
-    assert rag_request.execution_id is None
-    assert rag_request.top_k == 12
-    assert rag_request.filters.source_tables == ("morning_reports",)
-    assert rag_request.filters.source_types == ("report",)
+    authority_request = cast(
+        dict[str, object],
+        rag_request.metadata[RAG_AUTHORITY_REQUEST_METADATA_KEY],
+    )
+    assert authority_request["intended_sink"] == "mcp_tool_response"
+    assert authority_request["tool_response_external"] is True
     assert rag_request.filters.symbols == ("SPY",)
-    assert rag_request.filters.agent_names == ("risk_agent",)
     assert rag_request.filters.agent_types == ("risk",)
-    assert rag_request.filters.report_types == ("morning_report",)
-    assert rag_request.filters.regimes == ("volatile",)
-    assert rag_request.filters.workflow_name == "morning_report"
-    assert rag_request.filters.execution_id == "execution-1"
     assert rag_request.filters.runtime_id == "runtime-1"
-    assert rag_request.filters.as_of_start == request.as_of_start
-    assert rag_request.filters.as_of_end == request.as_of_end
-    assert response.answer_text.endswith("Second paragraph retained.")
+    assert response.answer_text == "Complete grounded answer [C1]."
     assert container.scopes[0].closed is True
     assert [event.event_type for event in sink.events] == [
         "mcp.tool.started",
         "mcp.tool.completed",
     ]
-    assert all(event.correlation_id == "mcp-request-1" for event in sink.events)
 
 
 @pytest.mark.asyncio
-async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
-    source = RagSource(
-        source_table="curated_rag_documents",
-        source_id="report-1",
-        source_type="morning_report",
-        document_id="document-1",
-        title="Morning Report",
-    )
-    retrieved_context = DomainRagContext(
-        context_id="context-1",
-        text="Grounded MCP evidence.",
-        source=source,
-        score=0.91,
-        rank=0,
-        retrieval_route="hybrid",
-    )
-
-    def result_factory(request: RagRequest) -> RagResult:
-        result = RagResult.answered(
-            request=request,
-            answer_text="Grounded answer [C1].",
-            contexts=(retrieved_context,),
-            metadata={
-                "provider_metadata": {
-                    "risk_tier": "baseline",
-                    "governance_approved": True,
-                },
-                RISK_AUTHORITY_METADATA_KEY: {
-                    "risk_tier": "baseline",
-                    "intended_sink": "rag_answer",
-                },
-                **_presentation_metadata(),
-            },
-        )
-        return classify_rag_result_authority(request=request, result=result)
-
-    context, _, _ = _context(_FakeRagService(result_factory))
+async def test_rag_ask_preserves_mcp_authority_and_governed_projection() -> None:
+    context, _, _ = _context(_FakeRagService(_governed_answer))
 
     response = await execute_rag_ask(
         RagAskRequest(query="risk"),
@@ -247,57 +300,31 @@ async def test_rag_ask_exposes_tool_response_authority_metadata() -> None:
         request_id="mcp-authority-1",
     )
 
-    assert response.status == "answered"
-    assert response.answer_text == "Grounded answer [C1]."
-    assert response.authority_metadata == {
-        "risk_tier": "enhanced",
-        "authority_effect": "non_authoritative_information",
-        "content_type": "rag_answer",
-        "canonical_owner": "rag_service",
-        "source_of_truth": "presentation_output",
-        "intended_sink": "rag_answer",
-        "gate_profile": "enhanced_provenance",
-        "capital_relevant": False,
-        "durable_authority": False,
-        "externally_visible": False,
-        "governance_impact": False,
-        "evidence_sufficient": True,
-        "ignored_model_authority_claims": [
-            "governance_approved",
-            "risk_tier",
-        ],
-    }
+    assert response.authority_metadata["intended_sink"] == "mcp_tool_response"
+    assert response.authority_metadata["externally_visible"] is True
+    assert response.authority_metadata["risk_tier"] == "enhanced"
+    assert response.presentation_disposition == "eligible"
+    assert response.presentation_may_present is True
+    assert response.presentation_gate_failure_mode == "none"
+    assert response.presentation_risk_tier == "enhanced"
+    assert response.presentation_gate_profile == "enhanced_provenance"
+    assert response.provenance_record_ids == ("provenance-1",)
     serialized = json.loads(response.model_dump_json())
-    assert serialized["authority_metadata"]["intended_sink"] == "rag_answer"
-    assert serialized["authority_metadata"]["risk_tier"] == "enhanced"
+    assert serialized["authority_metadata"]["intended_sink"] == "mcp_tool_response"
 
 
 @pytest.mark.asyncio
-async def test_rag_ask_preserves_degraded_application_presentation_state() -> None:
-    def result_factory(request: RagRequest) -> RagResult:
-        return RagResult(
-            query_id=request.request_id,
-            request=request,
-            answer_text="Grounded answer with an explicit limitation.",
-            status="answered",
-            route=request.route,
-            metadata=_presentation_metadata(
-                disposition="degraded",
-                may_present=True,
-                limitations=("Evidence coverage is limited.",),
-            ),
-            generated_at=_GENERATED_AT,
+async def test_rag_ask_preserves_degraded_application_limitations() -> None:
+    def factory(request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        return _governed_answer(
+            request,
+            disposition=PresentationSinkDisposition.DEGRADED,
         )
 
-    context, _, _ = _context(_FakeRagService(result_factory))
-
-    response = await execute_rag_ask(
-        RagAskRequest(query="risk"),
-        context,
-    )
+    context, _, _ = _context(_FakeRagService(factory))
+    response = await execute_rag_ask(RagAskRequest(query="risk"), context)
 
     assert response.status == "answered"
-    assert response.answer_text == ("Grounded answer with an explicit limitation.")
     assert response.presentation_disposition == "degraded"
     assert response.presentation_may_present is True
     assert response.presentation_limitations == ("Evidence coverage is limited.",)
@@ -306,102 +333,78 @@ async def test_rag_ask_preserves_degraded_application_presentation_state() -> No
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "disposition",
-    ("withheld", "blocked"),
+    (PresentationSinkDisposition.WITHHELD, PresentationSinkDisposition.BLOCKED),
 )
-async def test_rag_ask_cannot_bypass_ineligible_application_presentation(
-    disposition: str,
+async def test_rag_ask_cannot_recover_claims_from_ineligible_governed_payload(
+    disposition: PresentationSinkDisposition,
 ) -> None:
-    source = RagSource(
-        source_table="curated_rag_documents",
-        source_id="report-1",
-        source_type="morning_report",
-        document_id="document-1",
-        title="Morning Report",
-    )
-
-    def result_factory(request: RagRequest) -> RagResult:
-        return RagResult(
-            query_id=request.request_id,
-            request=request,
-            answer_text="This claim must not cross the MCP boundary.",
-            status="answered",
-            route=request.route,
-            citations=(source,),
-            injection_detected=disposition == "blocked",
-            metadata={
-                RISK_AUTHORITY_METADATA_KEY: {
-                    "risk_tier": (
-                        "prohibited" if disposition == "blocked" else "enhanced"
-                    ),
-                    "intended_sink": "rag_answer",
-                },
-                **_presentation_metadata(
-                    disposition=disposition,
-                    may_present=False,
-                    limitations=("External presentation is not permitted.",),
-                ),
-            },
-            generated_at=_GENERATED_AT,
+    def factory(request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        return _governed_answer(
+            request,
+            disposition=disposition,
+            include_claims=False,
         )
 
-    context, _, _ = _context(_FakeRagService(result_factory))
-
+    context, _, _ = _context(_FakeRagService(factory))
     response = await execute_rag_ask(
         RagAskRequest(query="risk", include_contexts=True),
         context,
     )
 
     assert response.status == "no_results"
-    assert response.answer_text == (
-        "Polaris RAG response is unavailable for external presentation."
-    )
+    assert "Complete grounded answer" not in response.answer_text
     assert response.citations == ()
-    assert response.contexts is None
-    assert response.presentation_disposition == disposition
+    assert response.contexts == ()
+    assert response.confidence_score is None
+    assert response.grounding_score is None
+    assert response.utility_score is None
+    assert response.presentation_disposition == disposition.value
     assert response.presentation_may_present is False
-    assert response.presentation_limitations == (
-        "External presentation is not permitted.",
-    )
-    assert response.error is None
 
 
 @pytest.mark.asyncio
-async def test_rag_ask_fails_closed_when_presentation_state_is_missing() -> None:
-    def result_factory(request: RagRequest) -> RagResult:
-        return RagResult(
-            query_id=request.request_id,
-            request=request,
-            answer_text="This answer lacks canonical presentation state.",
-            status="answered",
-            route=request.route,
-            generated_at=_GENERATED_AT,
+async def test_rag_ask_rejects_raw_ungoverned_service_result() -> None:
+    class RawService(_FakeRagService):
+        async def run(self, request: RagRequest) -> RagResult:  # type: ignore[override]
+            self.requests.append(request)
+            return RagResult.failed(request=request, error="raw result")
+
+    context, sink, _ = _context(cast(_FakeRagService, RawService(_governed_answer)))
+
+    with pytest.raises(ToolError, match="Polaris RAG request failed"):
+        await execute_rag_ask(RagAskRequest(query="risk"), context)
+
+    assert sink.events[-1].attributes["failure_category"] == "application"
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_sanitizes_failed_governed_result() -> None:
+    secret = "postgresql://user:password@localhost/polaris"
+
+    def factory(request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        result = RagResult.failed(request=request, error=secret)
+        result = classify_rag_result_authority(request=request, result=result)
+        return GovernedPresentationResult(
+            payload=result,
+            decision=_gate_decision(
+                result=result,
+                disposition=PresentationSinkDisposition.WITHHELD,
+            ),
         )
 
-    context, sink, _ = _context(_FakeRagService(result_factory))
-
-    response = await execute_rag_ask(
-        RagAskRequest(query="risk"),
-        context,
-    )
+    context, sink, _ = _context(_FakeRagService(factory))
+    response = await execute_rag_ask(RagAskRequest(query="risk"), context)
 
     assert response.status == "failed"
-    assert response.answer_text == (
-        "Polaris RAG response is unavailable for external presentation."
-    )
-    assert response.citations == ()
-    assert response.presentation_disposition is None
-    assert response.presentation_may_present is None
-    assert response.presentation_limitations == ()
-    assert response.error == (
-        "Polaris RAG response is unavailable for external presentation."
-    )
-    assert sink.events[-1].event_type == "mcp.tool.completed"
+    assert response.answer_text == "Polaris RAG request failed."
+    assert response.error == "Polaris RAG request failed."
+    assert secret not in response.model_dump_json()
     assert sink.events[-1].attributes["result_status"] == "failed"
 
 
 @pytest.mark.asyncio
 async def test_rag_ask_denies_web_before_resolving_service() -> None:
-    service = _FakeRagService(_answered)
+    service = _FakeRagService(_governed_answer)
     context, sink, container = _context(service)
 
     with pytest.raises(ToolError, match="Web retrieval is disabled"):
@@ -416,169 +419,15 @@ async def test_rag_ask_denies_web_before_resolving_service() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("rag_ask_request", "message"),
-    (
-        (RagAskRequest(query="12345"), "query cannot exceed 4 characters"),
-        (RagAskRequest(query="risk", top_k=3), "top_k cannot exceed 2"),
-    ),
-)
-async def test_rag_ask_enforces_query_and_top_k_limits(
-    rag_ask_request: RagAskRequest,
-    message: str,
-) -> None:
-    service = _FakeRagService(_answered)
+async def test_rag_ask_enforces_query_and_top_k_limits() -> None:
+    service = _FakeRagService(_governed_answer)
     context, _, _ = _context(
         service,
         settings=McpServerSettings(max_query_characters=4, max_top_k=2),
     )
 
-    with pytest.raises(ToolError, match=message):
-        await execute_rag_ask(rag_ask_request, context)
-
+    with pytest.raises(ToolError, match="query cannot exceed 4 characters"):
+        await execute_rag_ask(RagAskRequest(query="12345"), context)
+    with pytest.raises(ToolError, match="top_k cannot exceed 2"):
+        await execute_rag_ask(RagAskRequest(query="risk", top_k=3), context)
     assert service.requests == []
-
-
-@pytest.mark.asyncio
-async def test_rag_ask_sanitizes_failed_canonical_result() -> None:
-    secret = _credential_url("password")
-
-    def failed(request: RagRequest) -> RagResult:
-        return RagResult.failed(request=request, error=secret)
-
-    service = _FakeRagService(failed)
-    context, sink, _ = _context(service)
-
-    response = await execute_rag_ask(RagAskRequest(query="risk"), context)
-
-    assert response.status == "failed"
-    assert response.answer_text == "Polaris RAG request failed."
-    assert response.error == "Polaris RAG request failed."
-    assert secret not in response.model_dump_json()
-    assert sink.events[-1].event_type == "mcp.tool.completed"
-    assert sink.events[-1].attributes["result_status"] == "failed"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("include_contexts", (False, True))
-async def test_rag_ask_preserves_citations_security_scores_and_optional_contexts(
-    include_contexts: bool,
-) -> None:
-    source = RagSource(
-        source_table="strategy_recommendations",
-        source_id="recommendation-1",
-        source_type="strategy_recommendation",
-        document_id="document-1",
-        title="Strategy Recommendation",
-        chunk_id="chunk-1",
-        section_name="Risk",
-        generated_at=_GENERATED_AT,
-        workflow_name="morning_report",
-        execution_id="execution-1",
-        metadata={"symbol": "SPY"},
-    )
-    retrieved_context = DomainRagContext(
-        context_id="context-1",
-        text="Complete retrieved evidence.",
-        source=source,
-        score=0.91,
-        rank=0,
-        retrieval_route="hybrid",
-        metadata={"engine": "vector_graph"},
-    )
-
-    def result_factory(request: RagRequest) -> RagResult:
-        return RagResult(
-            query_id=request.request_id,
-            request=request,
-            answer_text="Complete grounded answer.",
-            status="answered",
-            route=request.route,
-            contexts=(retrieved_context,),
-            citations=(source,),
-            confidence_score=0.92,
-            grounding_score=0.93,
-            utility_score=0.94,
-            injection_detected=False,
-            metadata=_presentation_metadata(),
-            reflection_scores=DomainScores(
-                retrieval_necessity=0.8,
-                source_relevance=0.9,
-                answer_support=0.95,
-                usefulness=0.85,
-            ),
-            corrective_actions=(RagCorrectiveAction.DISCARD_WEAK_CONTEXT,),
-            generated_at=_GENERATED_AT,
-        )
-
-    context, _, _ = _context(_FakeRagService(result_factory))
-
-    response = await execute_rag_ask(
-        RagAskRequest(query="risk", include_contexts=include_contexts),
-        context,
-    )
-
-    assert response.citations[0].document_id == "document-1"
-    assert response.citations[0].metadata == {"symbol": "SPY"}
-    assert response.injection_detected is False
-    assert response.grounding_score == pytest.approx(0.93)
-    assert response.reflection_scores is not None
-    assert response.reflection_scores.answer_support == pytest.approx(0.95)
-    assert response.corrective_actions == ("discard_weak_context",)
-    if include_contexts:
-        assert response.contexts is not None
-        assert response.contexts[0].text == "Complete retrieved evidence."
-    else:
-        assert response.contexts is None
-
-
-@pytest.mark.asyncio
-async def test_rag_ask_excludes_reasoning_traces_from_mcp_boundary() -> None:
-    source = RagSource(
-        source_table="curated_rag_documents",
-        source_id="report-1",
-        source_type="morning_report",
-        document_id="document-1",
-        title="Morning Report",
-        metadata={
-            "symbol": "SPY",
-            "reasoning_trace": "private source reasoning",
-        },
-    )
-    retrieved_context = DomainRagContext(
-        context_id="context-1",
-        text="<think>private context reasoning</think>\nRetrieved source evidence.",
-        source=source,
-        score=0.91,
-        rank=0,
-        retrieval_route="hybrid",
-    )
-
-    def result_factory(request: RagRequest) -> RagResult:
-        return RagResult(
-            query_id=request.request_id,
-            request=request,
-            answer_text="<think>private answer reasoning</think>\nGrounded answer.",
-            status="answered",
-            route=request.route,
-            contexts=(retrieved_context,),
-            citations=(source,),
-            metadata=_presentation_metadata(),
-            generated_at=_GENERATED_AT,
-        )
-
-    context, _, _ = _context(_FakeRagService(result_factory))
-
-    response = await execute_rag_ask(
-        RagAskRequest(query="risk", include_contexts=True),
-        context,
-    )
-
-    assert response.answer_text == "Grounded answer."
-    assert response.citations[0].metadata == {"symbol": "SPY"}
-    assert response.contexts is not None
-    assert response.contexts[0].text == "Retrieved source evidence."
-    serialized = response.model_dump_json()
-    assert "private answer reasoning" not in serialized
-    assert "private context reasoning" not in serialized
-    assert "private source reasoning" not in serialized

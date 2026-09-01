@@ -6,6 +6,11 @@ from application.reports.authority import (
     morning_report_authority,
     report_authority_metadata,
 )
+from application.reports.governed_morning_report import (
+    MorningReportPersistenceService,
+    MorningReportPresentationPreparation,
+)
+from application.reports.governed_rendering import MorningReportMarkdownRenderer
 from application.reports.morning_report_assembler import MorningReportAssembler
 from application.reports.morning_report_models import (
     MorningReportDocument,
@@ -24,10 +29,8 @@ from application.reports.morning_report_models import (
 )
 from application.reports.morning_report_persistence import (
     MorningReportPersistenceMapper,
-    MorningReportPersistenceService,
     ReportArtifactReference,
 )
-from application.reports.morning_report_renderer import MorningReportMarkdownRenderer
 from application.reports.morning_report_sections import (
     first_score,
     first_text,
@@ -49,6 +52,7 @@ __all__ = [
     "PreparedReportClaimEvidenceBinding",
     "MorningReportPersistenceMapper",
     "MorningReportPersistenceService",
+    "MorningReportPresentationPreparation",
     "ReportArtifactReference",
     "ReportAuthorityFailureMode",
     "ReportAuthorityViolationError",

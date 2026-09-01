@@ -113,7 +113,8 @@ async def test_rag_service_run_persists_success_query_and_answer_logs() -> None:
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(
+    result = await _run_service_payload(
+        service,
         request,
     )
 
@@ -149,7 +150,7 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
         metadata={
             "rag_authority": {
                 "audience": "external",
-                "capital_relevant": True,
+                "capital_relevant": False,
             }
         },
     )
@@ -191,7 +192,7 @@ async def test_rag_service_persists_contexts_for_packet_reconstruction() -> None
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.evidence_packet is not None
     assert result.authority is not None
@@ -240,7 +241,7 @@ async def test_rag_service_ignores_request_provenance_for_packet_binding() -> No
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "answered"
     assert result.evidence_packet is not None
@@ -286,7 +287,7 @@ async def test_rag_service_fails_closed_when_claim_packet_cannot_be_persisted() 
         ),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "no_results"
     assert result.evidence_packet is None
@@ -325,7 +326,7 @@ async def test_rag_service_ignores_result_metadata_for_packet_authority() -> Non
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "answered"
     assert result.authority is not None
@@ -377,7 +378,7 @@ async def test_rag_service_does_not_persist_raw_transient_web_context_payload() 
 
     persisted_logs = repr((repository.query_logs, repository.answer_logs))
     assert raw_web_payload not in persisted_logs
-    assert repository.answer_logs[0].sources["items"]
+    assert repository.answer_logs[0].source_count == 0
     assert repository.answer_logs[0].metadata["route"] == "web_fallback"
 
 
@@ -475,7 +476,8 @@ async def test_rag_service_emits_observability_for_generation_and_log_persistenc
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(
+    result = await _run_service_payload(
+        service,
         request,
     )
 
@@ -535,7 +537,7 @@ async def test_rag_service_projects_sanitized_ai_query_observation() -> None:
         workflow_registry=cast(WorkflowRegistry, _workflow_registry()),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "answered"
     assert len(projector.observations) == 1
@@ -572,12 +574,13 @@ async def test_rag_service_run_persists_no_results_when_retrieval_is_empty() -> 
         decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
-    result = await service.run(
+    result = await _run_service_payload(
+        service,
         request,
     )
 
     assert result.status == "no_results"
-    assert result.answer_text == "No relevant curated RAG context was found."
+    assert "sufficiently grounded" in result.answer_text
     assert answer_provider.requests == ()
     assert [log.status for log in repository.query_logs] == ["started", "no_results"]
     assert repository.answer_logs[0].status == "no_results"
@@ -611,7 +614,8 @@ async def test_rag_service_run_persists_failed_generation_result() -> None:
         decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
-    result = await service.run(
+    result = await _run_service_payload(
+        service,
         request,
     )
 
@@ -649,7 +653,8 @@ async def test_rag_service_run_persists_failed_retrieval_result() -> None:
         decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
-    result = await service.run(
+    result = await _run_service_payload(
+        service,
         request,
     )
 
@@ -1134,16 +1139,16 @@ async def test_rag_service_classifies_external_capital_relevant_answers() -> Non
         decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "no_results"
     assert result.metadata["rag_authority_failure_mode"] == "unsupported_evidence"
     risk_authority = _risk_authority_metadata(result)
-    assert risk_authority["risk_tier"] == "enhanced"
+    assert risk_authority["risk_tier"] == "vigilant"
     assert risk_authority["authority_effect"] == "non_authoritative_information"
-    assert risk_authority["intended_sink"] == "rag_answer"
-    assert risk_authority["capital_relevant"] is False
-    assert risk_authority["externally_visible"] is False
+    assert risk_authority["intended_sink"] == "mcp_tool_response"
+    assert risk_authority["capital_relevant"] is True
+    assert risk_authority["externally_visible"] is True
     assert risk_authority["evidence_sufficient"] is False
 
 
@@ -1179,7 +1184,7 @@ async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> No
         decision_evidence_packet_persistence_service=_packet_persistence(),
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "no_results"
     assert "sufficiently grounded" in result.answer_text
@@ -1188,7 +1193,7 @@ async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> No
     )
     assert result.metadata["rag_authority_fail_closed"] is True
     risk_authority = _risk_authority_metadata(result)
-    assert risk_authority["risk_tier"] == "enhanced"
+    assert risk_authority["risk_tier"] == "vigilant"
     assert risk_authority["evidence_sufficient"] is False
     assert repository.query_logs[-1].status == "no_results"
     persisted_result_metadata = cast(
@@ -1204,6 +1209,13 @@ async def test_rag_service_fails_closed_on_stale_or_substituted_evidence() -> No
 
 def _risk_authority_metadata(result: RagResult) -> Mapping[str, object]:
     return cast(Mapping[str, object], result.metadata["risk_authority"])
+
+
+async def _run_service_payload(
+    service: RagService,
+    request: RagRequest,
+) -> RagResult:
+    return (await service.run(request)).require_payload()
 
 
 class StaticResultPipeline:
@@ -1235,7 +1247,7 @@ async def test_rag_service_pipeline_exception_is_owned_by_canonical_telemetry() 
         telemetry=telemetry,
     )
 
-    result = await service.run(request)
+    result = await _run_service_payload(service, request)
 
     assert result.status == "failed"
     terminal_event = next(

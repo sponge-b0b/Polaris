@@ -3,61 +3,95 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from application.reports import MorningReportAssembler
 from interfaces.cli.output import render_workflow_output_bundle
 from interfaces.cli.rendering.workflow_rendering import WorkflowRenderEnvelope
+from tests.unit.application.reports.morning.test_morning_report_renderer import (
+    _governed,
+)
 
 
-def test_default_morning_report_stdout_uses_professional_report() -> None:
+def test_morning_report_without_governed_result_fails_closed() -> None:
+    envelope = _morning_report_envelope()
+
     bundle = render_workflow_output_bundle(
-        _morning_report_envelope(),
+        envelope,
         output_format=None,
+    )
+
+    assert bundle.artifact is None
+    assert "unavailable for external presentation" in bundle.stdout
+    assert "Runtime Node Outputs:" not in bundle.stdout
+    assert "SECRET_UNGOVERNED_CLAIM" not in bundle.stdout
+
+
+def test_default_morning_report_stdout_uses_governed_professional_report() -> None:
+    envelope = _morning_report_envelope()
+    governed = _governed(MorningReportAssembler().assemble(envelope.to_dict()))
+
+    bundle = render_workflow_output_bundle(
+        envelope,
+        output_format=None,
+        governed_morning_report=governed,
     )
 
     assert bundle.artifact is None
     assert "# Polaris Morning Financial Report" in bundle.stdout
     assert "Runtime Node Outputs:" not in bundle.stdout
-    _assert_v2_portfolio_report_fields(
-        bundle.stdout,
-    )
+    _assert_v2_portfolio_report_fields(bundle.stdout)
 
 
-def test_morning_report_markdown_artifact_includes_v2_portfolio_fields() -> None:
+def test_morning_report_markdown_artifact_uses_same_governed_payload() -> None:
+    envelope = _morning_report_envelope()
+    governed = _governed(MorningReportAssembler().assemble(envelope.to_dict()))
+
     bundle = render_workflow_output_bundle(
-        _morning_report_envelope(),
+        envelope,
         output_format="markdown",
-        output_path=Path(
-            "morning_report.md",
-        ),
+        output_path=Path("morning_report.md"),
+        governed_morning_report=governed,
     )
 
     assert bundle.artifact is not None
     assert bundle.artifact.content == bundle.stdout
-    _assert_v2_portfolio_report_fields(
-        bundle.stdout,
-    )
+    _assert_v2_portfolio_report_fields(bundle.stdout)
 
 
-def test_morning_report_html_artifact_includes_v2_portfolio_fields() -> None:
+def test_morning_report_html_artifact_uses_governed_payload() -> None:
+    envelope = _morning_report_envelope()
+    governed = _governed(MorningReportAssembler().assemble(envelope.to_dict()))
+
     bundle = render_workflow_output_bundle(
-        _morning_report_envelope(),
+        envelope,
         output_format="html",
-        output_path=Path(
-            "morning_report.html",
-        ),
+        output_path=Path("morning_report.html"),
+        governed_morning_report=governed,
     )
 
     assert bundle.artifact is not None
-    assert isinstance(
-        bundle.artifact.content,
-        str,
-    )
+    assert isinstance(bundle.artifact.content, str)
     assert "<html" in bundle.artifact.content
-    _assert_v2_portfolio_report_fields(
-        bundle.stdout,
+    _assert_v2_portfolio_report_fields(bundle.stdout)
+    _assert_v2_portfolio_report_fields(bundle.artifact.content)
+
+
+def test_morning_report_pdf_artifact_uses_governed_payload() -> None:
+    envelope = _morning_report_envelope()
+    governed = _governed(MorningReportAssembler().assemble(envelope.to_dict()))
+
+    bundle = render_workflow_output_bundle(
+        envelope,
+        output_format="pdf",
+        output_path=Path("morning_report.pdf"),
+        governed_morning_report=governed,
     )
-    _assert_v2_portfolio_report_fields(
-        bundle.artifact.content,
-    )
+
+    assert bundle.artifact is not None
+    assert isinstance(bundle.artifact.content, bytes)
+    assert bundle.artifact.content.startswith(b"%PDF")
+    assert "# Polaris Morning Financial Report" in bundle.stdout
+    assert "Runtime Node Outputs:" not in bundle.stdout
+    _assert_v2_portfolio_report_fields(bundle.stdout)
 
 
 def test_default_generic_stdout_uses_console_rendering_without_artifact() -> None:
@@ -76,38 +110,25 @@ def test_json_output_uses_same_pretty_json_for_stdout_and_artifact() -> None:
     bundle = render_workflow_output_bundle(
         _generic_envelope(),
         output_format="json",
-        output_path=Path(
-            "workflow.json",
-        ),
+        output_path=Path("workflow.json"),
     )
 
     assert bundle.artifact is not None
     assert bundle.artifact.content == bundle.stdout
-    assert bundle.artifact.path == Path(
-        "workflow.json",
-    )
-    assert (
-        json.loads(
-            bundle.stdout,
-        )["workflow_name"]
-        == "generic_workflow"
-    )
+    assert bundle.artifact.path == Path("workflow.json")
+    assert json.loads(bundle.stdout)["workflow_name"] == "generic_workflow"
 
 
 def test_markdown_output_uses_same_markdown_for_stdout_and_artifact() -> None:
     bundle = render_workflow_output_bundle(
         _generic_envelope(),
         output_format="markdown",
-        output_path=Path(
-            "workflow.md",
-        ),
+        output_path=Path("workflow.md"),
     )
 
     assert bundle.artifact is not None
     assert bundle.artifact.content == bundle.stdout
-    assert bundle.artifact.path == Path(
-        "workflow.md",
-    )
+    assert bundle.artifact.path == Path("workflow.md")
     assert "# generic_workflow" in bundle.stdout
 
 
@@ -115,18 +136,13 @@ def test_html_output_writes_html_but_prints_readable_markdown() -> None:
     bundle = render_workflow_output_bundle(
         _generic_envelope(),
         output_format="html",
-        output_path=Path(
-            "workflow.html",
-        ),
+        output_path=Path("workflow.html"),
     )
 
     assert bundle.artifact is not None
     assert "<html" not in bundle.stdout
     assert "# generic_workflow" in bundle.stdout
-    assert isinstance(
-        bundle.artifact.content,
-        str,
-    )
+    assert isinstance(bundle.artifact.content, str)
     assert "<html" in bundle.artifact.content
     assert "generic_workflow" in bundle.artifact.content
 
@@ -135,24 +151,28 @@ def test_pdf_output_prints_text_and_uses_pdf_renderer_for_bytes() -> None:
     bundle = render_workflow_output_bundle(
         _generic_envelope(),
         output_format="pdf",
-        output_path=Path(
-            "workflow.pdf",
-        ),
+        output_path=Path("workflow.pdf"),
         pdf_renderer=lambda markdown: b"%PDF-" + markdown[:10].encode(),
     )
 
     assert bundle.artifact is not None
     assert "# generic_workflow" in bundle.stdout
-    assert not bundle.stdout.startswith(
-        "%PDF",
+    assert not bundle.stdout.startswith("%PDF")
+    assert isinstance(bundle.artifact.content, bytes)
+    assert bundle.artifact.content.startswith(b"%PDF-")
+
+
+def test_pdf_output_uses_default_reportlab_renderer_when_not_injected() -> None:
+    bundle = render_workflow_output_bundle(
+        _generic_envelope(),
+        output_format="pdf",
+        output_path=Path("workflow.pdf"),
     )
-    assert isinstance(
-        bundle.artifact.content,
-        bytes,
-    )
-    assert bundle.artifact.content.startswith(
-        b"%PDF-",
-    )
+
+    assert bundle.artifact is not None
+    assert isinstance(bundle.artifact.content, bytes)
+    assert bundle.artifact.content.startswith(b"%PDF")
+    assert "# generic_workflow" in bundle.stdout
 
 
 def _morning_report_envelope() -> WorkflowRenderEnvelope:
@@ -162,9 +182,7 @@ def _morning_report_envelope() -> WorkflowRenderEnvelope:
         success=True,
         status="succeeded",
         payload={
-            "workflow_inputs": {
-                "symbol": "SPY",
-            },
+            "workflow_inputs": {"symbol": "SPY"},
             "node_outputs": {
                 "portfolio_state_builder": {
                     "success": True,
@@ -208,14 +226,14 @@ def _morning_report_envelope() -> WorkflowRenderEnvelope:
                                 "portfolio_regime": "balanced",
                                 "directional_bias": "long_bias",
                             },
-                            "equity_state": {
-                                "drawdown_percent": 0.035,
-                            },
-                            "positions_state": {
-                                "position_count": 8,
-                            },
+                            "equity_state": {"drawdown_percent": 0.035},
+                            "positions_state": {"position_count": 8},
                         },
                     },
+                },
+                "ungoverned_claim": {
+                    "success": True,
+                    "outputs": {"claim": "SECRET_UNGOVERNED_CLAIM"},
                 },
             },
         },
@@ -234,11 +252,7 @@ def _generic_envelope() -> WorkflowRenderEnvelope:
         status="succeeded",
         payload={
             "node_outputs": {
-                "example_node": {
-                    "outputs": {
-                        "value": 42,
-                    },
-                },
+                "example_node": {"outputs": {"value": 42}},
             },
         },
         raw_result={
@@ -248,53 +262,7 @@ def _generic_envelope() -> WorkflowRenderEnvelope:
     )
 
 
-def test_pdf_output_uses_default_reportlab_renderer_when_not_injected() -> None:
-    bundle = render_workflow_output_bundle(
-        _generic_envelope(),
-        output_format="pdf",
-        output_path=Path(
-            "workflow.pdf",
-        ),
-    )
-
-    assert bundle.artifact is not None
-    assert isinstance(
-        bundle.artifact.content,
-        bytes,
-    )
-    assert bundle.artifact.content.startswith(
-        b"%PDF",
-    )
-    assert "# generic_workflow" in bundle.stdout
-
-
-def test_morning_report_pdf_output_uses_professional_report_stdout() -> None:
-    bundle = render_workflow_output_bundle(
-        _morning_report_envelope(),
-        output_format="pdf",
-        output_path=Path(
-            "morning_report.pdf",
-        ),
-    )
-
-    assert bundle.artifact is not None
-    assert isinstance(
-        bundle.artifact.content,
-        bytes,
-    )
-    assert bundle.artifact.content.startswith(
-        b"%PDF",
-    )
-    assert "# Polaris Morning Financial Report" in bundle.stdout
-    assert "Runtime Node Outputs:" not in bundle.stdout
-    _assert_v2_portfolio_report_fields(
-        bundle.stdout,
-    )
-
-
-def _assert_v2_portfolio_report_fields(
-    rendered: str,
-) -> None:
+def _assert_v2_portfolio_report_fields(rendered: str) -> None:
     assert "Portfolio PnL" in rendered
     assert "Portfolio Exposure" in rendered
     assert (

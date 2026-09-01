@@ -6,10 +6,14 @@ from typing import cast
 
 import typer
 
+from application.presentation.governed_result import GovernedPresentationResult
+from application.reports import MorningReportDocument
 from interfaces.cli.output import (
     CliOutputFormat,
     WorkflowOutputBundle,
     emit_workflow_output_bundle,
+)
+from interfaces.cli.output.governed_workflow_output_renderer import (
     render_workflow_output_bundle,
 )
 from interfaces.cli.rendering.workflow_rendering import (
@@ -34,18 +38,14 @@ _WORKFLOW_ARTIFACT_FORMATS = frozenset(
 )
 
 
-def validate_workflow_artifact_format(
-    output_format: str | None,
-) -> None:
+def validate_workflow_artifact_format(output_format: str | None) -> None:
     if output_format is None:
         return
-
     if output_format == "console":
         raise typer.BadParameter(
             "--format console is obsolete. Console output is now the default. "
             "Use --format html, json, markdown, or pdf to also select a file format."
         )
-
     if output_format not in _WORKFLOW_ARTIFACT_FORMATS:
         raise typer.BadParameter("format must be one of: html, json, markdown, pdf")
 
@@ -53,7 +53,6 @@ def validate_workflow_artifact_format(
 def build_interactive_input_reader() -> AsyncLineReader | None:
     if sys.stdin.isatty():
         return None
-
     return _closed_interactive_input
 
 
@@ -62,18 +61,11 @@ async def _closed_interactive_input() -> str | None:
 
 
 def build_progress_renderer() -> WorkflowProgressConsoleRenderer:
-    return WorkflowProgressConsoleRenderer(
-        emitter=emit_cli_status_line,
-    )
+    return WorkflowProgressConsoleRenderer(emitter=emit_cli_status_line)
 
 
-def emit_control_notification(
-    notification: WorkflowControlNotification,
-) -> None:
-    typer.echo(
-        notification.to_console(),
-        err=True,
-    )
+def emit_control_notification(notification: WorkflowControlNotification) -> None:
+    typer.echo(notification.to_console(), err=True)
 
 
 def render_workflow_output_with_fallback(
@@ -83,24 +75,30 @@ def render_workflow_output_with_fallback(
     output_path: Path | None,
     raw: bool = False,
     renderer_name: str = "Workflow output",
+    governed_morning_report: (
+        GovernedPresentationResult[MorningReportDocument] | None
+    ) = None,
 ) -> WorkflowOutputBundle:
     try:
         return render_workflow_output_bundle(
             envelope,
-            output_format=cast(
-                CliOutputFormat | None,
-                output_format,
-            ),
+            output_format=cast(CliOutputFormat | None, output_format),
             output_path=output_path,
             raw=raw,
+            governed_morning_report=governed_morning_report,
         )
     except Exception as exc:
+        if envelope.workflow_name == "morning_report" and not raw:
+            return WorkflowOutputBundle(
+                stdout=(
+                    "Polaris morning report is unavailable for external presentation.\n"
+                    f"Render Error: {type(exc).__name__}"
+                )
+            )
         try:
             generic_output = render_workflow_output(
                 envelope,
-                _fallback_render_format(
-                    output_format,
-                ),
+                _fallback_render_format(output_format),
             )
         except Exception as fallback_exc:
             return WorkflowOutputBundle(
@@ -113,7 +111,6 @@ def render_workflow_output_with_fallback(
                     f"Fallback Error: {fallback_exc}"
                 )
             )
-
         return WorkflowOutputBundle(
             stdout=(
                 f"{renderer_name} renderer failed; showing generic workflow output.\n"
@@ -136,26 +133,13 @@ def emit_rendered_workflow_output(
     )
 
 
-def _fallback_render_format(
-    output_format: str | None,
-) -> str:
+def _fallback_render_format(output_format: str | None) -> str:
     if output_format == "json":
         return "json"
-
-    if output_format in {
-        "html",
-        "markdown",
-        "pdf",
-    }:
+    if output_format in {"html", "markdown", "pdf"}:
         return "markdown"
-
     return "console"
 
 
-def emit_cli_status_line(
-    line: str,
-) -> None:
-    typer.echo(
-        line,
-        err=True,
-    )
+def emit_cli_status_line(line: str) -> None:
+    typer.echo(line, err=True)

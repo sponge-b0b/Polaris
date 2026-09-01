@@ -25,6 +25,7 @@ from domain.authority import (
     model_authority_claims_from_payloads,
 )
 
+RAG_AUTHORITY_REQUEST_METADATA_KEY: Final = "rag_authority"
 RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY: Final = "rag_authority_failure_mode"
 RAG_AUTHORITY_FAIL_CLOSED_METADATA_KEY: Final = "rag_authority_fail_closed"
 RAG_ANSWER_BOUNDARY_METADATA_KEY: Final = "rag_answer_boundary"
@@ -44,6 +45,9 @@ _AUTHORITY_METADATA_KEYS: Final[frozenset[str]] = frozenset(
         RETRIEVED_EVIDENCE_BOUNDARY_METADATA_KEY,
         RAG_AUTHORITY_EVIDENCE_METADATA_KEY,
     }
+)
+_EXTERNAL_AUDIENCES: Final[frozenset[str]] = frozenset(
+    {"client", "customer", "external", "mcp", "partner", "public", "tool"}
 )
 _STALE_OR_SUBSTITUTED_FLAGS: Final[frozenset[str]] = frozenset(
     {
@@ -78,11 +82,33 @@ def classify_rag_result_authority(
 ) -> RagResult:
     """Attach canonical authority metadata and fail closed on unsafe RAG answers."""
 
-    del request
-
-    intended_sink = IntendedSink.RAG_ANSWER
-    authority_effect = AuthorityEffect.NON_AUTHORITATIVE_INFORMATION
-    source_of_truth = SourceOfTruthCategory.PRESENTATION_OUTPUT
+    authority_request = _authority_request_metadata(request)
+    intended_sink = _enum_from_metadata(
+        authority_request,
+        "intended_sink",
+        IntendedSink,
+        IntendedSink.RAG_ANSWER,
+    )
+    authority_effect = _enum_from_metadata(
+        authority_request,
+        "authority_effect",
+        AuthorityEffect,
+        AuthorityEffect.NON_AUTHORITATIVE_INFORMATION,
+    )
+    source_of_truth = _enum_from_metadata(
+        authority_request,
+        "source_of_truth",
+        SourceOfTruthCategory,
+        SourceOfTruthCategory.PRESENTATION_OUTPUT,
+    )
+    externally_visible = _externally_visible(authority_request, intended_sink)
+    capital_relevant = _bool_metadata(authority_request, "capital_relevant", False)
+    durable_authority = _durable_authority(
+        authority_request,
+        intended_sink,
+        authority_effect,
+    )
+    governance_impact = _bool_metadata(authority_request, "governance_impact", False)
 
     existing_failure_mode = _existing_failure_mode(result.metadata)
     original_metadata = _strip_authority_metadata(result.metadata)
@@ -108,10 +134,10 @@ def classify_rag_result_authority(
             canonical_owner=CanonicalOwner.RAG_SERVICE,
             source_of_truth=source_of_truth,
             intended_sink=intended_sink,
-            capital_relevant=False,
-            durable_authority=False,
-            externally_visible=False,
-            governance_impact=False,
+            capital_relevant=capital_relevant,
+            durable_authority=durable_authority,
+            externally_visible=externally_visible,
+            governance_impact=governance_impact,
             evidence_sufficient=evidence_sufficient,
             model_provided_metadata=model_authority_claims,
         )
@@ -137,6 +163,13 @@ def classify_rag_result_authority(
     return replace(result, authority=contract, metadata=metadata)
 
 
+def _authority_request_metadata(request: RagRequest) -> Mapping[str, object]:
+    metadata = request.metadata.get(RAG_AUTHORITY_REQUEST_METADATA_KEY)
+    if isinstance(metadata, Mapping):
+        return {str(key): value for key, value in metadata.items()}
+    return {}
+
+
 def _strip_authority_metadata(metadata: JsonObject) -> JsonObject:
     return {
         key: value
@@ -156,6 +189,67 @@ def _existing_failure_mode(metadata: JsonObject) -> RagAuthorityFailureMode | No
     if failure_mode is RagAuthorityFailureMode.NONE:
         return None
     return failure_mode
+
+
+def _enum_from_metadata[T: StrEnum](
+    metadata: Mapping[str, object],
+    key: str,
+    enum_type: type[T],
+    default: T,
+) -> T:
+    value = metadata.get(key)
+    if isinstance(value, enum_type):
+        return value
+    if isinstance(value, str):
+        try:
+            return enum_type(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _externally_visible(
+    metadata: Mapping[str, object],
+    intended_sink: IntendedSink,
+) -> bool:
+    if _bool_metadata(metadata, "externally_visible", False):
+        return True
+    audience = metadata.get("audience")
+    if isinstance(audience, str) and audience.strip().lower() in _EXTERNAL_AUDIENCES:
+        return True
+    return intended_sink is IntendedSink.MCP_TOOL_RESPONSE and _bool_metadata(
+        metadata,
+        "tool_response_external",
+        False,
+    )
+
+
+def _durable_authority(
+    metadata: Mapping[str, object],
+    intended_sink: IntendedSink,
+    authority_effect: AuthorityEffect,
+) -> bool:
+    if _bool_metadata(metadata, "durable_authority", False):
+        return True
+    if intended_sink is IntendedSink.DURABLE_DOMAIN_RECORD:
+        return True
+    return authority_effect in {
+        AuthorityEffect.CANONICAL_RECORD,
+        AuthorityEffect.DETERMINISTIC_PLATFORM_DECISION,
+        AuthorityEffect.GOVERNANCE_DECISION,
+        AuthorityEffect.EXECUTION_DECISION,
+    }
+
+
+def _bool_metadata(
+    metadata: Mapping[str, object],
+    key: str,
+    default: bool,
+) -> bool:
+    value = metadata.get(key)
+    if isinstance(value, bool):
+        return value
+    return default
 
 
 def _failure_mode(
@@ -201,7 +295,8 @@ def _should_fail_closed(
 def _allowed_citation_ids(result: RagResult) -> tuple[str, ...]:
     citation_ids = result.metadata.get("citation_ids")
     if isinstance(citation_ids, Sequence) and not isinstance(
-        citation_ids, (str, bytes, bytearray)
+        citation_ids,
+        (str, bytes, bytearray),
     ):
         cleaned = tuple(str(citation_id) for citation_id in citation_ids if citation_id)
         if cleaned:

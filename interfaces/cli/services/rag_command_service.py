@@ -7,6 +7,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+from application.presentation.governed_result import (
+    GovernedPresentationProjection,
+    GovernedPresentationResult,
+)
 from application.rag.contracts.rag_context import RagRetrievalFilters, RagSource
 from application.rag.contracts.rag_operation_models import (
     RagIngestOperationRequest,
@@ -39,7 +43,7 @@ class RagServicePort(Protocol):
     async def run(
         self,
         request: RagRequest,
-    ) -> RagResult: ...
+    ) -> GovernedPresentationResult[RagResult]: ...
 
 
 class RagIngestionOperationsPort(Protocol):
@@ -90,14 +94,9 @@ RagStatusContextFactory = Callable[
 ]
 
 
-@dataclass(
-    frozen=True,
-    slots=True,
-)
+@dataclass(frozen=True, slots=True)
 class RagAskCommandRequest:
-    """
-    CLI-facing request for a platform-native RAG question.
-    """
+    """CLI-facing request for a platform-native RAG question."""
 
     query: str
     symbols: tuple[str, ...] = ()
@@ -116,17 +115,13 @@ class RagAskCommandRequest:
     requester: str = "polaris_cli"
 
 
-@dataclass(
-    frozen=True,
-    slots=True,
-)
+@dataclass(frozen=True, slots=True)
 class RagAskCommandResult:
-    """
-    CLI-facing result that always carries renderable output.
-    """
+    """CLI-facing result that carries only application-governed output."""
 
     success: bool
     result: RagResult | None = None
+    presentation: GovernedPresentationProjection | None = None
     error: str | None = None
 
 
@@ -167,23 +162,22 @@ class RagCommandService:
             status_context_factory or default_rag_status_context
         )
 
-    async def ask(
-        self,
-        request: RagAskCommandRequest,
-    ) -> RagAskCommandResult:
+    async def ask(self, request: RagAskCommandRequest) -> RagAskCommandResult:
         try:
             rag_request = _rag_request_from_command_request(request)
             logger.info(
                 "Running RAG CLI query.",
                 extra={"route": request.route, "top_k": request.top_k},
             )
-            result = await self._run_rag_request(rag_request)
+            governed_result = await self._run_rag_request(rag_request)
+            result = governed_result.require_payload()
         except Exception as exc:
             logger.exception("RAG CLI query failed.")
             return RagAskCommandResult(success=False, error=str(exc))
         return RagAskCommandResult(
             success=result.status != "failed",
             result=result,
+            presentation=governed_result.projection,
             error=result.error,
         )
 
@@ -234,7 +228,10 @@ class RagCommandService:
             lambda service: service.status(RagStatusOperationRequest()),
         )
 
-    async def _run_rag_request(self, request: RagRequest) -> RagResult:
+    async def _run_rag_request(
+        self,
+        request: RagRequest,
+    ) -> GovernedPresentationResult[RagResult]:
         if self._service is not None:
             return await self._service.run(request)
         async with self._service_context_factory() as service:
@@ -272,9 +269,7 @@ async def _default_rag_dependency_context[RagDependency](
     """Resolve one request-scoped dependency from canonical composition."""
 
     async with application_request_scope() as request_container:
-        yield await request_container.get(
-            dependency_type,
-        )
+        yield await request_container.get(dependency_type)
 
 
 @asynccontextmanager
@@ -317,9 +312,7 @@ async def default_rag_status_context() -> AsyncIterator[RagStatusOperationsPort]
         yield service
 
 
-def _rag_request_from_command_request(
-    request: RagAskCommandRequest,
-) -> RagRequest:
+def _rag_request_from_command_request(request: RagAskCommandRequest) -> RagRequest:
     filters = RagRetrievalFilters(
         source_tables=request.source_tables,
         source_types=request.source_types,
@@ -348,34 +341,43 @@ def _rag_request_from_command_request(
     )
 
 
-def render_rag_ask_result(
-    command_result: RagAskCommandResult,
-) -> str:
-    """
-    Render RAG command output for humans without truncating model responses.
-    """
+def render_rag_ask_result(command_result: RagAskCommandResult) -> str:
+    """Render only the application-governed RAG command result."""
 
     if command_result.result is None:
-        return _render_command_failure(
-            command_result.error or "RAG query failed.",
-        )
+        return _render_command_failure(command_result.error or "RAG query failed.")
+
+    presentation = command_result.presentation
+    if command_result.success and (
+        presentation is None or not presentation.may_present
+    ):
+        return _render_rag_unavailable(presentation)
 
     result = command_result.result
-    lines = [
-        "RAG Answer",
-        f"Query ID: {result.query_id}",
-        f"Status: {result.status}",
-        f"Route: {result.route}",
-        f"Top K: {result.request.top_k}",
-    ]
+    lines = ["RAG Answer"]
+    if presentation is not None:
+        lines.extend(
+            [
+                f"Presentation: {presentation.disposition}",
+                f"May Present: {presentation.may_present}",
+                *[
+                    f"Limitation: {limitation}"
+                    for limitation in presentation.limitations
+                ],
+            ]
+        )
+    lines.extend(
+        [
+            f"Query ID: {result.query_id}",
+            f"Status: {result.status}",
+            f"Route: {result.route}",
+            f"Top K: {result.request.top_k}",
+        ]
+    )
     if result.confidence_score is not None:
-        lines.append(
-            f"Confidence: {result.confidence_score}",
-        )
+        lines.append(f"Confidence: {result.confidence_score}")
     if result.error:
-        lines.append(
-            f"Error: {result.error}",
-        )
+        lines.append(f"Error: {result.error}")
 
     lines.extend(
         [
@@ -389,34 +391,15 @@ def render_rag_ask_result(
     )
 
     if result.citations:
-        lines.extend(
-            [
-                "",
-                "Citations:",
-            ]
-        )
-        for index, source in enumerate(
-            result.citations,
-            start=1,
-        ):
-            lines.append(
-                _format_citation(
-                    index,
-                    source,
-                )
-            )
+        lines.extend(["", "Citations:"])
+        for index, source in enumerate(result.citations, start=1):
+            lines.append(_format_citation(index, source))
 
-    return "\n".join(
-        lines,
-    )
+    return "\n".join(lines)
 
 
-def render_rag_operation_result(
-    result: RagOperationResult,
-) -> str:
-    """
-    Render a RAG operational command result for humans.
-    """
+def render_rag_operation_result(result: RagOperationResult) -> str:
+    """Render a RAG operational command result for humans."""
 
     lines = [
         "RAG Operation",
@@ -430,33 +413,15 @@ def render_rag_operation_result(
         result.message,
     ]
     if result.error and result.error != result.message:
-        lines.extend(
-            [
-                "",
-                "Error:",
-                result.error,
-            ]
-        )
+        lines.extend(["", "Error:", result.error])
     if result.details:
-        lines.extend(
-            [
-                "",
-                "Details:",
-            ]
-        )
+        lines.extend(["", "Details:"])
         for detail in result.details:
-            lines.append(
-                f"- {detail.name}: {detail.value}",
-            )
-
-    return "\n".join(
-        lines,
-    )
+            lines.append(f"- {detail.name}: {detail.value}")
+    return "\n".join(lines)
 
 
-def render_rag_projection_readiness(
-    result: RagProjectionReadinessResult,
-) -> str:
+def render_rag_projection_readiness(result: RagProjectionReadinessResult) -> str:
     """Render typed RAG projection readiness diagnostics."""
 
     canonical = result.canonical
@@ -474,8 +439,10 @@ def render_rag_projection_readiness(
         f"- Embedding jobs: {_display_value(canonical.embedding_job_count)}",
         f"- Graph jobs: {_display_value(canonical.graph_job_count)}",
         f"- Pending embedding jobs: {_display_value(canonical.pending_embedding_jobs)}",
-        f"- Retryable embedding jobs: "
-        f"{_display_value(canonical.retryable_embedding_jobs)}",
+        (
+            "- Retryable embedding jobs: "
+            f"{_display_value(canonical.retryable_embedding_jobs)}"
+        ),
         f"- Failed embedding jobs: {_display_value(canonical.failed_embedding_jobs)}",
         "",
         "Qdrant Projection",
@@ -516,9 +483,7 @@ def _display_value(value: object | None) -> str:
     return "unavailable" if value is None else str(value)
 
 
-def _render_command_failure(
-    error: str,
-) -> str:
+def _render_command_failure(error: str) -> str:
     return "\n".join(
         [
             "RAG Answer",
@@ -528,33 +493,36 @@ def _render_command_failure(
     )
 
 
-def _format_citation(
-    index: int,
-    source: RagSource,
+def _render_rag_unavailable(
+    presentation: GovernedPresentationProjection | None,
 ) -> str:
-    source_table = source.source_table
-    source_id = source.source_id
-    title = source.title
-    chunk_id = source.chunk_id
-    section_name = source.section_name
-    generated_at = source.generated_at
+    lines = ["RAG Answer", "Status: unavailable"]
+    if presentation is None:
+        lines.append("Presentation: missing")
+    else:
+        lines.extend(
+            [
+                f"Presentation: {presentation.disposition}",
+                f"May Present: {presentation.may_present}",
+                *[
+                    f"Limitation: {limitation}"
+                    for limitation in presentation.limitations
+                ],
+            ]
+        )
+    lines.append("Result unavailable for presentation.")
+    return "\n".join(lines)
 
+
+def _format_citation(index: int, source: RagSource) -> str:
     suffix_parts: list[str] = []
-    if chunk_id:
-        suffix_parts.append(
-            f"chunk={chunk_id}",
-        )
-    if section_name:
-        suffix_parts.append(
-            f"section={section_name}",
-        )
-    if generated_at:
-        suffix_parts.append(
-            f"generated_at={generated_at.isoformat()}",
-        )
-
-    suffix = ""
-    if suffix_parts:
-        suffix = f" ({'; '.join(suffix_parts)})"
-
-    return f"[{index}] {title} — {source_table}:{source_id}{suffix}"
+    if source.chunk_id:
+        suffix_parts.append(f"chunk={source.chunk_id}")
+    if source.section_name:
+        suffix_parts.append(f"section={source.section_name}")
+    if source.generated_at:
+        suffix_parts.append(f"generated_at={source.generated_at.isoformat()}")
+    suffix = f" ({'; '.join(suffix_parts)})" if suffix_parts else ""
+    return (
+        f"[{index}] {source.title} — {source.source_table}:{source.source_id}{suffix}"
+    )

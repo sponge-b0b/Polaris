@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Protocol, cast
 
+from application.presentation.governed_result import GovernedPresentationResult
 from application.rag.contracts.rag_context import RagRetrievalFilters
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
@@ -17,7 +18,7 @@ class RagServicePort(Protocol):
     async def run(
         self,
         request: RagRequest,
-    ) -> RagResult: ...
+    ) -> GovernedPresentationResult[RagResult]: ...
 
 
 @dataclass(
@@ -74,7 +75,7 @@ class RagResearchNode(RuntimeNode):
 
     The node converts serialized runtime input from ``RuntimeContext.workflow_inputs``
     into typed RAG request objects, calls ``RAGService``, and serializes the
-    typed ``RagResult`` only when returning through ``RuntimeNodeOutput``.
+    governed ``RagResult`` projection through ``RuntimeNodeOutput``.
     """
 
     node_name = "rag_research_node"
@@ -99,17 +100,22 @@ class RagResearchNode(RuntimeNode):
         result = await self._rag_service.run(
             request,
         )
+        payload = result.require_payload()
+        serialized_result = payload.to_dict()
+        serialized_result["presentation"] = asdict(result.projection)
 
         return RuntimeNodeOutput.success_output(
             outputs={
-                self._config.output_key: result.to_dict(),
+                self._config.output_key: serialized_result,
             },
             execution_metadata={
                 "node_name": self.node_name,
                 "node_type": self.node_type,
-                "query_id": result.query_id,
-                "rag_status": result.status,
-                "route": result.route,
+                "query_id": payload.query_id,
+                "rag_status": payload.status,
+                "route": payload.route,
+                "presentation_disposition": result.projection.disposition,
+                "presentation_may_present": result.projection.may_present,
             },
         )
 

@@ -2,6 +2,17 @@ from __future__ import annotations
 
 import pytest
 
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
 from application.reports import MorningReportAssembler, MorningReportMarkdownRenderer
 from application.reports.authority import ReportAuthorityViolationError
 from application.reports.morning_report_models import (
@@ -21,13 +32,9 @@ from tests.unit.application.reports.morning.test_morning_report_assembler import
 
 
 def test_renderer_outputs_professional_sections_without_raw_runtime_json() -> None:
-    document = MorningReportAssembler().assemble(
-        _complete_workflow_result(),
-    )
+    document = MorningReportAssembler().assemble(_complete_workflow_result())
 
-    rendered = MorningReportMarkdownRenderer().render(
-        document,
-    )
+    rendered = MorningReportMarkdownRenderer().render(_governed(document))
 
     assert "# Polaris Morning Financial Report" in rendered
     assert "## Executive Summary" in rendered
@@ -42,7 +49,6 @@ def test_renderer_outputs_professional_sections_without_raw_runtime_json() -> No
     assert "## Risk Assessment" in rendered
     assert "## Recommended Action Plan" in rendered
     assert "## Run Status" in rendered
-
     assert FULL_MACRO_LLM_RESPONSE in rendered
     assert "END_OF_FULL_LLM_RESPONSE" in rendered
     assert FULL_STRATEGY_LLM_RESPONSE in rendered
@@ -60,9 +66,7 @@ def test_renderer_includes_workflow_errors_in_human_report() -> None:
             "workflow_name": "morning_report",
             "execution_id": "exec-error",
             "status": "failed",
-            "summary": {
-                "symbol": "SPY",
-            },
+            "summary": {"symbol": "SPY"},
             "error_message": "provider key missing",
             "errors": [
                 {
@@ -74,9 +78,7 @@ def test_renderer_includes_workflow_errors_in_human_report() -> None:
         }
     )
 
-    rendered = MorningReportMarkdownRenderer().render(
-        document,
-    )
+    rendered = MorningReportMarkdownRenderer().render(_governed(document))
 
     assert "### Errors" in rendered
     assert "provider key missing" in rendered
@@ -102,8 +104,10 @@ def test_renderer_strips_reasoning_traces_from_publication_markdown() -> None:
         ),
         risks=(
             ReportBullet(
-                text="Chain of thought: internal risk trace.\n"
-                "Final answer: Watch liquidity.",
+                text=(
+                    "Chain of thought: internal risk trace.\n"
+                    "Final answer: Watch liquidity."
+                ),
             ),
         ),
         recommendations=(
@@ -129,7 +133,7 @@ def test_renderer_strips_reasoning_traces_from_publication_markdown() -> None:
     )
 
     rendered = MorningReportMarkdownRenderer().render(
-        _document_with_section(section),
+        _governed(_document_with_section(section))
     )
 
     assert "Visible summary." in rendered
@@ -156,18 +160,20 @@ def test_renderer_rejects_unsafe_reasoning_trace_before_publication() -> None:
 
     with pytest.raises(ReasoningTraceViolationError, match="morning_report.markdown"):
         MorningReportMarkdownRenderer().render(
-            _document_with_section(section),
+            _governed(_document_with_section(section))
         )
 
 
 def test_renderer_exposes_report_authority_boundary_and_limitations() -> None:
     rendered = MorningReportMarkdownRenderer().render(
-        _document_with_section(
-            ReportSection(
-                title="Executive Summary",
-                summary="Visible advisory context.",
+        _governed(
+            _document_with_section(
+                ReportSection(
+                    title="Executive Summary",
+                    summary="Visible advisory context.",
+                )
             )
-        ),
+        )
     )
 
     assert "## Authority Boundary" in rendered
@@ -199,8 +205,31 @@ def test_renderer_fails_closed_on_report_model_authority_claims() -> None:
         match="unsafe_authority_escalation",
     ):
         MorningReportMarkdownRenderer().render(
-            _document_with_section(section),
+            _governed(_document_with_section(section))
         )
+
+
+def _governed(
+    document: MorningReportDocument,
+) -> GovernedPresentationResult[MorningReportDocument]:
+    authority = document.authority
+    return GovernedPresentationResult(
+        payload=document,
+        decision=PresentationSinkDecision(
+            disposition=PresentationSinkDisposition.ELIGIBLE,
+            gate_decision=RiskAuthorityGateDecision(
+                status=RiskAuthorityGateDecisionStatus.PASSED,
+                failure_mode=RiskAuthorityGateFailureMode.NONE,
+                message="test report is eligible for rendering",
+                risk_tier=authority.risk_tier,
+                gate_profile=authority.gate_profile,
+                authority_metadata=authority.to_metadata(),
+                evidence=RiskAuthorityGateEvidence(),
+            ),
+            reasons=("test report is eligible for rendering",),
+            limitations=document.authority_limitations,
+        ),
+    )
 
 
 def _document_with_section(section: ReportSection) -> MorningReportDocument:

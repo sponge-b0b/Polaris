@@ -344,7 +344,7 @@ def test_rag_ingest_cli_delegates_and_renders_operation(
     assert "Operation: rag.ingest" in result.output
     assert "Dry run: True" in result.output
     assert "Records processed: 2" in result.output
-    assert captured[0].source == ("reports")
+    assert captured[0].source == "reports"
     assert captured[0].limit == 2
     assert captured[0].dry_run is True
 

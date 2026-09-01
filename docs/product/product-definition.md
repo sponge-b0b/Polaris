@@ -733,6 +733,100 @@ Reproducing the complete behavior would require an adjacent product to adopt the
 
 For the detailed rationale and adjacent-product comparison, see [`product-differentiation.md`](./product-differentiation.md).
 
+## Core Capabilities
+
+Polaris requires **nine core product capabilities** that together close the portfolio decision lifecycle. These capabilities describe what Polaris must be able to do, not how those abilities are implemented.
+
+The core capability spine is:
+
+1. **Attention & Decision Initiation.** Determine what deserves attention and when a portfolio decision should be created, reopened, or reassessed through user, scheduled, or Polaris-initiated work.
+2. **Decision Context & Evidence.** Assemble the decision-specific portfolio context and attributable evidence necessary for responsible reasoning, including provenance, freshness, sufficiency, conflicts, and historical integrity where material.
+3. **Investment Reasoning & Challenge.** Develop an investment interpretation, compare alternatives, expose uncertainty and assumptions, seek meaningful counterevidence, and seriously test why the leading view may be wrong.
+4. **Portfolio Consequence & Risk.** Translate an investment view into consequences for the actual portfolio under analytical risk, portfolio state, strategy, horizon, and deterministic policy constraints.
+5. **Recommendation Formation.** Compare reasonable portfolio actions under uncertainty and form an explainable preferred course of action—or deliberately withhold one when the decision contract cannot support a responsible recommendation.
+6. **Authority & Human Decision.** Apply the separation-of-powers authority model, preserve positive and negative authority decisions, and keep the Polaris recommendation distinct from human acceptance, modification, rejection, or deferral.
+7. **Action Continuity & Reconciliation.** Observe, associate, reconcile, and track externally executed action and resulting portfolio state without acquiring execution authority.
+8. **Durable Decision Memory.** Preserve the decision faithfully through time, distinguish what was knowable then from what is known now, and use prior decision state as active context for future attention and reasoning.
+9. **Outcome Evaluation & Learning.** Evaluate evidence, reasoning, risk, policy, recommendation, human judgment, execution fidelity, and outcome without reducing decision quality to realized P&L alone, then feed useful lessons into future decisions.
+
+Conceptually:
+
+```text
+Attention & Decision Initiation
+            ↓
+Decision Context & Evidence
+            ↓
+Investment Reasoning & Challenge
+            ↓
+Portfolio Consequence & Risk
+            ↓
+Recommendation Formation
+            ↓
+Authority & Human Decision
+            ↓
+Action Continuity & Reconciliation
+            ↓
+Outcome Evaluation & Learning
+            │
+            └────────→ future attention
+
+Durable Decision Memory spans the entire lifecycle.
+```
+
+### Capability model, not implementation map
+
+AI models, agents, workflows, retrieval systems, replay, persistence technologies, APIs, interfaces, reports, and other technical mechanisms may implement, expose, strengthen, or observe one or more core capabilities. They are not themselves the durable capability model.
+
+Likewise, evidence domains such as market, macroeconomic, news, sentiment, fundamental, and technical analysis are important inputs to decision-oriented capabilities rather than independent top-level product centers at this level.
+
+The capability model should remain stable even if the implementation underneath it changes substantially.
+
+### Supporting platform capabilities
+
+The nine core capabilities are enabled by important supporting platform capabilities:
+
+* **Integration & Connectivity** — connect to decision-relevant evidence, portfolio state, execution systems, external tools, and distribution destinations.
+* **Interaction & Projection** — expose shared decision state through conversation, interactive UI, reports, CLI, API, MCP, email, messaging, and future surfaces without creating competing decision semantics.
+* **Configuration & Extensibility** — adapt Polaris to different portfolios, strategies, asset universes, evidence providers, models, risk policies, horizons, and operating preferences without turning the product into an arbitrary workflow platform.
+* **Runtime Reliability & Observability** — execute decision work reliably, expose failures, preserve relevant state and provenance, support recovery where appropriate, and make lifecycle execution inspectable.
+* **Security & Operations** — protect credentials, portfolio information, integrations, configuration, access boundaries, and operational trust assumptions appropriate to the product's maturity.
+
+These supporting capabilities may become sophisticated. Their purpose remains to enable the portfolio decision system rather than compete with it for product identity.
+
+### Capability maturity evolves across releases
+
+A capability being core does not require every release to implement its ultimate depth.
+
+Core capability maturity may increase across releases while the capability model remains stable. Roadmap work should therefore describe which end-to-end product abilities become **usable, trustworthy, broader, or more mature** in each release rather than organizing releases around implementation feature accumulation.
+
+Useful product-level questions include:
+
+* Can Polaris identify why something materially deserves attention?
+* Can it show which evidence informed a decision and whether that evidence was sufficiently current?
+* Can the user inspect the strongest meaningful challenge to the preferred view?
+* Can Polaris explain how portfolio state and risk changed the implied action?
+* Can it explain the preferred action, alternatives, and conditions that would change the recommendation?
+* Can the material authority path be reconstructed, including affirmative authority decisions?
+* Can Polaris determine whether the human decision was actually implemented externally?
+* Can it reconstruct what was knowable when the decision occurred?
+* Can it evaluate the decision process separately from the realized outcome?
+
+These questions should become more useful than asking whether a particular class, service, agent, workflow, or interface exists.
+
+### Core capability consequences
+
+* **The nine core capabilities form the durable product capability spine.**
+* **Durable Decision Memory spans and supports the entire lifecycle.**
+* **AI and deterministic software are methods used across capabilities, not separate top-level user capabilities.**
+* **Risk remains integrated with portfolio consequence and recommendation rather than becoming a detached approval stage.**
+* **Execution observation and reconciliation are core even though execution authority remains external.**
+* **Evaluation distinguishes decision-process quality from outcome alone.**
+* **Supporting platform capabilities enable the core system without becoming independent product centers.**
+* **Capability maturity may deepen across releases without redefining the capability model.**
+* **Roadmap milestones should be expressed in end-to-end capability maturity and product guarantees rather than feature accumulation.**
+
+For the detailed rationale, see [`product-core-capabilities.md`](./product-core-capabilities.md).
+
 ## Current product framing
 
 The working product framing is:
@@ -745,7 +839,6 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 ## Product Definition work remaining
 
-The following areas remain intentionally unresolved and will be defined before this document is considered complete:
+The following area remains intentionally unresolved and will be defined before this document is considered complete:
 
-1. Core capabilities
-2. Product principles
+1. Product principles

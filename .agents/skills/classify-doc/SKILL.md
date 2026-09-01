@@ -1,12 +1,12 @@
 ---
 name: classify-doc
-description: Classify, reclassify, relocate, or rename an existing non-ADR document under docs/, updating inbound references and Living Entity Wiki consequences when required.
+description: Classify, reclassify, relocate, or rename an existing Living Entity Wiki-classified non-ADR document under docs/, updating inbound references and Wiki consequences when required.
 compatibility: product=codex product=claude-code system=git network=none
 ---
 
 # Classify Doc
 
-`$classify-doc` owns the structural lifecycle of **existing non-ADR documents** under `docs/`.
+`$classify-doc` owns the structural lifecycle of **existing Living Entity Wiki-classified non-ADR documents** under `docs/`.
 
 Use it when a document:
 
@@ -16,29 +16,31 @@ Use it when a document:
 * needs its entity or `platform-` prefix corrected;
 * is surfaced by `$wiki-lint` as structurally misclassified.
 
-For a new document, use `$to-doc`.
+For a new classified document, use `$to-doc`.
 
 For an ADR, use `$to-adr-doc`.
 
 ## 1. Confirm Scope
 
-The file must already exist and must not be an ADR.
+The file must already exist, must not be an ADR, and must be inside the Living Entity Wiki document universe after `docs/.wikiignore` is applied.
 
 If it is under `docs/adr/`, use `$to-adr-doc`.
 
 If new content is being created, use `$to-doc`.
 
-## 2. Respect External Scaffold Ownership
+If its path is matched by `docs/.wikiignore`, it is outside this skill's ownership; use the workflow or repository owner responsible for that documentation tree.
 
-Check the External Scaffold Directories registry in `wiki/_schema.md`.
+## 2. Respect the Wiki Exclusion Boundary
 
-If another skill owns the path:
+Read `docs/.wikiignore` when present and apply only the exclusion grammar defined by `wiki/_schema.md`.
 
-* do not move or rename it;
-* do not apply normal project prefix rules;
-* follow the owning workflow.
+If the current path is explicitly excluded:
 
-If the registry appears wrong, surface that rather than altering the externally owned path.
+* do not classify, move, or rename it under this skill;
+* do not apply Living Entity Wiki prefix rules;
+* follow the workflow or repository owner responsible for that documentation tree.
+
+Do not infer exclusions for unfamiliar directories. If a project-owned path is not excluded and does not satisfy a normal document class, treat it as `unclassified` rather than inventing a new `.wikiignore` entry.
 
 ## 3. Determine Current and Target Classification
 
@@ -210,13 +212,14 @@ Report:
 
 `$classify-doc` does not:
 
-* create new documents — use `$to-doc`;
+* classify, move, or manage documentation matched by `docs/.wikiignore`;
+* create new classified documents — use `$to-doc`;
 * manage ADR lifecycle — use `$to-adr-doc`;
-* own classification or naming policy — see `wiki/_schema.md`;
+* own classification, naming, or exclusion policy — see `wiki/_schema.md`;
 * decide entity topology — use `$wiki-sync`;
 * resolve `[source-conflict]`;
 * rewrite content merely to justify a preferred classification;
 * maintain `linked_docs`;
 * perform a full wiki audit — use `$wiki-lint`.
 
-Its responsibility is to put an **existing non-ADR document in the correct structural location without breaking references or derived architectural knowledge**.
+Its responsibility is to put an **existing classified non-ADR document in the correct structural location without breaking references or derived architectural knowledge**.

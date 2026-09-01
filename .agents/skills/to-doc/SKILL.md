@@ -1,12 +1,12 @@
 ---
 name: to-doc
-description: Create new non-ADR documents under docs/ using the classification, naming, placement, and Living Entity Wiki rules defined by the repository schema.
+description: Create new Living Entity Wiki-classified non-ADR documents under docs/ using the classification, naming, placement, and Wiki rules defined by the repository schema.
 compatibility: product=codex product=claude-code network=none
 ---
 
 # To Doc
 
-`$to-doc` owns creation-time placement and naming of **new non-ADR documents** under `docs/`.
+`$to-doc` owns creation-time placement and naming of **new Living Entity Wiki-classified non-ADR documents** under `docs/`.
 
 Its responsibility is:
 
@@ -22,18 +22,19 @@ write
 sync when required
 ```
 
-Classification and naming policy is owned by `wiki/_schema.md`.
+Classification, naming, and the `docs/.wikiignore` exclusion boundary are owned by `wiki/_schema.md`.
 
-For an existing document, use `$classify-doc`.
+For an existing classified document, use `$classify-doc`.
 
 For an ADR, use `$to-adr-doc`.
 
 ## 1. Confirm Scope
 
-Use this skill only for a **new non-ADR document**.
+Use this skill only for a **new non-ADR document inside the Living Entity Wiki document universe**.
 
 * If the content warrants an ADR, use `$to-adr-doc`.
 * If the document already exists, use `$classify-doc`.
+* If the requested path is matched by `docs/.wikiignore`, it is outside this skill's ownership; use the workflow or repository owner responsible for that documentation tree.
 * Do not recreate an existing document merely to bypass reclassification or reference migration.
 
 ## 2. Classify the Document
@@ -63,13 +64,18 @@ to the document.
 
 If `current` vs `proposed` is genuinely unclear, follow the schema fail-safe and use `proposed`.
 
-## 3. Respect External Scaffold Ownership
+## 3. Respect the Wiki Exclusion Boundary
 
-Check the External Scaffold Directories registry in `wiki/_schema.md`.
+Read `docs/.wikiignore` when present and apply only the exclusion grammar defined by `wiki/_schema.md`.
 
-If another skill owns the requested path, use that workflow instead of `$to-doc`.
+If the requested path is explicitly excluded:
 
-Do not invent project naming or placement rules for externally owned scaffold directories.
+* do not classify it;
+* do not apply Living Entity Wiki naming rules;
+* do not invoke `$wiki-sync` solely because it was created;
+* route creation to the workflow or repository owner responsible for that documentation tree.
+
+Do not infer exclusions for unfamiliar directories and do not invent new `.wikiignore` entries merely to make a requested path legal.
 
 ## 4. Name the Document
 
@@ -160,12 +166,13 @@ Report:
 
 `$to-doc` does not:
 
+* create or manage documentation matched by `docs/.wikiignore`;
 * modify or reclassify existing documents — use `$classify-doc`;
 * create or manage ADRs — use `$to-adr-doc`;
-* own classification or naming policy — see `wiki/_schema.md`;
+* own classification, naming, or exclusion policy — see `wiki/_schema.md`;
 * decide entity topology — use `$wiki-sync`;
 * resolve `[source-conflict]`;
 * maintain `linked_docs`;
 * perform a full wiki audit — use the `$wiki-lint` skill.
 
-Its job is to ensure a **new non-ADR document starts in the correct place, with the correct name, and the correct lifecycle follow-through**.
+Its job is to ensure a **new classified non-ADR document starts in the correct place, with the correct name, and the correct lifecycle follow-through**.

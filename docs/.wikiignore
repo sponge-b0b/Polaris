@@ -1,0 +1,6 @@
+# Documentation trees intentionally outside the Living Entity Wiki.
+# Paths are relative to docs/. Directory entries exclude all descendants.
+
+agents/
+product/
+roadmap/

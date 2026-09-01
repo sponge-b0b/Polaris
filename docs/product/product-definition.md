@@ -177,6 +177,46 @@ Polaris may consume information from, integrate with, or project decisions into 
 
 For the detailed rationale and category-by-category boundaries, see [`product-ecosystem.md`](./product-ecosystem.md).
 
+### Execution continuity without execution authority
+
+Polaris does not own execution, but it **does own continuity of the decision lifecycle across execution**.
+
+When a human decision implies an external action such as entering, reducing, adding to, hedging, or closing a position, Polaris should preserve the intended action as part of the decision context and then observe what authoritative external systems report actually happened. Orders, partial fills, fills, protective stops, targets, modifications, cancellations, exits, and resulting portfolio state may all become relevant execution evidence attached to the originating decision.
+
+The conceptual chain is:
+
+```text
+Polaris recommendation
+        ↓
+Human decision
+        ↓
+Action / execution intent
+        ↓
+External execution system
+        ↓
+Observed execution evidence
+        ↓
+Resulting portfolio state
+        ↓
+Position / action lifecycle
+        ↓
+Outcome
+        ↓
+Evaluation
+        ↓
+Learning
+```
+
+External execution and portfolio systems remain authoritative for what operationally occurred. Polaris should reconcile their evidence into its decision record rather than ask the user to recreate information that an authoritative system can provide.
+
+Where association is sufficiently clear, reconciliation should occur automatically. Where multiple external actions could plausibly correspond to the same decision, Polaris should ask for lightweight confirmation rather than silently guess. External trades or position changes with no corresponding Polaris decision should remain identifiable as externally initiated activity rather than being retroactively attributed to a Polaris recommendation.
+
+A decision may imply zero, one, or several external actions, and those actions may be partially executed, modified, abandoned, or completed over time. The decision record should distinguish the recommendation, the human decision, the intended action, the observed execution, and the eventual outcome so later evaluation can separate recommendation quality, human judgment, execution quality, risk management, and realized results.
+
+The user should therefore experience execution continuity primarily as **automatic observation and reconciliation**, not duplicate bookkeeping.
+
+For the detailed rationale, see [`product-execution-continuity.md`](./product-execution-continuity.md).
+
 ### Decision-time, not trading-engine time
 
 Polaris should be current at the speed required for **portfolio judgment**, not at the speed required for exchange execution.
@@ -230,6 +270,8 @@ This preserves responsiveness without pretending that AI reasoning or human port
 * **AI-assisted, not AI-governed.** AI is an important reasoning mechanism, but the product must remain free to prefer deterministic software wherever that creates a more trustworthy result.
 * **Not a portfolio-management system of record.** Polaris needs portfolio state and portfolio reasoning without implicitly owning accounting, reconciliation, order management, trade lifecycle, brokerage operations, or every operational aspect of portfolio management.
 * **Decision layer, not execution layer.** Polaris decides what deserves consideration and prepares recommendations; specialist systems remain responsible for market-speed execution and operational action.
+* **Execution evidence returns to the decision.** External execution authority is compatible with a closed Polaris lifecycle only if resulting actions and state can be observed and reconciled back into the decision record.
+* **Operational reality outranks expected action.** External authoritative execution and portfolio state determine what actually happened; Polaris must not rewrite reality to match its recommendation or recorded intent.
 * **Decision-time current.** Polaris must be current enough for the decision at hand without adopting low-latency trading infrastructure as its product center.
 * **Freshness is explicit.** Stale critical evidence may make a recommendation untrustworthy and must be surfaced or enforced accordingly.
 * **The decision lifecycle is the organizing spine.** Product capabilities and existing subsystems should be evaluated by where they participate in or support that lifecycle.
@@ -377,7 +419,9 @@ That distinction supports later evaluation of both the system's recommendations 
 
 Every consequential decision should naturally become durable decision memory rather than requiring the user to remember to save a report or transcript.
 
-The decision record should preserve or link the meaningful lifecycle state before, during, and after the decision. Reports, CLI output, conversational responses, APIs, MCP, and future interactive interfaces are projections or interaction surfaces over that decision state rather than separate product identities.
+The decision record should preserve or link the meaningful lifecycle state before, during, and after the decision. When the decision produces an external portfolio action, observed execution evidence and resulting portfolio state should join that same lifecycle automatically where practical rather than requiring duplicate user bookkeeping.
+
+Reports, CLI output, conversational responses, APIs, MCP, and future interactive interfaces are projections or interaction surfaces over that decision state rather than separate product identities.
 
 Past decisions should also help Polaris determine what future changes matter. Active theses, assumptions, risks, invalidation conditions, deferred decisions, catalysts, and review conditions can make decision memory operational: they give Polaris context for deciding when the world has changed enough to warrant reassessment.
 
@@ -398,6 +442,7 @@ The product should be able to reconnect later evidence and outcomes to earlier d
 * **Prepared, not alert-driven.** When possible, Polaris investigates before interrupting and brings implications rather than assigning analysis back to the user.
 * **Decision-time current, not exchange-time driven.** Polaris should respond fast enough for portfolio judgment while leaving low-latency execution to specialist systems.
 * **Freshness-aware.** Evidence recency and staleness are part of recommendation trustworthiness, not incidental metadata.
+* **Execution-aware, not execution-authoritative.** Polaris should observe and reconcile external action into the decision lifecycle without becoming the system that places or controls the trade.
 * **Concise first, deep on demand.** The recommendation is quickly understandable and progressively interrogable.
 * **Challenge without implementation theater.** Meaningful alternatives, uncertainty, and falsifiers are exposed in investment terms.
 * **Risk inside the recommendation.** Risk shapes the proposed action rather than merely approving or rejecting it afterward.
@@ -408,7 +453,7 @@ The product should be able to reconnect later evidence and outcomes to earlier d
 
 A governing experience principle is:
 
-> **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, freshness, or authority required to make it.**
+> **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, freshness, execution reality, or authority required to make it.**
 
 ## Current product framing
 
@@ -416,7 +461,7 @@ The working product framing is:
 
 > **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; keeps consequential investment authority human; and preserves the decision lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; keeps consequential investment authority human; observes external execution evidence so decisions remain connected to what actually happened; and preserves the lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 

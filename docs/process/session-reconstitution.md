@@ -217,7 +217,6 @@ Typical routing:
 - unclear canonical ownership → Wayfinder;
 - competing abstractions or unresolved boundaries → Wayfinder;
 - implementation that would need to invent or change durable semantics → architecture re-entry.
-
 Do not infer architectural uncertainty merely from file size, complexity, duplication, or poor metrics.
 
 ### 6. Restore the ChatGPT Session Ledger
@@ -439,3 +438,19 @@ When local execution is required:
 - make the block fail closed where practical (`set -euo pipefail`, explicit expected-state checks, or equivalent safeguards);
 - minimize the commands to the missing operation rather than handing the whole workflow back to the user;
 - use the returned output as evidence before mutating subsequent durable state.
+
+## Workflow Skill Modification Guard
+
+Before proposing, reviewing, or performing any modification to a repository workflow skill under `.agents/skills/`—or to helper code whose semantics can change a workflow skill's transitions—read the current `docs/process/common-sense-invariant-hardening.md` first.
+
+Treat that document as mandatory design guidance for the modification. In particular:
+
+- identify the consequential transition, PASS, skip, routing choice, mutation, or closure being hardened;
+- close the authoritative candidate universe and any nested universe before counting dispositions;
+- require explicit evidence-backed dispositions for escape states such as inherited, not-applicable, already-covered, or no-work;
+- test whether the proposed state can self-certify semantic correctness and require an independently checkable witness when judgment remains;
+- preserve observed failures until they receive an explicit causal disposition rather than allowing later scope narrowing to erase them;
+- preserve delegated-gate ownership when a parent workflow relies on another skill's procedure or terminal result;
+- harden the earliest authoritative transition that allowed the defect to escape instead of encoding the latest historical symptom.
+
+The hardening record is design guidance, not an executable substitute for the skill being changed. The current `SKILL.md` remains authoritative for the workflow's procedure, and any new invariant must be enforced locally by the transition-owning skill rather than added only to the hardening record.

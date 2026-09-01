@@ -3,7 +3,7 @@
 **Status:** In progress  
 **Purpose:** Define the durable product doctrine that should guide Polaris capability, roadmap, and implementation decisions.
 
-This document describes **what Polaris is and who it is for**. It intentionally avoids implementation technologies and detailed architecture. The fuller reasoning behind these decisions is preserved in [`product-rationale.md`](./product-rationale.md).
+This document describes **what Polaris is and who it is for**. It intentionally avoids implementation technologies and detailed architecture. The fuller reasoning behind these decisions is preserved in [`product-rationale.md`](./product-rationale.md) and in focused companion records linked from the relevant sections.
 
 ## Purpose
 
@@ -143,6 +143,85 @@ A trustworthy Polaris decision should have recognizable concepts such as decisio
 
 Users may vary their portfolios, strategies, indicators, evidence providers, models, risk thresholds, time horizons, and other domain configuration. That flexibility must not turn Polaris into a blank canvas for arbitrary workflow construction.
 
+### Ecosystem position
+
+Polaris occupies the **decision layer between investment information systems and investment action systems**.
+
+```text
+SENSE                    DECIDE                    ACT
+  │                         │                       │
+Market data                 │                   Broker / trading platform
+Economic data               │                   Order entry / execution
+News / research ───────→  POLARIS  ───────→     Operational systems
+Portfolio state             │                       │
+External analytics          │                       │
+                            ↓                       │
+                       Human decision ──────────────┘
+                            │
+                            └──── resulting portfolio state returns to Polaris
+```
+
+Information systems primarily establish **what is happening or what is true**. Polaris determines **what it means for this portfolio, what deserves attention, and what should be considered**. Trading, brokerage, and other operational systems carry out the human's decision and remain responsible for low-latency execution and account operations.
+
+Polaris therefore complements rather than attempts to replace specialist systems such as:
+
+* brokers, trading platforms, and execution systems;
+* market-data and charting platforms;
+* news and research services;
+* portfolio accounting and books-and-records systems;
+* specialist quantitative-research environments;
+* general-purpose AI tools;
+* communication and reporting destinations.
+
+Polaris may consume information from, integrate with, or project decisions into these systems. Integration does not transfer their specialist product responsibilities to Polaris.
+
+For the detailed rationale and category-by-category boundaries, see [`product-ecosystem.md`](./product-ecosystem.md).
+
+### Decision-time, not trading-engine time
+
+Polaris should be current at the speed required for **portfolio judgment**, not at the speed required for exchange execution.
+
+Three conceptual clocks are useful:
+
+```text
+Market time       microseconds → milliseconds → seconds
+                  quotes, matching, routing, execution, stops
+
+Decision time     seconds → minutes
+                  materiality, portfolio impact, risk, reassessment
+
+Analytical time   minutes → hours → days
+                  deep research, strategy analysis, evaluation
+```
+
+Polaris is not designed for the first category as a critical-path execution system. It owns the latter two, including event-aware reassessment when a fast market change makes existing decision context stale or materially changes a portfolio question.
+
+A major market shock should therefore cause Polaris to identify affected decisions and assumptions, refresh the evidence required for those decisions, reassess them, and proactively bring prepared decision work to the human. Existing brokerage and execution systems remain responsible for immediate market action.
+
+### Freshness is part of trustworthiness
+
+Evidence freshness must be appropriate to the decision being supported rather than governed by one universal definition of "real time."
+
+Polaris should preserve enough freshness metadata to determine whether critical market, portfolio, economic, research, and other evidence is current enough for the recommendation being made. If a required input is too stale, Polaris should degrade, qualify, withhold, or invalidate the affected recommendation rather than silently presenting old decision context as current.
+
+During rapidly changing conditions, a useful conceptual response may separate:
+
+```text
+Fast deterministic triage
+        ↓
+Material shock detected
+Affected decisions identified
+Stale assumptions / breached conditions exposed
+        ↓
+Reasoned decision reassessment
+        ↓
+Updated implications, alternatives, risk, recommendation
+        ↓
+Human judgment
+```
+
+This preserves responsiveness without pretending that AI reasoning or human portfolio judgment should operate at exchange-engine latency.
+
 ### Identity consequences
 
 * **Decision system before platform.** Platform architecture and extensibility must serve the portfolio decision product rather than compete with it for identity.
@@ -150,6 +229,9 @@ Users may vary their portfolios, strategies, indicators, evidence providers, mod
 * **Domain configurability, not general-purpose programmability.** Polaris should expose investment-domain concepts where possible rather than requiring users to think in runtime primitives such as nodes, graphs, agents, prompts, or generic tools.
 * **AI-assisted, not AI-governed.** AI is an important reasoning mechanism, but the product must remain free to prefer deterministic software wherever that creates a more trustworthy result.
 * **Not a portfolio-management system of record.** Polaris needs portfolio state and portfolio reasoning without implicitly owning accounting, reconciliation, order management, trade lifecycle, brokerage operations, or every operational aspect of portfolio management.
+* **Decision layer, not execution layer.** Polaris decides what deserves consideration and prepares recommendations; specialist systems remain responsible for market-speed execution and operational action.
+* **Decision-time current.** Polaris must be current enough for the decision at hand without adopting low-latency trading infrastructure as its product center.
+* **Freshness is explicit.** Stale critical evidence may make a recommendation untrustworthy and must be surfaced or enforced accordingly.
 * **The decision lifecycle is the organizing spine.** Product capabilities and existing subsystems should be evaluated by where they participate in or support that lifecycle.
 * **Runtime qualities remain subordinate to user value.** Reliability, replayability, observability, provenance, and governance may be enabled by a strong runtime, but "runtime-native" is not the fundamental product purpose.
 
@@ -212,6 +294,29 @@ requires your judgment."
 ```
 
 Polaris should remain calm and selective. Proactivity that surfaces every market event would recreate the cognitive overload the product exists to reduce.
+
+### Shock response and stale decision context
+
+A rapid market event does not turn Polaris into an execution system, but it can make existing decision state unsafe to reuse without reassessment.
+
+For example, if a broad equity index suddenly falls 15%, immediate order handling, stops, routing, fills, and broker controls remain the responsibility of the trading and execution stack. Polaris should instead:
+
+1. recognize that the event is materially capable of invalidating existing decision context;
+2. identify exposed portfolios, active theses, assumptions, risks, and recommendations;
+3. mark affected prior recommendations or assumptions as requiring reassessment rather than presenting them as current;
+4. refresh the evidence necessary for the affected portfolio decisions;
+5. perform risk-aware reassessment at decision speed;
+6. proactively surface the decisions that now require human attention.
+
+The goal is not to compete with exchange-time systems. It is to ensure that the human receives a current, prepared portfolio decision frame as conditions change.
+
+### Decision-appropriate freshness
+
+The experience should make evidence recency and decision validity understandable where they matter.
+
+A recommendation during a fast market shock may require market and portfolio state that is seconds or minutes old, while a long-horizon macro judgment may remain valid with substantially slower-moving evidence. Polaris should judge freshness relative to the decision contract.
+
+If critical portfolio state, market state, or another required source is stale beyond what the decision can tolerate, Polaris should be able to say that it cannot presently support a current recommendation rather than disguising the uncertainty in a footnote.
 
 ### Progressive disclosure and interrogation
 
@@ -291,6 +396,8 @@ The product should be able to reconnect later evidence and outcomes to earlier d
 * **Context-aware, not repeatedly re-prompted.** Known portfolio, strategy, risk, history, and decision context should be reused when relevant.
 * **Selective, not noisy.** Materiality is evaluated relative to the user's portfolio and active decision context; immaterial change can be absorbed quietly.
 * **Prepared, not alert-driven.** When possible, Polaris investigates before interrupting and brings implications rather than assigning analysis back to the user.
+* **Decision-time current, not exchange-time driven.** Polaris should respond fast enough for portfolio judgment while leaving low-latency execution to specialist systems.
+* **Freshness-aware.** Evidence recency and staleness are part of recommendation trustworthiness, not incidental metadata.
 * **Concise first, deep on demand.** The recommendation is quickly understandable and progressively interrogable.
 * **Challenge without implementation theater.** Meaningful alternatives, uncertainty, and falsifiers are exposed in investment terms.
 * **Risk inside the recommendation.** Risk shapes the proposed action rather than merely approving or rejecting it afterward.
@@ -301,15 +408,15 @@ The product should be able to reconnect later evidence and outcomes to earlier d
 
 A governing experience principle is:
 
-> **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, or authority required to make it.**
+> **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, freshness, or authority required to make it.**
 
 ## Current product framing
 
 The working product framing is:
 
-> **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, delivered through a configurable portfolio intelligence and decision-support platform.**
+> **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; keeps consequential investment authority human; and preserves the decision lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; keeps consequential investment authority human; and preserves the decision lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 

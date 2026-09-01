@@ -455,13 +455,121 @@ A governing experience principle is:
 
 > **Polaris should reduce the cognitive work required to assemble and evaluate a portfolio decision without hiding the evidence, uncertainty, tradeoffs, freshness, execution reality, or authority required to make it.**
 
+## Authority Model
+
+Polaris uses a **separation-of-powers authority model**. Capability does not imply authority, and no single component should own facts, enforceable rules, analytical interpretation, consequential investment judgment, and market-facing action at the same time.
+
+The authority chain is:
+
+```text
+Evidence authority
+Authoritative evidence sources establish operational facts.
+        ↓
+Deterministic authority
+Rules, invariants, freshness requirements, and configured constraints govern admissibility and trust conditions.
+        ↓
+Analytical authority
+AI and analytical machinery interpret, challenge, synthesize, prioritize, and recommend.
+        ↓
+Human authority
+The human makes consequential investment decisions and material governance changes.
+        ↓
+Action authority
+External operational systems carry out market-facing action.
+        ↓
+Evidence returns
+Observed execution and resulting state re-enter the decision lifecycle.
+```
+
+### Authority boundaries
+
+* **Sources own facts.** Polaris may interpret and reconcile authoritative evidence but must not rewrite operational reality to match a recommendation, expectation, or preferred narrative.
+* **Deterministic software owns enforceable rules.** Explicit invariants, freshness requirements, hard risk limits, and other configured constraints should be enforced deterministically where practical.
+* **AI owns reasoning, not authority over capital.** Polaris may autonomously observe, investigate, reassess, challenge, compare alternatives, reason about risk, recommend, explain, and proactively escalate a decision that deserves attention.
+* **Humans own consequential investment judgment.** A human may accept, modify, reject, defer, or act differently from a Polaris recommendation and retains authority over material policy and governance changes.
+* **External operational systems own market-facing action.** Orders, fills, stops, exits, and other execution responsibilities remain outside Polaris even though their evidence returns to the decision record.
+
+Human authority does not require human initiation. Polaris may initiate substantial analytical work on its own; the human boundary applies when consequential investment judgment or a material governance change is required.
+
+### Hard constraints cannot be reasoned away
+
+Polaris should distinguish hard constraints from soft analytical guidance.
+
+AI may weigh soft constraints and may intellectually challenge a hard policy. It may not silently modify, bypass, or reinterpret a hard constraint in order to approve its preferred action. If a hard policy should change, that is an explicit human governance decision.
+
+Missing evidence, stale required context, violated hard constraints, or sufficiently unresolved uncertainty may cause Polaris to qualify, withhold, or invalidate a recommendation rather than manufacture certainty.
+
+### Internal analytical autonomy
+
+Polaris may autonomously perform governed internal informational, analytical, and decision-state actions when evidence and policy support doing so. Examples include refreshing evidence, detecting staleness, recalculating risk, initiating reassessment, scheduling evaluation, reconciling unambiguous external execution evidence, and surfacing a material change.
+
+When uncertainty materially changes the meaning of an internal transition, Polaris should preserve the ambiguity and escalate for confirmation rather than silently guess.
+
+### Preserve the full authority path
+
+Every **material authority decision** across the lifecycle must be durably preserved and inspectable **whether the authority layers agree or disagree**.
+
+Polaris should preserve not only conflicts, blocks, overrides, failures, and exceptions, but also affirmative authority decisions such as:
+
+* evidence accepted as sufficient and current;
+* policies evaluated and satisfied;
+* candidate actions permitted;
+* recommendations issued or deliberately withheld;
+* human acceptance, modification, rejection, or deferral;
+* successful execution reconciliation;
+* faithful or divergent external action;
+* resulting outcomes.
+
+A terminal result must not erase the authority path that produced it. A policy that evaluated and permitted an action is different from a policy that was bypassed or never evaluated; silence is not evidence that authority was correctly exercised.
+
+The working product concept is an **authority trace**: durable provenance of which authority evaluated each material transition, what decision it made, and how that authority decision affected the lifecycle.
+
+The authority trace should be **always preserved and always inspectable**, while the Core Experience remains concise-first and progressively disclosed. Material authority effects should surface prominently in the normal decision experience; the complete trace should remain available on demand.
+
+### Authority provenance complements evidence provenance
+
+The authority trace complements Polaris's evidence model rather than replacing it.
+
+**Evidence provenance** answers what was known, where it came from, when it was observed, and whether it was attributable and current.
+
+**Authority provenance** answers which authority evaluated that evidence or decision state, what that authority decided, which rules or constraints were applied, what the analytical layer recommended, what the human decided, and what the action system actually did.
+
+Together they create a more complete decision provenance:
+
+```text
+Evidence provenance
+What was known and where it came from
+        +
+Authority provenance
+Who or what evaluated it and what authority decision followed
+        ↓
+Trustworthy decision provenance
+```
+
+This is a product-level relationship, not a commitment to a particular event schema, database representation, or current evidence-model implementation.
+
+### Authority consequences
+
+* **Capability does not imply authority.**
+* **Operational reality outranks expectation.**
+* **AI may initiate analysis without acquiring capital-action authority.**
+* **Hard constraints cannot be silently reasoned away.**
+* **Uncertainty that materially changes meaning escalates rather than being guessed away.**
+* **Polaris may withhold a recommendation when the decision contract cannot be satisfied.**
+* **Every material authority decision is positively preserved, including approvals and satisfied constraints.**
+* **The terminal outcome never substitutes for the authority path that produced it.**
+* **Agreement, disagreement, policy effects, human overrides, execution fidelity, and outcomes are all learnable information.**
+* **Evidence provenance and authority provenance are complementary trust mechanisms.**
+
+For the detailed rationale, see [`product-authority-model.md`](./product-authority-model.md).
+
 ## Current product framing
 
 The working product framing is:
 
 > **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
-It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; keeps consequential investment authority human; observes external execution evidence so decisions remain connected to what actually happened; and preserves the lifecycle for later evaluation and learning.
+It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; preserves the material authority path behind decisions; observes external execution evidence so decisions remain connected to what actually happened; and preserves the lifecycle for later evaluation and learning.
 
 This framing remains subject to refinement as the remaining Product Definition sections are completed.
 
@@ -469,8 +577,7 @@ This framing remains subject to refinement as the remaining Product Definition s
 
 The following areas remain intentionally unresolved and will be defined before this document is considered complete:
 
-1. Authority model
-2. Scope boundaries
-3. Differentiation
-4. Core capabilities
-5. Product principles
+1. Scope boundaries
+2. Differentiation
+3. Core capabilities
+4. Product principles

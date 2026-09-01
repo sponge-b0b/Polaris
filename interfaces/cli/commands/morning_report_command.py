@@ -10,6 +10,7 @@ from application.reports import (
     MorningReportDocument,
     MorningReportMarkdownRenderer,
     MorningReportPersistenceService,
+    MorningReportPresentationPreparation,
     ReportArtifactReference,
 )
 from config.settings import Settings
@@ -71,8 +72,8 @@ def morning_report(
         typer.Option(
             "--raw/--no-raw",
             help=(
-                "Render the generic workflow output instead of the "
-                "professional morning report for terminal/markdown output."
+                "Raw workflow output is not available from the governed "
+                "morning-report presentation boundary."
             ),
         ),
     ] = False,
@@ -86,9 +87,11 @@ def morning_report(
 ) -> None:
     if plugin_dirs is None:
         plugin_dirs = []
-    validate_workflow_artifact_format(
-        output_format,
-    )
+    validate_workflow_artifact_format(output_format)
+    if raw:
+        raise typer.BadParameter(
+            "--raw cannot bypass governed morning-report presentation."
+        )
 
     try:
         service = WorkflowCommandService(
@@ -99,9 +102,7 @@ def morning_report(
             service.run_morning_report(
                 MorningReportCommandRequest(
                     symbol=symbol,
-                    plugin_dirs=tuple(
-                        plugin_dirs,
-                    ),
+                    plugin_dirs=tuple(plugin_dirs),
                     progress_handler=progress_renderer.handle,
                     interactive_control=False,
                 )
@@ -118,60 +119,72 @@ def morning_report(
             },
         )
 
+    preparation = _prepare_morning_report_presentation(envelope)
     rendered = render_workflow_output_with_fallback(
         envelope,
         output_format,
         output_path=output,
-        raw=raw,
+        raw=False,
         renderer_name="Morning report",
+        governed_morning_report=(None if preparation is None else preparation.result),
     )
     written_path = emit_rendered_workflow_output(
         rendered=rendered,
         output=output,
     )
-    _persist_rendered_morning_report(
-        envelope,
-        raw=raw,
+    _persist_governed_morning_report(
+        preparation,
         written_path=written_path,
     )
 
-    if not envelope.success:
-        raise typer.Exit(
-            code=1,
-        )
+    presentation_failed = (
+        preparation is None or not preparation.result.decision.may_present
+    )
+    if not envelope.success or presentation_failed:
+        raise typer.Exit(code=1)
 
 
-def _persist_rendered_morning_report(
+def _prepare_morning_report_presentation(
     envelope: WorkflowRenderEnvelope,
+) -> MorningReportPresentationPreparation | None:
+    if envelope.workflow_name != DEFAULT_MORNING_REPORT_WORKFLOW:
+        return None
+    try:
+        document = MorningReportAssembler().assemble(envelope.to_dict())
+        return run_cli_async(_prepare_morning_report(document))
+    except Exception as exc:
+        emit_cli_status_line(
+            f"[presentation] failed to govern morning report: {type(exc).__name__}"
+        )
+        return None
+
+
+def _persist_governed_morning_report(
+    preparation: MorningReportPresentationPreparation | None,
     *,
-    raw: bool,
     written_path: Path | None,
 ) -> None:
-    if raw or envelope.workflow_name != DEFAULT_MORNING_REPORT_WORKFLOW:
+    if preparation is None:
         return
-
     if not Settings().ENABLE_POSTGRES_REPORT_PERSISTENCE:
+        return
+    if not preparation.result.decision.may_present:
+        emit_cli_status_line(
+            "[persistence] morning report was not persisted because presentation "
+            f"is {preparation.result.projection.disposition}"
+        )
         return
 
     try:
-        document = MorningReportAssembler().assemble(
-            envelope.to_dict(),
-        )
-        markdown_body = MorningReportMarkdownRenderer().render(
-            document,
-        )
+        markdown_body = MorningReportMarkdownRenderer().render(preparation.result)
         artifact_references = (
-            (
-                ReportArtifactReference.from_path(
-                    written_path,
-                ),
-            )
+            (ReportArtifactReference.from_path(written_path),)
             if written_path is not None
             else ()
         )
         result = run_cli_async(
             _persist_morning_report_to_postgres(
-                document,
+                preparation,
                 markdown_body=markdown_body,
                 artifact_references=artifact_references,
             )
@@ -181,11 +194,21 @@ def _persist_rendered_morning_report(
                 f"[persistence] failed to persist morning report: {result.error}"
             )
     except Exception as exc:
-        emit_cli_status_line(f"[persistence] failed to persist morning report: {exc}")
+        emit_cli_status_line(
+            f"[persistence] failed to persist morning report: {type(exc).__name__}"
+        )
+
+
+async def _prepare_morning_report(
+    document: MorningReportDocument,
+) -> MorningReportPresentationPreparation:
+    async with application_request_scope() as request_container:
+        service = await request_container.get(MorningReportPersistenceService)
+        return await service.prepare_presentation(document)
 
 
 async def _persist_morning_report_to_postgres(
-    document: MorningReportDocument,
+    preparation: MorningReportPresentationPreparation,
     *,
     markdown_body: str,
     artifact_references: tuple[ReportArtifactReference, ...],
@@ -193,7 +216,7 @@ async def _persist_morning_report_to_postgres(
     async with application_request_scope() as request_container:
         service = await request_container.get(MorningReportPersistenceService)
         return await service.persist(
-            document,
+            preparation,
             markdown_body=markdown_body,
             artifact_references=artifact_references,
         )

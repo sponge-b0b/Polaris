@@ -16,7 +16,11 @@ from application.governance import (
     GovernedOutputReleaseDecision,
     GovernedOutputReleaseRequest,
 )
-from application.reports import MorningReportMarkdownRenderer
+from application.reports import (
+    MorningReportMarkdownRenderer,
+    MorningReportPersistenceService,
+    MorningReportPresentationPreparation,
+)
 from application.reports.authority import (
     ReportAuthorityViolationError,
     morning_report_authority,
@@ -30,8 +34,10 @@ from application.reports.morning_report_models import (
 )
 from application.reports.morning_report_persistence import (
     MorningReportPersistenceMapper,
-    MorningReportPersistenceService,
     ReportArtifactReference,
+)
+from application.reports.morning_report_renderer import (
+    MorningReportMarkdownRenderer as RawMorningReportMarkdownRenderer,
 )
 from core.storage.persistence.governance_audit import (
     AutomatedDecisionEvidenceReference,
@@ -252,9 +258,33 @@ class FakeReportRepository:
         )
 
 
+async def _prepare_render_and_persist(
+    service: MorningReportPersistenceService,
+    document: MorningReportDocument,
+    *,
+    artifact_references: tuple[ReportArtifactReference, ...] = (),
+) -> tuple[
+    ReportPersistenceResult,
+    str,
+    MorningReportPresentationPreparation,
+]:
+    preparation = await service.prepare_presentation(document)
+    markdown = (
+        MorningReportMarkdownRenderer().render(preparation.result)
+        if preparation.result.decision.may_present
+        else "# Presentation withheld"
+    )
+    result = await service.persist(
+        preparation,
+        markdown_body=markdown,
+        artifact_references=artifact_references,
+    )
+    return result, markdown, preparation
+
+
 def test_morning_report_mapper_preserves_full_markdown_and_llm_text() -> None:
     document = _document()
-    markdown = MorningReportMarkdownRenderer().render(
+    markdown = RawMorningReportMarkdownRenderer().render(
         document,
     )
 
@@ -296,13 +326,9 @@ async def test_morning_report_persistence_service_persists_full_bundle() -> None
         governed_output_release_service=_approved_release_gate(),
     )
     document = _with_publication_review(_document_with_contextual_claim_reference())
-    markdown = MorningReportMarkdownRenderer().render(
+    result, markdown, _ = await _prepare_render_and_persist(
+        service,
         document,
-    )
-
-    result = await service.persist(
-        document,
-        markdown_body=markdown,
         artifact_references=(
             ReportArtifactReference(
                 uri="/tmp/morning_report.json",
@@ -339,9 +365,9 @@ async def test_morning_report_persistence_uses_claim_packet_for_release() -> Non
     )
     document = _document_with_contextual_claim_reference()
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is True
@@ -353,7 +379,7 @@ async def test_morning_report_persistence_uses_claim_packet_for_release() -> Non
             evidence=AutomatedDecisionEvidenceReference("packet-context", 1),
             review_scope="morning_report",
             requested_action="report_publication",
-            boundary_name="morning_report.persistence",
+            boundary_name="morning_report.presentation",
             residual_risk_acceptance_required=True,
             residual_risk_scope="morning_report_publication",
         )
@@ -380,9 +406,9 @@ async def test_morning_report_persistence_ignores_document_publication_review() 
     )
     document = _with_publication_review(_document_with_contextual_claim_reference())
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is True
@@ -412,9 +438,9 @@ async def test_morning_report_persistence_blocks_missing_claim_packet() -> None:
     )
     document = _document()
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -433,9 +459,9 @@ async def test_morning_report_persistence_blocks_missing_release_service() -> No
     )
     document = _with_publication_review(_document_with_contextual_claim_reference())
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -466,9 +492,9 @@ async def test_morning_report_persistence_blocks_denied_publication() -> None:
     )
     document = _document_with_contextual_claim_reference()
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -482,7 +508,7 @@ async def test_morning_report_persistence_blocks_denied_publication() -> None:
             evidence=AutomatedDecisionEvidenceReference("packet-context", 1),
             review_scope="morning_report",
             requested_action="report_publication",
-            boundary_name="morning_report.persistence",
+            boundary_name="morning_report.presentation",
             residual_risk_acceptance_required=True,
             residual_risk_scope="morning_report_publication",
         )
@@ -509,9 +535,9 @@ async def test_morning_report_persistence_persists_after_review_approval() -> No
     )
     document = _document_with_contextual_claim_reference()
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is True
@@ -567,9 +593,9 @@ async def test_morning_report_persistence_service_persists_claim_evidence_links(
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is True
@@ -601,9 +627,9 @@ async def test_morning_report_fails_closed_without_claim_audit_treatment() -> No
         governed_output_release_service=_approved_release_gate(),
     )
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -626,9 +652,9 @@ async def test_morning_report_fails_closed_for_packet_validation_error() -> None
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -649,9 +675,9 @@ async def test_morning_report_fails_closed_for_missing_material_binding() -> Non
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -679,9 +705,9 @@ async def test_morning_report_fails_closed_for_invalid_material_binding() -> Non
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -708,9 +734,9 @@ async def test_morning_report_fails_closed_for_substituted_material_link() -> No
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -741,9 +767,9 @@ async def test_morning_report_blocks_contextual_claim_without_binding() -> None:
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is False
@@ -772,9 +798,9 @@ async def test_morning_report_allows_contextual_claim_after_binding() -> None:
     )
     document = _with_publication_review(document)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
     )
 
     assert result.success is True
@@ -799,9 +825,9 @@ async def test_morning_report_persistence_blocks_unsafe_capital_advice() -> None
     repository = FakeReportRepository()
     service = MorningReportPersistenceService(repository)
 
-    result = await service.persist(
+    result, _, _ = await _prepare_render_and_persist(
+        service,
         document,
-        markdown_body="# Published report\n\nBuy 100 shares of SPY at the open.",
     )
 
     assert result.success is False
@@ -812,7 +838,7 @@ async def test_morning_report_persistence_blocks_unsafe_capital_advice() -> None
 
 def test_mapper_attaches_authority_metadata_to_presentation_records() -> None:
     document = _document()
-    markdown = MorningReportMarkdownRenderer().render(
+    markdown = RawMorningReportMarkdownRenderer().render(
         document,
     )
 
@@ -894,7 +920,7 @@ def test_mapper_keeps_report_claim_refs_out_of_metadata_blobs() -> None:
 
     bundle = MorningReportPersistenceMapper().build_bundle(
         document,
-        markdown_body=MorningReportMarkdownRenderer().render(document),
+        markdown_body=RawMorningReportMarkdownRenderer().render(document),
     )
 
     metadata = bundle.sections[0].metadata

@@ -8,6 +8,17 @@ import pytest
 from typer.testing import CliRunner
 
 import interfaces.cli.services.rag_command_service as rag_command_service_module
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
 from application.rag.contracts.rag_context import RagRetrievedContext, RagSource
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
@@ -24,6 +35,7 @@ from application.rag.contracts.rag_operation_models import (
 )
 from application.rag.contracts.rag_request import RagRequest
 from application.rag.contracts.rag_result import RagResult
+from domain.authority import GateProfile, RiskTier
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import rag_command
 from interfaces.cli.services.rag_command_service import (
@@ -42,21 +54,16 @@ from interfaces.cli.services.rag_command_service import (
 
 
 class FakeRagService:
-    def __init__(
-        self,
-        result: RagResult,
-    ) -> None:
+    def __init__(self, result: RagResult) -> None:
         self.requests: list[RagRequest] = []
         self._result = result
 
     async def run(
         self,
         request: RagRequest,
-    ) -> RagResult:
-        self.requests.append(
-            request,
-        )
-        return self._result
+    ) -> GovernedPresentationResult[RagResult]:
+        self.requests.append(request)
+        return _governed(self._result)
 
 
 class _FakeRequestContainer:
@@ -121,12 +128,8 @@ async def test_default_rag_contexts_use_canonical_application_request_scope(
 
 def test_rag_command_service_builds_filtered_request() -> None:
     result = _answered_result()
-    fake_service = FakeRagService(
-        result,
-    )
-    service = RagCommandService(
-        service=fake_service,
-    )
+    fake_service = FakeRagService(result)
+    service = RagCommandService(service=fake_service)
 
     command_result = _run(
         service.ask(
@@ -149,6 +152,8 @@ def test_rag_command_service_builds_filtered_request() -> None:
     )
 
     assert command_result.success is True
+    assert command_result.presentation is not None
+    assert command_result.presentation.may_present is True
     assert len(fake_service.requests) == 1
     request = fake_service.requests[0]
     assert request.normalized_query == "explain SPY breadth"
@@ -174,19 +179,15 @@ def test_rag_ask_cli_renders_answer_with_citations(
             self,
             request: RagAskCommandRequest,
         ) -> RagAskCommandResult:
-            captured.append(
-                request,
-            )
+            captured.append(request)
+            governed = _governed(_answered_result())
             return RagAskCommandResult(
                 success=True,
-                result=_answered_result(),
+                result=governed.require_payload(),
+                presentation=governed.projection,
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -219,6 +220,7 @@ def test_rag_ask_cli_renders_answer_with_citations(
 
     assert result.exit_code == 0
     assert "RAG Answer" in result.output
+    assert "Presentation: eligible" in result.output
     assert "The breadth signal improved across SPY constituents." in result.output
     assert "Citations:" in result.output
     assert "Morning Report" in result.output
@@ -236,9 +238,7 @@ def test_rag_ask_cli_renders_failure_output(
             self,
             request: RagAskCommandRequest,
         ) -> RagAskCommandResult:
-            rag_request = RagRequest(
-                query=request.query,
-            )
+            rag_request = RagRequest(query=request.query)
             return RagAskCommandResult(
                 success=False,
                 result=RagResult.failed(
@@ -248,21 +248,8 @@ def test_rag_ask_cli_renders_failure_output(
                 error="generation provider unavailable",
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
-        create_app(),
-        [
-            "rag",
-            "ask",
-            "What changed?",
-        ],
-    )
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(create_app(), ["rag", "ask", "What changed?"])
 
     assert result.exit_code == 1
     assert "RAG Answer" in result.output
@@ -271,17 +258,8 @@ def test_rag_ask_cli_renders_failure_output(
 
 
 def test_render_rag_ask_result_does_not_truncate_answer() -> None:
-    result = _answered_result(
-        answer_text="Line one.\n" + "Full detail. " * 50,
-    )
-
-    rendered = render_rag_ask_result(
-        RagAskCommandResult(
-            success=True,
-            result=result,
-        )
-    )
-
+    result = _answered_result(answer_text="Line one.\n" + "Full detail. " * 50)
+    rendered = render_rag_ask_result(RagAskCommandResult(success=True, result=result))
     assert rendered.count("Full detail.") == 50
 
 
@@ -295,40 +273,19 @@ def test_rag_ingest_cli_delegates_and_renders_operation(
             self,
             request: RagIngestOperationRequest,
         ) -> RagOperationResult:
-            captured.append(
-                request,
-            )
+            captured.append(request)
             return RagOperationResult.succeeded(
                 operation="rag.ingest",
                 message="dry run complete",
                 records_processed=2,
                 dry_run=True,
-                details=(
-                    RagOperationDetail(
-                        "source",
-                        request.source,
-                    ),
-                ),
+                details=(RagOperationDetail("source", request.source),),
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(
         create_app(),
-        [
-            "rag",
-            "ingest",
-            "--source",
-            "reports",
-            "--limit",
-            "2",
-            "--dry-run",
-        ],
+        ["rag", "ingest", "--source", "reports", "--limit", "2", "--dry-run"],
     )
 
     assert result.exit_code == 0
@@ -351,30 +308,17 @@ def test_rag_process_embeddings_cli_delegates(
             self,
             request: RagProcessEmbeddingsOperationRequest,
         ) -> RagOperationResult:
-            captured.append(
-                request,
-            )
+            captured.append(request)
             return RagOperationResult.succeeded(
                 operation="rag.process_embeddings",
                 message="processed",
                 records_processed=3,
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(
         create_app(),
-        [
-            "rag",
-            "process-embeddings",
-            "--batch-size",
-            "3",
-        ],
+        ["rag", "process-embeddings", "--batch-size", "3"],
     )
 
     assert result.exit_code == 0
@@ -393,29 +337,15 @@ def test_rag_process_graph_cli_is_dry_run_by_default(
             self,
             request: RagProcessGraphOperationRequest,
         ) -> RagOperationResult:
-            captured.append(
-                request,
-            )
+            captured.append(request)
             return RagOperationResult.succeeded(
                 operation="rag.process_graph",
                 message="dry run",
                 dry_run=request.dry_run,
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
-        create_app(),
-        [
-            "rag",
-            "process-graph",
-        ],
-    )
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(create_app(), ["rag", "process-graph"])
 
     assert result.exit_code == 0
     assert "Dry run: True" in result.output
@@ -432,30 +362,17 @@ def test_rag_rebuild_cli_requires_confirmation_for_destructive_execution(
             self,
             request: RagRebuildProjectionOperationRequest,
         ) -> RagOperationResult:
-            captured.append(
-                request,
-            )
+            captured.append(request)
             return RagOperationResult.succeeded(
                 operation="rag.rebuild_projection",
                 message="dry run",
                 dry_run=request.dry_run,
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(
         create_app(),
-        [
-            "rag",
-            "rebuild",
-            "--projection",
-            "qdrant",
-        ],
+        ["rag", "rebuild", "--projection", "qdrant"],
     )
 
     assert result.exit_code == 0
@@ -484,16 +401,9 @@ def test_rag_rebuild_cli_executes_only_with_explicit_confirmation(
             )
 
     monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
-
     result = CliRunner().invoke(
         create_app(),
-        [
-            "rag",
-            "rebuild",
-            "--projection",
-            "qdrant",
-            "--confirm-delete",
-        ],
+        ["rag", "rebuild", "--projection", "qdrant", "--confirm-delete"],
     )
 
     assert result.exit_code == 0
@@ -513,14 +423,8 @@ def test_rag_status_cli_renders_typed_projection_readiness(
         async def status(self) -> RagProjectionReadinessResult:
             return _readiness_result()
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(create_app(), ["rag", "status"])
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(create_app(), ["rag", "status"])
 
     assert result.exit_code == 0
     assert "RAG Projection Readiness" in result.output
@@ -573,21 +477,10 @@ def test_rag_operation_cli_renders_failure_output(
                 error="unsupported source",
             )
 
-    monkeypatch.setattr(
-        rag_command,
-        "RagCommandService",
-        FakeRagCommandService,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
+    monkeypatch.setattr(rag_command, "RagCommandService", FakeRagCommandService)
+    result = CliRunner().invoke(
         create_app(),
-        [
-            "rag",
-            "ingest",
-            "--source",
-            "bad-source",
-        ],
+        ["rag", "ingest", "--source", "bad-source"],
     )
 
     assert result.exit_code == 1
@@ -600,15 +493,9 @@ def test_render_rag_operation_result_includes_details() -> None:
         RagOperationResult.succeeded(
             operation="rag.status",
             message="loaded",
-            details=(
-                RagOperationDetail(
-                    "queued_embedding_jobs",
-                    "4",
-                ),
-            ),
+            details=(RagOperationDetail("queued_embedding_jobs", "4"),),
         )
     )
-
     assert "RAG Operation" in rendered
     assert "queued_embedding_jobs: 4" in rendered
 
@@ -641,13 +528,20 @@ def _readiness_result() -> RagProjectionReadinessResult:
             status="green",
         ),
         graph=RagGraphProjectionReadiness(
-            connected=True, healthy=True, entity_count=12
+            connected=True,
+            healthy=True,
+            entity_count=12,
         ),
         embedding=RagModelReadiness(
-            component="embedding", model="bge-m3", ready=True, dimensions=3
+            component="embedding",
+            model="bge-m3",
+            ready=True,
+            dimensions=3,
         ),
         reranker=RagModelReadiness(
-            component="reranker", model="bge-reranker-large", ready=True
+            component="reranker",
+            model="bge-reranker-large",
+            ready=True,
         ),
     )
 
@@ -655,10 +549,7 @@ def _readiness_result() -> RagProjectionReadinessResult:
 def _answered_result(
     answer_text: str = "The breadth signal improved across SPY constituents.",
 ) -> RagResult:
-    request = RagRequest(
-        query="What changed in SPY breadth?",
-        top_k=3,
-    )
+    request = RagRequest(query="What changed in SPY breadth?", top_k=3)
     source = RagSource(
         source_table="rag_documents",
         source_id="report-1",
@@ -687,11 +578,26 @@ def _answered_result(
     )
 
 
-def _run(
-    awaitable,
-):
+def _governed(result: RagResult) -> GovernedPresentationResult[RagResult]:
+    return GovernedPresentationResult(
+        payload=result,
+        decision=PresentationSinkDecision(
+            disposition=PresentationSinkDisposition.ELIGIBLE,
+            gate_decision=RiskAuthorityGateDecision(
+                status=RiskAuthorityGateDecisionStatus.PASSED,
+                failure_mode=RiskAuthorityGateFailureMode.NONE,
+                message="test RAG result is eligible",
+                risk_tier=RiskTier.BASELINE,
+                gate_profile=GateProfile.BASELINE_INTERNAL,
+                authority_metadata={},
+                evidence=RiskAuthorityGateEvidence(),
+            ),
+            reasons=("test RAG result is eligible",),
+        ),
+    )
+
+
+def _run(awaitable):
     import asyncio
 
-    return asyncio.run(
-        awaitable,
-    )
+    return asyncio.run(awaitable)

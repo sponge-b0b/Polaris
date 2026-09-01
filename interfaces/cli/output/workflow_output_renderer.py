@@ -4,12 +4,8 @@ from collections.abc import Callable
 from html import escape
 from pathlib import Path
 
-from application.reports import MorningReportAssembler, MorningReportMarkdownRenderer
 from interfaces.cli.formatters.json_formatter import format_json
-from interfaces.cli.output.pdf_output_renderer import (
-    MarkdownPdfRenderer,
-    MorningReportPdfRenderer,
-)
+from interfaces.cli.output.pdf_output_renderer import MarkdownPdfRenderer
 from interfaces.cli.output.workflow_output import (
     CliOutputFormat,
     WorkflowOutputArtifact,
@@ -32,32 +28,26 @@ def render_workflow_output_bundle(
     raw: bool = False,
     pdf_renderer: PdfRenderer | None = None,
 ) -> WorkflowOutputBundle:
-    """
-    Render mandatory CLI stdout plus an optional explicit-format file artifact.
+    """Render generic workflow output; governed reports use the report facade."""
 
-    Runtime data is consumed through the CLI render envelope. Human report
-    formatting remains a CLI/report-layer concern, not a runtime concern.
-    """
+    if envelope.workflow_name == "morning_report":
+        raise ValueError(
+            "morning_report output requires the governed presentation renderer."
+        )
 
     stdout = _render_stdout(
         envelope,
         output_format=output_format,
-        raw=raw,
     )
-
     if output_format is None:
-        return WorkflowOutputBundle(
-            stdout=stdout,
-        )
+        return WorkflowOutputBundle(stdout=stdout)
 
     artifact_content = _render_artifact_content(
         envelope,
         output_format=output_format,
         stdout=stdout,
-        raw=raw,
         pdf_renderer=pdf_renderer,
     )
-
     return WorkflowOutputBundle(
         stdout=stdout,
         artifact=WorkflowOutputArtifact(
@@ -76,35 +66,12 @@ def _render_stdout(
     envelope: WorkflowRenderEnvelope,
     *,
     output_format: CliOutputFormat | None,
-    raw: bool,
 ) -> str:
     if output_format == "json":
-        return format_json(
-            envelope,
-        )
-
-    if output_format in {
-        "html",
-        "pdf",
-        "markdown",
-    }:
-        return _render_markdown(
-            envelope,
-            raw=raw,
-        )
-
-    if _is_professional_morning_report(
-        envelope,
-        raw=raw,
-    ):
-        return _render_morning_report_markdown(
-            envelope,
-        )
-
-    return render_workflow_output(
-        envelope,
-        "console",
-    )
+        return format_json(envelope)
+    if output_format in {"html", "pdf", "markdown"}:
+        return render_workflow_output(envelope, "markdown")
+    return render_workflow_output(envelope, "console")
 
 
 def _render_artifact_content(
@@ -112,103 +79,23 @@ def _render_artifact_content(
     *,
     output_format: CliOutputFormat,
     stdout: str,
-    raw: bool,
     pdf_renderer: PdfRenderer | None,
 ) -> str | bytes:
-    if output_format == "json":
+    if output_format in {"json", "markdown"}:
         return stdout
-
-    if output_format == "markdown":
-        return stdout
-
     if output_format == "html":
         return render_html_document(
             stdout,
-            title=_document_title(
-                envelope,
-            ),
+            title=_document_title(envelope),
         )
-
     if output_format == "pdf":
-        return _render_pdf(
-            envelope,
-            raw=raw,
-            pdf_renderer=pdf_renderer,
+        if pdf_renderer is not None:
+            return pdf_renderer(stdout)
+        return MarkdownPdfRenderer().render(
+            stdout,
+            title=_document_title(envelope),
         )
-
     raise ValueError("format must be one of: html, json, markdown, pdf")
-
-
-def _render_pdf(
-    envelope: WorkflowRenderEnvelope,
-    *,
-    raw: bool,
-    pdf_renderer: PdfRenderer | None,
-) -> bytes:
-    markdown = _render_markdown(
-        envelope,
-        raw=raw,
-    )
-    if pdf_renderer is not None:
-        return pdf_renderer(
-            markdown,
-        )
-
-    if _is_professional_morning_report(
-        envelope,
-        raw=raw,
-    ):
-        document = MorningReportAssembler().assemble(
-            envelope.to_dict(),
-        )
-        return MorningReportPdfRenderer().render(
-            document,
-        )
-
-    return MarkdownPdfRenderer().render(
-        markdown,
-        title=_document_title(
-            envelope,
-        ),
-    )
-
-
-def _render_markdown(
-    envelope: WorkflowRenderEnvelope,
-    *,
-    raw: bool,
-) -> str:
-    if _is_professional_morning_report(
-        envelope,
-        raw=raw,
-    ):
-        return _render_morning_report_markdown(
-            envelope,
-        )
-
-    return render_workflow_output(
-        envelope,
-        "markdown",
-    )
-
-
-def _render_morning_report_markdown(
-    envelope: WorkflowRenderEnvelope,
-) -> str:
-    document = MorningReportAssembler().assemble(
-        envelope.to_dict(),
-    )
-    return MorningReportMarkdownRenderer().render(
-        document,
-    )
-
-
-def _is_professional_morning_report(
-    envelope: WorkflowRenderEnvelope,
-    *,
-    raw: bool,
-) -> bool:
-    return not raw and envelope.workflow_name == "morning_report"
 
 
 def render_html_document(
@@ -216,13 +103,8 @@ def render_html_document(
     *,
     title: str,
 ) -> str:
-    body = _render_basic_markdown_html(
-        markdown,
-    )
-    escaped_title = escape(
-        title,
-    )
-
+    body = _render_basic_markdown_html(markdown)
+    escaped_title = escape(title)
     return "\n".join(
         [
             "<!doctype html>",
@@ -255,9 +137,7 @@ def render_html_document(
     )
 
 
-def _render_basic_markdown_html(
-    markdown: str,
-) -> str:
+def _render_basic_markdown_html(markdown: str) -> str:
     lines: list[str] = []
     in_unordered_list = False
     in_code_block = False
@@ -271,10 +151,8 @@ def _render_basic_markdown_html(
             in_code_block=in_code_block,
             code_lines=code_lines,
         )
-
     if in_code_block:
         _append_code_block(lines, code_lines)
-
     _close_list_if_needed(lines, in_unordered_list)
     return "\n".join(lines)
 
@@ -288,7 +166,6 @@ def _append_basic_markdown_html_line(
     code_lines: list[str],
 ) -> tuple[bool, bool]:
     stripped = line.strip()
-
     if stripped.startswith("```"):
         return _toggle_basic_markdown_code_block(
             lines=lines,
@@ -326,7 +203,6 @@ def _toggle_basic_markdown_code_block(
         _append_code_block(lines, code_lines)
         code_lines.clear()
         return in_unordered_list, False
-
     _close_list_if_needed(lines, in_unordered_list)
     return False, True
 
@@ -339,7 +215,6 @@ def _append_basic_markdown_heading(
     heading = _basic_markdown_heading(stripped)
     if heading is None:
         return False
-
     _close_list_if_needed(lines, in_unordered_list)
     level, text = heading
     lines.append(f"<h{level}>{escape(text)}</h{level}>")
@@ -374,12 +249,8 @@ def _close_list_if_needed(
         lines.append("</ul>")
 
 
-def _document_title(
-    envelope: WorkflowRenderEnvelope,
-) -> str:
+def _document_title(envelope: WorkflowRenderEnvelope) -> str:
     workflow_name = envelope.workflow_name or "workflow"
-    execution_id = envelope.execution_id
-    if execution_id:
-        return f"{workflow_name} {execution_id}"
-
+    if envelope.execution_id:
+        return f"{workflow_name} {envelope.execution_id}"
     return workflow_name

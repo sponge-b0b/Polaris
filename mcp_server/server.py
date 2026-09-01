@@ -21,7 +21,6 @@ from mcp_server.contracts.models import (
     GovernanceReviewStatesListRequest,
     GovernanceReviewStatesListResponse,
     RagAskRequest,
-    RagAskResponse,
     RagStatusRequest,
     RagStatusResponse,
     WorkflowDescribeRequest,
@@ -29,6 +28,7 @@ from mcp_server.contracts.models import (
     WorkflowsListRequest,
     WorkflowsListResponse,
 )
+from mcp_server.contracts.rag_presentation import RagAskResponse
 from mcp_server.lifespan import McpApplicationContext, mcp_application_lifespan
 from mcp_server.settings import McpServerSettings, McpTransport
 from mcp_server.tools.allowlist import validate_registered_tool_allowlist
@@ -90,7 +90,7 @@ async def polaris_rag_status(
     request: RagStatusRequest,
     context: Context,
 ) -> RagStatusResponse:
-    """Delegate one MCP readiness request through a canonical request scope."""
+    """Delegate one MCP readiness request through the canonical workflow facade."""
 
     return await execute_rag_status(
         request,
@@ -229,9 +229,7 @@ async def polaris_governance_review_states_list(
 validate_registered_tool_allowlist(server._tool_manager.list_tools())
 
 
-def run_stdio_server(
-    settings: McpServerSettings | None = None,
-) -> None:
+def run_stdio_server(settings: McpServerSettings | None = None) -> None:
     """Run the shared FastMCP server over trusted parent-process stdio."""
 
     resolved = McpServerSettings.from_env() if settings is None else settings
@@ -251,7 +249,6 @@ def create_streamable_http_app(
         raise ValueError(
             "The Streamable HTTP app requires streamable-http transport settings.",
         )
-
     _configure_streamable_http_settings(resolved)
     return protect_streamable_http_app(server.streamable_http_app(), resolved)
 
@@ -263,7 +260,6 @@ def run_streamable_http_server(
 
     resolved = McpServerSettings.from_env() if settings is None else settings
     app = create_streamable_http_app(resolved)
-
     import uvicorn
 
     uvicorn.run(

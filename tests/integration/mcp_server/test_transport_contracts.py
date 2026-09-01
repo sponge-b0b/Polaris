@@ -24,6 +24,18 @@ from pydantic import SecretStr
 from starlette.applications import Starlette
 
 import mcp_server.server as server_module
+from application.evaluations.risk_authority_gate import (
+    RiskAuthorityGateDecision,
+    RiskAuthorityGateDecisionStatus,
+    RiskAuthorityGateEvidence,
+    RiskAuthorityGateFailureMode,
+)
+from application.presentation.governed_result import GovernedPresentationResult
+from application.presentation.sink_decision import (
+    PresentationSinkDecision,
+    PresentationSinkDisposition,
+)
+from application.rag.authority import classify_rag_result_authority
 from application.rag.contracts.rag_operation_models import (
     RagCanonicalProjectionReadiness,
     RagGraphProjectionReadiness,
@@ -77,8 +89,8 @@ _GENERATED_AT = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
 
 
 class _FakeRagService:
-    async def run(self, request: RagRequest) -> RagResult:
-        return RagResult(
+    async def run(self, request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        result = RagResult(
             query_id=request.request_id,
             request=request,
             answer_text="Complete fake answer.",
@@ -86,6 +98,26 @@ class _FakeRagService:
             route=request.route,
             generated_at=_GENERATED_AT,
         )
+        result = classify_rag_result_authority(request=request, result=result)
+        authority = result.authority
+        if authority is None:
+            raise ValueError("fake RAG service result lacks authority.")
+        decision = PresentationSinkDecision(
+            disposition=PresentationSinkDisposition.ELIGIBLE,
+            gate_decision=RiskAuthorityGateDecision(
+                status=RiskAuthorityGateDecisionStatus.PASSED,
+                failure_mode=RiskAuthorityGateFailureMode.NONE,
+                message="test governed MCP RAG result",
+                risk_tier=authority.risk_tier,
+                gate_profile=authority.gate_profile,
+                authority_metadata=authority.to_metadata(),
+                evidence=RiskAuthorityGateEvidence(
+                    provenance_record_ids=("mcp-integration",)
+                ),
+            ),
+            reasons=("test governed MCP RAG result",),
+        )
+        return GovernedPresentationResult(payload=result, decision=decision)
 
 
 class _FakeRagStatusService:

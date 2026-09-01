@@ -12,6 +12,7 @@ from application.presentation.evidence import (
     presentation_gate_evidence,
     presentation_sink_decision_metadata,
 )
+from application.presentation.governed_result import GovernedPresentationResult
 from application.presentation.sink_decision import PresentationSinkDecisionService
 from application.rag.authority import (
     RAG_AUTHORITY_FAILURE_MODE_METADATA_KEY,
@@ -63,27 +64,17 @@ class RagPipelinePort(Protocol):
     slots=True,
 )
 class RagServiceConfig:
-    """
-    Runtime controls for platform-native RAG orchestration.
-    """
+    """Runtime controls for platform-native RAG orchestration."""
 
     operation_name: str = "rag.service.run"
 
-    def __post_init__(
-        self,
-    ) -> None:
+    def __post_init__(self) -> None:
         if not self.operation_name.strip():
             raise ValueError("operation_name cannot be empty.")
 
 
 class RagService:
-    """
-    Application service boundary for platform-native RAG execution.
-
-    Pipeline execution remains delegated to the unified RAG graph. This service
-    owns request/answer persistence logging and service-level telemetry for the
-    complete RAG use case.
-    """
+    """Application service boundary for platform-native RAG execution."""
 
     def __init__(
         self,
@@ -117,12 +108,10 @@ class RagService:
     async def run(
         self,
         request: RagRequest,
-    ) -> RagResult:
+    ) -> GovernedPresentationResult[RagResult]:
         started_at = datetime.now(UTC)
         timer_started_at = perf_counter()
-        await self._emit_started(
-            request,
-        )
+        await self._emit_started(request)
         await self._persist_query_log(
             _query_log_from_request(
                 request=request,
@@ -133,9 +122,7 @@ class RagService:
 
         pipeline_error: BaseException | None = None
         try:
-            result = await self._pipeline.run(
-                request,
-            )
+            result = await self._pipeline.run(request)
         except Exception as exc:
             pipeline_error = exc
             result = RagResult.failed(
@@ -162,7 +149,8 @@ class RagService:
             request=request,
             result=result,
         )
-        result = await self._apply_presentation_decision(result)
+        governed_result = await self._apply_presentation_decision(result)
+        result = governed_result.require_payload()
         await self._persist_answer_log(
             _answer_log_from_result(
                 result=result,
@@ -181,7 +169,7 @@ class RagService:
             result=result,
             duration_seconds=duration_seconds,
         )
-        return result
+        return governed_result
 
     async def _reacquire_claim_evidence_packet(
         self,
@@ -242,7 +230,10 @@ class RagService:
             )
         return replace(result, evidence_packet=reconstructed)
 
-    async def _apply_presentation_decision(self, result: RagResult) -> RagResult:
+    async def _apply_presentation_decision(
+        self,
+        result: RagResult,
+    ) -> GovernedPresentationResult[RagResult]:
         authority = result.authority
         packets = () if result.evidence_packet is None else (result.evidence_packet,)
         evidence = presentation_gate_evidence(packets=packets)
@@ -263,16 +254,35 @@ class RagService:
                 **presentation_sink_decision_metadata(decision),
             },
         )
-        if decision.may_present or result.status != "answered":
-            return replace(result, metadata=metadata)
-        return replace(
-            result,
-            answer_text=safe_grounding_failure_answer(),
-            status="no_results",
+        governed_payload = replace(result, metadata=metadata)
+        if decision.may_present:
+            return GovernedPresentationResult(
+                payload=governed_payload,
+                decision=decision,
+            )
+
+        safe_payload = replace(
+            governed_payload,
+            contexts=(),
             citations=(),
             confidence_score=None,
-            error=None,
-            metadata=metadata,
+            grounding_score=None,
+            utility_score=None,
+            reflection_scores=None,
+            corrective_actions=(),
+            evidence_packet=None,
+            generated_claims=(),
+        )
+        if result.status != "failed":
+            safe_payload = replace(
+                safe_payload,
+                answer_text=safe_grounding_failure_answer(),
+                status="no_results",
+                error=None,
+            )
+        return GovernedPresentationResult(
+            payload=safe_payload,
+            decision=decision,
         )
 
     def _workflow_facts(
@@ -302,15 +312,10 @@ class RagService:
             )
         return facts, execution_id
 
-    async def _persist_query_log(
-        self,
-        query_log: RagQueryLogRecord,
-    ) -> None:
+    async def _persist_query_log(self, query_log: RagQueryLogRecord) -> None:
         started_at = perf_counter()
         try:
-            persistence_result = await self._repository.persist_query_log(
-                query_log,
-            )
+            persistence_result = await self._repository.persist_query_log(query_log)
         except Exception as exc:
             await self._emit_persistence_failed(
                 operation="rag.persistence.query_log",
@@ -334,20 +339,13 @@ class RagService:
             record_id=query_log.query_id,
             status=query_log.status,
             duration_seconds=perf_counter() - started_at,
-            attributes={
-                "records_persisted": persistence_result.records_persisted,
-            },
+            attributes={"records_persisted": persistence_result.records_persisted},
         )
 
-    async def _persist_answer_log(
-        self,
-        answer_log: RagAnswerLogRecord,
-    ) -> None:
+    async def _persist_answer_log(self, answer_log: RagAnswerLogRecord) -> None:
         started_at = perf_counter()
         try:
-            persistence_result = await self._repository.persist_answer_log(
-                answer_log,
-            )
+            persistence_result = await self._repository.persist_answer_log(answer_log)
         except Exception as exc:
             await self._emit_persistence_failed(
                 operation="rag.persistence.answer_log",
@@ -362,7 +360,7 @@ class RagService:
                 operation="rag.persistence.answer_log",
                 record_id=answer_log.answer_id,
                 status=answer_log.status,
-                error=(persistence_result.error or "Failed to persist RAG answer log."),
+                error=persistence_result.error or "Failed to persist RAG answer log.",
                 duration_seconds=perf_counter() - started_at,
             )
             return
@@ -371,15 +369,10 @@ class RagService:
             record_id=answer_log.answer_id,
             status=answer_log.status,
             duration_seconds=perf_counter() - started_at,
-            attributes={
-                "records_persisted": persistence_result.records_persisted,
-            },
+            attributes={"records_persisted": persistence_result.records_persisted},
         )
 
-    async def _emit_started(
-        self,
-        request: RagRequest,
-    ) -> None:
+    async def _emit_started(self, request: RagRequest) -> None:
         if self._telemetry is None:
             return
         await self._telemetry.emit_operation_started(
@@ -418,7 +411,6 @@ class RagService:
                 attributes=attributes,
             )
             return
-
         await self._telemetry.emit_operation_completed(
             "RagService",
             self._config.operation_name,
@@ -528,9 +520,7 @@ def _query_log_from_request(
         execution_id=request.execution_id,
         retrieval_route=request.route,
         top_k=request.top_k,
-        filters=_json_object(
-            request.filters.to_dict(),
-        ),
+        filters=_json_object(request.filters.to_dict()),
         status=status,
         started_at=started_at,
         model_executions=_query_model_executions(request.metadata),
@@ -555,9 +545,7 @@ def _query_log_from_result(
         execution_id=request.execution_id,
         retrieval_route=request.route,
         top_k=request.top_k,
-        filters=_json_object(
-            request.filters.to_dict(),
-        ),
+        filters=_json_object(request.filters.to_dict()),
         status=result.status,
         started_at=started_at,
         model_executions=_query_model_executions(
@@ -596,32 +584,22 @@ def _answer_log_from_result(
     completed_at: datetime,
 ) -> RagAnswerLogRecord:
     return RagAnswerLogRecord(
-        answer_id=new_rag_answer_log_id(
-            query_id=result.query_id,
-        ),
+        answer_id=new_rag_answer_log_id(query_id=result.query_id),
         query_id=result.query_id,
         answer_text=result.answer_text,
-        answer_hash=_sha256_text(
-            result.answer_text,
-        ),
+        answer_hash=_sha256_text(result.answer_text),
         generation_model=_optional_metadata_string(
             result.metadata,
             "generation_model",
         ),
         status=result.status,
         confidence_score=result.confidence_score,
-        source_count=len(
-            result.citations,
-        ),
+        source_count=len(result.citations),
         citations=_json_object(
-            {
-                "items": [citation.to_dict() for citation in result.citations],
-            }
+            {"items": [citation.to_dict() for citation in result.citations]}
         ),
         sources=_json_object(
-            {
-                "items": [context.source.to_dict() for context in result.contexts],
-            }
+            {"items": [context.source.to_dict() for context in result.contexts]}
         ),
         completed_at=completed_at,
         metadata=_json_object(
@@ -652,17 +630,11 @@ def _query_model_executions(
     return ()
 
 
-def _request_debug_metadata(
-    metadata: JsonObject,
-) -> JsonObject:
+def _request_debug_metadata(metadata: JsonObject) -> JsonObject:
     request_metadata = _debug_metadata(metadata)
     if not request_metadata:
         return {}
-    return _json_object(
-        {
-            "request_metadata": request_metadata,
-        }
-    )
+    return _json_object({"request_metadata": request_metadata})
 
 
 def _query_result_metadata(
@@ -706,41 +678,28 @@ def _is_durable_retrieval_context(context: RagRetrievedContext) -> bool:
     return True
 
 
-def _debug_metadata(
-    metadata: JsonObject,
-) -> JsonObject:
+def _debug_metadata(metadata: JsonObject) -> JsonObject:
     return _json_object(
         {key: value for key, value in metadata.items() if key != "model_executions"}
     )
 
 
-def _sha256_text(
-    value: str,
-) -> str:
-    return hashlib.sha256(
-        value.encode("utf-8"),
-    ).hexdigest()
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _optional_metadata_string(
     metadata: JsonObject,
     key: str,
 ) -> str | None:
-    value = metadata.get(
-        key,
-    )
+    value = metadata.get(key)
     if isinstance(value, str) and value.strip():
         return value
     return None
 
 
-def _json_object(
-    value: object,
-) -> JsonObject:
-    return cast(
-        JsonObject,
-        value,
-    )
+def _json_object(value: object) -> JsonObject:
+    return cast(JsonObject, value)
 
 
 def _clean_required(value: str | None, field_name: str) -> str:

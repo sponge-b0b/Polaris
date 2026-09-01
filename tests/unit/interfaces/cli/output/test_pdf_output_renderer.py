@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from application.reports.morning_report_models import (
     MorningReportDocument,
     ReportBullet,
@@ -9,6 +11,9 @@ from application.reports.morning_report_models import (
     ReportTableRow,
 )
 from interfaces.cli.output import MarkdownPdfRenderer, MorningReportPdfRenderer
+from tests.unit.application.reports.morning.test_morning_report_renderer import (
+    _governed,
+)
 
 
 def test_markdown_pdf_renderer_produces_pdf_bytes() -> None:
@@ -16,31 +21,22 @@ def test_markdown_pdf_renderer_produces_pdf_bytes() -> None:
         "# Workflow Report\n\n## Summary\n\n- Completed successfully",
     )
 
-    assert pdf.startswith(
-        b"%PDF",
-    )
-    assert (
-        len(
-            pdf,
-        )
-        > 100
-    )
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 100
 
 
-def test_morning_report_pdf_renderer_produces_pdf_bytes_from_typed_document() -> None:
-    pdf = MorningReportPdfRenderer().render(
-        _document(),
-    )
+def test_morning_report_pdf_renderer_produces_pdf_bytes_from_governed_document() -> (
+    None
+):
+    pdf = MorningReportPdfRenderer().render(_governed(_document()))
 
-    assert pdf.startswith(
-        b"%PDF",
-    )
-    assert (
-        len(
-            pdf,
-        )
-        > 100
-    )
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 100
+
+
+def test_morning_report_pdf_renderer_rejects_raw_document() -> None:
+    with pytest.raises(TypeError, match="requires a governed presentation result"):
+        MorningReportPdfRenderer().render(_document())  # type: ignore[arg-type]
 
 
 def _document() -> MorningReportDocument:

@@ -19,7 +19,45 @@ Read this file first, then read in full:
 
 The base procedure remains normative for checkpoint pinning, ownership refresh, delivery guards, review-state recovery, Standards/Spec/Architecture universes, fresh reviewer execution, parent orchestration boundaries, targeted challenge, finding freeze/provenance validation, Root Blocker reconciliation, convergence saturation, pending remediation, exit, and persistence.
 
-This file only strengthens frozen-finding provenance. On conflict, this file wins.
+This file strengthens frozen-finding provenance and the human-facing aggregate format. On conflict, this file wins.
+
+## Human-Facing Aggregate Format
+
+The final user-facing review result MUST present the three review axes in this order and MUST always include both `Blocking` and `Advisory` subsections for every axis, even when a subsection has no findings:
+
+```markdown
+## Standards
+
+### Blocking
+- <findings or None>
+
+### Advisory
+- <findings or None>
+
+## Spec
+
+### Blocking
+- <findings or None>
+
+### Advisory
+- <findings or None>
+
+## Architecture
+
+### Blocking
+- <findings or None>
+
+### Advisory
+- <findings or None>
+```
+
+Use `None.` when a subsection has no findings so the presentation shape remains stable across review runs.
+
+Keep findings under their originating axis and severity. Do not collapse Blocking and Advisory findings into one bullet list, and do not replace this human-facing projection with Root Blocker status, coverage accounting, reviewer-execution metrics, or convergence/effectiveness statistics.
+
+The compact coverage/effectiveness output required by the base procedure remains required, but it is supplemental and MUST appear after the three-axis findings projection.
+
+Owner-overridden, scope-retired, Root Blocker, provenance, architecture-handoff, remediation, and lifecycle information remains governed by the base procedure and may follow the three-axis findings as applicable.
 
 ## Preserve the Adversarial Boundary
 

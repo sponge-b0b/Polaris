@@ -56,11 +56,12 @@ This gate applies when the change modifies a shared internal contract or semanti
 
 When applicable:
 
-1. identify the superseded contract or ownership rule;
-2. search the repository for every affected caller, implementation, protocol, adapter, fake, fixture, test, configuration surface, registry/bootstrap path, and other consumer;
-3. inspect dynamic/indirect consumers when literal search cannot establish closure;
-4. add consumers requiring migration to the affected verification set;
-5. require zero unexplained consumers of the superseded contract before verification may pass.
+1. identify every material contract transition introduced by the active change;
+2. close the transition universe using **Transition-Bound Contract Consumer Closure** below;
+3. for every consumer-bearing transition, search the repository for every affected caller, implementation, protocol, adapter, fake, fixture, test, configuration surface, registry/bootstrap path, and other consumer;
+4. inspect dynamic/indirect consumers when literal search cannot establish closure;
+5. add consumers requiring migration to the affected verification set;
+6. require zero unresolved transitions and zero unexplained consumers before verification may pass.
 
 Internal source compatibility is not assumed. Apply `$coding-standards` **Authoritative Contract Changes and Compatibility** exactly; do not preserve stale consumers with ignored parameters, compatibility sinks, aliases, shims, fallback paths, or similar residue merely to keep them compiling.
 
@@ -206,12 +207,51 @@ If any required contract-impact discovery or targeted check remains unresolved, 
 
 ## Transition-Bound Contract Consumer Closure
 
-Whenever Contract Migration Proof applies, `Contract-impact closure: passed` requires an explicit working **Consumer Closure Manifest**. Searching for known obsolete symbols or broad sinks is supporting evidence; it does not define the consumer universe.
+Whenever Contract Migration Proof applies, `Contract-impact closure: passed` requires two nested working universes: a **Contract Transition Manifest** and, for every consumer-bearing transition, a **Consumer Closure Manifest**.
 
-Derive candidate consumers from the authoritative contract and repository relationships/callers/composition/test substitutions/configuration surfaces that can exercise or model that contract. Every discovered candidate receives exactly one row:
+A search for known obsolete symbols, new contract names, or broad sinks is supporting evidence only. It does not define either universe.
+
+### Contract Transition Manifest
+
+Materialize the complete set of shared internal contract or semantic-owner transitions introduced by the active change before deriving consumers. Derive candidates from the authoritative baseline-to-candidate diff and the affected reusable boundaries, not from the subset of transitions already suspected.
+
+Every transition candidate receives exactly one row:
+
+```text
+Transition: CT-<n>
+Authoritative boundary: <exact contract/semantic owner>
+Baseline contract: <prior observable contract/semantic>
+Candidate contract: <current observable contract/semantic>
+Transition kind: <signature | representation | ownership | lifecycle | behavior | configuration | protocol | other>
+Disposition: <consumer-bearing | no-consumer-impact | unresolved>
+Evidence/reason: <direct evidence or exact reason no consumer can observe the transition>
+```
+
+Rules:
+
+* `consumer-bearing` means at least one caller, implementation, protocol, adapter, fake/fixture, test, bootstrap/composition path, configuration surface, or other consumer can observe or model the changed contract;
+* `no-consumer-impact` requires evidence that the change cannot alter any consumer-observable contract; omission, file locality, or absence of a known symbol reference is insufficient;
+* `unresolved` prevents contract-impact closure;
+* a material transition may not disappear because the symbol name is unchanged, the old symbol was removed, the change is semantic rather than syntactic, or the transition was discovered indirectly;
+* transition-universe completeness must be established by an independently checkable exhaustive mechanism when mechanically decidable; when semantic judgment is required to decide whether the transition universe itself is complete, `Contract-impact closure` remains unresolved without fresh non-mutating semantic certification of that bounded transition manifest.
+
+Before deriving consumer closure require:
+
+```text
+Contract transition candidates: <n>
+Transition rows: <n>
+Unclassified transitions: 0
+Unresolved transitions: 0
+Consumer-bearing transitions without consumer closure: 0
+```
+
+### Consumer Closure Manifest
+
+For every `consumer-bearing` transition, derive candidate consumers from that transition's authoritative contract and repository relationships/callers/composition/test substitutions/configuration surfaces that can exercise or model it. Every discovered candidate receives exactly one row:
 
 ```text
 Consumer: CC-<n>
+Transition: CT-<n>
 Surface: <path/symbol/config/test seam>
 Role: <caller | implementation | protocol | adapter | fake/fixture | bootstrap/composition | configuration | other>
 Authoritative contract: <exact contract/source>
@@ -225,7 +265,8 @@ Rules:
 * `migrated` means an old contract use was found and current state proves migration;
 * `retained-by-authority` requires explicit current authority for compatibility; convenience or a passing test is insufficient;
 * `unresolved` prevents contract-impact closure;
-* a candidate may not disappear because it is unchanged, inherited, test-only, indirect, already searched by name, or outside the changed-file list.
+* a candidate may not disappear because it is unchanged, inherited, test-only, indirect, already searched by name, or outside the changed-file list;
+* each `consumer-bearing` transition must have a closed consumer universe; one transition's consumer search does not prove another transition complete.
 
 Before `Contract-impact closure: passed` require:
 
@@ -237,6 +278,6 @@ Unresolved consumers: 0
 Retained compatibility without authority: 0
 ```
 
-Then apply the general counterexample-survivability question to the closure claim: could every cited check pass while an authoritative consumer still accepts, emits, models, or depends on the obsolete contract? If yes, closure remains unresolved.
+Then apply the general counterexample-survivability question to both universes: could every cited check pass while a material contract transition was omitted, or while an authoritative consumer still accepts, emits, models, or depends on the obsolete contract? If yes, closure remains unresolved.
 
-The final verification report must include the consumer-closure counts whenever Contract Migration Proof applies. This requirement is contract-neutral and must not be reduced to a catalog of previously seen migration defects.
+The final verification report must include both transition-closure and consumer-closure counts whenever Contract Migration Proof applies. This requirement is contract-neutral and must not be reduced to a catalog of previously seen migration defects.

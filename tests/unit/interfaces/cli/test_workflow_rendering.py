@@ -11,6 +11,7 @@ from typing import Any, Protocol, cast
 from typer.testing import CliRunner
 
 import interfaces.cli.services.workflow_command_service as workflow_command_service
+from application.reports import MorningReportPresentationPreparation
 from interfaces.cli.app import create_app
 from interfaces.cli.commands import morning_report_command, workflow_command
 from interfaces.cli.formatters.console_formatter import format_workflow_run
@@ -295,11 +296,8 @@ def test_morning_report_postgres_persistence_defaults_to_disabled(
         fail_persistence,
     )
 
-    morning_report_command._persist_rendered_morning_report(
-        workflow_result_to_render_envelope(
-            _professional_morning_report_workflow_result(),
-        ),
-        raw=False,
+    morning_report_command._persist_governed_morning_report(
+        _presentable_morning_report_preparation(),
         written_path=None,
     )
 
@@ -336,16 +334,21 @@ def test_morning_report_postgres_persistence_reads_typed_setting(
         "_persist_morning_report_to_postgres",
         persist_report,
     )
+    monkeypatch.setattr(
+        morning_report_command,
+        "MorningReportMarkdownRenderer",
+        _FakeMorningReportMarkdownRenderer,
+    )
 
-    morning_report_command._persist_rendered_morning_report(
-        workflow_result_to_render_envelope(
-            _professional_morning_report_workflow_result(),
-        ),
-        raw=False,
+    preparation = _presentable_morning_report_preparation()
+
+    morning_report_command._persist_governed_morning_report(
+        preparation,
         written_path=None,
     )
 
-    assert captured["markdown_body"]
+    assert captured["document"] is preparation
+    assert captured["markdown_body"] == "# Rendered governed report\n"
     assert captured["artifact_references"] == ()
 
 
@@ -1237,6 +1240,24 @@ def _patch_cli_runtime(
         workflow_command_service,
         "cli_runtime_scope",
         _runtime_scope_from_builder(build_runtime),
+    )
+
+
+class _FakeMorningReportMarkdownRenderer:
+    def render(self, governed_result: object) -> str:
+        del governed_result
+        return "# Rendered governed report\n"
+
+
+def _presentable_morning_report_preparation() -> MorningReportPresentationPreparation:
+    return cast(
+        MorningReportPresentationPreparation,
+        SimpleNamespace(
+            result=SimpleNamespace(
+                decision=SimpleNamespace(may_present=True),
+                projection=SimpleNamespace(disposition="eligible"),
+            ),
+        ),
     )
 
 

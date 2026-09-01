@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -257,9 +258,59 @@ def test_rag_ask_cli_renders_failure_output(
     assert "generation provider unavailable" in result.output
 
 
-def test_render_rag_ask_result_does_not_truncate_answer() -> None:
+def test_render_rag_ask_result_fails_closed_without_presentation() -> None:
+    result = _answered_result()
+
+    rendered = render_rag_ask_result(
+        RagAskCommandResult(
+            success=True,
+            result=result,
+        )
+    )
+
+    assert "Status: unavailable" in rendered
+    assert "Presentation: missing" in rendered
+    assert "Result unavailable for presentation." in rendered
+    assert result.answer_text not in rendered
+    assert "Citations:" not in rendered
+    assert "Morning Report" not in rendered
+
+
+def test_render_rag_ask_result_fails_closed_when_not_presentable() -> None:
+    result = _answered_result()
+    presentation = replace(
+        _governed(result).projection,
+        disposition="blocked",
+        may_present=False,
+    )
+
+    rendered = render_rag_ask_result(
+        RagAskCommandResult(
+            success=True,
+            result=result,
+            presentation=presentation,
+        )
+    )
+
+    assert "Status: unavailable" in rendered
+    assert "Presentation: blocked" in rendered
+    assert "May Present: False" in rendered
+    assert "Result unavailable for presentation." in rendered
+    assert result.answer_text not in rendered
+    assert "Citations:" not in rendered
+    assert "Morning Report" not in rendered
+
+
+def test_render_rag_ask_result_does_not_truncate_governed_answer() -> None:
     result = _answered_result(answer_text="Line one.\n" + "Full detail. " * 50)
-    rendered = render_rag_ask_result(RagAskCommandResult(success=True, result=result))
+    governed = _governed(result)
+    rendered = render_rag_ask_result(
+        RagAskCommandResult(
+            success=True,
+            result=result,
+            presentation=governed.projection,
+        )
+    )
     assert rendered.count("Full detail.") == 50
 
 
@@ -293,7 +344,7 @@ def test_rag_ingest_cli_delegates_and_renders_operation(
     assert "Operation: rag.ingest" in result.output
     assert "Dry run: True" in result.output
     assert "Records processed: 2" in result.output
-    assert captured[0].source == "reports"
+    assert captured[0].source == ("reports")
     assert captured[0].limit == 2
     assert captured[0].dry_run is True
 

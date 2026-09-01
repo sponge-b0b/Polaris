@@ -1,6 +1,6 @@
 # Polaris Product Definition
 
-**Status:** In progress  
+**Status:** Defined  
 **Purpose:** Define the durable product doctrine that should guide Polaris capability, roadmap, and implementation decisions.
 
 This document describes **what Polaris is and who it is for**. It intentionally avoids implementation technologies and detailed architecture. The fuller reasoning behind these decisions is preserved in [`product-rationale.md`](./product-rationale.md) and in focused companion records linked from the relevant sections.
@@ -827,18 +827,54 @@ These questions should become more useful than asking whether a particular class
 
 For the detailed rationale, see [`product-core-capabilities.md`](./product-core-capabilities.md).
 
+## Product Principles
+
+The Product Principles are the durable decision rules used when more than one plausible product, architecture, roadmap, or experience choice could satisfy the rest of the Product Definition.
+
+The umbrella rule is:
+
+> **Every Polaris product, architecture, and roadmap decision should strengthen the quality, trustworthiness, continuity, or learning value of the portfolio decision lifecycle—or have a clear supporting reason for existing.**
+
+The twelve principles are:
+
+1. **Decisions before features.** Optimize the portfolio decision lifecycle before individual feature sophistication. When feature sophistication and decision quality compete, decision quality wins.
+2. **Trust by structure, not confidence.** Build trust through provenance, freshness, constraints, challenge, authority, human judgment, operational truth, and inspectability rather than model confidence alone.
+3. **Preserve truth before convenience.** Simplify presentation without erasing meaningful evidence, authority, decision, execution, or historical distinctions.
+4. **AI initiative without AI sovereignty.** Automate observation, investigation, reasoning, challenge, preparation, and recommendation aggressively while keeping consequential investment and material governance authority human.
+5. **Risk shapes the decision.** Incorporate portfolio risk and enforceable policy into recommendation formation rather than applying risk only after a recommendation exists.
+6. **Be attentive, not noisy.** Optimize for material attention and prepared intervention rather than alerts, activity, novelty, or information volume.
+7. **Current enough for the decision.** Judge evidence freshness against the decision being supported and reduce, qualify, withhold, or invalidate claims when required evidence is stale.
+8. **Memory should change future behavior.** Preserve decision state so it actively improves future attention, reasoning, evaluation, and learning rather than becoming a passive archive.
+9. **Reality wins.** Preserve authoritative external operational truth when it conflicts with expectation, recommendation, intended action, or expected state.
+10. **Integrate before absorbing.** Prefer specialist-system integration over expanding Polaris into adjacent product responsibilities without explicit justification.
+11. **Opinionated domain, flexible process.** Make investment processes configurable while keeping the portfolio decision lifecycle and its domain concepts opinionated.
+12. **Learn from process, not outcome alone.** Evaluate decisions using what was knowable at the time and distinguish reasoning, authority, execution, and outcome when learning from results.
+
+### Product principle consequences
+
+* **Product progress is measured by stronger decision capability, not feature count.**
+* **Trustworthy structure matters more than persuasive model confidence.**
+* **User simplicity must not erase meaningful truth.**
+* **Analytical autonomy should be broad while consequential authority remains bounded.**
+* **Risk is part of recommendation formation.**
+* **Human attention is a scarce resource to be spent selectively.**
+* **Freshness requirements follow the supported decision.**
+* **Durable memory must influence future behavior.**
+* **Authoritative operational reality outranks expected state.**
+* **External specialist responsibilities should normally remain external.**
+* **Configurability should stay grounded in investment-domain concepts.**
+* **Evaluation should distinguish decision-process quality from realized outcome.**
+
+These principles are intended to reject or refine plausible choices, not merely describe desirable values. They should be used as explicit tests during product planning, architecture work, roadmap construction, and later doctrine revisions.
+
+For the detailed rationale, rejection tests, and examples, see [`product-principles.md`](./product-principles.md).
+
 ## Current product framing
 
-The working product framing is:
+The product framing is:
 
 > **Polaris is an attentive, AI-assisted portfolio decision system for sophisticated individual decision-makers and small investment teams, occupying the decision layer between investment information systems and investment action systems and delivered through a configurable portfolio intelligence and decision-support platform.**
 
 It helps them turn fragmented market, portfolio, research, risk, and model evidence into a systematic, explainable, risk-aware, repeatable decision process; proactively surfaces material changes that deserve attention; treats decisions as durable lifecycles rather than disposable outputs; creates trust through evidence and authority provenance; remains current at the speed required for portfolio judgment; separates evidence, enforceable rules, analytical reasoning, human judgment, and external action; observes external execution evidence so decisions remain connected to what actually happened; integrates with specialist systems without assuming their product responsibilities; and preserves the lifecycle for later evaluation and learning.
 
-This framing remains subject to refinement as the remaining Product Definition sections are completed.
-
-## Product Definition work remaining
-
-The following area remains intentionally unresolved and will be defined before this document is considered complete:
-
-1. Product principles
+This Product Definition is now **defined**. Future changes should be explicit doctrine revisions rather than unresolved product-discovery work.

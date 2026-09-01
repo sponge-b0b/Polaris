@@ -15,6 +15,8 @@ Verify a completed Spec against its fixed baseline as one integrated acceptance 
 - The `$spec-contract` manifest is the complete acceptance universe.
 - Every manifest cell ends `proven`, `not-applicable`, or `unresolved`; any `unresolved` blocks PASS.
 - Spec-owned/Mixed surfaces determine repository-standards ownership. Inherited-only unrelated defects are report-only.
+- Every observed failure must receive an explicit causal disposition before it can be excluded from PASS.
+- A required delegated skill owns its gate procedure and terminal result; the parent may not substitute an ad hoc local implementation.
 - `$verify-spec` owns semantic proof. Do not spawn proof certifiers or shadow reviewers; `$review-spec` is the independent layer.
 - Reason about predicates, falsifiers, authoritative domains, Nested Universe closure, assumptions, and evidence, but do **not** serialize that reasoning merely for bookkeeping.
 
@@ -157,7 +159,39 @@ uv run python "$ARTIFACT_TOOL" self-test
 
 Invoke `$wiki-lint` when Living Entity Wiki routing applies. Invoke `$deduplicate-code` only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible. Run other deterministic checks only when their artifact classes apply.
 
-Inherited-only unrelated failures are report-only.
+Inherited-only unrelated failures are report-only only after **Observed Failure Disposition** below proves that causal classification. Surface ownership alone is not causal evidence.
+
+### Delegated Gate Ownership
+
+When this workflow requires another skill to decide or execute a gate, that child skill owns the procedure and terminal result. The parent must not search for a same-named script, recreate a subset of the child procedure with shell commands, or substitute its own ad hoc audit and then report the delegated gate as passed.
+
+Maintain a working delegated-gate inventory:
+
+```text
+Delegated gate: DG-<n>
+Owner skill: $<skill>
+Applicability: <required | not-applicable>
+Execution: <executed | unavailable>
+Terminal result: <valid child result | unresolved | not-applicable>
+Evidence/reason: <native child-skill result/reference or exact N/A reason>
+```
+
+Rules:
+
+- `required` means the exact owner skill must be invoked and its current contract followed;
+- `unavailable` leaves the gate `unresolved`; it does not authorize parent substitution;
+- `not-applicable` requires the same concrete applicability reason the parent uses for the gate;
+- a gate may enter final `GATES_INPUT` as PASS only when the owning skill produced a valid terminal result supporting PASS;
+- a delegated gate may not disappear because local commands appeared equivalent or because the parent believes it can reproduce the child skill's checks more cheaply.
+
+Before finalization require:
+
+```text
+Delegated gate candidates: <n>
+Delegated gate rows: <n>
+Unclassified delegated gates: 0
+Required delegated gates without valid terminal result: 0
+```
 
 ### Transcript Discipline
 
@@ -225,20 +259,49 @@ The finalizer derives coverage and rejects missing, unknown, duplicate, or unres
 
 ## 7. Failure and Repair
 
-Classify failures as:
+Every failure observed from a required deterministic gate, delegated gate, service preflight, or acceptance-test invocation enters the working **Observed Failure Disposition** universe immediately. A later narrower rerun does not erase the earlier observation.
 
-- failed Spec obligation;
-- Spec-owned repository-standard/tooling failure;
-- inherited-only unrelated defect.
+For every observed failure record:
 
-Repair only the first two, at the narrowest authoritative point. Use the owning skill where required (`$wiki-sync`, `$to-doc`, `$classify-doc`, `$to-adr-doc`, etc.). A fix that requires choosing/changing a durable architecture invariant routes to `$architecture-remediation`; do not invent the decision locally.
+```text
+Failure: VF-<n>
+Origin: <gate/test/preflight/delegated-skill identity>
+Observed failure: <concise exact failure>
+Affected contract/behavior: <boundary or obligation implicated>
+Disposition: <spec-owned | inherited-unrelated | unresolved>
+Witness: <independently checkable causal evidence>
+```
+
+Disposition rules:
+
+- `spec-owned` covers a failed Spec obligation or Spec-owned/Mixed repository-standard/tooling failure and requires repair;
+- `inherited-unrelated` is report-only, but requires evidence that the failure is causally independent of the Spec change; ownership classification alone is insufficient;
+- valid independence witnesses include deterministic reproduction at the immutable baseline, deterministic delta analysis excluding interaction with the Spec change, or fresh non-mutating semantic certification when causal independence is not mechanically decidable;
+- `unresolved` blocks PASS;
+- a failure may not disappear because the verifier narrows a later command, removes a failing file from a selected test set, calls the surface inherited, or obtains a passing rerun over a smaller universe.
+
+Before finalization require:
+
+```text
+Observed failures: <n>
+Failure disposition rows: <n>
+Undispositioned failures: 0
+Unresolved failures: 0
+Spec-owned failures remaining: 0
+Inherited exclusions without sufficient witness: 0
+```
+
+When no failure was observed, record `Observed failures: 0`; do not manufacture rows.
+
+Repair only Spec-owned failures, at the narrowest authoritative point. Use the owning skill where required (`$wiki-sync`, `$to-doc`, `$classify-doc`, `$to-adr-doc`, etc.). A fix that requires choosing/changing a durable architecture invariant routes to `$architecture-remediation`; do not invent the decision locally.
 
 After a repair:
 
 1. rerun only invalidated gates/tests/proof evidence;
-2. rebuild only affected proof groups;
-3. require every manifest cell resolved at the new candidate `HEAD`;
-4. rerun mutable guards invalidated by the change.
+2. update the affected failure dispositions rather than deleting prior observed-failure rows;
+3. rebuild only affected proof groups;
+4. require every manifest cell resolved at the new candidate `HEAD`;
+5. rerun mutable guards invalidated by the change.
 
 If verification changes the repository, verify branch, stage only verification-owned files, invoke `$conventional-commits`, commit, push, then refresh exact-HEAD contract bindings and affected proof groups. Do not preserve proof across uncertain mutation.
 
@@ -249,9 +312,11 @@ At stable candidate `HEAD`:
 1. rerun `$spec-contract` in `build` mode with the same `handoff-output = CONTRACT_HANDOFF`, replacing the handoff only after the refreshed contract is valid;
 2. require valid body/contract and reconciled ownership;
 3. require every applicable gate PASS or NOT APPLICABLE;
-4. require every manifest cell proven or not-applicable;
-5. require current hierarchy/dependency state valid;
-6. require clean worktree.
+4. require Delegated Gate Ownership closure complete;
+5. require Observed Failure Disposition closure complete;
+6. require every manifest cell proven or not-applicable;
+7. require current hierarchy/dependency state valid;
+8. require clean worktree.
 
 Create only the two genuinely verification-owned compact arrays:
 
@@ -265,6 +330,7 @@ Rules:
 - do not copy the manifest, source counts, hashes, baseline, branch, `HEAD`, or default ownership point into another wrapper; those already exist in `CONTRACT_HANDOFF`;
 - proofs contain only `cells`, `state`, and `evidence` or `reason`;
 - gates contain only `name`, `status`, and concise native `evidence`; commands are already in the transcript;
+- include closure outcomes for delegated-gate ownership and observed-failure disposition when applicable, with their required counts in concise gate evidence;
 - serialize the two arrays compactly; do not pretty-print them merely for bookkeeping;
 - do not create `FINALIZE_INPUT`, a giant intermediate packet, or a second final-state object.
 

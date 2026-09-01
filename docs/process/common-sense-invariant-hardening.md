@@ -197,7 +197,6 @@ The fresh certifier does not need private reasoning transcripts. It needs the au
 A same-agent or owner override must not be offered when it would recreate the exact self-certifying semantic transition the gate exists to prevent.
 
 ### Nested Universe Closure
-
 > **When an obligation inside an already-complete outer universe quantifies over its own finite or discoverable domain, that nested domain must itself be materialized and completely dispositioned, or replaced by an independently checkable exhaustive mechanism whose semantics cover the full authoritative boundary.**
 
 This rule is recursive. `Outer coverage = 100%` does not establish a universal inner predicate if the inner candidates were never enumerated.
@@ -398,7 +397,6 @@ Survivability: excluded
 ```
 
 The rule must remain generic and must not encode one historical fake/fixture pattern.
-
 ### `$to-tickets` — High
 
 Strengths:
@@ -886,3 +884,119 @@ A subsequent full `$verify-spec` rerun of Spec #240 exposed a false PASS despite
 The second-stage model therefore adds **No Self-Certifying Semantic Transition** and **Nested Universe Closure**. `$verify-spec` now binds semantic proof to durable Proof Objects and genuinely fresh non-mutating proof certification before a cell may derive `proven` or `not-applicable`.
 
 Future defects should first be evaluated against Transition-Bound Reasoning, Universe Closure, Nested Universe Closure, Explicit Escape Disposition, No Self-Certifying Semantic Transition, falsification-first proof, and evidence entailment before adding any defect-specific rule.
+
+## Post-Audit Derived Hardening Principles
+
+A 2026-09-01 evaluation of `$verify-code` and `$verify-spec` exposed three additional ways an otherwise hardened workflow can still authorize an invalid PASS without requiring any defect-specific rule. These are refinements of the existing universe, omission, self-certification, and local-enforcement principles.
+
+### Close the Transition Universe Before Dependent Universes
+
+A dependent universe can be perfectly dispositioned and still be incomplete when the upstream transitions that create that universe were never completely identified.
+
+Example shape:
+
+```text
+recognized contract transition A
+    ↓
+all consumers of A dispositioned
+    ↓
+consumer closure = complete
+
+omitted contract transition B
+    ↓
+its consumers never become candidates
+```
+
+The stronger rule is:
+
+> **When a nested proof universe exists because an upstream transition, event, contract change, or semantic-owner change exists, close and disposition the upstream transition universe before deriving the dependent universe. Completeness of the child universe cannot compensate for an omitted parent transition.**
+
+This is a recursive form of Nested Universe Closure. For shared-contract verification, for example:
+
+```text
+complete contract-transition universe
+        ↓
+every consumer-bearing transition
+        ↓
+complete consumer universe per transition
+        ↓
+contract-impact closure
+```
+
+Searching for obsolete symbols, new type names, or known caller patterns may help discover candidates but cannot define the transition universe unless the authoritative transition predicate itself is exactly that lexical pattern.
+
+When completeness of the upstream transition universe is semantic rather than mechanically decidable, the same actor that wants PASS must not self-certify that completeness; use a fresh non-mutating semantic certifier or another independently checkable exhaustive mechanism.
+
+### Observed Failures Remain Until Causally Dispositioned
+
+A failure produced by an executed required check is evidence that exists even if a later command uses a narrower scope and passes.
+
+The dangerous escape shape is:
+
+```text
+broad required check observes failure
+        ↓
+verifier narrows scope or relabels surface
+        ↓
+smaller rerun passes
+        ↓
+original failure disappears from final state
+```
+
+The stronger rule is:
+
+> **Once a required gate, test, preflight, or delegated check exposes a failure, that failure becomes a candidate in the verification universe and remains there until it receives an explicit causal disposition. A later narrower rerun cannot erase the observation.**
+
+`Inherited`, `unchanged`, or similar ownership classifications do not by themselves prove causal independence. A report-only exclusion requires an independently checkable witness, such as reproduction at the immutable baseline, deterministic delta analysis that excludes interaction with the active change, or fresh semantic certification when causality is not mechanically decidable.
+
+This principle does not require retaining duplicate transcript noise. It requires retaining the minimum explicit state needed to prove why an observed failure may or may not block the transition.
+
+### Delegated Gate Ownership
+
+Local Enforcement also applies across skill boundaries.
+
+If a parent workflow says another skill owns an audit, classification, proof, or gate, the child skill's current contract defines what execution is required and what terminal result can authorize the parent transition.
+
+The stronger rule is:
+
+> **When a transition owner delegates a correctness gate to another skill, the delegated skill owns the gate procedure and terminal result. The parent may not substitute an ad hoc approximation, partial shell recreation, or same-named script search and then claim the delegated gate passed.**
+
+If the delegated skill cannot be executed, the delegated gate is unresolved unless the owning contract explicitly defines another valid route. Unavailability does not transfer semantic ownership back to the parent by default.
+
+This prevents a hardened child skill from being bypassed by a less-complete parent approximation while preserving the existing principle that enforcement belongs at the transition owner: the parent must consume the child's valid result, and the child remains responsible for its own internal audit universe.
+
+### Hardening Placement Rule
+
+When downstream verification or review rediscovers an ordinary obligation that should already have been enforced upstream, first identify the earliest authoritative transition at which the obligation escaped.
+
+Prefer this sequence:
+
+```text
+observed defect
+    ↓
+identify generic invariant that should have prevented it
+    ↓
+locate earliest transition owner that can enforce that invariant
+    ↓
+harden its universe / disposition / certification state
+```
+
+Do not add a rule named after the latest symbol, test file, option, helper, sink, or historical incident unless that named concept is itself the durable authoritative domain. Historical symptoms are evidence for the hardening analysis, not normally the vocabulary of the resulting invariant.
+
+### Additional Hardening Review Questions
+
+When modifying an already-hardened workflow, also ask:
+
+11. Does the workflow close the universe of **transitions/events that create downstream candidate universes**, or only the candidates beneath transitions it happened to notice?
+12. Can a failure observed by an earlier required command disappear after scope narrowing, ownership reclassification, or a later passing rerun without an explicit causal disposition?
+13. Is surface ownership being used as a substitute for causal evidence that a failure is unrelated?
+14. When a gate is delegated to another skill, does the parent consume the child's valid terminal result, or can it approximate the child procedure and self-declare the gate passed?
+15. If a new defect fits an existing hardening principle, can the existing transition state be strengthened instead of adding a new defect-specific concept?
+
+### 2026-09-01 Implementation Note
+
+The derived principles above were applied generically in `266f891a921ecc1a958949e0da7ddc613091157a` (`fix(workflow): harden verification invariants`):
+
+* `$verify-code` now closes a Contract Transition Manifest before per-transition Consumer Closure and fails closed when semantic transition-universe completeness lacks independent support;
+* `$verify-spec` now retains every observed failure until explicit causal disposition and requires valid delegated-skill terminal results rather than parent-authored substitutes;
+* no rule was added for a particular removed helper, test file, command-line option, or same-named script assumption.

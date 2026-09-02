@@ -51,9 +51,7 @@ Proposed Closure Evidence
     ↓
 immutable candidate checkpoint
     ↓
-human authorization
-    ↓
-fresh non-mutating $verify-ticket-closure verifier
+automatic fresh non-mutating $verify-ticket-closure dispatch
     ↓
 one TICKET CLOSURE: PASS | FAIL
     ↓
@@ -69,12 +67,12 @@ This restores the pre-hardening control-flow invariant for the common ticket-clo
 This invocation may stop only at:
 
 * **Completed** — all required persistence, evidence, and closure gates completed;
-* **Human Handoff** — this skill explicitly requires human authorization;
+* **Human Handoff** — another applicable workflow authority explicitly requires human authorization or judgment;
 * **Hard Blocker** — a concrete external/environmental, branch, baseline, permission, required-tool, or persistence failure prevents further safe work.
 
 Everything else is non-terminal.
 
-In particular, partial progress, verification failure, `TICKET CLOSURE: FAIL`, corrective edits making a verdict stale, remaining actionable in-scope work, an open ticket, and `TICKET CLOSURE: PASS` before final lifecycle completion do not authorize stopping.
+In particular, partial progress, verification failure, `TICKET CLOSURE: FAIL`, corrective edits making a verdict stale, remaining actionable in-scope work, an open ticket, an `awaiting-closure-verification` checkpoint, and `TICKET CLOSURE: PASS` before final lifecycle completion do not authorize stopping.
 
 If none applies, continue the workflow.
 
@@ -134,7 +132,7 @@ Never maintain v1 and v2 as competing active authorities.
 
 ## Candidate State
 
-Before handoff compute one deterministic candidate state over all repository mutations since `TICKET_BASELINE`, including untracked files. Use the base root-state hash procedure, renamed `TICKET_CLOSURE_STATE`.
+Before verifier dispatch compute one deterministic candidate state over all repository mutations since `TICKET_BASELINE`, including untracked files. Use the base root-state hash procedure, renamed `TICKET_CLOSURE_STATE`.
 
 For tracker-only tickets, bind the checkpoint to exact durable tracker identifiers/state required by the ticket in addition to the repository state.
 
@@ -171,7 +169,7 @@ When a claim contains an exhaustive quantifier, identify the nested domain the v
 
 For remediation, Proposed Closure Evidence additionally carries the base procedure's Root Blocker invariant, carried cells, Root Invariant Sweep, preservation obligations, and protected roots. These join the common acceptance universe.
 
-If any implementer cell remains `proposed-unproven`, continue actionable implementation/verification. Do not hand off a knowingly incomplete candidate.
+If any implementer cell remains `proposed-unproven`, continue actionable implementation/verification. Do not dispatch a knowingly incomplete candidate.
 
 ## Independent Ticket Closure Gate
 
@@ -180,43 +178,26 @@ After implementation and all applicable local/delegated checks are complete, but
 1. compute current `TICKET_CLOSURE_STATE`;
 2. write/update the v2 checkpoint to `Stage: awaiting-closure-verification` with the full Proposed Closure Evidence and incremented Attempt;
 3. read it back and verify exact binding;
-4. halt for explicit human authorization.
+4. enter dispatcher-only mode and automatically spawn exactly one genuinely fresh `$verify-ticket-closure` verifier for that exact candidate.
 
-Emit:
+Do **not** stop for human authorization between checkpoint creation and verifier dispatch. The user's `$implement-ticket` invocation already authorizes the ticket lifecycle; verifier independence comes from the fresh non-mutating certification actor, not from a second human command.
 
-> ⚠️ **Implementation is ready for independent ticket closure verification.**
->
-> Please run:
->
-> ```
-> $verify-ticket-closure - <Current Ticket Title> (<Ticket URL>)
-> ```
->
-> **Mode:** <ordinary | remediation>  
-> **Ticket baseline:** <TICKET_BASELINE>  
-> **Candidate state:** <TICKET_CLOSURE_STATE>  
-> **Proposed closure:** <concise acceptance summary>
->
-> This authorizes one fresh independent verifier. It does not authorize the `$implement-ticket` main agent to certify its own candidate.
-
-Then stop.
-
-This Human Handoff is required for ordinary and remediation tickets alike.
+The durable checkpoint remains mandatory even though normal dispatch is automatic. It is the recovery authority if the session, process, or conversational context disappears before the verifier result is fully consumed and persisted.
 
 ## Resume / Dispatch
 
-On every later human invocation for an open ticket, recover the v2 checkpoint before choosing continuation and re-run the base branch/hierarchy/project-delivery guards.
+On every later invocation for an open ticket, recover the v2 checkpoint before choosing continuation and re-run the base branch/hierarchy/project-delivery guards.
 
 Route:
 
 * `awaiting-closure-verification`
-  * explicit `$verify-ticket-closure` invocation with exact matching state → dispatch one fresh verifier;
-  * `$implement-ticket` invocation with unchanged candidate → re-emit the existing handoff;
+  * exact matching ticket/mode/branch/baseline/contract/lineage/root/candidate state → automatically resume dispatcher-only mode and dispatch one fresh verifier;
+  * this same route applies after complete session/context loss and when a human directly invokes `$verify-ticket-closure` as an optional recovery/manual entry point;
   * candidate mismatch → checkpoint stale; resume implementation and rebuild proposed evidence.
 * `verifier-failed`
   * resume implementation immediately using **all** returned findings;
   * do not re-dispatch the stale candidate;
-  * after corrections/checks, rebuild proposed evidence and create a new awaiting attempt.
+  * after corrections/checks, rebuild proposed evidence, create a new awaiting attempt, and automatically dispatch a fresh verifier.
 * `verifier-passed`
   * require exact candidate/contract/baseline/branch/lineage/root binding;
   * if valid, exit dispatcher-only mode if active and resume Section 4 (`Re-Verify Before Persistence`) of `.agents/skills/implement-ticket/procedure.md` immediately in the same invocation;
@@ -224,7 +205,7 @@ Route:
 
 ### Dispatcher-only mode
 
-After valid human authorization, the `$implement-ticket` main agent may only:
+After creating or recovering a valid `awaiting-closure-verification` checkpoint with exact matching state, the `$implement-ticket` main agent may only:
 
 1. capture/reconfirm exact dispatch candidate state and durable bindings;
 2. spawn exactly one genuinely fresh verifier subagent;
@@ -254,7 +235,7 @@ Then exit dispatcher-only mode and resume implementation **in the same invocatio
 
 All verifier findings remain mandatory until corrected or superseded by explicit authoritative contract change.
 
-After correction, any prior PASS/FAIL is candidate-stale; generate a new handoff attempt.
+After correction, any prior PASS/FAIL is candidate-stale; build a new awaiting attempt and automatically dispatch a new fresh verifier. Continue this lifecycle while work remains actionable; stop only at **Completed**, another genuinely required **Human Handoff**, or a **Hard Blocker**.
 
 ### PASS
 

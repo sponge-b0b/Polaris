@@ -17,22 +17,30 @@ Remediation extends the acceptance universe. It does not create a second verifie
 
 ## Invocation Semantics
 
-When the human explicitly invokes `$verify-ticket-closure` in response to the Ticket Closure Human Handoff from `$implement-ticket`, that invocation is an **authorization event**, not a local certification call.
+`$verify-ticket-closure` has two execution modes. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
 
-The main agent must resume the `$implement-ticket` skill at its verifier-dispatch checkpoint and spawn exactly one fresh verifier subagent.
+### Fresh verifier leaf — normal path
 
-Before dispatch, the main agent must recover the ticket's durable `<!-- implement-ticket-closure-checkpoint:v2 -->` comment and route by its recorded stage. This requirement applies even after complete conversational/session context loss:
+After `$implement-ticket` writes and reads back an exact `<!-- implement-ticket-closure-checkpoint:v2 -->` in `Stage: awaiting-closure-verification`, the `$implement-ticket` main agent enters dispatcher-only mode and spawns exactly one genuinely fresh verifier subagent.
 
-* `awaiting-closure-verification` with matching ticket/mode/branch/baseline/contract/lineage/root/candidate state → the human invocation authorizes one fresh verifier dispatch;
+Only that fresh subagent executes the certification procedure below. Before doing so it must recover/validate the supplied durable checkpoint and require exact ticket/mode/branch/baseline/contract/lineage/root/candidate binding.
+
+The `$implement-ticket` main agent remains the orchestration owner. The fresh verifier returns one complete verdict to that parent; it does not repair, persist lifecycle state, close the ticket, or spawn another semantic verifier.
+
+### Direct / recovery invocation
+
+A human may still invoke `$verify-ticket-closure - <ticket>` directly for recovery, manual recertification entry, or after complete conversational/session context loss. That command is **not** required in the normal `$implement-ticket` lifecycle and does not authorize the top-level agent to certify the candidate itself.
+
+The top-level agent must recover the ticket's durable `<!-- implement-ticket-closure-checkpoint:v2 -->` comment and resume `$implement-ticket` at the recorded lifecycle state:
+
+* `awaiting-closure-verification` with matching ticket/mode/branch/baseline/contract/lineage/root/candidate state → resume `$implement-ticket` dispatcher-only mode and spawn one fresh verifier;
 * `verifier-failed` → do **not** dispatch the stale candidate; resume `$implement-ticket` correction from the complete stored `TICKET CLOSURE: FAIL`;
 * `verifier-passed` → do not re-certify; resume `$implement-ticket` persistence after exact-state validation;
 * missing, duplicated, malformed, stale, or contradictory checkpoint state after an attempt began → fail closed and return control to `$implement-ticket`.
 
-The same explicit command plus the same durable repository/tracker state must produce the same lifecycle continuation whether or not prior conversational context exists.
+The same direct command plus the same durable repository/tracker state must produce the same lifecycle continuation whether or not prior conversational context exists.
 
-Only that fresh verifier executes the certification procedure below.
-
-If this skill is being executed directly by the `$implement-ticket` main agent, do not perform certification or emit a ticket-closure verdict.
+If this skill is being executed by the `$implement-ticket` main agent rather than by the genuinely fresh dispatched verifier subagent, do not perform certification or emit a ticket-closure verdict.
 
 A direct ad hoc execution outside the `$implement-ticket` checkpoint lifecycle is not a valid certification run.
 

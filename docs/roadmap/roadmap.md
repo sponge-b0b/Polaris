@@ -1,6 +1,6 @@
 # Polaris Roadmap
 
-**Status:** Draft  
+**Status:** Defined  
 **Purpose:** Translate the Polaris Product Definition, Capability Model, Release Strategy, and completed current-state capability audit into the release sequence from the current 0.1.0 baseline to the first stable 1.0 product contract.
 
 This roadmap defines **what product ability should become true in each release**. It does not prescribe packages, services, agents, workflows, database tables, APIs, or other implementation topology.

@@ -81,8 +81,7 @@ This does not authorize policy duplication at thin transports or adapters. The v
 
 * common durable closure checkpoint for every ticket;
 * implementation agent produces Proposed Closure Evidence only;
-* required human handoff before ticket semantic certification;
-* dispatcher-only fresh `$verify-ticket-closure` execution;
+* automatic dispatcher-only fresh `$verify-ticket-closure` certification after the immutable checkpoint; no second human command is required for ordinary ticket closure certification;
 * exact candidate/contract binding;
 * PASS invalidated by substantive candidate mutation unless independently certified invalidation rules prove reuse safe;
 * `IMPLEMENTED`, `CERTIFIED`, and `CLOSED` are distinct lifecycle concepts.

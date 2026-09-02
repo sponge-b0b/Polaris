@@ -34,7 +34,10 @@ from mcp_server.contracts.models import (
     RagReflectionScores,
     RagRetrievedContext,
 )
-from mcp_server.contracts.rag_presentation import RagAskResponse
+from mcp_server.contracts.rag_presentation import (
+    RagAskResponse,
+    governed_projection_response_fields,
+)
 from mcp_server.lifespan import McpApplicationContext
 from mcp_server.request_scope import mcp_dependency_scope
 from mcp_server.telemetry import McpToolFailureCategory
@@ -204,16 +207,7 @@ def _response_from_result(
         answer_text=answer_text,
         status=status,
         route=result.route,
-        authority_metadata=_boundary_metadata(projection.authority_metadata),
-        presentation_disposition=projection.disposition,
-        presentation_may_present=projection.may_present,
-        presentation_limitations=projection.limitations,
-        presentation_gate_failure_mode=projection.gate_failure_mode,
-        presentation_risk_tier=projection.risk_tier,
-        presentation_gate_profile=projection.gate_profile,
-        provenance_record_ids=projection.provenance_record_ids,
-        decision_evidence_packet_ids=projection.decision_evidence_packet_ids,
-        governance_approval_states=projection.governance_approval_states,
+        **governed_projection_response_fields(projection),
         citations=tuple(_to_citation(source) for source in result.citations),
         contexts=(
             tuple(_to_context(context) for context in result.contexts)

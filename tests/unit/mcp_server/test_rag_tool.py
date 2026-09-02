@@ -363,6 +363,61 @@ async def test_rag_ask_cannot_recover_claims_from_ineligible_governed_payload(
 
 
 @pytest.mark.asyncio
+async def test_rag_ask_rejects_ineligible_claim_bearing_payload() -> None:
+    def factory(request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        return _governed_answer(
+            request,
+            disposition=PresentationSinkDisposition.BLOCKED,
+            include_claims=True,
+        )
+
+    context, sink, _ = _context(_FakeRagService(factory))
+
+    with pytest.raises(ToolError, match="Polaris RAG request failed"):
+        await execute_rag_ask(
+            RagAskRequest(query="risk", include_contexts=True),
+            context,
+        )
+
+    assert sink.events[-1].attributes["failure_category"] == "application"
+
+
+@pytest.mark.asyncio
+async def test_rag_ask_rejects_malformed_presentable_projection() -> None:
+    class MalformedProjectionResult:
+        def __init__(self, result: RagResult) -> None:
+            self.projection = SimpleNamespace(
+                authority_metadata={},
+                disposition="eligible",
+                may_present=True,
+                limitations=(),
+                gate_failure_mode="none",
+                risk_tier=None,
+                gate_profile=None,
+                provenance_record_ids=(),
+                decision_evidence_packet_ids=(),
+                governance_approval_states=(),
+            )
+            self._result = result
+
+        def require_payload(self) -> RagResult:
+            return self._result
+
+    def factory(request: RagRequest) -> GovernedPresentationResult[RagResult]:
+        return cast(
+            GovernedPresentationResult[RagResult],
+            MalformedProjectionResult(_governed_answer(request).require_payload()),
+        )
+
+    context, sink, _ = _context(_FakeRagService(factory))
+
+    with pytest.raises(ToolError, match="Polaris RAG request failed"):
+        await execute_rag_ask(RagAskRequest(query="risk"), context)
+
+    assert sink.events[-1].attributes["failure_category"] == "application"
+
+
+@pytest.mark.asyncio
 async def test_rag_ask_rejects_raw_ungoverned_service_result() -> None:
     class RawService(_FakeRagService):
         async def run(self, request: RagRequest) -> RagResult:  # type: ignore[override]

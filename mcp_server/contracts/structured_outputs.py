@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationInfo, field_validator, model_validator
 
@@ -9,10 +10,16 @@ from domain.llm import sanitize_reasoning_trace_text_for_boundary
 from mcp_server.contracts.models import (
     McpBoundaryModel,
     NonEmptyString,
-    RagAskResponse,
     RagCitation,
     Score,
 )
+from mcp_server.contracts.rag_presentation import (
+    RagAskResponse,
+    governed_projection_response_fields,
+)
+
+if TYPE_CHECKING:
+    from application.presentation.governed_result import GovernedPresentationProjection
 
 
 class StructuredMcpCustomerAgentResponse(McpBoundaryModel):
@@ -87,6 +94,7 @@ class StructuredMcpCustomerAgentResponse(McpBoundaryModel):
         *,
         query_id: str,
         generated_at: datetime,
+        projection: GovernedPresentationProjection,
         include_contexts: bool = False,
     ) -> RagAskResponse:
         """Map the structured payload into the external MCP RAG response contract."""
@@ -97,6 +105,7 @@ class StructuredMcpCustomerAgentResponse(McpBoundaryModel):
             answer_text=self.answer_text,
             status=self.status,
             route=self.route,
+            **governed_projection_response_fields(projection),
             citations=self.citations,
             contexts=() if include_contexts else None,
             confidence_score=self.confidence_score,

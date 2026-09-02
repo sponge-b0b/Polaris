@@ -26,6 +26,10 @@ from domain.llm import (
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
 
+_PRESENTABLE_RAG_DISPOSITIONS = frozenset({"eligible", "degraded"})
+_NON_PRESENTABLE_RAG_DISPOSITIONS = frozenset({"withheld", "blocked"})
+_SUCCESSFUL_RAG_STATUSES = frozenset({"answered", "succeeded"})
+
 
 class McpBoundaryModel(BaseModel):
     """Strict base contract for data crossing the MCP serialization boundary."""
@@ -179,10 +183,16 @@ class RagAskResponse(McpBoundaryModel):
     answer_text: NonEmptyString
     status: NonEmptyString
     route: NonEmptyString
-    authority_metadata: dict[str, JsonValue] = Field(default_factory=dict)
-    presentation_disposition: NonEmptyString | None = None
-    presentation_may_present: bool | None = None
-    presentation_limitations: tuple[NonEmptyString, ...] = ()
+    authority_metadata: dict[str, JsonValue]
+    presentation_disposition: NonEmptyString
+    presentation_may_present: bool
+    presentation_limitations: tuple[NonEmptyString, ...]
+    presentation_gate_failure_mode: NonEmptyString
+    presentation_risk_tier: NonEmptyString | None
+    presentation_gate_profile: NonEmptyString | None
+    provenance_record_ids: tuple[NonEmptyString, ...]
+    decision_evidence_packet_ids: tuple[NonEmptyString, ...]
+    governance_approval_states: tuple[NonEmptyString, ...]
     citations: tuple[RagCitation, ...] = ()
     contexts: tuple[RagRetrievedContext, ...] | None = None
     confidence_score: Score | None = None
@@ -245,6 +255,107 @@ class RagAskResponse(McpBoundaryModel):
             value,
             boundary_name="mcp.rag_response.error",
         )
+
+    @field_validator(
+        "presentation_gate_failure_mode",
+        "presentation_risk_tier",
+        "presentation_gate_profile",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_presentation_gate_text(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_optional_mcp_text(
+            value,
+            boundary_name=f"mcp.rag_response.{info.field_name}",
+        )
+
+    @field_validator(
+        "provenance_record_ids",
+        "decision_evidence_packet_ids",
+        "governance_approval_states",
+        mode="before",
+    )
+    @classmethod
+    def sanitize_presentation_references(
+        cls,
+        value: object,
+        info: ValidationInfo,
+    ) -> object:
+        return _sanitize_mcp_text_sequence(
+            value,
+            boundary_name=f"mcp.rag_response.{info.field_name}",
+        )
+
+    @model_validator(mode="after")
+    def validate_governed_presentation_projection(self) -> RagAskResponse:
+        disposition = self.presentation_disposition
+        if disposition not in (
+            _PRESENTABLE_RAG_DISPOSITIONS | _NON_PRESENTABLE_RAG_DISPOSITIONS
+        ):
+            raise ValueError("presentation_disposition is not recognized.")
+
+        expected_may_present = disposition in _PRESENTABLE_RAG_DISPOSITIONS
+        if self.presentation_may_present is not expected_may_present:
+            raise ValueError(
+                "presentation_may_present is inconsistent with "
+                "presentation_disposition."
+            )
+
+        if expected_may_present:
+            self._validate_presentable_projection()
+            return self
+
+        if self.status in _SUCCESSFUL_RAG_STATUSES:
+            raise ValueError(
+                "non-presentable governed RAG projection cannot carry a "
+                "successful claim-bearing status."
+            )
+        if self.citations or self.contexts:
+            raise ValueError(
+                "non-presentable governed RAG projection cannot carry "
+                "citations or contexts."
+            )
+        if any(
+            score is not None
+            for score in (
+                self.confidence_score,
+                self.grounding_score,
+                self.utility_score,
+            )
+        ):
+            raise ValueError(
+                "non-presentable governed RAG projection cannot carry scores."
+            )
+        if self.reflection_scores is not None:
+            raise ValueError(
+                "non-presentable governed RAG projection cannot carry "
+                "reflection scores."
+            )
+        if self.corrective_actions:
+            raise ValueError(
+                "non-presentable governed RAG projection cannot carry "
+                "corrective actions."
+            )
+        return self
+
+    def _validate_presentable_projection(self) -> None:
+        if not self.authority_metadata:
+            raise ValueError(
+                "presentable governed RAG projection requires authority_metadata."
+            )
+        if self.presentation_risk_tier is None:
+            raise ValueError(
+                "presentable governed RAG projection requires presentation_risk_tier."
+            )
+        if self.presentation_gate_profile is None:
+            raise ValueError(
+                "presentable governed RAG projection requires "
+                "presentation_gate_profile."
+            )
 
 
 class RagStatusRequest(McpBoundaryModel):

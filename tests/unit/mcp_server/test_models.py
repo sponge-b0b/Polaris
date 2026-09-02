@@ -32,6 +32,21 @@ _EXPECTED_TOOLS = {
     "polaris_workflow_describe",
     "polaris_workflows_list",
 }
+_GOVERNED_PRESENTATION_FIELDS = {
+    "authority_metadata": {
+        "intended_sink": "mcp_tool_response",
+        "risk_tier": "enhanced",
+    },
+    "presentation_disposition": "eligible",
+    "presentation_may_present": True,
+    "presentation_limitations": ("Educational decision-support only.",),
+    "presentation_gate_failure_mode": "none",
+    "presentation_risk_tier": "enhanced",
+    "presentation_gate_profile": "enhanced_provenance",
+    "provenance_record_ids": ("provenance-1",),
+    "decision_evidence_packet_ids": ("packet-1",),
+    "governance_approval_states": ("not_required",),
+}
 
 
 def test_tool_catalog_has_exactly_seven_typed_input_and_output_contracts() -> None:
@@ -139,6 +154,7 @@ def test_mcp_rag_response_contract_strips_reasoning_traces_from_public_fields() 
         answer_text="<think>private answer reasoning</think>\nGrounded answer.",
         status="answered",
         route="hybrid",
+        **_GOVERNED_PRESENTATION_FIELDS,
         citations=(citation,),
         contexts=(
             RagRetrievedContext(
@@ -180,6 +196,48 @@ def test_mcp_rag_response_contract_strips_reasoning_traces_from_public_fields() 
     assert "private error reasoning" not in serialized
 
 
+def test_mcp_rag_response_contract_requires_governed_projection() -> None:
+    with pytest.raises(ValidationError, match="presentation_disposition"):
+        RagAskResponse(
+            query_id="query-1",
+            answer_text="Grounded answer.",
+            status="answered",
+            route="hybrid",
+            generated_at=datetime(2026, 7, 8, tzinfo=UTC),
+        )
+
+
+def test_mcp_rag_response_contract_rejects_inconsistent_projection() -> None:
+    with pytest.raises(ValidationError, match="presentation_may_present"):
+        RagAskResponse(
+            query_id="query-1",
+            answer_text="Grounded answer.",
+            status="answered",
+            route="hybrid",
+            **{
+                **_GOVERNED_PRESENTATION_FIELDS,
+                "presentation_disposition": "blocked",
+            },
+            generated_at=datetime(2026, 7, 8, tzinfo=UTC),
+        )
+
+
+def test_mcp_rag_response_contract_rejects_non_presentable_claim_payload() -> None:
+    with pytest.raises(ValidationError, match="successful claim-bearing status"):
+        RagAskResponse(
+            query_id="query-1",
+            answer_text="Grounded answer.",
+            status="answered",
+            route="hybrid",
+            **{
+                **_GOVERNED_PRESENTATION_FIELDS,
+                "presentation_disposition": "withheld",
+                "presentation_may_present": False,
+            },
+            generated_at=datetime(2026, 7, 8, tzinfo=UTC),
+        )
+
+
 def test_mcp_rag_response_contract_rejects_unsafe_reasoning_trace() -> None:
     with pytest.raises(ValidationError, match="mcp.rag_response.answer_text"):
         RagAskResponse(
@@ -187,5 +245,6 @@ def test_mcp_rag_response_contract_rejects_unsafe_reasoning_trace() -> None:
             answer_text="<think>private answer reasoning without a closing tag",
             status="answered",
             route="hybrid",
+            **_GOVERNED_PRESENTATION_FIELDS,
             generated_at=datetime(2026, 7, 8, tzinfo=UTC),
         )

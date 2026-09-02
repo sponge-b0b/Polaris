@@ -17,18 +17,22 @@ Remediation extends the acceptance universe. It does not create a second verifie
 
 ## Invocation Semantics
 
-The human command `$verify-ticket-closure - <ticket>` received after an `$implement-ticket` closure handoff is an **authorization event**, not authorization for the current `$implement-ticket` main agent to perform certification.
+When the human explicitly invokes `$verify-ticket-closure` in response to the Ticket Closure Human Handoff from `$implement-ticket`, that invocation is an **authorization event**, not a local certification call.
 
-If this `SKILL.md` is being read/executed in that current parent context:
+The main agent must resume the `$implement-ticket` skill at its verifier-dispatch checkpoint and spawn exactly one fresh verifier subagent.
 
-1. do not inspect toward a closure verdict;
-2. recover the durable `<!-- implement-ticket-closure-checkpoint:v2 -->` state;
-3. require `Stage: awaiting-closure-verification` and exact ticket/branch/baseline/contract/candidate binding;
-4. resume `$implement-ticket` at its dispatcher-only continuation;
-5. spawn exactly one genuinely fresh verifier subagent;
-6. only that fresh subagent executes the certification procedure below.
+Before dispatch, the main agent must recover the ticket's durable `<!-- implement-ticket-closure-checkpoint:v2 -->` comment and route by its recorded stage. This requirement applies even after complete conversational/session context loss:
 
-If the checkpoint is `verifier-failed`, the human command does not authorize stale re-verification; resume implementation correction. If it is `verifier-passed`, resume `$implement-ticket` persistence after exact-state validation. Missing/stale/ambiguous state fails closed.
+* `awaiting-closure-verification` with matching ticket/mode/branch/baseline/contract/lineage/root/candidate state → the human invocation authorizes one fresh verifier dispatch;
+* `verifier-failed` → do **not** dispatch the stale candidate; resume `$implement-ticket` correction from the complete stored `TICKET CLOSURE: FAIL`;
+* `verifier-passed` → do not re-certify; resume `$implement-ticket` persistence after exact-state validation;
+* missing, duplicated, malformed, stale, or contradictory checkpoint state after an attempt began → fail closed and return control to `$implement-ticket`.
+
+The same explicit command plus the same durable repository/tracker state must produce the same lifecycle continuation whether or not prior conversational context exists.
+
+Only that fresh verifier executes the certification procedure below.
+
+If this skill is being executed directly by the `$implement-ticket` main agent, do not perform certification or emit a ticket-closure verdict.
 
 A direct ad hoc execution outside the `$implement-ticket` checkpoint lifecycle is not a valid certification run.
 

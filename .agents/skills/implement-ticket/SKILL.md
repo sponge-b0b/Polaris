@@ -62,6 +62,22 @@ persist / commit / close only after PASS
 
 Implementation checks such as `$verify-code`, documentation validation, database proof, tracker rereads, and targeted tests remain required where applicable. They provide evidence; they do not give the implementer semantic closure authority.
 
+## Invocation Termination
+
+This restores the pre-hardening control-flow invariant for the common ticket-closure lifecycle.
+
+This invocation may stop only at:
+
+* **Completed** — all required persistence, evidence, and closure gates completed;
+* **Human Handoff** — this skill explicitly requires human authorization;
+* **Hard Blocker** — a concrete external/environmental, branch, baseline, permission, required-tool, or persistence failure prevents further safe work.
+
+Everything else is non-terminal.
+
+In particular, partial progress, verification failure, `TICKET CLOSURE: FAIL`, corrective edits making a verdict stale, remaining actionable in-scope work, an open ticket, and `TICKET CLOSURE: PASS` before final lifecycle completion do not authorize stopping.
+
+If none applies, continue the workflow.
+
 ## Durable Ticket-Closure Checkpoint
 
 Every ticket closure-verification attempt must survive complete session/context loss.
@@ -203,7 +219,7 @@ Route:
   * after corrections/checks, rebuild proposed evidence and create a new awaiting attempt.
 * `verifier-passed`
   * require exact candidate/contract/baseline/branch/lineage/root binding;
-  * if valid, resume base persistence/commit/close mechanics;
+  * if valid, exit dispatcher-only mode if active and resume Section 4 (`Re-Verify Before Persistence`) of `.agents/skills/implement-ticket/procedure.md` immediately in the same invocation;
   * any mismatch returns to implementation/recertification.
 
 ### Dispatcher-only mode
@@ -227,13 +243,22 @@ The parent must not inspect toward its own closure verdict, execute `$verify-tic
 
 `TICKET CLOSURE: FAIL` is non-terminal.
 
-Persist the exact verdict into the v2 checkpoint as `verifier-failed`, append attempt history, read back, exit dispatcher-only mode, and resume implementation in the same invocation when actionable.
+Before leaving dispatcher-only mode:
+
+1. persist the exact valid verdict into the v2 checkpoint as `verifier-failed`;
+2. preserve every returned finding and the exact candidate/binding state in `Last verifier result`;
+3. append the attempt/candidate/result to `Attempt history`;
+4. re-read and verify the checkpoint.
+
+Then exit dispatcher-only mode and resume implementation **in the same invocation** when actionable.
 
 All verifier findings remain mandatory until corrected or superseded by explicit authoritative contract change.
 
 After correction, any prior PASS/FAIL is candidate-stale; generate a new handoff attempt.
 
 ### PASS
+
+`TICKET CLOSURE: PASS` is non-terminal and requires verifier-integrity success.
 
 Before accepting PASS require:
 
@@ -244,7 +269,16 @@ Before accepting PASS require:
 * every required nested domain is closed;
 * no unproven material assumption remains.
 
-Persist the exact PASS into the checkpoint as `verifier-passed`, read back, then resume the unchanged base persistence/commit/close lifecycle.
+Before proceeding:
+
+1. update the durable v2 checkpoint to `Stage: verifier-passed`;
+2. preserve the exact valid PASS and its ticket/baseline/candidate/contract/mode/root bindings plus returned acceptance, nested-domain, production-path, negative-path, and protected-root evidence in `Last verifier result`;
+3. append the attempt/candidate/result to `Attempt history`;
+4. re-read and verify the checkpoint.
+
+Exit dispatcher-only mode and proceed immediately to Section 4 (`Re-Verify Before Persistence`) of `.agents/skills/implement-ticket/procedure.md` **in the same invocation**.
+
+Do not present `TICKET CLOSURE: PASS` to the human as a terminal result. It establishes `CERTIFIED`, not `CLOSED`. Continue the existing persistence/commit/close/frontier lifecycle until **Completed**, another explicit **Human Handoff**, or a **Hard Blocker** is reached.
 
 The parent may validate hashes/counts/identity mechanically. It may not reinterpret a failing semantic cell into PASS.
 

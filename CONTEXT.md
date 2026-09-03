@@ -129,6 +129,16 @@ An Investment Recommendation may prefer action, hedging, resizing, Allocation or
 
 Polaris may present a human-reviewable trade setup when useful, including suggested implementation, approximate quantity, preferred price region, investment invalidation, Risk boundary, objective, or review condition. Those investment and implementation judgments do not make Polaris the authority for exact order placement, routing, working-order state, fills, stop orders, or take-profit orders.
 
+An Investment Decision may have zero, one, or multiple Investment Recommendations through time. Each Investment Recommendation is a distinct attributable judgment; a later Investment Recommendation does not rewrite an earlier one, and a new attributable judgment may reaffirm the same economic disposition. Observation or Evidence refresh alone does not create a new Investment Recommendation.
+
+The absence of a current Investment Recommendation is distinct from an affirmative recommendation to hold, wait, defer, or take no action. Polaris must preserve whether no recommendation has yet been formed, a recommendation was explicitly withheld, or a previously issued recommendation is no longer currently supportable.
+
+Investment Recommendation history is durable. A recommendation may cease to be currently supportable because required Evidence becomes stale, insufficient, conflicting, erroneous, or otherwise unfit for the intended decision use without ceasing to exist historically. An older recommendation does not silently reactivate when a later recommendation becomes unsupported; renewed support requires a new attributable recommendation judgment. Any notion of a current Investment Recommendation is therefore derived from durable recommendation history and current applicability rather than implemented semantically as destructive replacement of history.
+
+A Human Investment Decision remains distinct from every Investment Recommendation even when their economic content is identical. Where knowable, Polaris preserves which Investment Recommendation or Recommendations materially informed the human judgment and any attributable acceptance, modification, rejection, deferral response, or other relationship. A Human Investment Decision may also exist when no Investment Recommendation exists, and Polaris must not manufacture one retroactively from the human choice.
+
+External Resolution that happens to produce a Portfolio state matching an Investment Recommendation does not establish Recommendation acceptance, a Human Investment Decision, or recommendation-driven execution. After substantive investment judgment resolution or External Resolution, prior Investment Recommendations remain historical decision basis rather than indefinitely active instructions. Deferral is different because the Decision Need remains unresolved and later Investment Recommendations may continue within the same Investment Decision when judgment resumes.
+
 `Recommendation` is accepted shorthand for `Investment Recommendation` in existing Polaris product prose unless another narrower recommendation type is explicitly stated.
 
 Related distinctions:

@@ -396,6 +396,18 @@ A **Risk Score** is a unit-interval risk or intensity value where higher means m
 
 Risk Scores are not signed directional values. Favorable or risk-on conditions should be represented by lower risk, higher stability, a separate regime label, a Recommendation, or an explicit signed Directional Bias.
 
+## Attention
+
+**Attention** is the Polaris domain responsibility that evaluates new observations, user requests, Portfolio changes, scheduled reviews, prior decision conditions, and other available investment context to determine whether deliberate investment judgment may now be warranted.
+
+Attention may use deterministic criteria or interpretive investment assessment. A matched criterion, notable observation, or interpretive concern does not by itself create a Decision Need. Attention does not imply continuous surveillance of the financial world; what Polaris can evaluate is bounded by the information and investment context it is configured or otherwise authorized to observe.
+
+## Decision Need
+
+A **Decision Need** is an explicit determination that an unresolved Portfolio-relevant investment choice now warrants deliberate judgment.
+
+A Decision Need records why decision work is required and is distinct from the observation, request, Evidence, Portfolio change, review condition, or other input that caused Attention to evaluate the matter. Whether a Decision Need automatically initiates an Investment Decision or instead requires human confirmation is a separate initiation-authority question.
+
 ## Decision Scope
 
 **Decision Scope** identifies the one or more Portfolios whose investment state, capital consequences, and applicable Investment Mandates are directly implicated by an Investment Decision.
@@ -414,7 +426,7 @@ Decision Subject is distinct from Decision Scope, Evidence, the thing analyzed, 
 
 ## Investment Decision
 
-An **Investment Decision** is a durable, identifiable unit of consequential investment judgment created to resolve a Decision Need about a Decision Subject whose capital consequences are evaluated within one or more Portfolio scopes.
+An **Investment Decision** is a durable, identifiable unit of Portfolio-relevant investment judgment created to resolve a Decision Need about a Decision Subject whose potential capital consequences are evaluated within one or more Portfolio scopes.
 
 An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
 
@@ -422,6 +434,6 @@ An Investment Decision may concern one or several Portfolios and may terminate i
 
 ## Human Investment Decision
 
-A **Human Investment Decision** is the attributable human judgment within an Investment Decision that selects, modifies, rejects, defers, or otherwise disposes of the consequential investment choice.
+A **Human Investment Decision** is the attributable human judgment within an Investment Decision that selects, modifies, rejects, defers, or otherwise disposes of the Portfolio-relevant investment choice.
 
 A Human Investment Decision is distinct from Polaris's Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.

@@ -1185,3 +1185,134 @@ The following invariants are now accepted:
 13. **Portfolio-independent investment analysis may be Investment Intelligence or assessment without yet constituting an Investment Decision.**
 14. **`Investment Decision` is the canonical general consequential-decision noun because one decision may span several Portfolios or concern a Subject other than a Portfolio itself.**
 15. **`Investment Decision` names the durable identified decision lifecycle while `Human Investment Decision` names the attributable human judgment within it; no additional lifecycle noun is warranted unless later scenario testing exposes a real ambiguity.**
+
+## Resolved Attention and temporal observation semantics
+
+The Attention boundary is now resolved in two dimensions: **what Polaris may observe** and **when information about an observed subject becomes available or sufficiently current for investment use**. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### Attention is bounded by both subject and time
+
+Attention does not imply universal financial-market surveillance, and it also does not imply one universal polling interval.
+
+Polaris evaluates only information and investment context it is configured or otherwise authorized to observe. Within that bounded universe, different subjects and conditions may have different temporal semantics based on their source, Portfolio relevance, user configuration, and current decision use.
+
+Conceptually:
+
+```text
+observable subject / condition
+        +
+normal temporal observation semantics
+        +
+current Portfolio and decision context
+        ↓
+newly available or newly due information
+        ↓
+Attention
+        ↓
+possible Decision Need
+```
+
+The question is therefore not `How often does Attention run?` as one global product cadence. The meaningful question is `When should information about this subject become available or be reconsidered, and how fresh must it be for this investment use?`
+
+### Observation Cadence
+
+Observation Cadence describes the normal temporal pattern for obtaining or reconsidering information about an observed subject or condition.
+
+Valid temporal modes include:
+
+```text
+event-driven
+new authoritative information itself causes reconsideration
+
+periodic
+information is refreshed or reconsidered on a recurring cadence
+
+scheduled
+a known time or calendar event makes review due
+
+on-demand
+information is obtained when explicit decision work requires it
+
+condition-driven
+a prior state or decision condition becoming true makes review due
+```
+
+These modes are not mutually exclusive. One observed subject may legitimately have several modes for different information roles.
+
+There is no canonical `one minute`, `five minute`, or `one hour` frequency for Polaris as a whole. Even the same market subject may have a different normal cadence for a long-horizon Portfolio than for a tactical Portfolio.
+
+### Observation Cadence versus Freshness Requirement
+
+Observation Cadence and Freshness Requirement answer different questions:
+
+```text
+Observation Cadence
+How often is this information normally obtained or reconsidered?
+
+Freshness Requirement
+How current must this information be for this particular investment use?
+```
+
+For example, SPY market data may normally be observed every five minutes while an active hedge decision requires a price observation no more than one minute old.
+
+An active Investment Decision may therefore tighten the information freshness required for its reasoning without permanently changing the normal Observation Cadence for that subject.
+
+If an available source cannot satisfy the applicable Freshness Requirement, Polaris must preserve the resulting evidence insufficiency. A delayed or stale observation does not become current merely because it is the newest value Polaris has.
+
+### Temporally composed decision context
+
+Polaris does not have one globally synchronized `current state` that refreshes all information in lockstep.
+
+A decision context may legitimately combine facts and measures such as:
+
+```text
+market observation       @ 10:31:00
+VIX observation          @ 10:30:47
+Portfolio Position fact  @ 10:30:10
+Exposure measure         @ 10:30:10
+CPI observation          @ 08:30:00
+Investment Mandate       effective since an earlier date
+```
+
+Representing those facts together does not imply simultaneous observation. Each fact or derived measure retains its own as-of time, provenance, and freshness.
+
+This temporal composition is important both for current decision quality and for later historical reconstruction of what was knowable at decision time.
+
+### Information velocity versus decision velocity
+
+Observation state may change much more frequently than Investment Decision state.
+
+A high-frequency stream of price observations must not automatically generate an equal-frequency stream of Decision Needs, Investment Decisions, or decision revisions.
+
+Conceptually:
+
+```text
+many observations
+        ↓
+Attention filters relevance
+        ↓
+possibly no Decision Need
+        ↓
+or one meaningful change to existing decision work
+```
+
+An Investment Decision changes when newly available information materially affects that decision's work, not merely because another observation exists.
+
+Attention therefore separates **information velocity** from **decision velocity**.
+
+### Frozen Attention and temporal-observation invariants
+
+The following invariants are now accepted:
+
+1. **Attention is bounded by what Polaris is configured or otherwise authorized to observe; it does not imply universal surveillance.**
+2. **Attention has no single global frequency.**
+3. **Observation Cadence is specific to the observed subject or condition and may vary by source, Portfolio context, configured investment use, and current decision context.**
+4. **Observation may be event-driven, periodic, scheduled, on-demand, condition-driven, or a combination of those modes.**
+5. **Observation Cadence ≠ Freshness Requirement.**
+6. **An active Investment Decision may require fresher information than the normal Observation Cadence without permanently changing that cadence.**
+7. **If available information cannot satisfy the applicable Freshness Requirement, Polaris must preserve the insufficiency rather than treating stale information as current.**
+8. **Newly available or newly due information may cause Attention to evaluate without requiring all Polaris state to refresh in lockstep.**
+9. **Polaris decision context is temporally composed: facts and derived measures retain their own as-of times, provenance, and freshness.**
+10. **Representing facts together does not imply that they were observed or recomputed simultaneously.**
+11. **Observation state may refresh frequently while Investment Decision state changes only when information materially affects decision work.**
+12. **Attention separates information velocity from decision velocity; observation frequency does not determine Decision Need or Investment Decision frequency.**

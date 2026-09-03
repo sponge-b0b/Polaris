@@ -1316,3 +1316,192 @@ The following invariants are now accepted:
 10. **Representing facts together does not imply that they were observed or recomputed simultaneously.**
 11. **Observation state may refresh frequently while Investment Decision state changes only when information materially affects decision work.**
 12. **Attention separates information velocity from decision velocity; observation frequency does not determine Decision Need or Investment Decision frequency.**
+
+## Resolved Investment Decision identity and lifecycle semantics
+
+The Investment Decision identity/lifecycle pass is now resolved sufficiently to distinguish same-versus-new decision identity, substantive judgment resolution, Deferral, Review Conditions, Supersession, and the effect of external Portfolio changes. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section supersedes discovery-era language that treats reopening a substantively resolved decision as the default response to renewed judgment. Historical decisions remain intact; renewed judgment after substantive resolution creates a new causally linked Investment Decision.
+
+### Identity follows the unresolved investment choice
+
+Investment Decision identity is explicit and durable. It is not computed from mutable decision content such as Decision Subject, Decision Scope, Evidence, Recommendation, workflow execution, Risk, or current Portfolio State.
+
+The semantic continuity test is whether Polaris is still attempting to resolve the same coherent unresolved investment choice.
+
+For example:
+
+```text
+D-100
+Decision Need:
+Should Portfolio A reduce SPY Exposure?
+
+09:00  Recommendation: Hold
+10:00  SPY falls
+10:30  VIX rises
+11:00  new macro Evidence arrives
+11:15  Recommendation: Reduce 15%
+```
+
+Those changes remain part of D-100 while they are still attempts to answer the same unresolved choice.
+
+Therefore Evidence refresh, Evidence staleness, changed Portfolio State, changed Risk, revised reasoning, or a revised or reversed Recommendation do not by themselves create new Investment Decision identity.
+
+Decision Subject and Decision Scope may also refine while identity remains stable when the refinement continues to describe the same coherent unresolved choice. Discovery of an independently resolvable investment concern creates a separate Decision Need instead.
+
+### Deferral versus deliberate inaction
+
+Deferral and deliberate no-action can both produce no immediate Portfolio change, but their meanings are opposite with respect to resolution.
+
+```text
+Deferral
+We do not yet have the substantive answer.
+→ Decision Need remains unresolved.
+
+Deliberate hold / no-action
+Our substantive answer is to leave the Portfolio unchanged.
+→ investment judgment may be resolved.
+```
+
+A Human Investment Decision can therefore be attributable without substantively resolving the Investment Decision. A human may reject a Recommendation and request further analysis, or defer judgment until a catalyst, while the underlying Decision Need remains active.
+
+Recommendation rejection is likewise not enough to establish resolution. `Reject the 20% reduction and reduce 5% instead` resolves the investment choice; `reject that Recommendation and give me more analysis` does not.
+
+### Awaited condition versus Review Condition
+
+The lifecycle meaning of a condition depends on whether the Investment Decision is unresolved or substantively resolved.
+
+For a deferred unresolved decision:
+
+```text
+D-200
+Human Investment Decision:
+Defer until CPI.
+
+CPI becomes available
+        ↓
+Attention
+        ↓
+resume D-200
+```
+
+The awaited event permits continued work on the same unresolved Investment Decision.
+
+For a substantively resolved decision:
+
+```text
+D-201
+Human Investment Decision:
+Hold SPY.
+
+Review after CPI.
+```
+
+When CPI arrives, the Review Condition causes Attention to reconsider whether a renewed Decision Need exists. It does not reopen D-201 and does not automatically create a new decision.
+
+If renewed judgment is warranted:
+
+```text
+D-201 remains historical
+        ↓ causal lineage
+D-202 new Investment Decision
+```
+
+This preserves the original decision-time Evidence, Recommendation, Mandate, human judgment, and later evaluation context.
+
+### Repeated questions and renewed judgment
+
+Repeated wording does not establish Investment Decision identity.
+
+A repeated user question while the same investment choice is already unresolved normally refers to the same Investment Decision and may request current status, fresher Evidence, or a revised Recommendation.
+
+After a prior decision has been substantively resolved, a similar user request can mean either retrieval (`what did we decide?`) or renewed judgment (`should we make this choice now?`). Retrieval does not create a Decision Need. An explicit request for renewed judgment may create a new Decision Need even when external market conditions have not materially changed.
+
+### Judgment resolution versus lifecycle completion
+
+Substantive resolution of the investment judgment is a milestone within the Investment Decision lifecycle rather than necessarily the lifecycle's end.
+
+Conceptually:
+
+```text
+Decision Need
+    ↓
+Investment Decision
+    ↓
+Evidence / reasoning / Recommendation
+    ↓
+Human Investment Decision
+    ↓
+substantive judgment resolved
+    ↓
+Action Intent
+    ↓
+External Activity
+    ↓
+Reconciliation
+    ↓
+Outcome
+    ↓
+Evaluation
+```
+
+A later Investment Decision may begin while the earlier decision remains active for action continuity, reconciliation, Outcome, or Evaluation. Decision lifecycles therefore need not be globally serialized.
+
+Once substantive judgment has been resolved, later renewed judgment creates a new causally linked Investment Decision rather than mutating the old one. This keeps Durable Decision Memory historically faithful.
+
+### External Portfolio changes while judgment is pending
+
+External Portfolio changes do not directly determine Investment Decision identity. They flow through Attention because the changed reality may have several different meanings.
+
+An external change may:
+
+* update Portfolio State while the same unresolved choice remains meaningful;
+* remove the unresolved choice so that no further investment judgment is required;
+* or create a different Decision Need in response to the new Portfolio condition.
+
+For example, if D-300 asks whether SPY should be reduced from 60% to 40% and external activity changes the Portfolio to 50%, the same D-300 may remain meaningful with updated consequences. If external activity changes the Portfolio to 40%, the original choice may no longer require judgment.
+
+Polaris must not fabricate a Human Investment Decision merely because externally authoritative Portfolio State changed in a way that made the pending question moot. The domain semantics of that disposition are accepted, but its canonical name remains intentionally unresolved pending terminology testing.
+
+A changed external state may simultaneously make one pending decision unnecessary and create a new Decision Need. For example, external establishment of an unexpectedly large AAPL Position may make `should we establish AAPL exposure?` moot while creating the separate question `should we retain or reduce this exposure?`.
+
+### Supersession
+
+Supersession is a relationship between Investment Decisions rather than destructive replacement.
+
+An unresolved narrow decision may be superseded by a broader decision that makes the earlier question no longer independently meaningful. A previously resolved decision may also be superseded as the current operative investment basis by a later decision.
+
+In either case:
+
+```text
+earlier Investment Decision
+        ↓ superseded by
+later Investment Decision
+```
+
+Both remain durable. Supersession does not undo historical resolution, Recommendation history, Human Investment Decisions, or other decision-time facts.
+
+### Frozen Investment Decision identity/lifecycle invariants
+
+The following invariants are now accepted:
+
+1. **Investment Decision identity is explicit and durable; it is not derived from Decision Subject, Decision Scope, Evidence, Recommendation, workflow execution, or current Portfolio State.**
+2. **Identity is preserved while work continues to resolve the same coherent unresolved investment choice.**
+3. **New Evidence, changed Portfolio State, changed Risk, revised reasoning, or revised/reversed Recommendation do not by themselves create a new Investment Decision.**
+4. **Observation frequency and Evidence refresh frequency do not determine Investment Decision frequency.**
+5. **Deferral leaves the underlying Decision Need unresolved and permits the same Investment Decision to resume later.**
+6. **Deliberate hold/no-action is a substantive investment judgment and may resolve the Decision Need.**
+7. **A Human Investment Decision may be attributable without substantively resolving the Investment Decision, as with Deferral or Recommendation rejection accompanied by a request for further judgment.**
+8. **Recommendation rejection ≠ Investment Decision resolution.**
+9. **Resolution of the investment judgment is a milestone within the Investment Decision lifecycle, not necessarily lifecycle completion.**
+10. **After substantive judgment resolution, a renewed Decision Need creates a new causally linked Investment Decision rather than reopening and rewriting the resolved one.**
+11. **A Review Condition on a resolved decision causes Attention to reconsider whether a new Decision Need exists; it does not itself reopen the old decision or automatically create a new one.**
+12. **A condition awaited by a deferred unresolved decision may resume that same Investment Decision rather than creating a new one.**
+13. **Repeated wording or repeated user questions do not determine identity; an active unresolved choice normally remains the same decision, while an explicit later request for renewed judgment may create a new Decision Need.**
+14. **Evidence staleness or refresh changes readiness and reasoning within a decision without itself changing identity.**
+15. **External Portfolio changes flow through Attention; they may update the same unresolved decision, eliminate its remaining Decision Need, or create a different Decision Need.**
+16. **Polaris must not invent a Human Investment Decision merely because external Portfolio State changed in a way that made a pending choice moot.**
+17. **An Investment Decision may become unnecessary because external circumstances remove the unresolved choice; that disposition is distinct from substantive Human Investment Decision resolution.**
+18. **Supersession preserves both Investment Decisions and their history; it records that another decision displaced the earlier decision's continuing applicability or operative basis.**
+19. **Supersession does not undo a prior substantive resolution.**
+20. **Decision Subject or Decision Scope may refine while identity remains stable when the refinement continues to represent the same coherent unresolved choice; independently arising investment choices require separate Decision Needs and Investment Decisions.**

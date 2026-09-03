@@ -1033,3 +1033,155 @@ The following invariants are now accepted:
 15. **Whether a Formal Constraint is exceptionable and who may authorize an Exception belongs to the Investment Authority Regime.**
 16. **A multi-Portfolio investment decision evaluates each Portfolio against its own applicable Mandate and any Portfolio-specific Exceptions.**
 17. **Historical decisions must preserve the Mandate version, Formal Constraint results, interpretive assessments, and Mandate Exceptions that actually applied at decision time.**
+
+## Resolved decision scope, subject, and canonical decision terminology
+
+The decision-layer stress tests now resolve `Decision Scope`, `Decision Subject`, `Investment Decision`, and `Human Investment Decision`. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section supersedes earlier discovery-era passages in this document that describe `Investment Decision`, Decision Scope, or Decision Subject as unresolved or that treat `Portfolio Decision` as the preferred canonical consequential-decision noun. Those earlier passages are retained as discovery history until the broader decision lifecycle pass reconciles the remaining identity, lifecycle, and product-document language.
+
+### Decision Scope
+
+Decision Scope answers:
+
+```text
+Which Portfolio or Portfolios bear the direct investment consequences of this decision?
+```
+
+A scoped Portfolio contributes more than analytical context. Its Portfolio State, applicable Investment Mandate, Formal Constraints, Risk, and any Mandate Exceptions are directly relevant to evaluating the decision's consequences.
+
+A Portfolio that is merely consulted as Evidence or contextual comparison does not become part of Decision Scope solely because it influenced reasoning.
+
+A multi-Portfolio Investment Decision retains each Portfolio's independent state and Mandate semantics. Scope does not create a synthetic combined Portfolio or synthetic shared Mandate.
+
+Decision Scope may be unresolved while decision work is being initiated. Polaris may recognize a Decision Need before the applicable Portfolio is known, but a final Capital-Relevant Recommendation or Human Investment Decision must not silently invent Portfolio applicability.
+
+### Decision Subject
+
+Decision Subject answers:
+
+```text
+What investment matter is actually being judged?
+```
+
+The Subject is not restricted to one entity type. It may concern:
+
+* an existing Position;
+* whether to establish exposure through a Financial Instrument;
+* an Exposure;
+* an Allocation;
+* Portfolio Posture;
+* a cross-Portfolio capital allocation;
+* or another coherent investment matter.
+
+A Decision Subject may be composite when its elements form one mutually dependent tradeoff. If component judgments can be resolved independently without materially changing one another, they should normally be separate Investment Decisions rather than one artificially broad Subject.
+
+For example, deciding how to allocate one fixed amount of new capital between AAPL and MSFT may be one coherent composite Subject because the alternatives compete for the same capital. Independently deciding whether to increase AAPL and whether to reduce an unrelated XOM Position would normally be two decisions unless a real dependency makes them one judgment.
+
+The Subject is also distinct from the thing that triggered or implements the decision. For example:
+
+```text
+Evidence
+CPI surprise
+
+Analysis
+inflation / rates implications
+
+Decision Subject
+equity-beta Exposure
+
+Decision Scope
+Portfolio A
+
+Action Instrument
+ES futures
+```
+
+The thing that caused the decision, the thing analyzed, the thing being judged, the Portfolio affected, and the Financial Instrument used to implement the result may all be different.
+
+The same Decision Subject can recur in later Investment Decisions under different circumstances. Subject therefore contributes meaning but does not establish Investment Decision identity by itself.
+
+### Investment Decision versus portfolio-independent analysis
+
+Portfolio-independent investment intelligence can exist without an Investment Decision.
+
+For example:
+
+```text
+Is AAPL undervalued?
+→ investment analysis / assessment
+
+Should Portfolio A establish AAPL exposure?
+→ Investment Decision
+```
+
+The distinction is consequential Portfolio applicability. An Investment Decision is an identified unit of investment judgment whose potential capital consequences are evaluated within one or more Portfolio scopes.
+
+### Canonical decision noun
+
+`Investment Decision` is now the canonical general noun for consequential investment judgment in Polaris.
+
+`Portfolio Decision` is too narrow because one coherent decision may span several Portfolios or may concern a Subject such as Exposure, cross-Portfolio capital allocation, or another investment matter rather than the Portfolio as an object.
+
+For example:
+
+```text
+Decision
+Move capital from Portfolio A to Portfolio B.
+
+Decision Scope
+Portfolio A + Portfolio B
+
+Decision Subject
+cross-Portfolio capital allocation
+```
+
+Calling that the Portfolio Decision of A or B would assign ownership that the domain does not actually have. `Investment Decision` preserves the investment meaning while allowing Decision Scope to express the affected Portfolios explicitly.
+
+### Investment Decision and Human Investment Decision
+
+`Investment Decision` names the durable, identifiable consequential decision lifecycle. It may exist while the matter is still unresolved:
+
+```text
+Investment Decision D-47
+Decision Subject: AAPL exposure
+Decision Scope: Portfolio A
+Recommendation: available
+Human judgment: pending
+```
+
+This usage is consistent with ordinary language: there can be an investment decision to make before the choice has been made.
+
+A Human Investment Decision is the attributable human judgment within that lifecycle. It may select, modify, reject, defer, or otherwise dispose of the consequential choice.
+
+The distinction is therefore:
+
+```text
+Investment Decision
+The enduring, identified consequential decision concern and lifecycle.
+
+Human Investment Decision
+The attributable human judgment made within that lifecycle.
+```
+
+No additional lifecycle noun such as `Decision Case` is introduced because the approved distinction is sufficient and a second noun would add conceptual weight without solving a demonstrated ambiguity.
+
+### Frozen decision-scope and subject invariants
+
+The following invariants are now accepted:
+
+1. **Decision Scope identifies the Portfolio or Portfolios whose investment state, Mandates, capital, and consequences are directly governed by an Investment Decision.**
+2. **A Portfolio used only as Evidence or analytical context is not automatically part of Decision Scope.**
+3. **A multi-Portfolio Investment Decision preserves each scoped Portfolio's independent Portfolio State, Investment Mandate, Formal Constraints, Risk, and applicable Exceptions.**
+4. **Decision Subject identifies the investment matter whose disposition is being judged; it is not restricted to a Financial Instrument, Position, or Portfolio.**
+5. **A Decision Subject may concern an existing Position, establishing exposure through a Financial Instrument, an Exposure, Allocation, Portfolio Posture, or another coherent investment matter.**
+6. **A Decision Subject may be composite when its elements form one mutually dependent investment judgment; independently resolvable matters should normally be separate Investment Decisions.**
+7. **Decision Subject ≠ Decision Scope.**
+8. **Decision Subject ≠ Evidence.**
+9. **Decision Subject ≠ Action Instrument or Proposed Action.**
+10. **The thing analyzed, thing decided, Portfolio affected, and instrument used to implement the decision may all differ.**
+11. **The same Decision Subject may appear in multiple Investment Decisions through time; Subject alone does not establish Investment Decision identity.**
+12. **Decision Scope may be unresolved during initiation, but final Capital-Relevant Recommendation or Human Investment Decision must not silently assume an unresolved Portfolio scope.**
+13. **Portfolio-independent investment analysis may be Investment Intelligence or assessment without yet constituting an Investment Decision.**
+14. **`Investment Decision` is the canonical general consequential-decision noun because one decision may span several Portfolios or concern a Subject other than a Portfolio itself.**
+15. **`Investment Decision` names the durable identified decision lifecycle while `Human Investment Decision` names the attributable human judgment within it; no additional lifecycle noun is warranted unless later scenario testing exposes a real ambiguity.**

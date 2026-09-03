@@ -840,3 +840,196 @@ The following invariants are now accepted:
 10. **Account State ≠ Portfolio State, although Account facts may materially constrain or inform Portfolio State and decisions.**
 11. **Externally authoritative facts and Polaris-derived Portfolio measures retain their separate authority even when represented together.**
 12. **Actual Portfolio State ≠ hypothetical Projected Portfolio State.**
+
+## Resolved investment-mandate semantics
+
+Investment Mandate discovery exposed an important boundary between investment judgment and deterministic authority. A Mandate can contain meaningful narrative intent without pretending that every sentence is a machine rule, and Polaris can surface economically preferred actions that conflict with the Mandate without silently rewriting either the investment judgment or the governing boundary.
+
+These semantics are now resolved and canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### Mandate shape
+
+An Investment Mandate is the durable, temporally applicable statement of a Portfolio's investment purpose, Investment Objectives, Investment Principles, and Formal Constraints.
+
+Its semantic roles are deliberately different:
+
+```text
+Purpose
+Why does this Portfolio exist?
+
+Investment Objective
+What outcomes should the Portfolio pursue?
+
+Investment Principle
+What qualitative guidance should shape investment judgment?
+
+Formal Constraint
+What explicit boundaries are deterministically authoritative?
+```
+
+The Mandate is distinct from Portfolio identity, Portfolio State, current Risk, external Account constraints, Investment Strategy, and the Investment Authority Regime.
+
+A Portfolio may use multiple simultaneous Investment Strategies under one Mandate when those Strategies remain means of managing the same continuing investment responsibility. Mandate compliance concerns the resulting Portfolio as a whole; individually acceptable Strategies can still combine into a Portfolio condition that violates a Formal Constraint.
+
+### Objectives and Principles
+
+Investment Objectives describe desired outcomes rather than deterministic compliance boundaries.
+
+For example, `seek long-term real capital growth` establishes what successful management is trying to accomplish. A Recommendation may advance, detract from, or have uncertain effect on that Objective, but failure to advance it is not by itself a Mandate violation.
+
+Investment Principles provide qualitative, context-sensitive guidance. Statements such as `avoid excessive concentration`, `favor long-term compounding over unnecessary turnover`, or `use derivatives primarily for risk management` require investment judgment to apply.
+
+Polaris may assess a Recommendation as aligned with, in tension with, or uncertain against an Investment Principle. That assessment is interpretive and must not masquerade as deterministic Policy or compliance authority.
+
+Principles are inherently defeasible. A justified departure from a Principle does not require a Mandate Exception merely because tension exists. If the user intends an absolute or machine-enforceable boundary, that boundary must instead be formalized as a Formal Constraint.
+
+### Formal Constraints and deterministic evaluation
+
+A Formal Constraint is authoritative and machine-evaluable in principle. It need not be mathematical or numerical; categorical, Boolean, set-based, and quantitative restrictions may all qualify when their semantics are sufficiently explicit.
+
+Examples include:
+
+```text
+Short Positions prohibited.
+
+Permitted Financial Instrument types:
+common equity, ETF, Treasury.
+
+Single-position weight <= 10% of Portfolio NAV.
+
+Technology Exposure <= 30% of Portfolio NAV.
+```
+
+Natural-language precision is not automatically Formal Constraint precision. Statements such as `no leverage` or `single Position <= 10%` may still be ambiguous about measurement basis, derivative treatment, valuation basis, or other domain semantics.
+
+Therefore an LLM interpretation of Mandate prose cannot silently create deterministic authority. Formalization must be explicit and authoritative.
+
+A Formal Constraint may produce a deterministic result such as satisfied or violated when the required facts are available. If authoritative facts are missing, stale, or insufficient, evaluation may be indeterminate. That does not turn the Formal Constraint into an interpretive Principle; it means the rule is deterministic in principle but cannot currently be evaluated reliably.
+
+### Recommendation versus Mandate assessment
+
+Polaris's investment judgment and Mandate assessment answer different questions.
+
+```text
+Investment judgment
+What does Polaris believe should be done?
+
+Mandate assessment
+How does that Recommendation relate to Objectives,
+Principles, and Formal Constraints?
+
+Authority consequence
+What authorization, Exception, or other disposition
+is required for the Recommendation to proceed?
+```
+
+Polaris may therefore recommend an action that conflicts with a Principle or violates a Formal Constraint. It must expose that conflict rather than weakening or censoring the underlying investment reasoning merely to produce a compliant-looking Recommendation.
+
+For example:
+
+```text
+Primary Investment Recommendation:
+Increase AAPL to 14%.
+
+Formal Constraint:
+Single-position maximum = 10%.
+
+Constraint result:
+VIOLATED.
+
+Mandate-compliant alternative:
+Increase AAPL to 10%.
+
+Authority consequence:
+Mandate Exception required for 14%.
+```
+
+A Mandate assessment must not be collapsed into one overall `mandate_compliant` Boolean that hides the distinction between Objectives, Principles, Formal Constraints, and Exceptions.
+
+### Mandate Exception
+
+A Mandate Exception is a decision-time authority fact, not another pre-enumerated Mandate term.
+
+It authorizes a scoped departure from an otherwise applicable Formal Constraint without changing the underlying Mandate or rewriting the deterministic constraint result.
+
+For example:
+
+```text
+Formal Constraint:
+AAPL <= 10%.
+
+Recommendation:
+AAPL = 14%.
+
+Constraint result:
+VIOLATED.
+
+Mandate Exception:
+AUTHORIZED for this scoped decision up to 14%.
+```
+
+The constraint remains violated. The Exception changes whether that violation is authorized for the defined scope.
+
+Exceptions may arise from circumstances that could not reasonably have been enumerated in advance. Polaris may identify, propose, or justify an Exception, but it does not gain authority to authorize one from its own Recommendation.
+
+The Investment Authority Regime determines whether a Formal Constraint is exceptionable and which attributable actor or process may authorize the Exception.
+
+### Exception, amendment, and noncompliant choice
+
+Three facts must remain distinct:
+
+```text
+Mandate Exception
+The governing rule remains unchanged,
+but a scoped departure is authorized.
+
+Mandate Amendment
+The governing Mandate itself changes.
+
+Noncompliant Human Investment Decision
+The governing rule remains unchanged,
+no applicable Exception authorizes the departure,
+and the human nevertheless chooses it.
+```
+
+Human behavior does not retroactively rewrite Mandate truth. An authorized Exception must not be represented as a satisfied constraint, and an unauthorized human choice must not become compliant merely because an authorized human made it.
+
+### Multi-Portfolio decisions
+
+A consequential investment decision may span several Portfolios with different Mandates.
+
+There is no implicit synthetic Mandate for the decision. Each Portfolio retains its own applicable Mandate, Portfolio State, Formal Constraint results, and any Portfolio-specific Exceptions.
+
+The same Evidence may therefore support different Portfolio consequences under different Mandates without creating inconsistent reasoning.
+
+This further strengthens `Investment Decision` as the leading candidate for the eventual canonical consequential-decision noun, while leaving that terminology unresolved until Decision Scope and Decision Subject are fully tested.
+
+### Temporal integrity
+
+The applicable Mandate is part of decision-time context.
+
+A Portfolio may retain identity across Mandate revisions, but historical decisions must remain reconstructable against the Mandate version, Formal Constraint semantics and results, interpretive assessments, and Mandate Exceptions that actually applied when the decision was made.
+
+A later Mandate amendment must not rewrite whether an earlier Recommendation violated the Mandate that governed it at the time.
+
+### Frozen investment-mandate invariants
+
+The following invariants are now accepted:
+
+1. **Investment Mandate contains distinct semantic roles: Purpose, Investment Objectives, Investment Principles, and Formal Constraints.**
+2. **Investment Objectives describe desired outcomes; failure to advance an Objective is not a deterministic Mandate violation.**
+3. **Investment Principles provide qualitative, context-sensitive investment guidance; they may be interpreted for alignment or tension but do not produce deterministic compliance results.**
+4. **Investment Principles are inherently defeasible. A justified departure from a Principle does not require a Mandate Exception merely because tension exists.**
+5. **A Formal Constraint is authoritative and machine-evaluable in principle; it need not be numerical, but its scope, measurement basis, and evaluation semantics must be explicit.**
+6. **Natural-language Mandate text does not become a Formal Constraint solely because Polaris can interpret it. Formalization must be explicit and authoritative.**
+7. **Only Formal Constraints may produce deterministic Mandate satisfaction or violation results.**
+8. **Missing or stale required facts may make a Formal Constraint evaluation indeterminate without making the constraint itself interpretive.**
+9. **Investment Mandate assessment must not be collapsed into a single Boolean that hides the distinction between Objectives, Principles, Formal Constraints, and Exceptions.**
+10. **Polaris may recommend an action that conflicts with an Investment Principle or violates a Formal Constraint, provided the conflict and resulting authority consequences are explicit.**
+11. **A Mandate Exception is separate from the Investment Mandate and authorizes a scoped departure from a Formal Constraint without changing that constraint or its violation result.**
+12. **Mandate Exceptions need not be exhaustively anticipated in advance; they may arise from concrete investment decisions.**
+13. **Polaris may propose or justify a Mandate Exception but does not gain authority to authorize one from its own Recommendation.**
+14. **Mandate Exception ≠ Mandate Amendment ≠ noncompliant Human Investment Decision.**
+15. **Whether a Formal Constraint is exceptionable and who may authorize an Exception belongs to the Investment Authority Regime.**
+16. **A multi-Portfolio investment decision evaluates each Portfolio against its own applicable Mandate and any Portfolio-specific Exceptions.**
+17. **Historical decisions must preserve the Mandate version, Formal Constraint results, interpretive assessments, and Mandate Exceptions that actually applied at decision time.**

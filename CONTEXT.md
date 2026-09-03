@@ -452,7 +452,7 @@ Once the investment judgment has been substantively resolved, a later renewed De
 
 An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
 
-An Investment Decision may concern one or several Portfolios and may result in action, modification, rejection, Deferral, or deliberate inaction. Deliberate hold or no-action can substantively resolve the investment choice; Deferral leaves the underlying Decision Need unresolved. If external circumstances remove the unresolved choice before a Human Investment Decision resolves it, Polaris must preserve that fact rather than inventing a Human Investment Decision. The canonical name for that lifecycle disposition remains unresolved.
+An Investment Decision may concern one or several Portfolios and may result in action, modification, rejection, Deferral, deliberate inaction, or External Resolution. Deliberate hold or no-action can substantively resolve the investment choice; Deferral leaves the underlying Decision Need unresolved; External Resolution eliminates the Decision Need because changed circumstances remove the choice before a Human Investment Decision substantively resolves it.
 
 An Investment Decision is distinct from workflow execution, a Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
 
@@ -485,3 +485,13 @@ A condition awaited by a deferred unresolved Investment Decision is semantically
 **Supersession** is an explicit causal relationship in which one Investment Decision displaces an earlier Investment Decision's continuing applicability or operative investment basis without deleting or rewriting either decision.
 
 Supersession may apply whether the earlier decision was unresolved or substantively resolved. It does not undo historical resolution, Recommendation history, Human Investment Decisions, or other decision-time facts; it records that another Investment Decision has become the relevant basis going forward.
+
+## External Resolution
+
+**External Resolution** occurs when circumstances outside an unresolved Investment Decision eliminate the investment choice that created its Decision Need before a Human Investment Decision substantively resolves that choice. An Investment Decision in this disposition is **Externally Resolved**.
+
+External Resolution eliminates the need for further judgment; it does not mean that an investment judgment was made, that Polaris's Recommendation was followed, or that a preferred Portfolio outcome occurred. Polaris must not infer a Human Investment Decision from the changed external circumstances alone.
+
+An external change that only alters Evidence, Portfolio State, available alternatives, or expected consequences does not constitute External Resolution while the same coherent Decision Need remains. External Resolution is distinct from Deferral, deliberate hold or no-action, Supersession, and cancellation or withdrawal of decision work while the underlying investment choice still exists.
+
+`External` means outside the unresolved investment judgment itself, not necessarily outside Polaris or outside the Portfolio domain. The cause of External Resolution must remain attributable so later reconstruction can distinguish changed circumstances from Polaris Recommendations and Human Investment Decisions.

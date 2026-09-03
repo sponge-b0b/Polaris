@@ -395,3 +395,33 @@ Directional Bias is not a unit risk score and must not be interpreted as Approva
 A **Risk Score** is a unit-interval risk or intensity value where higher means more risk, more intensity, or more defensive pressure unless an explicit score family says otherwise.
 
 Risk Scores are not signed directional values. Favorable or risk-on conditions should be represented by lower risk, higher stability, a separate regime label, a Recommendation, or an explicit signed Directional Bias.
+
+## Decision Scope
+
+**Decision Scope** identifies the one or more Portfolios whose investment state, capital consequences, and applicable Investment Mandates are directly implicated by an Investment Decision.
+
+A Portfolio used only as Evidence or analytical context is not automatically part of Decision Scope. Each scoped Portfolio retains its own Portfolio State, Investment Mandate, Formal Constraints, Risk, and applicable Mandate Exceptions; a multi-Portfolio Investment Decision does not create an implicit synthetic Mandate.
+
+Decision Scope may be unresolved while decision work is being initiated, but a final Capital-Relevant Recommendation or Human Investment Decision must not silently assume Portfolio applicability that has not been established.
+
+## Decision Subject
+
+**Decision Subject** identifies the investment matter whose disposition is being judged within an Investment Decision.
+
+A Decision Subject may concern an existing Position, establishing exposure through a Financial Instrument, an Exposure, Allocation, Portfolio Posture, or another coherent investment matter. It may be composite when its elements form one mutually dependent investment judgment; independently resolvable matters should normally be separate Investment Decisions.
+
+Decision Subject is distinct from Decision Scope, Evidence, the thing analyzed, a Proposed Action, and the Financial Instrument or other means ultimately used to implement the decision. The same Decision Subject may recur in separate Investment Decisions through time and therefore does not by itself establish Investment Decision identity.
+
+## Investment Decision
+
+An **Investment Decision** is a durable, identifiable unit of consequential investment judgment created to resolve a Decision Need about a Decision Subject whose capital consequences are evaluated within one or more Portfolio scopes.
+
+An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
+
+An Investment Decision may concern one or several Portfolios and may terminate in action, modification, rejection, deferral, or deliberate inaction. It is distinct from workflow execution, a Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
+
+## Human Investment Decision
+
+A **Human Investment Decision** is the attributable human judgment within an Investment Decision that selects, modifies, rejects, defers, or otherwise disposes of the consequential investment choice.
+
+A Human Investment Decision is distinct from Polaris's Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.

@@ -685,3 +685,158 @@ Resolving Portfolio makes the canonical decision noun less certain, not more.
 A consequential decision may concern one Position, one Exposure, an entire Portfolio, or several Portfolios at once. A cross-Portfolio capital-allocation decision is clearly an investment decision but is awkward to describe as belonging to one Portfolio.
 
 Therefore `Investment Decision` is now the leading candidate for the canonical decision concept, with one or more Portfolios potentially forming its decision scope. This is **not yet canonical vocabulary**. `Portfolio Decision`, `Investment Decision`, decision scope, and decision subject remain part of the next discovery step and must not be changed in `CONTEXT.md` until resolved.
+
+## Resolved financial-instrument, exposure, and portfolio-state semantics
+
+The next foundational pass clarifies the economic vocabulary that surrounds Portfolio and Position. These semantics are now resolved and canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### Financial Instrument
+
+A Financial Instrument is the identifiable tradable security or contract in which a Position can be established.
+
+Instrument identity is therefore more precise than a display symbol or product-family label. For example:
+
+```text
+AAPL common stock
+→ Financial Instrument
+
+SPY ETF shares
+→ Financial Instrument
+
+specific ES futures contract
+→ Financial Instrument
+
+ES root/product symbol
+→ not by itself a specific Financial Instrument
+```
+
+Polaris may analyze many economically relevant things that are not Financial Instruments. An index, macroeconomic series, rate, breadth measure, or other market reference can provide Evidence without being something in which the Portfolio can establish a Position.
+
+Ordinary Portfolio cash is treated as capital or liquidity rather than being forced into Financial Instrument merely for model uniformity. A money-market fund share, Treasury bill, or other tradable security used as a cash equivalent remains a Financial Instrument in its own right.
+
+### Exposure
+
+Exposure describes what a Portfolio is economically sensitive or concentrated toward rather than what it literally holds.
+
+One Position may create several Exposures:
+
+```text
+100 AAPL long
+    ↓
+AAPL exposure
+Apple issuer exposure
+technology exposure
+equity exposure
+USD exposure
+market-beta exposure
+```
+
+Several Positions may also contribute to one Exposure:
+
+```text
+AAPL ──┐
+MSFT ──┼──→ Technology Exposure
+NVDA ──┘
+```
+
+Position Direction and Exposure direction are distinct. A Long Position in a derivative may create negative or otherwise non-obvious exposure to its underlying reference.
+
+Exposure is also distinct from Allocation and Risk:
+
+```text
+Allocation
+How is capital distributed?
+
+Exposure
+What is the Portfolio economically sensitive or concentrated toward?
+
+Risk
+What adverse outcomes may arise, with what significance, given the Portfolio, its Exposures, and current conditions?
+```
+
+Derivatives and hedges make the separation especially important because capital allocation, gross exposure, net exposure, and assessed Risk may diverge substantially.
+
+### Portfolio State
+
+Portfolio State describes the Portfolio's economic condition at a particular time within the Portfolio Boundary.
+
+Conceptually:
+
+```text
+Portfolio
+    ↓
+Portfolio Boundary @ T
+    ↓
+Portfolio State @ T
+    ├── capital
+    ├── cash / liquidity
+    ├── Positions
+    ├── obligations
+    ├── valuations
+    ├── Allocation
+    ├── Exposure
+    ├── leverage
+    ├── performance / drawdown
+    └── other economic measures
+```
+
+Portfolio State should not become a catch-all for every analytical judgment about the Portfolio. Market-regime interpretation, investment thesis, directional recommendation, governance judgment, and human decision are analyses or judgments about Portfolio State and other Evidence rather than intrinsic Portfolio State merely because they are useful near it.
+
+### Account State and authority
+
+Account State is operational/accounting state associated with an external account and is distinct from Portfolio State.
+
+Account restrictions, margin facts, balances, permissions, transfer restrictions, and similar operational facts may constrain or inform Portfolio decisions without defining Portfolio identity or automatically becoming Portfolio State.
+
+A Portfolio State may represent both externally authoritative facts and Polaris-derived economic measures. Representation together does not erase authority boundaries.
+
+For example:
+
+```text
+100 AAPL
+→ externally authoritative holding fact
+
+31% technology exposure
+→ Polaris-derived Portfolio measure
+```
+
+Both may participate in the same decision-time Portfolio State while retaining separate provenance and authority.
+
+### Actual and projected state
+
+Unqualified Portfolio State means an actual or historically actual Portfolio condition at an as-of time.
+
+A hypothetical state expected to result from a candidate action or decision consequence is a Projected Portfolio State and must remain visibly distinct from actual Portfolio State.
+
+```text
+Current Portfolio State
+        ↓
+Candidate action
+        ↓
+Projected Portfolio State
+```
+
+A projection does not become actual Portfolio State merely because Polaris recommends or expects it.
+
+### Current implementation reconciliation
+
+The current `domain/portfolio/models/portfolio_state.py` concept combines several semantic families, including account operational restrictions, Portfolio economic facts, Exposure measures, risk assessments, market/regime interpretation, directional bias, and risk signals.
+
+That is evidence of useful existing behavior, but it is a semantic **SPLIT** candidate rather than proof that all of those meanings belong to one domain concept. Architecture may later choose to transport or compose several of them together, but the domain model must preserve their distinct meanings and authorities.
+
+### Frozen financial-state invariants
+
+The following invariants are now accepted:
+
+1. **A Financial Instrument is a Position-bearing tradable security or financial contract; a ticker or product-family symbol does not by itself define Financial Instrument identity.**
+2. **Market indexes, macro series, and similar analytical references are not Financial Instruments merely because Polaris reasons about them.**
+3. **Ordinary Portfolio cash is capital or liquidity rather than automatically a Financial Instrument.**
+4. **Exposure describes economic sensitivity or concentration; Position describes an attributable holding or obligation.**
+5. **One Position may create several Exposures, and several Positions may contribute to one Exposure.**
+6. **Position Direction does not determine Exposure direction.**
+7. **Exposure ≠ Allocation.**
+8. **Exposure ≠ Risk.**
+9. **Portfolio State is the time-specific economic condition of a Portfolio within its Portfolio Boundary.**
+10. **Account State ≠ Portfolio State, although Account facts may materially constrain or inform Portfolio State and decisions.**
+11. **Externally authoritative facts and Polaris-derived Portfolio measures retain their separate authority even when represented together.**
+12. **Actual Portfolio State ≠ hypothetical Projected Portfolio State.**

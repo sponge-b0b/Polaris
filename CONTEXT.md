@@ -14,13 +14,39 @@ The same economic interest cannot be fully attributed to more than one Portfolio
 
 Portfolio attribution is historical fact. A later boundary change must not rewrite which Portfolio an economic interest belonged to at an earlier time.
 
+## Financial Instrument
+
+A **Financial Instrument** is an identifiable tradable financial security or contract in which a Position may be established.
+
+Financial Instrument identity is not merely a ticker, display symbol, or product-family name. AAPL common stock, SPY ETF shares, and a specific ES futures contract are Financial Instruments; an index, macroeconomic series, or other analytical reference is not a Financial Instrument merely because Polaris reasons about it.
+
+Ordinary Portfolio cash is capital or liquidity rather than automatically a Financial Instrument. A security or contract used as a cash equivalent, such as a money-market fund share or Treasury bill, may itself be a Financial Instrument.
+
 ## Position
 
-A **Position** is a Portfolio-scoped current economic holding or obligation in a financial instrument, characterized by its quantity and **Position Direction**.
+A **Position** is a Portfolio-scoped current economic holding or obligation in a Financial Instrument, characterized by its quantity and **Position Direction**.
 
-**Position Direction** describes the Portfolio's relationship to the financial instrument as **Long** or **Short**. Position Direction is distinct from an action or order side such as Buy or Sell, and it does not by itself determine the direction of the economic Exposure produced by the Position.
+**Position Direction** describes the Portfolio's relationship to the Financial Instrument as **Long** or **Short**. Position Direction is distinct from an action or order side such as Buy or Sell, and it does not by itself determine the direction of the economic Exposure produced by the Position.
 
 Externally reported account holdings are operational source facts rather than automatically being Polaris Positions. Where an account contains economic interests attributable to more than one Portfolio, those interests may be partitioned into separate Portfolio-scoped Positions without duplicating the same economic interest.
+
+## Exposure
+
+**Exposure** is a time-specific economic sensitivity or concentration attributable to a Portfolio with respect to a Financial Instrument or another economically relevant dimension, arising from its Positions and other attributable economic interests or obligations.
+
+One Position may create several Exposures, and several Positions may contribute to one Exposure. Position Direction does not by itself determine Exposure direction.
+
+Exposure is distinct from Allocation and Risk. Allocation describes a distribution of capital; Exposure describes economic sensitivity or concentration; Risk describes possible adverse outcomes associated with the Portfolio, its Exposures, and other conditions.
+
+## Portfolio State
+
+**Portfolio State** is the time-specific economic condition of a Portfolio within its Portfolio Boundary, including attributable capital, Positions, obligations, valuations, Allocations, Exposures, liquidity, performance state, and other economic measures needed to describe what the Portfolio is at that time.
+
+Account State is distinct from Portfolio State. Operational account facts may constrain or inform a Portfolio without becoming Portfolio identity or automatically becoming Portfolio State.
+
+Externally authoritative facts and Polaris-derived Portfolio measures retain their separate provenance and authority even when represented together as part of Portfolio State.
+
+Unqualified Portfolio State refers to an actual or historically actual state at an as-of time. A **Projected Portfolio State** is a hypothetical state expected to result from a candidate action or decision consequence and must remain distinguishable from actual Portfolio State.
 
 ## Workflow Identity
 

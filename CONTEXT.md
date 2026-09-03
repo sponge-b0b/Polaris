@@ -446,12 +446,42 @@ Decision Subject is distinct from Decision Scope, Evidence, the thing analyzed, 
 
 An **Investment Decision** is a durable, identifiable unit of Portfolio-relevant investment judgment created to resolve a Decision Need about a Decision Subject whose potential capital consequences are evaluated within one or more Portfolio scopes.
 
+Investment Decision identity is explicit and durable. It is not derived from Decision Subject, Decision Scope, Evidence, Recommendation, workflow execution, current Portfolio State, or any other mutable decision-time fact. Identity is preserved while work continues to resolve the same coherent unresolved investment choice, even when Evidence, Portfolio State, Risk, reasoning, Mandate assessment, Recommendation, Decision Subject, or Decision Scope changes or is refined.
+
+Once the investment judgment has been substantively resolved, a later renewed Decision Need creates a new causally linked Investment Decision rather than reopening and rewriting the resolved decision. Resolution of the investment judgment is a milestone within the Investment Decision lifecycle rather than necessarily the end of that lifecycle; action continuity, reconciliation, Outcome, and Evaluation may continue under the same decision identity.
+
 An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
 
-An Investment Decision may concern one or several Portfolios and may terminate in action, modification, rejection, deferral, or deliberate inaction. It is distinct from workflow execution, a Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
+An Investment Decision may concern one or several Portfolios and may result in action, modification, rejection, Deferral, or deliberate inaction. Deliberate hold or no-action can substantively resolve the investment choice; Deferral leaves the underlying Decision Need unresolved. If external circumstances remove the unresolved choice before a Human Investment Decision resolves it, Polaris must preserve that fact rather than inventing a Human Investment Decision. The canonical name for that lifecycle disposition remains unresolved.
+
+An Investment Decision is distinct from workflow execution, a Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
 
 ## Human Investment Decision
 
 A **Human Investment Decision** is the attributable human judgment within an Investment Decision that selects, modifies, rejects, defers, or otherwise disposes of the Portfolio-relevant investment choice.
 
+A Human Investment Decision may or may not substantively resolve the underlying Investment Decision. Deferral, or rejection accompanied by a request for further judgment, records attributable human judgment while leaving the Decision Need unresolved; deliberate hold or another substantive choice may resolve it.
+
 A Human Investment Decision is distinct from Polaris's Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.
+
+## Deferral
+
+A **Deferral** is an attributable Human Investment Decision that postpones substantive resolution of an Investment Decision while leaving its underlying Decision Need unresolved.
+
+A Deferral may identify information, a time, an event, or another condition that must become available or due before judgment resumes. When that awaited condition occurs, Attention may resume the same unresolved Investment Decision rather than creating a new one solely because time passed or new Evidence became available.
+
+Deferral is distinct from deliberate hold or no-action. Both may produce no immediate Portfolio change, but deliberate inaction can be the substantive answer to the investment choice while Deferral means that answer has not yet been made.
+
+## Review Condition
+
+A **Review Condition** is an explicit condition associated with a substantively resolved Investment Decision that requests reconsideration if the condition becomes true or otherwise due.
+
+A Review Condition does not reopen the resolved Investment Decision and does not automatically create a new one. Its occurrence causes Attention to evaluate whether a renewed Decision Need exists. If renewed judgment is warranted, Polaris creates a new causally linked Investment Decision while preserving the earlier decision's historical resolution.
+
+A condition awaited by a deferred unresolved Investment Decision is semantically different: satisfying that condition may resume the same unresolved decision.
+
+## Supersession
+
+**Supersession** is an explicit causal relationship in which one Investment Decision displaces an earlier Investment Decision's continuing applicability or operative investment basis without deleting or rewriting either decision.
+
+Supersession may apply whether the earlier decision was unresolved or substantively resolved. It does not undo historical resolution, Recommendation history, Human Investment Decisions, or other decision-time facts; it records that another Investment Decision has become the relevant basis going forward.

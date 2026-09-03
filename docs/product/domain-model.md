@@ -64,6 +64,20 @@ When a term or distinction becomes resolved during this work, its canonical defi
 
 This document must not become a second glossary containing competing definitions.
 
+### Scenario preservation rule
+
+Semantically distinct use cases and examples that materially establish, disambiguate, or pressure-test a domain concept are part of this domain-discovery artifact and should be preserved here rather than left only in conversation history.
+
+The rule is intentionally selective rather than exhaustive:
+
+* preserve an example when it proves a different boundary, authority distinction, identity rule, lifecycle behavior, temporal behavior, or invalid state;
+* preserve representative variants when different variants lead to different domain outcomes;
+* do not duplicate conversational examples that prove the same semantic point without adding another distinction;
+* treat preserved scenarios as illustrative fixtures rather than a closed enumeration of all valid domain behavior;
+* if a future scenario contradicts a frozen invariant, revisit the invariant rather than silently bending the example or implementation around it.
+
+Canonical definitions remain in [`../../CONTEXT.md`](../../CONTEXT.md); the scenarios in this document preserve the reasoning needed to apply those definitions correctly.
+
 ## Discovery rules
 
 The domain will be discovered using the following rules.

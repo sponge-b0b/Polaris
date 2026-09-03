@@ -48,6 +48,42 @@ Externally authoritative facts and Polaris-derived Portfolio measures retain the
 
 Unqualified Portfolio State refers to an actual or historically actual state at an as-of time. A **Projected Portfolio State** is a hypothetical state expected to result from a candidate action or decision consequence and must remain distinguishable from actual Portfolio State.
 
+## Investment Mandate
+
+An **Investment Mandate** is the durable, temporally applicable statement of a Portfolio's investment purpose, Investment Objectives, Investment Principles, and Formal Constraints. It establishes what the Portfolio is intended to accomplish, how investment judgment should generally be guided, and which investment boundaries are explicitly authoritative.
+
+The Investment Mandate is distinct from Portfolio identity, Portfolio State, Investment Strategy, current Risk, external operational constraints, and the Investment Authority Regime. A Portfolio may retain identity across Mandate revisions, and the Mandate version applicable to a historical decision must remain reconstructable.
+
+A Polaris Recommendation may conflict with an Investment Principle or violate a Formal Constraint. Polaris must preserve the distinction between its investment judgment, interpretive Mandate assessment, deterministic Formal Constraint results, and any authority consequence or Mandate Exception required for the Recommendation to proceed.
+
+## Investment Objective
+
+An **Investment Objective** is a desired investment outcome that guides how success and tradeoffs should be evaluated for a Portfolio.
+
+Investment Objectives are not deterministic compliance boundaries. A Recommendation may be assessed as advancing, detracting from, or having uncertain effect on an Investment Objective, but failure to advance an Objective is not by itself a Mandate violation.
+
+## Investment Principle
+
+An **Investment Principle** is qualitative, context-sensitive guidance intended to shape investment judgment without defining a deterministic boundary.
+
+Investment Principles may be interpreted for alignment, tension, or uncertainty. They are inherently defeasible: a justified departure from a Principle does not require a Mandate Exception merely because tension exists. An interpretive assessment of a Principle must not be represented as deterministic compliance.
+
+## Formal Constraint
+
+A **Formal Constraint** is an authoritative, machine-evaluable restriction in an Investment Mandate whose scope, measurement basis, and evaluation semantics are sufficiently explicit to determine its result without investment judgment.
+
+A Formal Constraint need not be numerical; it may be categorical, Boolean, set-based, or quantitative. Natural-language Mandate text does not become a Formal Constraint solely because Polaris can interpret it. Formalization must be explicit and authoritative.
+
+Only Formal Constraints may produce deterministic Mandate satisfaction or violation results. A Formal Constraint may be indeterminate at evaluation time when required authoritative facts are unavailable, stale, or insufficient without becoming interpretive itself.
+
+## Mandate Exception
+
+A **Mandate Exception** is an explicit, attributable, scoped authorization to permit a decision or resulting Portfolio condition despite violation of an otherwise applicable Formal Constraint, without changing the underlying Investment Mandate or the violated constraint.
+
+A Mandate Exception does not make a violated Formal Constraint satisfied. It changes whether the scoped departure is authorized. Exceptions may arise from concrete investment circumstances and do not need to be exhaustively predefined in the Investment Mandate.
+
+A Mandate Exception is distinct from a Mandate amendment and from a noncompliant human decision. The Investment Authority Regime determines whether a Formal Constraint is exceptionable and who, if anyone, may authorize an Exception. Polaris may identify, propose, or justify an Exception but cannot authorize one merely through its own Recommendation.
+
 ## Workflow Identity
 
 A **Workflow Identity** is the immutable identity of a registered workflow

@@ -54,13 +54,13 @@ An **Investment Mandate** is the durable, temporally applicable statement of a P
 
 The Investment Mandate is distinct from Portfolio identity, Portfolio State, Investment Strategy, current Risk, external operational constraints, and the Investment Authority Regime. A Portfolio may retain identity across Mandate revisions, and the Mandate version applicable to a historical decision must remain reconstructable.
 
-A Polaris Recommendation may conflict with an Investment Principle or violate a Formal Constraint. Polaris must preserve the distinction between its investment judgment, interpretive Mandate assessment, deterministic Formal Constraint results, and any authority consequence or Mandate Exception required for the Recommendation to proceed.
+A Polaris Investment Recommendation may conflict with an Investment Principle or violate a Formal Constraint. Polaris must preserve the distinction between its investment judgment, interpretive Mandate assessment, deterministic Formal Constraint results, and any authority consequence or Mandate Exception required for the Investment Recommendation to proceed.
 
 ## Investment Objective
 
 An **Investment Objective** is a desired investment outcome that guides how success and tradeoffs should be evaluated for a Portfolio.
 
-Investment Objectives are not deterministic compliance boundaries. A Recommendation may be assessed as advancing, detracting from, or having uncertain effect on an Investment Objective, but failure to advance an Objective is not by itself a Mandate violation.
+Investment Objectives are not deterministic compliance boundaries. An Investment Recommendation may be assessed as advancing, detracting from, or having uncertain effect on an Investment Objective, but failure to advance an Objective is not by itself a Mandate violation.
 
 ## Investment Principle
 
@@ -82,7 +82,7 @@ A **Mandate Exception** is an explicit, attributable, scoped authorization to pe
 
 A Mandate Exception does not make a violated Formal Constraint satisfied. It changes whether the scoped departure is authorized. Exceptions may arise from concrete investment circumstances and do not need to be exhaustively predefined in the Investment Mandate.
 
-A Mandate Exception is distinct from a Mandate amendment and from a noncompliant human decision. The Investment Authority Regime determines whether a Formal Constraint is exceptionable and who, if anyone, may authorize an Exception. Polaris may identify, propose, or justify an Exception but cannot authorize one merely through its own Recommendation.
+A Mandate Exception is distinct from a Mandate amendment and from a noncompliant human decision. The Investment Authority Regime determines whether a Formal Constraint is exceptionable and who, if anyone, may authorize an Exception. Polaris may identify, propose, or justify an Exception but cannot authorize one merely through its own Investment Recommendation.
 
 ## Workflow Identity
 
@@ -121,22 +121,28 @@ the applicable consequence tier and governed-evidence variant for an
 execution. Workflow Authority Facts are not caller metadata, an execution
 identifier, or a claim about the workflow supplied by a transport.
 
-## Recommendation
+## Investment Recommendation
 
-A **Recommendation** is a Polaris decision-support output that proposes or explains a portfolio-relevant posture, action candidate, or risk response, backed by decision evidence. A Recommendation is not financial advice, human or organizational approval, broker execution intent, or a live order.
+An **Investment Recommendation** is an attributable, time-specific Polaris judgment within an Investment Decision that expresses Polaris's preferred economic disposition of the Decision Need for the affected Portfolio or Portfolios under the decision-time context then available.
+
+An Investment Recommendation may prefer action, hedging, resizing, Allocation or Exposure change, deliberate hold or no-action, waiting, or another Portfolio-relevant economic disposition. It may identify one or more Proposed Actions or implementation preferences, but it is distinct from a strategy/model signal and from an Order or other broker execution instruction.
+
+Polaris may present a human-reviewable trade setup when useful, including suggested implementation, approximate quantity, preferred price region, investment invalidation, Risk boundary, objective, or review condition. Those investment and implementation judgments do not make Polaris the authority for exact order placement, routing, working-order state, fills, stop orders, or take-profit orders.
+
+`Recommendation` is accepted shorthand for `Investment Recommendation` in existing Polaris product prose unless another narrower recommendation type is explicitly stated.
 
 Related distinctions:
 
-- A **Strategy Decision** is the selected typed synthesis outcome from structured strategy hypotheses.
-- A **Proposed Action** or **Action Candidate** is a concrete candidate action that may later be packaged, resized, deferred, rejected, escalated, or skipped.
+- A **Strategy Decision** is the selected typed synthesis outcome from structured strategy hypotheses and is not itself the canonical Investment Recommendation.
+- A **Proposed Action** or **Action Candidate** is a concrete candidate implementation that may help achieve the economic disposition expressed by an Investment Recommendation and may later be resized, deferred, rejected, escalated, or skipped.
 - A **Trade Package** is downstream packaging of Proposed Actions for execution-risk review.
-- An **Order** is out of scope unless a future broker-execution architecture explicitly introduces it.
+- An **Order** is an execution-domain instruction describing exact market-facing action. Orders, routing, working-order state, fills, stop orders, and take-profit orders remain externally authoritative execution facts unless Polaris product scope is explicitly changed.
 
 ## Capital-Relevant Output
 
 A **Capital-Relevant Output** is a Polaris output that could reasonably influence allocation, position sizing, entry or exit timing, hedging, risk acceptance, or portfolio exposure if a human acted on it.
 
-Capital-Relevant Outputs include Recommendations, Proposed Actions, Action Candidates, Trade Packages, risk responses that affect exposure, Strategy Decisions when exposed as guidance, and RAG, report, or tool answers that make readiness-gating claims about portfolio action or risk.
+Capital-Relevant Outputs include Investment Recommendations, Proposed Actions, Action Candidates, Trade Packages, risk responses that affect exposure, Strategy Decisions when exposed as guidance, and RAG, report, or tool answers that make readiness-gating claims about portfolio action or risk.
 
 Raw market data, telemetry, observability dashboards, implementation diagnostics, contextual narrative with no action or risk implication, and internal runtime evidence not exposed as guidance are not automatically Capital-Relevant Outputs.
 
@@ -191,7 +197,7 @@ Claim materiality distinctions:
 - A **Readiness-Gating Claim** is a Material Claim whose absence, unsupported state, conflict, or reconstruction failure must block Release, Publication, or Durable Promotion.
 - A **Contextual Claim** is explanatory or background narrative that may be audited but does not by itself block readiness.
 
-For example, "the portfolio is over-concentrated in semiconductors" is a Claim. "Consider trimming NVDA exposure" is both a claim-bearing Recommendation or Proposed Action and a Capital-Relevant Output. Generation timestamps and similar operational metadata are usually not Material Claims.
+For example, "the portfolio is over-concentrated in semiconductors" is a Claim. "Consider trimming NVDA exposure" is both a claim-bearing Investment Recommendation or Proposed Action and a Capital-Relevant Output. Generation timestamps and similar operational metadata are usually not Material Claims.
 
 ## Curated Record
 
@@ -233,7 +239,7 @@ A **Strategy Decision** is the typed synthesis outcome that selects or blends po
 
 A Strategy Decision may express posture or regime interpretation, directional bias, confidence and uncertainty, thesis or rationale, synthesis weights, constraints, and degradation reasons.
 
-A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Release, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
+A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Release, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Investment Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
 
 ## Execution Risk
 
@@ -249,7 +255,7 @@ In current Polaris, Execution Risk assessment is decision-support and governance
 
 **Allocation** is a concrete target or actual distribution of capital across assets, sectors, strategies, accounts, or risk buckets.
 
-A Strategy Decision may express Portfolio Posture. A Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and release handling.
+A Strategy Decision may express Portfolio Posture. An Investment Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and release handling.
 
 ## Risk
 
@@ -330,7 +336,7 @@ Contestability preserves the history of the automated outcome, review rationale,
 
 A **Completed-Run Archive** is the durable runtime archive of a finished workflow execution, including runtime context and node outputs needed for replay, inspection, audit, and reconstruction.
 
-A Completed-Run Archive is broad Runtime Evidence. It is not automatically a Curated Record, RAG-eligible source, Projection, Recommendation, Approval, or Source of Truth for every business concept it contains.
+A Completed-Run Archive is broad Runtime Evidence. It is not automatically a Curated Record, RAG-eligible source, Projection, Investment Recommendation, Approval, or Source of Truth for every business concept it contains.
 
 ## Curation
 
@@ -394,7 +400,7 @@ Directional Bias is not a unit risk score and must not be interpreted as Approva
 
 A **Risk Score** is a unit-interval risk or intensity value where higher means more risk, more intensity, or more defensive pressure unless an explicit score family says otherwise.
 
-Risk Scores are not signed directional values. Favorable or risk-on conditions should be represented by lower risk, higher stability, a separate regime label, a Recommendation, or an explicit signed Directional Bias.
+Risk Scores are not signed directional values. Favorable or risk-on conditions should be represented by lower risk, higher stability, a separate regime label, an Investment Recommendation, or an explicit signed Directional Bias.
 
 ## Attention
 
@@ -432,7 +438,7 @@ A Decision Need records why decision work is required and is distinct from the o
 
 A Portfolio used only as Evidence or analytical context is not automatically part of Decision Scope. Each scoped Portfolio retains its own Portfolio State, Investment Mandate, Formal Constraints, Risk, and applicable Mandate Exceptions; a multi-Portfolio Investment Decision does not create an implicit synthetic Mandate.
 
-Decision Scope may be unresolved while decision work is being initiated, but a final Capital-Relevant Recommendation or Human Investment Decision must not silently assume Portfolio applicability that has not been established.
+Decision Scope may be unresolved while decision work is being initiated, but a final Capital-Relevant Investment Recommendation or Human Investment Decision must not silently assume Portfolio applicability that has not been established.
 
 ## Decision Subject
 
@@ -446,15 +452,15 @@ Decision Subject is distinct from Decision Scope, Evidence, the thing analyzed, 
 
 An **Investment Decision** is a durable, identifiable unit of Portfolio-relevant investment judgment created to resolve a Decision Need about a Decision Subject whose potential capital consequences are evaluated within one or more Portfolio scopes.
 
-Investment Decision identity is explicit and durable. It is not derived from Decision Subject, Decision Scope, Evidence, Recommendation, workflow execution, current Portfolio State, or any other mutable decision-time fact. Identity is preserved while work continues to resolve the same coherent unresolved investment choice, even when Evidence, Portfolio State, Risk, reasoning, Mandate assessment, Recommendation, Decision Subject, or Decision Scope changes or is refined.
+Investment Decision identity is explicit and durable. It is not derived from Decision Subject, Decision Scope, Evidence, Investment Recommendation, workflow execution, current Portfolio State, or any other mutable decision-time fact. Identity is preserved while work continues to resolve the same coherent unresolved investment choice, even when Evidence, Portfolio State, Risk, reasoning, Mandate assessment, Investment Recommendation, Decision Subject, or Decision Scope changes or is refined.
 
 Once the investment judgment has been substantively resolved, a later renewed Decision Need creates a new causally linked Investment Decision rather than reopening and rewriting the resolved decision. Resolution of the investment judgment is a milestone within the Investment Decision lifecycle rather than necessarily the end of that lifecycle; action continuity, reconciliation, Outcome, and Evaluation may continue under the same decision identity.
 
-An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
+An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Investment Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
 
 An Investment Decision may concern one or several Portfolios and may result in action, modification, rejection, Deferral, deliberate inaction, or External Resolution. Deliberate hold or no-action can substantively resolve the investment choice; Deferral leaves the underlying Decision Need unresolved; External Resolution eliminates the Decision Need because changed circumstances remove the choice before a Human Investment Decision substantively resolves it.
 
-An Investment Decision is distinct from workflow execution, a Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
+An Investment Decision is distinct from workflow execution, an Investment Recommendation, governance Approval, and the attributable Human Investment Decision made within its lifecycle.
 
 ## Human Investment Decision
 
@@ -462,7 +468,7 @@ A **Human Investment Decision** is the attributable human judgment within an Inv
 
 A Human Investment Decision may or may not substantively resolve the underlying Investment Decision. Deferral, or rejection accompanied by a request for further judgment, records attributable human judgment while leaving the Decision Need unresolved; deliberate hold or another substantive choice may resolve it.
 
-A Human Investment Decision is distinct from Polaris's Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.
+A Human Investment Decision is distinct from Polaris's Investment Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Investment Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.
 
 ## Deferral
 
@@ -484,14 +490,14 @@ A condition awaited by a deferred unresolved Investment Decision is semantically
 
 **Supersession** is an explicit causal relationship in which one Investment Decision displaces an earlier Investment Decision's continuing applicability or operative investment basis without deleting or rewriting either decision.
 
-Supersession may apply whether the earlier decision was unresolved or substantively resolved. It does not undo historical resolution, Recommendation history, Human Investment Decisions, or other decision-time facts; it records that another Investment Decision has become the relevant basis going forward.
+Supersession may apply whether the earlier decision was unresolved or substantively resolved. It does not undo historical resolution, Investment Recommendation history, Human Investment Decisions, or other decision-time facts; it records that another Investment Decision has become the relevant basis going forward.
 
 ## External Resolution
 
 **External Resolution** occurs when circumstances outside an unresolved Investment Decision eliminate the investment choice that created its Decision Need before a Human Investment Decision substantively resolves that choice. An Investment Decision in this disposition is **Externally Resolved**.
 
-External Resolution eliminates the need for further judgment; it does not mean that an investment judgment was made, that Polaris's Recommendation was followed, or that a preferred Portfolio outcome occurred. Polaris must not infer a Human Investment Decision from the changed external circumstances alone.
+External Resolution eliminates the need for further judgment; it does not mean that an investment judgment was made, that Polaris's Investment Recommendation was followed, or that a preferred Portfolio outcome occurred. Polaris must not infer a Human Investment Decision from the changed external circumstances alone.
 
 An external change that only alters Evidence, Portfolio State, available alternatives, or expected consequences does not constitute External Resolution while the same coherent Decision Need remains. External Resolution is distinct from Deferral, deliberate hold or no-action, Supersession, and cancellation or withdrawal of decision work while the underlying investment choice still exists.
 
-`External` means outside the unresolved investment judgment itself, not necessarily outside Polaris or outside the Portfolio domain. The cause of External Resolution must remain attributable so later reconstruction can distinguish changed circumstances from Polaris Recommendations and Human Investment Decisions.
+`External` means outside the unresolved investment judgment itself, not necessarily outside Polaris or outside the Portfolio domain. The cause of External Resolution must remain attributable so later reconstruction can distinguish changed circumstances from Polaris Investment Recommendations and Human Investment Decisions.

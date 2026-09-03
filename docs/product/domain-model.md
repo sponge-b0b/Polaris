@@ -2425,3 +2425,462 @@ The following invariants are now accepted:
 10. **Investment invalidation or Risk boundary ≠ stop order; investment objective or review condition ≠ take-profit order.**
 11. **The same strategy/model signal may correctly produce different Investment Recommendations for different Portfolios because Portfolio State, Exposure, Risk, Mandate, alternatives, and Decision Scope matter.**
 12. **Polaris may observe and reconcile Orders and execution evidence without becoming authoritative for market-facing Order placement, routing, working-order state, fills, or exchange execution.**
+
+## Resolved Investment Recommendation relationship and history semantics
+
+Investment Recommendation history is now resolved as durable decision history rather than one mutable recommendation value on an Investment Decision. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+The important temporal distinction is:
+
+```text
+what Polaris recommends now
+        ≠
+what Polaris recommended then
+```
+
+A later Investment Recommendation can replace an earlier recommendation as Polaris's currently supported preferred judgment without rewriting the earlier historical judgment.
+
+### Zero, one, or many Investment Recommendations
+
+An Investment Decision does not require an Investment Recommendation to exist.
+
+For example:
+
+```text
+D-900
+Decision Need:
+Should Portfolio A increase AAPL?
+
+Evidence:
+materially stale / conflicted
+
+Polaris:
+responsible Investment Recommendation cannot currently be supported
+
+Investment Decision:
+still valid and unresolved
+```
+
+Absence of a current Investment Recommendation can have materially different histories:
+
+```text
+Not yet formed
+Decision work has begun, but Polaris has not yet formed a recommendation judgment.
+
+Explicitly withheld
+Polaris has affirmatively determined that the current decision basis cannot support a responsible recommendation.
+
+No longer supportable
+A prior Investment Recommendation exists historically, but the current evidence basis no longer supports treating it as current.
+```
+
+These meanings must not collapse merely because a projection displays `no current recommendation`.
+
+### No Investment Recommendation is not hold
+
+The following are different facts:
+
+```text
+Investment Recommendation:
+Hold current SPY Exposure.
+```
+
+and:
+
+```text
+Investment Recommendation:
+none supportable
+Reason:
+required Portfolio State is insufficiently fresh.
+```
+
+The first is an affirmative Polaris judgment that no Portfolio change is preferred. The second means Polaris cannot currently establish a supportable preferred economic disposition.
+
+Likewise:
+
+```text
+Investment Recommendation:
+Wait for CPI.
+```
+
+is a real Polaris judgment. If the human responds:
+
+```text
+Human Investment Decision:
+Defer until CPI.
+```
+
+then Polaris's recommendation to wait and the human's attributable Deferral remain separate facts.
+
+**Distinction proved:** no recommendation ≠ affirmative hold/wait/no-action recommendation, and Investment Recommendation ≠ Human Investment Decision.
+
+### Several recommendations may belong to one unresolved Investment Decision
+
+Suppose:
+
+```text
+D-901
+Decision Need:
+Should Portfolio A reduce SPY Exposure?
+```
+
+At 09:00:
+
+```text
+R-1
+Investment Recommendation:
+Hold.
+```
+
+After materially changed evidence and reassessment:
+
+```text
+R-2
+Investment Recommendation:
+Reduce SPY Exposure by 15%.
+```
+
+Both belong to D-901 while Polaris is still attempting to resolve the same coherent unresolved Decision Need.
+
+```text
+D-901
+├── R-1  Hold         @ 09:00
+└── R-2  Reduce 15%   @ 11:15
+```
+
+R-2 may become Polaris's later preferred judgment. R-1 remains a true historical fact about what Polaris recommended earlier.
+
+**Distinction proved:** Recommendation revision or reversal does not require new Investment Decision identity and does not authorize destructive mutation of recommendation history.
+
+### Recommendation identity follows attributable judgment, not text
+
+A new Investment Recommendation does not arise merely because another observation or Evidence refresh occurred.
+
+For example:
+
+```text
+R-1:
+Hold SPY.
+
+price tick
+price tick
+Evidence refresh
+price tick
+
+→ still R-1 unless Polaris forms another attributable recommendation judgment
+```
+
+Conversely, materially new context and a genuine reassessment can produce a distinct Recommendation even when its economic disposition is identical:
+
+```text
+09:00
+R-1:
+Hold SPY.
+
+material shock
+full reassessment
+
+11:00
+R-2:
+Hold SPY.
+```
+
+R-2 is a new attributable judgment under a different decision-time basis. Its identical wording does not make it the same Recommendation.
+
+**Distinction proved:** information velocity ≠ Recommendation velocity, and Recommendation identity ≠ textual/economic-content equality.
+
+### Historical Recommendation remains immutable when supportability changes
+
+Suppose:
+
+```text
+R-3
+Investment Recommendation:
+Increase SPY 10%.
+
+Decision-time freshness requirement:
+SPY <= 2 minutes old
+Portfolio State <= 5 minutes old
+```
+
+A source failure later makes the critical data stale.
+
+The correct interpretation is:
+
+```text
+R-3
+historical Recommendation:
+preserved
+
+current supportability:
+insufficient
+
+current Investment Recommendation:
+none supportable
+```
+
+Polaris does not rewrite R-3 to `no recommendation`, because R-3 actually occurred.
+
+When fresh Evidence later supports a new judgment, Polaris may produce R-4.
+
+### An older Recommendation does not silently reactivate
+
+Suppose:
+
+```text
+R-1:
+Hold.
+
+R-2:
+Reduce 15%.
+```
+
+Polaris later discovers that R-2 relied on materially erroneous Portfolio data.
+
+R-2 remains historical but is no longer supportable. This does **not** prove that R-1 is current again, because R-1 was formed under an older Decision Context.
+
+The correct state can therefore be:
+
+```text
+R-1:
+historical
+
+R-2:
+historical, currently unsupported
+
+current Investment Recommendation:
+none
+```
+
+If Polaris reassesses and again prefers Hold, it forms a new attributable judgment:
+
+```text
+R-3:
+Hold.
+```
+
+**Distinction proved:** invalidating a later Recommendation does not resurrect an earlier recommendation judgment; reaffirmation requires a new judgment.
+
+### Erroneous Recommendation remains historical truth
+
+Suppose:
+
+```text
+R-5:
+Reduce AAPL.
+
+Reason:
+AAPL concentration = 35%.
+```
+
+Authoritative correction later shows that concentration at recommendation time was actually 8%.
+
+R-5 remains durable because Polaris really did issue it. Its basis can now be identified as materially erroneous. Polaris must not rewrite the historical Recommendation to match what it should have said with corrected data.
+
+A later reassessment might produce:
+
+```text
+R-6:
+Hold AAPL.
+```
+
+This distinction is essential to later evaluation and learning.
+
+**Distinction proved:** historical occurrence ≠ historical correctness.
+
+### Human judgment retains exact Recommendation lineage
+
+Suppose:
+
+```text
+R-1:
+Hold.
+
+R-2:
+Reduce 15%.
+```
+
+The human then decides:
+
+```text
+Human Investment Decision H-1:
+Reduce 10%.
+```
+
+If H-1 materially responds to R-2, Polaris preserves that relationship:
+
+```text
+H-1
+├── materially considered R-2
+├── Polaris preferred: Reduce 15%
+├── Human chose:       Reduce 10%
+└── relationship: modified
+```
+
+A Human Investment Decision may have materially considered more than one Recommendation, so the domain does not artificially require a one-to-one relationship. Where the relationship is knowable, Polaris preserves the Recommendation or Recommendations that actually informed the human judgment and any attributable acceptance, modification, rejection, Deferral response, or other relationship.
+
+### Acceptance still preserves two facts
+
+Even when the human exactly accepts Polaris's judgment:
+
+```text
+R-7:
+Reduce SPY 15%.
+
+H-2:
+Reduce SPY 15%.
+```
+
+the two facts remain distinct:
+
+```text
+Investment Recommendation R-7
+Polaris judgment
+
+Human Investment Decision H-2
+Human judgment
+
+relationship
+H-2 accepted R-7
+```
+
+Matching economic content does not collapse system judgment into human authority.
+
+### Human judgment can exist with no Investment Recommendation
+
+Suppose:
+
+```text
+D-902
+Evidence:
+insufficient
+
+Polaris:
+Investment Recommendation withheld
+
+Human:
+I understand the uncertainty. Reduce SPY 5% anyway.
+```
+
+Then:
+
+```text
+Investment Recommendation:
+none
+
+Human Investment Decision:
+Reduce 5%
+```
+
+Polaris must not manufacture `Investment Recommendation: Reduce 5%` after the fact merely because the human chose it.
+
+**Distinction proved:** Human Investment Decision authority does not retroactively create Polaris judgment.
+
+### External Resolution does not create Recommendation acceptance
+
+Suppose:
+
+```text
+D-903
+R-8:
+Reduce SPY from 60% to 40%.
+
+Human judgment:
+pending
+```
+
+Independent external activity then changes actual SPY exposure to 40%, causing External Resolution of D-903.
+
+The following remain unknown unless independently evidenced:
+
+```text
+Was R-8 accepted?
+not established
+
+Was there a Human Investment Decision?
+none observed
+
+Was the external activity recommendation-driven?
+not established
+```
+
+Economic outcome matching the Recommendation is insufficient to infer any of those facts.
+
+### Substantive resolution ends active Recommendation applicability
+
+Suppose:
+
+```text
+D-904
+R-9:
+Hold AAPL.
+
+Human Investment Decision:
+Hold AAPL.
+```
+
+The investment judgment for D-904 is substantively resolved. R-9 remains durable historical decision basis, but it does not become an indefinitely active trading instruction.
+
+If materially changed circumstances later require renewed judgment:
+
+```text
+Attention
+    ↓
+new Decision Need
+    ↓
+D-905
+    ↓
+new Investment Recommendation
+```
+
+The later Recommendation belongs to D-905 rather than being appended as another active judgment of the already resolved D-904.
+
+### Deferral permits continued Recommendation history within the same decision
+
+Deferral is different because the underlying Decision Need remains unresolved.
+
+```text
+D-906
+R-1:
+Wait for CPI.
+
+Human Investment Decision:
+Defer until CPI.
+```
+
+When CPI becomes available and judgment resumes:
+
+```text
+D-906
+R-2:
+Reduce SPY 10%.
+```
+
+R-2 correctly belongs to D-906 because no substantive investment judgment had resolved the Decision Need before the Deferral.
+
+### Frozen Investment Recommendation relationship/history invariants
+
+The following invariants are now accepted:
+
+1. **An Investment Decision may have zero, one, or multiple Investment Recommendations through time.**
+2. **Absence of an Investment Recommendation is distinct from an affirmative Investment Recommendation to hold, wait, defer, or take no action.**
+3. **The domain must preserve whether no Investment Recommendation exists because one has not yet been formed, because Polaris explicitly withheld one, or because a previously issued Recommendation is no longer currently supportable.**
+4. **A distinct attributable recommendation judgment creates a distinct Investment Recommendation; Recommendation identity is not derived solely from its textual or economic content.**
+5. **Evidence refresh or observation change does not automatically create a new Investment Recommendation.**
+6. **A materially new or explicitly reaffirmed Polaris judgment may create a new Investment Recommendation even when its economic disposition is identical to an earlier Recommendation.**
+7. **A changed or reversed Investment Recommendation within the same unresolved Decision Need remains part of the same Investment Decision.**
+8. **A later Investment Recommendation does not rewrite or delete earlier Investment Recommendations.**
+9. **Historical Investment Recommendations remain reconstructable against the Decision Context and Evidence that supported or undermined them at the time.**
+10. **An Investment Recommendation may cease to be currently supportable because Evidence becomes stale, insufficient, conflicting, erroneous, or otherwise unfit for its intended decision use without ceasing to exist historically.**
+11. **When the currently preferred Investment Recommendation becomes unsupported, an older Investment Recommendation must not silently reactivate; renewed support requires a new attributable recommendation judgment.**
+12. **Current Investment Recommendation, when one exists, is a temporal interpretation of durable Recommendation history—not a mutable field that overwrites history.**
+13. **Human Investment Decision ≠ Investment Recommendation even when their economic content is identical.**
+14. **Polaris must preserve which Investment Recommendation or Recommendations materially informed a Human Investment Decision when that relationship is knowable.**
+15. **Where attributable, Polaris must preserve whether the human accepted, modified, rejected, deferred in response to, or otherwise related their judgment to a specific Investment Recommendation.**
+16. **Human rejection of an Investment Recommendation does not by itself determine whether the underlying Investment Decision is substantively resolved.**
+17. **A Human Investment Decision may substantively resolve an Investment Decision when no Polaris Investment Recommendation exists; Polaris must not retroactively manufacture a Recommendation from the human choice.**
+18. **External Resolution that produces a Portfolio state matching an Investment Recommendation does not establish Recommendation acceptance, a Human Investment Decision, or recommendation-driven execution.**
+19. **After substantive investment judgment resolution, any later renewed judgment and its Investment Recommendation belong to a new causally linked Investment Decision.**
+20. **Deferral is different: because the Decision Need remains unresolved, later Investment Recommendations may continue under the same Investment Decision after judgment resumes.**
+21. **An Investment Recommendation ceases to be an active current judgment once its Investment Decision's investment judgment is substantively resolved or Externally Resolved; it remains durable historical decision basis.**
+22. **Investment Recommendation history must preserve enough decision-time basis to distinguish what Polaris recommended, why it recommended it, whether it remained supportable, what the human considered, and what happened afterward.**

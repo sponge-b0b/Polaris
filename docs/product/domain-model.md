@@ -1505,3 +1505,487 @@ The following invariants are now accepted:
 18. **Supersession preserves both Investment Decisions and their history; it records that another decision displaced the earlier decision's continuing applicability or operative basis.**
 19. **Supersession does not undo a prior substantive resolution.**
 20. **Decision Subject or Decision Scope may refine while identity remains stable when the refinement continues to represent the same coherent unresolved choice; independently arising investment choices require separate Decision Needs and Investment Decisions.**
+
+## Illustrative scenario fixtures
+
+The scenarios in this section preserve semantically distinct examples that materially contributed to the frozen domain model but were previously condensed or left only in conversational discovery. They are **illustrative, not exhaustive**. They do not narrow the canonical definitions in [`../../CONTEXT.md`](../../CONTEXT.md), and repeated examples that prove the same boundary are intentionally not duplicated.
+
+A scenario belongs here when changing or removing it would make an important domain distinction easier to misunderstand. These examples should therefore be treated as durable semantic fixtures when later requirements, architecture, and implementation are evaluated against the domain.
+
+### Portfolio identity survives mutable Portfolio state
+
+A Portfolio can remain the same continuing investment responsibility through substantial state change:
+
+```text
+Portfolio A
+Day 1: invested across equities
+Day 20: entirely cash
+Day 40: moved to a different broker/account
+Day 80: Mandate revised
+```
+
+None of those facts alone creates a new Portfolio. A new Portfolio identity requires an explicit identity transition such as an intentional split, merge, closure, or fundamental reconstitution.
+
+**Distinction proved:** Portfolio identity ≠ current holdings, Account, broker, or Mandate version.
+
+### Account boundary and Portfolio Boundary can cross in both directions
+
+One Portfolio can span operational accounts:
+
+```text
+Portfolio A
+├── Brokerage Account 1
+└── Brokerage Account 2
+```
+
+One operational account can also contain interests attributed to several Portfolios:
+
+```text
+Brokerage Account 9
+100 AAPL long
+        │ attribution
+        ├── 60 AAPL → Portfolio A
+        └── 40 AAPL → Portfolio B
+```
+
+The 100-share external holding is not duplicated. Polaris establishes non-overlapping Portfolio attribution over the externally authoritative account fact.
+
+**Distinction proved:** Account Boundary ≠ Portfolio Boundary, and operational indivisibility does not require indivisible Portfolio attribution.
+
+### Position Direction does not determine Exposure direction
+
+Consider a long put option:
+
+```text
+Position Direction:
+Long
+
+Financial Instrument:
+AAPL put option
+
+Underlying-equity Exposure:
+negative
+```
+
+The Portfolio is Long the option contract while being economically exposed to declines in the underlying equity.
+
+**Distinction proved:** Long/Short Position Direction describes the relationship to the Financial Instrument; it does not by itself determine the sign of every resulting Exposure.
+
+### Several Strategies remain subordinate to one Portfolio Mandate
+
+Suppose Portfolio A uses two simultaneous Strategies:
+
+```text
+Investment Mandate:
+Technology Exposure <= 30%
+
+Core Strategy contribution:
+20% technology Exposure
+
+Tactical Strategy contribution:
+18% technology Exposure
+```
+
+Each Strategy viewed in isolation is below the 30% boundary, but the resulting Portfolio has 38% technology Exposure and violates the Formal Constraint.
+
+**Distinction proved:** the Investment Mandate ultimately constrains the Portfolio and resulting Portfolio State, not each Strategy independently.
+
+### The same Evidence can imply different actions under different Mandates
+
+Suppose a materially hot CPI release affects two Portfolios:
+
+```text
+Portfolio A
+Purpose: retirement accumulation
+Horizon: long
+Leverage: prohibited
+
+Portfolio B
+Purpose: tactical return
+Horizon: shorter
+Limited leverage: permitted
+```
+
+The CPI Evidence can be identical while the appropriate Portfolio consequences differ. Portfolio A might retain its long-horizon exposure while Portfolio B reduces beta or adds a permitted hedge.
+
+**Distinction proved:** a multi-Portfolio Investment Decision evaluates each scoped Portfolio against its own Portfolio State and applicable Investment Mandate; there is no synthetic shared Decision Mandate.
+
+### Principle tension and Formal Constraint violation are different facts
+
+Consider two Mandate statements:
+
+```text
+Investment Principle:
+Avoid excessive single-stock concentration.
+
+Formal Constraint:
+Single Position <= 15% of Portfolio NAV.
+```
+
+A Recommendation to increase AAPL to 18% can simultaneously produce:
+
+```text
+Principle assessment:
+meaningful tension
+
+Formal Constraint evaluation:
+VIOLATED
+```
+
+The first is interpretive. The second is deterministic when the required facts are sufficiently current and authoritative.
+
+**Distinction proved:** Investment Principle tension ≠ Formal Constraint violation.
+
+### Natural-language force does not create Formal Constraint precision
+
+The statement:
+
+```text
+No leverage.
+```
+
+sounds absolute but is not yet necessarily machine-evaluable. It may mean any of several things:
+
+```text
+no margin borrowing
+
+gross economic Exposure / NAV <= 1.0x
+
+no leveraged ETFs
+
+no futures
+
+no option structures with leveraged payoff
+```
+
+Polaris may help a human formalize the intended meaning, but an LLM interpretation cannot silently become authoritative Mandate semantics.
+
+**Distinction proved:** emphatic natural language ≠ explicit Formal Constraint semantics.
+
+### Mandate Exception, Mandate Amendment, and noncompliant human choice preserve different history
+
+Start with:
+
+```text
+Formal Constraint:
+AAPL <= 10%
+
+Polaris Recommendation:
+AAPL = 14%
+
+Constraint result:
+VIOLATED
+```
+
+Three later outcomes mean different things:
+
+```text
+Mandate Exception
+Permit AAPL <= 14% for D-47 only.
+Underlying Mandate remains 10%.
+
+Mandate Amendment
+Change governing maximum from 10% to 15%.
+
+Noncompliant Human Investment Decision
+Human chooses 14% with no applicable Exception.
+Underlying Mandate remains 10%; violation remains unauthorized.
+```
+
+**Distinction proved:** Exception changes scoped admissibility, Amendment changes the governing Mandate, and human behavior changes neither retroactively.
+
+### A contextual Portfolio does not automatically enter Decision Scope
+
+Suppose Polaris is deciding whether Portfolio A should increase AAPL. Portfolio B is consulted because its technology Exposure provides useful comparison:
+
+```text
+Decision Subject:
+increasing AAPL exposure
+
+Decision Scope:
+Portfolio A
+
+Contextual Portfolio:
+Portfolio B
+```
+
+Unless the judgment directly governs Portfolio B's state or consequences, Portfolio B does not enter Decision Scope merely because its facts influenced the reasoning.
+
+**Distinction proved:** analytical relevance ≠ Decision Scope membership.
+
+### A Decision Subject can concern exposure that does not yet exist as a Position
+
+Suppose Portfolio A owns no AAPL:
+
+```text
+Question:
+Should Portfolio A establish AAPL exposure?
+
+Current Position:
+none
+
+Decision Subject:
+establishing AAPL exposure
+```
+
+Polaris does not need to manufacture a `Prospective Position` domain entity merely to represent the question. A Position comes into existence only when the Portfolio actually has the attributable holding or obligation.
+
+**Distinction proved:** Decision Subject may concern a prospective investment matter without pretending its resulting Position already exists.
+
+### The same Decision Subject and Scope can identify different Investment Decisions through time
+
+```text
+January
+Portfolio A
+Should we increase AAPL exposure?
+→ D-100
+
+June
+Portfolio A
+Should we increase AAPL exposure now?
+→ D-245
+```
+
+The visible Subject and Scope can be the same while the Decision Needs, evidence context, and decision-time circumstances differ.
+
+**Distinction proved:** Decision Subject + Decision Scope do not determine Investment Decision identity.
+
+### Dramatic information does not necessarily create a Decision Need
+
+Suppose CPI surprises sharply, but Portfolio A has a ten-year horizon, its current posture remains appropriate, no relevant thesis is invalidated, and no Mandate or Risk concern now requires judgment:
+
+```text
+Market significance:
+high
+
+Attention:
+relevant information
+
+Decision Need:
+none
+```
+
+Now contrast a small AAPL price increase:
+
+```text
+Before move:
+AAPL = 9.9% of Portfolio NAV
+
+Formal Constraint:
+AAPL <= 10%
+
+After small move:
+AAPL = 10.1%
+```
+
+The market move is minor but can create a genuine unresolved Portfolio-relevant choice about whether and how to address the violated boundary.
+
+**Distinction proved:** external drama or magnitude ≠ Decision Need significance. Attention asks whether Portfolio-relevant judgment is now required.
+
+### Human initiation does not require a universal materiality threshold
+
+A human may explicitly ask:
+
+```text
+Should Portfolio A sell one share of AAPL?
+```
+
+The economic magnitude may be trivial, but it can still be a legitimate Investment Decision because the authorized human explicitly requests Portfolio-relevant judgment.
+
+**Distinction proved:** Decision Need is not governed by one universal capital-impact score or minimum dollar threshold.
+
+### Deterministic and interpretive Attention preserve different authority
+
+A deterministic attention criterion might be:
+
+```text
+If Technology Exposure > 30%, evaluate.
+```
+
+Given sufficiently current authoritative facts, the criterion can deterministically match or not match.
+
+An interpretive Attention assessment might instead be:
+
+```text
+New AAPL evidence materially challenges
+an assumption supporting the current thesis.
+```
+
+That assessment can reasonably conclude that renewed judgment appears warranted, but it must preserve that the relevance determination is interpretive rather than a deterministic rule match.
+
+**Distinction proved:** Attention may be deterministic or interpretive; interpretation does not masquerade as formal authority.
+
+### Scheduled review is an Attention event, not automatic decision creation
+
+Suppose a quarterly Portfolio review becomes due:
+
+```text
+Scheduled review
+        ↓
+Attention
+```
+
+If the review finds the current posture and its supporting assumptions still materially sound:
+
+```text
+new Decision Need:
+none
+```
+
+If the review finds that concentration, assumptions, or current conditions now require a fresh choice:
+
+```text
+new Decision Need:
+yes
+        ↓
+new Investment Decision
+```
+
+**Distinction proved:** review activity ≠ Investment Decision creation.
+
+### Observation Cadence depends on investment use, not only observed symbol
+
+The same SPY market information can legitimately have different normal cadence:
+
+```text
+Portfolio A
+10-year horizon
+SPY observation cadence:
+hourly or daily may be adequate
+
+Portfolio B
+shorter tactical horizon
+SPY observation cadence:
+minutes may be appropriate
+```
+
+The symbol alone does not define the temporal policy.
+
+**Distinction proved:** Observation Cadence depends on source and Portfolio/investment context, not a universal per-instrument frequency.
+
+### An active decision can require fresher information than normal cadence
+
+Suppose SPY is normally observed every five minutes, but an active hedge decision requires:
+
+```text
+SPY price age <= 60 seconds
+VIX age <= 60 seconds
+Portfolio State age <= 2 minutes
+```
+
+Polaris may obtain fresher data for that decision without permanently changing the normal five-minute cadence.
+
+If the available source provides only fifteen-minute-delayed SPY data:
+
+```text
+Freshness Requirement:
+<= 60 seconds
+
+Available observation:
+15 minutes delayed
+
+Result:
+insufficiently fresh
+```
+
+The newest available value is not silently promoted to `current` simply because no better value is available.
+
+**Distinction proved:** Observation Cadence ≠ Freshness Requirement, and source limitation becomes evidence/readiness insufficiency.
+
+### High information velocity does not imply high decision velocity
+
+A one-minute market feed may produce roughly hundreds of observations during a trading session:
+
+```text
+many SPY observations
+        ↓
+Attention evaluations
+        ↓
+possibly no Decision Need
+```
+
+Polaris must not create or revise an Investment Decision merely because another price tick arrived. Decision state changes only when information materially affects the decision work.
+
+**Distinction proved:** information velocity ≠ decision velocity.
+
+### Repeated wording can mean continuation, retrieval, or renewed judgment
+
+Suppose an unresolved D-500 already asks:
+
+```text
+Should Portfolio A increase AAPL?
+```
+
+Repeating the same question five minutes later normally refers to the same unresolved Investment Decision and may request fresher analysis.
+
+After D-500 has been substantively resolved, the same words can mean different things:
+
+```text
+What did we decide about increasing AAPL?
+→ retrieval of D-500
+→ no new Decision Need
+
+Given current conditions, should we increase AAPL now?
+→ renewed judgment
+→ possible new Decision Need and D-501
+```
+
+**Distinction proved:** repeated text does not determine Investment Decision identity; user intent and decision continuity do.
+
+### Supersession can displace unresolved or resolved decisions without rewriting either
+
+Unresolved narrow decision:
+
+```text
+D-600
+Should Portfolio A increase AAPL?
+```
+
+A broader later decision may make it no longer independently meaningful:
+
+```text
+D-601
+Should Portfolio A eliminate individual technology stocks
+and move to broad-index exposure?
+
+D-600
+superseded by D-601
+```
+
+A resolved decision can also lose continuing applicability:
+
+```text
+D-610
+Human Investment Decision:
+Hold AAPL.
+
+later D-611
+Human Investment Decision:
+Exit all individual equities.
+
+D-610
+historically resolved, later superseded by D-611
+```
+
+**Distinction proved:** Supersession changes continuing applicability or operative basis; it does not delete, reopen, or falsify historical resolution.
+
+### Investment Decision lifecycles can overlap
+
+Suppose D-700 has a substantively resolved Human Investment Decision and is still awaiting external reconciliation:
+
+```text
+D-700
+judgment resolved
+Action Intent recorded
+external activity / reconciliation pending
+```
+
+A new market shock may independently create D-701 before D-700 reaches Outcome or Evaluation:
+
+```text
+D-700 ── continuing reconciliation/evaluation
+
+D-701 ── new Decision Need and judgment work
+```
+
+**Distinction proved:** substantive judgment resolution ≠ lifecycle completion, and Investment Decision lifecycles need not be globally serialized.

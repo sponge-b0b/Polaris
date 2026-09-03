@@ -2003,3 +2003,161 @@ D-701 ── new Decision Need and judgment work
 ```
 
 **Distinction proved:** substantive judgment resolution ≠ lifecycle completion, and Investment Decision lifecycles need not be globally serialized.
+
+## Resolved External Resolution semantics
+
+`External Resolution` is now the canonical name for the previously unnamed lifecycle disposition in which an unresolved Investment Decision loses its Decision Need because changed circumstances remove the investment choice before a Human Investment Decision substantively resolves it. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section supersedes earlier references in this document that describe the disposition's canonical name as unresolved or use `Obviated` as a provisional label.
+
+### External Resolution resolves the Decision Need, not the judgment
+
+External Resolution means that further investment judgment is no longer required because the original choice no longer exists. It does **not** mean that somebody made the missing investment judgment.
+
+For example:
+
+```text
+D-800
+Decision Need:
+Should Portfolio A reduce SPY from 60% to 40%?
+
+Human Investment Decision:
+none yet
+
+External activity:
+SPY is independently reduced to 40%.
+
+        ↓
+
+Decision Need:
+no longer exists
+
+D-800:
+Externally Resolved
+```
+
+Polaris records the changed externally authoritative Portfolio State and the cause of the disposition. It does not fabricate `Human Investment Decision: reduce SPY to 40%` merely because the observed Portfolio now has that state.
+
+### Changed circumstances must eliminate the choice
+
+External change alone is insufficient.
+
+If D-801 asks whether SPY should be reduced from 60% to 40% and independent activity changes the Portfolio only to 50%, the original investment choice can remain meaningful:
+
+```text
+D-801
+SPY now 50%
+Question remains:
+Should Portfolio A reduce SPY further to 40%?
+
+→ same unresolved Investment Decision
+→ not Externally Resolved
+```
+
+If the changed circumstances remove the choice itself, External Resolution may apply.
+
+This distinction also covers opportunities that cease to exist:
+
+```text
+Decision Need:
+Should Portfolio A acquire Financial Instrument X?
+
+Before judgment:
+Instrument X is permanently delisted and can no longer be acquired.
+
+→ original choice no longer exists
+→ Externally Resolved
+```
+
+External Resolution does not require that the contemplated or recommended outcome was achieved. It requires only that the original unresolved Decision Need has ceased to exist.
+
+### Price or Evidence changes do not automatically resolve a decision
+
+Suppose the question is broadly:
+
+```text
+Should Portfolio A buy AAPL?
+```
+
+and AAPL gaps from $180 to $220 before judgment. That new price materially changes Evidence and expected consequences, but the same investment choice may still require judgment. The decision therefore remains unresolved unless its actual Decision Need was specifically tied to an opportunity that has disappeared, such as `should we acquire AAPL below $185 while that opportunity exists?`.
+
+**Distinction proved:** changed attractiveness or Evidence ≠ External Resolution unless the Decision Need itself disappears.
+
+### `External` describes provenance relative to the judgment
+
+`External` does not mean only `outside Polaris`.
+
+Circumstances external to the pending judgment can include externally initiated Portfolio activity, a Position disappearing, a Financial Instrument becoming unavailable, a time-sensitive opportunity expiring, or a Portfolio Boundary changing so that the original scoped choice no longer exists.
+
+The semantic question is whether the cause lies outside the unresolved act of investment judgment and eliminates the choice that required that judgment.
+
+### External Resolution versus other lifecycle dispositions
+
+The distinctions are deliberately sharp:
+
+```text
+Deferral
+Choice still exists.
+Judgment still required.
+Resolution postponed.
+
+Deliberate hold / no-action
+Choice still existed.
+Human made the substantive judgment that no change is warranted.
+
+Supersession
+Another Investment Decision displaces the earlier decision's continuing applicability or operative basis.
+
+Cancellation / withdrawal
+Decision work is stopped, but the underlying investment choice may still exist.
+
+External Resolution
+Changed circumstances eliminate the underlying Decision Need before substantive Human Investment Decision resolution.
+```
+
+A user saying `never mind; stop evaluating this` therefore does not by itself create External Resolution when the underlying investment choice remains real. Likewise, a later broader Investment Decision that displaces a narrower one is Supersession rather than External Resolution.
+
+### External Resolution can expose a different Decision Need
+
+The external circumstances that resolve one Investment Decision may simultaneously create another.
+
+For example:
+
+```text
+D-810
+Decision Need:
+Should Portfolio A establish AAPL exposure?
+
+External activity:
+AAPL Position unexpectedly appears at 20% of Portfolio NAV.
+
+D-810:
+Externally Resolved
+because establishing AAPL exposure is no longer the unresolved choice.
+
+Attention:
+20% AAPL Position may require judgment.
+
+New Decision Need:
+Should Portfolio A retain or reduce this AAPL exposure?
+
+        ↓
+D-811
+```
+
+External Resolution therefore does not suppress Attention to the new Portfolio reality.
+
+### Frozen External Resolution invariants
+
+The following invariants are now accepted:
+
+1. **External Resolution occurs only when changed circumstances eliminate the unresolved Decision Need itself; an external change that merely alters Evidence, Portfolio State, or available alternatives does not qualify.**
+2. **External Resolution resolves the need for further judgment, not the investment judgment itself.**
+3. **An Externally Resolved Investment Decision has no inferred Human Investment Decision unless an attributable Human Investment Decision was independently observed.**
+4. **External Resolution does not imply that Polaris's Recommendation was followed or that the preferred Portfolio outcome occurred.**
+5. **`External` means outside the unresolved investment judgment, not necessarily outside Polaris or outside the Portfolio domain.**
+6. **External Resolution ≠ Deferral: Deferral preserves an unresolved Decision Need; External Resolution eliminates it.**
+7. **External Resolution ≠ deliberate hold/no-action: hold/no-action is a substantive Human Investment Decision; External Resolution requires no such judgment.**
+8. **External Resolution ≠ Supersession: Supersession records displacement by another Investment Decision; External Resolution results from changed circumstances eliminating the original choice.**
+9. **External Resolution ≠ cancellation or withdrawal merely because someone chooses to stop decision work while the underlying investment choice remains.**
+10. **The cause of External Resolution must be preserved so later evaluation can distinguish what changed from what Polaris recommended or a human decided.**

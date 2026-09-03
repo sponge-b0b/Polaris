@@ -402,6 +402,24 @@ Risk Scores are not signed directional values. Favorable or risk-on conditions s
 
 Attention may use deterministic criteria or interpretive investment assessment. A matched criterion, notable observation, or interpretive concern does not by itself create a Decision Need. Attention does not imply continuous surveillance of the financial world; what Polaris can evaluate is bounded by the information and investment context it is configured or otherwise authorized to observe.
 
+Attention has no single global frequency. Temporal observation semantics may differ by observed subject, source, Portfolio context, user configuration, and current decision use. Newly available or newly due information may cause Attention to evaluate without requiring all Polaris state to refresh in lockstep. Observation updates may occur frequently while Investment Decision state changes only when the information materially affects decision work.
+
+Polaris decision context is temporally composed rather than globally refreshed. Facts and derived measures retain their own as-of times, provenance, and freshness; representing them together does not imply that every component was observed or recomputed simultaneously.
+
+## Observation Cadence
+
+**Observation Cadence** is the normal temporal pattern by which information about an observed subject or condition is obtained or reconsidered for Attention.
+
+An Observation Cadence may be event-driven, periodic, scheduled, on-demand, or condition-driven. It may differ by source, observed subject, Portfolio context, configured investment use, and current decision context.
+
+Observation Cadence is distinct from Freshness Requirement. A cadence describes when information is normally obtained or reconsidered; it does not guarantee that the resulting information is current enough for every Investment Decision.
+
+## Freshness Requirement
+
+A **Freshness Requirement** is the maximum acceptable age or other temporal adequacy required of information for a particular investment use.
+
+An active Investment Decision may require fresher information than the normal Observation Cadence without permanently changing that cadence. If available information cannot satisfy the applicable Freshness Requirement, Polaris must preserve that insufficiency rather than treating stale information as current.
+
 ## Decision Need
 
 A **Decision Need** is an explicit determination that an unresolved Portfolio-relevant investment choice now warrants deliberate judgment.

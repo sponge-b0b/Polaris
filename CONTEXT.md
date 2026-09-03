@@ -1,5 +1,27 @@
 # Polaris Domain Glossary
 
+## Portfolio
+
+A **Portfolio** is a durable, explicitly identified investment responsibility under which an economically bounded share of capital and Positions is managed together through time under an investment mandate and investment authority regime.
+
+Portfolio identity represents the continuing investment responsibility rather than its current contents. Changes to holdings, capital, portfolio state, account, broker, strategy, manager, or mandate version do not by themselves create a new Portfolio. Portfolio closure, split, merge, or fundamental reconstitution requires explicit identity semantics rather than being inferred from mutable state.
+
+## Portfolio Boundary
+
+A **Portfolio Boundary** is the time-specific attribution of capital, Positions, and economic obligations to a Portfolio that determines the economic state for which that Portfolio is responsible.
+
+The same economic interest cannot be fully attributed to more than one Portfolio at the same time, although an economic interest may be partitioned between Portfolios. Account boundaries do not inherently define Portfolio Boundaries: one Portfolio may span more than one account, and one account may contain economic interests attributed to more than one Portfolio.
+
+Portfolio attribution is historical fact. A later boundary change must not rewrite which Portfolio an economic interest belonged to at an earlier time.
+
+## Position
+
+A **Position** is a Portfolio-scoped current economic holding or obligation in a financial instrument, characterized by its quantity and **Position Direction**.
+
+**Position Direction** describes the Portfolio's relationship to the financial instrument as **Long** or **Short**. Position Direction is distinct from an action or order side such as Buy or Sell, and it does not by itself determine the direction of the economic Exposure produced by the Position.
+
+Externally reported account holdings are operational source facts rather than automatically being Polaris Positions. Where an account contains economic interests attributable to more than one Portfolio, those interests may be partitioned into separate Portfolio-scoped Positions without duplicating the same economic interest.
+
 ## Workflow Identity
 
 A **Workflow Identity** is the immutable identity of a registered workflow

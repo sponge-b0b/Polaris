@@ -552,3 +552,136 @@ This phase is complete enough to allow 0.2.0 requirements and architecture only 
 11. unresolved semantic questions that could change 0.2.0 requirements or architecture have been resolved rather than deferred into implementation.
 
 At that point, requirements can state what the product must do using stable domain language, and architecture can decide how the existing Polaris machinery should be reorganized to make that domain true.
+
+## Resolved foundational portfolio semantics
+
+Portfolio Decision discovery exposed a more foundational question: what Polaris means by `Portfolio`. The following semantics are now resolved and canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### Portfolio identity
+
+A Portfolio is a continuing investment responsibility, not a collection of current holdings or an account wrapper.
+
+Its identity is explicit and durable. It is not inferred from mutable characteristics such as:
+
+* current Positions;
+* current capital or portfolio value;
+* account or broker;
+* strategy;
+* manager;
+* current mandate version;
+* current Portfolio State.
+
+Changes to those facts are changes **to** the Portfolio unless an explicit identity transition says otherwise.
+
+A Portfolio may therefore remain the same Portfolio when it changes holdings, becomes all cash, temporarily has no Positions, changes broker or account, changes manager, or evolves its investment mandate.
+
+Closure is likewise explicit. Zero capital or zero Positions does not silently terminate Portfolio identity.
+
+### Portfolio Boundary
+
+Portfolio identity and Portfolio Boundary are distinct.
+
+```text
+Portfolio identity
+Which continuing investment responsibility is this?
+
+Portfolio Boundary
+Which economic interests belong to that responsibility at this time?
+```
+
+The Portfolio Boundary is temporal. It determines the capital, Positions, and economic obligations attributable to a Portfolio at a particular time.
+
+The same economic interest cannot be fully attributed to more than one Portfolio simultaneously. It may be partitioned between Portfolios, but it must not be duplicated merely to support multiple analytical views.
+
+This makes Portfolio an economic management boundary rather than an arbitrary grouping or filter.
+
+Overlapping analytical groupings such as technology holdings, high-beta holdings, or other cross-cutting views may include the same Position repeatedly without becoming Portfolios.
+
+### Account boundary versus Portfolio Boundary
+
+An external account is an operational/accounting boundary, not the definition of a Portfolio.
+
+Conceptually, both relationships are valid:
+
+```text
+one Portfolio → multiple accounts
+multiple Portfolios → one account
+```
+
+when the economic attribution is explicit and non-duplicative.
+
+The current implementation's use of `account_id` in `PortfolioState` is therefore an implementation-shaped relationship rather than proof that Account identity and Portfolio identity are the same domain concept.
+
+### Position and external holdings
+
+A Polaris Position is Portfolio-scoped.
+
+An externally authoritative system may report an account-level holding, while Polaris attributes that economic interest to one or more Portfolios without duplicating it.
+
+For example:
+
+```text
+external account holding
+100 AAPL long
+        │
+        │ economic attribution
+        ├───────────────┐
+        ▼               ▼
+Portfolio A         Portfolio B
+60 AAPL long        40 AAPL long
+```
+
+Position Direction is Long or Short and describes the Portfolio's relationship to the financial instrument. It is distinct from Buy/Sell action or order side and from the directional economic Exposure produced by the Position.
+
+### Temporal and historical integrity
+
+Portfolio attribution is historical fact.
+
+If part of a Position moves from Portfolio A to Portfolio B, the later boundary change changes current Portfolio State but does not rewrite earlier attribution. Decisions made while the economic interest belonged to Portfolio A remain historically associated with Portfolio A.
+
+This supports the wider Polaris invariant:
+
+```text
+what is true now
+        ≠
+what was true or knowable then
+```
+
+### Mandate and identity
+
+An investment mandate governs how a Portfolio's capital is managed but is not itself Portfolio identity.
+
+A Portfolio may evolve its mandate while retaining identity. Historical Investment Decisions must remain interpretable against the mandate that applied when they were made rather than against a later mandate revision.
+
+A sufficiently fundamental restructuring may require an explicit choice about identity continuity, but Polaris must not infer a new Portfolio merely because a mandate changed materially.
+
+### Split, merge, closure, and reconstitution
+
+Portfolio split, merge, closure, and fundamental reconstitution require explicit identity semantics.
+
+A split must preserve that predecessor Portfolio attribution existed before the split rather than pretending successor Portfolios always existed. A merge must likewise preserve predecessor lineage. Whether a merge creates a new Portfolio or one Portfolio continues and absorbs another is an explicit domain fact rather than something inferred from capital arithmetic.
+
+### Frozen portfolio invariants
+
+The following invariants are now accepted:
+
+1. **Portfolio identity represents a continuing investment responsibility, not current holdings.**
+2. **Portfolio identity is explicit; it is not inferred from mutable state.**
+3. **Portfolio Boundary is temporal and determines economic attribution at a point in time.**
+4. **The same economic interest cannot be fully attributed to multiple Portfolios simultaneously; it may be partitioned.**
+5. **Account Boundary ≠ Portfolio Boundary.**
+6. **A Polaris Position is Portfolio-scoped; externally reported account holdings are operational source facts from which Portfolio attribution may be established.**
+7. **Exposure is derived from attributed Positions and other commitments; Exposure does not establish Portfolio membership.**
+8. **Analytical groupings that overlap economically are not Portfolios merely because they are useful views.**
+9. **An investment mandate governs a Portfolio but does not constitute its identity.**
+10. **Portfolio State changes do not by themselves change Portfolio identity.**
+11. **Current Portfolio attribution never rewrites historical attribution.**
+12. **Portfolio closure, split, merge, or fundamental reconstitution requires explicit identity semantics rather than inference.**
+
+### Consequence for decision terminology
+
+Resolving Portfolio makes the canonical decision noun less certain, not more.
+
+A consequential decision may concern one Position, one Exposure, an entire Portfolio, or several Portfolios at once. A cross-Portfolio capital-allocation decision is clearly an investment decision but is awkward to describe as belonging to one Portfolio.
+
+Therefore `Investment Decision` is now the leading candidate for the canonical decision concept, with one or more Portfolios potentially forming its decision scope. This is **not yet canonical vocabulary**. `Portfolio Decision`, `Investment Decision`, decision scope, and decision subject remain part of the next discovery step and must not be changed in `CONTEXT.md` until resolved.

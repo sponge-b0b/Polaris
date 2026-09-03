@@ -2161,3 +2161,267 @@ The following invariants are now accepted:
 8. **External Resolution ≠ Supersession: Supersession records displacement by another Investment Decision; External Resolution results from changed circumstances eliminating the original choice.**
 9. **External Resolution ≠ cancellation or withdrawal merely because someone chooses to stop decision work while the underlying investment choice remains.**
 10. **The cause of External Resolution must be preserved so later evaluation can distinguish what changed from what Polaris recommended or a human decided.**
+
+## Resolved Investment Recommendation nature and trading boundary
+
+`Investment Recommendation` is now the canonical name for Polaris's preferred investment judgment within an Investment Decision. Existing product prose may continue to use `Recommendation` as shorthand, but the domain meaning is specifically an **Investment Recommendation**, not a trading-platform signal or market-facing Order. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### Investment Recommendation answers the economic question
+
+An Investment Recommendation answers:
+
+```text
+What economic Portfolio disposition does Polaris prefer
+for this Decision Need under the decision-time context available?
+```
+
+It may therefore express a preferred Portfolio Posture, Allocation, Exposure change, hedge, resize, entry or exit, deliberate hold or no-action, waiting posture, or another Portfolio-relevant disposition.
+
+For example:
+
+```text
+Decision Need:
+Should Portfolio A reduce equity-beta Exposure?
+
+Investment Recommendation:
+Reduce equity-beta Exposure from approximately 0.95 to 0.70.
+Prefer hedging over selling the core SPY Position because the
+longer-term thesis remains constructive while near-term downside
+Risk has increased materially.
+```
+
+That is the canonical Polaris judgment. It is not yet an exact broker instruction.
+
+### Strategy or model signal is not the Investment Recommendation
+
+Polaris is not a NinjaTrader-style strategy engine in which a trading-strategy condition directly becomes the canonical product recommendation or an executable signal.
+
+For example:
+
+```text
+Technical strategy observation:
+20 EMA crosses above 50 EMA.
+
+Strategy/model interpretation:
+bullish signal or supporting hypothesis
+```
+
+That signal may become Evidence or contribute to a Strategy Hypothesis. Polaris still evaluates it against Decision Scope, Portfolio State, current Exposure, Risk, Investment Mandate, other Evidence, alternatives, and the active Decision Need.
+
+The same bullish signal can therefore produce different Investment Recommendations:
+
+```text
+Portfolio A
+under target equity Exposure
+Risk acceptable
+→ Investment Recommendation may increase Exposure
+
+Portfolio B
+already at maximum permitted equity Exposure
+→ Investment Recommendation may hold
+
+Portfolio C
+material concentration / conflicting Evidence
+→ Investment Recommendation may reduce or withhold action
+```
+
+**Distinction proved:** strategy signal ≠ Investment Recommendation.
+
+### Economic disposition versus Proposed Action
+
+An Investment Recommendation can be economically precise while remaining implementation-independent.
+
+For example:
+
+```text
+Investment Recommendation:
+Reduce Portfolio A equity-beta Exposure by approximately $540,000 notional.
+```
+
+Possible implementations may include:
+
+```text
+Proposed Action A:
+Sell an appropriate amount of SPY.
+
+Proposed Action B:
+Short approximately 2 ES contracts.
+
+Proposed Action C:
+Use a defined-risk SPY put hedge.
+```
+
+Polaris may compare these alternatives and identify a preferred Proposed Action. If ES later becomes unavailable or unattractive, the Investment Recommendation can remain valid while the Proposed Action changes.
+
+**Distinction proved:** preferred economic Portfolio disposition ≠ concrete implementation.
+
+### Concrete quantity does not automatically make Polaris an execution engine
+
+Polaris may calculate that approximately two ES contracts are needed to produce the desired beta reduction:
+
+```text
+Target economic change:
+~$540,000 reduction in equity-beta Exposure
+
+Current ES notional:
+~$270,000 per contract
+
+Suggested implementation:
+short approximately 2 ES contracts
+```
+
+That quantity can be useful decision support and may form part of a Proposed Action. It does not become an Order merely because it is concrete.
+
+The boundary is crossed when the instruction becomes market-facing execution such as:
+
+```text
+SELL 2 ES LIMIT 5325.25
+STOP 5381.00
+TARGET 5255.25
+DAY
+```
+
+That describes exact order placement and management rather than the economic investment judgment.
+
+### Price guidance versus exact order instruction
+
+Price can matter to investment judgment without making Polaris an order-management system.
+
+For example:
+
+```text
+Preferred entry region:
+5320–5330
+
+Reason:
+above this region the expected hedge economics deteriorate materially
+```
+
+can be part of a human-reviewable trade setup or Proposed Action.
+
+By contrast:
+
+```text
+Place SELL LIMIT order for 2 ES at 5325.25
+```
+
+is a market-facing execution instruction.
+
+**Distinction proved:** investment price preference ≠ exact broker Order.
+
+### Investment invalidation is not a stop order
+
+A stop-like price can represent investment reasoning rather than an execution instruction.
+
+For example:
+
+```text
+Investment invalidation:
+If ES closes above 5380, the bearish hedge thesis is no longer supported.
+```
+
+or:
+
+```text
+Risk boundary:
+Do not tolerate more than 0.5% Portfolio NAV loss from this hedge.
+```
+
+Those statements describe thesis validity or Portfolio Risk.
+
+They are semantically different from:
+
+```text
+BUY 2 ES STOP 5381.00
+```
+
+which is an externally executed protective Order.
+
+Likewise:
+
+```text
+Review / objective region:
+5250–5270
+```
+
+is distinct from:
+
+```text
+BUY 2 ES LIMIT 5255.25
+```
+
+as a take-profit Order.
+
+**Distinction proved:** investment invalidation / Risk boundary ≠ stop order, and investment objective / review condition ≠ take-profit order.
+
+### Polaris may present a human-reviewable trade setup
+
+The user-facing projection may legitimately look like a trade setup:
+
+```text
+Preferred investment action:
+Hedge equity Exposure.
+
+Suggested implementation:
+Short approximately 2 ES.
+
+Preferred entry region:
+5320–5330.
+
+Investment invalidation:
+Above 5380 under the defined thesis condition.
+
+Objective / review region:
+5250–5270.
+
+Portfolio Risk:
+~0.45% NAV.
+
+Expected horizon:
+2–5 trading days.
+```
+
+The lines have different domain meanings even though they are presented together. The setup remains decision support for human judgment; it is not an authoritative broker Order ticket.
+
+### Execution remains externally authoritative
+
+The product boundary is therefore:
+
+```text
+Polaris decision domain
+───────────────────────
+Investment Recommendation
+Proposed Action / implementation preference
+investment invalidation and Risk conditions
+Human Investment Decision
+Action Intent
+
+External execution domain
+─────────────────────────
+Order placement
+routing
+working-order state
+fills and partial fills
+stop orders
+take-profit orders
+exchange execution
+```
+
+Polaris may observe, associate, reconcile, and reason about the second group after the fact or while continuity is active, but external execution systems remain authoritative for what was actually submitted and executed.
+
+### Frozen Investment Recommendation nature/boundary invariants
+
+The following invariants are now accepted:
+
+1. **`Investment Recommendation` is the canonical domain term; `Recommendation` is shorthand unless a narrower recommendation type is explicitly stated.**
+2. **An Investment Recommendation expresses Polaris's preferred economic disposition of a Decision Need for the affected Portfolio or Portfolios under the decision-time context then available.**
+3. **Investment Recommendation ≠ trading-strategy signal. A strategy or model signal may become Evidence or a hypothesis but does not directly become the canonical Polaris Investment Recommendation.**
+4. **Investment Recommendation ≠ Order. Exact market-facing order placement and management are execution-domain responsibilities.**
+5. **An Investment Recommendation may be economically precise, including target Portfolio Posture, Allocation, Exposure, hedge magnitude, or other Portfolio consequence, without prescribing one immutable implementation.**
+6. **A Proposed Action is a concrete candidate implementation of an Investment Recommendation; a Proposed Action may change while the underlying economic Investment Recommendation remains valid.**
+7. **Concrete approximate quantity, such as `short approximately 2 ES contracts`, may be legitimate Proposed Action guidance and does not by itself make Polaris an execution engine.**
+8. **Polaris may present a human-reviewable trade setup containing implementation preference, approximate quantity, price region, investment invalidation, Risk boundary, objective, horizon, or review condition.**
+9. **Investment price guidance ≠ exact Order price instruction.**
+10. **Investment invalidation or Risk boundary ≠ stop order; investment objective or review condition ≠ take-profit order.**
+11. **The same strategy/model signal may correctly produce different Investment Recommendations for different Portfolios because Portfolio State, Exposure, Risk, Mandate, alternatives, and Decision Scope matter.**
+12. **Polaris may observe and reconcile Orders and execution evidence without becoming authoritative for market-facing Order placement, routing, working-order state, fills, or exchange execution.**

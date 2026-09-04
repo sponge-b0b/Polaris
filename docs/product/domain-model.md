@@ -3175,3 +3175,363 @@ The following invariants are now accepted:
 17. **Later-created, later-discovered, or later-corrected information may support reconstruction, Evaluation, or learning without becoming part of an earlier judgment's historical information basis.**
 18. **A later correction may change Polaris's current understanding of what was historically true without rewriting the erroneous or incomplete representation actually available to an earlier judgment.**
 19. **Information that was available at judgment time remains historically available even if its source later changes, disappears, or becomes inaccessible; current availability must not rewrite historical availability.**
+
+## Resolved Proposed Action and Action Intent semantics
+
+`Proposed Action` and `Action Intent` are now resolved as two distinct points in the Investment Decision lifecycle. `Proposed Action` represents candidate implementation before human judgment; `Action Intent` represents the attributable external implementation consequence or control established by the Human Investment Decision after judgment. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section refines earlier working product prose that used `action intent` or `execution intent` more broadly. In particular, deliberate hold/no-action and Deferral do not require synthetic Action Intents merely because they produce no immediate Portfolio change. The scenarios below are preserved under the document's Scenario preservation rule because they prove materially different authority, cardinality, causality, lifecycle, and execution-boundary semantics.
+
+### Several Proposed Actions can precede one human choice
+
+Suppose Polaris prefers a 25% reduction in equity beta and compares three implementations:
+
+```text
+Investment Recommendation:
+Reduce equity beta by approximately 25%.
+
+Proposed Action A:
+Sell SPY.
+
+Proposed Action B:
+Short ES.
+
+Proposed Action C:
+Buy defined-risk puts.
+```
+
+If the human chooses the ES hedge, the other two Proposed Actions remain historical candidates. They do not become failed or abandoned Action Intents merely because they were not selected.
+
+If the human instead agrees with the economic reduction but chooses SPY sales rather than Polaris's preferred ES implementation, the ES Proposed Action remains historically what was proposed while Action Intent follows the human-selected external consequence.
+
+**Distinction proved:** Proposed Action is candidate decision input; Action Intent follows attributable human judgment and does not rewrite rejected or unselected candidates.
+
+### Proposed Action role does not depend on authorship
+
+A human can introduce a concrete implementation candidate:
+
+```text
+Human:
+What if we hedge with ES instead of selling SPY?
+```
+
+Once that alternative is under consideration within the Investment Decision, it is a Proposed Action even though Polaris did not originate it. Polaris may then compare its tax, margin, basis, liquidity, rollover, Risk, or Portfolio consequences.
+
+**Distinction proved:** candidate role defines Proposed Action semantics; authorship remains provenance rather than concept identity.
+
+### Exact acceptance preserves three distinct facts
+
+Suppose:
+
+```text
+Proposed Action PA-1:
+Sell approximately 100 SPY shares.
+
+Human Investment Decision H-1:
+Accept PA-1 exactly.
+
+Action Intent AI-1:
+Reduce SPY exposure through the selected implementation.
+```
+
+PA-1 does not become AI-1. Polaris preserves the candidate, the human judgment selecting it, and the resulting continuity state as separate facts with lineage between them.
+
+A human may also combine or modify several Proposed Actions, so there is no safe one-to-one transformation rule from Proposed Action to Action Intent.
+
+**Distinction proved:** exact content equality does not collapse candidate provenance, human authority, and post-judgment continuity.
+
+### Action Intent can exist without a Polaris Recommendation or Proposed Action
+
+Suppose:
+
+```text
+Investment Decision D-1100
+Evidence:
+insufficient
+
+Polaris:
+Investment Recommendation withheld
+
+Human Investment Decision:
+Reduce SPY Exposure by 5% anyway.
+```
+
+Polaris may preserve:
+
+```text
+Investment Recommendation:
+none
+
+Proposed Action:
+none known
+
+Action Intent:
+reduce SPY Exposure by 5%
+```
+
+The human judgment creates continuity meaning even though Polaris never formed a recommendation or candidate implementation. Polaris must not manufacture either missing upstream fact after the event.
+
+**Distinction proved:** Action Intent derives from Human Investment Decision, not from the existence of a Polaris Recommendation or Proposed Action.
+
+### Hold and Deferral do not require synthetic no-action intent
+
+Suppose the human decides:
+
+```text
+Human Investment Decision:
+Hold SPY.
+```
+
+When no external consequence or control is intended, the correct cardinality can be:
+
+```text
+Action Intents:
+0
+```
+
+Creating `Action Intent: do nothing` would merely duplicate the substantive human judgment while inventing an execution lifecycle with nothing to reconcile.
+
+The same applies to:
+
+```text
+Human Investment Decision:
+Defer until CPI.
+```
+
+Deferral itself is unresolved investment judgment, not an external implementation consequence.
+
+However, one human judgment can combine Deferral or hold with a genuine external control:
+
+```text
+Human Investment Decision:
+Defer adding equity until CPI,
+but maintain the existing protective hedge.
+
+Deferral:
+adding equity
+
+Action Intent:
+maintain the external protective hedge
+```
+
+**Distinction proved:** no-action and Deferral do not themselves require Action Intent, while another externally intended consequence within the same human judgment may.
+
+### Composite rebalance cardinality follows coherent consequence
+
+Suppose:
+
+```text
+Human Investment Decision:
+Rebalance Portfolio A
+from 70% equities / 30% Treasuries
+to   60% equities / 40% Treasuries.
+```
+
+Operational implementation may require several trades, Orders, and fills:
+
+```text
+sell SPY
+sell AAPL
+buy Treasury ETF
+possibly several Orders per leg
+```
+
+Those mechanics do not force several Action Intents. The coherent intended consequence may be one composite Action Intent:
+
+```text
+Action Intent:
+bring Portfolio A to approximately 60/40 Allocation
+```
+
+If only the equity reductions occur and the Treasury purchases do not, the composite intent can be partially implemented.
+
+Conversely, a human judgment such as `reduce SPY Exposure` plus `close TSLA entirely` may establish separate Action Intents when each consequence remains independently meaningful.
+
+**Distinction proved:** Action Intent decomposition is semantic and consequence-based, not instrument-, trade-, Order-, or fill-based.
+
+### One Action Intent may require many external execution facts
+
+Suppose:
+
+```text
+Action Intent:
+Reduce SPY Exposure by approximately 25%.
+```
+
+The external execution system may implement that intent through three Orders and six fills. Polaris observes those as externally authoritative facts associated with the same intended consequence rather than six new Action Intents.
+
+**Distinction proved:** Action Intent ≠ Order or fill, and execution multiplicity does not determine intent multiplicity.
+
+### One external activity may contribute to several Action Intents
+
+Suppose two Investment Decisions establish independently meaningful intents:
+
+```text
+D-1101
+Action Intent A:
+Reduce equity Risk.
+
+D-1102
+Action Intent B:
+Raise at least $50,000 of liquidity.
+```
+
+One $75,000 SPY sale may genuinely contribute to both intents if the causal relationship is supported. There is still only one externally authoritative sale; Polaris relates that fact to both intents rather than duplicating it.
+
+But suppose the sale was actually undertaken only for D-1101 and merely happens to leave Portfolio cash above the threshold desired by D-1102. Then D-1102's desired Portfolio condition may be satisfied without establishing that D-1102 caused or was implemented by the sale.
+
+**Distinction proved:** shared external facts may support multiple intent relationships, but matching consequence or resulting state alone does not prove causality.
+
+### Partial implementation preserves the original intent
+
+Suppose:
+
+```text
+Action Intent:
+Reduce SPY Exposure by 25%.
+
+Observed result:
+SPY Exposure reduced by only 10%.
+```
+
+The correct history remains:
+
+```text
+intended consequence:
+25% reduction
+
+observed implementation:
+10% reduction
+```
+
+Polaris must not mutate the intent to 10% simply to make the record agree with operational reality. The divergence is itself important for reconciliation, Attention, Outcome, and later Evaluation.
+
+**Distinction proved:** intended consequence and observed implementation remain separately reconstructable.
+
+### Execution-mechanism substitution can preserve Action Intent identity
+
+Suppose the human intends:
+
+```text
+reduce equity beta by approximately 25%
+```
+
+and expects that consequence to be implemented through ES. Operational conditions later make ES unsuitable, so the human implements an economically equivalent SPY sale without changing the intended Portfolio consequence.
+
+That execution-mechanism substitution does not by itself require a new Action Intent. Exact routing, order slicing, limit-price changes, and similar mechanics are even more clearly execution facts rather than Action Intent identity.
+
+By contrast:
+
+```text
+original intended consequence:
+reduce 25%
+
+later human choice:
+reduce only 10%
+```
+
+changes the intended investment consequence itself. That requires new attributable human judgment rather than silent Action Intent mutation. The already-frozen Investment Decision lifecycle rules determine whether the new judgment belongs to the same unresolved decision or a new causally linked decision after substantive resolution.
+
+**Distinction proved:** execution mechanics may vary beneath stable intent; materially changed intended consequence is renewed human judgment.
+
+### Protective conditions depend on intended effect
+
+A price or threshold does not identify its domain meaning by syntax alone.
+
+```text
+If SPY closes below 620,
+reassess the thesis.
+```
+
+is a Review or investment-invalidation condition, not Action Intent.
+
+```text
+Do not tolerate more than 0.5% NAV loss.
+```
+
+is a Risk boundary. It may be satisfied through sizing, hedging, options, a stop, or another implementation and therefore does not itself specify Action Intent.
+
+But:
+
+```text
+Human Investment Decision:
+Establish and maintain external downside protection
+that exits the Position around 620.
+```
+
+can establish an Action Intent because an externally observable protective control is intended. The actual broker stop Order, its exact trigger, quantity, time-in-force, modifications, and eventual fill remain externally authoritative execution facts.
+
+The same distinction applies to an objective region used for future review versus a contingent external target intended to close or reduce a Position.
+
+**Distinction proved:** thesis invalidation, Risk boundary, Review Condition, Action Intent, and Order can reference similar prices while remaining different concepts because intended effect and authority differ.
+
+### Action Intent does not imply authority or compliance
+
+Suppose:
+
+```text
+Formal Constraint:
+SPY Exposure <= 50%.
+
+Human Investment Decision:
+Increase SPY Exposure to 60%.
+
+Mandate Exception:
+none.
+```
+
+If the human nevertheless intends the external change, Polaris may truthfully preserve:
+
+```text
+Action Intent:
+increase SPY Exposure to 60%
+```
+
+The existence of that Action Intent does not make the decision compliant, authorized, approved, released, or executed. It records intended continuity; authority and governance facts remain separate.
+
+**Distinction proved:** Action Intent describes intended external consequence, not permission to cause it.
+
+### External activity does not manufacture missing decision facts
+
+Suppose the user independently sells SPY outside Polaris with no originating Polaris decision. Polaris should preserve the externally authoritative activity and resulting Portfolio State without inventing:
+
+```text
+Investment Recommendation
+Proposed Action
+Human Investment Decision
+Action Intent
+```
+
+The same rule applies when external activity happens to match a prior Recommendation, Proposed Action, or anticipated outcome. Economic similarity alone does not establish that an Action Intent existed or that the activity implemented it.
+
+**Distinction proved:** observed reality may lack originating Polaris continuity facts, and historical completeness must not be fabricated.
+
+### Frozen Proposed Action and Action Intent invariants
+
+The following invariants are now accepted:
+
+1. **Proposed Action ≠ Action Intent.**
+2. **A Proposed Action is an attributable concrete candidate implementation considered within an Investment Decision for producing a possible Portfolio consequence.**
+3. **Proposed Action semantics follow candidate role rather than authorship; a Proposed Action may originate from Polaris or a human while preserving its provenance.**
+4. **A Proposed Action may exist before, alongside, or without an Investment Recommendation; an Investment Recommendation may also exist without a concrete Proposed Action.**
+5. **A Proposed Action selected, modified, rejected, combined, or skipped by a human remains a historical candidate rather than transforming into Action Intent.**
+6. **Where knowable and material, Polaris should preserve the relationship between Proposed Actions and the Human Investment Decision or Action Intent they informed without assuming one-to-one cardinality.**
+7. **Action Intent is attributable post-human-decision continuity state describing an externally observable implementation consequence or control established by a Human Investment Decision.**
+8. **A Human Investment Decision may establish zero, one, or multiple Action Intents.**
+9. **Action Intent cardinality follows coherent intended external consequence rather than Financial Instrument count, Proposed Action count, Order count, fill count, or other execution mechanics.**
+10. **An Action Intent may be composite when several external changes jointly define one coherent intended Portfolio consequence; independently meaningful consequences may be represented as separate Action Intents.**
+11. **A Human Investment Decision may establish Action Intent even when no Polaris Investment Recommendation or Proposed Action exists.**
+12. **Exact human acceptance of a Proposed Action does not collapse Proposed Action, Human Investment Decision, and Action Intent into one fact.**
+13. **Deliberate hold/no-action or Deferral does not by itself require a synthetic Action Intent merely to duplicate the Human Investment Decision.**
+14. **A Human Investment Decision involving hold or Deferral may still establish Action Intent for a separate externally intended consequence or maintained control.**
+15. **Action Intent ≠ Order, fill, broker instruction, or another externally authoritative execution fact.**
+16. **Action Intent may be specific enough for later reconciliation, including an intended quantity, target state, protection condition, or similar implementation meaning, without thereby becoming an authoritative Order.**
+17. **One Action Intent may correspond to zero, one, or multiple external activities, and one external activity may contribute to zero, one, or multiple Action Intents when the causal associations are supported.**
+18. **The same authoritative external activity must not be duplicated merely because it relates to several Action Intents or Investment Decisions.**
+19. **Resulting Portfolio State or external activity matching an Action Intent does not by itself establish that the intent caused or was implemented by that activity.**
+20. **Partial, failed, or absent implementation does not rewrite the historical Action Intent; intended consequence and observed reality remain separately reconstructable.**
+21. **Changes to execution mechanics that preserve the same intended external consequence do not by themselves require a new Action Intent.**
+22. **A material change to the intended Portfolio consequence requires new attributable human judgment rather than silent Action Intent mutation; existing Investment Decision identity/lifecycle rules determine whether that judgment belongs to the same unresolved decision or a new causally linked decision.**
+23. **A thesis invalidation condition, Risk boundary, or Review Condition is not an Action Intent merely because it references a price or trigger. An intended externally maintained control or contingent external consequence may be an Action Intent; the authoritative resulting Order remains external.**
+24. **Action Intent does not imply Approval, Mandate compliance, Residual-Risk Acceptance, authorization, Release, or execution authority.**
+25. **External activity does not retroactively create an Action Intent, Human Investment Decision, Proposed Action, or Investment Recommendation merely because its economic result happens to match one of those concepts.**

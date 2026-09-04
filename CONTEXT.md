@@ -94,32 +94,6 @@ Investment authority is power-specific. Authority to make a Human Investment Dec
 
 A multi-Portfolio Investment Decision preserves the applicable authority regime and authority requirements of each Portfolio unless an explicitly authoritative cross-Portfolio regime establishes otherwise. Historical reconstruction must preserve the authority regime and material authority facts that actually applied when a judgment or authority act occurred.
 
-## Workflow Identity
-
-> **Legacy platform/runtime vocabulary pending re-parenting.** This entry is retained temporarily so valid runtime behavior is not deleted during canonical domain serialization; it is not canonical investment-domain vocabulary.
-
-A **Workflow Identity** is the immutable identity of a registered workflow definition: its canonical workflow name plus the deterministic fingerprint of that definition. The fingerprint is the workflow version; it identifies a definition revision, not an individual execution or caller-supplied label.
-
-Workflow Identity is distinct from an execution identifier. One Workflow Identity may have many executions, while a definition change creates a new Workflow Identity version.
-
-## Governed Execution Evidence
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-**Governed Execution Evidence** is the tier-specific durable authority and provenance record selected for one platform-created workflow execution before its governed evaluation. It is distinct from a Workflow Identity: one immutable workflow definition may have many executions, each with its own evidence-selection correlation. It is also distinct from caller-supplied evidence or an evidence identifier, neither of which may select or authorize a governed execution.
-
-## Workflow Invocation
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-A **Workflow Invocation** is the platform-created execution of a registered workflow definition. It is not automatically a claim-bearing Output Boundary: its runtime provenance may be governed as Baseline evidence before execution, while any resulting output is classified and governed independently at its actual Output Boundary.
-
-## Workflow Authority Facts
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-**Workflow Authority Facts** are the platform-owned, typed association of a registered Workflow Identity with its Risk Authority Contract. They determine the applicable consequence tier and governed-evidence variant for an execution. Workflow Authority Facts are not caller metadata, an execution identifier, or a claim about the workflow supplied by a transport.
-
 ## Investment Recommendation
 
 An **Investment Recommendation** is an attributable, time-specific Polaris judgment within an Investment Decision that expresses Polaris's preferred economic disposition of the Decision Need for the affected Portfolio or Portfolios as formed within the applicable Decision Context using the information available to that judgment.
@@ -180,11 +154,11 @@ Bare governed-output `Release` is retired as canonical Polaris domain vocabulary
 
 ## Publication
 
-**Publication** is making an output externally visible or user-facing, such as through a report, CLI response, MCP response, API response, or rendered artifact.
+**Publication** is making a Polaris output externally visible or user-facing beyond its internal reasoning or governance role.
 
 ## Durable Promotion
 
-**Durable Promotion** is making an output authoritative for later platform use, such as persistence as a curated record, recommendation record, RAG-eligible source, graph projection source, audit-linked evidence, or downstream workflow input.
+**Durable Promotion** is making a Polaris output authoritative for later consequential or platform use beyond its ephemeral presentation, subject to the applicable Evidence, Governance, and authority conditions.
 
 Persisting blocked or skipped audit state is not Durable Promotion of the output's claim; it is audit retention.
 
@@ -234,14 +208,14 @@ A Human Investment Decision remains separately human-attributed from the Polaris
 
 Evidence roles include:
 
-- **Runtime Evidence**: workflow execution outputs and completed-run records that explain what happened during execution.
+- **Runtime Evidence**: execution-time information used to explain what happened during platform operation.
 - **Decision Evidence**: evidence bound to claims in a decision evidence packet.
 - **Supporting Evidence**: evidence cited as support for a claim.
 - **Conflicting Evidence**: evidence that materially challenges a claim.
 - **Reconstruction Evidence**: durable references or retained snapshots used to verify where claim support came from.
 - **Contextual Evidence**: explanatory information retained for audit or narrative, but not readiness-gating by itself.
 
-A citation, artifact, architectural projection, telemetry signal, Investment Signal, Backtest result, Investment Simulation result, Risk Score, or other information is not automatically Evidence until it is materially used in an Evidence role.
+A citation, artifact, derived representation, telemetry signal, Investment Signal, Backtest result, Investment Simulation result, Risk Score, or other information is not automatically Evidence until it is materially used in an Evidence role.
 
 ## Claim
 
@@ -254,44 +228,6 @@ Claim materiality distinctions:
 - A **Contextual Claim** is explanatory or background narrative that may be audited but does not by itself block readiness.
 
 For example, "the Portfolio is over-concentrated in semiconductors" is a Claim. "Consider trimming NVDA Exposure" is both a claim-bearing Investment Recommendation or Proposed Action and a Capital-Relevant Output. Generation timestamps and similar operational metadata are usually not Material Claims.
-
-## Curated Record
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-A **Curated Record** is a typed, attributable, durable platform record that has been selected and normalized for later authoritative platform use.
-
-A Curated Record is not automatically human-approved, true, investment advice, conflict-free, RAG-indexed, graph-projected, or publishable. A record appearing in Qdrant, Neo4j, a rendered report, or a runtime dump is not Curated unless it has an owning durable platform record. Curation does not erase source lineage, materiality, or governance requirements.
-
-## Projection
-
-> **Legacy architecture vocabulary pending re-parenting. Bare `Projection` is not canonical investment-domain vocabulary.** The investment domain uses explicit terms such as Projected Portfolio State and Projected Portfolio Consequence. The architecture meaning below is retained temporarily so valid behavior is not deleted before re-parenting.
-
-A **Projection** in the legacy architecture sense is a derived representation of authoritative platform records or Runtime Evidence, optimized for a particular use such as retrieval, graph traversal, presentation, search, or inspection.
-
-An architecture Projection is rebuildable from its source records and must not become the source of truth for the business concept it represents. Rebuilding, indexing, rendering, migrating, or otherwise changing such a derived representation does not change the identity, authority, truth, temporal meaning, or historical status of the investment-domain facts it represents.
-
-Examples include Qdrant vectors, Neo4j graph nodes and relationships, report renderings, RAG chunks, read models, and search indexes. The eventual qualified architecture replacement name is deferred to the architecture/runtime reconciliation pass.
-
-## Source of Truth
-
-> **Legacy platform/architecture vocabulary pending re-parenting.**
-
-A **Source of Truth** is the authoritative domain source for a concept or claim.
-
-## System of Record
-
-> **Legacy architecture vocabulary pending re-parenting.**
-
-A **System of Record** is the durable storage boundary responsible for retaining authoritative records. In the current Polaris architecture, PostgreSQL is the System of Record for platform business state.
-
-## Authority
-
-> **Legacy mixed domain/architecture vocabulary pending re-parenting.** Canonical investment authority semantics are expressed through Actor Attribution, Investment Authority Regime, Approval, Authority Denial, Mandate Exception, Residual-Risk Acceptance, and related power-specific concepts.
-
-An **Authority** is the domain or architectural owner allowed to decide, write, validate, permit, or govern a concept. An Authority can be a service, lifecycle, or contract rather than only a database.
-
-For example, PostgreSQL may be the System of Record for an approval task, while the approval lifecycle authority defines the semantics for Approval, Contestability, Residual-Risk Acceptance, and advancement across the governed boundary.
 
 ## Investment Strategy
 
@@ -485,35 +421,6 @@ Observed fills, slippage, market impact, delay, failed execution, nonexecution, 
 
 Broad Polaris-owned `Execution Risk` is retired as the umbrella for candidate-action implementation Risk. External specialist uses of `execution risk`, market impact, delay cost, opportunity cost, transaction cost, implementation shortfall, and execution quality retain their applicable meanings and may inform Trade Implementation Risk or later Evaluation without being collapsed into it.
 
-## AI-Adjacent Output
-
-> **Legacy governance/platform vocabulary pending re-parenting.**
-
-An **AI-Adjacent Output** is an output produced by, transformed by, summarized by, routed through, or materially influenced by model, agent, RAG, evaluation, or automated decision-support behavior.
-
-AI-Adjacent status does not by itself determine authority, truth, readiness, or risk tier. AI-Adjacent Outputs require classification by their effect, source of truth, intended sink, evidence sufficiency, external visibility, durable authority, governance impact, and capital relevance.
-
-## Risk Authority Contract
-
-> **Legacy governance/platform vocabulary pending re-parenting.**
-
-A **Risk Authority Contract** is the canonical classification of one AI-adjacent output boundary's consequence tier, allowed effect, owner, source-of-truth category, intended sink, gate profile, and evidence or governance flags.
-
-A Risk Authority Contract describes what an output is allowed to affect after platform classification. Model output or model-provided metadata cannot self-declare authority, production readiness, governance Approval, Residual-Risk Acceptance, or a lower risk tier.
-
-## Risk Tier
-
-> **Legacy governance/platform vocabulary pending re-parenting; a Risk Tier is not Portfolio Risk.**
-
-A **Risk Tier** is a consequence classification for an AI-Adjacent Output.
-
-Canonical Risk Tiers are:
-
-- **Baseline**: low-consequence informational or runtime output that does not require enhanced evidence or governance controls.
-- **Enhanced**: output requiring stronger evidence, readiness, or authority controls because it is externally visible, durable, capital-relevant, evidence-insufficient, non-runtime-sourced, or otherwise consequential.
-- **Vigilant**: output requiring the strongest automated governance and boundary controls because it can affect capital, governance, execution decisions, durable authority, external visibility, or unresolved evidence sufficiency.
-- **Prohibited / Outside Authority**: output whose requested effect is outside Polaris authority and must not be treated as allowed by model text, interface behavior, or local metadata.
-
 ## Policy
 
 **Policy** answers whether an operation, output, or boundary crossing may happen under deterministic platform rules. Policy outcomes are allow or deny style decisions and do not by themselves store human governance Approval.
@@ -530,11 +437,11 @@ Governance is separate from Policy. Automated Governance may allow, warn, deny, 
 
 A **Governed Output** is an output whose consequential use, Publication, Durable Promotion, or downstream use is subject to Policy, Governance, Evidence readiness, review, Admissibility, or Residual-Risk Acceptance requirements.
 
-Capital-Relevant Enhanced and Vigilant outputs are Governed Outputs when they are externally visible, durably authoritative, governance-impacting, or otherwise cross a controlled boundary.
+Capital-Relevant outputs are Governed Outputs when they are externally visible, durably authoritative, governance-impacting, or otherwise cross a controlled boundary.
 
 ## Readiness Gate
 
-A **Readiness Gate** is a boundary check that determines whether a Claim, output, record, or legacy architecture projection is allowed to proceed to a consequential use, Publication, Durable Promotion, retrieval eligibility, or downstream use.
+A **Readiness Gate** is a boundary check that determines whether a Claim, output, or governed subject may proceed to a consequential use, Publication, Durable Promotion, or downstream use.
 
 Readiness Gates fail closed when required Evidence, reconstruction, correctness, governance review, Residual-Risk Acceptance, or source authority is missing, stale, conflicted, rejected, or malformed.
 
@@ -542,7 +449,7 @@ Readiness Gates fail closed when required Evidence, reconstruction, correctness,
 
 An **Output Boundary** is a point where Polaris output leaves its current internal role and becomes visible, durable, authoritative, retrievable, or available for downstream decision use.
 
-Examples include report Publication, recommendation rendering, RAG answer generation, MCP/API/CLI responses, curated-record persistence, graph/vector projection, and other governed consequential uses.
+Crossing an Output Boundary does not by itself establish truth, authority, Admissibility, Approval, or fitness for the resulting use.
 
 ## Review Task
 
@@ -556,60 +463,6 @@ A Review Task is resolved only by attributable review decisions such as Approval
 
 Contestability preserves the history of the automated outcome, review rationale, Evidence version, and resulting task status.
 
-## Completed-Run Archive
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-A **Completed-Run Archive** is the durable runtime archive of a finished workflow execution, including runtime context and node outputs needed for replay, inspection, audit, and reconstruction.
-
-A Completed-Run Archive is broad Runtime Evidence. It is not automatically a Curated Record, RAG-eligible source, architecture Projection, Investment Recommendation, Approval, or Source of Truth for every business concept it contains.
-
-## Curation
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-**Curation** is the deliberate selection and normalization of workflow or platform output into a Curated Record with typed meaning, deterministic identity, temporal meaning, lineage, quality checks, and authoritative ownership.
-
-Curation is narrower than archival and precedes selective embedding or graph projection.
-
-## Embedding Eligibility
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-**Embedding Eligibility** is the decision that a Curated Record is useful and safe enough to become retrieval context for RAG.
-
-Embedding Eligibility does not make a record true, approved, capital-actionable, or release-ready. It only allows the record to be represented in retrieval projections under the applicable source, lineage, Evidence, and Governance rules.
-
-## RAG Answer
-
-> **Legacy platform/runtime vocabulary pending re-parenting.**
-
-A **RAG Answer** is a retrieval-grounded answer assembled from retrieved or cited context and generated claim data.
-
-A RAG Answer is presentation output. Its rendered text is not the Claim Source of Truth and not an authority for Approval, Residual-Risk Acceptance, or durable decision support unless the underlying Claims and Evidence pass the applicable decision-evidence and governance rules.
-
-## Application Service
-
-> **Legacy architecture vocabulary pending re-parenting.**
-
-An **Application Service** is a platform boundary that owns a use-case operation, coordinates typed domain contracts, applies Policy or Governance where applicable, and delegates external access to Providers or Clients.
-
-Application Services are the preferred domain-facing surface for interfaces such as CLI, MCP, API, reports, workflows, and future transports.
-
-## Provider
-
-> **Legacy architecture vocabulary pending re-parenting.**
-
-A **Provider** is a typed boundary that normalizes a class of external or simulated capability for Application Services. Providers hide vendor-specific transport, SDK, authentication, retry, and response-shape concerns from intelligence components and workflow nodes.
-
-## Client
-
-> **Legacy architecture vocabulary pending re-parenting.**
-
-A **Client** is a vendor-specific or transport-specific adapter used beneath a Provider to communicate with an external system or local service.
-
-Clients do not own Polaris domain semantics. Provider normalization is required before external data becomes typed platform input.
-
 ## Backtest
 
 A **Backtest** is a historically constrained counterfactual evaluation of a sufficiently specified Investment Strategy, Trading System, systematic Portfolio method, or other investment decision method through historical investment conditions to estimate how the method would have behaved and what hypothetical Portfolio states, consequences, Portfolio Risk, costs, and performance would have resulted.
@@ -622,7 +475,7 @@ Backtest-generated Signals, candidate actions, Recommendations, trades, Portfoli
 
 A Backtest may assume an Evidence role when materially used. Material Backtests preserve the tested method/version, historical period, simulated information boundary, data vintages and revision treatment, universe construction, corporate-action treatment, Portfolio assumptions, transaction costs, liquidity/rebalancing/implementation assumptions, and other material design facts. Look-ahead, survivorship, future-universe, revised-data, future-calibration, or similar hindsight contamination must be prevented or explicitly disclosed.
 
-The former Polaris runtime meaning of `Backtest` as workflow replay is retired from investment-domain vocabulary and must be re-parented under qualified runtime/architecture terminology during reconciliation.
+The former Polaris runtime use of `Backtest` for workflow replay is noncanonical investment-domain vocabulary; runtime replay remains distinct from Backtest.
 
 ## Investment Scenario
 
@@ -648,7 +501,7 @@ Simulation-generated Portfolio states remain hypothetical and are distinct from 
 
 A Simulation frequency, percentile, quantile, or modeled event rate is conditional on the Simulation's model and assumptions and is not automatically a supported real-world probability. Material Simulation assumptions, model form, distributions, parameters, Portfolio baseline, temporal scope, Scenario conditions, sampling process, Investment Uncertainty, and provenance remain reconstructable where materially relied upon. Simulation results may assume Evidence roles but do not establish Recommendation, Human Investment Decision, Action Intent, Formal Constraint result, Approval, Admissibility, Outcome, or authority.
 
-The former Polaris runtime meaning of bare `Simulation` as controlled dependency/provider substitution is retired from investment-domain vocabulary and must be re-parented under qualified runtime/testing terminology during reconciliation.
+The former Polaris runtime use of bare `Simulation` for controlled dependency substitution is noncanonical investment-domain vocabulary and remains distinct from Investment Simulation.
 
 ## Judgment Confidence
 
@@ -906,7 +759,7 @@ A Lesson may inform future Attention, Decision Context, Evidence, investment rea
 
 ## Durable Decision Memory
 
-**Durable Decision Memory** is the cross-cutting Polaris responsibility that materially relevant Investment Decision history, provenance, temporal relationships, supported causal relationships, authority relationships, and unresolved ambiguity remain durably attributable and semantically reconstructable through time, independent of any one workflow execution, report, conversation, storage record, or architecture projection.
+**Durable Decision Memory** is the cross-cutting Polaris responsibility that materially relevant Investment Decision history, provenance, temporal relationships, supported causal relationships, authority relationships, and unresolved ambiguity remain durably attributable and semantically reconstructable through time, independent of any one workflow execution, report, conversation, storage record, or derived representation.
 
 Durable Decision Memory is a capability, responsibility, and product invariant rather than a separate business entity competing with Investment Decision identity. It spans unresolved, deferred, substantively resolved, Externally Resolved, erroneous, partial, implemented, unimplemented, and later-evaluated decision history.
 

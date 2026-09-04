@@ -15,7 +15,7 @@ The twelve principles below make that rule operational.
 
 > **Optimize the portfolio decision lifecycle before optimizing individual features.**
 
-A new capability is justified by how it improves a portfolio decision, explanation, evaluation, or future decision quality—not merely because it is technically interesting or adjacent to finance.
+A new capability is justified by how it improves an Investment Decision, explanation, Decision Evaluation, or future decision quality—not merely because it is technically interesting or adjacent to finance.
 
 This applies equally to analytical features, AI techniques, interfaces, infrastructure, and integrations. A sophisticated agent topology, charting system, or workflow engine is not product progress unless it strengthens the defined decision lifecycle.
 
@@ -23,11 +23,11 @@ This applies equally to analytical features, AI techniques, interfaces, infrastr
 
 ## 2. Trust by structure, not confidence
 
-> **Do not ask the user to trust AI because it sounds confident; construct the system so important claims, decisions, and authority can be inspected.**
+> **Do not ask the user to trust AI because it sounds confident; construct the system so important Claims, judgments, decisions, and authority can be inspected.**
 
-Trust should come from attributable evidence, decision-appropriate freshness, explicit uncertainty, meaningful challenge, deterministic constraints, authority provenance, human judgment, operational reality, and historical integrity.
+Trust should come from attributable Evidence, decision-appropriate freshness, explicit Investment Uncertainty, meaningful challenge, deterministic rule results, power-specific authority provenance, Human Investment Decision, operational reality, and historical integrity.
 
-A confidence score may be useful evidence about a model output. It is not a substitute for the surrounding trust structure.
+A model-specific confidence or calibrated score may be useful analytical information when its subject and meaning are explicit. It is not universal Judgment Confidence and is not a substitute for the surrounding trust structure.
 
 **Decision rule:** Prefer architecture that reduces how much blind trust must be placed in the model.
 
@@ -39,13 +39,14 @@ Polaris may summarize, progressively disclose, and reduce cognitive load. It mus
 
 Examples include preserving the difference between:
 
-* recommendation and human decision;
-* policy evaluation and final recommendation;
-* intended action and observed execution;
-* expected state and authoritative external state;
-* what was knowable at decision time and what became known later.
+* Investment Recommendation and Human Investment Decision;
+* Policy or Formal Constraint result and Approval;
+* Proposed Action and Action Intent;
+* Action Intent and authoritative external activity;
+* expected or projected Portfolio State and authoritative observed Portfolio State;
+* what was available to a judgment at the time and what became known later.
 
-The product may present a concise summary while preserving the complete evidence and authority path underneath it.
+The product may present a concise summary while preserving the complete Evidence, judgment, authority, and continuity path underneath it.
 
 **Decision rule:** Progressive disclosure may hide detail temporarily; it must not erase semantic distinctions.
 
@@ -53,67 +54,69 @@ The product may present a concise summary while preserving the complete evidence
 
 > **Give Polaris broad freedom to observe, investigate, reason, challenge, prepare, and recommend—but not to silently acquire authority over consequential investment action or its own governing constraints.**
 
-Polaris should not require the human to initiate every useful piece of analysis. It should be capable of detecting material change, investigating it, reassessing affected decisions, and bringing prepared work to the user.
+Polaris should not require the human to initiate every useful piece of analysis. It should be capable of detecting Investment-Relevant material change, investigating it, reassessing affected unresolved work or prior judgments, and bringing prepared work to the user.
 
-That initiative stops at the consequential authority boundary. Human judgment remains required for investment decisions and material governance changes, and external specialist systems retain market-facing action authority.
+That initiative stops at the applicable consequential authority boundary. The Investment Authority Regime determines who may form a Human Investment Decision, grant Approval, authorize a Mandate Exception, accept Governed Residual Risk, or exercise execution authority. External specialist systems retain market-facing action authority.
 
-**Decision rule:** Automate analytical work aggressively; escalate consequential judgment explicitly.
+**Decision rule:** Automate analytical work aggressively; escalate the specific consequential authority act explicitly.
 
-## 5. Risk shapes the decision
+## 5. Portfolio Risk shapes the decision
 
-> **Risk is part of forming a recommendation, not an approval stamp applied afterward.**
+> **Portfolio Risk is part of forming an Investment Recommendation, not an approval stamp applied afterward.**
 
-Investment interpretation, portfolio state, analytical risk, and deterministic policy should jointly shape the preferred action.
+Investment View, Portfolio State, Portfolio Risk, Projected Portfolio Consequences, applicable Formal Constraints, and Policy should jointly shape the preferred economic disposition while preserving their distinct semantic roles.
 
-A plausible investment thesis may imply different actions in different portfolios because concentration, exposure, strategy, horizon, existing risk, and policy differ. That is not risk interfering with the strategy; it is the portfolio decision itself.
+A plausible Investment Thesis may imply different Investment Recommendations in different Portfolios because concentration, Exposure, Investment Strategy, Investment Horizon, current Portfolio Risk, Investment Mandate, and Policy differ. That is not Portfolio Risk interfering with the strategy; it is the Portfolio decision itself.
 
-**Decision rule:** A recommendation that has not incorporated portfolio risk is unfinished.
+Formal Constraint results and Policy results are deterministic boundaries, not Portfolio Risk and not Approval.
+
+**Decision rule:** An Investment Recommendation that has not incorporated Portfolio Risk and the applicable deterministic boundaries is unfinished.
 
 ## 6. Be attentive, not noisy
 
 > **Optimize for attention quality, not information volume or interaction frequency.**
 
-Polaris should not measure usefulness by the number of alerts, recommendations, reports, messages, generated insights, or agent outputs it produces.
+Polaris should not measure usefulness by the number of alerts, Investment Recommendations, reports, messages, generated insights, or agent outputs it produces.
 
-A mature system should absorb immaterial changes quietly and treat conclusions such as "nothing materially changed" or "no action warranted" as successful outcomes.
+A mature system should absorb irrelevant or immaterial changes quietly and treat conclusions such as "nothing materially changed" or "no Portfolio action is warranted" as successful outcomes.
 
 When Polaris interrupts the user, it should preferably bring prepared decision work rather than merely announce that something happened.
 
-**Decision rules:** Interrupt for materiality, not novelty. When interrupting, bring analysis rather than assigning analysis back to the user.
+**Decision rules:** Interrupt for Investment Materiality, not novelty. When interrupting, bring analysis rather than assigning analysis back to the user.
 
 ## 7. Current enough for the decision
 
-> **Freshness is relative to the decision contract, not to a universal definition of real time.**
+> **Freshness is relative to the investment use, not to a universal definition of real time.**
 
-The evidence freshness required for a rapid portfolio reassessment may differ substantially from the freshness required for a long-horizon strategic judgment.
+The Evidence freshness required for a rapid Portfolio reassessment may differ substantially from the freshness required for a long-horizon strategic judgment.
 
-Polaris should neither accept stale evidence merely because it exists nor adopt exchange-engine latency as a universal product requirement. It should understand how current the evidence must be for the decision it is claiming to support.
+Polaris should neither accept stale Evidence merely because it exists nor adopt exchange-engine latency as a universal product requirement. It should understand how current the Evidence must be for the judgment or consequential use it is claiming to support.
 
-When required evidence is too stale, the appropriate response may be to qualify, degrade, withhold, or invalidate the recommendation.
+When required Evidence is too stale, the appropriate response may be to qualify or withhold a current Investment Recommendation or consequential use. The historical Investment Recommendation remains part of Durable Decision Memory; staleness does not erase that prior judgment.
 
-**Decision rule:** If evidence is too stale to support the claimed decision, reduce the claim—not the standard.
+**Decision rule:** If Evidence is too stale to support the current claim or use, reduce the current claim—not the standard and not the historical record.
 
-## 8. Memory should change future behavior
+## 8. Durable Decision Memory should change future behavior
 
-> **Do not preserve decisions merely so they can be retrieved later; preserve them so they can improve future attention, reasoning, evaluation, and learning.**
+> **Do not preserve Investment Decisions merely so they can be retrieved later; preserve their material meaning so it can improve future Attention, reasoning, Decision Evaluation, and learning.**
 
-Decision memory is active product state, not a passive archive.
+Durable Decision Memory is active product context, not a passive archive and not a requirement for one `Decision Record` entity.
 
-Past decisions may contain active theses, assumptions, invalidation conditions, deferred decisions, catalysts, review conditions, risk expectations, and lessons. Those facts should be capable of changing what Polaris notices and how future decisions are formed.
+Past Investment Decisions may contain active Investment Theses, Investment Assumptions, Invalidation Conditions, deferred decisions, Catalysts, Review Conditions, Portfolio Risk expectations, authority relationships, and Lessons. Those facts should be capable of changing what Polaris notices and how future decisions are formed.
 
-A prior decision such as "maintain the position unless condition X occurs" should make condition X materially relevant later without requiring the user to reconstruct the earlier context manually.
+A prior Human Investment Decision such as "maintain the Position unless condition X occurs" should make condition X materially relevant later without requiring the user to reconstruct the earlier context manually. If the prior decision was substantively resolved, condition X causes Attention to evaluate whether a renewed Decision Need exists; it does not reopen and rewrite the old decision.
 
-**Decision rule:** If durable decision state never influences future decisions, it is an archive, not decision memory.
+**Decision rule:** If durable decision history never influences future behavior, it is an archive, not Durable Decision Memory.
 
 ## 9. Reality wins
 
 > **When Polaris's expectation conflicts with authoritative external reality, reality wins.**
 
-Polaris may identify an inconsistency, question the reliability of a source, or preserve conflicting evidence. It must not silently promote its expected state over an authoritative operational source merely because the external result differs from the recommendation or intended action.
+Polaris may identify an inconsistency, question the reliability of a source, or preserve Conflicting Evidence. It must not silently promote its expected state over an authoritative operational source merely because the external result differs from an Investment Recommendation or Action Intent.
 
-This applies to facts such as fills, positions, portfolio state, published economic releases, and other externally authoritative observations within their responsibility domains.
+This applies to facts such as fills, Positions, Portfolio State, published economic releases, and other externally authoritative observations within their responsibility domains.
 
-**Decision rule:** Model the world Polaris actually observes, not the world its previous decision expected to exist.
+**Decision rule:** Model the world Polaris actually observes, not the world its previous judgment expected to exist.
 
 ## 10. Integrate before absorbing
 
@@ -121,7 +124,7 @@ This applies to facts such as fills, positions, portfolio state, published econo
 
 Polaris owns the portfolio decision lifecycle, not everything that lifecycle touches.
 
-Before expanding into an adjacent product category, Polaris should ask whether a specialist system can continue to own the underlying operational or factual responsibility while Polaris consumes, reconciles, interprets, or projects the necessary state.
+Before expanding into an adjacent product category, Polaris should ask whether a specialist system can continue to own the underlying operational or factual responsibility while Polaris consumes, reconciles, interprets, or presents the necessary state.
 
 This is especially important for execution, brokerage operations, official accounting, custody, settlement, comprehensive market-data vending, generalized charting, generalized quantitative development, and other specialist responsibilities.
 
@@ -133,25 +136,25 @@ Expansion may still be justified, but it should carry an explicit burden of proo
 
 > **Make investment processes configurable while keeping the portfolio decision lifecycle and its domain concepts opinionated.**
 
-Polaris should allow users to vary portfolios, strategies, evidence sources, models, risk policies, horizons, review conditions, asset universes, and analytical preferences.
+Polaris should allow users to vary Portfolios, Investment Strategies, Evidence sources, models, Policies, Investment Mandates, Investment Horizons, Review Conditions, asset universes, and analytical preferences.
 
-That flexibility should operate inside recognizable investment-domain concepts such as evidence, thesis, portfolio, risk, recommendation, authority, decision, action, outcome, and evaluation.
+That flexibility should operate inside recognizable investment-domain concepts such as Evidence, Investment Thesis, Portfolio State, Portfolio Risk, Investment Recommendation, Investment Authority Regime, Human Investment Decision, Action Intent, Outcome, and Decision Evaluation.
 
 If users must reconstruct those concepts from generic nodes, graphs, prompts, or arbitrary workflows in order to use the product, Polaris has surrendered too much product opinion.
 
 **Decision rule:** Make the investment process configurable; keep the decision lifecycle opinionated.
 
-## 12. Learn from process, not outcome alone
+## 12. Learn from process, not Outcome alone
 
-> **Judge decisions by the quality of the process and the information available at the time, not merely by whether the outcome made money.**
+> **Judge decisions by the quality of the process and the information available at the time, not merely by whether the Outcome made money.**
 
-Investing is probabilistic. A sound decision can produce a loss, and a weak decision can produce a gain.
+Investing is probabilistic. A sound judgment can produce an unfavorable Outcome, and a weak judgment can coincide with a favorable one.
 
-Polaris should therefore preserve enough information to evaluate evidence quality, reasoning quality, risk reasoning, policy effects, recommendation quality, human judgment, execution fidelity, and realized outcome separately where useful.
+Polaris should therefore preserve enough information to evaluate Evidence quality, reasoning quality, Portfolio Risk reasoning, Policy and Formal Constraint effects, Investment Recommendation quality, Human Investment Decision, implementation fidelity, and observed Outcome separately where useful.
 
-Historical evaluation should use what was knowable at decision time. Later facts are valid inputs to evaluation and learning, but they must not be used to rewrite what the original decision supposedly knew.
+Historical Decision Evaluation should respect Judgment-Time Availability. Later facts are valid Evidence for retrospective evaluation and learning, but they must not be treated as though they were available to an earlier judgment.
 
-**Decision rule:** Evaluate the decision using what was knowable then; use what happened afterward to learn, not to rewrite the past.
+**Decision rule:** Evaluate the judgment using what was available then; use what happened afterward to learn, not to rewrite the past.
 
 ## Principle hierarchy
 
@@ -171,7 +174,7 @@ TRUST MODEL
 
 AUTHORITY MODEL
 4. AI initiative without AI sovereignty
-5. Risk shapes the decision
+5. Portfolio Risk shapes the decision
 
         ↓
 
@@ -182,7 +185,7 @@ EXPERIENCE MODEL
         ↓
 
 CONTINUITY MODEL
-8. Memory should change future behavior
+8. Durable Decision Memory should change future behavior
 9. Reality wins
 
         ↓
@@ -194,7 +197,7 @@ SCOPE MODEL
         ↓
 
 LEARNING MODEL
-12. Learn from process, not outcome alone
+12. Learn from process, not Outcome alone
 ```
 
 This hierarchy is conceptual rather than a precedence order. When principles appear to conflict, the Product Definition should be interpreted as a whole, with Purpose, Authority Model, and Scope Boundaries providing the strongest constraints.
@@ -203,15 +206,15 @@ This hierarchy is conceptual rather than a precedence order. When principles app
 
 ### "Prefer deterministic software where possible"
 
-Polaris already uses deterministic software where explicit rules, invariants, freshness requirements, hard constraints, and guarantees matter. AI remains valuable where interpretation, synthesis, challenge, and probabilistic reasoning are required.
+Polaris already uses deterministic software where explicit rules, invariants, Freshness Requirements, Formal Constraints, Policy, and guarantees matter. AI remains valuable where interpretation, synthesis, challenge, and probabilistic reasoning are required.
 
-A blanket deterministic preference would be less useful than the more precise distinction already established by the Authority Model and the trust principles.
+A blanket deterministic preference would be less useful than the more precise distinctions already established by the Authority Model and the trust principles.
 
 The stronger question is:
 
-> Does this responsibility require interpretation or enforcement?
+> Does this responsibility require investment interpretation, deterministic rule evaluation, or a power-specific authority act?
 
-Interpretation may justify AI. Enforceable constraints should generally be deterministic where practical.
+Interpretation may justify AI. Deterministic rule evaluation should be deterministic where practical. Authority remains governed by the applicable Investment Authority Regime rather than by implementation technique.
 
 ### "Keep it simple"
 
@@ -229,18 +232,18 @@ The principles should function as rejection and refinement tests for future prop
 
 For a proposed feature, architecture, roadmap item, or user experience, useful questions include:
 
-* Does this strengthen the decision lifecycle or merely add feature surface?
+* Does this strengthen the Investment Decision lifecycle or merely add feature surface?
 * Does it reduce blind trust in AI or increase it?
-* Does it preserve meaningful evidence and authority distinctions?
-* Does it increase useful analytical initiative without crossing the authority boundary?
-* Does risk shape the recommendation itself?
-* Does it spend user attention only when materially justified?
-* Does it respect decision-appropriate freshness?
-* Does preserved memory change future product behavior?
+* Does it preserve meaningful Evidence, judgment, and authority distinctions?
+* Does it increase useful analytical initiative without crossing a power-specific authority boundary?
+* Does Portfolio Risk shape the Investment Recommendation itself?
+* Does it spend user Attention only when materially justified?
+* Does it respect the applicable Freshness Requirements?
+* Does Durable Decision Memory change future product behavior?
 * Does authoritative operational reality remain authoritative?
 * Can an external specialist system continue to own the adjacent responsibility?
 * Is flexibility expressed in investment-domain terms rather than generic workflow primitives?
-* Can later evaluation distinguish process quality from outcome?
+* Can later Decision Evaluation distinguish process quality from Outcome?
 
 A proposal need not maximize every principle independently. It should not casually violate one in order to gain convenience elsewhere.
 
@@ -250,8 +253,8 @@ A proposal need not maximize every principle independently. It should not casual
 
 A proposal that allows Polaris to place trades automatically whenever model confidence exceeds a threshold conflicts with several principles:
 
-* **Trust by structure, not confidence:** model confidence is not sufficient authority.
-* **AI initiative without AI sovereignty:** consequential investment judgment remains human.
+* **Trust by structure, not confidence:** a model-specific score is not sufficient authority.
+* **AI initiative without AI sovereignty:** consequential investment and execution authority must come from the applicable authority regime and external action system.
 * **Integrate before absorbing:** market-facing execution remains a specialist responsibility under the current Product Definition.
 
 The product doctrine therefore rejects the proposal without requiring a feature-by-feature debate.
@@ -266,24 +269,24 @@ A proposal to build a full generalized charting or execution product because Pol
 
 A narrower Polaris-native capability may still be justified if it materially improves the decision experience.
 
-### Inferring approval from silence
+### Inferring Approval from silence
 
-A proposal to infer that policy approval occurred merely because no policy failure was recorded conflicts with:
+A proposal to infer Approval merely because no Policy denial, Formal Constraint violation, or other failure was recorded conflicts with:
 
 * **Trust by structure, not confidence.**
 * **Preserve truth before convenience.**
 
-The authority decision should be positively recorded when it is material.
+Policy allow, Formal Constraint satisfaction, and Approval are distinct facts. If Approval is materially required, the attributable authority act should be positively recorded.
 
-### Persisting only the final recommendation
+### Persisting only the final Investment Recommendation
 
-A proposal to store only the final recommendation for simplicity conflicts with:
+A proposal to store only the final Investment Recommendation for simplicity conflicts with:
 
 * **Preserve truth before convenience.**
-* **Memory should change future behavior.**
-* **Learn from process, not outcome alone.**
+* **Durable Decision Memory should change future behavior.**
+* **Learn from process, not Outcome alone.**
 
-The final recommendation cannot substitute for the material evidence, reasoning, authority, human decision, and subsequent lifecycle needed for trustworthy evaluation.
+The final Investment Recommendation cannot substitute for the material Evidence, reasoning, Decision Alternatives, authority acts, Human Investment Decision, Action Intent where applicable, external activity, Outcome, Decision Evaluation, and Lessons needed for trustworthy reconstruction.
 
 ## Relationship to roadmap and architecture
 
@@ -297,17 +300,17 @@ At the same time, the principles do not prescribe particular models, languages, 
 
 The Product Principles imply:
 
-* product progress is measured by stronger portfolio decision capability rather than feature count;
+* product progress is measured by stronger Portfolio decision capability rather than feature count;
 * trustworthy structure matters more than persuasive model confidence;
 * user simplicity must not erase meaningful truth;
-* analytical autonomy should be broad while consequential authority remains bounded;
-* risk is part of recommendation formation;
-* human attention is a scarce resource to be spent selectively;
-* freshness requirements follow the supported decision;
-* durable memory must influence future behavior;
+* analytical autonomy should be broad while consequential authority remains bounded and power-specific;
+* Portfolio Risk is part of Investment Recommendation formation;
+* human Attention is a scarce resource to be spent selectively;
+* Freshness Requirements follow the supported investment use;
+* Durable Decision Memory must influence future behavior;
 * authoritative operational reality outranks expected state;
 * external specialist responsibilities should normally remain external;
 * configurability should stay grounded in investment-domain concepts;
-* evaluation should distinguish decision-process quality from realized outcome.
+* Decision Evaluation should distinguish decision-process quality from Outcome.
 
 Together these principles provide durable decision rules for building Polaris after the Product Definition is complete.

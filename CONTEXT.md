@@ -133,7 +133,7 @@ identifier, or a claim about the workflow supplied by a transport.
 
 An **Investment Recommendation** is an attributable, time-specific Polaris judgment within an Investment Decision that expresses Polaris's preferred economic disposition of the Decision Need for the affected Portfolio or Portfolios as formed within the applicable Decision Context using the information available to that judgment.
 
-An Investment Recommendation may prefer action, hedging, resizing, Allocation or Exposure change, deliberate hold or no-action, waiting, or another Portfolio-relevant economic disposition. It may identify one or more Proposed Actions or implementation preferences, but it is distinct from a strategy/model signal and from an Order or other broker execution instruction.
+An Investment Recommendation may prefer action, hedging, resizing, Allocation or Exposure change, deliberate hold or no-action, waiting, or another Portfolio-relevant economic disposition. It may identify one or more Proposed Actions or implementation preferences, but it is distinct from an Investment View, analytical signal, and from an Order or other broker execution instruction.
 
 Polaris may present a human-reviewable trade setup when useful, including suggested implementation, approximate quantity, preferred price region, investment invalidation, Risk boundary, objective, or review condition. Those investment and implementation judgments do not make Polaris the authority for exact order placement, routing, working-order state, fills, stop orders, or take-profit orders.
 
@@ -151,7 +151,7 @@ External Resolution that happens to produce a Portfolio state matching an Invest
 
 Related distinctions:
 
-- A **Strategy Decision** is the selected typed synthesis outcome from structured strategy hypotheses and is not itself the canonical Investment Recommendation.
+- An **Investment View** is the attributable synthesized investment interpretation that may inform an Investment Decision but is not itself the canonical Investment Recommendation.
 - A **Proposed Action** or **Action Candidate** is an attributable concrete candidate implementation considered within an Investment Decision for producing a possible Portfolio consequence.
 - A **Trade Package** is downstream packaging of Proposed Actions for execution-risk review.
 - An **Order** is an execution-domain instruction describing exact market-facing action. Orders, routing, working-order state, fills, stop orders, and take-profit orders remain externally authoritative execution facts unless Polaris product scope is explicitly changed.
@@ -170,7 +170,7 @@ Where knowable and material, Polaris preserves which Proposed Actions informed a
 
 A **Capital-Relevant Output** is a Polaris output that could reasonably influence allocation, position sizing, entry or exit timing, hedging, risk acceptance, or portfolio exposure if a human acted on it.
 
-Capital-Relevant Outputs include Investment Recommendations, Proposed Actions, Action Candidates, Trade Packages, risk responses that affect exposure, Strategy Decisions when exposed as guidance, and RAG, report, or tool answers that make readiness-gating claims about portfolio action or risk.
+Capital-Relevant Outputs include Investment Recommendations, Proposed Actions, Action Candidates, Trade Packages, risk responses that affect exposure, Investment Views when exposed as guidance, and RAG, report, or tool answers that make readiness-gating claims about portfolio action or risk.
 
 Raw market data, telemetry, observability dashboards, implementation diagnostics, contextual narrative with no action or risk implication, and internal runtime evidence not exposed as guidance are not automatically Capital-Relevant Outputs.
 
@@ -267,19 +267,37 @@ An **Authority** is the domain or architectural owner allowed to decide, write, 
 
 For example, PostgreSQL may be the System of Record for an approval task, while the approval lifecycle authority defines the semantics for Approval, Contestability, Residual-Risk Acceptance, and advancement across the governed boundary.
 
-## Strategy Hypothesis
+## Investment Strategy
 
-A **Strategy Hypothesis** is a typed, evidence-bound argument for one market or portfolio perspective, including supporting evidence, contradicting evidence, assumptions, invalidation conditions, strength, confidence, directional bias, and an evidence fingerprint.
+An **Investment Strategy** is a durable recurring approach to investment judgment and portfolio management that defines how investment opportunities, market conditions, portfolio context, risk, and tradeoffs are generally interpreted and acted upon within its applicable scope.
 
-A Strategy Hypothesis is not a vote and is not the final strategy selection. Bull, Bear, and Sideways are perspectives that produce comparable Strategy Hypotheses from the same evidence context. The final Strategy Decision comes from comparing hypotheses under the synthesis policy.
+An Investment Strategy is distinct from an Investment Mandate and does not override applicable Formal Constraints, Investment Authority Regimes, or other authority facts. One Portfolio may employ multiple Investment Strategies, and strategy applicability may change through time without changing Portfolio identity. An Investment Strategy may remain unchanged while Investment Hypotheses, Investment Views, Portfolio Posture, and Investment Recommendations change repeatedly.
 
-## Strategy Decision
+A market feature used by a strategy is not automatically an Investment Strategy. Trend, momentum, valuation, carry, volatility, mean reversion, or another analytical dimension may be foundational to an Investment Strategy, but the analytical dimension or its current state is distinct from the durable recurring approach that uses it.
 
-A **Strategy Decision** is the typed synthesis outcome that selects or blends portfolio posture from competing Strategy Hypotheses under evidence, market, portfolio, and risk constraints.
+## Investment Hypothesis
 
-A Strategy Decision may express posture or regime interpretation, directional bias, confidence and uncertainty, thesis or rationale, synthesis weights, constraints, and degradation reasons.
+An **Investment Hypothesis** is an attributable, falsifiable candidate interpretation of investment-relevant conditions whose supporting Evidence, conflicting Evidence, assumptions, invalidation conditions, strength, confidence, Directional Bias, and uncertainty remain reconstructable where material.
 
-A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Durable Promotion, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Investment Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
+Multiple Investment Hypotheses may coexist, conflict, be challenged, rejected, superseded, or remain unresolved without requiring a Decision Need or Investment Decision to exist. An Investment Hypothesis is not a vote, Investment Strategy, Portfolio Posture, Investment View, or Investment Recommendation.
+
+Bull, Bear, and Sideways are trend-oriented analytical perspectives that may produce competing Investment Hypotheses about market or portfolio conditions. They are not themselves Investment Strategies or durable judgments merely because legacy Polaris implementation described them as strategy perspectives. Trend may be a foundational analytical dimension within an Investment Strategy without making `Bull`, `Bear`, or `Sideways` strategies.
+
+`Strategy Hypothesis` is retired as preferred canonical vocabulary when it refers to this candidate investment-interpretation role; use `Investment Hypothesis`.
+
+## Investment View
+
+An **Investment View** is an attributable, time-specific synthesized interpretation of investment-relevant conditions formed through reasoning and challenge from available Evidence and relevant Investment Hypotheses.
+
+An Investment View may express a leading interpretation, regime interpretation, Directional Bias, material alternatives or dissent, assumptions, invalidation conditions, confidence, and uncertainty without thereby specifying a Portfolio action. It may exist before, alongside, or without a Decision Need or Investment Decision.
+
+One Investment View may inform zero, one, or multiple Investment Decisions, and one Investment Decision may draw materially on zero, one, or multiple Investment Views. The same Investment View may correctly lead to different Portfolio consequences, Portfolio Postures, or Investment Recommendations for different Portfolios because Portfolio State, Investment Mandate, Risk, Decision Scope, and other Decision Context differ.
+
+Investment View is distinct from Portfolio Posture and Investment Recommendation. A View describes the synthesized investment interpretation; Portfolio Posture describes a Portfolio-specific stance; an Investment Recommendation expresses Polaris's preferred economic disposition of a particular Decision Need.
+
+A materially new attributable Investment View formed after new Evidence or reassessment is preserved as a new historical judgment rather than destructively rewriting an earlier View. No particular synthesis mechanism is required: multi-agent debate, hypothesis comparison, one-model reasoning, deterministic analytics, or another mechanism may contribute when the resulting domain semantics are preserved.
+
+`Strategy Decision` is retired as canonical Polaris domain vocabulary. The legacy concept did not represent a genuine durable decision; it combined hypothesis synthesis with downstream Portfolio-specific posture under a misleading `Decision` label. Its synthesized investment-interpretation meaning belongs to Investment View, while any Portfolio-specific posture or consequence belongs downstream under Portfolio Posture, projected Portfolio consequence, or Investment Recommendation according to meaning. `Strategy Synthesis` may describe a reasoning or implementation mechanism that contributes to an Investment View, but it is not required as a canonical investment-domain judgment.
 
 ## Execution Risk
 
@@ -295,7 +313,7 @@ In current Polaris, Execution Risk assessment is decision-support and governance
 
 **Allocation** is a concrete target or actual distribution of capital across assets, sectors, strategies, accounts, or risk buckets.
 
-A Strategy Decision may express Portfolio Posture. An Investment Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and authority handling.
+An Investment View may inform Portfolio Posture. An Investment Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and authority handling.
 
 ## Risk
 

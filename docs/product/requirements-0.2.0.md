@@ -1,7 +1,8 @@
 # Polaris 0.2.0 Requirements Specification
 
-**Status:** Proposed  
+**Status:** Approved  
 **Release:** 0.2.0  
+**Approved:** 2026-09-04  
 **Purpose:** Define the greenfield product requirements Polaris 0.2.0 must satisfy before architecture or implementation choices are allowed to constrain the solution.
 
 ## Authority and derivation

@@ -3487,7 +3487,7 @@ Action Intent:
 increase SPY Exposure to 60%
 ```
 
-The existence of that Action Intent does not make the decision compliant, authorized, approved, released, or executed. It records intended continuity; authority and governance facts remain separate.
+The existence of that Action Intent does not make the decision compliant, admissible, approved, authorized, or executed. It records intended continuity; authority and governance facts remain separate.
 
 **Distinction proved:** Action Intent describes intended external consequence, not permission to cause it.
 
@@ -3533,5 +3533,549 @@ The following invariants are now accepted:
 21. **Changes to execution mechanics that preserve the same intended external consequence do not by themselves require a new Action Intent.**
 22. **A material change to the intended Portfolio consequence requires new attributable human judgment rather than silent Action Intent mutation; existing Investment Decision identity/lifecycle rules determine whether that judgment belongs to the same unresolved decision or a new causally linked decision.**
 23. **A thesis invalidation condition, Risk boundary, or Review Condition is not an Action Intent merely because it references a price or trigger. An intended externally maintained control or contingent external consequence may be an Action Intent; the authoritative resulting Order remains external.**
-24. **Action Intent does not imply Approval, Mandate compliance, Residual-Risk Acceptance, authorization, Release, or execution authority.**
+24. **Action Intent does not imply Admissibility, Approval, Mandate compliance, Residual-Risk Acceptance, authorization, or execution authority.**
 25. **External activity does not retroactively create an Action Intent, Human Investment Decision, Proposed Action, or Investment Recommendation merely because its economic result happens to match one of those concepts.**
+
+## Resolved Investment Authority, Admissibility, and human-governance semantics
+
+The Authority & Human Decision pass now resolves the authority structure around consequential investment judgment without changing the already-frozen meaning of the Human Investment Decision itself. `Investment Authority Regime`, `Admissibility`, and `Authority Denial` are canonical domain vocabulary; `Approval` and `Residual-Risk Acceptance` are refined as scoped authority acts; bare governed-output `Release` is retired as canonical domain vocabulary. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section supersedes the earlier discovery-era `Release` collision and any earlier shorthand that used `Release` as a generic authority or readiness result. Ordinary software-release terminology remains unaffected.
+
+### Authority is power-specific
+
+Investment authority is not one undifferentiated human permission bit.
+
+A single Investment Decision may involve several independently scoped authority powers:
+
+```text
+Portfolio manager
+may:
+- make the Human Investment Decision
+
+Risk officer
+may:
+- accept specified Residual Risk
+
+Investment committee
+may:
+- authorize a Mandate Exception
+
+Compliance or governance reviewer
+may:
+- approve a governed subject for a controlled use
+```
+
+The same actor may possess several of those powers, but the domain must not infer one authority from another merely because the actor is involved in the Investment Decision.
+
+For example:
+
+```text
+authority to choose
+≠
+authority to approve
+≠
+authority to grant a Mandate Exception
+≠
+authority to accept Residual Risk
+≠
+execution authority
+```
+
+**Distinction proved:** investment authority is power-specific rather than a generic property of a participant.
+
+### Multi-Portfolio decisions preserve each Portfolio's authority regime
+
+Suppose one Investment Decision spans Portfolio A and Portfolio B:
+
+```text
+Decision Scope:
+Portfolio A + Portfolio B
+
+Portfolio A authority regime:
+portfolio manager may decide independently
+
+Portfolio B authority regime:
+investment committee approval required
+```
+
+The decision remains one coherent cross-Portfolio Investment Decision. Polaris does not invent a synthetic combined authority regime merely because Decision Scope is shared.
+
+Each Portfolio retains the authority assignments and conditions that actually govern its capital unless an explicitly authoritative cross-Portfolio regime establishes otherwise.
+
+**Distinction proved:** shared Decision Scope does not collapse Portfolio-specific authority.
+
+### Attribution does not prove authority
+
+Suppose an attributable human participant records:
+
+```text
+Human Investment Decision:
+Increase SPY Exposure to 60%.
+```
+
+but that participant lacks one or more authority powers required for the consequence.
+
+Polaris still preserves the historical fact that the human judgment occurred. It must not transform attribution into an assertion that every required authority was present.
+
+Likewise, a signed review record from an actor outside the applicable Approval scope does not become a valid Approval merely because the actor is identifiable.
+
+Conceptually:
+
+```text
+who performed the act?
+        ≠
+was that actor authorized to establish this authority fact?
+```
+
+**Distinction proved:** attribution and authority are independent historical facts.
+
+### Admissibility is relative to subject, boundary, and time
+
+Admissibility answers:
+
+```text
+For this governed subject,
+for this consequential use,
+at this time,
+are the applicable authority and readiness conditions satisfied?
+```
+
+It is therefore not a global Boolean attached to an Investment Recommendation, Proposed Action, Human Investment Decision, or output.
+
+Suppose R-1 relied on stale critical Portfolio State. R-1 may be:
+
+```text
+inadmissible:
+as supported current investment guidance
+```
+
+while still being legitimately visible in:
+
+```text
+audit history
+challenge UI
+historical reconstruction
+Evaluation
+```
+
+Governance must not make the system less inspectable by hiding the artifact whose deficiency needs examination.
+
+**Distinction proved:** inadmissible for one consequential use ≠ forbidden from every form of visibility.
+
+### Admissibility is a status; Approval is an authority act
+
+Admissibility and Approval answer different questions:
+
+```text
+Admissibility
+What is the authority status of this subject for this use?
+
+Approval
+Did an actor or process possessing the required authority
+affirmatively permit this subject to advance within its scope?
+```
+
+Approval may be one fact relevant to Admissibility when the Investment Authority Regime requires it, but Approval does not replace all independent readiness or authority conditions.
+
+For example:
+
+```text
+Approval:
+yes
+
+critical Evidence:
+stale
+
+current Admissibility:
+not established
+```
+
+or:
+
+```text
+Formal Constraint:
+violated
+
+Mandate Exception:
+none
+
+Approval:
+yes
+```
+
+The Approval neither freshens the Evidence nor manufactures the missing Exception.
+
+**Distinction proved:** Approval ≠ Admissibility and authority acts do not become universal override tokens.
+
+### Approval does not choose the investment action
+
+Suppose:
+
+```text
+R-1:
+Reduce SPY Exposure 20%.
+
+Admissibility:
+established.
+
+Approval:
+granted.
+
+Human Investment Decision:
+Reject R-1.
+Hold.
+```
+
+All facts coexist.
+
+Historical reconstruction should be able to say:
+
+```text
+Polaris recommended it.
+Governance permitted it.
+The human rejected it.
+```
+
+The Human Investment Decision does not retroactively revoke the historical Approval, and the Approval does not compel the human to select the approved Recommendation.
+
+**Distinction proved:** authority permission ≠ consequential human choice.
+
+### Material human modification does not inherit Approval silently
+
+Suppose:
+
+```text
+Investment Recommendation:
+Reduce SPY Exposure by 20%.
+
+Approval:
+granted for the reviewed 20% reduction.
+
+Human Investment Decision:
+Reduce SPY Exposure by 40%.
+```
+
+The 40% choice is a materially different governed consequence. Polaris cannot infer that Approval for 20% covers 40% merely because the choices are directionally similar.
+
+The modified consequence must be evaluated against the authority requirements that actually apply to 40%. The applicable regime may or may not require another Approval; the domain does not prescribe that policy. It requires the scope mismatch to remain explicit.
+
+**Distinction proved:** Approval scope does not silently expand to cover materially modified human choice.
+
+### Human decision without a Recommendation does not bypass authority
+
+A Human Investment Decision can exist when Polaris has no supportable Investment Recommendation:
+
+```text
+Investment Recommendation:
+none
+
+Human Investment Decision:
+Reduce SPY 5%.
+```
+
+That remains valid historical domain state. But the absence of a Polaris Recommendation does not erase authority conditions that apply to the human-selected consequence.
+
+If the 5% reduction requires a Mandate Exception, Residual-Risk Acceptance, Approval, or another authority fact under the applicable regime, those requirements continue to exist.
+
+**Distinction proved:** authority follows the consequential subject, not whether Polaris happened to recommend it first.
+
+### Mandate Exception remains a specific authority fact
+
+Suppose:
+
+```text
+Formal Constraint:
+AAPL <= 10%
+
+Human desired consequence:
+AAPL = 14%
+
+Constraint result:
+VIOLATED
+```
+
+A scoped Mandate Exception can make that departure authorized:
+
+```text
+Mandate Exception:
+authorized for this decision up to 14%
+```
+
+The historical truth remains:
+
+```text
+Formal Constraint:
+VIOLATED
+
+Mandate Exception:
+AUTHORIZED
+```
+
+not:
+
+```text
+Formal Constraint:
+SATISFIED
+```
+
+A Mandate Exception is not a generic Approval. It specifically answers whether an otherwise applicable Formal Constraint may be departed from for the defined scope.
+
+**Distinction proved:** Mandate Exception ≠ Approval and authorization of departure ≠ constraint satisfaction.
+
+### Residual-Risk Acceptance preserves the Risk
+
+Suppose:
+
+```text
+Recommendation:
+Reduce SPY 10%
+
+Residual Risk:
+liquidity / basis risk remains
+
+Required Residual-Risk Acceptance:
+granted
+```
+
+The correct history is:
+
+```text
+Risk remains:
+yes
+
+Risk accepted:
+yes
+by authorized actor
+for this scope
+```
+
+Residual-Risk Acceptance does not mean the Risk disappeared or was judged harmless.
+
+Nor does it cure an unrelated authority or readiness problem:
+
+```text
+critical Portfolio State:
+stale
+
+Residual-Risk Acceptance:
+granted
+```
+
+cannot be transformed into:
+
+```text
+stale evidence is now sufficient
+```
+
+without some independently authoritative rule explicitly establishing that result.
+
+**Distinction proved:** Residual-Risk Acceptance satisfies only the residual-risk condition it is authorized to address.
+
+### Authority Denial is distinct from policy denial and human rejection
+
+Suppose:
+
+```text
+Recommendation R-1:
+Reduce SPY 20%
+
+Policy:
+allows
+
+Evidence:
+sufficient
+
+authorized governance reviewer:
+denies advancement because an unresolved organizational concern remains
+```
+
+That negative act is an Authority Denial.
+
+It is not the same fact as:
+
+```text
+Policy denial
+```
+
+and it is not the same as:
+
+```text
+Human Investment Decision:
+Reject R-1
+```
+
+The practical outcome may be similar, but the causal and authority provenance are different.
+
+Conceptually:
+
+```text
+Policy denial
+≠
+inadmissibility status
+≠
+Authority Denial
+≠
+human rejection
+```
+
+**Distinction proved:** negative authority provenance must preserve who or what denied advancement and under which authority semantics.
+
+### Authority facts are temporal
+
+Suppose:
+
+```text
+10:00
+R-1 approved.
+
+10:15
+critical new Evidence arrives.
+
+10:20
+R-1 no longer satisfies its required evidence basis.
+```
+
+The Approval at 10:00 remains a historical authority fact. The new information may make that Approval insufficient for current advancement without rewriting whether the Approval occurred.
+
+The same principle applies when:
+
+```text
+authority expires
+authority is revoked
+approver delegation changes
+Mandate changes
+Decision Scope changes
+governed subject changes materially
+required Evidence changes materially
+```
+
+**Distinction proved:** current authority applicability may change while historical authority facts remain immutable history.
+
+### Later authority does not rewrite earlier absence of authority
+
+Suppose:
+
+```text
+10:00
+Human Investment Decision:
+Increase AAPL to 14%.
+
+Formal Constraint:
+10%.
+
+Mandate Exception:
+pending.
+```
+
+At 10:15:
+
+```text
+Mandate Exception:
+granted.
+```
+
+The later Exception may permit subsequent advancement when the applicable regime allows it, but historical reconstruction must still show that the human judgment occurred before the Exception was granted.
+
+If a future authority regime explicitly supports retrospective ratification, the ratification itself must be represented as an attributable, time-specific authority act. Retroactivity is not inferred merely because authority appears later.
+
+**Distinction proved:** later authority does not silently rewrite the authority state that existed when an earlier judgment occurred.
+
+### External reality cannot manufacture authority
+
+Suppose required authority conditions were not satisfied, but externally authoritative broker activity nevertheless changes the Portfolio:
+
+```text
+SPY Exposure:
+60% → 40%
+```
+
+Polaris observes and preserves the external fact. It must not infer:
+
+```text
+Admissibility:
+yes
+
+Approval:
+yes
+
+Mandate Exception:
+yes
+
+Residual-Risk Acceptance:
+yes
+```
+
+merely because the action happened.
+
+Operational reality may truthfully be both:
+
+```text
+actually occurred
+```
+
+and:
+
+```text
+unauthorized / noncompliant / unexplained
+```
+
+**Distinction proved:** occurrence does not retroactively create missing authority provenance.
+
+### Permission state and actual boundary crossing are separate
+
+A governed subject may be admissible or approved and never cross the relevant product boundary. Conversely, an output or action may cross a boundary improperly despite missing authority.
+
+The domain therefore distinguishes:
+
+```text
+Admissibility
+Is this subject eligible for this consequential use?
+
+Approval / other authority facts
+Has the required authority actually been exercised?
+
+Publication / Durable Promotion / external activity
+What actually crossed the relevant boundary or occurred?
+```
+
+A generic governed-output `Release` noun adds no unique investment-domain meaning between those concepts and collides with ordinary software-release language. Bare `Release` is therefore retired from canonical domain vocabulary.
+
+**Distinction proved:** permission state ≠ actual boundary crossing, and actual crossing does not manufacture permission.
+
+### Frozen Investment Authority, Admissibility, and human-governance invariants
+
+The following invariants are now accepted:
+
+1. **The Investment Authority Regime is the temporally applicable structure of authority assignments, scopes, limits, and conditions governing which attributable actors or processes may exercise particular investment-authority powers for a Portfolio or Investment Decision.**
+2. **Investment authority is power-specific: authority to make a Human Investment Decision, approve a governed subject, grant a Mandate Exception, accept residual Risk, or exercise execution authority must not be inferred from possession of another authority.**
+3. **A multi-Portfolio Investment Decision preserves the applicable authority regime and authority requirements of each Portfolio unless an explicitly authoritative cross-Portfolio regime says otherwise.**
+4. **Attribution ≠ authority. Recording that a human made a judgment does not by itself establish that the human possessed every authority required for consequential use of that judgment.**
+5. **An attempted authority act by an actor or process outside its applicable authority scope does not establish the corresponding Approval, Mandate Exception, Residual-Risk Acceptance, or other authority fact.**
+6. **Material authority facts must preserve their attributable actor or process, governed subject, scope, conditions, and temporal applicability sufficiently for historical reconstruction.**
+7. **Admissibility is the time-specific, subject-specific, and boundary-specific authority status describing whether a governed subject is eligible for a specified consequential use under the applicable Evidence, Policy, Mandate, Risk, Governance, and authority conditions.**
+8. **Admissibility is not a global property of an output, Recommendation, Proposed Action, Human Investment Decision, or other governed subject.**
+9. **The same governed subject may be inadmissible for one consequential use while remaining legitimately visible for another purpose such as audit, challenge, historical reconstruction, or Evaluation.**
+10. **Insufficient authority or readiness information must not be silently converted into affirmative admissibility; unresolved applicability must remain distinguishable from established permission or established prohibition.**
+11. **Admissibility ≠ Approval. Admissibility is an authority status; Approval is an attributable positive authority act.**
+12. **Admissibility ≠ Human Investment Decision. Whether something may be supported or advanced does not determine what the human chooses.**
+13. **Approval is an attributable positive authority decision by an actor or process authorized for the applicable boundary that permits a specific governed subject to advance within a defined scope and under stated conditions, subject to independent requirements that the Approval does not itself satisfy.**
+14. **Approval is subject- and scope-specific; Approval of one Recommendation, Proposed Action, quantity, Portfolio scope, or governed consequence does not automatically transfer to a materially modified one.**
+15. **Approval does not compel human acceptance, and a later Human Investment Decision that rejects or modifies an approved subject does not rewrite the historical Approval.**
+16. **A material human modification must be evaluated against the authority requirements applicable to the modified consequence; prior Approval must not silently expand to cover it.**
+17. **A Human Investment Decision may exist without a Polaris Investment Recommendation or without an Approval, but absence of those upstream facts does not erase any authority requirements applicable to the human-selected consequence.**
+18. **Authority Denial is an attributable negative authority decision by an actor or process authorized for the applicable boundary that a specific governed subject may not advance within the defined scope and stated reasons.**
+19. **Authority Denial ≠ deterministic Policy denial ≠ an inadmissibility status ≠ a Human Investment Decision rejecting an Investment Recommendation.**
+20. **Mandate Exception ≠ Approval ≠ Residual-Risk Acceptance; each answers a distinct authority question.**
+21. **A Mandate Exception authorizes only its scoped departure from an otherwise applicable Formal Constraint and does not rewrite the underlying constraint or its violation result.**
+22. **Residual-Risk Acceptance is an explicit, attributable, scoped authority decision accepting specified identified residual Risk for a governed subject or consequential use when the applicable authority regime permits advancement conditional on that acceptance.**
+23. **Residual-Risk Acceptance preserves the existence and identity of the accepted Risk; acceptance does not mean the Risk disappeared or was determined harmless.**
+24. **Residual-Risk Acceptance satisfies only the residual-risk condition it is authorized to address; it does not by itself cure stale or insufficient Evidence, a Policy denial, a missing Mandate Exception, a missing required Approval, or another independent authority blocker.**
+25. **Approval does not imply Residual-Risk Acceptance, and Residual-Risk Acceptance does not imply Approval.**
+26. **Approval, Mandate Exception, Residual-Risk Acceptance, and Authority Denial require authority appropriate to that specific act; generic human involvement is insufficient.**
+27. **Material changes to Evidence, Decision Context, governed subject, Decision Scope, Policy, Mandate, Risk, or authority conditions may change the current applicability of an earlier authority fact without rewriting that historical fact.**
+28. **Expiration or revocation of authority changes current authority applicability rather than deleting the authority fact that historically existed.**
+29. **A later Approval, Mandate Exception, or Residual-Risk Acceptance does not silently rewrite an earlier judgment as having possessed that authority at the earlier time.**
+30. **Authoritative external activity or resulting Portfolio State does not retroactively establish missing Admissibility, Approval, Mandate Exception, Residual-Risk Acceptance, Human Investment Decision, or other authority provenance merely because the observed outcome matches an intended or recommended consequence.**
+31. **Permission state ≠ actual boundary crossing. A governed subject may be admissible or approved and never be Published or Durably Promoted; an output may also cross a boundary improperly without that occurrence manufacturing the missing authority facts.**
+32. **Bare governed-output `Release` ceases to be canonical domain vocabulary: use Admissibility for authority status, Approval or the specific authority fact for permission, and Publication or Durable Promotion for actual Polaris output transitions; ordinary software-release terminology remains unaffected.**

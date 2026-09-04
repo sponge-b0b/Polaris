@@ -4776,3 +4776,188 @@ The following invariants are now accepted:
 20. **`Strategy Synthesis` is not presently required as a canonical investment-domain noun; it may describe a synthesis process or implementation output that contributes to an Investment View.**
 21. **The legacy `Strategy Decision` concept is a semantic SPLIT rather than a one-for-one rename: its synthesized investment interpretation belongs to Investment View, while Portfolio-specific posture/consequence belongs downstream under Portfolio Posture, projected consequence, or Investment Recommendation according to meaning.**
 22. **`Strategy Decision` ceases to be canonical vocabulary rather than becoming an alias that silently preserves its current overloaded semantics.**
+
+## Resolved Decision Need and initiation semantics
+
+The decision-initiation pass resolves the previously open question of whether human confirmation is required before an Investment Decision may exist. It is not. `Decision Need` remains the canonical domain determination that deliberate investment judgment is warranted; initiating decision work is a knowledge/work-state transition rather than an exercise of consequential investment authority. The canonical definition is recorded in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+### User request and investment authority are different powers
+
+Suppose a participant who is permitted to request Polaris analysis asks:
+
+```text
+Should Portfolio A reduce SPY Exposure?
+```
+
+The request may lead Attention to establish a Decision Need and initiate Investment Decision work even if that participant is not the actor who ultimately possesses authority to make the Human Investment Decision.
+
+```text
+permission to request / perform decision work
+        ≠
+authority to dispose of Portfolio capital
+```
+
+**Distinction proved:** creating decision work does not acquire or exercise consequential investment authority.
+
+### Scheduled review may initiate work without human confirmation
+
+Suppose a scheduled Portfolio review becomes due.
+
+If Attention finds no unresolved investment choice requiring deliberate judgment:
+
+```text
+Scheduled review
+        ↓
+Attention
+        ↓
+Decision Need: none
+```
+
+If the review instead establishes that concentration, Risk, or changed conditions now require a fresh choice:
+
+```text
+Scheduled review
+        ↓
+Attention
+        ↓
+Decision Need established
+        ↓
+Investment Decision initiated
+```
+
+No additional human confirmation is semantically required merely to authorize the existence of that work. A product or operating Policy may still govern whether the work is executed, queued, suppressed, or presented.
+
+**Distinction proved:** scheduled review ≠ automatic decision creation, while an established Decision Need is sufficient domain basis for initiation.
+
+### Deterministic condition does not automatically create investment judgment
+
+Suppose:
+
+```text
+Formal Constraint:
+Technology Exposure <= 30%
+
+Observed Portfolio State:
+Technology Exposure = 32%
+```
+
+The deterministic violation is a real domain fact. It creates an Investment Decision only when an unresolved investment choice requiring deliberate judgment remains, such as how, when, or through which permissible consequence the Portfolio should respond.
+
+If applicable deterministic enforcement already fully specifies what must occur and leaves no investment choice to judge, that enforcement is not an Investment Decision merely because the condition is capital-relevant.
+
+**Distinction proved:** deterministic condition or violation ≠ Decision Need unless deliberate investment judgment remains necessary.
+
+### Interpretive Attention may initiate while preserving provenance
+
+Suppose new Evidence appears to materially undermine the current SPY thesis:
+
+```text
+Attention assessment:
+material thesis deterioration appears likely
+
+Decision Need:
+Should Portfolio A reduce SPY Exposure?
+```
+
+Polaris may establish that Decision Need and initiate the Investment Decision without acquiring authority to make the eventual Human Investment Decision. The historical record must preserve that the initiation basis was interpretive rather than deterministic.
+
+**Distinction proved:** interpretive initiation is valid decision work but does not masquerade as formal authority or human investment judgment.
+
+### Multiple triggers do not create duplicate decision identity
+
+Suppose within minutes:
+
+```text
+08:30 scheduled review
+→ concentration concern
+
+08:31 user asks about concentration
+
+08:32 new Evidence reinforces the concern
+```
+
+If one unresolved Investment Decision already represents the same coherent investment choice, those causes contribute to that decision rather than creating three Investment Decisions.
+
+**Distinction proved:** trigger cardinality ≠ Decision Need or Investment Decision cardinality; identity follows the coherent unresolved choice.
+
+### Initiation may precede resolved Decision Scope
+
+Polaris may establish that deliberate Portfolio-relevant judgment is required before every affected Portfolio is fully resolved. Existing Decision Scope rules continue to apply:
+
+```text
+Decision Need / initiation:
+may proceed with unresolved Scope
+
+final Capital-Relevant Investment Recommendation:
+requires established Portfolio applicability
+
+Human Investment Decision:
+requires established Portfolio applicability
+```
+
+**Distinction proved:** uncertainty during initiation does not authorize downstream consequential judgment over an assumed Portfolio scope.
+
+### Erroneous initiation remains historical truth
+
+Suppose interpretive Attention establishes a Decision Need because Polaris believes new Evidence invalidates an active thesis. Later reconstruction shows that the initiating Evidence was erroneous and no genuine Portfolio-relevant choice was actually present.
+
+The correct history remains:
+
+```text
+Decision Need was established
+Investment Decision work occurred
+basis later shown erroneous / unsupported
+```
+
+Polaris must not erase that history. Nor should it label the case `External Resolution` merely to produce a convenient terminal state when no real unresolved choice was eliminated by changed circumstances.
+
+**Distinction proved:** historical occurrence ≠ historical correctness, and erroneous initiation ≠ External Resolution.
+
+### Dismissing work is not the same as making the investment choice
+
+Compare:
+
+```text
+Human:
+Stop analyzing this.
+```
+
+with:
+
+```text
+Human Investment Decision:
+Hold SPY. Do not reduce Exposure.
+```
+
+The first may stop or suppress Polaris work while leaving the underlying investment choice undisposed. The second is substantive human investment judgment.
+
+A work-management action must not be promoted to Human Investment Decision solely because it ends an analytical workflow.
+
+**Distinction proved:** work-management disposition ≠ substantive Portfolio-relevant judgment.
+
+### Frozen Decision Need and initiation invariants
+
+The following invariants are now accepted:
+
+1. **Attention ≠ Decision Need ≠ Investment Decision ≠ Human Investment Decision.**
+2. **A Decision Need is an explicit, attributable determination that an unresolved Portfolio-relevant investment choice warrants deliberate judgment.**
+3. **The observation, user request, scheduled review, condition, Evidence, Portfolio change, or other trigger that causes Attention to evaluate is not itself the Decision Need.**
+4. **Decision Need semantics follow the determination that judgment is warranted rather than the source of the initiating trigger; the trigger and determination provenance remain attributable where material.**
+5. **A Decision Need may be established through an accepted user request, deterministic Attention, interpretive Attention, a scheduled or condition-driven review, or another supported initiation path.**
+6. **Human confirmation is not a canonical semantic prerequisite for establishing a Decision Need or initiating Investment Decision work.**
+7. **Establishing a Decision Need or initiating an Investment Decision is not an exercise of consequential investment authority.**
+8. **Decision initiation does not imply an Investment Recommendation, Proposed Action, Admissibility, Approval, Mandate Exception, Residual-Risk Acceptance, Human Investment Decision, Action Intent, execution authority, or Portfolio change.**
+9. **When an established Decision Need is not already represented by an unresolved Investment Decision concerning the same coherent unresolved choice, the Decision Need is sufficient domain basis to initiate an Investment Decision.**
+10. **When an unresolved Investment Decision already represents the same coherent choice, later triggers, requests, observations, or Evidence contribute to that existing decision rather than creating duplicate Investment Decision identity merely because initiation occurred again.**
+11. **Multiple initiating causes may materially contribute to one Decision Need or Investment Decision; initiating-event cardinality does not determine Investment Decision cardinality.**
+12. **A scheduled review, matched criterion, notable observation, or interpretive concern does not automatically establish a Decision Need; deliberate judgment must actually be determined to be warranted.**
+13. **A deterministic condition, including a Formal Constraint result, does not automatically create an Investment Decision when no unresolved investment choice requiring deliberate judgment exists.**
+14. **Interpretive Attention may establish a Decision Need without acquiring Human Investment Decision authority; the interpretive provenance of the initiation remains distinguishable from deterministic initiation.**
+15. **Investment Decision initiation may occur before Decision Scope is fully resolved, while the existing rule remains that final Capital-Relevant Investment Recommendation or Human Investment Decision formation requires established Portfolio applicability.**
+16. **Autonomous Decision initiation remains bounded by the information, Portfolio context, and operating scope Polaris is configured or otherwise authorized to observe or work within; initiation capability does not expand that scope.**
+17. **A later determination that an initiated Decision Need was erroneous or unsupported does not erase the historical initiation, its attributable basis, or the Investment Decision work that actually occurred.**
+18. **A Decision Need later found to have been erroneously established is not automatically an External Resolution when no genuine unresolved investment choice was eliminated by changed circumstances.**
+19. **A human instruction to stop, dismiss, suppress, or discontinue Polaris decision work is not by itself a Human Investment Decision unless the human also substantively disposes of the underlying Portfolio-relevant investment choice.**
+20. **Stopping decision work does not retroactively establish that the Decision Need never existed or silently convert work-management disposition into substantive investment judgment.**
+21. **Product access, workflow, resource, or operating Policy may require confirmation before performing particular work or may permit suppression of autonomous initiation, but such Policy is not part of the canonical semantic definition of Decision Need or Investment Decision and must not be confused with consequential investment authority.**
+22. **No separate first-class `Decision Initiation Authority` domain concept is presently required; the important domain distinction is between permission or Policy governing decision work and the investment-authority powers governing consequential human judgment.**

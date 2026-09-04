@@ -123,7 +123,7 @@ identifier, or a claim about the workflow supplied by a transport.
 
 ## Investment Recommendation
 
-An **Investment Recommendation** is an attributable, time-specific Polaris judgment within an Investment Decision that expresses Polaris's preferred economic disposition of the Decision Need for the affected Portfolio or Portfolios under the decision-time context then available.
+An **Investment Recommendation** is an attributable, time-specific Polaris judgment within an Investment Decision that expresses Polaris's preferred economic disposition of the Decision Need for the affected Portfolio or Portfolios as formed within the applicable Decision Context using the information available to that judgment.
 
 An Investment Recommendation may prefer action, hedging, resizing, Allocation or Exposure change, deliberate hold or no-action, waiting, or another Portfolio-relevant economic disposition. It may identify one or more Proposed Actions or implementation preferences, but it is distinct from a strategy/model signal and from an Order or other broker execution instruction.
 
@@ -457,6 +457,28 @@ Decision Scope may be unresolved while decision work is being initiated, but a f
 A Decision Subject may concern an existing Position, establishing exposure through a Financial Instrument, an Exposure, Allocation, Portfolio Posture, or another coherent investment matter. It may be composite when its elements form one mutually dependent investment judgment; independently resolvable matters should normally be separate Investment Decisions.
 
 Decision Subject is distinct from Decision Scope, Evidence, the thing analyzed, a Proposed Action, and the Financial Instrument or other means ultimately used to implement the decision. The same Decision Subject may recur in separate Investment Decisions through time and therefore does not by itself establish Investment Decision identity.
+
+## Decision Context
+
+**Decision Context** is the time-specific, decision-relative set of applicable conditions, constraints, domain state, and prior decision state that frame an Investment Decision or an attributable judgment within it.
+
+Decision Context may include applicable Portfolio State, Investment Mandate, Decision Scope, Decision Subject, Investment Strategy or horizon, Risk and policy conditions, active thesis or assumptions, prior Investment Decisions and Investment Recommendations, unresolved questions, review or awaited conditions, and other circumstances whose applicability materially frames the judgment. Context membership follows decision relevance and applicability rather than mere information possession.
+
+Decision Context is distinct from Evidence. Evidence is information used in an evidentiary role; Decision Context describes the applicable circumstances within which judgment occurs. The same underlying fact may participate in Decision Context and also play an Evidence role without becoming two different domain facts.
+
+Applicable Decision Context is also distinct from Polaris's or a human's information or representation of that context. A Mandate, Portfolio condition, or other applicable circumstance does not cease to apply merely because a judgment participant did not know it, could not access it, or represented it incorrectly. Historical reconstruction must preserve the distinction between what actually applied and what information about it was available to the judgment.
+
+One unresolved Investment Decision may encounter materially changing Decision Context through time without changing Investment Decision identity. A context change does not by itself create a new Investment Recommendation; a new Recommendation still requires a distinct attributable Polaris judgment.
+
+## Judgment-Time Availability
+
+**Judgment-Time Availability** is the temporal relationship between information and a specific attributable judgment that describes whether that information was accessible to the judgment process before the judgment was formed.
+
+Judgment-Time Availability is relative to the judgment, not globally to the Investment Decision. Information may therefore be unavailable to an earlier Investment Recommendation but available to a later Human Investment Decision or later Investment Recommendation within the same Investment Decision.
+
+Judgment-Time Availability is distinct from when an underlying fact or event occurred, when a source published or exposed information, and whether the information is retrievable now. It is also distinct from freshness, sufficiency, conflict state, admissibility, or fitness for the intended decision use, and from whether available information was actually used or materially informed the judgment.
+
+When Polaris cannot establish whether information was available to a particular judgment, availability remains unknown rather than being inferred as unavailable. Later-created, later-discovered, or later-corrected information may support reconstruction, Evaluation, or learning without becoming retroactively available to an earlier judgment. Conversely, information that was available to a historical judgment remains historically available even if its source later changes, disappears, or becomes inaccessible.
 
 ## Investment Decision
 

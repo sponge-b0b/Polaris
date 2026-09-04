@@ -44,7 +44,7 @@ The model is:
 │             ↓                                              │
 │  Outcome Evaluation & Learning                             │
 │             │                                              │
-│             └──────────────────→ future attention          │
+│             └──────────────────→ future Attention          │
 │                                                            │
 │  ═══════════ Durable Decision Memory spans all ═══════════ │
 └────────────────────────────────────────────────────────────┘
@@ -57,7 +57,7 @@ The model is:
 │              SUPPORTING PLATFORM CAPABILITIES              │
 │                                                            │
 │  Integration & Connectivity                                │
-│  Interaction & Projection                                  │
+│  Interaction & Presentation                                │
 │  Configuration & Extensibility                             │
 │  Runtime Reliability & Observability                       │
 │  Security & Operations                                     │
@@ -70,25 +70,22 @@ The model is:
 ┌────────────────────────────────────────────────────────────┐
 │             EXTERNAL SPECIALIST RESPONSIBILITIES           │
 │                                                            │
-│  Market / economic / research evidence                     │
+│  Market / economic / research Evidence                     │
 │  Brokerage and execution                                   │
 │  Portfolio accounting / books and records                  │
 │  Custody / settlement                                      │
 │  External analytics                                        │
 │  Communication / distribution infrastructure               │
 └────────────────────────────────────────────────────────────┘
-
-Across the model:
-
-EVIDENCE → DETERMINISTIC → ANALYTICAL → HUMAN → EXTERNAL ACTION
-                         AUTHORITY
 ```
+
+Across the model, source authority, deterministic rule evaluation, Polaris investment judgment, power-specific human authority, and external execution authority remain distinct.
 
 The capability model is organized around durable product responsibility rather than current software structure.
 
 ## Relationship to the Core Capabilities record
 
-[`product-core-capabilities.md`](./product-core-capabilities.md) is the decision record for **why** these capabilities exist and what each capability means in product terms.
+[`product-core-capabilities.md`](./product-core-capabilities.md) is the product record for **why** these capabilities exist and what each capability means in product terms.
 
 This document answers a different question:
 
@@ -119,7 +116,7 @@ The capability model should therefore remain materially smaller than the full ca
 
 ### Core lifecycle capabilities
 
-Eight core capabilities primarily advance a portfolio decision through its lifecycle:
+Eight core capabilities primarily advance an Investment Decision through its lifecycle:
 
 1. **Attention & Decision Initiation**
 2. **Decision Context & Evidence**
@@ -130,13 +127,13 @@ Eight core capabilities primarily advance a portfolio decision through its lifec
 7. **Action Continuity & Reconciliation**
 8. **Outcome Evaluation & Learning**
 
-They form a recognizable product progression, but they are not a rigid waterfall. A later capability may expose missing evidence, invalidate an assumption, require renewed challenge, or trigger reassessment of an earlier decision state.
+They form a recognizable product progression, but they are not a rigid waterfall. A later capability may expose missing Evidence, establish an Invalidation Condition, require renewed challenge, or cause Attention to reconsider whether unresolved or renewed decision work is warranted.
 
 ### Cross-lifecycle core capability
 
 **Durable Decision Memory** is structurally different from the other core capabilities.
 
-It is not a final stage after evaluation. It spans the entire lifecycle and allows prior decision state to influence future attention, reasoning, governance, and learning.
+It is not a final stage after evaluation. It spans the entire lifecycle and allows prior decision state to influence future Attention, reasoning, Governance, and learning.
 
 Conceptually:
 
@@ -157,7 +154,7 @@ Durable Decision Memory remains a core capability because Polaris would cease to
 Five supporting capabilities enable the core decision system:
 
 * **Integration & Connectivity**
-* **Interaction & Projection**
+* **Interaction & Presentation**
 * **Configuration & Extensibility**
 * **Runtime Reliability & Observability**
 * **Security & Operations**
@@ -170,14 +167,14 @@ Some responsibilities materially participate in Polaris decisions while remainin
 
 Examples include:
 
-* authoritative market and economic evidence;
+* authoritative market and economic Evidence;
 * brokerage and execution;
 * official portfolio accounting and books and records;
 * custody and settlement;
 * specialist external analytics;
 * communication and distribution infrastructure.
 
-Polaris may consume, normalize, reason over, reconcile, and project these systems' state. Integration does not transfer their broader specialist authority or product responsibility to Polaris.
+Polaris may consume, normalize, reason over, reconcile, and present these systems' state. Integration does not transfer their broader specialist authority or product responsibility to Polaris.
 
 The governing rules remain:
 
@@ -193,73 +190,73 @@ The model therefore describes what each core capability primarily consumes and w
 
 | Capability | Primarily consumes | Primarily establishes |
 | --- | --- | --- |
-| Attention & Decision Initiation | active decisions, theses, review conditions, portfolio context, new information | **Decision need / attention state** |
-| Decision Context & Evidence | decision need, portfolio context, external evidence, prior memory | **Decision-ready context and attributable evidence** |
-| Investment Reasoning & Challenge | evidence, context, historical knowledge | **Interpretation, alternatives, counterevidence, uncertainty, invalidation conditions** |
-| Portfolio Consequence & Risk | interpretation, actual portfolio state, strategy, policy | **Portfolio implications, analytical risk, applicable constraints** |
-| Recommendation Formation | reasoning, alternatives, portfolio consequences, risk | **Preferred action or justified withholding, alternatives, rationale** |
-| Authority & Human Decision | candidate recommendation, evidence sufficiency, policy, authority state | **Admissibility, authority trace, human decision** |
-| Action Continuity & Reconciliation | human decision, action intent, authoritative external action evidence | **Reconciled action/execution state and resulting portfolio state** |
-| Outcome Evaluation & Learning | original decision record, observed action, later evidence, outcome | **Evaluation and durable lessons** |
-| Durable Decision Memory | every material lifecycle state | **Historically faithful decision context available to future capabilities** |
+| Attention & Decision Initiation | unresolved Investment Decisions, Investment Theses, Review Conditions, Portfolio context, new information | **Attention assessment and Decision Need** |
+| Decision Context & Evidence | Decision Need, Portfolio context, external Evidence, prior memory | **Decision Context and attributable Evidence** |
+| Investment Reasoning & Challenge | Evidence, Decision Context, historical knowledge | **Investment View, alternatives, conflicting Evidence, Investment Uncertainty, Invalidation Conditions** |
+| Portfolio Consequence & Risk | Investment View, actual Portfolio State, Investment Strategy, Investment Mandate, Policy | **Projected Portfolio Consequences, Portfolio Risk, applicable Formal Constraint and Policy results** |
+| Recommendation Formation | reasoning, Decision Alternatives, Projected Portfolio Consequences, Portfolio Risk | **Investment Recommendation or justified withholding, alternatives, rationale** |
+| Authority & Human Decision | candidate Investment Recommendation, Evidence readiness, Policy, Formal Constraint results, authority state | **Admissibility, applicable authority acts, Human Investment Decision** |
+| Action Continuity & Reconciliation | Human Investment Decision, Action Intent where one exists, authoritative external activity | **Reconciled external activity and resulting Portfolio State** |
+| Outcome Evaluation & Learning | historically faithful Investment Decision history, external activity, later Evidence, Outcome | **Decision Evaluation and durable Lessons** |
+| Durable Decision Memory | every material lifecycle state | **Historically faithful decision meaning available to future capabilities** |
 
 These are conceptual contracts. They do not imply one database entity, service boundary, event schema, API payload, or workflow node per capability.
 
-## The decision record as connective product state
+## Durable Decision Memory as connective product state
 
-The Product Definition uses **decision record** as the working concept for the durable representation of a portfolio decision.
+Durable Decision Memory is the cross-cutting responsibility that keeps material Investment Decision history and relationships semantically reconstructable through time.
 
-The capability model treats that record as connective product state rather than as a prescribed implementation object.
+Lowercase `decision record` may remain noncanonical product shorthand for an assembled representation of that history. It is not a separate canonical business entity or a mandate for one storage object.
 
-As a decision matures, the durable record may progressively contain or connect:
+As an Investment Decision matures, Durable Decision Memory may progressively preserve or connect:
 
 ```text
-Decision need
+Decision Need
       ↓
-Decision context
+Decision Context
       ↓
-Attributable evidence
+Attributable Evidence
       ↓
-Interpretation + challenge
+Investment View + challenge
       ↓
-Portfolio consequences
+Projected Portfolio Consequences
       ↓
-Risk + policy
+Portfolio Risk + applicable Policy / Formal Constraints
       ↓
-Recommendation
+Investment Recommendation
       ↓
-Authority path
+Authority acts / Admissibility
       ↓
-Human decision
+Human Investment Decision
       ↓
-Action intent
+Action Intent where one exists
       ↓
-Observed external action
+Observed external activity
       ↓
-Resulting state
+Resulting Portfolio State
       ↓
 Outcome
       ↓
-Evaluation
+Decision Evaluation
       ↓
 Lessons
 ```
 
-The capabilities should strengthen this shared lifecycle rather than create isolated local truths that must later be reconstructed.
+The capabilities should strengthen this shared lifecycle rather than create isolated local truths that must later be reconstructed from narrative or runtime output.
 
 ## Capability interaction is iterative, not waterfall
 
 The directional capability chain describes the dominant product flow, not a one-way execution constraint.
 
-Examples of legitimate backward movement include:
+Examples of legitimate backward or renewed movement include:
 
-* reasoning discovers that required evidence is missing;
-* portfolio analysis makes an initially attractive thesis irrelevant;
-* deterministic policy removes an action from consideration;
-* recommendation formation exposes unresolved uncertainty requiring further challenge;
-* execution divergence reopens the decision;
-* outcome evaluation identifies a lesson that changes future attention criteria;
-* new evidence invalidates an active thesis and reinitiates decision work.
+* reasoning discovers that required Evidence is missing;
+* Portfolio analysis makes an initially attractive Investment Hypothesis irrelevant;
+* Policy or a Formal Constraint removes a Proposed Action from consequential use;
+* recommendation formation exposes unresolved Investment Uncertainty requiring further challenge;
+* implementation divergence causes Attention to evaluate whether unresolved work should resume or a renewed Decision Need exists;
+* Decision Evaluation identifies a Lesson that changes future Attention criteria;
+* new Evidence establishes an Invalidation Condition and causes Attention to evaluate the affected investment matter.
 
 Conceptually:
 
@@ -270,48 +267,47 @@ Evidence ⇄ Reasoning ⇄ Portfolio/Risk ⇄ Recommendation
    ↑                                      ↓
    └──────── reassessment as needed ──────┘
                                           ↓
-                                   Human Decision
+                              Human Investment Decision
                                           ↓
-                                     External Action
+                                  External Activity
                                           ↓
-                                       Evaluation
+                                  Decision Evaluation
                                           │
                                           └──→ future Attention
 ```
+
+If the same coherent investment choice remains unresolved, later work may continue within the same Investment Decision. Once substantive investment judgment has resolved that choice, renewed judgment requires a new causally linked Investment Decision rather than reopening and rewriting the historical one.
 
 The product should preserve the lifecycle's semantic state across these iterations rather than treating each analytical pass as an unrelated run.
 
 ## Authority overlays the capability model
 
-Authority is not a late approval stamp added after analytical work.
+Authority is not a late approval stamp added after analytical work, and Polaris should not treat every trust mechanism as the same kind of authority.
 
-The accepted separation-of-powers model applies across the capability system:
+The accepted separation of responsibilities is:
 
 ```text
-EVIDENCE AUTHORITY
-What is true?
+AUTHORITATIVE SOURCES
+Establish the external facts they own.
         ↓
-DETERMINISTIC AUTHORITY
-What is admissible and trustworthy?
+POLICY / FORMAL CONSTRAINT EVALUATION
+Deterministically establish applicable rule results.
         ↓
-ANALYTICAL AUTHORITY
-What does this mean and what should we consider?
+POLARIS INVESTMENT JUDGMENT
+Forms Investment Views and Investment Recommendations.
         ↓
-HUMAN DECISION AUTHORITY
-What will we do?
+INVESTMENT AUTHORITY REGIME
+Determines who may make Human Investment Decisions,
+grant Approval, authorize Mandate Exceptions,
+or accept Governed Residual Risk where required.
         ↓
-EXTERNAL ACTION AUTHORITY
-What actually gets carried out?
-        ↓
-EVIDENCE RETURNS
-What actually happened?
+EXTERNAL EXECUTION AUTHORITY
+External systems establish Orders, fills, and other operational facts.
 ```
 
-The named **Authority & Human Decision** capability owns the explicit transition from an admissible recommendation to preserved human judgment and authority provenance.
+The named **Authority & Human Decision** capability owns the explicit product responsibility for Admissibility, applicable authority acts, and preserved Human Investment Decision. That does not mean Evidence readiness, Policy, Formal Constraint evaluation, or Portfolio Risk waits until that stage.
 
-That does not mean deterministic or evidence authority waits until that stage.
-
-For example, recommendation formation must already be shaped by portfolio risk and applicable deterministic policy:
+For example, recommendation formation must already be shaped by Portfolio Risk and applicable deterministic rules:
 
 ```text
                 Reasoning & Challenge
@@ -323,20 +319,25 @@ For example, recommendation formation must already be shaped by portfolio risk a
                     ┌────┴────┐
                     │         │
                     ▼         │
-              Recommendation  │
+         Investment Recommendation
                     ▲         │
                     │         │
-         Deterministic policy │
-         and constraints ─────┘
+        Policy / Formal       │
+        Constraints ──────────┘
                     │
                     ▼
-           admissible recommendation
+             Admissibility
                     │
                     ▼
-              Human Decision
+        applicable authority acts
+                    │
+                    ▼
+        Human Investment Decision
 ```
 
-A capability may be able to perform an action without possessing the authority to make the corresponding consequential decision. Capability and authority must remain distinct.
+Policy evaluation is not Approval. Formal Constraint satisfaction is not Approval. Human Investment Decision is not Approval. Each power or result remains distinct even when they lead to the same practical outcome.
+
+A capability may be able to perform an operation without possessing authority for a consequential use. Capability and authority must remain distinct.
 
 ## Cross-cutting decision contracts
 
@@ -344,9 +345,9 @@ Several product responsibilities apply horizontally across capabilities. They sh
 
 ### Decision provenance
 
-Material evidence, reasoning, constraints, authority decisions, human judgment, observed action, and outcome should remain attributable enough to reconstruct the meaningful decision path.
+Material Evidence, reasoning, constraints, authority decisions, human judgment, observed activity, and Outcome should remain attributable enough to reconstruct the meaningful decision path.
 
-### Decision-time integrity
+### Judgment-time integrity
 
 Polaris must distinguish:
 
@@ -357,32 +358,32 @@ What is known now
 from:
 
 ```text
-What was knowable then
+What was available to a particular judgment then
 ```
 
-Later evidence may inform evaluation and learning without rewriting the historical decision-time world.
+Later Evidence may inform Decision Evaluation and learning without becoming retroactively available to an earlier judgment.
 
 ### Decision-appropriate freshness
 
-Evidence must be current enough for the decision contract being claimed.
+Evidence must be current enough for the investment use or judgment being claimed.
 
-When required evidence is stale, Polaris should qualify, degrade, withhold, or invalidate the affected decision state rather than silently lower the trust standard.
+When required Evidence is stale, Polaris should preserve that insufficiency and qualify or withhold the affected current judgment or consequential use rather than silently lower the trust standard. Historical judgments remain historical facts even when they are no longer currently supportable.
 
-### Meaningful challenge and uncertainty
+### Meaningful challenge and Investment Uncertainty
 
-Material counterevidence, alternative explanations, uncertainty, and invalidation conditions should not disappear merely because the system has formed a preferred interpretation or recommendation.
+Material Conflicting Evidence, alternative explanations, Investment Uncertainty, Investment Assumptions, and Invalidation Conditions should not disappear merely because the system has formed a preferred Investment View or Investment Recommendation.
 
 ### Authority integrity
 
-Evidence, deterministic, analytical, human, and external action authorities must remain semantically distinct where material.
+Policy, Formal Constraints, Admissibility, Approval, Authority Denial, Human Investment Decision, Mandate Exception, Residual-Risk Acceptance, and external execution authority must remain semantically distinct where material.
 
-Positive authority decisions such as satisfied constraints and permitted actions should be preservable rather than inferred from the absence of recorded failure.
+Positive authority acts and satisfied deterministic conditions should be preserved when material rather than inferred from the absence of recorded failure.
 
 ### Operational reality
 
-When Polaris's expectation conflicts with an authoritative external source within that source's responsibility domain, operational reality wins.
+When Polaris's expectation conflicts with an authoritative external source within that source's responsibility domain, the authoritative external fact remains authoritative.
 
-Polaris may preserve and investigate the discrepancy. It must not silently rewrite external reality to match its previous recommendation or expected state.
+Polaris may preserve and investigate the discrepancy. It must not silently rewrite external reality to match its previous Investment Recommendation or Action Intent.
 
 ## Supporting capability relationships
 
@@ -404,7 +405,7 @@ Its product question is:
 
 The number of integrations is a breadth measure, not sufficient evidence of capability maturity.
 
-### Interaction & Projection
+### Interaction & Presentation
 
 Enables user and machine interaction with shared decision semantics through surfaces such as conversation, UI, reports, CLI, API, MCP, email, and messaging.
 
@@ -418,20 +419,21 @@ Conceptually:
 Web / Conversation / Reports / CLI / API / MCP / Messaging
 ```
 
-Surfaces should project common governed decision state rather than reconstruct competing versions of the decision.
+Surfaces should present common governed decision state rather than reconstruct competing versions of the decision.
 
 ### Configuration & Extensibility
 
 Enables Polaris to adapt to differences in:
 
-* portfolio;
-* strategy;
+* Portfolio;
+* Investment Strategy;
 * asset universe;
-* investment horizon;
-* evidence providers;
+* Investment Horizon;
+* Evidence providers;
 * analytical models;
-* risk policy;
-* review conditions;
+* Policy;
+* Investment Mandate and Formal Constraints;
+* Review Conditions;
 * operating preferences.
 
 Configurability should remain expressed through investment-domain concepts rather than turning Polaris into an arbitrary workflow or agent platform.
@@ -444,7 +446,7 @@ Its value is measured by trustworthy decision continuity rather than by runtime 
 
 ### Security & Operations
 
-Protects credentials, portfolio information, integrations, configuration, access boundaries, and other operational trust assumptions required by the product's maturity.
+Protects credentials, Portfolio information, integrations, configuration, access boundaries, and other operational trust assumptions required by the product's maturity.
 
 Security and operations span the system but remain enabling responsibilities rather than a separate user-facing product center.
 
@@ -468,12 +470,12 @@ Examples:
 
 | External responsibility | External authority | Polaris responsibility |
 | --- | --- | --- |
-| Market/economic evidence | responsible evidence provider | determine decision relevance, freshness, provenance, sufficiency, interpretation |
-| Brokerage/execution | broker or execution system | preserve action intent, observe and reconcile what occurred |
-| Official portfolio state | authoritative portfolio/accounting system where applicable | consume trustworthy state and apply it to portfolio decisions |
-| Custody/settlement | specialist operational system | use relevant resulting evidence when it affects decision state |
-| External analytics | specialist analytical source | attribute and incorporate relevant evidence without laundering it into native fact |
-| Distribution infrastructure | communication destination/provider | project Polaris decision state without creating independent semantics |
+| Market/economic Evidence | responsible Evidence provider | determine Investment Relevance, freshness, provenance, sufficiency, interpretation |
+| Brokerage/execution | broker or execution system | preserve Action Intent where one exists, observe and reconcile what occurred |
+| Official Portfolio State | authoritative portfolio/accounting system where applicable | consume trustworthy state and apply it to Investment Decisions |
+| Custody/settlement | specialist operational system | use relevant resulting Evidence when it affects decision state |
+| External analytics | specialist analytical source | attribute and incorporate relevant Evidence without laundering it into native fact |
+| Distribution infrastructure | communication destination/provider | present Polaris decision state without creating independent semantics |
 
 A proposal to absorb an external specialist responsibility should therefore carry an explicit burden of proof when it creates a new primary user job, authority domain, latency regime, operational contract, regulatory burden, or product identity.
 
@@ -488,25 +490,29 @@ Attention
    requires durable context about what matters
 
 Evidence
-   requires a decision need and relevant external/internal context
+   requires a Decision Need and relevant external/internal context
 
 Reasoning
-   requires decision-ready evidence
+   requires decision-ready Evidence
 
 Portfolio/Risk
-   requires an interpretation plus real portfolio state and policy
+   requires an Investment View plus real Portfolio State,
+   Investment Mandate, and applicable Policy
 
 Recommendation
-   requires challenged reasoning and portfolio consequences
+   requires challenged reasoning,
+   Decision Alternatives, and Projected Portfolio Consequences
 
 Authority/Human Decision
-   requires an admissible candidate recommendation and explicit authority state
+   requires a candidate Investment Recommendation,
+   Admissibility, and explicit authority state
 
 Action Continuity
-   requires a human decision/action intent plus authoritative external evidence
+   requires a Human Investment Decision and,
+   when an external consequence exists, Action Intent plus authoritative external Evidence
 
 Evaluation/Learning
-   requires historically faithful decision, action, and outcome state
+   requires historically faithful decision, external activity, and Outcome state
 
 Durable Decision Memory
    preserves and reconnects the lifecycle across all of the above
@@ -548,9 +554,9 @@ The capability produces its defined product outcome for a deliberately limited o
 
 Examples:
 
-* Attention can identify materially changed conditions for a limited set of supported decision contexts.
-* Action Continuity can reconcile a deliberately limited class of external action reliably.
-* Evidence can construct trustworthy decision context from a deliberately limited source set.
+* Attention can identify materially changed conditions for a limited set of supported Decision Contexts.
+* Action Continuity can reconcile a deliberately limited class of external activity reliably.
+* Evidence can construct trustworthy Decision Context from a deliberately limited source set.
 
 M1 is not a prototype label. The supported boundary should be explicit enough that behavior inside it can be trusted.
 
@@ -570,8 +576,8 @@ Depending on the capability, that may include:
 
 * provenance;
 * freshness;
-* authority;
-* uncertainty;
+* power-specific authority;
+* Investment Uncertainty;
 * historical integrity;
 * explicit fail-closed behavior;
 * external factual authority;
@@ -581,24 +587,24 @@ M3 means the capability is not merely useful; it participates in the product's t
 
 ### M4 — Adaptive
 
-Durable portfolio, decision, authority, outcome, and lesson state materially changes the capability's future behavior where appropriate.
+Durable Portfolio, Investment Decision, authority, Outcome, and Lesson state materially changes the capability's future behavior where appropriate.
 
 Examples include:
 
 ```text
-Previous invalidation condition
+Previous Invalidation Condition
         ↓
-New evidence
+New Evidence
         ↓
-Automatic reassessment
+Attention evaluates renewed decision need
 ```
 
 or:
 
 ```text
-Previous decision evaluation
+Previous Decision Evaluation
         ↓
-Future attention / reasoning / policy review improves
+Future Attention / reasoning / Policy or Mandate review improves
 ```
 
 Adaptive maturity should be grounded in durable product state rather than vague claims that an AI model "learns."
@@ -607,7 +613,7 @@ Adaptive maturity should be grounded in durable product state rather than vague 
 
 The model intentionally does not define an M5 such as **Complete**.
 
-Core capabilities can deepen indefinitely as Polaris supports richer portfolios, more evidence, stronger decision contracts, better analytical techniques, more sophisticated reconciliation, and improved learning.
+Core capabilities can deepen indefinitely as Polaris supports richer Portfolios, more Evidence, stronger decision contracts, better analytical techniques, more sophisticated reconciliation, and improved learning.
 
 Roadmap planning should identify the maturity required for a release rather than imply that a durable capability has been permanently finished.
 
@@ -627,11 +633,11 @@ Breadth may include dimensions such as:
 
 * asset classes;
 * broker or execution providers;
-* evidence providers;
-* portfolio structures;
-* strategies;
-* time horizons;
-* risk policies;
+* Evidence providers;
+* Portfolio structures;
+* Investment Strategies;
+* Investment Horizons;
+* Policy and Investment Mandate configurations;
 * user/team operating models;
 * delivery surfaces.
 
@@ -653,7 +659,7 @@ Or broad and immature:
 ```text
 many brokers
 many asset classes
-many evidence sources
+many Evidence sources
 +
 weak decision semantics
 weak provenance
@@ -689,15 +695,15 @@ Capability progress should eventually be testable in product language.
 
 Examples include:
 
-* **Attention:** Can Polaris identify that something materially changed and explain why it affects an active portfolio decision?
-* **Evidence:** Can Polaris reconstruct the attributable evidence that supported the decision and determine whether it was current enough?
-* **Challenge:** Can the user inspect meaningful evidence or reasoning against the preferred interpretation?
-* **Portfolio & Risk:** Can Polaris explain how actual portfolio state and risk changed the action implied by the investment view?
-* **Recommendation:** Can Polaris explain the preferred action, meaningful alternatives, and conditions that would change the view?
-* **Authority:** Can the material authority path be reconstructed, including affirmative policy decisions and the human decision?
-* **Continuity:** Can Polaris determine whether the human decision was actually reflected in authoritative external action?
-* **Memory:** Can Polaris reconstruct what was knowable when the decision occurred and reuse durable decision state later?
-* **Learning:** Can Polaris evaluate process quality separately from realized outcome and preserve useful lessons?
+* **Attention:** Can Polaris identify that something materially changed, determine whether a Decision Need exists, and explain why it affects the relevant investment matter?
+* **Evidence:** Can Polaris reconstruct the attributable Evidence available to a material judgment and determine whether it was current enough for that use?
+* **Challenge:** Can the user inspect meaningful Evidence or reasoning against the preferred Investment View?
+* **Portfolio & Risk:** Can Polaris explain how actual Portfolio State and Portfolio Risk changed Projected Portfolio Consequences or the Investment Recommendation?
+* **Recommendation:** Can Polaris explain the preferred disposition, meaningful Decision Alternatives, and conditions that would change the view?
+* **Authority:** Can the material authority path be reconstructed without conflating Policy, Formal Constraints, Approval, or Human Investment Decision?
+* **Continuity:** Can Polaris determine whether an Action Intent was reflected in authoritative external activity when one existed?
+* **Memory:** Can Polaris reconstruct what was available to the material judgments and reuse Durable Decision Memory later?
+* **Learning:** Can Polaris form Decision Evaluations separately from Outcome and preserve useful Lessons?
 
 These questions should later inform release acceptance criteria without requiring roadmap documents to prescribe implementation topology.
 
@@ -739,7 +745,7 @@ Architecture may choose to implement:
 * one capability across several components;
 * shared infrastructure across many capabilities;
 * deterministic and analytical mechanisms within the same capability;
-* different projections over common decision semantics.
+* different derived representations over common decision semantics.
 
 The architecture is correct when it preserves the capability and authority contracts—not when the package tree visually resembles this document.
 
@@ -769,10 +775,10 @@ The Capability Model implies:
 * eight capabilities primarily advance the decision lifecycle while Durable Decision Memory spans and reconnects the entire lifecycle;
 * capability interaction is iterative rather than a rigid waterfall;
 * capabilities exchange durable product semantics rather than prescribing implementation-specific objects;
-* the decision record is connective product state, not a mandated storage architecture;
-* authority overlays the lifecycle and must not be reduced to a late approval gate;
-* deterministic policy and risk must shape recommendation formation before human decision;
-* decision provenance, historical integrity, freshness, challenge, authority integrity, and operational reality are cross-cutting contracts rather than additional top-level capabilities;
+* lowercase `decision record` is representation shorthand rather than a separate canonical domain entity;
+* authority overlays the lifecycle but Policy, Formal Constraints, Admissibility, Approval, Human Investment Decision, and external authority remain distinct;
+* Portfolio Risk and deterministic boundaries shape recommendation formation before Human Investment Decision;
+* decision provenance, Judgment-Time Availability, freshness, challenge, authority integrity, and operational reality are cross-cutting contracts rather than additional top-level capabilities;
 * supporting platform capabilities are evaluated by how effectively they enable the decision system;
 * external specialist systems may remain authoritative even when Polaris integrates with them deeply;
 * dependency does not imply ownership;

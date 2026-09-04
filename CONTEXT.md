@@ -84,6 +84,14 @@ A Mandate Exception does not make a violated Formal Constraint satisfied. It cha
 
 A Mandate Exception is distinct from a Mandate amendment and from a noncompliant human decision. The Investment Authority Regime determines whether a Formal Constraint is exceptionable and who, if anyone, may authorize an Exception. Polaris may identify, propose, or justify an Exception but cannot authorize one merely through its own Investment Recommendation.
 
+## Investment Authority Regime
+
+An **Investment Authority Regime** is the temporally applicable structure of authority assignments, scopes, limits, and conditions that determines which attributable actors or processes may exercise particular investment-authority powers for a Portfolio or Investment Decision.
+
+Investment authority is power-specific. Authority to make a Human Investment Decision, grant Approval, authorize a Mandate Exception, accept Residual Risk, or exercise execution authority must not be inferred from possession of another authority. Attribution establishes who performed an act; it does not by itself establish that the actor possessed the authority required for that act.
+
+A multi-Portfolio Investment Decision preserves the applicable authority regime and authority requirements of each Portfolio unless an explicitly authoritative cross-Portfolio regime establishes otherwise. Historical reconstruction must preserve the authority regime and material authority facts that actually applied when a judgment or authority act occurred.
+
 ## Workflow Identity
 
 A **Workflow Identity** is the immutable identity of a registered workflow
@@ -166,9 +174,15 @@ Capital-Relevant Outputs include Investment Recommendations, Proposed Actions, A
 
 Raw market data, telemetry, observability dashboards, implementation diagnostics, contextual narrative with no action or risk implication, and internal runtime evidence not exposed as guidance are not automatically Capital-Relevant Outputs.
 
-## Release
+## Admissibility
 
-**Release** is the domain decision that a governed output is allowed to cross a controlled boundary after evidence, governance, and residual-risk checks pass.
+**Admissibility** is the time-specific, subject-specific, and boundary-specific authority status describing whether a governed subject is eligible for a specified consequential use under the applicable Evidence, Policy, Mandate, Risk, Governance, and authority conditions.
+
+Admissibility is not a global property of an output, Investment Recommendation, Proposed Action, Human Investment Decision, or other governed subject. The same subject may be inadmissible for one consequential use while remaining legitimately visible for audit, challenge, historical reconstruction, or Evaluation.
+
+Admissibility is distinct from Approval and from Human Investment Decision. Approval is an attributable authority act that may be one condition relevant to Admissibility; Human Investment Decision is the attributable human investment judgment. Insufficient authority or readiness information must remain unresolved rather than being silently converted into affirmative permission or prohibition.
+
+Bare governed-output `Release` is retired as canonical Polaris domain vocabulary. Use Admissibility for authority status, Approval or the applicable specific authority fact for permission, and Publication or Durable Promotion for actual Polaris output transitions. Ordinary software-release terminology is unaffected.
 
 ## Publication
 
@@ -182,15 +196,21 @@ Persisting blocked or skipped audit state is not Durable Promotion of the output
 
 ## Approval
 
-**Approval** is an attributable governance review outcome that allows a requested action, output, or promotion to proceed if all other required checks pass.
+**Approval** is an attributable positive authority decision by an actor or process authorized for the applicable boundary that permits a specific governed subject to advance within a defined scope and under stated conditions, subject to independent requirements that the Approval does not itself satisfy.
 
-Approval does not imply Residual-Risk Acceptance when residual risk remains. A model cannot grant Approval.
+Approval is subject- and scope-specific. Approval of one Investment Recommendation, Proposed Action, quantity, Portfolio scope, or governed consequence does not automatically transfer to a materially modified one. Approval does not compel human acceptance, imply Residual-Risk Acceptance, cure a missing Mandate Exception, make stale Evidence fresh, or otherwise satisfy an independent authority condition outside its scope. A model cannot grant Approval merely through model output.
+
+## Authority Denial
+
+An **Authority Denial** is an attributable negative authority decision by an actor or process authorized for the applicable boundary that a specific governed subject may not advance within the defined scope and stated reasons.
+
+Authority Denial is distinct from deterministic Policy denial, an Admissibility status, and a Human Investment Decision rejecting an Investment Recommendation. Similar practical outcomes must not erase the authority source or causal meaning of the negative decision.
 
 ## Residual-Risk Acceptance
 
-**Residual-Risk Acceptance** is an explicit, scoped, attributable acknowledgement that remaining identified risk is accepted for a specific subject, evidence version, review scope, residual-risk scope, action, and sink.
+**Residual-Risk Acceptance** is an explicit, attributable, scoped authority decision accepting specified identified Residual Risk for a governed subject or consequential use when the applicable Investment Authority Regime permits advancement conditional on that acceptance.
 
-Residual-Risk Acceptance is distinct from Approval. A model cannot grant Residual-Risk Acceptance.
+Residual-Risk Acceptance preserves the existence of the accepted Risk; acceptance does not mean the Risk disappeared or was determined harmless. It satisfies only the residual-risk condition it is authorized to address and does not by itself cure stale or insufficient Evidence, a Policy denial, a missing Mandate Exception, a missing required Approval, or another independent authority blocker. Residual-Risk Acceptance is distinct from Approval. A model cannot grant Residual-Risk Acceptance merely through model output.
 
 ## Evidence
 
@@ -214,7 +234,7 @@ A **Claim** is an assertion in a Polaris output that represents or explains a st
 Claim materiality distinctions:
 
 - A **Material Claim** is a Claim that could affect trust in a Capital-Relevant Output.
-- A **Readiness-Gating Claim** is a Material Claim whose absence, unsupported state, conflict, or reconstruction failure must block Release, Publication, or Durable Promotion.
+- A **Readiness-Gating Claim** is a Material Claim whose absence, unsupported state, conflict, or reconstruction failure must block Admissibility for the consequential use, Publication, or Durable Promotion.
 - A **Contextual Claim** is explanatory or background narrative that may be audited but does not by itself block readiness.
 
 For example, "the portfolio is over-concentrated in semiconductors" is a Claim. "Consider trimming NVDA exposure" is both a claim-bearing Investment Recommendation or Proposed Action and a Capital-Relevant Output. Generation timestamps and similar operational metadata are usually not Material Claims.
@@ -243,9 +263,9 @@ A **System of Record** is the durable storage boundary responsible for retaining
 
 ## Authority
 
-An **Authority** is the domain or architectural owner allowed to decide, write, validate, or release a concept. An Authority can be a service, lifecycle, or contract rather than only a database.
+An **Authority** is the domain or architectural owner allowed to decide, write, validate, permit, or govern a concept. An Authority can be a service, lifecycle, or contract rather than only a database.
 
-For example, PostgreSQL may be the System of Record for an approval task, while the approval lifecycle authority defines the semantics for approval, contestability, residual-risk acceptance, and release.
+For example, PostgreSQL may be the System of Record for an approval task, while the approval lifecycle authority defines the semantics for Approval, Contestability, Residual-Risk Acceptance, and advancement across the governed boundary.
 
 ## Strategy Hypothesis
 
@@ -259,7 +279,7 @@ A **Strategy Decision** is the typed synthesis outcome that selects or blends po
 
 A Strategy Decision may express posture or regime interpretation, directional bias, confidence and uncertainty, thesis or rationale, synthesis weights, constraints, and degradation reasons.
 
-A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Release, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Investment Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
+A Strategy Decision does not by itself decide exact order placement, human or organizational Approval, Residual-Risk Acceptance, Publication, Durable Promotion, broker execution, or final legal, tax, financial, investment, or trading advice. Downstream components may derive Investment Recommendations, Proposed Actions, or Trade Packages from a Strategy Decision, subject to evidence and governance rules.
 
 ## Execution Risk
 
@@ -275,7 +295,7 @@ In current Polaris, Execution Risk assessment is decision-support and governance
 
 **Allocation** is a concrete target or actual distribution of capital across assets, sectors, strategies, accounts, or risk buckets.
 
-A Strategy Decision may express Portfolio Posture. An Investment Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and release handling.
+A Strategy Decision may express Portfolio Posture. An Investment Recommendation or Proposed Action may suggest movement toward an Allocation, but exact Allocation changes are Capital-Relevant and require applicable evidence, governance, and authority handling.
 
 ## Risk
 
@@ -286,7 +306,7 @@ Risk categories include:
 - **Portfolio Risk**: risk arising from holdings, exposures, concentration, volatility, drawdown, liquidity, correlation, or market regime.
 - **Execution Risk**: risk arising from attempting to carry out a Proposed Action or Trade Package.
 - **Evidence Risk**: risk that a Claim or output is unsupported, conflicted, stale, unreconstructable, or based on rejected Evidence.
-- **Governance Risk**: risk that an output or action crosses a boundary without required policy, review, Approval, contestability, or Residual-Risk Acceptance.
+- **Governance Risk**: risk that an output or action crosses a boundary without required policy, review, Approval, Contestability, or Residual-Risk Acceptance.
 - **Residual Risk**: identified Risk that remains after automated checks, mitigations, review, or constraints.
 
 ## AI-Adjacent Output
@@ -309,7 +329,7 @@ Canonical Risk Tiers are:
 
 - **Baseline**: low-consequence informational or runtime output that does not require enhanced evidence or governance controls.
 - **Enhanced**: output requiring stronger evidence, readiness, or authority controls because it is externally visible, durable, capital-relevant, evidence-insufficient, non-runtime-sourced, or otherwise consequential.
-- **Vigilant**: output requiring the strongest automated governance and release controls because it can affect capital, governance, execution decisions, durable authority, external visibility, or unresolved evidence sufficiency.
+- **Vigilant**: output requiring the strongest automated governance and boundary controls because it can affect capital, governance, execution decisions, durable authority, external visibility, or unresolved evidence sufficiency.
 - **Prohibited / Outside Authority**: output whose requested effect is outside Polaris authority and must not be treated as allowed by model text, interface behavior, or local metadata.
 
 ## Policy
@@ -318,19 +338,19 @@ Canonical Risk Tiers are:
 
 ## Governance
 
-**Governance** answers whether an operation, output, or boundary crossing should happen given consequence, evidence, review, contestability, residual risk, and release requirements.
+**Governance** answers whether an operation, output, or boundary crossing should happen given consequence, evidence, review, Contestability, residual risk, and applicable authority requirements.
 
-Governance is separate from Policy. Automated Governance may allow, warn, deny, require approval, or skip. Human or organizational review is a governance lifecycle above automated governance, not a replacement policy engine and not model-declared readiness.
+Governance is separate from Policy. Automated Governance may allow, warn, deny, require Approval, or skip. Human or organizational review is a governance lifecycle above automated governance, not a replacement policy engine and not model-declared readiness.
 
 ## Governed Output
 
-A **Governed Output** is an output whose Release, Publication, Durable Promotion, or downstream use is subject to Policy, Governance, evidence readiness, review, or Residual-Risk Acceptance requirements.
+A **Governed Output** is an output whose consequential use, Publication, Durable Promotion, or downstream use is subject to Policy, Governance, evidence readiness, review, Admissibility, or Residual-Risk Acceptance requirements.
 
 Capital-Relevant Enhanced and Vigilant outputs are Governed Outputs when they are externally visible, durably authoritative, governance-impacting, or otherwise cross a controlled boundary.
 
 ## Readiness Gate
 
-A **Readiness Gate** is a boundary check that determines whether a Claim, output, record, or projection is allowed to proceed to Release, Publication, Durable Promotion, retrieval eligibility, or downstream use.
+A **Readiness Gate** is a boundary check that determines whether a Claim, output, record, or projection is allowed to proceed to a consequential use, Publication, Durable Promotion, retrieval eligibility, or downstream use.
 
 Readiness Gates fail closed when required evidence, reconstruction, correctness, governance review, residual-risk acceptance, or source authority is missing, stale, conflicted, rejected, or malformed.
 
@@ -338,13 +358,13 @@ Readiness Gates fail closed when required evidence, reconstruction, correctness,
 
 An **Output Boundary** is a point where Polaris output leaves its current internal role and becomes visible, durable, authoritative, retrievable, or available for downstream decision use.
 
-Examples include report publication, recommendation projection, RAG answer generation, MCP/API/CLI responses, curated-record persistence, graph/vector projection, and governed-output release.
+Examples include report publication, recommendation projection, RAG answer generation, MCP/API/CLI responses, curated-record persistence, graph/vector projection, and other governed consequential uses.
 
 ## Review Task
 
 A **Review Task** is durable governance work created for a specific subject, evidence packet, evidence version, review scope, requested action, and intended sink when automated governance requires human or organizational review.
 
-A Review Task is resolved only by attributable review decisions such as approval, denial, contest, requested changes, or override. Model text cannot resolve a Review Task.
+A Review Task is resolved only by attributable review decisions such as Approval, Authority Denial, contest, requested changes, or override. Model text cannot resolve a Review Task.
 
 ## Contestability
 
@@ -510,7 +530,7 @@ A **Human Investment Decision** is the attributable human judgment within an Inv
 
 A Human Investment Decision may or may not substantively resolve the underlying Investment Decision. Deferral, or rejection accompanied by a request for further judgment, records attributable human judgment while leaving the Decision Need unresolved; deliberate hold or another substantive choice may resolve it.
 
-A Human Investment Decision is distinct from Polaris's Investment Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Investment Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.
+A Human Investment Decision is distinct from Polaris's Investment Recommendation, automated Policy or Governance outcomes, Admissibility, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Investment Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it. A Human Investment Decision may be historically attributable even when the actor lacked one or more authority powers required for its consequential use; attribution must not be converted into inferred authority.
 
 ## Action Intent
 
@@ -526,7 +546,7 @@ One Action Intent may correspond to zero, one, or multiple external activities, 
 
 Partial, failed, or absent implementation does not rewrite the historical Action Intent. Changes to execution mechanics that preserve the same intended external consequence do not by themselves require a new Action Intent; a material change to the intended Portfolio consequence requires new attributable human judgment, with existing Investment Decision identity and lifecycle rules determining whether that judgment belongs to the same unresolved decision or a new causally linked decision.
 
-Action Intent does not imply Approval, Mandate compliance, Residual-Risk Acceptance, authorization, Release, or execution authority. External activity does not retroactively create an Action Intent, Human Investment Decision, Proposed Action, or Investment Recommendation merely because its economic result happens to match one of those concepts.
+Action Intent does not imply Admissibility, Approval, Mandate compliance, Residual-Risk Acceptance, authorization, or execution authority. External activity does not retroactively create an Action Intent, Human Investment Decision, Proposed Action, or Investment Recommendation merely because its economic result happens to match one of those concepts.
 
 ## Deferral
 

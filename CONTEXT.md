@@ -486,9 +486,17 @@ An active Investment Decision may require fresher information than the normal Ob
 
 ## Decision Need
 
-A **Decision Need** is an explicit determination that an unresolved Portfolio-relevant investment choice now warrants deliberate judgment.
+A **Decision Need** is an explicit, attributable determination that an unresolved Portfolio-relevant investment choice now warrants deliberate judgment.
 
-A Decision Need records why decision work is required and is distinct from the observation, request, Evidence, Portfolio change, review condition, or other input that caused Attention to evaluate the matter. Whether a Decision Need automatically initiates an Investment Decision or instead requires human confirmation is a separate initiation-authority question.
+A Decision Need records why decision work is required and is distinct from the observation, user request, scheduled review, condition, Evidence, Portfolio change, or other trigger that caused Attention to evaluate the matter. Trigger provenance and the attributable basis for the determination remain reconstructable where material.
+
+Establishing a Decision Need is sufficient domain justification to initiate or continue Investment Decision work when the same coherent unresolved choice is not already represented by an unresolved Investment Decision. Human confirmation is not a canonical semantic prerequisite for the Decision Need or for initiation of that work. If an unresolved Investment Decision already represents the same coherent choice, later triggers, requests, observations, or Evidence contribute to that existing decision rather than creating duplicate identity merely because initiation occurred again.
+
+Decision Need establishment and Investment Decision initiation are knowledge/work-state transitions, not exercises of consequential investment authority. They do not imply an Investment Recommendation, Proposed Action, Admissibility, Approval, Mandate Exception, Residual-Risk Acceptance, Human Investment Decision, Action Intent, execution authority, or Portfolio change. Interpretive Attention may establish a Decision Need while preserving that interpretive provenance; deterministic conditions do not create an Investment Decision unless a genuine unresolved investment choice requiring deliberate judgment remains.
+
+Autonomous initiation remains bounded by the information, Portfolio context, and operating scope Polaris is configured or otherwise authorized to observe or work within. Product, access, workflow, resource, or operating Policy may further govern whether particular work is performed or suppressed without becoming part of the canonical semantic definition of Decision Need or consequential investment authority.
+
+A later finding that a Decision Need was erroneous or unsupported does not erase the historical determination or the Investment Decision work that actually occurred. Such a case is not automatically External Resolution when no genuine unresolved choice was eliminated by changed circumstances. Likewise, stopping or dismissing Polaris decision work is not by itself a Human Investment Decision unless the human also substantively disposes of the underlying Portfolio-relevant investment choice.
 
 ## Decision Scope
 

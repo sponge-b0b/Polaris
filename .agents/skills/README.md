@@ -101,7 +101,7 @@ Important invariants:
 
 * lifecycle state may move backward or revisit an earlier stage;
 * a closed GitHub issue does not necessarily mean its parent lifecycle is complete; for example, a closed ticket may still leave its Spec active;
-* a closed Wayfinder map is the durable marker that its delivery scope is complete under the current known state; authoritative architecture re-entry or proven open governed Spec work reopens the map before substantive advancement;
+* normal Wayfinder completion closes the map as the durable marker that its delivery scope is complete under the current known state, and authoritative re-entry may reopen that completed map; a Wayfinder closed as `superseded` / `not_planned` is instead a terminal historical retirement and must not be silently reactivated merely because similar work is later required;
 * every reviewed Spec has exactly one conventional Spec Review issue as the durable owner of review/remediation state and the final Spec Review Exit Receipt; remediation state itself is conditional;
 * internal helper skills do not become separate lifecycle stages merely because they are named skills;
 * durable tracker/repository state, not conversational memory or Project-board position, determines correctness-critical workflow state.
@@ -301,7 +301,7 @@ $wayfinder
 
 Do not treat missing realization of already accepted architecture as a new architecture decision. The owning skill decides whether the blocker is implementation work or genuinely unresolved architecture.
 
-If the governing Wayfinder was previously closed, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus.
+If the governing Wayfinder was previously closed by normal lifecycle completion, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus. A Wayfinder retired as `superseded` / `not_planned` is historical and is not reopened by this ordinary re-entry path; new work must use a current artifact and may reference the superseded lineage as prior research/provenance.
 
 After new architecture is resolved, or current authority requires Spec reconciliation, the normal return path is:
 
@@ -366,7 +366,7 @@ It requires the exact current **Spec Review Exit Receipt** and owns:
 
 Once review reaches a persistence point, a missing or duplicate conventional Spec Review issue is workflow drift; cleanup must fail closed rather than infer review authority.
 
-A Wayfinder effort is reconciled as complete only when no unresolved Wayfinder decision/fog remains and every currently governed Derived and Remediation Spec is complete. Wayfinder closure is the durable delivery-complete marker. Provenance failure must not be guessed.
+A Wayfinder effort is reconciled as complete only when no unresolved Wayfinder decision/fog remains and every currently governed Derived and Remediation Spec is complete. Normal lifecycle closure is the durable delivery-complete marker; `superseded` / `not_planned` closure is a distinct historical retirement and must never be treated as successful delivery completion. Provenance failure must not be guessed.
 
 ## Tracker Relationship Semantics
 
@@ -413,7 +413,8 @@ The Project may expose fields such as:
 Cross-skill rules:
 
 * **Workflow State is a state machine, not a stage number.** Items may move backward or revisit a prior state when the skill lifecycle loops.
-* **GitHub issue Open/Closed is not generally equivalent to Polaris workflow state.** Ticket closure may still leave its parent Spec active. Wayfinder closure is narrower and intentional: it is the durable delivery-complete marker and must be reversed before authoritative re-entry or proven governed incomplete work advances.
+* **GitHub issue Open/Closed is not generally equivalent to Polaris workflow state.** Ticket closure may still leave its parent Spec active. A Wayfinder closed by normal lifecycle completion is a delivery-complete marker that may be reversed by authoritative re-entry; a Wayfinder closed `superseded` / `not_planned` is a distinct terminal historical disposition and is not completion.
+* **Superseded is terminal non-completion.** Formal artifacts retired by newer product or architecture authority project `Workflow State=Superseded`, `Work Status=Done`, `Next Skill=None`, `Delivery State=Superseded`, and no `Completed On`; never normalize them to `Complete` / `Released`.
 * **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
 * **Project-delivery authorization overlays, rather than replaces, lifecycle routing.** Eligible-unfocused Wayfinder Maps use `Next Skill=$project-delivery-management`; Wayfinder-managed descendants preserve the lifecycle `Next Skill` for `In Focus`, `Eligible`, and `Denied`, while lifecycle-owned `None` remains `None`. `Delivery State` carries project-delivery authorization independently of `Workflow State` and `Next Skill`.
 * **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
@@ -653,9 +654,9 @@ Reconcile Project state from durable workflow artifacts instead.
 
 ### GitHub Open / Closed as Lifecycle State
 
-Do not infer `Complete`, `Ready to Spec`, `Ready to Verify`, or another workflow state solely from whether an issue is open or closed.
+Do not infer `Complete`, `Superseded`, `Ready to Spec`, `Ready to Verify`, or another workflow state solely from whether an issue is open or closed.
 
-Issue state and Polaris lifecycle state answer different questions. Wayfinder closure is a specific delivery-complete marker established by its owning lifecycle, not a generic substitute for workflow-state derivation.
+Issue state and Polaris lifecycle state answer different questions. Normal Wayfinder completion closure is a specific delivery-complete marker established by its owning lifecycle; `superseded` / `not_planned` closure is a distinct historical retirement and must not be conflated with completion or ordinary re-entry.
 
 ### Provenance as Hierarchy
 

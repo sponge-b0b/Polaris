@@ -33,7 +33,7 @@ The caller supplies one or more desired **base formal artifact projections**. Fo
 * `Root Blocker` as `RB-n` or `None`;
 * `Completed On` as `YYYY-MM-DD` only when `Workflow State = Complete`, otherwise `None`;
 * `Priority` only when the caller intentionally owns a priority change;
-* after project-delivery bootstrap, `Project Delivery State` for every non-complete formal artifact: `in-focus | eligible | blocked | independent`.
+* after project-delivery bootstrap, `Project Delivery State` for every active formal artifact whose `Workflow State` is neither `Complete` nor `Superseded`: `in-focus | eligible | blocked | independent`.
 
 `Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
 
@@ -52,13 +52,13 @@ Derive the base route from **Base Artifact Route Compatibility** below:
 * `Workflow State = Blocked` → base `Work Status = Blocked`;
 * otherwise, one or more open native blockers → base `Work Status = Blocked`;
 * otherwise, `Wayfinder Map / Spec Delivery` → base `Work Status = In Progress`;
-* every other listed non-complete route → base `Work Status = Ready`;
+* every other listed active route → base `Work Status = Ready`;
 * base `Next Skill` is the allowed route value for the exact `Artifact Type` + `Workflow State`;
 * for `Spec Review / Review Remediation`, read its native remediation-ticket children to choose `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action.
 
 Native blockers affect `Work Status` only in this sync mode. They do not rewrite `Workflow State`, suppress or replace the base `Next Skill`, or determine `Delivery State`.
 
-Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, incomplete blocker data, or `Workflow State = Complete` in this open-artifact sync mode is projection drift and fails closed.
+Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, incomplete blocker data, or terminal `Workflow State = Complete` / `Superseded` in this open-artifact sync mode is projection drift and fails closed.
 
 This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
 
@@ -84,10 +84,11 @@ Project-delivery focus is authoritative only through `$project-delivery-manageme
 After project-delivery bootstrap, every formal artifact has exactly one visible delivery relationship:
 
 * `Workflow State = Complete` → `Released`; no caller-supplied project-delivery context is required;
-* non-complete Wayfinder-managed artifact governed by at least one currently focused Wayfinder → caller supplies `in-focus`;
-* non-complete Wayfinder-managed artifact governed by no focused Wayfinder but at least one frontier-eligible Wayfinder → caller supplies `eligible`;
-* non-complete Wayfinder-managed artifact for which no governing Wayfinder is currently frontier-eligible → caller supplies `blocked`;
-* non-complete formal artifact durably established as intentionally outside Wayfinder delivery governance → caller supplies `independent`.
+* `Workflow State = Superseded` → `Superseded`; no caller-supplied project-delivery context is required;
+* active Wayfinder-managed artifact governed by at least one currently focused Wayfinder → caller supplies `in-focus`;
+* active Wayfinder-managed artifact governed by no focused Wayfinder but at least one frontier-eligible Wayfinder → caller supplies `eligible`;
+* active Wayfinder-managed artifact for which no governing Wayfinder is currently frontier-eligible → caller supplies `blocked`;
+* active formal artifact durably established as intentionally outside Wayfinder delivery governance → caller supplies `independent`.
 
 For multiple governing Wayfinders, one focused eligible governor is sufficient for `in-focus`; otherwise one eligible governor is sufficient for `eligible`.
 
@@ -108,8 +109,9 @@ Map authoritative context into the Project's universal `Delivery State` field:
 | `blocked` | Denied |
 | `independent` | Independent |
 | `Workflow State = Complete` | Released |
+| `Workflow State = Superseded` | Superseded |
 
-`Delivery State` answers only the artifact's current relationship to project-level delivery authorization. `Denied` means current project-delivery authorization forbids advancement; it is distinct from lifecycle/execution `Blocked` in `Workflow State` or `Work Status`. The field never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
+`Delivery State` answers only the artifact's current relationship to project-level delivery authorization. `Denied` means current project-delivery authorization forbids advancement; it is distinct from lifecycle/execution `Blocked` in `Workflow State` or `Work Status`. `Superseded` is a terminal non-completion disposition: the artifact was retired from active delivery because newer product or architecture authority replaced it, not successfully delivered or released. The field never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
 
 A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness is reported by its owning lifecycle and must not create a separate Delivery State value.
 
@@ -118,6 +120,7 @@ A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness i
 Validate the base lifecycle projection before any Project mutation:
 
 * `Workflow State = Complete` requires base `Work Status = Done`, base `Next Skill = None`, and non-empty `Completed On`;
+* `Workflow State = Superseded` requires base `Work Status = Done`, base `Next Skill = None`, and `Completed On = None`;
 * non-`Complete` requires `Completed On = None`;
 * non-empty `Root Blocker` is valid only for `Artifact Type = Review Remediation Ticket` and must match `RB-[0-9]+`;
 * `Area` and `Priority` are preserved when omitted; either may be blank;
@@ -126,7 +129,9 @@ Validate the base lifecycle projection before any Project mutation:
 
 Never infer `Completed On` from issue closure.
 
-When an artifact legitimately re-enters from `Complete`, clear `Completed On` and require its current non-complete `Project Delivery State` to be re-established from durable authority.
+A caller-supplied `Superseded` projection requires explicit durable retirement authority recovered outside the Project. Issue closure or the current Project row alone is never sufficient. Ordinary new work must not silently reactivate a superseded artifact merely because a similar capability is required later; create or use a current lifecycle artifact and retain the superseded artifact as historical provenance. Correcting an erroneous supersession must first change the authoritative tracker state outside this helper.
+
+When an artifact legitimately re-enters from `Complete`, clear `Completed On` and require its current active `Project Delivery State` to be re-established from durable authority.
 
 ### Base Artifact Route Compatibility
 
@@ -168,6 +173,8 @@ When an artifact legitimately re-enters from `Complete`, clear `Completed On` an
 | Review Remediation Ticket | Blocked | None |
 | Review Remediation Ticket | Complete | None |
 
+For every formal `Artifact Type` listed above, `Workflow State = Superseded` is additionally valid only with base `Next Skill = None`.
+
 Context-sensitive `None` cases:
 
 * `Spec / Ready to Implement` waits on implementation-ticket children;
@@ -191,7 +198,18 @@ Next Skill = None
 Delivery State = Released
 ```
 
-For a non-complete artifact with `Project Delivery State = independent`, preserve base `Work Status` and base `Next Skill` and project `Delivery State = Independent`.
+For `Workflow State = Superseded` project exactly:
+
+```text
+Work Status = Done
+Next Skill = None
+Delivery State = Superseded
+Completed On = None
+```
+
+Do not require or apply a caller-supplied `Project Delivery State` to either terminal workflow state.
+
+For an active artifact with `Project Delivery State = independent`, preserve base `Work Status` and base `Next Skill` and project `Delivery State = Independent`.
 
 For a **Wayfinder Map**:
 
@@ -221,7 +239,7 @@ A lifecycle- or dependency-blocked descendant may therefore be `Delivery State =
 
 `$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
 
-### Completion Contradiction Checks
+### Terminal Disposition Checks
 
 A caller-supplied `Complete` projection requires durable lifecycle authority. Tracker relationships may only prove that completion is impossible; they never establish completion by absence.
 
@@ -232,7 +250,9 @@ Before accepting `Complete`:
 * Spec — reject if any implementation-ticket child or associated Spec Review remains open;
 * Spec Review — reject if any review-remediation ticket remains open.
 
-If route compatibility, delivery overlay, or completion contradiction fails, do not mutate the Project:
+A caller-supplied `Superseded` projection is not completion and must not use the completion contradiction checks as proof. Require explicit durable retirement authority from the owning lifecycle or reconciliation operation. Supersession may intentionally retire unfinished descendants, so their historical incompleteness does not convert the parent into `Blocked` or `Complete`.
+
+If route compatibility, delivery overlay, or terminal-disposition validation fails, do not mutate the Project:
 
 ```text
 PROJECT TRACKING: INVALID PROJECTION
@@ -333,8 +353,8 @@ Require existing fields:
 
 When project-delivery bootstrap is active, additionally require:
 
-* `Delivery State` — single select with `In Focus`, `Eligible`, `Denied`, `Independent`, `Released`;
-* `Workflow State` option `Spec Delivery`;
+* `Delivery State` — single select with `In Focus`, `Eligible`, `Denied`, `Independent`, `Released`, `Superseded`;
+* `Workflow State` options `Spec Delivery` and `Superseded`;
 * `Next Skill` option `$project-delivery-management`.
 
 If these projection additions are missing, return drift and report the exact missing Project schema. Steady-state `$project-tracking` never mutates schema.
@@ -392,7 +412,7 @@ If any item was added, rerun the affected-row read once after all additions so e
 
 Do not maintain or depend on the `workflow:tracked` label. Existing auto-add automation may remain a safety net, but `$project-tracking` neither waits for it nor mutates issue labels.
 
-Never archive/delete formal workflow artifacts merely because they completed.
+Never archive/delete formal workflow artifacts merely because they completed or were superseded.
 
 ## 4. Compute the Minimal Field Delta
 

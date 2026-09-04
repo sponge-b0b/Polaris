@@ -16,7 +16,7 @@ This architecture is derived from:
 
 `legacy/v0_1/` is not an architectural authority and was not used to choose this topology. Legacy implementation may be inspected only after this architecture establishes a current owner and need for the responsibility being implemented.
 
-This document describes architectural ownership, dependency direction, business-truth boundaries, and the initial technical shape. It does not prescribe every class, table, endpoint, model, or deployment detail.
+This document describes architectural ownership, dependency direction, business-truth boundaries, and the initial technical shape. It does not prescribe every class, table, endpoint, model, vendor, or deployment detail.
 
 ---
 
@@ -24,7 +24,7 @@ This document describes architectural ownership, dependency direction, business-
 
 Polaris 0.2.0 will be a **modular monolith with ports and adapters**.
 
-The system will have one canonical Python product codebase under `src/polaris/`, one transactional primary business store, explicit module boundaries enforced inside the codebase, and replaceable adapters for models, external Evidence, authoritative Portfolio State, external execution observations, identity, scheduling, and presentation surfaces.
+The system will have one canonical Python product codebase under `src/polaris/`, explicit module boundaries enforced inside the codebase, inward-owned ports for required external or infrastructural capabilities, and replaceable adapters for persistence, durable asynchronous follow-up, models, external Evidence, authoritative Portfolio State, external execution observations, identity, scheduling, observability, configuration, and presentation surfaces.
 
 Conceptually:
 
@@ -36,6 +36,7 @@ Human / machine surfaces
 │               APPLICATION                    │
 │  commands · queries · use-case coordination  │
 │  transaction ownership · idempotency         │
+│  inward-owned capability ports               │
 └──────────────────────┬────────────────────────┘
                        │
                        ▼
@@ -51,18 +52,19 @@ Human / machine surfaces
                        │ ports owned inward
           ┌────────────┴────────────┐
           ▼                         ▼
-┌───────────────────┐     ┌────────────────────┐
-│ INFRASTRUCTURE    │     │ EXTERNAL SYSTEMS   │
-│ persistence       │     │ Evidence providers │
-│ model adapters    │     │ Portfolio sources  │
-│ source adapters   │     │ brokers/execution  │
-│ identity/secrets  │     │ model providers    │
-│ scheduling        │     │ distribution       │
-│ observability     │     │ identity systems   │
-└───────────────────┘     └────────────────────┘
+┌────────────────────┐    ┌────────────────────┐
+│ INFRASTRUCTURE     │    │ EXTERNAL SYSTEMS   │
+│ persistence        │    │ Evidence providers │
+│ durable follow-up  │    │ Portfolio sources  │
+│ model adapters     │    │ brokers/execution  │
+│ source adapters    │    │ model providers    │
+│ identity/secrets   │    │ distribution       │
+│ scheduling         │    │ identity systems   │
+│ observability      │    │ infrastructure     │
+└────────────────────┘    └────────────────────┘
 ```
 
-The architectural center is the **Investment Decision lifecycle and its durable business facts**, not a runtime graph, agent system, report pipeline, event stream, or persistence record type.
+The architectural center is the **Investment Decision lifecycle and its durable business facts**, not a runtime graph, agent system, report pipeline, event stream, database product, message broker, or persistence record type.
 
 ## Why a modular monolith
 
@@ -75,13 +77,13 @@ It is preferred for 0.2.0 because:
 - the product has no requirement for independently deployed domain services;
 - network boundaries would add distributed consistency and operational failure modes before they create product value;
 - a small team can reason about, test, and evolve one deployable codebase more reliably;
-- ports and strict import rules preserve extraction options if a real scaling or organizational boundary later appears.
+- ports and strict import rules preserve replacement and later extraction options if a real scaling or organizational boundary appears.
 
 A modular monolith is not permission to create one undifferentiated package. Boundaries are enforced by dependency rules and ownership, not by network calls.
 
 ---
 
-# 2. Dependency direction
+# 2. Dependency direction and technology insulation
 
 The canonical dependency rule is:
 
@@ -104,6 +106,68 @@ More precisely:
 
 Dependency direction will be enforced by executable architecture tests rather than documentation alone.
 
+## Technology-insulation principle
+
+Polaris architecture owns **required semantics and guarantees**. Adapters own vendors, protocols, infrastructure products, and replaceable implementation patterns.
+
+When Polaris depends on a capability whose implementation is external, infrastructural, vendor-specific, or materially volatile, the dependency should normally sit behind an inward-owned port unless that technology is itself part of the product semantics.
+
+This principle applies particularly to:
+
+- durable persistence;
+- asynchronous follow-up and messaging;
+- model/provider access;
+- Evidence sources;
+- authoritative Portfolio State sources;
+- execution-observation sources;
+- identity providers;
+- secrets backends;
+- schedulers;
+- notification/distribution systems;
+- observability backends;
+- caches, object stores, retrieval/vector stores, and similar infrastructure if later required.
+
+Ports must express what the application or domain requires, not mirror a vendor API. Examples include:
+
+```text
+persist these decision-domain changes atomically
+load this historical Decision Memory view
+invoke this analytical model capability
+observe authoritative Portfolio State
+register required durable asynchronous follow-up
+resolve authenticated actor context
+```
+
+rather than:
+
+```text
+execute SQL
+publish to Kafka
+call vendor X endpoint
+write to Redis
+```
+
+This does **not** require an abstraction around every library. Pure internal helpers, standard parsing utilities, calculation libraries, UUID generation, and similar implementation details do not earn ports merely because they could someday be replaced.
+
+The rule is:
+
+> **Abstract across boundaries of ownership, authority, infrastructure, or meaningful volatility—not across every import.**
+
+## Replaceability without lowest-common-denominator design
+
+Technology insulation does not require crippling adapters to the weakest feature set shared by every conceivable implementation.
+
+An adapter may use technology-specific capabilities internally when they help satisfy the inward-owned contract. A PostgreSQL adapter may use PostgreSQL transactions, constraints, indexing, and JSON support. A broker-backed messaging adapter may use the broker's native delivery guarantees. A model adapter may use provider-specific structured-output features.
+
+Replacing such an adapter may require:
+
+- a new adapter implementation;
+- a new physical schema or migration strategy;
+- operational migration;
+- different deployment configuration.
+
+It should not require redefining Investment Decision semantics, authority semantics, or application use-case contracts merely because the underlying technology changed.
+
 ---
 
 # 3. Logical domain ownership
@@ -124,7 +188,7 @@ The capability model does not require one software module per capability. The fo
 - Supersession and causal linkage to renewed Investment Decisions;
 - Review Condition relationships that affect decision continuity.
 
-The Decisions module is the owner of **decision lifecycle identity**, but it is not a giant aggregate containing every fact associated with a decision.
+The Decisions module owns **decision lifecycle identity**, but it is not a giant aggregate containing every fact associated with a decision.
 
 An Investment Decision is the durable lifecycle root that other modules reference. Evidence, judgments, authority acts, Action Intents, Outcomes, and Lessons retain their own semantic ownership.
 
@@ -136,7 +200,7 @@ An Investment Decision is the durable lifecycle root that other modules referenc
 - source provenance;
 - observation/as-of time;
 - Judgment-Time Availability;
-- Freshness Requirement evaluation inputs/results where the question is evidence fitness;
+- Freshness Requirement evaluation inputs/results where the question is Evidence fitness;
 - sufficiency and unresolved/missing/conflicting Evidence representation;
 - bindings showing which Evidence materially supported a judgment or governed use.
 
@@ -231,7 +295,7 @@ The following are intentionally **not** first-class domain modules merely becaus
 
 **Durable Decision Memory** is a cross-lifecycle architectural responsibility produced by preserving and composing the canonical facts owned by the domain modules.
 
-**Attention** is primarily an application capability that evaluates current observations against Portfolio and decision memory using domain semantics. It may use deterministic and AI-assisted analysis without becoming a separate source of business truth.
+**Attention** is primarily an application capability that evaluates current observations against Portfolio and Decision Memory using domain semantics. It may use deterministic and AI-assisted analysis without becoming a separate source of business truth.
 
 The remaining items are supporting implementation mechanisms that may be introduced when a current use case earns them.
 
@@ -294,25 +358,28 @@ The application layer is responsible for:
 - loading the required current business state;
 - checking expected versions/preconditions;
 - invoking domain behavior;
-- persisting all business changes atomically where the invariant requires it;
-- writing any required outbox notification in the same transaction;
-- returning success only after the business transaction commits.
+- committing all business changes atomically where the invariant requires it;
+- registering any required durable asynchronous follow-up atomically with the business changes when loss of that follow-up would violate the use case;
+- returning success only after the required durable commit succeeds.
 
-Long model calls and external network calls must not hold database transactions open.
+The application transaction boundary is semantic. It must not expose database-vendor transaction objects or messaging-vendor primitives to the domain.
+
+Long model calls and external network calls must not hold durable-store transactions open.
 
 A typical long-running analytical operation is therefore:
 
 ```text
 1. load decision/context + capture expected versions
-2. commit/close read transaction
-3. acquire external Evidence / call model outside DB transaction
+2. close the read transaction/session
+3. acquire external Evidence / call model outside durable-store transaction
 4. open command transaction
 5. re-check versions, freshness, and governing preconditions
 6. reject/re-evaluate if material state changed
-7. commit attributable judgment + Evidence bindings + outbox atomically
+7. atomically commit attributable judgment + Evidence bindings
+   + any required durable follow-up obligation
 ```
 
-This prevents slow external work from turning database locks into orchestration state while also preventing stale model output from silently overwriting newer business truth.
+This prevents slow external work from turning persistence locks into orchestration state while also preventing stale model output from silently overwriting newer business truth.
 
 ## Idempotency and concurrency
 
@@ -320,9 +387,9 @@ Every retryable command or externally observed fact ingestion path must support 
 
 Investment Decision identity is **not** the idempotency key for every operation.
 
-The architecture will use optimistic concurrency/version checks on mutable lifecycle roots or equivalent compare-and-set semantics so competing work cannot silently overwrite newer state.
+The application contract requires optimistic concurrency/version checks or equivalent compare-and-set semantics on mutable lifecycle roots so competing work cannot silently overwrite newer state.
 
-At-least-once technical execution is acceptable when business commands are idempotent and committed facts remain singular.
+At-least-once technical execution is acceptable when business commands are idempotent and committed business facts remain singular.
 
 ---
 
@@ -356,11 +423,13 @@ Later change is represented by new facts, explicit correction/supersession relat
 
 Mutable current-state helpers or read projections are permitted for efficient access, but they are not the sole historical authority.
 
-## No event-sourcing requirement
+## No universal event-sourcing requirement
 
 0.2.0 will **not** use universal event sourcing as the business persistence model.
 
-Domain events may exist as internal notifications, and an outbox may durably publish committed changes to background work, but the product's business truth is the direct domain state and immutable historical facts—not reconstruction from a universal runtime event stream.
+Domain events or application notifications may exist as internal coordination signals. Durable asynchronous follow-up may be implemented through an outbox, queue, broker, event bus, change-data-capture relay, or another adapter that satisfies the required guarantees.
+
+Regardless of mechanism, the product's business truth is the direct domain state and immutable historical facts—not reconstruction from a universal runtime event stream.
 
 ## Decision Memory Query
 
@@ -390,35 +459,59 @@ The assembled view is a query representation. It is not a new canonical `Decisio
 
 ---
 
-# 6. Primary persistence architecture
+# 6. Durable persistence boundary
 
-Polaris 0.2.0 will use **PostgreSQL as the initial canonical transactional business store**.
+Polaris requires a **durable transactional business persistence capability**. The architecture does not make a database product part of Polaris business identity.
 
-This is a fresh greenfield choice justified by the approved requirements, not by legacy usage.
+## Required persistence semantics
 
-PostgreSQL fits because 0.2.0 requires:
+The inward-owned persistence contracts must be able to satisfy, where the applicable use case requires them:
+
+- atomic commitment of related business facts;
+- durable concurrent command handling;
+- optimistic concurrency/version checks or equivalent compare-and-set behavior;
+- uniqueness and idempotency guarantees;
+- preservation of immutable historical facts;
+- efficient current-state queries;
+- temporal ordering and historical reconstruction;
+- explicit identity and provenance relationships;
+- coordinated persistence across multiple owner-specific stores within one application transaction;
+- durable recovery after process restart or ordinary infrastructure interruption.
+
+These are architectural requirements. SQL, tables, document collections, ORM sessions, database locks, and vendor-specific transaction APIs are adapter implementation details.
+
+## Inward-owned persistence ports
+
+Persistence contracts are owned by the application/domain responsibility that needs them.
+
+Examples may include owner-specific stores and an application Unit of Work that coordinates them. A generic "repository for everything" is discouraged because it erases ownership and tends to leak persistence shape into the domain.
+
+Ports must not expose PostgreSQL row types, ORM sessions, SQL expressions, or another vendor's native persistence objects.
+
+## Initial PostgreSQL adapter
+
+PostgreSQL is the **initial/reference persistence adapter for 0.2.0**, not the architectural identity of the persistence boundary.
+
+It is a strong first choice because the supported path requires:
 
 - transactional invariants spanning related business facts;
-- durable concurrent command handling;
-- explicit relational identity and provenance links;
-- immutable historical facts plus efficient current-state queries;
-- robust uniqueness/idempotency constraints;
-- ordered temporal queries and reconstruction;
-- enough structured flexibility for attributable analytical payloads without making opaque documents the sole truth.
+- robust concurrency and uniqueness constraints;
+- explicit relational identity/provenance links;
+- immutable history plus efficient current-state queries;
+- ordered temporal queries;
+- structured flexibility for attributable analytical payloads.
 
-This decision does not choose an ORM, migration library, connection library, or physical schema yet. Those are implementation decisions for R2 after the architecture is approved.
+The PostgreSQL adapter may use PostgreSQL-specific strengths internally when doing so cleanly satisfies the inward-owned contract.
 
-## Fresh lineage
+Replacing PostgreSQL later may require a new adapter, new physical schema, data migration, and operational changes. It should not require changing canonical Investment Decision semantics or application use-case contracts.
 
-Greenfield Polaris will create a fresh root migration lineage and greenfield schema.
+This architecture does not choose an ORM, migration library, connection library, or physical schema. Those are R2 implementation decisions.
 
-No new migration may alter a legacy table merely because that table exists under the quarantined implementation.
+## Fresh persistence lineage
 
-## Persistence ports
+Greenfield Polaris will create a fresh current persistence lineage. The initial PostgreSQL implementation therefore gets a fresh root migration lineage and greenfield schema.
 
-Persistence contracts are owned inward by the application/domain responsibility that needs them. Infrastructure provides PostgreSQL adapters.
-
-A generic "persistence repository for everything" is discouraged because it erases ownership. A single application Unit of Work may coordinate multiple owner-specific stores within one transaction.
+No current migration or persistence adapter may target a legacy table merely because that table exists under the quarantined implementation.
 
 ---
 
@@ -499,6 +592,8 @@ The application layer accesses external state through narrow capability ports su
 
 Exact protocol/vendor adapters live in `infrastructure`.
 
+Ports must use Polaris-owned contract types or deliberately stable standards where justified; vendor SDK types must not leak into domain/application contracts merely for convenience.
+
 ## External facts are observations, not ownership transfer
 
 Adapters normalize external data into attributable observations that preserve:
@@ -538,7 +633,7 @@ allowed
 denied
 ```
 
-The exact result vocabulary belongs to the owning domain semantics; the important architectural rule is that rule evaluation is not inferred from model prose or absence of failure.
+The exact result vocabulary belongs to the owning domain semantics; rule evaluation is not inferred from model prose or absence of failure.
 
 ## Human authority
 
@@ -585,7 +680,7 @@ Reports, PDFs, email, messaging, and MCP remain optional presentation/distributi
 
 ---
 
-# 11. Background work, scheduling, and Attention
+# 11. Background work, scheduling, Attention, and durable follow-up
 
 Scheduled and asynchronous work are supporting runtime concerns, not business identity.
 
@@ -610,7 +705,7 @@ normalize + persist attributable observation
         ↓
 deterministic relevance/freshness/materiality triage where possible
         ↓
-query affected decision memory / portfolio context
+query affected Decision Memory / Portfolio context
         ↓
 Attention application use case
         ↓
@@ -620,24 +715,73 @@ or establish new Decision Need / linked Investment Decision
         ↓
 optional deeper AI-assisted investigation
         ↓
-surface prepared work when human attention is warranted
+surface prepared work when human Attention is warranted
 ```
 
 Fast deterministic invalidation of stale current support may occur before slower AI reasoning.
 
-## Outbox instead of universal event bus
+## Durable asynchronous follow-up boundary
 
-When a committed business change must trigger asynchronous follow-up, the same transaction may write an outbox record.
+The architectural requirement is **reliable durable follow-up after committed business changes**, not a specific outbox, queue, broker, or event-bus implementation.
 
-A worker consumes the outbox at least once and invokes an idempotent application use case.
+When a committed business change requires later asynchronous work, Polaris must be able to durably register that follow-up such that the required work cannot be silently lost between business commit and asynchronous dispatch.
 
-This gives reliable follow-up without making a universal event bus or replay stream the product architecture.
+Conceptually:
+
+```text
+APPLICATION TRANSACTION
+        │
+        ├── commit business facts
+        │
+        └── register durable follow-up obligation
+                  │
+                  │ atomic where required
+                  ▼
+            committed state
+
+                  ↓ later
+
+FOLLOW-UP DELIVERY
+        │
+        ├── claim / receive
+        ├── dispatch / invoke application use case
+        ├── retry safely
+        └── preserve idempotent business effect
+```
+
+The follow-up obligation is an application/runtime coordination concept, not a new canonical investment-domain entity and not a source of business truth.
+
+The inward-owned contract must express guarantees such as:
+
+- durable registration when the originating use case requires guaranteed follow-up;
+- no success response if required durable registration failed;
+- recoverability after process restart;
+- at-least-once delivery being acceptable when the invoked application command is idempotent;
+- explicit handling of poison/permanently failing work;
+- no requirement that technical delivery identity equal Investment Decision identity;
+- no silent semantic duplication of business facts under retry.
+
+Possible adapters include:
+
+- a transactional outbox;
+- a durable database-backed work queue;
+- a message broker or event bus with a transaction/atomicity strategy that satisfies the port contract;
+- change-data-capture or outbox-relay infrastructure;
+- another durable mechanism that satisfies the same guarantees.
+
+A plain "commit database, then publish event" sequence is insufficient when the publish may be lost after the business commit. Any adapter must address that failure window rather than hide it behind a generic `publish()` interface.
+
+## Event bus is not rejected as infrastructure
+
+An event bus may be a valid adapter for technical delivery or integration.
+
+What remains rejected is making a **universal event bus or replay stream the business source of truth or the organizing product spine**. Polaris business truth remains the directly persisted decision-domain facts and their durable historical relationships.
 
 ---
 
 # 12. Observability and technical provenance
 
-Operational observability is supporting evidence about software execution.
+Operational observability is supporting Evidence about software execution.
 
 The architecture will preserve technical identifiers such as:
 
@@ -653,6 +797,8 @@ These identifiers help diagnose how business work was produced. They do not beco
 Logs/traces must be sanitized and must not contain secrets or unnecessarily expose sensitive Portfolio information.
 
 Optional telemetry loss must not erase independently required business provenance.
+
+The exact tracing, metrics, or logging backend remains an infrastructure-adapter choice.
 
 ---
 
@@ -716,6 +862,7 @@ src/polaris/
 │   └── ports/
 ├── infrastructure/
 │   ├── persistence/
+│   ├── follow_up/
 │   ├── sources/
 │   ├── models/
 │   ├── identity/
@@ -725,6 +872,8 @@ src/polaris/
 └── interfaces/
     └── <first thin human/machine adapters>
 ```
+
+`follow_up/` denotes infrastructure that implements the durable asynchronous follow-up contracts. It does not prescribe outbox, broker, queue, or event-bus technology.
 
 Directories should be created only when implementation work first needs them. The topology is an ownership map, not permission to scaffold every folder immediately.
 
@@ -751,9 +900,11 @@ At minimum, checks must fail when:
 1. any current source/test imports a Python module from `legacy/`;
 2. `domain` imports `application`, `infrastructure`, or `interfaces`;
 3. `application` imports concrete `infrastructure` or `interfaces` implementations;
-4. an interface or adapter bypasses the application command/query boundary to write business persistence directly;
-5. runtime/work identifiers are used as Investment Decision identity;
-6. current migrations target legacy schema objects because they already exist.
+4. `domain` or `application` imports vendor-specific persistence, messaging, model-provider, external-source, identity, observability, or other adapter implementation packages except where a deliberately approved stable standard is itself part of the inward contract;
+5. an inward-owned port exposes vendor SDK types, ORM sessions, SQL expressions, broker-native message types, or another adapter-specific representation without explicit architectural justification;
+6. an interface or adapter bypasses the application command/query boundary to write business persistence directly;
+7. runtime/work identifiers are used as Investment Decision identity;
+8. current migrations or persistence adapters target legacy schema objects because they already exist.
 
 The exact enforcement tool is an implementation choice. A small custom import/AST test is preferred over adding a framework solely for architecture linting unless the framework earns its dependency.
 
@@ -772,7 +923,8 @@ For the initial supported path:
 | Deterministic stale/current-support invalidation after an observation is received | p95 ≤ 5 s |
 | Model/external calls | explicit per-port deadline; no unbounded wait |
 | Human-initiated analytical preparation | target p95 ≤ 180 s for the narrow supported path |
-| Successful business command | success returned only after durable commit |
+| Successful business command | success returned only after required durable commit |
+| Required asynchronous follow-up registration | durable before originating command reports success where atomic follow-up is required |
 | Retry/recovery | no duplicate durable business fact for the same idempotent operation |
 
 These are **decision-system targets**, not exchange-execution guarantees.
@@ -790,11 +942,13 @@ An initial deployment may run:
 ```text
 one interactive process
 one optional background worker/scheduler process
-one PostgreSQL database
+one configured durable business store
 external provider integrations as configured
 ```
 
-Both processes execute the same application/domain code and use the same business store.
+The initial/reference durable-store adapter is expected to be PostgreSQL. That is a deployment/adapter choice, not a requirement that application/domain contracts depend on PostgreSQL.
+
+Both processes execute the same application/domain code and use the same business truth.
 
 This is not a microservice split. Worker/scheduler separation exists only to keep slow/background work from blocking interactive use.
 
@@ -812,21 +966,23 @@ Pure tests for lifecycle, authority, Portfolio/Risk, continuity, and learning in
 
 ## Application tests
 
-Use-case tests with deterministic fakes for ports, including transaction/idempotency/concurrency behavior.
+Use-case tests with deterministic fakes for ports, including transaction/idempotency/concurrency behavior and durable-follow-up semantics.
 
 ## Adapter contract tests
 
-Persistence, model, Evidence, Portfolio State, identity, and execution-observation adapters prove they satisfy their inward-owned contracts.
+Persistence, durable-follow-up, model, Evidence, Portfolio State, identity, and execution-observation adapters prove they satisfy their inward-owned contracts.
+
+Contract tests must test semantic guarantees, not merely implementation-specific calls. For example, a persistence adapter test should prove required atomicity/idempotency behavior, and a follow-up adapter test should prove required durability/recovery behavior.
 
 ## Acceptance tests
 
-The approved `AS-001` through `AS-022` scenarios are implemented as product-level acceptance evidence across milestones.
+The approved `AS-001` through `AS-022` scenarios are implemented as product-level acceptance Evidence across milestones.
 
 Acceptance tests must assert canonical business facts, not merely that a workflow/job/report completed.
 
 ## Architecture tests
 
-Import/dependency and legacy-isolation checks run continuously from R2 onward.
+Import/dependency, vendor-insulation, port-contract, and legacy-isolation checks run continuously from R2 onward.
 
 ---
 
@@ -834,21 +990,21 @@ Import/dependency and legacy-isolation checks run continuously from R2 onward.
 
 | Requirement family | Primary architectural owner / enforcement boundary |
 | --- | --- |
-| `GF-*` | whole architecture; dependency and legacy-isolation checks |
+| `GF-*` | whole architecture; dependency, technology-insulation, and legacy-isolation checks |
 | `DEC-*` | Decisions + application transaction boundary |
 | `ATT-*` | Attention application use cases + Decisions/Evidence/Memory queries |
-| `EVD-*` | Evidence + source adapters + persistence |
+| `EVD-*` | Evidence + source ports/adapters + durable persistence |
 | `RSN-*` | Investment Intelligence + model port/application reasoning |
-| `PRT-*` | Portfolio & Risk + authoritative Portfolio State adapter |
+| `PRT-*` | Portfolio & Risk + authoritative Portfolio State port/adapter |
 | `REC-*` | Investment Intelligence linked to Decisions |
 | `AUT-*` | Governance & Authority + actor context + deterministic evaluators |
-| `ACT-*` | Action Continuity + external execution-observation adapter |
-| `MEM-*` | cross-module persistence + Decision Memory query boundary |
+| `ACT-*` | Action Continuity + external execution-observation port/adapter |
+| `MEM-*` | cross-module durable persistence + Decision Memory query boundary |
 | `EVA-*` | Learning + historical Decision Memory |
 | `UX-*` | interfaces over shared application commands/queries |
-| `INT-*` | application ports + infrastructure adapters |
+| `INT-*` | inward-owned application ports + infrastructure adapters |
 | `CFG-*` | configuration boundary + domain-owned configuration semantics |
-| `REL-*` | application transactions/idempotency + persistence/outbox/observability |
+| `REL-*` | application transactions/idempotency + durable persistence + durable follow-up + observability |
 | `SEC-*` | identity/secrets/access boundary + Governance authority semantics |
 | `TMP-*` | Evidence freshness + Attention + scheduler/worker runtime |
 | `SCP-*` | architecture boundary and explicit absence of unauthorized responsibilities |
@@ -859,7 +1015,7 @@ Every approved requirement family therefore has a current owner or cross-cutting
 
 # 21. Rejected architectural defaults
 
-The following are explicitly rejected as **default architecture for 0.2.0** unless a later current requirement reopens the question:
+The following are explicitly rejected as **default architecture for 0.2.0** unless a later current requirement reopens the question.
 
 ## Workflow-centric spine
 
@@ -867,7 +1023,15 @@ Rejected because Investment Decision lifecycle and business facts must remain au
 
 ## Universal event sourcing / replay-as-truth
 
-Rejected because the product requires direct reconstructable business semantics, not dependency on replaying generic runtime events.
+Rejected because the product requires directly reconstructable business semantics, not dependency on replaying generic runtime events.
+
+## Universal event bus as product spine
+
+Rejected because asynchronous delivery infrastructure must remain an adapter concern and must not become the canonical organizer or source of business identity. An event bus remains a valid adapter where it satisfies an inward-owned capability contract.
+
+## Vendor-shaped core contracts
+
+Rejected because domain/application contracts must express Polaris semantics and guarantees rather than mirror database, broker, model-provider, SDK, or infrastructure APIs.
 
 ## Microservices
 
@@ -907,8 +1071,12 @@ Examples:
 Need: model adapter behind Investment Intelligence port
 → inspect only relevant legacy model-gateway donor material
 
-Need: PostgreSQL transaction/engine mechanics behind persistence ports
+Need: initial PostgreSQL adapter mechanics behind inward-owned persistence contracts
 → inspect only relevant legacy database mechanics
+
+Need: durable asynchronous follow-up adapter
+→ inspect relevant legacy job/claim/outbox/event mechanics only after
+  the follow-up contract is defined; salvage mechanics, not old runtime identity
 
 Need: structured sensitive-data sanitization behind observability/security
 → inspect only relevant legacy sanitization donor material
@@ -924,7 +1092,7 @@ REWRITE
 LEAVE IN LEGACY
 ```
 
-No classification may create runtime dependency on `legacy/`.
+No classification may create runtime dependency on `legacy/` or leak a legacy/vendor implementation boundary inward.
 
 ---
 
@@ -934,23 +1102,24 @@ R1 is complete only when this architecture is approved and the following are acc
 
 1. modular monolith as the 0.2.0 system shape;
 2. inward dependency direction through domain/application-owned ports;
-3. the seven logical domain ownership areas;
-4. Investment Decision as lifecycle identity without becoming a giant aggregate;
-5. Durable Decision Memory as cross-lifecycle composition of direct business facts;
-6. PostgreSQL as the fresh transactional business store, without inheriting the legacy schema;
-7. direct business persistence plus immutable history, not universal event sourcing;
-8. application-owned transaction/idempotency/concurrency boundaries;
-9. AI/model access as a bounded analytical adapter with no authority power;
-10. deterministic Policy/Formal Constraint results distinct from authority acts;
-11. external facts entering through observation ports with external authority preserved;
-12. inbound observation/reconciliation with no outbound execution port;
-13. thin presentation surfaces over shared application semantics;
-14. optional worker/scheduler runtime that does not become business identity;
-15. outbox for required asynchronous follow-up rather than a universal event bus;
-16. executable architecture and legacy-isolation checks;
-17. provisional decision-time operational targets;
-18. fresh greenfield migration/schema lineage;
-19. requirement-family ownership as mapped above.
+3. explicit technology insulation: core contracts own semantics/guarantees while adapters own replaceable vendors and infrastructure patterns;
+4. the seven logical domain ownership areas;
+5. Investment Decision as lifecycle identity without becoming a giant aggregate;
+6. Durable Decision Memory as cross-lifecycle composition of direct business facts;
+7. technology-neutral durable persistence boundary, with PostgreSQL as the initial/reference adapter rather than architectural identity;
+8. direct business persistence plus immutable history, not universal event sourcing;
+9. application-owned transaction/idempotency/concurrency boundaries;
+10. technology-neutral durable asynchronous follow-up boundary whose adapters may use outbox, queue, broker, event bus, CDC, or another mechanism only if they satisfy durability/atomicity/idempotency/recovery guarantees;
+11. AI/model access as a bounded analytical adapter with no authority power;
+12. deterministic Policy/Formal Constraint results distinct from authority acts;
+13. external facts entering through observation ports with external authority preserved;
+14. inbound observation/reconciliation with no outbound execution port;
+15. thin presentation surfaces over shared application semantics;
+16. optional worker/scheduler runtime that does not become business identity;
+17. executable architecture, vendor-insulation, and legacy-isolation checks;
+18. provisional decision-time operational targets;
+19. fresh greenfield persistence lineage for the selected initial adapter;
+20. requirement-family ownership as mapped above.
 
 Approval of R1 authorizes **required component-boundary implementation planning and selective donor inspection** for the next roadmap work. It does not authorize importing legacy wholesale or bypassing the normal Spec/ticket delivery process.
 

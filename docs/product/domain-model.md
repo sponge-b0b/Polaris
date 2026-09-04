@@ -4961,3 +4961,636 @@ The following invariants are now accepted:
 20. **Stopping decision work does not retroactively establish that the Decision Need never existed or silently convert work-management disposition into substantive investment judgment.**
 21. **Product access, workflow, resource, or operating Policy may require confirmation before performing particular work or may permit suppression of autonomous initiation, but such Policy is not part of the canonical semantic definition of Decision Need or Investment Decision and must not be confused with consequential investment authority.**
 22. **No separate first-class `Decision Initiation Authority` domain concept is presently required; the important domain distinction is between permission or Policy governing decision work and the investment-authority powers governing consequential human judgment.**
+
+<!-- polaris-canonical-audit-scenario-fixtures:v1 -->
+## Canonical audit scenario fixtures
+
+The scenarios in this section preserve the semantically distinct pressure tests from the completed investment-vocabulary audit that are not already represented by earlier fixtures. They are intentionally selective. Canonical definitions remain in [`../../CONTEXT.md`](../../CONTEXT.md); these examples preserve the boundary, identity, temporal, authority, and invalid-state reasoning needed to apply those definitions correctly.
+
+### Durable Decision Memory survives representation and storage change
+
+Suppose an Investment Decision was formed, reviewed, resolved, implemented externally, and later evaluated. Years afterward, the original rendered report no longer exists and the platform has migrated its storage and rebuilt its search and graph representations.
+
+```text
+Investment Decision identity:
+unchanged
+
+material Recommendation / Human Investment Decision / authority history:
+reconstructable
+
+original workflow replay:
+unavailable
+
+original report bytes:
+unavailable
+```
+
+Polaris still possesses Durable Decision Memory if the material domain history and relationships remain semantically reconstructable. The absence of the original runtime execution or report does not erase the Investment Decision, and successful runtime replay would not by itself prove that the decision meaning was reconstructed correctly.
+
+A later correction may also establish that an earlier actor attribution or historical fact was wrong. The correction extends the supported historical understanding rather than rewriting the fact that the earlier assertion existed. Unknown or disputed facts remain unknown or disputed when the evidence does not resolve them.
+
+**Distinction proved:** Durable Decision Memory ≠ persistence ≠ report retention ≠ runtime replay, and lowercase `decision record` is a representation of durable history rather than a competing business entity.
+
+### A Strategy may remain discretionary while a Trading System is operationally complete
+
+Consider a reusable trend-following method that defines its economic rationale, normal Investment Horizon, evidence lens, entry principles, Portfolio-expression logic, Portfolio Risk discipline, and conditions under which it should abstain, while still requiring material judgment about whether current evidence is sufficiently coherent to act.
+
+```text
+reusable method:
+Investment Strategy
+
+material discretionary judgment remains inside method:
+yes
+
+Trading System:
+no
+```
+
+Now consider a rule set whose declared inputs determine:
+
+```text
+if conditions A + B + C:
+target 60% equity / 40% Treasuries
+
+otherwise:
+target 35% equity / 65% Treasuries
+```
+
+If little or no material discretionary investment judgment remains inside that declared method, it has Trading System semantics even when a human must still approve any consequential Portfolio action downstream.
+
+A small parameter adjustment does not mechanically create a new Strategy identity, while a material change to the economic rationale, source of expected edge, Investment Horizon, Evidence interpretation, Portfolio-expression logic, or Portfolio Risk discipline may create a new linked Strategy.
+
+**Distinction proved:** Investment Strategy ≠ Trading System, systematic behavior ≠ authority, and Strategy identity follows the coherent recurring investment method rather than every parameter value.
+
+### Investment Horizon survives a different realized Holding Period
+
+Suppose an Investment Thesis is formed with an explicit twelve-month Investment Horizon. Three months later, new information creates a separate Investment Decision and the human exits the Position.
+
+```text
+original Investment Horizon:
+12 months
+
+actual Holding Period:
+3 months
+```
+
+The three-month Holding Period does not rewrite the ex-ante twelve-month Investment Horizon. Later evaluation may consider both, but they answer different temporal questions.
+
+**Distinction proved:** Investment Horizon ≠ actual Holding Period ≠ later evaluation window.
+
+### Thesis premises, Catalysts, and Invalidation Conditions retain distinct roles
+
+Suppose an AAPL Investment Thesis relies materially on the explicit Investment Assumption that gross-margin pressure will normalize over the next two quarters. The next earnings release is identified in advance as a Catalyst. A separately stated Invalidation Condition says that two consecutive quarters of worsening gross margin without compensating revenue acceleration would make the Thesis no longer supportable under its stated terms.
+
+If the first earnings release disappoints:
+
+```text
+anticipated earnings release:
+historical Catalyst expectation remains
+
+observed earnings result:
+new fact / possible Evidence
+
+Investment Assumption:
+may be weakened or false
+
+Invalidation Condition:
+not automatically satisfied unless its stated criterion is met
+```
+
+If the Invalidation Condition later is established as satisfied, the historical Thesis cannot remain currently supportable under its old terms without a new attributable judgment. That does not automatically create the opposite Thesis, compel a sale, establish a Human Investment Decision, or confer authority.
+
+An unexpected regulatory announcement may materially affect the Thesis but is not retroactively rewritten as an anticipated Catalyst merely because it mattered.
+
+**Distinction proved:** Investment Assumption ≠ Evidence ≠ Catalyst ≠ Invalidation Condition, and analytical invalidation ≠ compelled action or authority.
+
+### Portfolio Posture is judged orientation, not actual State or a concrete action
+
+Suppose Portfolio A currently has:
+
+```text
+Portfolio State:
+70% equity Allocation
+limited cash
+high technology concentration
+```
+
+Polaris judges the appropriate integrated orientation to be:
+
+```text
+Portfolio Posture:
+less concentrated
+more liquid
+moderately defensive
+```
+
+No specific sale, target Allocation, or Investment Recommendation has yet been formed. The Posture is a real Portfolio-relative judgment without pretending that the actual Portfolio State already changed.
+
+The same Investment View can support a constructive Posture for an under-exposed Portfolio and a defensive or constrained Posture for an already concentrated Portfolio.
+
+**Distinction proved:** Portfolio State ≠ Portfolio Posture ≠ Proposed Action ≠ Investment Recommendation, and one Investment View need not imply one universal Posture.
+
+### Projected Portfolio Consequence preserves baseline, alternative, and uncertainty
+
+Suppose Portfolio A is considering three Decision Alternatives:
+
+```text
+A: hold current exposure
+B: reduce SPY by 15%
+C: buy a defined-risk hedge
+```
+
+Polaris may describe, relative to the same reconstructable current Portfolio baseline, materially different expected consequences for Exposure, liquidity, concentration, drawdown sensitivity, opportunity cost, and Portfolio Risk. Those statements can be qualitative, quantitative, bounded, or scenario-specific.
+
+```text
+projected reduction in Portfolio Risk:
+Projected Portfolio Consequence concerning Risk
+
+underlying adverse possibility:
+Portfolio Risk
+
+later observed result:
+Outcome
+```
+
+When later Outcome differs from the projection, Polaris compares them in Decision Evaluation rather than rewriting what had been projected.
+
+**Distinction proved:** Projected Portfolio Consequence ≠ Proposed Action ≠ Projected Portfolio State ≠ Portfolio Risk ≠ Outcome.
+
+### Investment Relevance and Investment Materiality depend on the intended use
+
+A hot CPI release may be Investment-Relevant to both a long-horizon accumulation Portfolio and a short-horizon tactical Portfolio. It can nevertheless be materially different for the two current judgments:
+
+```text
+long-horizon Portfolio:
+relevant, but not material to the current choice
+
+tactical Portfolio:
+relevant and material to the current hedge decision
+```
+
+A missing or stale fact can itself be materially important even if Polaris cannot prove that the eventual Human Investment Decision would have changed. Conversely, an unavailable reviewer may block advancement for governance reasons without thereby making the reviewer availability an investment-material fact unless that availability legitimately bears on the investment judgment itself.
+
+**Distinction proved:** Investment Relevance ≠ Investment Materiality ≠ governance materiality, and materiality concerns reasonable decision significance at the assessment time rather than hindsight about the final action.
+
+### Polaris authors its Recommendation while internal mechanisms remain provenance
+
+Suppose a canonical Polaris Investment Recommendation is formed using a model, retrieval, a calculator, several workflow nodes, and an external data provider.
+
+```text
+Actor Attribution:
+Polaris
+
+model / provider / prompt / retrieval / workflow / calculator:
+provenance
+```
+
+Replacing the model or provider does not by itself transfer authorship away from Polaris. If a human directly authors an Investment Thesis and Polaris merely stores or renders it, Actor Attribution remains with the human. If Polaris materially synthesizes that human Thesis with external Evidence into a substantively new Investment View, the new View is separately Actor-attributed to Polaris.
+
+A user who requested or scheduled the analysis does not become co-author merely by initiating it.
+
+**Distinction proved:** Actor Attribution identifies who formed the domain act; provenance explains how or from what it was produced.
+
+### Recommendation acceptance preserves separate Polaris and human acts
+
+Suppose:
+
+```text
+Polaris Investment Recommendation:
+Reduce SPY Exposure by 15%.
+
+Human Investment Decision:
+Reduce SPY Exposure by 15%.
+```
+
+These are still two attributable acts:
+
+```text
+Recommendation actor:
+Polaris
+
+Human Investment Decision actor:
+human
+
+relationship:
+human accepted the Recommendation
+```
+
+If the human modifies the amount to 10%, the original Recommendation remains Polaris-attributed and the modified Human Investment Decision remains human-attributed. A genuine investment committee may instead be the collective actor for one jointly formed committee decision when the act itself was truly collective.
+
+Authentication or a recorded user ID may support attribution but does not prove it when credentials were delegated, shared, or compromised. Likewise, an unauthorized junior analyst may truly be the actor who made a judgment while still lacking the authority required for consequential use.
+
+**Distinction proved:** Actor Attribution ≠ authority, participation ≠ joint authorship, and matching economic content does not merge system and human judgment.
+
+### Attribution correction changes current understanding without changing the historical act
+
+Suppose Polaris initially records Jane as the actor for a Human Investment Decision. Later authoritative evidence establishes that the investment committee jointly formed the decision and Jane only entered it into the system.
+
+```text
+historical act:
+unchanged
+
+current supported Actor Attribution:
+investment committee
+
+prior Jane attribution:
+preserved as an earlier attribution assertion where material
+```
+
+**Distinction proved:** correcting Actor Attribution is not destructive rewriting of the underlying historical act.
+
+### A measure becomes an Investment Signal only through method-relative analytical meaning
+
+Suppose:
+
+```text
+RSI value:
+28
+```
+
+The number is a measure. Under a declared method, the interpretation:
+
+```text
+RSI < 30
+→ oversold condition
+```
+
+is an Investment Signal.
+
+A predictive model's raw score likewise is not automatically a Signal until its analytical implication is established. A qualified Portfolio Risk Score can become an Investment Signal when a separately established method interprets a threshold crossing as a relevant analytical indication.
+
+**Distinction proved:** measure / indicator / score ≠ Investment Signal automatically.
+
+### Action-oriented labels do not determine Signal versus Proposed Action
+
+Suppose a technical method emits:
+
+```text
+BUY SPY
+```
+
+meaning only that its analytical conditions are bullish. Without a concrete candidate implementation for a real Portfolio within an Investment Decision, this may remain an Investment Signal.
+
+Now compare:
+
+```text
+Portfolio A
+Investment Decision D-1400
+Candidate implementation:
+buy 40 SPY shares
+```
+
+That concrete Portfolio implementation has Proposed Action semantics even if an upstream system labels the field `signal`.
+
+A reusable rule-complete method that itself maps inputs to concrete target Position or Allocation has Trading System semantics. An external analyst's `STRONG BUY` may instead be a substantive externally attributed investment judgment rather than a Signal when that is what the source actually means.
+
+**Distinction proved:** semantic role follows actual meaning, not `BUY`, `SELL`, or `signal` labels.
+
+### Conflicting Investment Signals can all be valid method outputs
+
+The same price and volume observations can simultaneously produce:
+
+```text
+trend method:
+bullish Signal
+
+mean-reversion method:
+bearish Signal
+
+volatility method:
+transition / elevated-volatility Signal
+```
+
+Disagreement alone does not make one erroneous. Market Regime, Catalyst occurrence, Invalidation Condition satisfaction, and Formal Constraint result also remain distinct roles even when the same observation separately contributes to an Investment Signal.
+
+Transient Signals that never materially affect durable judgment need not automatically be permanent domain records. If a Signal materially informs a durable judgment, enough method, subject, as-of, temporal, source, parameter, and derivation basis must remain reconstructable under Durable Decision Memory.
+
+**Distinction proved:** conflicting Signals are method-relative analytical outputs, and materially used Signal durability follows decision use rather than emission volume.
+
+### Volatility is not itself Portfolio Risk
+
+Suppose VIX rises sharply. Portfolio A is nearly all cash while Portfolio B is highly leveraged to equity downside over a short Investment Horizon.
+
+The same volatility observation can coexist with materially different Portfolio Risk for the two Portfolios. Volatility, beta, VaR, drawdown estimates, and other measures may inform a Portfolio Risk Assessment without becoming the underlying Portfolio Risk themselves.
+
+A favorable later Outcome does not prove that the prior adverse possibilities never existed.
+
+**Distinction proved:** Portfolio Risk ≠ volatility or Risk measure ≠ realized loss or Outcome, and Risk is Portfolio-, Horizon-, and scenario-relative.
+
+### Investment Uncertainty and Portfolio Risk can move independently
+
+Compare two cases:
+
+```text
+Case A
+small experimental Position
+poorly understood event dynamics
+Investment Uncertainty: high
+Portfolio Risk: limited by small economic exposure
+
+Case B
+large concentrated Position
+well-characterized downside distribution
+Investment Uncertainty: comparatively lower
+Portfolio Risk: high
+```
+
+Fresh, internally consistent Evidence can still leave genuine uncertainty about future states or causal relationships. Conversely, a well-characterized adverse distribution can represent high Portfolio Risk without equally high Investment Uncertainty.
+
+**Distinction proved:** Investment Uncertainty ≠ Portfolio Risk and neither is the mathematical complement of Judgment Confidence.
+
+### Portfolio Risk Assessment is an attributable analytical judgment about Risk
+
+Suppose Polaris assesses:
+
+```text
+current Portfolio Risk:
+material downside concentration under an adverse growth shock
+
+assessment:
+5–8% drawdown range appears plausible under stated assumptions,
+with substantial uncertainty around correlation behavior
+```
+
+The Portfolio Risk exists independently of the assessment. The 5–8% statement is an attributable Portfolio Risk Assessment formed from Evidence, assumptions, methods, an Investment Scenario, and Investment Uncertainty.
+
+A later favorable Outcome does not rewrite the historical Assessment. Nor does analytical wording such as `acceptable risk` constitute Residual-Risk Acceptance without the separate authorized governance act.
+
+**Distinction proved:** Portfolio Risk ≠ Portfolio Risk Assessment ≠ Residual-Risk Acceptance.
+
+### Trade Implementation Risk exists before an Order and ends as prospective uncertainty when facts occur
+
+Suppose a Proposed Action would reduce a thinly traded Position by 40%.
+
+```text
+known expected transaction cost:
+approximately $500
+→ projected implementation cost / Projected Portfolio Consequence
+
+uncertain adverse slippage / market impact / partial execution:
+possibly several thousand dollars
+→ Trade Implementation Risk
+```
+
+No Order needs to exist yet for Polaris to assess that implementation risk. A missing Approval or Mandate Exception is not Trade Implementation Risk merely because it blocks the action.
+
+If the trade later executes with measured slippage and partial fills, those become authoritative execution facts, Outcome, or Evaluation inputs rather than remaining merely prospective Trade Implementation Risk.
+
+**Distinction proved:** Trade Implementation Risk concerns uncertainty in reaching the intended Portfolio consequence, not the Portfolio Risk of the resulting state or a governance blocker.
+
+### Governed Residual Risk remains underlying Risk until separately accepted
+
+Suppose automated checks and human review mitigate several concerns but an identified evidence-reconstruction deficiency remains relevant to a governed Recommendation.
+
+```text
+underlying Risk:
+still exists
+
+Governed Residual Risk:
+that Risk remains after applicable checks and mitigations
+
+Residual-Risk Acceptance:
+not yet granted
+```
+
+Residual status does not mean the Risk is small, harmless, or accepted. An authorized Residual-Risk Acceptance can satisfy only the scoped governance condition it addresses. Conventional finance uses of residual risk, such as idiosyncratic or factor-residual Portfolio Risk, remain separate meanings.
+
+**Distinction proved:** Governed Residual Risk is a governance-relative status of underlying Risk, not a new Risk species or an implicit acceptance.
+
+### A Backtest is historical counterfactual evaluation, not replay of actual decisions
+
+Suppose Polaris evaluates a Strategy from 2015 through 2025 using the universe, data vintages, corporate-action treatment, transaction-cost assumptions, and information boundary that would have been available as each historical date unfolded.
+
+The Backtest may generate hypothetical:
+
+```text
+Investment Signals
+candidate actions
+Portfolio states
+trades
+performance
+```
+
+Those outputs remain counterfactual. They are not historical Investment Recommendations, Human Investment Decisions, Action Intents, Orders, Portfolio States, or Outcomes unless those facts independently occurred in history.
+
+Look-ahead data, survivorship-biased universes, revised macro data unavailable at the simulated time, or parameters chosen using later outcomes must be prevented or explicitly disclosed.
+
+**Distinction proved:** Backtest ≠ runtime replay ≠ actual historical decision record ≠ Outcome.
+
+### Discretion does not make a Strategy inherently unbacktestable
+
+A discretionary Investment Strategy can still be Backtested when the historical information boundary, decision protocol, evaluator or decision mechanism, and material judgment conditions are sufficiently specified before later outcomes are revealed.
+
+By contrast:
+
+```text
+review each old chart with knowledge of what happened next
+and decide what we would probably have done
+```
+
+is retrospective historical analysis, not a trustworthy Backtest merely because it uses historical data.
+
+**Distinction proved:** Backtestability depends on bounded counterfactual decision process rather than complete determinism.
+
+### Investment Scenario specifies a hypothetical case; Investment Simulation is a method
+
+Suppose Polaris explicitly defines:
+
+```text
+Downside inflation Scenario:
+inflation reaccelerates
+rates rise 100 bps
+equity multiples compress over six months
+```
+
+A Monte Carlo Investment Simulation may then generate 10,000 hypothetical paths consistent with a model. Those raw paths do not each automatically become named Investment Scenarios. One selected or explicitly identified coherent path may assume Scenario semantics when used as such.
+
+A Simulation percentile or event frequency is conditional on the simulation model and assumptions and is not automatically a supported real-world probability.
+
+**Distinction proved:** Investment Scenario ≠ Investment Simulation ≠ probability assertion.
+
+### Simulated Portfolio states remain hypothetical until Polaris forms a projected judgment
+
+A Simulation may generate a hypothetical Portfolio state under a stated Scenario. That raw state is not actual Portfolio State and is not automatically a Projected Portfolio State or Projected Portfolio Consequence.
+
+If Polaris materially synthesizes the Simulation result into an attributable judgment such as:
+
+```text
+Projected Portfolio State:
+Technology Exposure remains 22%,
+but expected liquidity falls materially.
+
+Projected Portfolio Consequence:
+status quo would materially increase drawdown sensitivity.
+```
+
+those projected judgments are Actor-attributed to Polaris while the Simulation method, model, assumptions, inputs, and generated paths remain provenance.
+
+Applying genuine 2008 market facts to today's Portfolio is likewise historical Scenario Analysis, not the actual historical Outcome of today's Portfolio.
+
+**Distinction proved:** simulated fact ≠ actual fact, and Simulation provenance ≠ Actor Attribution for a later Polaris judgment.
+
+### Judgment Confidence must identify what the actor is confident about
+
+Suppose one Investment View records:
+
+```text
+directional interpretation:
+constructive
+Judgment Confidence:
+high
+
+timing of expected move:
+uncertain
+Judgment Confidence:
+low
+```
+
+There is no contradiction because the Confidence qualifications have different targets. Absence of a Confidence assessment is also not equivalent to low Confidence.
+
+A model output of `0.72` is not automatically Judgment Confidence or a real-world probability without an explicit scoring/calibration meaning. High Judgment Confidence does not itself prescribe larger Position size, establish a Recommendation, or grant Approval.
+
+**Distinction proved:** Judgment Confidence is attributable and target-specific; bare numeric confidence has no universal investment meaning.
+
+### Legacy Directional Bias cannot collapse distinct meanings onto one signed axis
+
+Suppose a legacy field contains:
+
+```text
+directional_bias = +0.7
+```
+
+Without explicit subject and method, that value could mean a bullish analytical Signal, a constructive Investment View component, an aggressive Portfolio Posture, expected favorable relative performance, or something else. It must not silently become canonical meaning merely because positive numbers were historically called bullish.
+
+Likewise `0` cannot safely collapse:
+
+```text
+neutral
+balanced
+unknown
+unavailable
+insufficient Evidence
+no Signal
+conflicting Signals
+```
+
+**Distinction proved:** retired Directional Bias is not a universal bridge between market direction, Position Direction, Portfolio Posture, and Risk.
+
+### Qualified Risk Scores cannot be compared across undeclared score families
+
+Suppose:
+
+```text
+Liquidity Risk Score:
+80 / 100
+higher = worse liquidity
+
+Drawdown Risk Score:
+80th percentile
+higher = greater relative drawdown exposure
+```
+
+The matching number `80` does not make the constructs or magnitudes equivalent. A methodology or normalization change can change a score without proving that underlying Portfolio Risk changed.
+
+A missing score is not zero, neutral, midpoint, or low Risk. A score threshold may separately become an Investment Signal, Attention condition, Review Condition, or Formal Constraint input only when that semantic role is explicitly established.
+
+**Distinction proved:** qualified Risk Score ≠ Portfolio Risk, and numeric coincidence does not establish cross-family comparability.
+
+### Decision Alternatives represent candidate dispositions, not merely implementation choices
+
+Suppose an unresolved Decision Need asks whether Portfolio A should reduce equity Risk before CPI. Polaris explicitly compares:
+
+```text
+Alternative A:
+hold current Portfolio state
+
+Alternative B:
+reduce SPY Exposure
+
+Alternative C:
+hedge with defined-risk puts
+
+Alternative D:
+defer substantive judgment until CPI
+```
+
+Hold and Deferral are genuine Decision Alternatives even though neither must be a trade. Alternative B may require several possible Proposed Actions, while in a simple case one concrete action can carry both Decision Alternative and Proposed Action roles because it completely expresses the candidate disposition.
+
+Alternatives need not be mutually exclusive or collectively exhaustive. Polaris may synthesize a Recommendation that combines or refines them. An Alternative can remain analytically meaningful even when it violates a Formal Constraint or is currently inadmissible; consideration is not authority.
+
+Material Alternatives that shape the Recommendation or Human Investment Decision remain reconstructable, while transient brainstorming need not become durable first-class records.
+
+**Distinction proved:** Decision Alternative ≠ Proposed Action ≠ Investment Recommendation ≠ authority.
+
+### A trade package is a presentation grouping, not a new investment-domain object
+
+Suppose one user-facing trade setup groups:
+
+```text
+Investment Recommendation
+preferred Proposed Action
+alternative Proposed Actions
+Investment Horizon
+Portfolio Risk Assessment
+Trade Implementation Risk
+invalidation / review conditions
+```
+
+Changing the report layout, grouping, or rendering does not create a new Investment Recommendation or change the identities of the judgments it presents. Lowercase `trade package` can remain useful product or UX shorthand, but the package itself has no independent domain identity or lifecycle.
+
+**Distinction proved:** presentation packaging ≠ investment-domain judgment identity.
+
+### Multiple Market Regimes may coexist under different classification bases
+
+On the same date Polaris may support:
+
+```text
+volatility classification:
+high-volatility Market Regime
+
+macroeconomic classification:
+disinflationary-growth Market Regime
+```
+
+Both may be legitimate because their scope and classification bases differ. Neither is the one universal `current_market_regime`.
+
+Bull, Bear, and Sideways analytical perspectives do not automatically become Market Regimes merely because another methodology might choose those same labels.
+
+**Distinction proved:** Market Regime is method-, scope-, and temporal-basis-specific rather than one global market state.
+
+### Regime revision does not rewrite the classification used by an earlier judgment
+
+Suppose a 10:00 Investment Recommendation materially uses a Market Regime classification formed from the data and model version then available. Revised macro data and a newer classifier later label the same historical period differently.
+
+The later classification may coexist as new analysis, but the 10:00 judgment remains reconstructable against the Regime classification that actually informed it.
+
+A Strategy may explicitly abstain under a high-volatility Regime. That applicability rule belongs to the Strategy; the Regime classification alone does not silently deactivate every Strategy, create a Decision Need, or confer authority.
+
+**Distinction proved:** later reclassification ≠ historical rewrite, and Market Regime classification ≠ universal Strategy activation or authority.
+
+### An index is not a Benchmark until a comparison relationship is established
+
+The S&P 500 index may exist as an externally authoritative market reference without being the Benchmark for Portfolio A.
+
+```text
+S&P 500 index data:
+external reference fact
+
+Portfolio A Investment Mandate:
+Benchmark = 60% S&P 500 / 40% Bloomberg U.S. Aggregate
+
+Benchmark relationship:
+authoritative Mandate fact
+```
+
+An analyst may also add the Nasdaq-100 as a supplemental comparator. That analytical use does not amend the Mandate or make Nasdaq-100 the governing Benchmark.
+
+**Distinction proved:** reference identity ≠ Benchmark role, and Benchmark authority follows the source establishing the comparison relationship.
+
+### Benchmark selection cannot be rewritten after seeing the result
+
+Suppose Portfolio A underperforms its established Benchmark for a year. A reviewer may legitimately show a different post-hoc comparator for additional analysis, but must label it retrospective rather than pretending it was the original accountability reference.
+
+Benchmark outperformance does not prove that an Investment Decision, Investment Recommendation, or Investment Strategy was well formed; underperformance does not by itself prove the opposite. A misspecified Benchmark may materially distort appraisal or Decision Evaluation without changing the actual Portfolio Outcome.
+
+**Distinction proved:** Benchmark ≠ Investment Objective ≠ Decision Evaluation, and hindsight comparator selection must not rewrite the historical evaluation basis.

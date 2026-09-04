@@ -1,128 +1,125 @@
 # Polaris Execution Continuity
 
 **Status:** In progress  
-**Purpose:** Preserve the product reasoning for how Polaris keeps a decision record causally complete when the resulting portfolio action is executed by another system.
+**Purpose:** Preserve the product reasoning for how Polaris maintains Durable Decision Memory when a Human Investment Decision establishes an external implementation consequence that is carried out by another system.
 
-This document refines the Product Identity and ecosystem position recorded in [`product-definition.md`](./product-definition.md) and [`product-ecosystem.md`](./product-ecosystem.md). It does not make Polaris an execution system. It defines how execution evidence returns to the decision lifecycle so later monitoring, evaluation, and learning are grounded in what actually happened.
+This document refines the Product Identity and ecosystem position recorded in [`product-definition.md`](./product-definition.md) and [`product-ecosystem.md`](./product-ecosystem.md). It does not make Polaris an execution system. It defines how authoritative external activity returns to the Investment Decision lifecycle so later Attention, Decision Evaluation, and learning are grounded in what actually happened.
 
 ## Decision
 
-Polaris does not own execution, but it **does own continuity of the decision lifecycle across execution**.
+Polaris does not own execution, but it **does own continuity of the Investment Decision lifecycle across external execution**.
 
-When a human decision implies an external portfolio action, Polaris should preserve the intended action, observe authoritative external evidence of what actually occurred, reconcile that evidence into the originating decision record, and continue tracking the resulting position or action through completion, exit, outcome, evaluation, and learning.
+When a Human Investment Decision establishes an externally observable implementation consequence, Polaris should preserve that consequence as one or more Action Intents, observe authoritative external evidence of what actually occurred, reconcile that evidence to the applicable Action Intents where supportable, and preserve the resulting Portfolio State, Outcome, Decision Evaluation, and learning relationships through time.
 
 The governing relationship is:
 
 ```text
-Polaris recommendation
+Investment Recommendation
         ↓
-Human decision
+Human Investment Decision
         ↓
-Action / execution intent
+Action Intent where an external consequence exists
         ↓
 External execution system
         ↓
-Observed execution evidence
+Authoritative external activity / execution Evidence
         ↓
-Resulting portfolio state
-        ↓
-Position / action lifecycle
+Resulting Portfolio State
         ↓
 Outcome
         ↓
-Evaluation
+Decision Evaluation
         ↓
-Learning
+Lessons
 ```
 
 External trading, brokerage, portfolio, and accounting systems remain authoritative for the operational facts they own. Polaris should not require the user to manually recreate those facts when an authoritative source can provide them.
 
 ## Why this matters
 
-A decision record that stops at the human decision is incomplete whenever the decision is meant to produce a portfolio action.
+Durable Decision Memory is incomplete whenever a Human Investment Decision is intended to produce an external Portfolio consequence but the later external activity is not connected back to that decision.
 
 Without execution continuity, the lifecycle becomes:
 
 ```text
-recommendation
+Investment Recommendation
      ↓
-human decision
+Human Investment Decision
      ↓
     ???
      ↓
-outcome evaluation
+Outcome / Decision Evaluation
 ```
 
-That gap prevents Polaris from knowing whether the recommendation was actually followed, how it was implemented, whether execution differed materially from the intent, whether risk controls were established or changed, how the position was eventually closed, and which part of the overall process deserves credit or blame.
+That gap prevents Polaris from knowing whether the intended Portfolio consequence was implemented, how it was implemented, whether external activity differed materially from the Action Intent, whether intended external controls were established or changed, and which part of the overall process materially contributed to the observed Outcome.
 
 The closed-loop product requires:
 
 ```text
-recommendation
+Investment Recommendation
      ↓
-human decision
+Human Investment Decision
      ↓
-observed action
+Action Intent where applicable
      ↓
-observed result
+observed external activity
      ↓
-portfolio consequence
+resulting Portfolio State
      ↓
-outcome
+Outcome
      ↓
-evaluation
+Decision Evaluation
      ↓
-learning
+Lessons
 ```
 
 This is a product-level requirement even though its implementation will eventually depend on integrations and operational data sources.
 
-## Action or execution intent as a product concept
+## Action Intent as the continuity concept
 
-When the human decides to act, Polaris should know what external change it expects to observe.
+An **Action Intent** is the attributable post-human-decision continuity state describing an externally observable implementation consequence or control established by a Human Investment Decision so Polaris can reconcile later authoritative external activity and Portfolio State without acquiring execution authority.
 
-The working product concept is an **action intent** or **execution intent**: a durable statement of the portfolio action implied by the human decision. It is not an exchange order and does not grant Polaris authority to transmit or execute anything.
+A Human Investment Decision may establish zero, one, or multiple Action Intents. Action Intent cardinality follows coherent intended external consequence rather than Financial Instrument count, Proposed Action count, Order count, fill count, or execution mechanics.
 
-Examples include:
+Examples may include:
 
-* enter a position;
-* reduce a position by an approximate amount;
-* add to an existing position;
-* close a position;
-* establish or maintain a protective stop;
-* establish a target or exit condition;
-* hedge an exposure;
-* rebalance several holdings;
-* defer action until a condition is met;
-* intentionally take no action.
+* establish a Position or Exposure through an external action;
+* reduce an existing Position or Exposure by an intended amount;
+* close an existing Position;
+* establish a coherent hedge consequence;
+* rebalance several holdings when those changes jointly express one intended Portfolio consequence;
+* establish or maintain an externally implemented protection condition where that control is genuinely part of the Human Investment Decision.
 
-Conceptually, the intent may express enough investment meaning for later reconciliation, such as:
+Conceptually, an Action Intent may express enough investment meaning for later reconciliation, such as:
 
 ```text
-Decision: reduce portfolio equity risk
-Action: reduce SPY exposure by approximately 25%
-Expected resulting exposure: lower than current state
-Relevant risk condition: concentration / volatility
-Review condition: reassess after execution
+Human Investment Decision: reduce Portfolio equity risk
+Action Intent: reduce SPY Exposure by approximately 25%
+Expected consequence: lower Portfolio equity Exposure
+Relevant implementation meaning: reduction should be externally observable
 ```
 
-The exact representation is intentionally unresolved. The durable point is that Polaris should know the expected portfolio consequence before attempting to associate later external events with the decision.
+An Action Intent is not an Order, fill, routing instruction, or authorization for Polaris to execute. It may be specific enough for reconciliation without becoming the externally authoritative execution fact.
+
+Deferral and deliberate hold/no-action do not require synthetic Action Intents merely to duplicate the Human Investment Decision. The same Human Investment Decision may still establish a separate Action Intent if it also establishes an externally observable consequence or control.
+
+A Proposed Action also remains distinct. A Proposed Action is a candidate implementation considered during the Investment Decision; Action Intent exists only after attributable human judgment establishes an intended external consequence.
 
 ## Execution evidence is observed, not authored
 
-Polaris should treat authoritative external systems as the source of truth for operational facts such as:
+Polaris should treat authoritative external systems as authoritative for operational facts such as:
 
-* orders;
+* Orders;
 * partial fills;
 * completed fills;
 * execution prices;
 * quantities;
 * cancellations;
-* order modifications;
-* protective stops;
-* targets or contingent orders;
-* resulting positions;
-* later position changes;
+* Order modifications;
+* protective Orders;
+* targets or contingent Orders;
+* resulting Positions;
+* later Position changes;
 * exits;
 * realized results where available.
 
@@ -130,7 +127,7 @@ This creates an asymmetric relationship:
 
 ```text
 External execution systems → Polaris
-orders / fills / positions / changes / outcomes
+Orders / fills / Positions / changes / Outcomes
 ```
 
 without implying:
@@ -146,27 +143,29 @@ Read or observation integration is not execution authority.
 
 ## Automatic reconciliation is the preferred experience
 
-The user should not be responsible for copying trade details from a broker into Polaris merely to keep the decision record complete.
+The user should not be responsible for copying trade details from a broker into Polaris merely to keep Durable Decision Memory complete.
 
 The preferred experience is:
 
 ```text
-Polaris recommends an action
+Polaris forms an Investment Recommendation
         ↓
-Human accepts / modifies / rejects / defers
+Human forms a Human Investment Decision
         ↓
-Human executes through the normal trading system when applicable
+Action Intent is established when applicable
         ↓
-Polaris observes the resulting external evidence
+Human/external process acts through the normal execution system
         ↓
-Polaris associates it with the originating decision
+Polaris observes authoritative external Evidence
         ↓
-Decision record continues
+Polaris associates it with the Action Intent where supportable
+        ↓
+Durable Decision Memory continues
 ```
 
 A representative product interaction might be:
 
-> I observed the SPY reduction associated with this morning's decision. The position was reduced by 24.7% across three fills. I have attached the execution evidence and updated the portfolio state used for subsequent monitoring.
+> I observed the SPY reduction associated with this morning's Action Intent. The Position was reduced by 24.7% across three fills. I preserved the execution Evidence and updated the Portfolio State used for subsequent decision work.
 
 The user should experience this as continuity, not bookkeeping.
 
@@ -177,209 +176,203 @@ Automatic reconciliation must not become silent invention.
 A useful product hierarchy is:
 
 ```text
-High-confidence association
+Sufficiently supported association
 → reconcile automatically
 
-Plausible but ambiguous association
-→ ask for lightweight confirmation
+Plausible but materially ambiguous association
+→ preserve ambiguity and ask for lightweight confirmation
 
 No credible association
 → preserve as unassociated external activity
 ```
 
-If several trades could plausibly satisfy the same decision intent, Polaris should ask a narrow question such as:
+If several external actions could plausibly satisfy the same Action Intent, Polaris should ask a narrow question such as:
 
-> I observed two SPY reductions that could correspond to this decision. Was the 10:14 sale the action associated with it?
+> I observed two SPY reductions that could correspond to this Action Intent. Was the 10:14 sale the activity associated with it?
 
 The desired friction is **confirmation**, not duplicate data entry.
 
-Polaris should never attach an external action to a decision merely because doing so would make the record look complete.
+Polaris should never attach external activity to an Action Intent merely because doing so would make the historical record look complete.
 
 ## External activity can originate outside Polaris
 
-The portfolio is reality; Polaris's decision records are an interpretation of that reality.
+The Portfolio is reality; Polaris's decision history is an interpretation of and participation in that reality.
 
-A user may make trades or portfolio changes that did not originate from a Polaris recommendation. Polaris should observe those changes without fabricating an originating Polaris decision.
+A user may make trades or Portfolio changes that did not originate from a Polaris Investment Recommendation, Human Investment Decision recorded in Polaris, or Action Intent. Polaris should observe those changes without fabricating an originating Polaris decision.
 
 A mature product may say:
 
-> I observed a new position without a corresponding Polaris decision record.
+> I observed a new Position without a corresponding Polaris Action Intent or attributable Investment Decision relationship.
 
 The user may then provide context if useful, or the activity may remain explicitly external.
 
-This allows Polaris to maintain an accurate portfolio model without requiring all human investment judgment to originate inside the product.
+External activity does not retroactively create an Investment Recommendation, Proposed Action, Human Investment Decision, or Action Intent merely because its economic result resembles one.
 
-## One decision can produce several actions
+## One Human Investment Decision can establish several Action Intents
 
-A portfolio decision may imply zero, one, or multiple external actions.
+A Human Investment Decision may establish zero, one, or multiple externally observable consequences.
 
 For example:
 
 ```text
-Decision: reduce portfolio risk
+Human Investment Decision: reduce Portfolio Risk
 
-Action 1: reduce SPY exposure
-Action 2: close a high-beta position
-Action 3: raise cash allocation
-Action 4: refrain from adding risk until CPI
+Action Intent 1: reduce SPY Exposure
+Action Intent 2: close a high-beta Position
+Action Intent 3: raise cash Allocation through the resulting Portfolio changes
 ```
 
-Each action may have its own lifecycle:
+Whether those consequences should be represented as one composite Action Intent or several follows coherent intended consequence rather than the number of Orders or Financial Instruments mechanically.
+
+Each Action Intent may later be associated with zero, one, or multiple external activities:
 
 ```text
-intended
+Action Intent
    ↓
-observed as initiated externally
+external activity observed
    ↓
-partially executed
+partial implementation
    ↓
-executed
+further activity / modification
    ↓
-modified
-   ↓
-completed / closed / abandoned
+implemented / not implemented / unresolved association
 ```
 
 These labels are conceptual rather than a prescribed state machine.
 
-The important distinction is that later evaluation should know whether the decision was actually implemented and, if only partially, which assumptions about the resulting portfolio were or were not realized.
+The important distinction is that later Decision Evaluation should know whether the intended consequence was implemented and, if only partially, which assumptions about resulting Portfolio State were or were not realized.
 
-## Stops, targets, and continuing trade lifecycle
+## Stops, targets, and continuing external controls
 
-Execution continuity must extend beyond the initial fill when the decision includes ongoing risk or exit conditions.
+Execution continuity may extend beyond an initial fill when the Human Investment Decision establishes an intended externally maintained control.
 
-Suppose the decision is conceptually:
+Suppose a human decides to implement a Polaris trade setup that included a suggested protective condition. Only the human judgment that establishes the external control creates Action Intent semantics; a suggested stop or target in an Investment Recommendation is not automatically an Action Intent or an Order.
 
-```text
-Enter SPY long
-Entry area: around 640
-Protective stop: 620
-Target: 675
-```
-
-The external execution system may later report:
+When such an Action Intent exists, an external execution system may later report:
 
 ```text
-entry submitted
+entry activity
    ↓
-entry filled
+Position established
    ↓
-position opened
+protective Order established
    ↓
-stop established
+contingent Order modified
    ↓
-target established
-   ↓
-stop or target modified
-   ↓
-position closed
+Position closed
 ```
 
-The relevant events should remain associated with the originating decision where they are causally connected.
+Material external facts should remain associated with the applicable Action Intent and Investment Decision when that causal relationship is supported.
 
-If the target is eventually filled, the decision record should be able to preserve the actual entry, actual position size, actual protective stop, actual target, subsequent modifications, exit price, exit reason, holding period, and realized outcome where available.
+If the user manually closes the Position before a contingent Order executes, that should be preserved as observed reality rather than forced into the previously expected implementation path.
 
-If the user manually closes the position before either contingent order executes, that should be preserved as a different observed outcome rather than forced into the original plan.
+## Recommendation, human judgment, intent, external activity, and Outcome are distinct facts
 
-## Recommendation, decision, execution, and outcome are distinct facts
-
-Polaris should preserve at least four conceptual layers:
+Polaris should preserve the conceptual distinction:
 
 ```text
-Polaris recommendation
+Investment Recommendation
         ≠
-Human decision
+Human Investment Decision
         ≠
-Actual execution
+Action Intent
         ≠
-Realized outcome
+Authoritative external activity
+        ≠
+Outcome
 ```
 
-This distinction is essential for trustworthy evaluation.
+This distinction is essential for trustworthy Decision Evaluation.
 
 For example:
 
 ```text
-Polaris recommendation:
+Investment Recommendation:
 Enter around 641
 
-Human decision:
-Accept
+Human Investment Decision:
+Accept the economic disposition
 
-Actual execution:
-Entered at 656
+Action Intent:
+Establish the Position
+
+Authoritative external activity:
+Position established at 656
 
 Outcome:
-Stopped out at a loss
+Position later closed at a loss
 ```
 
-Calling that simply "a losing Polaris recommendation" would erase material information about how the decision was implemented.
+Calling that simply "a losing Polaris recommendation" would erase material information about how the recommendation, human judgment, intended implementation, actual activity, and Outcome differed.
 
-The inverse is also possible: a poor recommendation may produce a favorable realized outcome because of execution luck or a later human override.
+The inverse is also possible: a poor Investment Recommendation may coincide with a favorable Outcome because of later human judgment, implementation differences, or chance.
 
-Outcome alone therefore cannot answer whether the recommendation process was sound.
+Outcome alone therefore cannot answer whether the Investment Recommendation or decision process was sound.
 
 ## Separate dimensions of later evaluation
 
-Execution continuity allows Polaris to evaluate the investment process more honestly across dimensions such as:
+Execution continuity allows Polaris to form more faithful Decision Evaluations across dimensions such as:
 
 ```text
-Recommendation quality
-Human judgment
-Execution quality
-Risk-management adherence
-Position-management choices
-Realized outcome
+Investment Recommendation quality
+Human Investment Decision
+Implementation fidelity
+Trade Implementation Risk and execution quality
+Portfolio Risk management
+Observed Outcome
 ```
 
 The system can ask better questions:
 
-* Was the original thesis reasonable given what was knowable at the time?
-* Did the human accept, modify, reject, or defer the recommendation?
-* Was the intended portfolio action actually executed?
-* Did the actual fill materially differ from the action the decision assumed?
-* Were the expected stop, target, or risk conditions established?
+* Was the original Investment Thesis reasonable given the Evidence available to the relevant judgment?
+* How did the Human Investment Decision relate to the Investment Recommendation?
+* Was an Action Intent established?
+* Was the intended Portfolio consequence actually implemented?
+* Did authoritative external activity materially differ from the Action Intent?
+* Were intended externally maintained controls actually established?
 * Were they later modified?
-* Did the exit occur because the thesis failed, a risk control triggered, the human overrode the plan, or another event intervened?
-* Did execution differences materially explain the realized outcome?
+* Did implementation divergence materially affect Outcome?
+* Did an Invalidation Condition occur, did another event intervene, or did an adverse Outcome occur despite reasonable reasoning?
 
-This makes the learning loop about process quality rather than simple profit/loss attribution.
+This makes the learning loop about decision and implementation quality rather than simple profit/loss attribution.
 
-## Portfolio state is the ultimate operational reality
+## Portfolio State is the ultimate operational reality
 
-Action intent describes what the decision meant to change. Observed portfolio state tells Polaris what actually exists.
+Action Intent describes an intended external consequence. Authoritative Portfolio State tells Polaris what actually exists.
 
-If the decision called for a 25% reduction but the broker shows only a 10% reduction, Polaris should not assume completion merely because the human previously accepted the recommendation.
+If an Action Intent called for a 25% reduction but the authoritative source shows only a 10% reduction, Polaris should not assume completion merely because the human previously formed the corresponding Human Investment Decision.
 
-It should understand that the decision may be only partially implemented and that the current portfolio still differs from the state assumed by the intended action.
+It should preserve that the intended consequence is only partially reflected in observed reality and that current Portfolio State still differs from the state expected by the Action Intent.
 
-That may itself become decision-relevant attention:
+That divergence may itself cause Attention:
 
-> The risk-reduction decision appears only partially implemented. Current exposure remains above the level assumed by the recommendation.
+> The risk-reduction Action Intent appears only partially implemented. Current Exposure remains above the level assumed by the decision.
 
-This is consistent with the attentive Core Experience: Polaris notices when decision intent and operational reality diverge without taking control of the execution system.
+Attention then determines whether the same unresolved Investment Decision should continue or, if the earlier investment judgment was already substantively resolved, whether a renewed Decision Need warrants a new causally linked Investment Decision. Execution divergence does not reopen and rewrite a resolved Investment Decision.
+
+This is consistent with the attentive Core Experience: Polaris notices when intended consequence and operational reality diverge without taking control of the execution system.
 
 ## External system failures remain external responsibilities
 
-Polaris may understand that a protective stop was expected and later observe whether it existed or triggered.
+Polaris may understand that an external control was intended and later observe whether it existed or triggered.
 
-That does not make Polaris responsible for enforcing the stop.
+That does not make Polaris responsible for enforcing the control.
 
 Conceptually:
 
 ```text
-Decision:
-Use a protective stop.
+Human Investment Decision / Action Intent:
+Establish an external protective control.
 
 Execution system:
-Owns order acceptance and execution.
+Owns Order acceptance and execution.
 
 Polaris:
-Observes whether the expected control existed,
+Observes whether the intended control existed,
 what happened to it, and how the result affected the decision lifecycle.
 ```
 
-If an execution system fails to carry out an operational instruction correctly, that remains an execution-system failure. Polaris's responsibility is to preserve the evidence accurately and incorporate the result into subsequent portfolio reasoning and evaluation.
+If an execution system fails to carry out an operational instruction correctly, that remains an execution-system failure. Polaris's responsibility is to preserve the Evidence accurately and incorporate the result into subsequent Portfolio reasoning and Decision Evaluation.
 
 ## The closed ecosystem loop
 
@@ -397,15 +390,18 @@ Execution continuity completes the ecosystem model:
            HUMAN                                   │
             decide                                 │
              ↓                                     │
+      ACTION INTENT                                │
+        if applicable                              │
+             ↓                                     │
       EXECUTION SYSTEM                             │
              ↓                                     │
-           ACTION                                  │
+      EXTERNAL ACTIVITY                            │
              ↓                                     │
       OBSERVED RESULT ─────────────────────────────┘
              ↓
           POLARIS
         reconcile
-        monitor
+        attend
         evaluate
         learn
 ```
@@ -416,31 +412,32 @@ Polaris is therefore not merely a recommendation generator. It is a closed-loop 
 
 The durable contract is:
 
-> **Polaris does not own execution, but it owns continuity of the decision lifecycle across execution.**
+> **Polaris does not own execution, but it owns continuity of the Investment Decision lifecycle across execution.**
 
 And:
 
-> **External operational systems remain authoritative for actions and resulting portfolio state. Polaris should automatically observe and reconcile that external evidence into the originating decision wherever practical, requiring human input primarily for ambiguity or context that cannot be derived.**
+> **External operational systems remain authoritative for actions and resulting Portfolio State. When a Human Investment Decision establishes an Action Intent, Polaris should observe and reconcile authoritative external Evidence against that intent wherever supportable, requiring human input primarily for material ambiguity or context that cannot be established otherwise.**
 
-The product should prefer system-to-system continuity over user-maintained duplicate records whenever an authoritative source can supply the relevant evidence.
+The product should prefer system-to-system continuity over user-maintained duplicate records whenever an authoritative source can supply the relevant Evidence.
 
 ## Consequences
 
 This decision implies:
 
-* a human decision that implies external action should leave enough intent for Polaris to recognize the expected portfolio consequence later;
-* action or execution intent is a product concept, not an authorization for Polaris to place orders;
-* authoritative external execution and portfolio systems should be observed rather than duplicated as operational systems of record;
-* Polaris should automatically reconcile observed external actions to originating decisions when confidence is sufficient;
-* ambiguous associations should trigger lightweight confirmation rather than silent guessing or full manual data entry;
-* externally initiated trades and portfolio changes must remain identifiable as such;
-* a decision may have zero, one, or many action threads, each with its own observed lifecycle;
-* partial fills, later modifications, protective orders, exits, and other material execution evidence may remain associated with the decision lifecycle;
-* recommendation, human decision, execution, and realized outcome must remain separately identifiable;
-* portfolio state determines what actually exists even when it differs from the recorded intent;
-* incomplete implementation of a human decision may itself become attentive decision context;
-* later evaluation should be able to distinguish recommendation quality, human judgment, execution quality, risk management, and outcome;
+* a Human Investment Decision may establish zero, one, or multiple Action Intents;
+* Action Intent represents an externally observable consequence or control established by human judgment, not a generic synonym for Proposed Action, Order, or execution mechanics;
+* Deferral and deliberate hold/no-action do not require synthetic Action Intents;
+* authoritative external execution and Portfolio systems should be observed rather than duplicated as factual authority;
+* Polaris should automatically reconcile external activity to Action Intents when the association is sufficiently supported;
+* materially ambiguous associations should trigger explicit unresolved state or lightweight confirmation rather than silent guessing or full manual data entry;
+* externally initiated trades and Portfolio changes must remain identifiable as such and must not retroactively manufacture Polaris decision history;
+* one Action Intent may correspond to zero, one, or multiple external activities, and one Human Investment Decision may establish several Action Intents;
+* partial fills, later modifications, protective Orders, exits, and other material execution Evidence may remain associated with the Investment Decision when the relationship is supported;
+* Investment Recommendation, Human Investment Decision, Action Intent, authoritative external activity, and Outcome must remain separately identifiable;
+* authoritative Portfolio State determines what actually exists even when it differs from the Action Intent;
+* implementation divergence may cause Attention but does not reopen a substantively resolved Investment Decision;
+* Decision Evaluation should be able to distinguish Investment Recommendation quality, Human Investment Decision, implementation fidelity, Portfolio Risk reasoning, Trade Implementation Risk, and Outcome;
 * execution-system failures do not become Polaris execution failures merely because Polaris observed them;
-* the preferred user experience is automatic observation and reconciliation, with manual input reserved primarily for ambiguity or missing context;
-* the Authority Model should distinguish observation and reconciliation authority over Polaris's own records from authority to act on capital;
-* Scope Boundaries should preserve inbound execution evidence as product-relevant integration without making outbound execution control part of Polaris's defining responsibility.
+* the preferred user experience is automatic observation and reconciliation, with manual input reserved primarily for material ambiguity or missing context;
+* the Authority Model must preserve Polaris reconciliation responsibility without confusing it with authority to act on capital;
+* Scope Boundaries should preserve inbound execution Evidence as product-relevant integration without making outbound execution control part of Polaris's defining responsibility.

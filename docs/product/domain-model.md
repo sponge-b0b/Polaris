@@ -4542,3 +4542,237 @@ The following invariants are now accepted:
 50. **Lesson ≠ Policy ≠ Investment Mandate ≠ Formal Constraint ≠ authority fact; learning may motivate authoritative change but does not itself perform that change.**
 51. **A Lesson used in a later judgment remains subject to the same Judgment-Time Availability, relevance, applicability, provenance, freshness, and Evidence-role distinctions as other information.**
 52. **Causal learning requires Evidence sufficient for the claimed relationship; Outcome correlation alone must not be generalized into a Lesson as though causation had been established.**
+
+## Resolved Investment Strategy, Investment Hypothesis, and Investment View semantics
+
+`Investment Strategy`, `Investment Hypothesis`, and `Investment View` now separate the durable investing approach from candidate interpretations and the synthesized investment judgment that precedes Portfolio-specific consequence and Recommendation formation. Their canonical definitions are recorded in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+This section retires `Strategy Decision` as canonical Polaris domain vocabulary. The legacy term did not represent a genuine durable decision; it named synthesis of analytical hypotheses while also absorbing downstream Portfolio Posture and Risk semantics under a misleading `Decision` label. The correct discovery classification is **SPLIT**, not a one-for-one rename.
+
+### Bull, Bear, and Sideways describe trend perspective, not Investment Strategy
+
+Legacy Polaris uses Bull, Bear, and Sideways as competing strategy perspectives. Semantically, they are much narrower:
+
+```text
+Bull
+trend-oriented perspective:
+upward / constructive
+
+Bear
+trend-oriented perspective:
+downward / defensive
+
+Sideways
+trend-oriented perspective:
+range-bound / non-directional
+```
+
+Trend can be foundational to an Investment Strategy. A durable trend-following Strategy, for example, may use direction, persistence, breakout, momentum, volatility, and risk rules as part of a recurring approach. But the current directional label is not itself that Strategy.
+
+Bull/Bear/Sideways perspectives may therefore produce competing Investment Hypotheses such as:
+
+```text
+Bullish Investment Hypothesis:
+uptrend is likely to persist because breadth and momentum confirm.
+
+Bearish Investment Hypothesis:
+trend is vulnerable because breadth deteriorates and downside volatility expands.
+
+Sideways Investment Hypothesis:
+price is likely to remain range-bound because directional evidence is weak and mean reversion dominates.
+```
+
+**Distinction proved:** an analytical trend dimension or current directional perspective may inform an Investment Strategy without being the durable Investment Strategy itself.
+
+### An Investment View can exist before any Investment Decision
+
+Suppose Polaris analyzes SPY without a current Portfolio-specific Decision Need:
+
+```text
+Evidence:
+market trend constructive
+breadth improving
+inflation pressure moderating
+valuation elevated
+
+Investment Hypotheses:
+Bullish continuation
+Bearish valuation compression
+Sideways consolidation
+
+Investment View:
+constructive medium-term bias,
+with valuation-driven downside risk
+```
+
+No Portfolio has yet been asked to change state. There may therefore be:
+
+```text
+Decision Need:
+none
+
+Investment Decision:
+none
+```
+
+The Investment View remains a genuine attributable investment judgment even though it is not itself a consequential Investment Decision.
+
+**Distinction proved:** Investment View may exist before, alongside, or without a Decision Need or Investment Decision.
+
+### The same Investment View can imply different Portfolio consequences
+
+Suppose the same Investment View is available to two Portfolios:
+
+```text
+Investment View:
+SPY trend constructive,
+but downside Risk elevated.
+```
+
+Portfolio A:
+
+```text
+current equity Exposure:
+35%
+
+Mandate maximum:
+80%
+
+liquidity:
+strong
+```
+
+Portfolio B:
+
+```text
+current equity Exposure:
+78%
+
+Mandate maximum:
+80%
+
+concentration:
+high
+```
+
+The same Investment View can contribute to different Portfolio-specific judgments:
+
+```text
+Portfolio A:
+Portfolio Posture may remain constructive
+Recommendation may increase Exposure
+
+Portfolio B:
+Portfolio Posture may be constrained
+Recommendation may hold or reduce Exposure
+```
+
+**Distinction proved:** Investment View ≠ Portfolio Posture ≠ Investment Recommendation; Portfolio State, Mandate, Risk, Scope, and other Decision Context transform the view into Portfolio-specific consequence.
+
+### Durable Investment Strategy can survive many changing Views
+
+Suppose Portfolio A follows a durable trend-following Investment Strategy through a year in which Polaris forms several materially different Investment Views:
+
+```text
+January:
+constructive / bullish View
+
+March:
+range-bound View
+
+May:
+bearish View
+
+July:
+constructive View again
+```
+
+The Strategy may remain the same recurring approach throughout. What changes is the Evidence, Investment Hypotheses, synthesized Investment View, Portfolio Posture, and possibly the Recommendations produced under that Strategy.
+
+**Distinction proved:** Investment Strategy identity is not the current market view or current directional state.
+
+### New attributable synthesis preserves View history
+
+Suppose:
+
+```text
+09:00
+Investment View V-1:
+constructive trend,
+moderate confidence
+```
+
+At 11:00 materially new Evidence arrives and Polaris performs genuine new reasoning and challenge:
+
+```text
+11:15
+Investment View V-2:
+trend deterioration,
+defensive bias,
+high uncertainty
+```
+
+V-2 does not rewrite V-1. Both are attributable judgments formed from different information bases. Mere arrival of another observation does not automatically create a new View; a new attributable synthesis judgment does.
+
+The same rule applies when the later synthesis reaffirms the same interpretation after material reassessment.
+
+**Distinction proved:** Investment View history follows attributable judgment, not destructive mutation or raw observation frequency.
+
+### Legacy Strategy Decision splits across semantic layers
+
+The old `Strategy Decision` combined at least these meanings:
+
+```text
+competing hypotheses
+        ↓
+synthesis
+        ↓
+leading investment interpretation
+        ↓
+Portfolio / Risk constraints
+        ↓
+Portfolio Posture
+```
+
+The resolved domain instead separates them:
+
+```text
+Investment Hypotheses
+        ↓ reasoning / challenge / synthesis
+Investment View
+        ↓ apply Portfolio State + Mandate + Risk
+Portfolio consequence / Portfolio Posture
+        ↓ resolve a Decision Need
+Investment Recommendation
+```
+
+There is no durable `Strategy Decision` judgment between those layers. `Strategy Synthesis` may remain useful implementation or process language for the mechanism that synthesizes hypotheses, but the canonical investment-domain judgment produced by that reasoning is the Investment View.
+
+**Distinction proved:** `Strategy Decision` is a semantic SPLIT and retirement, not an alias for Investment View or Investment Recommendation.
+
+### Frozen Investment Strategy, Investment Hypothesis, and Investment View invariants
+
+The following invariants are now accepted:
+
+1. **Investment Strategy ≠ Investment Hypothesis ≠ Investment View ≠ Portfolio Posture ≠ Investment Recommendation.**
+2. **An Investment Strategy is a durable recurring approach to investment judgment and portfolio management that may be applied within one or more Portfolio contexts subject to their applicable Investment Mandates and authority.**
+3. **An Investment Strategy does not override an Investment Mandate, Formal Constraint, Investment Authority Regime, or other applicable authority fact.**
+4. **One Portfolio may employ multiple Investment Strategies, and the applicability of a Strategy to a Portfolio may change through time without changing Portfolio identity.**
+5. **An Investment Strategy may remain unchanged while Investment Hypotheses, Investment Views, Portfolio Posture, and Investment Recommendations change repeatedly.**
+6. **An Investment Hypothesis is an attributable, falsifiable candidate interpretation of investment-relevant conditions whose support, contradiction, assumptions, invalidation conditions, and uncertainty remain reconstructable.**
+7. **`Investment Hypothesis` replaces `Strategy Hypothesis` as the preferred canonical term because the hypothesis represents an investment interpretation, not a recurring Investment Strategy.**
+8. **Bull, Bear, Sideways, and similar directional labels are trend-oriented analytical perspectives that may generate Investment Hypotheses; they are not themselves Investment Strategies or durable judgments.**
+9. **Multiple Investment Hypotheses may coexist, conflict, be challenged, rejected, superseded, or remain unresolved without requiring an Investment Decision to exist.**
+10. **Rejected or superseded Investment Hypotheses remain durable reasoning history when they materially informed a later Investment View or Investment Decision.**
+11. **An Investment View is an attributable, time-specific synthesized interpretation of investment-relevant conditions formed through reasoning and challenge from available Evidence and relevant Investment Hypotheses.**
+12. **An Investment View may express a leading interpretation, regime interpretation, Directional Bias, material alternatives or dissent, assumptions, invalidation conditions, confidence, and uncertainty without thereby specifying a Portfolio action.**
+13. **An Investment View may exist before, alongside, or without a Decision Need or Investment Decision.**
+14. **One Investment View may inform zero, one, or multiple Investment Decisions, and one Investment Decision may draw materially on zero, one, or multiple Investment Views where appropriate.**
+15. **The same Investment View may correctly produce different Portfolio consequences, Portfolio Postures, or Investment Recommendations for different Portfolios because Portfolio State, Investment Mandate, Risk, Decision Scope, and other Decision Context differ.**
+16. **Investment View ≠ Portfolio Posture. A View describes the investment interpretation; Portfolio Posture describes a Portfolio-specific stance after applicable Portfolio context is considered.**
+17. **Investment View ≠ Investment Recommendation. A View states Polaris's investment interpretation; a Recommendation states Polaris's preferred economic disposition of a particular Decision Need.**
+18. **A materially new attributable Investment View formed after new Evidence or reassessment is preserved as new historical judgment rather than destructively rewriting an earlier View.**
+19. **No particular synthesis mechanism is required to create an Investment View. Multi-agent debate, hypothesis comparison, one-model reasoning, deterministic analytics, or another mechanism may contribute if the resulting domain semantics are preserved.**
+20. **`Strategy Synthesis` is not presently required as a canonical investment-domain noun; it may describe a synthesis process or implementation output that contributes to an Investment View.**
+21. **The legacy `Strategy Decision` concept is a semantic SPLIT rather than a one-for-one rename: its synthesized investment interpretation belongs to Investment View, while Portfolio-specific posture/consequence belongs downstream under Portfolio Posture, projected consequence, or Investment Recommendation according to meaning.**
+22. **`Strategy Decision` ceases to be canonical vocabulary rather than becoming an alias that silently preserves its current overloaded semantics.**

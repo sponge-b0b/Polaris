@@ -7,39 +7,41 @@ This document refines the Product Definition recorded in [`product-definition.md
 
 ## Decision
 
-Polaris differentiates by treating **portfolio decisions as durable, first-class lifecycles** rather than disposable analyses, recommendations, conversations, reports, alerts, workflows, or trades.
+Polaris differentiates by treating **Investment Decisions as durable, first-class lifecycles** rather than disposable analyses, Investment Recommendations, conversations, reports, alerts, workflows, or trades.
 
-A Polaris decision preserves enough connected context to understand not only what happened, but why:
+A Polaris Investment Decision and its Durable Decision Memory preserve enough connected context to understand not only what happened, but why:
 
 ```text
-Decision need
+Decision Need
       ↓
-Relevant evidence
+Relevant Evidence
       ↓
-Interpretation + challenge
+Investment View + challenge
       ↓
-Portfolio consequences
+Projected Portfolio Consequences
       ↓
-Risk + policy
+Portfolio Risk + deterministic boundaries
       ↓
-Recommendation
+Investment Recommendation
       ↓
-Authority path
+Admissibility / applicable authority acts
       ↓
-Human decision
+Human Investment Decision
       ↓
-Observed external action
+Action Intent where applicable
+      ↓
+Observed external activity
       ↓
 Outcome
       ↓
-Evaluation
+Decision Evaluation
       ↓
-Learning
+Lessons
       ↓
-Future decisions
+Future Attention / decisions
 ```
 
-Polaris also differentiates through **trust by architecture** and **attentive intelligence**. Trust comes from preserving evidence, freshness, rules, reasoning, authority, human judgment, operational reality, and outcomes as distinct and inspectable parts of the decision. Attentiveness comes from durable portfolio and decision context that allows Polaris to determine when new information materially changes something the user already cares about.
+Polaris also differentiates through **trust by architecture** and **attentive intelligence**. Trust comes from preserving Evidence, freshness, deterministic rule results, Polaris judgment, power-specific authority acts, Human Investment Decision, operational reality, and Outcomes as distinct and inspectable parts of the lifecycle. Attentiveness comes from durable Portfolio and decision context that allows Polaris to determine when new information is Investment Relevant and material to something the user already cares about.
 
 The differentiation is therefore cumulative. It is the coherent decision system created when these responsibilities reinforce one another, not any one AI model, agent topology, workflow engine, retrieval technique, report format, or integration.
 
@@ -59,7 +61,7 @@ Excellent analysis remains necessary, but a differentiation thesis based mainly 
 
 The more durable distinction is what surrounds, constrains, preserves, and learns from model reasoning.
 
-## The decision lifecycle is the product
+## The Investment Decision lifecycle is the product
 
 Many adjacent products own one moment of the investment process:
 
@@ -89,7 +91,7 @@ Trading journal
 Polaris connects those moments into a durable decision process:
 
 ```text
-What deserves attention?
+What deserves Attention?
         ↓
 What is happening?
         ↓
@@ -97,25 +99,27 @@ What does it mean?
         ↓
 What could make that interpretation wrong?
         ↓
-What does it mean for this portfolio?
+What does it mean for this Portfolio?
         ↓
-What risks and constraints matter?
+What Portfolio Risks and constraints matter?
         ↓
-What actions are reasonable?
+What Decision Alternatives are reasonable?
         ↓
 What does Polaris recommend?
         ↓
-What authority decisions were made?
+What authority acts are required?
         ↓
 What did the human decide?
         ↓
+What external consequence was intended, if any?
+        ↓
 What actually happened?
         ↓
-What was the outcome?
+What was the Outcome?
         ↓
 Was the reasoning useful?
         ↓
-What should change next time?
+What Lesson should matter next time?
 ```
 
 This changes the product from an analyze-and-forget tool into a closed-loop portfolio decision system.
@@ -144,27 +148,29 @@ Report
 Done
 ```
 
-Polaris instead preserves the decision across time:
+Polaris instead preserves the decision lifecycle across time:
 
 ```text
-Context
+Decision Context
    ↓
-Recommendation
+Investment Recommendation
    ↓
-Human decision
+Human Investment Decision
    ↓
-Observed action
+Action Intent / external activity where applicable
    ↓
 Outcome
    ↓
-Evaluation
+Decision Evaluation
    ↓
-Learning
+Lessons
    ↓
-Future decision
+Future Attention / decision
 ```
 
-The historical object is therefore not merely a chat, report, workflow run, or trade. It is the **decision record** and the connected lifecycle around it.
+The durable product meaning is therefore not merely a chat, report, workflow run, or trade. It is the Investment Decision and the Durable Decision Memory that preserves its material historical meaning and relationships.
+
+Lowercase `decision record` may remain noncanonical shorthand for an assembled representation of that history, but it is not a separate canonical business entity.
 
 This durability is what allows prior decisions to become future context rather than passive archives.
 
@@ -172,28 +178,35 @@ This durability is what allows prior decisions to become future context rather t
 
 Most AI experiences assume the user already knows that something matters, formulates the right question, and asks it.
 
-Polaris should maintain enough portfolio and decision context to ask a different question continuously:
+Polaris should maintain enough Portfolio and decision context to ask a different question continuously:
 
-> **Does this new information materially affect something this portfolio currently cares about?**
+> **Does this new information materially affect something this Portfolio currently cares about?**
 
-That produces a selective attention loop:
+That produces a selective Attention loop:
 
 ```text
 new information
       ↓
-decision relevance?
+Investment Relevant?
       │
    no ├──→ absorb quietly
       │
   yes ↓
+Investment Material?
+      │
+   no ├──→ update context quietly
+      │
+  yes ↓
 investigate
       ↓
-reassess if needed
+Attention evaluates Decision Need
+      ↓
+continue unresolved work or create a new linked decision after prior resolution
       ↓
 surface prepared decision work when human judgment is required
 ```
 
-The differentiation is not alerts. It is memory-grounded materiality: past decisions, theses, assumptions, invalidation conditions, risks, and review conditions help Polaris determine what deserves attention now.
+The differentiation is not alerts. It is memory-grounded Investment Materiality: past Investment Decisions, Investment Theses, Investment Assumptions, Invalidation Conditions, Portfolio Risks, Catalysts, Lessons, and Review Conditions help Polaris determine what deserves Attention now.
 
 ## Portfolio consequence rather than generic investment opinion
 
@@ -205,99 +218,109 @@ is incomplete for Polaris.
 
 The stronger question is:
 
-> Given this portfolio, its current exposure, strategy, risk policy, existing positions, investment horizon, prior thesis, and competing alternatives, should anything change?
+> Given this Portfolio, its current Exposure, Investment Strategy, Investment Mandate, Portfolio Risk, existing Positions, Investment Horizon, prior Investment Thesis, and competing Decision Alternatives, should anything change?
 
-Polaris should therefore translate investment intelligence into **portfolio consequences** rather than stopping at a security-level or market-level opinion.
+Polaris should therefore translate investment intelligence into **Projected Portfolio Consequences** rather than stopping at a security-level or market-level opinion.
 
-The portfolio decision, not the isolated security analysis, is the final unit of product value.
+The Investment Decision, not the isolated security analysis, is the final unit of product value.
 
 ## Challenge as part of the product contract
 
 Polaris should not treat challenge as an optional feature that exists only when the user requests a bear case or when a particular multi-agent topology is enabled.
 
-A trustworthy recommendation should structurally account for:
+A trustworthy Investment Recommendation should structurally account for:
 
 ```text
-Preferred interpretation
-Supporting evidence
-Counterevidence
-Strongest alternative
-Material uncertainty
-Invalidation conditions
+Preferred Investment View
+Supporting Evidence
+Conflicting Evidence
+Strongest alternative Investment Hypothesis
+Material Investment Uncertainty
+Investment Assumptions
+Invalidation Conditions
 ```
 
 The durable rule is:
 
-> **A recommendation has not been adequately developed until meaningful reasons it may be wrong have been considered.**
+> **An Investment Recommendation has not been adequately developed until meaningful reasons it may be wrong have been considered.**
 
 The implementation may use one model, multiple models, deterministic analytics, human inputs, or combinations of them. The user-facing decision contract remains the same.
 
-## Risk shapes the recommendation
+## Portfolio Risk shapes the Investment Recommendation
 
-Polaris should not behave like a signal generator that forms a recommendation and then decorates it with a risk score.
+Polaris should not behave like an Investment Signal generator that forms an Investment Recommendation and then decorates it with a generic or qualified Risk Score.
 
 The intended relationship is:
 
 ```text
-Investment view
+Investment View
       +
-Portfolio state
+Portfolio State
       +
-Risk
+Portfolio Risk
+      +
+Investment Mandate / Formal Constraints
       +
 Policy
       ↓
-Recommendation
+Investment Recommendation
 ```
 
-The same investment thesis may therefore produce different actions for different portfolios or under different risk constraints.
+These inputs remain semantically distinct. Portfolio Risk is economic risk; Formal Constraints are authoritative machine-evaluable Mandate restrictions; Policy deterministically governs platform operations or boundaries. None is automatically Approval or Human Investment Decision.
+
+The same Investment Thesis may therefore produce different Investment Recommendations for different Portfolios or under different Portfolio Risk, Mandate, and Policy conditions.
 
 This makes Polaris a portfolio decision system rather than a source of isolated directional opinions.
 
 ## Trust by architecture
 
-Polaris should not ask users to trust a recommendation merely because an AI model is confident or capable.
+Polaris should not ask users to trust an Investment Recommendation merely because an AI model is confident or capable.
 
 Trust should emerge from the structure surrounding the reasoning:
 
 ```text
 Evidence
+Judgment-Time Availability
 Freshness
-Interpretation
-Challenge
-Deterministic constraints
-Analytical recommendation
-Human authority
-External operational truth
+Investment View + challenge
+Portfolio Risk
+Policy / Formal Constraint results
+Power-specific authority acts
+Human Investment Decision
+Authoritative external truth
 Outcome
 ```
 
-The product should be capable of reconstructing the material causal and authority path behind a decision from what was knowable at the time.
+The product should be capable of reconstructing the material decision, causal where supportable, and authority relationships from what was available to the relevant judgments at the time.
 
 This is stronger than a generic explanation of why a model produced a particular answer.
 
-## Evidence provenance plus authority provenance
+## Evidence provenance plus authority history
 
-Polaris preserves two complementary forms of decision provenance.
+Polaris preserves complementary forms of decision provenance.
 
 ### Evidence provenance
 
 Evidence provenance answers:
 
-* What evidence existed?
+* What Evidence existed?
 * Where did it come from?
-* When was it known?
+* When was it observed?
 * Was it attributable?
-* Was it fresh enough for the decision?
+* Was it available to the relevant judgment?
+* Was it fresh enough for the intended use?
 
-### Authority provenance
+### Authority history
 
-Authority provenance answers:
+Authority history answers:
 
-* Which rules and constraints were evaluated?
-* What did the analytical layer recommend?
-* What did deterministic policy permit or block?
-* What did the human decide?
+* Which Policy and Formal Constraint results applied?
+* What did Polaris recommend?
+* Which power-specific authority acts were required?
+* Was Approval granted or denied where required?
+* Was a Mandate Exception authorized where required?
+* Was Governed Residual Risk accepted where required?
+* What Human Investment Decision was formed?
 * What did the external action system actually do?
 
 Together:
@@ -306,8 +329,8 @@ Together:
 Evidence provenance
 What was known and where it came from
         +
-Authority provenance
-Who or what evaluated it and what decision followed
+Authority history
+Which rule results and authority acts applied
         ↓
 Trustworthy decision provenance
 ```
@@ -316,32 +339,33 @@ This combination makes the decision process inspectable beyond the model output 
 
 ## Positive authority provenance
 
-Polaris should preserve authority decisions even when nothing went wrong.
+Polaris should preserve materially required positive rule results and authority acts even when nothing went wrong.
 
 It should be possible to distinguish:
 
 ```text
-Policy evaluated and approved
+Policy evaluated and allowed
 ```
 
 from:
 
 ```text
-No policy failure happened to be recorded
+No Policy denial happened to be recorded
 ```
 
 Likewise, the lifecycle may preserve affirmative facts such as:
 
-* evidence accepted as sufficient;
-* freshness requirements satisfied;
-* hard constraints evaluated and passed;
-* recommendation permitted;
-* human recommendation accepted;
-* execution reconciled faithfully.
+* required Evidence accepted as sufficient;
+* Freshness Requirements satisfied;
+* Formal Constraints evaluated and satisfied;
+* Approval granted where required;
+* Governed Residual Risk accepted where required;
+* Human Investment Decision formed;
+* external activity reconciled faithfully.
 
-This creates a stronger trust model than systems that record only exceptions, violations, or overrides.
+These are not interchangeable facts. Positive preservation creates a stronger trust model than systems that record only exceptions, violations, or overrides.
 
-## High analytical autonomy with human capital authority
+## High analytical autonomy with bounded human authority
 
 Two common product extremes are insufficient.
 
@@ -363,13 +387,13 @@ Polaris occupies a deliberate middle position:
 ```text
 I noticed something.
 I investigated it.
-I challenged the view.
-I applied portfolio and risk context.
+I challenged the Investment View.
+I applied Portfolio and Portfolio Risk context.
 I recommend this.
-Here is the evidence and authority path.
+Here is the Evidence and authority history.
 Here is what could make the view wrong.
 
-You decide.
+You decide where human investment judgment is required.
 ```
 
 The distinction can be summarized as:
@@ -380,101 +404,103 @@ Human authority therefore does not make Polaris passive.
 
 ## Execution continuity without execution ownership
 
-Many decision-support systems end when the recommendation is produced. Trading systems begin when the action is submitted.
+Many decision-support systems end when the Investment Recommendation is produced. Trading systems begin when an Order is submitted.
 
 Polaris deliberately does not become the execution system, but it continues the decision thread across that boundary:
 
 ```text
-Recommendation
+Investment Recommendation
       ↓
-Human decision
+Human Investment Decision
       ↓
-Action intent
+Action Intent where applicable
       ↓
 External execution
       ↓
-Observed fill / state change
-      ↓
-Position lifecycle
-      ↓
-Exit / completion
+Observed external activity / Portfolio State
       ↓
 Outcome
+      ↓
+Decision Evaluation
 ```
 
-This continuity allows evaluation to distinguish among:
+A Human Investment Decision may establish zero Action Intents. Deferral and deliberate hold/no-action do not require synthetic Action Intents merely to duplicate the human judgment.
 
-* recommendation quality;
-* human judgment;
-* execution quality;
-* risk-management effects;
-* policy effects;
-* realized outcome.
+This continuity allows Decision Evaluation to distinguish among:
 
-A profitable outcome is not automatically evidence of good reasoning, and a losing outcome is not automatically evidence of bad reasoning.
+* Investment Recommendation quality;
+* Human Investment Decision;
+* implementation fidelity and Trade Implementation Risk;
+* Portfolio Risk reasoning;
+* Policy and Formal Constraint effects;
+* observed Outcome.
+
+A favorable Outcome is not automatically Evidence of good reasoning, and an unfavorable Outcome is not automatically Evidence of bad reasoning.
 
 ## Learning from the decision process, not P&L alone
 
 Polaris should be capable of evaluating questions such as:
 
-* Which assumptions proved correct or incorrect?
-* Which evidence was misleading or decisive?
-* Which risks were underestimated?
-* Was the thesis invalidated or merely unlucky?
-* Did a human override improve the outcome?
-* Did a hard policy protect the portfolio or unnecessarily constrain it?
-* Did execution divergence explain the realized result?
-* Was the reasoning process good even when the outcome was unfavorable?
+* Which Investment Assumptions proved correct or incorrect?
+* Which Evidence was misleading or decisive?
+* Which Portfolio Risks were underestimated?
+* Was the Investment Thesis invalidated or did an adverse Outcome occur despite reasonable reasoning?
+* Did the Human Investment Decision materially improve or degrade the disposition relative to the Investment Recommendation?
+* Did a Policy or Formal Constraint protect the Portfolio or unnecessarily constrain the decision?
+* Did implementation divergence explain the observed result?
+* Was the reasoning process good even when the Outcome was unfavorable?
 
 This makes learning about **decision quality**, not merely trade profitability.
 
 ## Historical truth rather than hindsight reconstruction
 
-Meaningful evaluation requires preserving what was actually knowable at decision time.
+Meaningful Decision Evaluation requires preserving Judgment-Time Availability.
 
-Polaris should resist hindsight reconstruction in which later information is treated as though it should have been available earlier.
+Polaris should resist hindsight reconstruction in which later information is treated as though it were available to an earlier judgment.
 
 The intended historical contract is:
 
 ```text
 Decision-time world
         ↓
-Decision-time evidence
+Evidence available to the judgment
         ↓
-Decision-time reasoning
+Decision Context and reasoning
         ↓
-Decision
+Attributable judgment
         ↓
-Later outcome
+Later Outcome / Evidence
         ↓
-Evaluation against what was knowable then
+Decision Evaluation against what was available then
 ```
 
-Historical integrity makes replay and retrospective learning materially more trustworthy.
+Historical integrity makes retrospective learning materially more trustworthy.
 
 ## Decision-time truth rather than generic real time
 
 A market terminal may compete on the freshest possible feed.
 
-Polaris should compete on whether the evidence is sufficiently current for the decision and whether the system can recognize when it is not.
+Polaris should compete on whether Evidence is sufficiently current for the investment use and whether the system can recognize when it is not.
 
 For example:
 
 ```text
-Recommendation requires current portfolio state
+Current Investment Recommendation requires current Portfolio State
         ↓
-Portfolio state exceeds allowed staleness
+Portfolio State exceeds the applicable Freshness Requirement
         ↓
-Current recommendation cannot be trusted
+Current recommendation cannot be supported
 ```
 
-The ability to qualify or withhold a recommendation under stale conditions is a stronger decision property than confidently producing an answer from outdated context.
+The historical Investment Recommendation remains part of Durable Decision Memory. The product changes current support, not historical existence.
+
+The ability to qualify or withhold a current Investment Recommendation under stale conditions is a stronger decision property than confidently producing an answer from outdated context.
 
 ## Calm selectivity
 
-Financial software often rewards activity through alerts, signals, breaking news, trade ideas, and urgency.
+Financial software often rewards activity through alerts, Investment Signals, breaking news, trade ideas, and urgency.
 
-Polaris should optimize for **attention quality rather than attention quantity**.
+Polaris should optimize for **Attention quality rather than Attention quantity**.
 
 Useful outcomes include:
 
@@ -482,7 +508,7 @@ Useful outcomes include:
 
 and:
 
-> No portfolio action is warranted.
+> No Portfolio action is warranted.
 
 An attentive system that knows when to remain quiet is different from a notification system that equates activity with value.
 
@@ -492,15 +518,15 @@ Polaris should natively understand durable investment-decision concepts such as:
 
 ```text
 Portfolio
-Thesis
+Investment Thesis
 Evidence
-Risk
-Recommendation
-Authority
-Decision
-Action intent
+Portfolio Risk
+Investment Recommendation
+Investment Authority Regime
+Human Investment Decision
+Action Intent
 Outcome
-Evaluation
+Decision Evaluation
 ```
 
 Users may configure how their investment process operates inside that domain, but they should not need to assemble the product from arbitrary workflow primitives.
@@ -513,15 +539,15 @@ The following comparison describes category-level responsibility rather than ass
 
 | Product category | Primary question | Typical endpoint | Polaris distinction |
 | --- | --- | --- | --- |
-| Market-data terminal | What is happening? | Information | What does it mean for this portfolio and decision? |
-| Charting / technical platform | What does the market look like? | Analysis | Connect evidence to portfolio consequence and action |
-| Research platform | What should I know? | Research insight | Turn insight into challenged, risk-aware decisions |
-| General-purpose AI | What do you want to ask? | Answer | Maintains decision context and may initiate the question |
-| Financial AI copilot | What does AI think? | Recommendation | Preserves authority, human decision, execution evidence, and outcome |
-| Risk platform | What risks exist? | Risk assessment / control | Risk participates directly in recommendation formation |
+| Market-data terminal | What is happening? | Information | What does it mean for this Portfolio and Investment Decision? |
+| Charting / technical platform | What does the market look like? | Analysis | Connect Evidence to Projected Portfolio Consequences and decision work |
+| Research platform | What should I know? | Research insight | Turn insight into challenged, Portfolio-Risk-aware decisions |
+| General-purpose AI | What do you want to ask? | Answer | Maintains Decision Context and may cause Attention to identify the question |
+| Financial AI copilot | What does AI think? | Recommendation | Preserves authority distinctions, Human Investment Decision, external Evidence, and Outcome |
+| Risk platform | What risks exist? | Risk assessment / control | Portfolio Risk participates directly in Investment Recommendation formation |
 | Broker / trading platform | What do you want to execute? | Execution / operational state | Polaris determines what should be considered and why |
-| Trading journal | What did you trade and how did it perform? | Retrospective | Preserves what was known, why, authority path, and reasoning quality |
-| Workflow / agent platform | What workflow do you want to build? | Execution machinery | Polaris provides an opinionated investment decision lifecycle |
+| Trading journal | What did you trade and how did it perform? | Retrospective | Preserves Judgment-Time Availability, reasoning, authority history, and Decision Evaluation |
+| Workflow / agent platform | What workflow do you want to build? | Execution machinery | Polaris provides an opinionated Investment Decision lifecycle |
 
 ## What does not define durable differentiation
 
@@ -562,7 +588,7 @@ Risk-shaped
     +
 Evidence-provenanced
     +
-Authority-provenanced
+Authority-integrity-aware
     +
 Human-governed
     +
@@ -583,44 +609,38 @@ The differentiation can be compressed into three durable ideas.
 
 ### Durable decisions
 
-> **The decision persists as a lifecycle.**
+> **The Investment Decision persists as a lifecycle, and Durable Decision Memory preserves its material history.**
 
-Decisions retain connected evidence, reasoning, authority, human judgment, external consequences, outcomes, and lessons over time.
+Decisions retain connected Evidence, reasoning, authority relationships, Human Investment Decision, external consequences where applicable, Outcomes, Decision Evaluations, and Lessons over time.
 
 ### Trust by architecture
 
 > **Trust comes from provenance and separation of powers, not model confidence alone.**
 
-Evidence, rules, reasoning, human authority, external operational truth, and outcomes remain distinct and inspectable.
+Evidence, deterministic rule results, Polaris judgment, power-specific human authority, external operational truth, and Outcomes remain distinct and inspectable.
 
 ### Attentive intelligence
 
-> **Past portfolio and decision context helps Polaris determine what matters next.**
+> **Past Portfolio and decision context helps Polaris determine what matters next.**
 
-Polaris can proactively investigate relevant change and remain quiet when nothing materially affects the user's decision context.
+Polaris can proactively investigate Investment-Relevant material change and remain quiet when nothing materially affects the user's decision context.
 
 ## Consequences
 
 The Differentiation decision implies:
 
-* the decision record and closed lifecycle should remain more durable than any particular interface or workflow implementation;
-* Polaris should optimize for decision quality rather than analysis volume, recommendation count, or notification count;
+* Investment Decision identity and Durable Decision Memory should remain more durable than any particular interface or workflow implementation;
+* Polaris should optimize for decision quality rather than analysis volume, Investment Recommendation count, or notification count;
 * model improvements should improve Polaris without becoming the sole basis of its value proposition;
 * challenge should remain structural even if internal reasoning architecture changes;
-* portfolio context and risk must remain upstream of the final recommendation;
-* evidence provenance and authority provenance are central trust mechanisms rather than optional audit metadata;
+* Portfolio context and Portfolio Risk must remain upstream of the final Investment Recommendation;
+* Evidence provenance and power-specific authority history are central trust mechanisms rather than optional audit metadata;
 * human authority should coexist with substantial proactive analytical autonomy;
 * external execution should remain connected to decisions without becoming Polaris-controlled;
-* outcome evaluation should distinguish reasoning quality, policy effects, human decisions, execution effects, and realized results;
-* historical evaluation should preserve what was knowable at decision time;
-* stale decision context should reduce or invalidate confidence in a current recommendation rather than being hidden;
-* calm selectivity should be treated as a product strength;
-* generic infrastructure and AI features remain subordinate to the domain decision system;
-* differentiation should be evaluated as a coherent system property rather than a feature checklist.
+* Decision Evaluation should distinguish reasoning quality, Policy and Formal Constraint effects, Human Investment Decision, implementation effects, and Outcome;
+* historical Decision Evaluation should preserve Judgment-Time Availability;
+* stale Decision Context should reduce or remove current support for an Investment Recommendation rather than being hidden or rewriting history;
+* calm selectivity should remain a product property;
+* implementation features should remain replaceable means rather than durable product identity.
 
-## Relationship to later Product Definition work
-
-This Differentiation decision establishes constraints for the remaining Product Definition work:
-
-* **Core Capabilities** should identify the smallest coherent capability set required to produce these differentiating system behaviors rather than reproduce every existing subsystem or future-feature idea.
-* **Product Principles** should compress the most durable behavioral rules behind closed-loop decisions, trust by architecture, attentiveness, portfolio context, challenge, human authority, historical integrity, and calm selectivity.
+Polaris's differentiation is therefore not "more AI." It is a coherent, attentive, Portfolio-aware decision system whose historical meaning, authority relationships, and learning loop remain intact through time.

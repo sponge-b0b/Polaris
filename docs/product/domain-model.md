@@ -4079,3 +4079,466 @@ The following invariants are now accepted:
 30. **Authoritative external activity or resulting Portfolio State does not retroactively establish missing Admissibility, Approval, Mandate Exception, Residual-Risk Acceptance, Human Investment Decision, or other authority provenance merely because the observed outcome matches an intended or recommended consequence.**
 31. **Permission state ≠ actual boundary crossing. A governed subject may be admissible or approved and never be Published or Durably Promoted; an output may also cross a boundary improperly without that occurrence manufacturing the missing authority facts.**
 32. **Bare governed-output `Release` ceases to be canonical domain vocabulary: use Admissibility for authority status, Approval or the specific authority fact for permission, and Publication or Durable Promotion for actual Polaris output transitions; ordinary software-release terminology remains unaffected.**
+
+## Resolved Outcome, Decision Evaluation, and Lesson semantics
+
+`Outcome`, `Decision Evaluation`, and `Lesson` now close the learning side of the Investment Decision lifecycle while preserving the difference between observed history, retrospective judgment, and reusable learning. Their canonical definitions are recorded in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+`Decision Evaluation` supersedes the discovery-era candidate `Decision Outcome Evaluation` and generic capitalized `Evaluation` when referring to Polaris's canonical retrospective decision-domain judgment. Counterfactual reasoning remains an evaluative technique rather than a separate canonical domain noun.
+
+### Good process can have a bad Outcome
+
+Suppose Polaris forms a bearish Recommendation from current, high-quality Evidence, preserves a credible bullish countercase, and calibrates the uncertainty appropriately. The human follows the Recommendation exactly, but an unexpected positive event causes SPY to rally sharply.
+
+```text
+Decision process:
+well supported and appropriately uncertain
+
+Observed Outcome:
+negative relative to holding
+```
+
+The adverse realization does not establish poor Decision Evaluation. A probabilistic judgment can be well formed and still realize an unfavorable branch.
+
+**Distinction proved:** unfavorable Outcome ≠ poor decision process.
+
+### Bad process can have a good Outcome
+
+Reverse the scenario:
+
+```text
+Portfolio State used:
+materially stale
+
+material contradictory Evidence:
+available but ignored
+
+Investment Recommendation:
+increase SPY Exposure
+
+Observed Outcome:
+SPY rallies and the Portfolio profits
+```
+
+The profit does not repair the stale Evidence or omitted challenge. Decision Evaluation may still assess the evidence and reasoning process as poor.
+
+**Distinction proved:** profitable Outcome ≠ good decision process.
+
+### Implementation fidelity is separate from Outcome and judgment quality
+
+Suppose:
+
+```text
+Human Investment Decision:
+Reduce SPY Exposure by 25%.
+
+Action Intent:
+Reduce SPY Exposure by 25%.
+
+Observed implementation:
+Reduce SPY Exposure by only 10%.
+
+Later market move:
+SPY falls materially.
+```
+
+The Portfolio Outcome arose under the actual 10% reduction. Polaris must preserve three different evaluative questions:
+
+```text
+Investment judgment quality
+Was the intended 25% consequence well judged?
+
+Implementation fidelity
+Why was only 10% implemented?
+
+Outcome
+What happened under the actual Portfolio path?
+```
+
+**Distinction proved:** implementation divergence must not silently become either investment-judgment quality or the hypothetical Outcome of the unimplemented intent.
+
+### Hold with zero Action Intent still has an Outcome
+
+Suppose:
+
+```text
+Human Investment Decision:
+Hold SPY.
+
+Action Intents:
+0
+
+SPY later rises 6%.
+```
+
+The decision still has observable consequences because the Portfolio retained its Exposure and participated in the move. No synthetic execution intent is needed for Outcome to exist.
+
+**Distinction proved:** Outcome does not require Action Intent or execution activity.
+
+### One horizon can contain several independently material consequences
+
+Suppose five trading days after a decision Polaris observes:
+
+```text
+concentration:
+18% → 11%
+
+cash:
++$40,000
+
+drawdown sensitivity:
+reduced
+
+Portfolio return:
++1.2%
+
+opportunity cost:
+AAPL subsequently rallied 9%
+```
+
+Those consequences are all relevant at the same horizon. The domain does not require one Outcome object per metric, nor does it collapse them into one scalar score.
+
+**Distinction proved:** temporal scope is required, but horizon or metric count does not determine Outcome decomposition.
+
+### Outcomes at different horizons remain distinguishable
+
+Suppose a short-term SPY hedge has an intended horizon of two to five trading days:
+
+```text
+Day 3:
+hedge gains materially
+
+Day 30:
+continued hedge loses value
+
+Day 180:
+market is much higher
+```
+
+The day-3 observation may be especially relevant to the decision's intended horizon. Later observations may also matter, but they must not rewrite the earlier horizon as though it never existed.
+
+**Distinction proved:** one Investment Decision may support several temporally distinct Outcome views.
+
+### Outcome maturity can be incomplete
+
+A three-month thesis may be only two days old. Polaris can already know implementation fidelity, current Portfolio State, current P&L, and whether some assumptions have failed while the economic Outcome remains insufficiently mature for a three-month success/failure judgment.
+
+**Distinction proved:** current observation ≠ final Outcome, and Decision Evaluation may proceed on evaluable components before economic Outcome maturity.
+
+### A later decision can truncate an earlier realized path
+
+Suppose:
+
+```text
+D-1200
+Human Investment Decision:
+Hold AAPL for approximately 12 months.
+
+Month 3 — D-1240
+new material information
+Human Investment Decision:
+Exit AAPL.
+```
+
+At month 12, AAPL is 40% above the D-1200 price. The observed path of D-1200 ended when the Portfolio exited at month 3. The twelve-month buy-and-hold result after that point answers a counterfactual question, not what actually happened to the Portfolio.
+
+**Distinction proved:** subsequent Investment Decisions may truncate or redirect an earlier realized consequence path; hypothetical continuation is not observed history.
+
+### Observed Outcome and counterfactual result remain different
+
+Suppose Polaris recommended a 20% SPY reduction, the human selected 5%, and 5% was implemented. Historical prices can be used to estimate what a 20% reduction might have produced, but that calculation remains hypothetical even if the arithmetic is straightforward.
+
+Material counterfactual analysis must preserve its assumptions, method, horizon, and uncertainty. It must not be represented as Portfolio State or observed Outcome.
+
+**Distinction proved:** historical market data does not transform an unchosen path into observed history.
+
+### Later information does not contaminate the earlier judgment basis
+
+Suppose an important event occurred before R-1, but authoritative information establishing it became available only after R-1 was formed. The later information can help Decision Evaluation understand what happened or which assumption was false, but it cannot be treated as information R-1 should have possessed unless separate Evidence establishes that availability.
+
+**Distinction proved:** ex-post understanding may improve without rewriting Judgment-Time Availability.
+
+### Corrected representation separates data quality from reasoning quality
+
+Suppose:
+
+```text
+actual historical AAPL concentration:
+8%
+
+representation available to R-1:
+35%
+
+R-1:
+Reduce AAPL because concentration appears excessive.
+```
+
+Later authoritative reconstruction discovers the error. A useful Decision Evaluation may conclude:
+
+```text
+data / evidence correctness:
+poor
+
+reasoning conditional on the supplied 35% representation:
+coherent
+
+Recommendation conditional on the true 8% state:
+not supportable
+```
+
+A single `bad decision` score would hide the causal defect.
+
+**Distinction proved:** Evidence/data quality and reasoning quality are independently evaluable.
+
+### Evaluation target and criteria are distinct
+
+The same Recommendation may be assessed differently under different criteria:
+
+```text
+Target:
+R-1 reasoning
+Criterion:
+logical coherence
+Assessment:
+strong
+
+Target:
+R-1
+Criterion:
+Evidence sufficiency
+Assessment:
+poor
+```
+
+Polaris must preserve what is being assessed and by which standard, but the semantic distinction does not require separate canonical `Evaluation Target` or `Evaluation Criterion` entities.
+
+**Distinction proved:** evaluation target ≠ evaluative criterion, and conflicting criterion-specific assessments can coexist without contradiction.
+
+### Evaluation standards have temporal provenance
+
+Suppose the 2026 standard allows critical market data up to fifteen minutes old, and R-1 uses ten-minute-old data. In 2027 the standard tightens to two minutes.
+
+A later reviewer may truthfully say:
+
+```text
+Under the 2026 standard:
+R-1 satisfied the freshness requirement.
+
+Under the 2027 standard applied retrospectively:
+R-1 would not satisfy today's requirement.
+```
+
+The later standard cannot be projected backward as though R-1 violated a rule that did not then apply.
+
+**Distinction proved:** historical conformance under then-applicable standards ≠ later retrospective assessment under current standards.
+
+### Decision Evaluation history is durable
+
+Suppose Day 5 Evaluation E-1 judges the decision well supported based on the evidence then available to the evaluator. At Day 90, new reconstruction Evidence supports E-2, which finds an important data-source dependency previously unknown.
+
+E-2 does not mutate E-1. Both are attributable retrospective judgments formed at different times from different evaluative bases. Mere arrival of another market observation does not itself create a new Decision Evaluation.
+
+**Distinction proved:** new attributable evaluative judgment creates evaluation history; observation refresh alone does not.
+
+### External Resolution constrains what can be evaluated
+
+Suppose an unresolved decision is Externally Resolved before any Human Investment Decision. Polaris may later evaluate the quality of Attention, Evidence, reasoning, and any Recommendation, and may observe subsequent market consequences. It must not fabricate human-judgment quality or implementation fidelity for facts that never existed.
+
+**Distinction proved:** Decision Evaluation applicability follows the decision facts that actually exist.
+
+### Human modification preserves Outcome attribution
+
+Suppose:
+
+```text
+Polaris Investment Recommendation:
+Reduce SPY 20%.
+
+Human Investment Decision:
+Reduce SPY 5%.
+
+Observed implementation:
+5%.
+```
+
+The realized Portfolio Outcome occurred under the human-selected 5% path. Polaris may separately evaluate whether the original 20% Recommendation was well formed, but it must not attribute the realized result as though 20% had been implemented.
+
+**Distinction proved:** Recommendation quality, human modification, implementation fidelity, and realized Outcome remain separately reconstructable.
+
+### Authority acts are not scored solely by later P&L
+
+Suppose an authorized reviewer denies advancement because required Evidence is insufficient. The blocked action would later have been profitable.
+
+The profit does not retroactively establish that the Authority Denial was invalid under the authority conditions then applicable. Conversely, a losing approved action does not by itself prove the Approval was invalid.
+
+**Distinction proved:** investment Outcome ≠ historical authority validity.
+
+### Not every Decision Evaluation produces a Lesson
+
+A well-formed probabilistic decision may realize an adverse but plausible branch. Decision Evaluation may conclude that the process was appropriate and that no reusable proposition beyond the known uncertainty is justified.
+
+```text
+Decision Evaluation:
+reasonable process; adverse realization
+
+Lessons:
+0
+```
+
+**Distinction proved:** learning does not require manufacturing a rule from every win or loss.
+
+### One strongly evidenced incident can justify a Lesson
+
+Suppose one Evaluation demonstrates that release timestamps were normalized in the wrong timezone, causing information to appear available before publication. The mechanism is direct and generalizable.
+
+A Lesson may be justified immediately:
+
+```text
+Judgment-Time Availability derived from release timestamps
+must preserve authoritative source timezone semantics.
+```
+
+Repeated failures are not required merely to increase sample count.
+
+**Distinction proved:** Lesson support depends on evidentiary strength and mechanism, not a fixed minimum number of incidents.
+
+### Lessons may synthesize cross-decision Evaluation
+
+Suppose Polaris evaluates 100 historical hedge decisions and finds that explicitly surfaced Evidence conflict consistently improves later human modification quality. One cross-decision Decision Evaluation may support a Lesson without fabricating 100 synthetic individual Evaluations solely for bookkeeping.
+
+**Distinction proved:** Decision Evaluation and Lesson relationships are many-to-many and may span several Investment Decisions.
+
+### Lesson support can change without rewriting the Lesson
+
+Suppose L-1 states that indicator X tends to predict Y under condition Z. Later Evidence weakens the relationship while the proposition and scope remain unchanged.
+
+Polaris may preserve:
+
+```text
+L-1 historical existence:
+unchanged
+
+current evidentiary support:
+weaker / challenged
+```
+
+It need not create a new Lesson solely because confidence in an unchanged proposition moved.
+
+**Distinction proved:** historical Lesson identity ≠ current support or applicability.
+
+### Material Lesson refinement creates a linked Lesson
+
+Suppose L-1 states:
+
+```text
+During high-volatility regimes,
+technology concentration above 35%
+produces unacceptable drawdown behavior for Portfolio A.
+```
+
+Later Evaluation shows the effect is supported only when Portfolio liquidity is also below 10%. That changes the proposition's scope materially.
+
+The correct history is conceptually:
+
+```text
+L-1:
+original broader Lesson
+
+L-2:
+refines / supersedes L-1
+with the narrower supported conditions
+```
+
+L-1 remains durable rather than being rewritten to appear as if it always contained the narrower condition.
+
+**Distinction proved:** material proposition or scope change creates new linked learning history.
+
+### Lesson semantics follow learning role rather than authorship
+
+A reusable learning proposition may be formed by Polaris, a human reviewer, an investment committee, or joint retrospective work. Its source remains attributable, but authorship does not determine whether it is a Lesson.
+
+**Distinction proved:** Lesson role determines the concept; provenance determines who formed it.
+
+### Lesson does not become authority
+
+Suppose repeated Evaluations support:
+
+```text
+Lesson:
+Portfolio A performs poorly when technology Exposure
+exceeds 35% during high-volatility regimes.
+```
+
+The Lesson may inform future Attention, Decision Context, Evidence, reasoning, or a Policy/Mandate review. It does not automatically create:
+
+```text
+Formal Constraint:
+Technology Exposure <= 35%
+```
+
+Creating or changing a Formal Constraint, Policy, Mandate, or authority requirement still requires the appropriate authoritative act.
+
+**Distinction proved:** reusable learning may motivate governance change but does not itself exercise governance authority.
+
+### Outcome correlation does not establish causal learning
+
+Suppose a SPY reduction is followed by a smaller drawdown. Other hedges, cash flows, unrelated external activity, or changing market conditions may also explain the result. Outcome records what occurred; causal explanation belongs in Decision Evaluation and requires adequate Evidence before it can support a causal Lesson.
+
+**Distinction proved:** sequence or correlation ≠ causation, and Outcome alone cannot safely generate causal learning.
+
+### Frozen Outcome, Decision Evaluation, and Lesson invariants
+
+The following invariants are now accepted:
+
+1. **Outcome is a decision-relative, temporally scoped account of observed consequences relevant to an Investment Decision, grounded in authoritative observed facts without implying causality, decision quality, or finality.**
+2. **Outcome does not replace the authoritative facts from which it is understood; Portfolio State, market facts, Orders, fills, and other source facts retain their own authority and provenance.**
+3. **Outcome ≠ realized P&L.**
+4. **Outcome ≠ Decision Evaluation.**
+5. **Outcome ≠ causal attribution.**
+6. **Outcome must preserve an explicit horizon or as-of scope sufficient to prevent observations from different periods from being silently collapsed.**
+7. **One Investment Decision may have materially different Outcome views at different horizons or as-of points.**
+8. **One horizon may contain multiple independently material consequence dimensions; horizon, metric count, instrument count, Action Intent count, Order count, or fill count does not determine Outcome identity or representation.**
+9. **Outcome may be partial, evolving, or insufficiently mature for a particular evaluative question.**
+10. **A Human Investment Decision, Action Intent, or external implementation is not required for every meaningful Outcome observation; hold/no-action and External Resolution may still have decision-relevant Outcomes.**
+11. **The same authoritative observed fact may be relevant to multiple Investment Decisions or Outcome interpretations without being duplicated as multiple source facts.**
+12. **A subsequent Investment Decision may truncate, redirect, or supersede the realized consequence path of an earlier Investment Decision.**
+13. **Hypothetical continuation of an earlier decision after a later decision changes the actual Portfolio path is counterfactual rather than observed Outcome.**
+14. **Observed Outcome ≠ modeled counterfactual result.**
+15. **Counterfactual reasoning may inform Decision Evaluation but must preserve its assumptions, method, horizon, and uncertainty and must never masquerade as historical Portfolio State or observed Outcome.**
+16. **Counterfactual reasoning does not presently require an independent canonical domain entity; it remains an evaluative technique unless later domain discovery proves otherwise.**
+17. **Implementation fidelity ≠ economic Outcome.**
+18. **Claims such as thesis success, thesis failure, or causal effectiveness generally belong to Decision Evaluation rather than Outcome unless a separately authoritative deterministic condition directly establishes a relevant status.**
+19. **Decision Evaluation is an attributable, time-specific retrospective judgment assessing one or more Investment Decisions or material components against explicit evaluative criteria.**
+20. **`Decision Evaluation` is the canonical candidate rather than generic `Evaluation` or `Decision Outcome Evaluation`, because process evaluation may occur before economic Outcome maturity and generic evaluation has broader meanings.**
+21. **A material Decision Evaluation must make explicit what is being assessed and the criteria or standards under which the assessment is made.**
+22. **Evaluation target ≠ evaluation criteria; the distinction is semantically required but does not presently require independent canonical target or criterion entities.**
+23. **The same evaluation target may be strong under one criterion and poor under another without contradiction.**
+24. **One Decision Evaluation may assess several targets or criteria when their individual judgments remain reconstructable.**
+25. **Decision Evaluation must preserve the distinction between ex-ante judgment quality given information actually available at the time and ex-post understanding based on later Evidence and Outcome.**
+26. **Later Evidence may establish what was historically true, which assumptions held, or why an Outcome occurred without becoming retroactively available to an earlier judgment.**
+27. **Reasoning quality conditional on information actually available may differ materially from Evidence acquisition, data correctness, normalization, provenance, freshness, or readiness quality.**
+28. **Profitable or favorable Outcome does not establish good reasoning, Recommendation quality, human judgment, governance, or implementation; unfavorable Outcome does not by itself establish that any of those were poor.**
+29. **Decision Evaluation must preserve materially distinct evaluation dimensions rather than forcing them into one undifferentiated decision-quality judgment.**
+30. **Evaluation criteria and standards have temporal provenance. Historical assessment under standards applicable at the time must remain distinguishable from later retrospective assessment under newer standards.**
+31. **Applying a later standard to an earlier decision may support a labeled contemporary retrospective judgment but must not rewrite what was compliant, admissible, or reasonable under the standards actually applicable then.**
+32. **A Decision Evaluation need assess only targets for which relevant facts and sufficient Evidence exist; nonexistent Human Investment Decisions, Action Intents, implementation, or mature Outcomes must not be fabricated for evaluation completeness.**
+33. **A materially new attributable retrospective judgment may create a new Decision Evaluation; mere arrival of new observations does not by itself do so.**
+34. **A later Decision Evaluation does not rewrite an earlier attributable Evaluation; each remains reconstructable against its information, standards, criteria, and time of formation.**
+35. **Decision Evaluation must preserve uncertainty and causal limits rather than converting temporal sequence, correlation, matching Portfolio State, or profitable coincidence into unsupported causation.**
+36. **Human modification of a Polaris Investment Recommendation must remain visible when evaluating Outcome; realized consequences under the human-selected choice must not silently be attributed as though the original Recommendation were implemented.**
+37. **Later investment Outcome does not retroactively determine whether an earlier Approval, Authority Denial, Mandate Exception, Residual-Risk Acceptance, or other authority act was valid under the Investment Authority Regime applicable at the time.**
+38. **A Lesson is an attributable, durable, scoped learning proposition derived through one or more Decision Evaluations and supporting Evidence, preserving its proposition, scope, basis, conditions, and uncertainty.**
+39. **Outcome alone does not create a Lesson; reusable learning requires an explicit evaluative basis.**
+40. **One Decision Evaluation may yield zero, one, or multiple Lessons; one Lesson may synthesize one or multiple Decision Evaluations, including cross-decision Evaluation.**
+41. **Lesson formation depends on evidentiary strength, mechanism, scope, generalizability, and uncertainty rather than a fixed required number of historical instances.**
+42. **A Lesson may originate from Polaris, a human, or another attributable evaluative source; learning role determines Lesson semantics while provenance remains preserved.**
+43. **A Lesson must remain scoped to the conditions supported by its Evaluation and Evidence and must not silently become a universal investment rule.**
+44. **Additional Evidence that strengthens or weakens support for an unchanged Lesson proposition need not create a new Lesson.**
+45. **Historical existence of a Lesson is distinct from its current support or applicability; later Evidence may strengthen, challenge, weaken, or render a Lesson no longer currently applicable without deleting its history.**
+46. **A material change to a Lesson's proposition or scope requires a new attributable, linked Lesson rather than destructive mutation of the prior Lesson.**
+47. **A later Lesson may refine, challenge, or supersede an earlier Lesson while preserving the earlier Lesson and its historical basis.**
+48. **Lesson ≠ immutable truth; Lessons remain evidence-backed learning propositions subject to later challenge.**
+49. **A Lesson may inform future Attention, Decision Context, Evidence, reasoning, or Policy/Mandate review.**
+50. **Lesson ≠ Policy ≠ Investment Mandate ≠ Formal Constraint ≠ authority fact; learning may motivate authoritative change but does not itself perform that change.**
+51. **A Lesson used in a later judgment remains subject to the same Judgment-Time Availability, relevance, applicability, provenance, freshness, and Evidence-role distinctions as other information.**
+52. **Causal learning requires Evidence sufficient for the claimed relationship; Outcome correlation alone must not be generalized into a Lesson as though causation had been established.**

@@ -2884,3 +2884,294 @@ The following invariants are now accepted:
 20. **Deferral is different: because the Decision Need remains unresolved, later Investment Recommendations may continue under the same Investment Decision after judgment resumes.**
 21. **An Investment Recommendation ceases to be an active current judgment once its Investment Decision's investment judgment is substantively resolved or Externally Resolved; it remains durable historical decision basis.**
 22. **Investment Recommendation history must preserve enough decision-time basis to distinguish what Polaris recommended, why it recommended it, whether it remained supportable, what the human considered, and what happened afterward.**
+
+## Resolved Decision Context and Judgment-Time Availability semantics
+
+`Decision Context` and `Judgment-Time Availability` are now resolved sufficiently to distinguish the circumstances that actually frame an investment judgment from the information that a particular judgment could actually access. These semantics are canonicalized in [`../../CONTEXT.md`](../../CONTEXT.md).
+
+`Judgment-Time Availability` supersedes the earlier candidate term `Decision-Time Availability`. An Investment Decision may span several attributable judgments at different times, so availability cannot be modeled truthfully as one global property of the Investment Decision. These semantics also refine earlier shorthand in this document such as `decision-time context available`: the domain now distinguishes **applicable Decision Context** from **information available to a specific judgment**.
+
+### Decision Context is the applicable decision frame, not an evidence bag
+
+Decision Context answers:
+
+```text
+What circumstances and existing state materially frame this judgment?
+```
+
+Evidence answers a different question:
+
+```text
+What information supports, contradicts, constrains,
+qualifies, or reconstructs material claims or outputs?
+```
+
+The distinction is role-based rather than duplicative. A Portfolio State fact, applicable Investment Mandate, or prior Investment Recommendation may participate in the Decision Context and also be established, challenged, or reconstructed through Evidence without becoming two separate domain facts.
+
+For example, the same bearish SPY Evidence can produce different consequences for two Portfolios:
+
+```text
+Portfolio A
+SPY Exposure: 5%
+Cash: substantial
+Horizon: long
+
+Portfolio B
+SPY Exposure: 65%
+Liquidity: constrained
+Risk boundary: tighter
+```
+
+The external Evidence can be identical while Decision Context differs materially. Different Investment Recommendations are therefore not inconsistent merely because they arise from the same market Evidence.
+
+**Distinction proved:** Decision Context ≠ Evidence, and identical Evidence does not imply identical judgment when applicable context differs.
+
+### Applicable context is distinct from the representation available to a judgment
+
+Suppose:
+
+```text
+09:00
+Applicable Investment Mandate:
+M-2
+
+Polaris accidentally loads:
+M-1
+
+10:00
+Investment Recommendation R-1
+```
+
+M-2 still governs the Portfolio. Polaris's failure to load it does not make M-1 the applicable Mandate.
+
+The same distinction applies to Portfolio State:
+
+```text
+actual historical concentration:
+8%
+
+representation available to Polaris:
+35%
+```
+
+If R-1 recommends reducing AAPL because Polaris believes concentration is 35%, historical reconstruction must preserve both truths:
+
+```text
+Applicable historical Decision Context:
+actual concentration = 8%
+
+Information available to R-1:
+concentration represented as 35%
+
+R-1:
+formed from the erroneous representation
+```
+
+Later correction may establish that the context representation was wrong, but it must not rewrite either the actual historical Portfolio condition or the information basis from which R-1 was genuinely formed.
+
+**Distinction proved:** applicable Decision Context ≠ a judgment participant's representation of that context, and historical occurrence ≠ historical correctness.
+
+### Public or source availability is not Judgment-Time Availability
+
+Suppose:
+
+```text
+09:58
+SEC filing becomes publicly available.
+
+09:59
+Polaris ingestion / access fails.
+
+10:03
+R-1 is formed without the filing.
+```
+
+Then the filing can truthfully be:
+
+```text
+underlying information existed:
+yes
+
+source/public availability:
+yes
+
+available to R-1:
+no
+```
+
+Later Evaluation may properly conclude that Polaris missed material information that could have been obtained. Historical reconstruction of R-1 must not silently insert that filing into R-1's information basis.
+
+**Distinction proved:** source/public availability ≠ Judgment-Time Availability.
+
+### Available does not mean used or fit for use
+
+Suppose a research item was accessible in Polaris before R-1 but was never selected into the reasoning that formed R-1:
+
+```text
+Judgment-Time Availability:
+yes
+
+materially informed R-1:
+no
+```
+
+Availability therefore does not prove use or material influence.
+
+Likewise, available information may still be unusable for the intended judgment:
+
+```text
+SPY observation:
+available
+age = 45 minutes
+
+Freshness Requirement:
+<= 2 minutes
+
+Judgment-Time Availability:
+yes
+
+fit for this Recommendation:
+no
+```
+
+The distinction allows Polaris to explain materially different failure states such as missing information, available-but-stale information, available-but-conflicting information, and information that was available but did not materially inform the judgment.
+
+**Distinction proved:** availability ≠ use ≠ material influence, and availability ≠ freshness, sufficiency, conflict state, admissibility, or fitness.
+
+### Availability is relative to the attributable judgment
+
+One Investment Decision may contain several judgments at different times:
+
+```text
+D-1000
+
+10:00
+Polaris Investment Recommendation R-1
+
+10:05
+material information arrives
+
+10:10
+Human Investment Decision H-1
+```
+
+The new information can be:
+
+```text
+available to R-1:
+no
+
+available to H-1:
+yes
+```
+
+The same pattern can occur between successive Investment Recommendations within one unresolved Investment Decision.
+
+Human availability must not be fabricated. If Polaris cannot establish whether the human actually had access to particular information, the historical availability relationship remains unknown rather than being inferred from silence.
+
+**Distinction proved:** Judgment-Time Availability is scoped to a specific attributable judgment rather than globally to its containing Investment Decision.
+
+### Later Evidence may reconstruct reality without contaminating the earlier judgment basis
+
+Suppose an event occurs before R-1, but authoritative information establishing the event becomes available only later:
+
+```text
+09:00
+event occurs
+
+10:00
+R-1 formed
+
+12:00
+authoritative source exposes the event
+```
+
+The later source may become Reconstruction Evidence or later Evaluation Evidence. It may establish what was historically true, but it was not available to R-1 and therefore cannot become retroactive Decision Evidence for R-1.
+
+The same rule applies to corrected data. A later authoritative correction may change Polaris's current understanding of the historical world while preserving the erroneous representation actually available to the earlier judgment.
+
+**Distinction proved:** later knowledge may correct historical truth without rewriting historical Judgment-Time Availability or the actual basis of an earlier judgment.
+
+### Historical availability survives current source loss
+
+Suppose an article was available and materially used by R-1, but its publisher later deletes it.
+
+The current source state can be:
+
+```text
+retrievable now:
+no
+```
+
+while historical reconstruction remains:
+
+```text
+available to R-1:
+yes
+```
+
+Current retrievability must not rewrite historical availability. Durable reconstruction may therefore require retained lineage or reconstruction evidence, but the domain invariant is historical truth rather than any prescribed storage mechanism.
+
+**Distinction proved:** available now ≠ available then in either direction.
+
+### Decision Context may change without acquiring independent identity
+
+Suppose one unresolved Investment Decision continues through material change:
+
+```text
+D-1001
+Decision Need:
+Should Portfolio A reduce SPY Exposure?
+
+09:00
+context applicable to R-1
+        ↓
+R-1: Hold
+
+11:15
+Portfolio State and market conditions materially change
+        ↓
+context applicable to R-2
+        ↓
+R-2: Reduce 15%
+```
+
+D-1001 remains the same Investment Decision while the same coherent unresolved choice is being judged. R-1 and R-2 must each remain reconstructable against the context applicable when each judgment was formed.
+
+The domain does not require a first-class `Decision Context` identity or numbered context-version entity merely because context changes. A future architecture may choose snapshots, temporal records, references, event history, or another representation. The domain invariant is historically faithful reconstructability.
+
+Likewise:
+
+```text
+context change
+≠ new Investment Recommendation
+≠ new Investment Decision
+```
+
+A new Investment Recommendation still requires a distinct attributable Polaris judgment, and a new Investment Decision still follows the already-frozen identity/lifecycle rules.
+
+**Distinction proved:** temporal context change is a domain fact, but context-version identity and storage representation are architectural concerns.
+
+### Frozen Decision Context and Judgment-Time Availability invariants
+
+The following invariants are now accepted:
+
+1. **Decision Context is the time-specific, decision-relative set of applicable conditions, constraints, domain state, and prior decision state that frame an Investment Decision or judgment within it.**
+2. **Decision Context ≠ Evidence.**
+3. **Context membership follows decision relevance and applicability; Evidence status follows the role information plays in supporting, contradicting, constraining, qualifying, or reconstructing claims or outputs.**
+4. **The same underlying fact may participate in Decision Context and in an Evidence role without becoming two different domain facts.**
+5. **Applicable Decision Context is distinct from Polaris's information or representation of that context. An applicable condition does not cease to apply merely because Polaris did not know it, could not access it, or represented it incorrectly.**
+6. **Historical reconstruction must be capable of distinguishing what actually applied from what information about it was available to the judgment.**
+7. **One unresolved Investment Decision may have materially changing Decision Context through time without changing Investment Decision identity.**
+8. **A change in Decision Context does not by itself create a new Investment Recommendation; a new Recommendation still requires a distinct attributable Polaris judgment.**
+9. **Each Investment Recommendation must remain reconstructable against the Decision Context applicable when that Recommendation was formed and the information actually available to that judgment.**
+10. **Decision Context does not require independent domain identity or explicit context-version objects merely because context changes through time; historical reconstructability is the invariant, while representation/versioning strategy remains architectural.**
+11. **`Judgment-Time Availability` replaces `Decision-Time Availability` as the canonical term because availability is relative to a specific attributable judgment, not globally to an Investment Decision that may span several judgments.**
+12. **Judgment-Time Availability ≠ underlying fact/event time, source publication time, or current retrievability.**
+13. **Judgment-Time Availability ≠ freshness, sufficiency, conflict state, admissibility, or fitness for the intended decision use.**
+14. **Judgment-Time Availability ≠ selection, use, or material influence; information may be available to a judgment without materially informing it.**
+15. **Availability must remain unknown when Polaris lacks sufficient provenance to establish whether information was available to a particular judgment; absence of evidence must not be converted into false unavailability.**
+16. **Information may be available to one judgment within an Investment Decision and unavailable to another, including a Polaris Investment Recommendation and a later Human Investment Decision.**
+17. **Later-created, later-discovered, or later-corrected information may support reconstruction, Evaluation, or learning without becoming part of an earlier judgment's historical information basis.**
+18. **A later correction may change Polaris's current understanding of what was historically true without rewriting the erroneous or incomplete representation actually available to an earlier judgment.**
+19. **Information that was available at judgment time remains historically available even if its source later changes, disappears, or becomes inaccessible; current availability must not rewrite historical availability.**

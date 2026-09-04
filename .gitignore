@@ -256,6 +256,9 @@ graphify-out/
 #Codegraph
 .codegraph/
 
+# codebase-memory-mcp
+.cbmignore
+
 # VS Code
 .vscode/
 

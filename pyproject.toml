@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polaris"
+version = "0.2.0"
+description = "Decision-centered AI intelligence for trustworthy portfolio and investment decisions."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polaris"]

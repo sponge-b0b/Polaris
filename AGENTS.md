@@ -10,10 +10,11 @@ At the start of a task:
 
 1. Match claims to the correct authority:
 
-   * code, configuration, executable checks, and relevant tests → implementation reality;
-   * accepted ADRs → active architectural decisions;
-   * `docs/current/` → current architectural description;
-   * `wiki/entities/` → derived architectural knowledge.
+   * code, configuration, executable checks, and relevant tests outside `legacy/` → current implementation reality;
+   * accepted ADRs outside `legacy/` → active architectural decisions;
+   * active architecture documents outside `legacy/` → current architectural description;
+   * an active root `wiki/entities/`, when present → derived architectural knowledge;
+   * `legacy/v0_1/` → historical donor/reference material only, never current product, architecture, implementation, or workflow authority.
 
 2. If applicable authorities materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the task easiest.
 
@@ -36,6 +37,16 @@ If the required vocabulary is already established in the current task context, d
 
 `CONTEXT.md` is canonical domain vocabulary. Avoid duplicating it here.
 
+### Greenfield / Legacy Boundary
+
+The canonical greenfield implementation lives under `src/polaris/`.
+
+`legacy/v0_1/` preserves the pre-greenfield Polaris platform as donor/reference material. New Polaris code, tests, configuration, migrations, tools, and runtime paths must not import, wrap, extend, execute through, or otherwise depend on `legacy/`.
+
+Nothing survives because it already existed. A dependency, schema, migration, abstraction, workflow, runtime mechanism, architecture document, test, or implementation pattern from `legacy/` may be reused only after the current product need and architectural owner are independently established. Reuse means deliberately copying or transplanting the useful implementation into the current greenfield boundary; it never means creating a runtime dependency on `legacy/`.
+
+Do not treat ADRs, `docs/current/`, wiki pages, manifests, tests, or code under `legacy/v0_1/` as current authority. When current greenfield architecture has not yet established an answer, surface the gap and use the applicable requirements/architecture process rather than inheriting the legacy answer by default.
+
 ---
 
 ## Coding Conduct
@@ -44,7 +55,7 @@ When changing source code, use `$coding-standards`.
 
 Its requirements are mandatory, including project-specific data-contract, scoring, precision, async, observability, and related implementation practices.
 
-When a coding rule depends on project-specific semantics or architecture, follow the authoritative ADR or `docs/current/` source referenced by `$coding-standards`. Do not infer architectural or data-contract semantics from field names, existing implementation accidents, `CONTEXT.md`, or this file.
+When a coding rule depends on project-specific semantics or architecture, follow the applicable current non-legacy ADR or architecture source referenced by `$coding-standards`. Do not infer architectural or data-contract semantics from field names, legacy implementation, existing implementation accidents, `CONTEXT.md`, or this file.
 
 Do not duplicate coding-standard policy in `AGENTS.md`.
 
@@ -73,7 +84,7 @@ Manage only services needed for the active task.
 
 No pytest command may launch until the exact selected test scope's external-service prerequisites have been identified and, when applicable, verified ready.
 
-Before every pytest invocation, identify the exact selected test scope, consult `docs/process/testing-guide.md` and the selected tests/fixtures as necessary, and classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts.
+Before every pytest invocation, identify the exact selected greenfield test scope and inspect its active root configuration, tests, and fixtures to classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts. The v0.1 testing guide under `legacy/v0_1/docs/process/` is historical reference only and must not be treated as current greenfield test authority.
 
 Do not use pytest startup, a client timeout, a connection exception, or a skip as the readiness probe. If prerequisites cannot be verified, do not launch pytest; report the verification as unresolved.
 
@@ -104,6 +115,8 @@ Use the smallest discovery tool sufficient for the question rather than broad ma
 * `$codebase-memory-mcp` — graph-backed discovery, architecture, impact, dead-code, and cross-service analysis.
 
 Exact literal searches remain appropriate when graph analysis provides no advantage.
+
+For current greenfield analysis, exclude `legacy/` unless the task explicitly requires donor/reference inspection.
 
 ---
 
@@ -138,7 +151,7 @@ Use:
 * `$to-doc` for a new non-ADR document;
 * `$classify-doc` for classification, reclassification, relocation, or naming correction of an existing non-ADR document.
 
-Classification/naming policy lives in `wiki/_schema.md`.
+Classification/naming policy lives in the active root `wiki/_schema.md` when a greenfield Living Entity Wiki is established. Do not use the legacy wiki schema as current authority.
 
 Do not:
 
@@ -150,9 +163,9 @@ Do not:
 
 ## Living Entity Wiki
 
-The project maintains a machine-oriented architectural knowledge layer under `wiki/`.
+The pre-greenfield Living Entity Wiki is preserved under `legacy/v0_1/wiki/`. No legacy wiki page is current architectural authority.
 
-It preserves durable knowledge that is not cheaply reconstructable from current code, especially:
+When a greenfield Living Entity Wiki is intentionally established at root `wiki/`, it is the machine-oriented architectural knowledge layer and preserves durable knowledge that is not cheaply reconstructable from current code, especially:
 
 * boundary rationale;
 * active invariants and causal reasoning;
@@ -170,10 +183,10 @@ It preserves durable knowledge that is not cheaply reconstructable from current 
 
 ### Lifecycle
 
-Use `$wiki-sync` for:
+When an active root wiki exists, use `$wiki-sync` for:
 
 * substantive source changes, before and after;
-* substantive `docs/current/` / `docs/proposed/` changes;
+* substantive current/proposed architecture-document changes;
 * ADR creation, proposed-body edits, or lifecycle changes;
 * entity topology/boundary changes.
 

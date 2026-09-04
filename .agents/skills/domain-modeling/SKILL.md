@@ -52,6 +52,30 @@ Example:
 
 Prefer canonical domain language over generic software terminology.
 
+### Canonical-Term Qualification Standard
+
+Use the shortest natural canonical noun or noun phrase that remains semantically unambiguous among the project's first-class domain concepts.
+
+Add a qualifier only when it earns its place by resolving a real domain ambiguity, establishing a necessary semantic boundary, or preventing misleading overloading. Do not add qualifiers merely because the underlying word is generic English.
+
+Qualification should resolve ambiguity, not compensate for an imprecise definition.
+
+Apply this **canonical-term qualification test** before freezing a canonical term:
+
+1. **First-class collision:** Does the bare noun plausibly collide with another first-class domain concept in this product? If yes, qualify it.
+2. **Information gain:** Does the qualifier add meaningful semantic information, or merely repeat what the canonical definition already establishes? Prefer the bare noun when the qualifier is redundant.
+3. **Narrowing risk:** Would the qualifier incorrectly imply narrower ownership, scope, cardinality, origin, or lifecycle than the concept actually has? Reject a qualifier that makes the term less accurate.
+4. **Context independence:** Is the bare noun still clear when extracted from its ideal paragraph and used in glossary entries, schemas, APIs, events, UI labels, logs, or cross-domain discussion? Qualify it when the bare term becomes materially ambiguous outside local prose.
+5. **Canonical capitalization:** Can canonical capitalization and the glossary definition distinguish the domain concept adequately from ordinary lowercase English usage? Do not lengthen canonical vocabulary solely to eliminate harmless natural-language collisions.
+
+Examples:
+
+- `Decision Evaluation` is preferable to bare `Evaluation` because evaluation is materially overloaded across model, evidence, policy, workflow, and other product concerns.
+- `Outcome` is preferable to `Decision Outcome` because its canonical definition is already decision-relative and the qualifier adds little while suggesting an unnecessarily terminal result.
+- `Lesson` is preferable to `Decision Lesson` because one Lesson may synthesize learning across multiple Investment Decisions; the qualifier would misleadingly narrow the concept.
+
+When two candidate names remain equally precise after this test, prefer the shorter and more natural term.
+
 ### Discuss Concrete Scenarios
 
 Stress-test domain relationships with specific scenarios, especially around:

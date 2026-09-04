@@ -178,7 +178,7 @@ Raw market data, telemetry, observability dashboards, implementation diagnostics
 
 **Admissibility** is the time-specific, subject-specific, and boundary-specific authority status describing whether a governed subject is eligible for a specified consequential use under the applicable Evidence, Policy, Mandate, Risk, Governance, and authority conditions.
 
-Admissibility is not a global property of an output, Investment Recommendation, Proposed Action, Human Investment Decision, or other governed subject. The same subject may be inadmissible for one consequential use while remaining legitimately visible for audit, challenge, historical reconstruction, or Evaluation.
+Admissibility is not a global property of an output, Investment Recommendation, Proposed Action, Human Investment Decision, or other governed subject. The same subject may be inadmissible for one consequential use while remaining legitimately visible for audit, challenge, historical reconstruction, or Decision Evaluation.
 
 Admissibility is distinct from Approval and from Human Investment Decision. Approval is an attributable authority act that may be one condition relevant to Admissibility; Human Investment Decision is the attributable human investment judgment. Insufficient authority or readiness information must remain unresolved rather than being silently converted into affirmative permission or prohibition.
 
@@ -508,7 +508,7 @@ Judgment-Time Availability is relative to the judgment, not globally to the Inve
 
 Judgment-Time Availability is distinct from when an underlying fact or event occurred, when a source published or exposed information, and whether the information is retrievable now. It is also distinct from freshness, sufficiency, conflict state, admissibility, or fitness for the intended decision use, and from whether available information was actually used or materially informed the judgment.
 
-When Polaris cannot establish whether information was available to a particular judgment, availability remains unknown rather than being inferred as unavailable. Later-created, later-discovered, or later-corrected information may support reconstruction, Evaluation, or learning without becoming retroactively available to an earlier judgment. Conversely, information that was available to a historical judgment remains historically available even if its source later changes, disappears, or becomes inaccessible.
+When Polaris cannot establish whether information was available to a particular judgment, availability remains unknown rather than being inferred as unavailable. Later-created, later-discovered, or later-corrected information may support reconstruction, Decision Evaluation, or learning without becoming retroactively available to an earlier judgment. Conversely, information that was available to a historical judgment remains historically available even if its source later changes, disappears, or becomes inaccessible.
 
 ## Investment Decision
 
@@ -516,7 +516,7 @@ An **Investment Decision** is a durable, identifiable unit of Portfolio-relevant
 
 Investment Decision identity is explicit and durable. It is not derived from Decision Subject, Decision Scope, Evidence, Investment Recommendation, workflow execution, current Portfolio State, or any other mutable decision-time fact. Identity is preserved while work continues to resolve the same coherent unresolved investment choice, even when Evidence, Portfolio State, Risk, reasoning, Mandate assessment, Investment Recommendation, Decision Subject, or Decision Scope changes or is refined.
 
-Once the investment judgment has been substantively resolved, a later renewed Decision Need creates a new causally linked Investment Decision rather than reopening and rewriting the resolved decision. Resolution of the investment judgment is a milestone within the Investment Decision lifecycle rather than necessarily the end of that lifecycle; action continuity, reconciliation, Outcome, and Evaluation may continue under the same decision identity.
+Once the investment judgment has been substantively resolved, a later renewed Decision Need creates a new causally linked Investment Decision rather than reopening and rewriting the resolved decision. Resolution of the investment judgment is a milestone within the Investment Decision lifecycle rather than necessarily the end of that lifecycle; action continuity, reconciliation, Outcome, and Decision Evaluation may continue under the same decision identity.
 
 An Investment Decision may exist before its Decision Scope is fully resolved, but final Capital-Relevant Investment Recommendation or Human Investment Decision formation requires established Portfolio applicability. Portfolio-independent investment analysis or assessment may inform a future Investment Decision without itself constituting one.
 
@@ -579,3 +579,39 @@ External Resolution eliminates the need for further judgment; it does not mean t
 An external change that only alters Evidence, Portfolio State, available alternatives, or expected consequences does not constitute External Resolution while the same coherent Decision Need remains. External Resolution is distinct from Deferral, deliberate hold or no-action, Supersession, and cancellation or withdrawal of decision work while the underlying investment choice still exists.
 
 `External` means outside the unresolved investment judgment itself, not necessarily outside Polaris or outside the Portfolio domain. The cause of External Resolution must remain attributable so later reconstruction can distinguish changed circumstances from Polaris Investment Recommendations and Human Investment Decisions.
+
+## Outcome
+
+An **Outcome** is a decision-relative, temporally scoped account of observed consequences relevant to an Investment Decision, grounded in authoritative observed facts without implying causality, decision quality, or finality.
+
+Outcome does not replace the authoritative Portfolio State, market facts, Orders, fills, or other source facts from which it is understood. It may preserve multiple materially distinct consequence dimensions at the same horizon or as-of point, including economic performance, Exposure, concentration, liquidity, Risk, or other decision-relevant consequences. Horizon, metric count, Financial Instrument count, Action Intent count, Order count, or fill count does not determine Outcome identity or representation.
+
+Outcome is distinct from realized P&L alone, Decision Evaluation, causal explanation, implementation fidelity, and modeled counterfactual results. Outcome may be partial, evolving, or insufficiently mature for a particular evaluative question. A later Investment Decision may truncate, redirect, or supersede an earlier realized consequence path; hypothetical continuation after the actual Portfolio path changes is counterfactual rather than observed Outcome.
+
+A Human Investment Decision, Action Intent, or external implementation is not required for every meaningful Outcome observation. Deliberate hold/no-action and External Resolution may still have decision-relevant Outcomes. The same authoritative observed fact may be relevant to Outcomes of multiple Investment Decisions without duplication.
+
+## Decision Evaluation
+
+A **Decision Evaluation** is an attributable, time-specific retrospective judgment assessing one or more Investment Decisions or material components of them against explicit evaluative criteria, using a historically faithful judgment-time basis, later Evidence where relevant, implementation fidelity and observed Outcome where applicable, while preserving uncertainty, temporal standards, and limits on causal attribution.
+
+A material Decision Evaluation must preserve what is being assessed and the criteria or standards under which the assessment is made. Evaluation target and evaluation criteria are distinct semantic roles but do not by themselves require independent canonical domain concepts. The same target may be strong under one criterion and poor under another, and one Decision Evaluation may assess several targets or criteria while preserving the individual judgments.
+
+Decision Evaluation distinguishes ex-ante judgment quality given information actually available at the time from ex-post understanding based on later Evidence and Outcome. Later Evidence may correct historical understanding, establish which assumptions held, or support causal explanation without becoming retroactively available to the earlier judgment. Reasoning quality conditional on available information may differ from Evidence acquisition, data correctness, normalization, provenance, freshness, or readiness quality.
+
+Favorable Outcome does not establish good reasoning, Investment Recommendation quality, human judgment, Governance, or implementation; unfavorable Outcome does not by itself establish that any of those were poor. Decision Evaluation preserves materially distinct evaluation dimensions rather than forcing them into one undifferentiated quality judgment.
+
+Evaluation criteria and standards have temporal provenance. A later standard may be used for an explicitly labeled contemporary retrospective assessment, but it must not rewrite what was compliant, admissible, or reasonable under the standards actually applicable when the historical decision or authority act occurred. A materially new attributable retrospective judgment may create a new Decision Evaluation; mere arrival of new observations does not. Later Decision Evaluations do not rewrite earlier ones.
+
+Counterfactual reasoning may inform Decision Evaluation but remains an evaluative technique rather than an independent canonical domain concept unless later domain discovery proves otherwise. Material counterfactual analysis must preserve its hypothesis, assumptions, method, horizon, and uncertainty and must never masquerade as observed Outcome or historical Portfolio State.
+
+## Lesson
+
+A **Lesson** is an attributable, durable, scoped learning proposition derived through one or more Decision Evaluations and supporting Evidence, preserving its proposition, scope, basis, conditions, and uncertainty so it may inform future decision work without rewriting prior history or acquiring authority it does not possess.
+
+Lesson semantics follow learning role rather than authorship. A Lesson may originate from Polaris, a human, or another attributable evaluative source. One Decision Evaluation may yield zero, one, or multiple Lessons, and one Lesson may synthesize learning from one or multiple Decision Evaluations, including cross-decision Evaluation.
+
+Outcome alone does not create a Lesson. Lesson formation depends on evidentiary strength, mechanism, scope, generalizability, and uncertainty rather than a fixed number of historical instances. A Lesson remains scoped to the conditions supported by its Evaluation and Evidence and must not silently become a universal investment rule.
+
+Additional Evidence that strengthens or weakens support for an unchanged Lesson proposition need not create a new Lesson. Historical existence of a Lesson is distinct from its current support or applicability. A material change to a Lesson's proposition or scope requires a new attributable, linked Lesson rather than destructive mutation; a later Lesson may refine, challenge, or supersede an earlier Lesson while preserving the earlier Lesson and its historical basis.
+
+A Lesson may inform future Attention, Decision Context, Evidence, investment reasoning, or Policy and Mandate review. Lesson is distinct from Policy, Investment Mandate, Formal Constraint, Approval, and other authority facts; learning may motivate authoritative change but does not itself perform that change. When a Lesson participates in a later judgment, it remains subject to the same Judgment-Time Availability, relevance, applicability, provenance, freshness, and Evidence-role distinctions as other information.

@@ -61,70 +61,73 @@ The capability model should survive replacement of those mechanisms.
 
 ## 1. Attention & Decision Initiation
 
-Polaris must be able to determine **what deserves attention and when a portfolio decision should be created, reopened, or reassessed**.
+Polaris must be able to determine **what deserves Attention, when a Decision Need exists, when an unresolved Investment Decision should resume, and when a resolved matter warrants a new causally linked Investment Decision**.
 
 Decision work may begin through at least three paths:
 
 ```text
 User question ───────────────┐
                              │
-Scheduled review ────────────┼──→ Decision work
+Scheduled review ────────────┼──→ Attention / Decision Need
                              │
 Polaris detects relevance ───┘
 ```
 
 The capability should relate new information to active portfolio context such as:
 
-* current decisions;
-* active theses;
-* assumptions and invalidation conditions;
-* material risks;
-* catalysts;
-* deferred decisions;
-* review conditions;
-* relevant portfolio changes;
-* newly available evidence.
+* unresolved Investment Decisions;
+* active Investment Theses;
+* Investment Assumptions and Invalidation Conditions;
+* material Portfolio Risk;
+* Catalysts;
+* deferred Investment Decisions;
+* Review Conditions;
+* relevant Portfolio State changes;
+* newly available Evidence.
 
-The product responsibility is not merely to emit alerts. It is to determine whether changing information materially creates or changes a portfolio decision.
+The product responsibility is not merely to emit alerts. It is to determine whether changing information is sufficiently relevant and material to establish or change a Decision Need or to contribute to existing decision work.
 
 A useful conceptual flow is:
 
 ```text
 new information
       ↓
-relevant to active decision context?
+Investment Relevant?
       │
    no └──→ absorb quietly
 
   yes
    ↓
-material?
+Investment Material?
       │
-   no └──→ update context
+   no └──→ update applicable context
 
   yes
    ↓
-investigate / initiate decision work
+Attention evaluates whether a Decision Need exists
+      ↓
+resume same unresolved choice
+or create new causally linked decision after prior resolution
 ```
 
 Without this capability Polaris becomes merely responsive rather than attentive.
 
 ## 2. Decision Context & Evidence
 
-Polaris must be able to assemble the **decision-specific context and attributable evidence necessary to reason responsibly**.
+Polaris must be able to assemble the **decision-specific context and attributable Evidence necessary to reason responsibly**.
 
-Decision context may include:
+Decision Context may include:
 
-* portfolio state;
-* strategy and mandate;
-* investment horizon;
-* risk policy;
-* active thesis;
-* previous decisions and recommendations;
+* Portfolio State;
+* applicable Investment Strategy and Investment Mandate;
+* Investment Horizon;
+* applicable Formal Constraints and Policy;
+* active Investment Thesis;
+* previous Investment Decisions and Investment Recommendations;
 * unresolved questions;
-* historical decision context.
+* relevant historical decision context.
 
-Decision evidence may include:
+Evidence may include:
 
 * market evidence;
 * macroeconomic evidence;
@@ -140,7 +143,7 @@ The capability must do more than acquire information. It must preserve or determ
 
 * provenance;
 * observation time;
-* decision-time availability;
+* Judgment-Time Availability;
 * freshness;
 * sufficiency;
 * conflicts between sources;
@@ -149,9 +152,9 @@ The capability must do more than acquire information. It must preserve or determ
 A useful shorthand is:
 
 ```text
-relevant context
+relevant Decision Context
 +
-attributable evidence
+attributable Evidence
 +
 freshness
 +
@@ -160,89 +163,93 @@ sufficiency
 historical integrity
 ```
 
-The objective is decision-ready evidence, not comprehensive information possession.
+The objective is decision-ready Evidence, not comprehensive information possession.
 
 ## 3. Investment Reasoning & Challenge
 
-Polaris must be able to **develop an investment interpretation and seriously test why it may be wrong**.
+Polaris must be able to **develop an Investment View and seriously test why it may be wrong**.
 
 This capability may include:
 
 * synthesis;
-* thesis formation;
+* Investment Hypothesis and Investment Thesis reasoning;
 * causal interpretation;
-* scenario reasoning;
+* Investment Scenario reasoning;
 * comparison of competing explanations;
-* uncertainty identification;
-* alternative generation;
-* disconfirming-evidence search;
-* assumption identification;
-* falsification or invalidation conditions;
+* Investment Uncertainty identification;
+* Decision Alternative generation;
+* disconfirming-Evidence search;
+* Investment Assumption identification;
+* Invalidation Conditions;
 * relevant historical comparison.
 
 A trustworthy reasoning result should be capable of representing:
 
 ```text
-Leading interpretation
+Leading Investment View
         +
-Supporting evidence
+Supporting Evidence
         +
-Counterevidence
+Conflicting Evidence
         +
-Alternative explanations
+Alternative explanations / Investment Hypotheses
         +
-Key uncertainty
+Material Investment Uncertainty
         +
-Invalidation conditions
+Invalidation Conditions
 ```
 
 Challenge is a product requirement, not a commitment to a particular multi-agent topology. One model, several models, deterministic analytics, or other mechanisms may participate as long as the product capability remains intact.
 
 ## 4. Portfolio Consequence & Risk
 
-Polaris must be able to translate an investment view into **consequences for the actual portfolio under explicit risk and policy**.
+Polaris must be able to translate an Investment View into **Projected Portfolio Consequences and Portfolio Risk for the actual Portfolio under the applicable Investment Mandate and Policy**.
 
-Relevant portfolio context may include:
+Relevant Portfolio context may include:
 
-* holdings;
-* exposure;
+* Positions;
+* Exposure;
 * concentration;
 * cash where relevant;
-* portfolio objectives;
-* strategy;
-* horizon;
-* competing positions;
-* existing and incremental risk;
-* configured policies and constraints.
+* Investment Objectives;
+* Investment Strategy;
+* Investment Horizon;
+* competing Positions or opportunities;
+* current and projected Portfolio Risk;
+* Formal Constraints;
+* applicable platform Policy.
 
-Risk participates in two complementary forms:
+Two different responsibilities must remain distinct:
 
-* **Analytical risk:** what could go wrong, how risk has changed, and what the implications are.
-* **Deterministic risk authority:** which explicit configured constraints permit, constrain, or prohibit an action.
+* **Portfolio Risk reasoning:** what adverse possibilities exist, how Portfolio Risk changes, and what those risks imply for the Portfolio and alternatives.
+* **Deterministic boundary evaluation:** whether applicable Formal Constraints are satisfied, violated, or indeterminate and whether platform Policy allows or denies the relevant operation or boundary crossing.
 
 The capability therefore transforms:
 
 ```text
-Investment view
+Investment View
         +
-Portfolio state
+Portfolio State
         +
-Analytical risk
+Portfolio Risk
         +
-Policy constraints
+Investment Mandate / Formal Constraints
+        +
+Policy
         ↓
-Portfolio consequences
+Projected Portfolio Consequences
+and decision-relevant constraints
 ```
 
-The same investment thesis may correctly imply different actions for different portfolios. This capability is what prevents Polaris from becoming a generic signal or research product.
+The same Investment Thesis may correctly imply different consequences or recommendations for different Portfolios. This capability is what prevents Polaris from becoming a generic signal or research product.
 
-Risk remains integrated with portfolio consequence rather than becoming a detached approval stamp.
+Portfolio Risk remains integrated with portfolio consequence rather than becoming a detached approval stamp. Deterministic Policy or Formal Constraint results are likewise not themselves Approval or human investment judgment.
 
 ## 5. Recommendation Formation
 
-Polaris must be able to **compare reasonable portfolio actions under uncertainty and form an explainable preferred course of action—or deliberately withhold one**.
+Polaris must be able to **compare reasonable Decision Alternatives under uncertainty and form an explainable Investment Recommendation—or deliberately withhold one**.
 
-Candidate actions may include, where appropriate:
+Decision Alternatives may include, where appropriate:
 
 * increase;
 * reduce;
@@ -252,110 +259,116 @@ Candidate actions may include, where appropriate:
 * rebalance;
 * hedge;
 * wait;
-* defer;
-* deliberately do nothing.
+* Deferral;
+* deliberate no-action.
 
-A recommendation should be capable of communicating a decision package containing, as applicable:
+A Decision Alternative may require zero, one, or multiple concrete Proposed Actions. Proposed Actions are candidate implementations, not Human Investment Decisions or Action Intents.
 
-* preferred action;
+An Investment Recommendation should be capable of communicating, as applicable:
+
+* preferred economic disposition;
 * rationale;
-* material evidence;
-* portfolio consequence;
-* risk;
-* meaningful alternatives;
+* Material Claims and Evidence;
+* Projected Portfolio Consequences;
+* Portfolio Risk;
+* meaningful Decision Alternatives;
+* Proposed Actions or implementation preferences where useful;
 * strongest counterargument;
-* key uncertainty;
-* invalidation conditions;
-* horizon or review conditions.
+* material Investment Uncertainty;
+* Invalidation Conditions;
+* Investment Horizon or Review Conditions.
 
-The capability is not merely BUY/SELL/HOLD generation. It includes the ability to conclude that no action is warranted or that the decision contract cannot presently support a responsible recommendation.
+The capability is not merely BUY/SELL/HOLD generation. It includes the ability to conclude that no action is warranted, that judgment should be deferred, or that available Evidence cannot presently support a responsible Investment Recommendation.
 
 ## 6. Authority & Human Decision
 
-Polaris must be able to **apply the separation-of-powers authority model and preserve the human decision as distinct from the system recommendation**.
+Polaris must be able to **apply the separation-of-powers authority model and preserve Human Investment Decision as distinct from the Investment Recommendation and from other authority acts**.
 
 This capability includes, where material:
 
-* evidence sufficiency decisions;
-* deterministic policy evaluation;
-* hard and soft constraints;
-* recommendation admissibility;
-* positive authority provenance;
-* human acceptance;
-* human modification;
-* rejection;
-* deferral;
+* Evidence sufficiency and readiness determination;
+* deterministic Policy evaluation;
+* Formal Constraint results;
+* Admissibility for the relevant consequential use;
+* Approval or Authority Denial where required;
+* Mandate Exception authorization where applicable;
+* Residual-Risk Acceptance where applicable;
+* Human Investment Decision;
 * human rationale where supplied.
 
 Conceptually:
 
 ```text
-Candidate recommendation
+Candidate Investment Recommendation
       ↓
-Evidence sufficient?
+Evidence / readiness sufficient?
       ↓
-Policies evaluated
+Policy and Formal Constraints evaluated
       ↓
-Admissible recommendation
+Admissibility established for the intended use
       ↓
-Human judgment
+Applicable authority acts satisfied where required
       ↓
-Decision
+Human Investment Decision
 ```
 
-Every material authority decision should remain attributable, including affirmative decisions such as satisfied constraints and permitted actions. Silence is not proof that authority was exercised correctly.
+Approval is not synonymous with a human accepting an Investment Recommendation. Human Investment Decision, Approval, Mandate Exception, Residual-Risk Acceptance, and other authority powers remain distinct even when the same human performs more than one of those acts.
+
+Every material authority decision should remain attributable, including affirmative decisions such as satisfied constraints, granted Approval, or accepted Governed Residual Risk. Silence is not proof that authority was exercised correctly.
 
 ## 7. Action Continuity & Reconciliation
 
-Polaris must be able to **follow a human decision into externally executed reality without acquiring execution authority**.
+Polaris must be able to **follow a Human Investment Decision into externally observed reality without acquiring execution authority**.
 
-This capability begins with the intended external consequence of the human decision and reconciles it with authoritative external evidence.
+When the Human Investment Decision establishes an externally observable implementation consequence, it may establish one or more Action Intents. Polaris then reconciles authoritative external evidence against those Action Intents.
 
 It may need to understand:
 
-* intended action;
-* observed order or activity;
+* Action Intent;
+* observed Order or external activity;
 * partial execution;
 * complete execution;
-* modified action;
-* abandoned action;
-* stops and targets;
+* modified external activity;
+* abandoned or absent implementation;
+* externally maintained controls such as stops where they are genuinely part of the Action Intent;
 * exits;
 * ambiguous associations;
 * unrelated externally initiated activity;
-* resulting portfolio state.
+* resulting Portfolio State.
 
 The core contract is:
 
-> **Observe, associate, reconcile, and track external action without owning market-facing execution.**
+> **Observe, associate, reconcile, and track external activity without owning market-facing execution.**
 
-Where evidence makes an association sufficiently unambiguous, reconciliation should be automatic. Where ambiguity materially changes meaning, Polaris should preserve the ambiguity and request lightweight confirmation rather than guess.
+Where Evidence makes an association sufficiently unambiguous, reconciliation should be automatic. Where ambiguity materially changes meaning, Polaris should preserve the ambiguity and request lightweight confirmation rather than guess.
 
-Without this capability the decision lifecycle loses continuity between human judgment and later outcome.
+A Human Investment Decision may establish zero Action Intents. Deferral and deliberate hold/no-action do not require synthetic Action Intents merely to duplicate the human judgment.
+
+Without this capability the decision lifecycle loses continuity between human judgment and later Outcome.
 
 ## 8. Durable Decision Memory
 
-Polaris must be able to **preserve a decision faithfully through time and use that memory as active product context**.
+Polaris must be able to **preserve material Investment Decision history faithfully through time and use that memory as active product context**.
 
-Decision memory may preserve or connect:
+Durable Decision Memory may preserve or connect:
 
-* the decision need;
-* decision context;
-* evidence and provenance;
-* what was knowable at the time;
-* interpretation and challenge;
-* risk and alternatives;
-* recommendation;
-* authority trace;
-* human decision;
-* intended external action;
-* observed execution;
-* resulting state;
-* outcome;
-* evaluation;
-* lessons.
+* Decision Need;
+* Decision Context;
+* Evidence and provenance;
+* Judgment-Time Availability;
+* Investment Views, Investment Hypotheses, and challenge;
+* Portfolio Risk and Decision Alternatives;
+* Investment Recommendation history;
+* material authority relationships and acts;
+* Human Investment Decision;
+* Action Intents;
+* observed external activity;
+* resulting Portfolio State;
+* Outcome;
+* Decision Evaluation;
+* Lessons.
 
-This capability is richer than saving workflow output, reports, or chat history.
+This capability is richer than saving workflow output, reports, chat history, or a single storage record. Lowercase `decision record` may remain product shorthand for an assembled representation of this history, but it is not a separate canonical business entity.
 
 A fundamental trust requirement is the ability to distinguish:
 
@@ -366,58 +379,58 @@ What we know now
 from:
 
 ```text
-What was knowable then
+What was available to the judgment then
 ```
 
-Decision memory is also operational rather than merely archival. Previous theses, assumptions, invalidation conditions, risks, catalysts, deferred decisions, and review conditions can determine what future information deserves attention.
+Durable Decision Memory is also operational rather than merely archival. Previous Investment Theses, Investment Assumptions, Invalidation Conditions, Portfolio Risks, Catalysts, deferred decisions, and Review Conditions can determine what future information deserves Attention.
 
 For that reason Durable Decision Memory spans the entire capability loop rather than occurring only after action.
 
 ## 9. Outcome Evaluation & Learning
 
-Polaris must be able to **evaluate the decision process and derive useful lessons from outcomes without reducing quality to realized P&L**.
+Polaris must be able to **form Decision Evaluations and derive useful Lessons from Outcomes without reducing decision quality to realized P&L**.
 
-Evaluation should be capable of distinguishing, where evidence permits:
+Decision Evaluation should be capable of distinguishing, where Evidence permits:
 
-* evidence quality;
+* Evidence quality;
 * reasoning quality;
-* thesis quality;
-* risk reasoning;
-* policy effects;
-* recommendation quality;
-* human modification or override;
-* execution fidelity;
-* realized outcome.
+* Investment Thesis quality;
+* Portfolio Risk reasoning;
+* Policy and Formal Constraint effects;
+* Investment Recommendation quality;
+* Human Investment Decision and any modification or override;
+* implementation fidelity;
+* observed Outcome.
 
-A profitable result is not automatically proof of good reasoning, and a negative probabilistic outcome is not automatically proof that a well-formed decision was poor.
+A favorable Outcome is not automatically proof of good reasoning, and an unfavorable Outcome is not automatically proof that a well-formed decision was poor.
 
 Useful evaluation questions may include:
 
-* Which assumptions held or failed?
-* Which evidence was material or misleading?
-* Was risk identified appropriately?
-* Did policy improve or degrade the decision?
-* Did the human alter the recommendation?
-* Was execution faithful to the decision?
-* Did execution divergence explain the outcome?
-* Did the thesis fail, or did an adverse outcome occur despite reasonable reasoning?
-* Which lesson should influence future attention, reasoning, policy review, or decision-making?
+* Which Investment Assumptions held or failed?
+* Which Evidence was material or misleading?
+* Was Portfolio Risk identified appropriately?
+* Did Policy or a Formal Constraint materially shape the decision?
+* How did the Human Investment Decision relate to the Investment Recommendation?
+* Was implementation faithful to the Action Intent where one existed?
+* Did implementation divergence materially affect the Outcome?
+* Did the Investment Thesis fail, or did an adverse Outcome occur despite reasonable reasoning?
+* Which Lesson should influence future Attention, reasoning, Policy or Mandate review, or investment judgment?
 
 The learning loop is:
 
 ```text
-Evaluation
+Decision Evaluation
     ↓
 Lessons
     ↓
-Future context / attention / reasoning / policy review
+Future Decision Context / Attention / reasoning / Policy or Mandate review
 ```
 
 This capability closes the lifecycle.
 
 ## Why AI is not a separate core capability
 
-AI is an important method used across several core capabilities, particularly attention, evidence interpretation, reasoning, challenge, recommendation, and evaluation.
+AI is an important method used across several core capabilities, particularly Attention, Evidence interpretation, reasoning, challenge, recommendation, and evaluation.
 
 It is not itself the user capability.
 
@@ -427,7 +440,7 @@ The capability model should therefore remain organized around product responsibi
 
 ## Why evidence domains are not top-level core capabilities
 
-Market, macroeconomic, news, sentiment, technical, fundamental, and similar forms of intelligence are important evidence domains.
+Market, macroeconomic, news, sentiment, technical, fundamental, and similar forms of intelligence are important Evidence domains.
 
 At this level they primarily participate in **Decision Context & Evidence** and **Investment Reasoning & Challenge** rather than becoming independent product centers.
 
@@ -445,7 +458,7 @@ The domains may be decomposed further in later capability or architecture work w
 
 ## Why interfaces are not top-level core capabilities
 
-Reports, dashboards, conversation, CLI, API, MCP, email, and future interfaces are projections or interaction surfaces over the same decision system.
+Reports, dashboards, conversation, CLI, API, MCP, email, and future interfaces are interaction and presentation surfaces over the same decision system.
 
 They should not create competing decision semantics.
 
@@ -467,15 +480,15 @@ The core nine depend on important supporting platform capabilities. These are pr
 
 ### Integration & Connectivity
 
-Connect Polaris to decision-relevant evidence, portfolio state, execution systems, external tools, and distribution destinations.
+Connect Polaris to decision-relevant Evidence, Portfolio State, execution systems, external tools, and distribution destinations.
 
-### Interaction & Projection
+### Interaction & Presentation
 
 Expose shared decision state through appropriate user and machine surfaces such as conversation, interactive UI, reports, CLI, API, MCP, email, or messaging.
 
 ### Configuration & Extensibility
 
-Adapt Polaris to different portfolios, strategies, asset universes, evidence providers, models, risk policies, horizons, and operating preferences without turning the product into an arbitrary workflow platform.
+Adapt Polaris to different Portfolios, Investment Strategies, asset universes, Evidence providers, models, Policy, Investment Mandates, Investment Horizons, and operating preferences without turning the product into an arbitrary workflow platform.
 
 ### Runtime Reliability & Observability
 
@@ -483,7 +496,7 @@ Execute decision work reliably, make failures visible, preserve relevant state a
 
 ### Security & Operations
 
-Protect credentials, portfolio information, integrations, configuration, access boundaries, and operational trust assumptions appropriate to the product's maturity.
+Protect credentials, Portfolio information, integrations, configuration, access boundaries, and operational trust assumptions appropriate to the product's maturity.
 
 These supporting capabilities may become sophisticated. Their purpose remains to enable the portfolio decision system.
 
@@ -519,7 +532,7 @@ The durable hierarchy is:
         │        CAPABILITIES                 │
         │                                     │
         │  Integration & Connectivity         │
-        │  Interaction & Projection           │
+        │  Interaction & Presentation         │
         │  Configuration & Extensibility      │
         │  Reliability & Observability        │
         │  Security & Operations              │
@@ -532,15 +545,15 @@ Core capabilities should eventually support product-level acceptance questions r
 
 Examples:
 
-* **Attention:** Can Polaris identify that something materially changed and explain why it deserves attention?
-* **Evidence:** Can Polaris show which evidence informed the decision and whether it was sufficiently current?
-* **Challenge:** Can the user inspect the strongest meaningful argument against the preferred view?
-* **Portfolio & Risk:** Can Polaris explain how actual portfolio state and risk changed the action implied by the investment view?
-* **Recommendation:** Can Polaris explain the preferred action, alternatives, and conditions that would change the view?
-* **Authority:** Can the material authority path be reconstructed, including affirmative decisions?
-* **Continuity:** Can Polaris determine whether the human decision was actually implemented externally?
-* **Memory:** Can Polaris reconstruct what was knowable when the decision occurred?
-* **Learning:** Can Polaris evaluate the decision process separately from the realized outcome?
+* **Attention:** Can Polaris identify that something materially changed, determine whether a Decision Need exists, and explain why?
+* **Evidence:** Can Polaris show which Evidence informed a judgment and whether it was sufficiently current and available at that judgment time?
+* **Challenge:** Can the user inspect the strongest meaningful argument against the preferred Investment View?
+* **Portfolio & Risk:** Can Polaris explain how actual Portfolio State and Portfolio Risk changed the consequences or recommendation implied by the Investment View?
+* **Recommendation:** Can Polaris explain the preferred disposition, Decision Alternatives, and conditions that would change the view?
+* **Authority:** Can the material authority path be reconstructed without conflating Approval, Human Investment Decision, or other power-specific acts?
+* **Continuity:** Can Polaris determine whether an Action Intent was implemented externally when one existed?
+* **Memory:** Can Polaris reconstruct what was available to each material judgment when it occurred?
+* **Learning:** Can Polaris evaluate the decision process separately from the observed Outcome?
 
 These questions can later become release and capability-maturity criteria without binding the roadmap to current code topology.
 
@@ -565,10 +578,11 @@ The Core Capabilities decision implies:
 * the nine core capabilities form the durable product capability spine;
 * Durable Decision Memory spans and supports the entire lifecycle;
 * AI, agents, workflows, retrieval, replay, persistence technologies, APIs, interfaces, and reports are implementation or delivery mechanisms rather than top-level core capabilities;
-* evidence domains such as market, macro, news, sentiment, and technical analysis should remain subordinate to decision-oriented capabilities at this level;
-* risk remains integrated with portfolio consequence and recommendation formation rather than treated as a detached approval step;
+* Evidence domains such as market, macro, news, sentiment, and technical analysis should remain subordinate to decision-oriented capabilities at this level;
+* Portfolio Risk remains integrated with portfolio consequence and recommendation formation rather than treated as a detached approval step;
+* Policy, Formal Constraints, Admissibility, Approval, Human Investment Decision, and related authority acts remain semantically distinct;
 * execution observation and reconciliation are core even though execution authority remains external;
-* evaluation must distinguish process quality from outcome alone;
+* Decision Evaluation must distinguish process quality from Outcome alone;
 * supporting platform capabilities enable the core system but do not compete with it for product identity;
 * capability maturity may deepen across releases without redefining the capability model;
 * roadmap milestones should increasingly be expressed as user-visible capability maturity and end-to-end decision guarantees rather than feature lists.

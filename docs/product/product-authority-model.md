@@ -1,7 +1,7 @@
 # Polaris Authority Model
 
 **Status:** In progress  
-**Purpose:** Preserve the product reasoning for how authority is separated, exercised, recorded, and exposed across the Polaris decision lifecycle.
+**Purpose:** Preserve the product reasoning for how factual authority, deterministic rules, Polaris judgment, human investment authority, and external execution authority remain separated, exercised, recorded, and exposed across the Polaris decision lifecycle.
 
 This document refines the Product Definition recorded in [`product-definition.md`](./product-definition.md). It defines a product-level separation of powers rather than an implementation architecture or permission schema.
 
@@ -9,172 +9,191 @@ This document refines the Product Definition recorded in [`product-definition.md
 
 Polaris uses a **separation-of-powers authority model**.
 
-Different parts of the decision lifecycle have different kinds of authority:
+The decision lifecycle contains several materially different responsibilities that must not be collapsed merely because each can constrain what happens next:
 
 ```text
-EVIDENCE AUTHORITY
-Authoritative evidence sources
-"What is true?"
+AUTHORITATIVE FACT SOURCES
+"What externally authoritative facts are established?"
         ↓
-DETERMINISTIC AUTHORITY
-Rules, invariants, freshness requirements, configured constraints
-"What is admissible and trustworthy?"
+DETERMINISTIC RULE EVALUATION
+Policy / Formal Constraints / freshness and readiness
+"Which rule results apply?"
         ↓
-ANALYTICAL AUTHORITY
-AI and analytical machinery
-"What does this mean and what should we consider?"
+POLARIS INVESTMENT JUDGMENT
+Investment View / Portfolio Risk Assessment / Investment Recommendation
+"What does Polaris judge and recommend?"
         ↓
-DECISION AUTHORITY
-Human
-"What will we do?"
+INVESTMENT AUTHORITY REGIME
+Human Investment Decision and power-specific authority acts
+"Who may decide, approve, except, or accept residual risk?"
         ↓
-ACTION AUTHORITY
-External operational systems
-"Carry it out."
+EXTERNAL EXECUTION AUTHORITY
+Orders / fills / cancellations / operational state
+"What was actually carried out?"
         ↓
 EVIDENCE RETURNS
-Observed execution and resulting state
-"What actually happened?"
+Observed external activity and resulting Portfolio State
 ```
 
 Capability does not imply authority. Polaris may be capable of observing, researching, reasoning, challenging, recommending, reconciling, and evaluating without acquiring authority to move capital.
 
-Every material authority decision across this chain must be **durably preserved and inspectable whether the authority layers agree or disagree**. The final result must not erase the authority path that produced it.
+Likewise, deterministic rule evaluation is not automatically an authority act. A Policy result, a Formal Constraint result, Approval, Mandate Exception, Residual-Risk Acceptance, Human Investment Decision, and external execution authority are distinct facts even when they all support the same practical outcome.
 
-## Evidence authority
+Every material authority act and materially relevant deterministic result should be **durably preserved and inspectable whether the layers agree or disagree**. The final result must not erase the authority path that produced it.
 
-Authoritative evidence sources establish the operational facts for which they are responsible.
+## Authoritative fact sources
+
+External sources establish the operational facts for which they are authoritative.
 
 Examples include:
 
 * market-data sources establishing observed market values;
 * economic-data sources establishing published releases;
-* brokerage and execution systems establishing orders, fills, cancellations, stops, exits, and execution state;
-* portfolio or accounting systems establishing authoritative holdings or other portfolio state where they own that responsibility.
+* brokerage and execution systems establishing Orders, fills, cancellations, protective Orders, exits, and execution state;
+* portfolio or accounting systems establishing authoritative holdings or other Portfolio State where they own that responsibility.
 
-Polaris may normalize, reconcile, contextualize, and reason over those facts. It must distinguish source evidence from interpretation and must not rewrite authoritative evidence merely because it conflicts with a recommendation, expected action, or preferred narrative.
+Polaris may normalize, reconcile, contextualize, and reason over those facts. It must distinguish external facts from Polaris interpretation and must not rewrite authoritative Evidence merely because it conflicts with an Investment Recommendation, Action Intent, or preferred narrative.
 
 The governing rule is:
 
 > **Operational reality outranks expectation.**
 
-A human may reject a Polaris recommendation, but neither the human nor Polaris should make the historical record claim that an authoritative external event occurred differently from what the responsible source reports.
+A Human Investment Decision may reject a Polaris Investment Recommendation, but neither human judgment nor Polaris reasoning changes what an authoritative external source actually reported.
 
-## Deterministic authority
+## Deterministic rule evaluation
 
-Deterministic software should govern explicit rules, invariants, trust conditions, and configured constraints whenever those questions can be answered reliably without discretionary model judgment.
+Deterministic software should evaluate explicit rules, invariants, freshness requirements, readiness conditions, Policy, and Formal Constraints whenever those questions can be answered reliably without discretionary investment judgment.
 
 Examples include:
 
-* whether required portfolio state is fresh enough;
-* whether a hard risk threshold is exceeded;
-* whether required evidence is missing;
-* whether an execution matches a configured tolerance;
-* whether a recommendation has become stale or superseded;
-* whether a configured review condition has been reached;
-* whether required decision evidence is complete enough to support a governed transition.
+* whether required Portfolio State satisfies the applicable Freshness Requirement;
+* whether required Evidence is missing;
+* whether an externally observed implementation matches a configured reconciliation tolerance;
+* whether a Review Condition is due;
+* whether required decision Evidence is complete enough for a governed boundary;
+* whether an applicable platform Policy allows or denies an operation;
+* whether an applicable Investment Mandate Formal Constraint is satisfied, violated, or indeterminate.
 
-Deterministic authority may have blocking power inside Polaris. If a decision contract requires current portfolio state and the available state is too stale, the analytical layer may still have useful observations, but Polaris may be prohibited from presenting them as a current actionable recommendation.
+These results may have blocking consequences inside Polaris. If a current Investment Recommendation requires fresh Portfolio State and that state is too stale, Polaris may still have useful analytical observations, but it must not represent the unsupported recommendation as currently admissible for the consequential use.
 
-Human-defined policy can therefore become deterministic authority through explicit configuration:
+The semantics remain power-specific:
 
 ```text
-Human governance decision
-        ↓
-Explicit policy / constraint
-        ↓
-Deterministic evaluation
-        ↓
-Automatic enforcement
+Policy
+→ deterministic platform allow / deny result
+
+Formal Constraint
+→ deterministic Mandate satisfaction / violation / indeterminate result
+
+Approval
+→ attributable positive authority act by an authorized actor/process
+
+Human Investment Decision
+→ attributable human investment judgment
 ```
 
-The software is enforcing the policy; the governing authority behind the policy remains human.
+One must not be inferred from another.
 
-## Hard and soft constraints
+## Formal Constraints, Policy, and analytical guidance are different
 
-Polaris should distinguish hard constraints from soft decision guidance.
+Older Polaris product prose used `hard constraint` and `soft constraint` as broad categories. The canonical domain model is more precise.
 
-A **hard constraint** is an enforceable condition that cannot be reasoned away by the analytical layer. Examples may include a required freshness threshold, a configured maximum exposure, or a requirement not to treat unverified execution as confirmed.
+An **Investment Mandate Formal Constraint** is an authoritative machine-evaluable Mandate restriction. Only Formal Constraints produce deterministic Mandate satisfaction or violation results.
 
-A **soft constraint** influences reasoning without absolutely prohibiting an outcome. Examples may include preferring lower concentration, exercising caution before a known catalyst, or treating high model disagreement as a reason for conservatism.
+A **Policy** is a deterministic platform rule governing whether an operation, output, or boundary crossing may happen. Policy does not itself store human Approval or define the underlying investment judgment.
 
-AI may weigh soft constraints. It must not silently reinterpret hard constraints out of existence.
+An **Investment Principle** or other analytical consideration may influence judgment without becoming a deterministic boundary. Tension with an Investment Principle is not automatically Mandate violation and does not automatically require a Mandate Exception.
 
-If the analytical layer believes a hard policy is inappropriate, it may surface that concern for human governance review. It may not change the policy and then approve its own preferred action.
+A **Freshness Requirement** or other readiness condition may block a consequential use because the required Evidence is not fit for that use. That readiness failure is not automatically a Policy denial, Formal Constraint violation, Authority Denial, or Human Investment Decision.
 
-## Analytical authority
+AI may reason about the wisdom or effects of any of these conditions. It may not silently change their authoritative meaning or claim that a deterministic or authority requirement was satisfied when it was not.
 
-AI and other analytical machinery should have broad **epistemic and analytical authority**.
+## Polaris investment judgment
+
+AI and other analytical machinery support broad **investment reasoning and judgment** without thereby receiving consequential investment authority.
 
 Polaris may autonomously:
 
-* interpret and synthesize evidence;
-* identify competing explanations;
-* challenge active theses;
-* search for disconfirming evidence;
-* assess uncertainty;
-* compare scenarios and alternatives;
+* interpret and synthesize Evidence;
+* form and compare Investment Hypotheses;
+* challenge active Investment Theses;
+* search for Conflicting Evidence;
+* assess Investment Uncertainty;
+* compare Investment Scenarios and Decision Alternatives;
 * identify relevant historical cases;
-* infer portfolio implications;
-* reason about risk;
-* develop candidate actions;
-* recommend among admissible alternatives;
+* form Portfolio Risk Assessments;
+* infer Projected Portfolio Consequences;
+* develop Proposed Actions;
+* form Investment Views and Investment Recommendations;
 * explain conclusions;
-* evaluate previous reasoning;
-* identify which analytical avenues deserve further investigation;
-* recognize material change and initiate reassessment;
-* proactively surface a decision that deserves human attention.
+* form Decision Evaluations;
+* identify analytical avenues that deserve further investigation;
+* recognize material change and cause Attention to evaluate whether a Decision Need exists;
+* proactively surface investment work that deserves human attention.
 
-This authority is intentionally broad because the attentive Polaris experience should not require a human to initiate every useful piece of analytical work.
+This initiative is intentionally broad because the attentive Polaris experience should not require a human to initiate every useful piece of analytical work.
 
 The boundary is:
 
-> **AI authority is analytical, not capital authority.**
+> **Polaris may form investment judgment; that judgment does not grant capital authority.**
 
-Polaris may determine what it believes, why it believes it, what could make the view wrong, and what it recommends. It may not convert that analytical conclusion into an external capital action on the user's behalf.
+A model cannot grant Approval, authorize a Mandate Exception, accept Governed Residual Risk, create execution authority, or lower the authority requirements that govern its own output merely by saying those things in model text.
 
-## Human decision and governance authority
+## Investment Authority Regime and Human Investment Decision
 
-Humans retain authority over consequential investment judgment.
+The **Investment Authority Regime** determines which attributable actors or processes possess particular investment-authority powers for a Portfolio or Investment Decision.
 
-A user may:
+Those powers are distinct. Depending on the applicable regime, separate authority may be required to:
 
-* accept a Polaris recommendation;
-* modify it;
-* reject it;
-* defer it;
-* take a different action that Polaris did not recommend.
+* form the Human Investment Decision;
+* grant Approval for a governed subject or use;
+* issue an Authority Denial;
+* authorize a Mandate Exception;
+* accept specified Governed Residual Risk;
+* exercise execution authority.
 
-The decision record must preserve the human decision separately from the Polaris recommendation rather than rewriting history to make them appear identical.
+One actor may possess several powers, but possession or exercise of one must not be inferred from another.
 
-Humans also retain authority over material governance choices such as the investment mandate, risk appetite, hard risk limits, permitted universe, consequential operating policy, and the authority boundaries themselves.
+A human may form a Human Investment Decision that:
 
-Polaris may recommend changes to those policies. It should not silently grant itself broader authority or weaken the constraints governing its own reasoning.
+* selects an economic disposition aligned with a Polaris Investment Recommendation;
+* modifies it;
+* rejects it;
+* defers substantive resolution;
+* chooses a different disposition that Polaris did not recommend.
 
-Human authority does **not** imply human initiation. Polaris may observe, investigate, reassess, recommend, and escalate proactively. The human boundary applies when consequential investment judgment or a material governance change is required.
+Human Investment Decision remains separate from the Investment Recommendation even when the economic content is identical.
 
-## Action authority
+A human can also perform separate authority acts when authorized—for example, granting Approval or accepting Governed Residual Risk. Those acts must not be collapsed into the Human Investment Decision merely because the same person performs them at the same time.
+
+Humans or organizations also remain the source of authoritative changes to Investment Mandates, Investment Authority Regimes, and other governing arrangements. Polaris may recommend or analyze such changes; it does not silently grant itself broader authority.
+
+Human authority does **not** imply human initiation. Polaris may observe, investigate, establish analytical judgments, and cause Attention to evaluate possible Decision Needs proactively. The consequential authority boundary applies to the specific power being exercised, not to every upstream analytical transition.
+
+## External execution authority
 
 External operational systems retain authority for market-facing and other operational actions that Polaris does not own.
 
 For trading activity this includes responsibilities such as:
 
-* order submission;
+* Order submission;
 * routing;
 * fills;
-* stops and targets;
+* protective and contingent Orders;
 * cancellations and modifications;
 * execution-time controls;
-* resulting operational portfolio state.
+* resulting operational Portfolio State.
 
-Polaris may preserve an action intent and observe the external evidence afterward, but the external system remains authoritative for the action actually performed.
+Polaris may preserve an Action Intent and observe authoritative external Evidence afterward, but the external system remains authoritative for the activity actually performed.
 
 This preserves the product boundary:
 
 ```text
-Polaris recommends
+Polaris forms an Investment Recommendation
         ↓
-Human decides
+Human forms a Human Investment Decision
+        ↓
+Action Intent may be established
         ↓
 External system acts
         ↓
@@ -183,221 +202,217 @@ Polaris observes and reconciles
 
 ## Internal autonomy
 
-Not every autonomous action is a consequential investment action.
+Not every autonomous Polaris operation is a consequential investment authority act.
 
-Polaris should be able to perform governed internal analytical and decision-state work without human approval for every transition. Examples may include:
+Polaris should be able to perform governed internal analytical and decision-state work without human Approval for every transition. Examples may include:
 
-* refreshing evidence;
+* refreshing Evidence;
 * detecting staleness;
-* recalculating risk;
-* marking a thesis or recommendation as requiring reassessment;
-* scheduling or initiating evaluation;
-* associating unambiguous execution evidence with a decision;
-* updating internal recommendation or observation state;
-* surfacing a material change for attention.
+* recalculating analytical measures;
+* forming a new Portfolio Risk Assessment;
+* recognizing that an Investment Recommendation is no longer currently supportable;
+* evaluating whether a Review Condition is due;
+* initiating Decision Evaluation work;
+* associating unambiguous external activity with an Action Intent;
+* preserving new observations or analytical judgments;
+* surfacing a material change for Attention.
 
-The relevant distinction is not simply automatic versus manual. It is:
+The relevant distinction is not simply automatic versus manual. It is whether a specific transition exercises consequential authority, and if so which power is required under the applicable Investment Authority Regime.
 
-```text
-Internal informational / analytical action
-                versus
-Consequential external investment action
-```
+## Ambiguity must remain explicit
 
-Polaris should be highly autonomous in the first category and constrained by the human/external-system boundary in the second.
+Polaris may autonomously update internal state when authoritative Evidence and deterministic rules establish the meaning sufficiently for the intended use.
 
-## Confidence-bounded internal decisions
+For example, if an Action Intent expects an externally observable sale of 150 shares and an authoritative execution source reports one uniquely matching sale in the relevant context, automatic reconciliation may be appropriate.
 
-Polaris may autonomously update internal decision state when authoritative evidence and deterministic rules make the meaning sufficiently unambiguous.
-
-For example, if an action intent expects a sale of 150 shares and the authoritative execution source reports a matching sale of 150 shares in the relevant context, automatic reconciliation may be appropriate.
-
-If several executions could plausibly satisfy the intent, Polaris should not silently select one. It should preserve the ambiguity and request lightweight confirmation where the distinction materially affects meaning.
+If several executions could plausibly satisfy the Action Intent, Polaris should not silently select one. It should preserve the ambiguity and request lightweight confirmation where the distinction materially affects meaning.
 
 The governing rule is:
 
-> **Uncertainty that materially changes meaning escalates rather than being silently guessed away.**
+> **Uncertainty that materially changes meaning remains unresolved or is escalated rather than silently guessed away.**
 
-This applies beyond execution reconciliation. The product should prefer explicit unresolved state over false certainty.
+This applies beyond execution reconciliation. Unknown, absent, disputed, or unresolved material facts must remain represented as such rather than being replaced by likely-looking values.
 
-## Authority to withhold a recommendation
+## Authority to withhold a recommendation is the wrong framing
 
-Polaris is not required to always produce an actionable recommendation.
+Polaris is not required to always produce an Investment Recommendation, but withholding is not a special investment-authority power.
 
-A recommendation may be withheld for deterministic reasons, such as stale required evidence or violated hard constraints.
+A recommendation may be withheld because deterministic readiness requirements are not satisfied—for example, required Evidence is stale or insufficient.
 
-It may also be withheld for analytical reasons, such as unresolved contradiction or uncertainty too high to support a responsible preference among actions.
+It may also be withheld because Polaris's analytical judgment cannot support a responsible preference—for example, material Investment Uncertainty or unresolved contradiction remains too significant.
 
 A trustworthy system should be able to conclude:
 
-> The evidence is insufficient for a current recommendation.
+> The available Evidence does not support a current Investment Recommendation.
 
-The human may still inspect the evidence and exercise their own judgment.
+The human may still inspect the Evidence and exercise their own judgment, subject to the applicable Investment Authority Regime and other authority conditions for consequential use.
 
-## Risk has analytical and deterministic authority
+## Portfolio Risk and authority remain distinct
 
-Risk participates in more than one authority layer.
+Portfolio Risk is an economic domain concept, not an authority layer.
 
-Analytical risk reasoning asks questions such as:
+Portfolio Risk reasoning asks questions such as:
 
-> What risks exist, how have they changed, and what do they imply for this portfolio?
+> What materially adverse possibilities exist, how have they changed, and what do they imply for this Portfolio and the alternatives under consideration?
 
-Deterministic risk authority asks questions such as:
+Deterministic Policy or Formal Constraint evaluation asks different questions such as:
 
-> Does this candidate action violate an explicit configured constraint?
+> Is this operation allowed under platform Policy?
 
-The two combine before an admissible recommendation is presented:
+or:
+
+> Does this candidate Portfolio condition satisfy the applicable Mandate Formal Constraint?
+
+Approval, Mandate Exception, and Residual-Risk Acceptance ask still different authority questions.
+
+The resulting decision process may therefore combine:
 
 ```text
-Analytical risk reasoning
+Portfolio Risk Assessment
         +
-Deterministic risk policy
+Projected Portfolio Consequences
+        +
+Policy / Formal Constraint results
+        +
+applicable authority acts
         ↓
-Admissible risk-aware recommendation
+Admissibility for the intended consequential use
 ```
 
-The analytical layer may challenge the wisdom of a hard constraint, but it may not silently override it. A material change to that constraint belongs to human governance authority.
+No one element silently substitutes for the others.
 
-## Preserve every material authority decision
+## Preserve every material authority act and relevant deterministic result
 
-Polaris must preserve and expose the material authority decisions made across the decision chain **even when all layers agree**.
+Polaris must preserve and expose material authority acts across the decision chain **even when all relevant actors and rules agree**.
 
 A fully aligned decision might include:
 
 ```text
-Evidence authority
-Market and portfolio state accepted as current and sufficient.
+Evidence readiness
+Required Evidence accepted as sufficient and fresh enough.
         ↓
-Deterministic authority
-Required policies evaluated; action permitted.
+Formal Constraint / Policy results
+Applicable deterministic conditions satisfied.
         ↓
-Analytical authority
-Polaris recommends increasing exposure by 10%.
+Polaris judgment
+Investment Recommendation formed.
         ↓
-Human authority
-Recommendation accepted.
+Approval
+Granted by an authorized actor if required.
         ↓
-Action authority
-External system executes the intended action.
+Human Investment Decision
+Human selects the economic disposition.
+        ↓
+Action Intent
+External consequence established if applicable.
+        ↓
+External execution authority
+Authoritative activity occurs.
         ↓
 Observed reality
-Execution reconciles with the decision.
+Activity reconciles and resulting Portfolio State is observed.
 ```
 
 The historical record should not collapse that sequence into only:
 
 > Exposure increased by 10%.
 
-Agreement, approval, satisfied constraints, acceptance, successful reconciliation, and faithful execution are themselves meaningful decision evidence.
+Agreement, Approval, satisfied Formal Constraints, accepted Governed Residual Risk, Human Investment Decision, successful reconciliation, and faithful implementation are distinct facts when they materially apply.
 
-Likewise, a policy that evaluated and permitted an action is different from a policy that was never evaluated or was bypassed. Silence is not proof that authority was correctly exercised.
+Likewise, a Policy that evaluated and allowed an operation is different from a Policy that was never evaluated or was bypassed. Silence is not proof that a required authority act or deterministic evaluation occurred.
 
 A durable rule follows:
 
-> **Absence of an authority failure is not evidence that authority was exercised correctly; material authority decisions should be positively recorded.**
+> **Absence of a recorded failure is not evidence that every required rule or authority act was satisfied; material positive results should be durably reconstructable.**
 
-## Authority trace as a product concept
+## Authority trace as product shorthand
 
-The working product concept is an **authority trace**: the durable provenance of which authority evaluated each material transition, what decision that authority made, and how that decision affected the lifecycle.
+Lowercase `authority trace` may remain product shorthand for an assembled representation of the material authority acts and deterministic results associated with an Investment Decision or governed subject.
+
+It is not a separate canonical authority power and does not imply one storage entity.
 
 Conceptually, an authority trace may make visible:
 
 ```text
-Evidence authority
-──────────────────
-Facts accepted
+Evidence / readiness
+────────────────────
 Sources
 Freshness / sufficiency
-Unresolved evidence conflict
+Unresolved Evidence conflict
 
-Deterministic authority
-───────────────────────
-Policies evaluated
-Constraints applied
-Checks passed / failed
-Candidate actions permitted / rejected
+Deterministic rules
+───────────────────
+Policy results
+Formal Constraint results
+Readiness checks
 
-Analytical authority
-────────────────────
-Interpretation
-Alternatives
-Challenge
-Recommendation
-Uncertainty
-
-Human authority
-───────────────
-Accepted / modified / rejected / deferred
-Human rationale where supplied
-
-Action authority
+Polaris judgment
 ────────────────
-Observed external action
-Execution differences from intent
+Investment View
+Portfolio Risk Assessment
+Investment Recommendation
+Investment Uncertainty
 
-Observed reality
-────────────────
-Resulting portfolio state
-Outcome
+Power-specific authority acts
+─────────────────────────────
+Approval / Authority Denial
+Mandate Exception if applicable
+Residual-Risk Acceptance if applicable
+
+Human investment judgment
+─────────────────────────
+Human Investment Decision
+Rationale where supplied
+
+External authority
+──────────────────
+Orders / fills / other authoritative activity
+Resulting Portfolio State
 ```
 
-`Authority trace` is product language at this stage, not a commitment to a particular database entity, event schema, audit table, or UI component.
+The exact presentation and persistence remain implementation questions.
 
-## Authority trace and the evidence model
+## Authority history and the Evidence model
 
-The authority trace complements Polaris's evidence model rather than replacing it.
+Authority history complements Polaris's Evidence model rather than replacing it.
 
-The evidence model answers questions such as:
+The Evidence model answers questions such as:
 
-* What evidence existed?
+* What Evidence existed?
 * Where did it come from?
 * When was it observed?
 * What did it say?
 * Was it current and attributable?
+* Was it available to the material judgment at the relevant time?
 
-The authority trace answers a different set of questions:
+Authority history answers a different set of questions:
 
-* Which authority evaluated that evidence or decision state?
-* What did that authority decide?
-* Which rules or constraints were applied?
-* Was a candidate action permitted, constrained, rejected, or left unresolved?
-* What did the analytical layer recommend?
-* What did the human decide?
-* What did the external action system actually do?
-* How did each authority decision affect the eventual outcome?
+* Which authority power applied to this subject and consequential use?
+* Who possessed that power under the applicable Investment Authority Regime?
+* What authority act was performed?
+* Which Policy or Formal Constraint results were relevant?
+* Was Approval required and, if so, granted or denied?
+* Was a Mandate Exception required and authorized?
+* Was Governed Residual Risk accepted where required?
+* What Human Investment Decision was formed?
+* What did the external execution system actually do?
 
-Together they provide two complementary forms of provenance:
-
-```text
-Evidence provenance
-What was known and where it came from
-
-        +
-
-Authority provenance
-Who or what evaluated it and what authority decision followed
-
-        ↓
-
-Trustworthy decision provenance
-```
-
-This is intentionally a conceptual alignment. The Product Definition does not prescribe how the current evidence implementation must represent authority decisions.
+Together they support trustworthy reconstruction without laundering one kind of fact into another.
 
 ## Always preserved, progressively exposed
 
-"Always expose" does not mean every default screen should dump the complete authority trace onto the user.
+"Always expose" does not mean every default screen should dump the complete authority history onto the user.
 
 The Core Experience still requires concise-first, deep-on-demand interaction.
 
-The authority contract is therefore:
+The product contract is therefore:
 
-* **always preserved** for material authority decisions;
-* **always inspectable** through an appropriate product surface;
-* **material effects surfaced prominently** in the normal decision experience;
-* **full authority trace available on demand**.
+* **always preserve** materially required authority acts and rule results;
+* **keep them inspectable** through an appropriate product surface;
+* **surface material effects prominently** in the normal decision experience;
+* **make fuller authority history available on demand**.
 
-For example, if analytical reasoning recommends a 20% increase but a hard concentration policy limits the admissible recommendation to 10%, that constraint should be visible in the primary decision explanation. If all policies were evaluated and satisfied without changing the recommendation, the affirmative policy decisions may be summarized by default while remaining inspectable in full.
+For example, if Polaris prefers a 20% increase but an applicable Formal Constraint makes that resulting Portfolio condition inadmissible without a Mandate Exception, that fact should be visible in the primary decision explanation. If all applicable conditions are satisfied, the positive results may be summarized while remaining inspectable.
 
 The governing principle is:
 
@@ -407,50 +422,49 @@ The governing principle is:
 
 Disagreement remains important, but it is not the only authority information worth keeping.
 
-Polaris should preserve:
+Polaris should preserve, where material:
 
-* agreement;
-* disagreement;
-* approval;
-* rejection;
-* constraint;
-* override;
-* abstention or unresolved state;
-* recommendation withholding;
-* human modification;
-* faithful execution;
-* execution divergence;
-* later outcome.
+* applicable rule results;
+* Approval;
+* Authority Denial;
+* Mandate Exception;
+* Residual-Risk Acceptance;
+* unresolved authority requirements;
+* Human Investment Decision;
+* Polaris Investment Recommendation;
+* faithful implementation;
+* implementation divergence;
+* later Outcome.
 
-This supports evaluation of questions such as:
+This supports Decision Evaluation questions such as:
 
-* Do decisions where analytical, policy, and human authority align perform differently?
-* Do particular hard constraints improve or degrade outcomes?
-* When do human overrides help?
-* When does execution divergence explain outcome differences?
-* Are recommendations frequently blocked because a policy is poorly calibrated?
-* Does a particular evidence sufficiency decision correlate with later error?
+* Do decisions where Polaris judgment, deterministic boundaries, and human judgment align perform differently?
+* Do particular Formal Constraints or Policies improve or degrade decision quality?
+* When do human departures from Polaris recommendations help?
+* When does implementation divergence explain Outcome differences?
+* Are recommendations frequently inadmissible because a Policy or constraint is poorly calibrated?
+* Do particular Evidence sufficiency judgments correlate with later error?
 
-Authority history is therefore not merely audit metadata. It is learnable decision information.
+Authority history is therefore not merely audit metadata. It may become Evidence in later Decision Evaluation while preserving its original semantic role.
 
 ## Separation of powers as a trust mechanism
 
-No single component should own facts, rules, interpretation, consequential decision, and execution simultaneously.
+No single component should own external facts, deterministic rules, Polaris investment judgment, human consequential authority, and market-facing execution simultaneously.
 
 The desired structure is:
 
 ```text
 FACTS
-Authoritative evidence sources
+Authoritative external sources
 
 RULES
-Deterministic governance
+Policy / Formal Constraints / readiness
 
-REASONING
-AI and analytical machinery
+POLARIS JUDGMENT
+Investment reasoning and recommendation
 
-DECISION
-Human
+HUMAN AUTHORITY
+Power-specific acts under the Investment Authority Regime
 
 ACTION
 External operational system
@@ -460,38 +474,39 @@ The point is not that AI becomes perfectly trustworthy.
 
 The stronger trust property is:
 
-> **Polaris is structured so that AI does not have to be trusted with everything.**
+> **Polaris is structured so that AI does not have to be trusted with every kind of authority.**
 
-That preserves the earlier product doctrine: use AI where reasoning and synthesis add value while making the surrounding decision system more deterministic, inspectable, attributable, and accountable than the AI itself.
+That preserves the product doctrine: use AI where reasoning and synthesis add value while making the surrounding decision system more deterministic, inspectable, attributable, and accountable than the AI itself.
 
 ## Consequences
 
 The Authority Model implies:
 
 * capability must not be confused with authority;
-* authoritative sources own operational facts within their responsibility domains;
-* deterministic mechanisms should enforce explicit rules, invariants, freshness requirements, and hard constraints;
-* AI should have broad analytical initiative without capital-action authority;
-* humans retain consequential investment and material governance authority;
-* external operational systems retain market-facing action authority;
-* human authority does not require human initiation of the analytical process;
-* AI may challenge a hard policy intellectually but cannot silently change or bypass the constraint governing itself;
-* Polaris may autonomously perform governed internal analytical and decision-state actions;
-* uncertainty that materially changes meaning should escalate instead of being silently resolved by guesswork;
-* Polaris may qualify, withhold, or invalidate a recommendation when the decision contract cannot be satisfied;
-* risk combines analytical reasoning with deterministic policy authority;
-* every material authority decision must be positively preserved whether it agrees or conflicts with adjacent layers;
-* approvals and satisfied constraints are authority evidence, not merely the absence of failure;
-* terminal outcomes must not erase the authority path that produced them;
-* authority provenance should complement evidence provenance;
-* the full authority path should remain inspectable while the user experience remains concise-first and progressively disclosed;
-* agreement, disagreement, policy effects, human overrides, execution fidelity, and outcomes should all remain available for later evaluation and learning.
+* authoritative sources retain factual authority within their responsibility domains;
+* Policy, Formal Constraints, freshness/readiness requirements, Approval, Human Investment Decision, Mandate Exception, Residual-Risk Acceptance, and external execution authority remain semantically distinct;
+* deterministic mechanisms should evaluate explicit rules and invariants without being mislabeled as human or investment authority;
+* Polaris should have broad analytical initiative without capital-action authority;
+* the Investment Authority Regime determines who possesses each consequential authority power;
+* Human Investment Decision does not automatically imply Approval, Mandate Exception, or Residual-Risk Acceptance;
+* external operational systems retain market-facing execution authority;
+* human authority does not require human initiation of analytical work;
+* Polaris may analyze or challenge a governing rule intellectually but cannot silently change its authoritative meaning or bypass it;
+* Polaris may autonomously perform governed internal analytical and decision-state operations that do not exercise a separately required consequential authority power;
+* ambiguity that materially changes meaning should remain explicit instead of being silently resolved by guesswork;
+* Polaris may qualify or withhold an Investment Recommendation when Evidence or analytical judgment cannot support it;
+* Portfolio Risk is an economic concept and must not be collapsed into deterministic Policy or authority;
+* material positive authority acts and rule results must be preserved when required, not inferred from silence;
+* terminal Outcomes must not erase the authority path that produced them;
+* authority history should complement Evidence provenance while preserving each fact's semantic role;
+* the user experience may progressively disclose authority detail without deleting it;
+* authority, rule, implementation, and Outcome history should remain available for later Decision Evaluation and learning.
 
 ## Relationship to later Product Definition work
 
-This Authority Model establishes constraints for the remaining Product Definition work:
+This Authority Model constrains the other Product Definition records:
 
-* **Scope Boundaries** should formalize which external responsibilities Polaris observes, integrates with, or explicitly does not own.
-* **Differentiation** should evaluate whether durable evidence plus durable authority provenance is part of Polaris's distinctive value.
-* **Core Capabilities** should include the minimum product capabilities necessary to enforce, preserve, inspect, and evaluate the authority model without prematurely prescribing implementation.
-* **Product Principles** should capture separation of powers, positive authority provenance, progressive exposure, uncertainty escalation, and the refusal to confuse AI capability with authority.
+* **Scope Boundaries** should preserve which external responsibilities Polaris observes, integrates with, or explicitly does not own.
+* **Differentiation** should treat durable Evidence plus power-specific authority reconstruction as part of Polaris's trust proposition.
+* **Core Capabilities** should enforce, preserve, inspect, and evaluate the authority model without prematurely prescribing implementation.
+* **Product Principles** should preserve separation of powers, positive authority reconstruction, progressive exposure, ambiguity preservation, and the refusal to confuse AI capability with authority.

@@ -8,6 +8,7 @@ from application.ai_optimization import (
 )
 from application.decision_evidence import DecisionEvidencePacketPersistenceService
 from application.observability import AiObservabilityProjector
+from application.presentation.sink_decision import PresentationSinkDecisionService
 from application.rag.contracts.rag_operation_models import (
     RagProjectionConfig,
     RagProjectionReadinessConfig,
@@ -97,6 +98,7 @@ from core.storage.persistence.repositories.postgres_strategy_persistence_reposit
     PostgresStrategyPersistenceRepository,
 )
 from core.telemetry.emitters.application_rag_telemetry import ApplicationRagTelemetry
+from core.telemetry.observability import ObservabilityManager
 from core.workflow.execution.workflow_facade import WorkflowFacade
 from integration.providers.rag.bge_m3_embedding_provider import BgeM3EmbeddingProvider
 from integration.providers.rag.bge_reranking_provider import BgeRerankingProvider
@@ -352,6 +354,7 @@ class RagApplicationDIProvider(Provider):
         workflow_facade: WorkflowFacade,
         telemetry: ApplicationRagTelemetry,
         ai_observability_projector: AiObservabilityProjector,
+        observability_manager: ObservabilityManager,
     ) -> RagService:
         return RagService(
             pipeline=pipeline,
@@ -362,6 +365,9 @@ class RagApplicationDIProvider(Provider):
             workflow_registry=workflow_facade.registry,
             telemetry=telemetry,
             ai_observability_projector=ai_observability_projector,
+            presentation_sink_decision_service=PresentationSinkDecisionService(
+                observability_manager
+            ),
         )
 
     @provide

@@ -135,6 +135,7 @@ class MorningReportPersistenceService:
             evidence=evidence,
             expected_authority_metadata=document.authority,
             limitations=document.authority_limitations,
+            degradation_reasons=document.run_errors,
             withholding_reasons=withholding_reasons,
         )
         return MorningReportPresentationPreparation(

@@ -12,6 +12,7 @@ from application.decision_evidence.persistence import (
     DecisionEvidencePacketPersistenceService,
 )
 from application.observability import AiObservationType
+from application.presentation.sink_decision import PresentationSinkDecisionService
 from application.rag.contracts.rag_context import (
     RagRetrievalFilters,
     RagRetrievedContext,
@@ -1062,6 +1063,16 @@ def _operations(
     return [event.attributes.get("operation") for event in sink.events]
 
 
+def _presentation_sink_events(
+    sink: InMemoryTelemetrySink,
+) -> list[object]:
+    return [
+        event
+        for event in sink.events
+        if event.event_type == "presentation.sink_decision"
+    ]
+
+
 @pytest.mark.asyncio
 async def test_rag_service_persists_quality_metadata() -> None:
     request = RagRequest(
@@ -1150,6 +1161,94 @@ async def test_rag_service_classifies_external_capital_relevant_answers() -> Non
     assert risk_authority["capital_relevant"] is True
     assert risk_authority["externally_visible"] is True
     assert risk_authority["evidence_sufficient"] is False
+
+
+@pytest.mark.asyncio
+async def test_rag_service_emits_withheld_sink_event_through_canonical_observability() -> (  # noqa: E501 - descriptive pytest node id
+    None
+):
+    _, sink, observability = _telemetry()
+    request = RagRequest(
+        query="Summarize SPY breadth for the client portfolio.",
+        request_id="rag_query:presentation-withheld-telemetry",
+        metadata={
+            "rag_authority": {
+                "audience": "external",
+                "capital_relevant": True,
+            }
+        },
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    service = RagService(
+        pipeline=StaticResultPipeline(
+            RagResult.answered(
+                request=request,
+                answer_text="SPY breadth improved with broad participation [C1].",
+                contexts=(context,),
+                generated_claims=(_generated_claim(),),
+            )
+        ),
+        repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        presentation_sink_decision_service=PresentationSinkDecisionService(
+            observability
+        ),
+    )
+
+    result = await _run_service_payload(service, request)
+
+    assert result.status == "no_results"
+    events = _presentation_sink_events(sink)
+    assert len(events) == 1
+    assert events[0].source == "PresentationSinkDecisionService"
+    assert events[0].event_type == "presentation.sink_decision"
+    assert events[0].attributes["disposition"] == "withheld"
+
+
+@pytest.mark.asyncio
+async def test_rag_service_emits_blocked_sink_event_through_canonical_observability() -> (  # noqa: E501 - descriptive pytest node id
+    None
+):
+    _, sink, observability = _telemetry()
+    request = RagRequest(
+        query="Summarize suspicious SPY context.",
+        request_id="rag_query:presentation-blocked-telemetry",
+    )
+    context = _context(
+        context_id="chunk-1",
+        text="SPY breadth improved with broad participation.",
+    )
+    service = RagService(
+        pipeline=StaticResultPipeline(
+            RagResult(
+                query_id=request.request_id,
+                request=request,
+                answer_text="SPY breadth improved with broad participation [C1].",
+                status="answered",
+                route=request.route,
+                contexts=(context,),
+                citations=(context.source,),
+                injection_detected=True,
+            )
+        ),
+        repository=cast(RagPersistenceRepository, FakeRagRepository()),
+        decision_evidence_packet_persistence_service=_packet_persistence(),
+        presentation_sink_decision_service=PresentationSinkDecisionService(
+            observability
+        ),
+    )
+
+    result = await _run_service_payload(service, request)
+
+    assert result.status == "no_results"
+    events = _presentation_sink_events(sink)
+    assert len(events) == 1
+    assert events[0].source == "PresentationSinkDecisionService"
+    assert events[0].event_type == "presentation.sink_decision"
+    assert events[0].attributes["disposition"] == "blocked"
 
 
 @pytest.mark.asyncio

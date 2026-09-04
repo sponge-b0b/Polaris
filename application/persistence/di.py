@@ -30,6 +30,7 @@ from application.persistence.portfolio import PortfolioPersistenceService
 from application.persistence.recommendations import RecommendationPersistenceService
 from application.persistence.sentiment import SentimentPersistenceService
 from application.persistence.strategy import StrategyPersistenceService
+from application.presentation.sink_decision import PresentationSinkDecisionService
 from application.reports import MorningReportPersistenceService
 from core.storage.persistence.completed_run_archive import CompletedRunArchive
 from core.storage.persistence.portfolio import (
@@ -386,9 +387,13 @@ class ApplicationPersistenceDIProvider(Provider):
         repository: PostgresReportPersistenceRepository,
         claim_binding_service: DecisionEvidenceClaimBindingService,
         automated_decision_audit_service: AutomatedDecisionAuditService,
+        observability_manager: ObservabilityManager,
     ) -> MorningReportPersistenceService:
         return MorningReportPersistenceService(
             repository,
             claim_binding_service=claim_binding_service,
             governed_output_release_service=automated_decision_audit_service,
+            presentation_sink_decision_service=PresentationSinkDecisionService(
+                observability_manager
+            ),
         )

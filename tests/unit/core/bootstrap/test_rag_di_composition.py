@@ -17,6 +17,7 @@ from application.rag.operations.rag_projection_operations import (
 )
 from application.rag.operations.rag_status_operations import RagStatusOperationsService
 from application.rag.rag_service import RagService
+from application.reports import MorningReportPersistenceService
 from config.settings import Settings
 from core.bootstrap.di_providers import get_async_di_container
 from core.storage.persistence.rag import RagPersistenceRepository
@@ -121,6 +122,7 @@ async def test_async_application_container_composes_shared_rag_resources(
                 RagProjectionOperationsService
             )
             status_operations = await request_container.get(RagStatusOperationsService)
+            report_service = await request_container.get(MorningReportPersistenceService)
             observability = await request_container.get(ObservabilityManager)
             application_telemetry = await request_container.get(ApplicationRagTelemetry)
             integration_telemetry = await request_container.get(IntegrationTelemetry)
@@ -150,6 +152,14 @@ async def test_async_application_container_composes_shared_rag_resources(
             assert await request_container.get(QdrantRagClient) is qdrant_client
             assert application_telemetry.observability_manager is observability
             assert integration_telemetry.observability_manager is observability
+            assert (
+                rag_service._presentation_sink_decision_service._observability
+                is observability
+            )
+            assert (
+                report_service._presentation_sink_decision_service._observability
+                is observability
+            )
             assert rag_service._repository is repository
             assert ingestion_operations._rag_repository is repository
             assert embedding_operations._rag_repository is repository

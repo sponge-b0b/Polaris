@@ -144,9 +144,19 @@ External Resolution that happens to produce a Portfolio state matching an Invest
 Related distinctions:
 
 - A **Strategy Decision** is the selected typed synthesis outcome from structured strategy hypotheses and is not itself the canonical Investment Recommendation.
-- A **Proposed Action** or **Action Candidate** is a concrete candidate implementation that may help achieve the economic disposition expressed by an Investment Recommendation and may later be resized, deferred, rejected, escalated, or skipped.
+- A **Proposed Action** or **Action Candidate** is an attributable concrete candidate implementation considered within an Investment Decision for producing a possible Portfolio consequence.
 - A **Trade Package** is downstream packaging of Proposed Actions for execution-risk review.
 - An **Order** is an execution-domain instruction describing exact market-facing action. Orders, routing, working-order state, fills, stop orders, and take-profit orders remain externally authoritative execution facts unless Polaris product scope is explicitly changed.
+
+## Proposed Action
+
+A **Proposed Action** is an attributable concrete candidate implementation considered within an Investment Decision for producing a possible Portfolio consequence.
+
+Proposed Action semantics follow candidate role rather than authorship. A Proposed Action may originate from Polaris or a human, may exist before, alongside, or without an Investment Recommendation, and may be selected, modified, combined, rejected, deferred, escalated, or skipped without becoming an Action Intent.
+
+A Proposed Action is distinct from the economic disposition expressed by an Investment Recommendation, the attributable Human Investment Decision, the post-human Action Intent, and any externally authoritative Order or execution fact. Exact human selection of a Proposed Action does not collapse those concepts into one fact.
+
+Where knowable and material, Polaris preserves which Proposed Actions informed a Human Investment Decision or resulting Action Intent without assuming one-to-one cardinality. `Action Candidate` is accepted shorthand for `Proposed Action` in existing Polaris prose unless another narrower candidate type is explicitly stated.
 
 ## Capital-Relevant Output
 
@@ -501,6 +511,22 @@ A **Human Investment Decision** is the attributable human judgment within an Inv
 A Human Investment Decision may or may not substantively resolve the underlying Investment Decision. Deferral, or rejection accompanied by a request for further judgment, records attributable human judgment while leaving the Decision Need unresolved; deliberate hold or another substantive choice may resolve it.
 
 A Human Investment Decision is distinct from Polaris's Investment Recommendation, automated Policy or Governance outcomes, Approval, Residual-Risk Acceptance, and Mandate Exception authorization. Human judgment does not retroactively rewrite the Investment Recommendation, Mandate, Formal Constraint results, or other decision-time facts that preceded it.
+
+## Action Intent
+
+An **Action Intent** is attributable post-human-decision continuity state describing an externally observable implementation consequence or control established by a Human Investment Decision so Polaris can reconcile later authoritative external activity and Portfolio State without acquiring execution authority.
+
+A Human Investment Decision may establish zero, one, or multiple Action Intents. Action Intent cardinality follows coherent intended external consequence rather than Financial Instrument count, Proposed Action count, Order count, fill count, or other execution mechanics. An Action Intent may be composite when several external changes jointly define one coherent intended Portfolio consequence; independently meaningful consequences may be represented as separate Action Intents.
+
+A Human Investment Decision may establish Action Intent even when no Polaris Investment Recommendation or Proposed Action exists. Deliberate hold/no-action or Deferral does not by itself require a synthetic Action Intent merely to duplicate the Human Investment Decision, although the same human judgment may establish an Action Intent for a separate externally intended consequence or maintained control.
+
+Action Intent is distinct from an Order, fill, broker instruction, or another externally authoritative execution fact. It may be specific enough for later reconciliation, including an intended quantity, target state, protection condition, or similar implementation meaning, without thereby becoming an authoritative Order. A thesis invalidation condition, Risk boundary, or Review Condition is not an Action Intent merely because it references a price or trigger; an intended externally maintained control or contingent external consequence may be an Action Intent while the resulting Order remains externally authoritative.
+
+One Action Intent may correspond to zero, one, or multiple external activities, and one authoritative external activity may contribute to zero, one, or multiple Action Intents when those causal associations are supported. The same authoritative external fact is not duplicated merely because it relates to several Action Intents or Investment Decisions. Resulting Portfolio State or external activity that happens to match an Action Intent does not by itself establish that the intent caused or was implemented by that activity.
+
+Partial, failed, or absent implementation does not rewrite the historical Action Intent. Changes to execution mechanics that preserve the same intended external consequence do not by themselves require a new Action Intent; a material change to the intended Portfolio consequence requires new attributable human judgment, with existing Investment Decision identity and lifecycle rules determining whether that judgment belongs to the same unresolved decision or a new causally linked decision.
+
+Action Intent does not imply Approval, Mandate compliance, Residual-Risk Acceptance, authorization, Release, or execution authority. External activity does not retroactively create an Action Intent, Human Investment Decision, Proposed Action, or Investment Recommendation merely because its economic result happens to match one of those concepts.
 
 ## Deferral
 

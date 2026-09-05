@@ -30,11 +30,12 @@ The parent does **not** own final semantic certification of the candidate it has
 A genuinely fresh non-mutating `$verify-spec-closure` subagent owns:
 
 * per-manifest-cell semantic entailment;
-* authoritative/nested domain closure;
+* authoritative/nested domain construction and closure;
 * falsifier exclusion;
 * production-composition proof where required by the claim;
 * negative/fail-closed semantic proof;
-* one `SPEC CLOSURE: PASS | FAIL` for the exact stable HEAD.
+* complete failure saturation for the bounded authoritative universe;
+* one complete `SPEC CLOSURE: PASS | FAIL` for the exact stable HEAD.
 
 `$review-spec` remains the later independent adversarial Standards / Spec / Architecture review. Do not duplicate its multi-axis review, root reconciliation, or challenge/saturation procedure here.
 
@@ -73,39 +74,75 @@ It may only:
    * observed-failure disposition state;
    * concise evidence pointers collected by the parent;
 4. require that subagent to execute `$verify-spec-closure` as a non-mutating leaf;
-5. receive one `SPEC CLOSURE: PASS | FAIL`;
+5. receive one complete `SPEC CLOSURE: PASS | FAIL` or one explicit invalid/incomplete certification result;
 6. re-read exact HEAD/worktree and mutable contract-critical state needed to establish the verifier did not mutate the candidate;
-7. consume the verdict without semantic override.
+7. mechanically validate the returned saturation witness below before consuming PASS or FAIL;
+8. consume a complete verdict without semantic override.
 
 While dispatcher-only, the parent must not perform a parallel semantic proof, search for evidence to overturn the verifier, mutate the candidate, repair findings, or dispatch shadow certifiers/reviewers.
 
-A verifier-integrity failure invalidates the attempt and must be resolved before certification can continue.
+A verifier-integrity failure or incomplete saturation witness invalidates the attempt and must be resolved before certification can continue.
 
 ## Certifier Proof Contract
 
 `$verify-spec-closure` independently certifies every manifest cell from the exact authoritative claim.
 
-The following are hard PASS requirements:
+The following are hard requirements before **either PASS or FAIL** is consumable:
 
 * exact evidence entailment per cell;
 * no broad proof object silently certifies materially heterogeneous claims;
-* every finite/discoverable nested quantified domain is closed;
+* every finite/discoverable nested quantified domain has durable authority and a membership predicate;
+* every required Domain Construction Manifest is complete;
+* finite expected/generated/inspected/dispositioned counts reconcile, or the declared open-world exhaustive mechanism satisfies its closure criterion;
+* remaining authoritative members are zero;
+* violated cells with incomplete nested sweeps are zero;
+* ambiguous/undispositioned domain-membership candidates are zero;
+* unexplored authoritative siblings are zero;
+* every independently actionable defect found by the saturated sweep appears in the returned findings;
 * production-path claims reach canonical composition, not merely component capability;
 * negative/fail-closed claims receive meaningful adversarial falsifier proof;
 * every material assumption bridging evidence to conclusion is proven;
-* `violated=0`, `unproven=0`, `unchecked=0`;
-* no open nested-domain candidate remains.
+* `unchecked=0`.
 
 Passing parent tests/gates remain evidence of what they actually establish. They are not semantic proof of unrelated or stronger claims.
+
+### Certifier Saturation Witness
+
+Before consuming either semantic verdict, require the child result to carry enough mechanically checkable state to establish that universe construction and sweep saturation completed:
+
+```text
+Manifest cells: <n>
+Nested domains required: <n>
+Domain construction manifests complete: <n>/<n>
+Generated authoritative members: <n>
+Inspected authoritative members: <n>
+Dispositioned authoritative members: <n>
+Remaining authoritative members: 0
+Violated cells with incomplete domain sweep: 0
+Domain-membership candidates: <n>
+in-domain: <n>
+out-of-domain: <n>
+ambiguous membership: 0
+Undispositioned domain candidates: 0
+Independent actionable findings: <n>
+Unexplored authoritative siblings: 0
+Unproven material assumptions: 0
+```
+
+The parent validates identities and counts only. It does not decide whether a candidate belongs to a semantic domain or whether evidence entails a claim; those judgments remain owned by the fresh certifier.
+
+Missing, contradictory, or non-zero incomplete-saturation fields make the certification result invalid/incomplete. Do not reinterpret it as PASS or FAIL, do not enter the repair loop from a partial finding set, and do not persist a receipt.
 
 ## FAIL Loop
 
 `SPEC CLOSURE: FAIL` is non-terminal and does not authorize a Spec Verification Receipt.
 
-After the verifier returns:
+Consume FAIL only after exact candidate binding, verifier integrity, and the Certifier Saturation Witness are valid and complete.
+
+After a complete verifier FAIL returns:
 
 1. exit dispatcher-only mode;
-2. retain every returned finding as current verification state;
+2. retain every returned independently actionable finding as current verification state;
 3. classify whether each finding is Spec-owned repair, unresolved architecture, external/environmental blocker, or a deterministic contract defect requiring the owning workflow;
 4. repair every actionable Spec-owned finding through the normal procedure and required owner skills;
 5. rerun only invalidated gates/tests/failure dispositions;
@@ -123,9 +160,13 @@ Accept `SPEC CLOSURE: PASS` only when:
 * Spec/baseline/branch/HEAD/body hash/contract hash match dispatch exactly;
 * candidate and required mutable authority did not change unexpectedly during certification;
 * certifier was genuinely fresh, non-mutating, and non-delegating;
+* the Certifier Saturation Witness is present, internally reconciled, and complete;
 * every manifest cell is `proven` or valid originating-Spec `not-applicable`;
 * no violated/unproven/unchecked cell remains;
-* all required nested domains are closed.
+* all required nested domains are closed;
+* remaining authoritative members are zero;
+* ambiguous/undispositioned domain candidates and unexplored authoritative siblings are zero;
+* independent actionable findings are zero.
 
 The parent may validate identities/counts/hashes mechanically. It may not reinterpret a semantic FAIL into PASS.
 
@@ -142,7 +183,7 @@ Then execute the unchanged finalization and receipt persistence mechanics.
 The receipt should identify the semantic certification owner/result concisely, for example in a gate/evidence line:
 
 ```text
-Independent semantic closure: PASS — $verify-spec-closure at exact HEAD <sha>; manifest <n>; violated 0; unproven 0; unchecked 0; open nested domains 0
+Independent semantic closure: PASS — $verify-spec-closure at exact HEAD <sha>; manifest <n>; violated 0; unproven 0; unchecked 0; domain construction <n>/<n> complete; remaining authoritative members 0; open nested domains 0
 ```
 
 Do not serialize private reasoning transcripts.
@@ -180,6 +221,7 @@ Verify a completed Spec against its fixed baseline as one integrated acceptance 
 - Every observed failure must receive an explicit causal disposition before it can be excluded from PASS.
 - A required delegated skill owns its gate procedure and terminal result; the parent may not substitute an ad hoc local implementation.
 - Final semantic certification belongs to one fresh `$verify-spec-closure` verifier; the `$verify-spec` parent may prepare evidence but may not self-certify semantic PASS.
+- A first semantic falsifier determines verdict polarity only; complete bounded domain construction and sweep saturation are required before the parent may consume either PASS or FAIL.
 - Reason about predicates, falsifiers, authoritative domains, Nested Universe closure, assumptions, and evidence, but do **not** serialize that reasoning merely for bookkeeping.
 
 ## Deterministic Utility Boundary
@@ -445,7 +487,7 @@ At stable candidate `HEAD`, after valid `SPEC CLOSURE: PASS`:
 3. require every applicable gate PASS or NOT APPLICABLE;
 4. require Delegated Gate Ownership closure complete;
 5. require Observed Failure Disposition closure complete;
-6. require the certifier coverage to map every manifest cell to `proven` or valid originating-Spec `not-applicable` with `violated=0`, `unproven=0`, and `unchecked=0`;
+6. require the certifier coverage to map every manifest cell to `proven` or valid originating-Spec `not-applicable` with `violated=0`, `unproven=0`, and `unchecked=0`, and require the Certifier Saturation Witness to remain complete with zero remaining authoritative members, ambiguous membership, or unexplored authoritative siblings;
 7. require current hierarchy/dependency state valid;
 8. require clean worktree.
 

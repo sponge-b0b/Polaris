@@ -20,6 +20,8 @@ The current greenfield implementation surface is therefore deliberately minimal.
 - `legacy/v0_1/` — historical pre-greenfield platform retained only as donor/reference material.
 - `CONTEXT.md` — canonical domain vocabulary.
 - `docs/product/` — durable product and domain doctrine.
+- `docs/current/` and `docs/adr/` — current architecture and accepted architectural decisions.
+- `wiki/` — active Living Entity Wiki: derived architectural memory and the authoritative registry of active Entity IDs used by classified document naming.
 - `docs/process/` and `.agents/` — current repository/workflow process infrastructure.
 - `assets/` — Polaris project branding.
 
@@ -33,18 +35,20 @@ The pristine pre-greenfield implementation is anchored by the Git tag `legacy-v0
 
 ## Current status
 
-The repository has completed its product/domain reset and legacy quarantine. The next substantive sequence is:
+The repository has completed its product/domain reset, greenfield cutover, requirements, and R1 architecture. R2 is now defining the durable Investment Decision kernel and historical-truth implementation boundary.
 
 ```text
-requirements
+approved product/domain + requirements
   ↓
-greenfield architecture
+approved greenfield architecture
   ↓
-required component boundaries
+Living Entity Wiki + entity-derived document naming
   ↓
-selective donor inspection / salvage
+R2 component boundaries
   ↓
-implementation
+Specs / tickets
+  ↓
+inside-out implementation + selective donor salvage
 ```
 
 No production capability should be inferred from the historical implementation under `legacy/` or from the existence of the new package boundary alone.

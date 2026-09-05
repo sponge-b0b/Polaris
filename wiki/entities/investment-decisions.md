@@ -14,3 +14,4 @@
 ### Planned
 
 * **R2 decision kernel and historical truth** — establish the smallest durable implementation of Investment Decision identity, lifecycle transitions, historical reconstruction, transaction/idempotency semantics, and technology-neutral persistence contracts. (source: docs/proposed/investment-decisions-r2-decision-kernel-component-boundaries.md)
+* **R2 lifecycle design** — use explicit `ACTIVE`, `DEFERRED`, `RESOLVED`, `EXTERNALLY_RESOLVED`, and `SUPERSEDED` lifecycle states backed by immutable typed lifecycle facts; preserve renewal and Supersession as relationships between distinct Decision identities; and keep substantive resolution separate from the Governance-owned Human Investment Decision that may justify it. (source: docs/proposed/investment-decisions-lifecycle-model.md)

@@ -30,6 +30,7 @@ The pre-greenfield registry remains historical donor/reference material under `l
 These documents are genuinely cross-cutting discovery starting points; they do not replace entity-page citations or the active entity registry.
 
 * [Polaris 0.2.0 Greenfield Architecture](../docs/current/platform-architecture-0.2.0.md) — approved current system shape, ownership boundaries, dependency direction, and supporting architecture.
+* [Proposed Domain Interaction Map](../docs/proposed/platform-domain-interaction-map.md) — proposed cross-entity collaboration, authority-flow, application-coordination, and supporting-boundary interaction design.
 * [ADR 0001 — Use a modular monolith with ports and adapters](../docs/adr/0001-platform-use-modular-monolith-with-ports-and-adapters.md) — accepted cross-cutting system-shape decision.
 * [ADR 0002 — Persist direct business truth with immutable history](../docs/adr/0002-platform-persist-direct-business-truth-with-immutable-history.md) — accepted cross-cutting business-truth and historical-memory decision.
 * [ADR 0003 — Insulate infrastructure behind inward-owned capability ports](../docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md) — accepted cross-cutting dependency and technology-insulation decision.

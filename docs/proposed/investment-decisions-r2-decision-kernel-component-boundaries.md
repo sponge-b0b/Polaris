@@ -1,7 +1,8 @@
 # R2 Decision Kernel and Historical Truth — Component Boundaries
 
-**Status:** Proposed  
+**Status:** Approved  
 **Release:** 0.2.0  
+**Approved:** 2026-09-04  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
 **Purpose:** Define the implementation-facing component boundaries for the first greenfield product slice without introducing new architectural choices or inheriting legacy business topology.
 
@@ -18,6 +19,8 @@ This plan is subordinate to:
 This document does not reopen the R1 architecture. It translates the approved owners into the smallest R2 implementation boundary that can establish first-class Investment Decision identity and durable historical truth.
 
 `legacy/v0_1/` is donor material only. Donor findings below are scoped by current R2 owners and do not grant legacy types, schemas, or runtime mechanisms architectural authority.
+
+Approval of this component-boundary plan authorizes detailed R2 design, not immediate implementation specification. Before `to-specs`, R2 must establish and approve the cross-entity interaction and entity-level design artifacts identified in the handoff section below so implementation Specs do not have to invent lifecycle, transaction, persistence, or cross-owner semantics.
 
 ---
 
@@ -480,22 +483,39 @@ R2 is complete only when all of the following are demonstrated:
 15. `AS-001` through `AS-005` and `AS-022` have objective acceptance evidence;
 16. no later 0.2.0 domain owner has been prematurely collapsed into the Decisions aggregate or persistence taxonomy.
 
-# Handoff after approval
+# Pre-specification design handoff
 
-Once this component-boundary plan is approved, it is decision-complete enough to act as an intentionally non-Wayfinder planning source for `to-specs`.
+Approval of this component-boundary plan establishes the R2 integration boundary but does not by itself make implementation specification sufficiently detailed.
 
-The next delivery transition should therefore be:
+The required next design set is:
 
 ```text
 approved R2 component-boundary plan
         ↓
+platform domain interaction map
+        ↓
+Investment Decision lifecycle design
+        +
+Investment Decision application-use-case design
+        +
+Investment Decision durable-persistence design
+        ↓
+human design approval
+        ↓
 `to-specs`
         ↓
-R2 implementation Spec(s)
+multiple narrow R2 implementation Specs as warranted
         ↓
 `to-tickets`
         ↓
 normal ticket implementation/review/verification lifecycle
 ```
 
-A Wayfinder should be introduced only if implementation planning exposes a genuinely unresolved material architectural choice that cannot be resolved from the approved architecture and this plan.
+Current design artifacts:
+
+- [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
+- [`investment-decisions-lifecycle-model.md`](investment-decisions-lifecycle-model.md);
+- [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
+- [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md).
+
+A Wayfinder should be introduced only if this design work exposes a genuinely unresolved material architectural choice that cannot be resolved from the approved architecture and requirements. Specs must not be used as the place where such a choice is invented.

@@ -9,3 +9,7 @@
 * Persistence contracts express atomicity, durability, uniqueness, idempotency, historical preservation, concurrency, and reconstruction requirements without exposing PostgreSQL, ORM sessions, SQL expressions, or other adapter-native types. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md)
 * PostgreSQL is the initial/reference 0.2.0 persistence adapter, not the architectural identity of persistence. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md)
 * Greenfield Polaris uses a fresh persistence and migration lineage; current migrations must not target legacy schema objects because they already exist. (source: docs/current/platform-architecture-0.2.0.md)
+
+### Planned
+
+* **R2 Investment Decision persistence design** — use a narrow Decisions command store plus Decision Memory reader rather than a generic repository/UoW framework; atomically maintain current Decision state, immutable lifecycle facts, and command idempotency receipts; preserve effective and recorded time; and use PostgreSQL only as the initial adapter behind these inward-owned semantics. (source: docs/proposed/durable-persistence-investment-decision-history.md)

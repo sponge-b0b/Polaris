@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 adversarial follow-up | continuity and operative-work ambiguities closed
+
+Closed the final Spec-readiness ambiguities exposed after the atomic lifecycle simplification: re-Deferral now appends a new trusted human-Deferral fact, ordinary unresolved work/judgment commands require the Decision to remain operative rather than supportably superseded, and R2 continuity no longer leaves matching logic to implementation—existing unresolved candidates require an explicit continue/create-new determination and missing or inconsistent determination fails closed. Updated Planned knowledge for `investment-decisions` and `application-use-cases`.
+
 ## [2026-09-04] R2 final audit correction | lifecycle disposition simplified and contested interpretation preserved
 
 Collapsed the second-audit four-axis draft into the final three-concern model: supported lifecycle disposition (`UNRESOLVED`, `SUBSTANTIVELY_RESOLVED`, `EXTERNALLY_RESOLVED`, `NEED_RETRACTED_UNSUPPORTED`), unresolved work posture (`ACTIVE`, human-`DEFERRED`, `WITHDRAWN`), and orthogonal Supersession relationships. Preserved unresolved/partial Scope, fail-closed continuity arbitration, many-to-many lineage, append-only correction, dual temporal queries, and explicit contested lifecycle interpretation rather than last-writer-wins. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

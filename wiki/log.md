@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 final adversarial reconciliation | late correction and continuity provenance made durable
+
+Closed two final Spec-readiness gaps: late External Resolution and unsupported-Need findings may qualify any previously recorded lifecycle disposition only through append-only correction, and every committed distinct Decision identity now preserves the continuity determination, materially considered candidate Decisions, attributable create-new basis, and revalidation knowledge/guard that explain why it was treated as a new coherent choice. Also made contested Supersession/operative applicability fail closed for ordinary work. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 adversarial follow-up | continuity and operative-work ambiguities closed
 
 Closed the final Spec-readiness ambiguities exposed after the atomic lifecycle simplification: re-Deferral now appends a new trusted human-Deferral fact, ordinary unresolved work/judgment commands require the Decision to remain operative rather than supportably superseded, and R2 continuity no longer leaves matching logic to implementation—existing unresolved candidates require an explicit continue/create-new determination and missing or inconsistent determination fails closed. Updated Planned knowledge for `investment-decisions` and `application-use-cases`.

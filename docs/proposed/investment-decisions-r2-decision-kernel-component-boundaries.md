@@ -9,7 +9,7 @@
 
 This plan is subordinate to:
 
-- [`../current/architecture-0.2.0.md`](../current/architecture-0.2.0.md) — approved architecture;
+- [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md) — approved architecture;
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md) — approved requirements;
 - [`../roadmap/0.2.0.md`](../roadmap/0.2.0.md) — approved roadmap;
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md) — frozen domain semantics;

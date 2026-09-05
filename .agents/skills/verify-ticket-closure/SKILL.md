@@ -296,7 +296,7 @@ Acceptance coverage: <n> cells
 proven: <n>
 violated: <n>
 unproven: <n>
-uncheckd: 0
+unchecked: 0
 Nested domains required: <n>
 Domain construction manifests complete: <n>/<n>
 Nested domains closed: <n>

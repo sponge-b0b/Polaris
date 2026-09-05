@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 Decision relationship design | lineage and contextual graph semantics separated
+
+Added the proposed `investment-decisions` relationship model separating lifecycle-lineage edges (`RENEWED_FROM`, `SUPERSEDES`) from materially used prior-Decision context (`PRIOR_DECISION_CONTEXT`). Recorded that candidate retrieval alone does not create durable context, the lifecycle subgraph must remain acyclic, contextual influence may form richer temporal graphs, and R2 implements only lifecycle edges while preserving later many-to-many context compatibility. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 pre-specification design | lifecycle/application/persistence plans made explicit
 
 Added proposed R2 design authority beneath the approved component-boundary plan: a cross-entity interaction map plus detailed Investment Decision lifecycle, application-use-case, and durable-persistence designs. Recorded the resulting Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence` without changing current implementation state.

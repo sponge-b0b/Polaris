@@ -20,7 +20,7 @@ This document does not reopen the R1 architecture. It translates the approved ow
 
 `legacy/v0_1/` is donor material only. Donor findings below are scoped by current R2 owners and do not grant legacy types, schemas, or runtime mechanisms architectural authority.
 
-Approval of this component-boundary plan authorizes detailed R2 design, not immediate implementation specification. Before `to-specs`, R2 must establish and approve the cross-entity interaction and entity-level design artifacts identified in the handoff section below so implementation Specs do not have to invent lifecycle, transaction, persistence, or cross-owner semantics.
+Approval of this component-boundary plan authorizes detailed R2 design, not immediate implementation specification. Before `to-specs`, R2 must establish and approve the cross-entity interaction and entity-level design artifacts identified in the handoff section below so implementation Specs do not have to invent lifecycle, Decision-to-Decision relationship, transaction, persistence, or cross-owner semantics.
 
 ---
 
@@ -85,7 +85,8 @@ R2 must establish explicit types or equivalent domain representations for at lea
 - Subject identity/reference;
 - Decision Scope;
 - causal relationship to a prior Investment Decision when a resolved choice is renewed;
-- Supersession relationship when one decision replaces another.
+- Supersession relationship when one decision replaces another;
+- typed Decision-to-Decision relationship semantics sufficient to keep lifecycle lineage distinct from later contextual influence.
 
 Investment Decision identity must not be derived from:
 
@@ -130,6 +131,8 @@ Investment Decision is the lifecycle root, not a container for all future decisi
 
 R2 must not pre-create placeholders for Evidence, Recommendation, authority, Action Intent, Outcome, Decision Evaluation, or Lesson inside the Investment Decision object merely because those concepts will later reference it.
 
+Decision-to-Decision relationships are also separate durable facts rather than an arbitrary mutable `related_decisions` collection inside the Investment Decision aggregate.
+
 ---
 
 # 4. Application boundary
@@ -167,6 +170,8 @@ Every mutating use case must:
 
 Investment Decision ID is not a universal idempotency key.
 
+Lifecycle relationship establishment is coordinated by the application use case that creates renewal or Supersession. Future contextual prior-Decision relationships must likewise be established through an application use case rather than by the Investment Decision aggregate discovering or mutating its own graph neighbors.
+
 ## 4.3 No asynchronous framework yet
 
 R2 does not currently require guaranteed asynchronous follow-up to satisfy its milestone acceptance scenarios.
@@ -193,9 +198,12 @@ At minimum, the application must be able to retrieve:
 - resolution type and time where present;
 - causal prior/new-decision relationship where present;
 - Supersession relationships where present;
+- typed lifecycle-lineage relationships without collapsing them into generic adjacency;
 - a historically faithful view as of a supported prior point where required by the R2 acceptance scenarios.
 
 The query result is a Decision Memory view, not a new canonical `DecisionRecord` entity.
+
+The broader Decision graph may later include materially used prior-Decision context. R2 query design must not make lineage-only storage shape part of the inward contract in a way that prevents later many-to-many contextual relationships.
 
 ## 5.2 Historical fidelity
 
@@ -218,12 +226,15 @@ The contract should express operations such as:
 - load current decision state by Investment Decision identity;
 - determine whether an unresolved decision matching the explicit identity/continuity criteria already exists;
 - persist newly established lifecycle facts;
+- persist typed lifecycle Decision relationships;
 - persist current-state convenience data if used;
 - preserve expected-version / compare-and-set semantics;
 - enforce operation idempotency;
-- retrieve ordered historical lifecycle facts.
+- retrieve ordered historical lifecycle facts and lifecycle-lineage relationships.
 
 The exact interface should be the smallest shape needed by the use cases. Do not create a generic CRUD repository or generic persistence service.
+
+The R2 physical representation may be optimized for the two required lifecycle relationship types, but the inward contract must not assert that an Investment Decision can relate to only one other Decision overall.
 
 ## 6.2 Application Unit of Work
 
@@ -244,6 +255,8 @@ The initial persistence adapter must prove:
 - idempotent retry behavior for retryable commands;
 - optimistic concurrency/version protection or equivalent compare-and-set semantics;
 - immutable preservation of lifecycle history;
+- durable preservation of renewal/Supersession relationship semantics;
+- prevention of lifecycle-lineage cycles;
 - durable recovery after process restart;
 - deterministic temporal ordering sufficient for historical reconstruction.
 
@@ -305,13 +318,13 @@ R2 should establish four test seams and no more than necessary.
 
 ## 9.1 Pure domain tests
 
-Verify lifecycle identity and transition invariants without database or services.
+Verify lifecycle identity, transition, and lifecycle-lineage relationship invariants without database or services.
 
-These tests should be the primary executable specification for same-decision vs new-decision behavior.
+These tests should be the primary executable specification for same-decision vs new-decision behavior and lineage-cycle prevention.
 
 ## 9.2 Application tests with deterministic fakes
 
-Verify use-case coordination, idempotency expectations, concurrency handling, and transaction outcomes through inward-owned persistence fakes.
+Verify use-case coordination, idempotency expectations, concurrency handling, lifecycle relationship establishment, and transaction outcomes through inward-owned persistence fakes.
 
 These tests must not import the PostgreSQL adapter.
 
@@ -324,6 +337,7 @@ Run the same semantic contract against the PostgreSQL adapter where practical:
 - idempotent retry;
 - concurrency conflict;
 - immutable history;
+- lifecycle relationship preservation;
 - historical ordering/retrieval.
 
 ## 9.4 Product acceptance tests
@@ -426,6 +440,8 @@ R2 must not implement or pre-scaffold:
 - Action Intent or broker reconciliation;
 - Outcome/Decision Evaluation/Lesson;
 - Attention scheduling or autonomous monitoring;
+- prior-Decision candidate retrieval, historical-analog ranking, or contextual prior-Decision binding;
+- graph database or generic graph framework infrastructure;
 - durable asynchronous follow-up infrastructure unless an R2 use case proves it necessary;
 - RAG/vector storage;
 - reports/PDF/email/MCP surfaces;
@@ -443,19 +459,21 @@ The implementation should proceed inside-out:
 ```text
 1. Decisions domain identity + lifecycle invariants
         ↓
-2. Pure domain tests / AS-001..005 semantics
+2. Lifecycle-lineage relationship invariants
         ↓
-3. Application commands + query contracts
+3. Pure domain tests / AS-001..005 semantics
         ↓
-4. Technology-neutral persistence ports
+4. Application commands + query contracts
         ↓
-5. Architecture/vendor-isolation checks
+5. Technology-neutral persistence ports
         ↓
-6. Initial PostgreSQL adapter + fresh migration lineage
+6. Architecture/vendor-isolation checks
         ↓
-7. Adapter contract tests
+7. Initial PostgreSQL adapter + fresh migration lineage
         ↓
-8. Product-level R2 acceptance evidence
+8. Adapter contract tests
+        ↓
+9. Product-level R2 acceptance evidence
 ```
 
 Do not begin from database tables and work inward. The schema follows the domain/application contract.
@@ -473,15 +491,17 @@ R2 is complete only when all of the following are demonstrated:
 5. renewed judgment after resolution creates a distinct causally linked Investment Decision;
 6. External Resolution is distinct from substantive human resolution;
 7. Supersession preserves historical identity/relationships;
-8. current and historical decision lifecycle views are reconstructable from direct business facts;
-9. retry cannot create duplicate business truth for an idempotent operation;
-10. stale concurrent mutation cannot silently overwrite newer decision state;
-11. persistence contracts contain no PostgreSQL/ORM/vendor-native types;
-12. the initial PostgreSQL adapter satisfies the same inward-owned contract as deterministic test fakes;
-13. greenfield migrations establish a fresh schema lineage and do not target legacy tables;
-14. executable architecture checks prevent inward vendor leakage and legacy imports;
-15. `AS-001` through `AS-005` and `AS-022` have objective acceptance evidence;
-16. no later 0.2.0 domain owner has been prematurely collapsed into the Decisions aggregate or persistence taxonomy.
+8. lifecycle lineage distinguishes renewal from Supersession and rejects lineage cycles;
+9. current and historical decision lifecycle views are reconstructable from direct business facts;
+10. retry cannot create duplicate business truth for an idempotent operation;
+11. stale concurrent mutation cannot silently overwrite newer decision state;
+12. persistence contracts contain no PostgreSQL/ORM/vendor-native types;
+13. the initial PostgreSQL adapter satisfies the same inward-owned contract as deterministic test fakes;
+14. greenfield migrations establish a fresh schema lineage and do not target legacy tables;
+15. executable architecture checks prevent inward vendor leakage and legacy imports;
+16. `AS-001` through `AS-005` and `AS-022` have objective acceptance evidence;
+17. no later 0.2.0 domain owner has been prematurely collapsed into the Decisions aggregate or persistence taxonomy;
+18. R2 relationship contracts do not make lifecycle-lineage cardinality or relational storage shape an inward assumption that would prevent later many-to-many prior-Decision context relationships.
 
 # Pre-specification design handoff
 
@@ -495,6 +515,8 @@ approved R2 component-boundary plan
 platform domain interaction map
         ↓
 Investment Decision lifecycle design
+        +
+Investment Decision relationship design
         +
 Investment Decision application-use-case design
         +
@@ -515,6 +537,7 @@ Current design artifacts:
 
 - [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
 - [`investment-decisions-lifecycle-model.md`](investment-decisions-lifecycle-model.md);
+- [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
 - [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md).
 

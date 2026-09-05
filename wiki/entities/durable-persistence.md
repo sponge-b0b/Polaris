@@ -13,3 +13,4 @@
 ### Planned
 
 * **R2 Investment Decision persistence design** — use a narrow Decisions command store plus Decision Memory reader rather than a generic repository/UoW framework; atomically maintain current Decision state, immutable lifecycle facts, and command idempotency receipts; preserve effective and recorded time; and use PostgreSQL only as the initial adapter behind these inward-owned semantics. (source: docs/proposed/durable-persistence-investment-decision-history.md)
+* **Decision relationship persistence** — preserve typed Decision relationship semantics independently of storage technology; R2 persists renewal/Supersession lineage without making one-predecessor relational convenience an inward contract, so later many-to-many `PRIOR_DECISION_CONTEXT` edges and graph-shaped read models can be added without redefining Investment Decision identity or requiring a graph database. (source: docs/proposed/investment-decisions-decision-relationship-model.md)

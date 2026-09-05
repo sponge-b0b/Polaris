@@ -13,3 +13,4 @@
 ### Planned
 
 * **R2 Investment Decision application contract** — define explicit lifecycle commands and Decision Memory queries with operation-scoped idempotency, expected-version concurrency protection, semantic transaction boundaries, and an internal substantive-resolution seam that can later coordinate with Governance without fabricating Governance-owned authority facts. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md)
+* **Decision relationship coordination** — application use cases establish Decision-to-Decision relationships; lifecycle commands create renewal/Supersession edges, while future Decision Context assembly must distinguish candidate retrieval from attributable material selection before persisting `PRIOR_DECISION_CONTEXT`. The Investment Decision aggregate does not discover or mutate its own graph neighbors. (source: docs/proposed/investment-decisions-decision-relationship-model.md)

@@ -4,7 +4,7 @@
 **Release:** 0.2.0  
 **Primary entity:** `application-use-cases`  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
-**Purpose:** Define the R2 application command/query contracts, continuity arbitration, transaction boundaries, idempotency, concurrency, actor/provenance handling, temporal correction, and cross-entity seams for the Investment Decision lifecycle.
+**Purpose:** Define R2 command/query contracts, continuity arbitration, transactions, idempotency, concurrency, actor/provenance handling, temporal correction, and cross-owner seams.
 
 ## Authority
 
@@ -19,31 +19,28 @@ This design refines:
 - [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - accepted ADRs under [`../adr/`](../adr/).
 
-Application use cases coordinate owner behavior and technology-neutral ports. They do not create a second domain model.
-
 ---
 
-# 1. R2 application surface
+# 1. Application surface
 
-Conceptual command responsibilities:
+Commands:
 
 ```text
 initiate_decision
-establish_decision_scope
+establish_or_refine_decision_scope
 revise_decision_subject
-revise_decision_scope
 record_deferral_consequence
 resume_decision_work
 withdraw_decision_work
 record_substantive_resolution
-externally_resolve_decision
+record_external_resolution
 retract_unsupported_decision_need
 initiate_renewed_decision
 record_supersession
 correct_decision_lifecycle
 ```
 
-Conceptual query responsibilities:
+Queries:
 
 ```text
 get_decision
@@ -54,605 +51,479 @@ find_unresolved_decisions_for_continuity
 get_decision_lineage
 ```
 
-Names are semantic responsibilities, not mandated Python symbols.
-
-R2 does not expose Recommendation, Governance, Attention, Action Intent, or Learning APIs.
+R2 does not expose Recommendation, Attention, Governance persistence, Action Intent, or Learning APIs.
 
 ---
 
 # 2. Command envelope
 
-Every mutating R2 command carries application-owned metadata independent of database/broker technology:
+Every mutation carries:
 
-- operation/idempotency identity;
+- operation/idempotency ID;
 - command kind;
-- Actor Attribution or trusted actor reference where the command establishes an attributable domain act;
-- trigger/origin provenance separately from Actor Attribution;
-- requested effective time only when caller legitimately knows it, otherwise application clock time;
-- expected Decision version(s) for mutations of existing Decisions;
-- command-specific payload.
+- Actor Attribution/trusted actor reference where domain act attribution applies;
+- trigger/source provenance separately;
+- technical request/work provenance separately where useful;
+- requested effective time only when semantically legitimate;
+- expected Decision version(s) where existing state is mutated;
+- command payload.
 
-The envelope must not contain:
-
-- ORM session/database transaction;
-- SQL expression;
-- broker-native message;
-- workflow/job identity as business identity;
-- model/provider identity as Actor Attribution;
-- vendor SDK request type.
-
-Technical request/work identifiers may be carried separately for observability/correlation.
+No ORM/SQL/broker/vendor-native objects cross the inward contract.
 
 ---
 
-# 3. Semantic result model
+# 3. Result and error model
 
-Commands return success only after required durable commit succeeds.
+Success is returned only after durable commit.
 
-A successful result contains the minimum useful combination of:
+Results may contain affected Decision IDs, supported Need/judgment/work state, versions, committed fact/relationship IDs, and replay-vs-new indicator.
 
-- affected Decision ID(s);
-- resulting resolution/work disposition where applicable;
-- resulting Decision version(s);
-- committed lifecycle/relationship fact IDs where useful;
-- whether result is newly committed or idempotent replay.
+Required distinguishable failures/outcomes:
 
-Queries return application-owned Decision Memory/read models, never persistence rows.
-
----
-
-# 4. Error/outcome model
-
-R2 callers must distinguish at least:
-
-| Meaning | Caller consequence |
-|---|---|
-| Decision not found | Target identity absent. |
-| Invalid lifecycle operation | Command incompatible with supported disposition/work state. |
-| Decision currently superseded/non-operative | Direct mutation is not allowed without correcting supersession. |
-| Concurrency conflict | Expected version stale; reload/re-evaluate. |
-| Continuity conflict | Candidate set changed between continuity determination and initiation commit. |
-| Continuity ambiguous | Same-vs-new Decision cannot be determined reliably; no new Decision committed. |
-| Idempotency conflict | Same operation ID reused for materially different request. |
-| Scope state invalid | Establish/revise operation inconsistent with current Scope state. |
-| Deferral basis invalid/missing | Human Deferral consequence cannot be recorded. |
-| Resolution basis invalid/missing | Substantive resolution cannot proceed. |
-| External-resolution basis invalid/missing | External Resolution cannot proceed. |
-| Need-retraction basis invalid/missing | Unsupported Need correction cannot proceed. |
-| Relationship conflict | Invalid renewal/Supersession/cycle semantics. |
-| Lifecycle correction conflict | Correction fails to identify the prior interpretation/fact it qualifies. |
-| Persistence unavailable/commit failed | No success returned. |
-
-Transport mapping belongs to future interfaces.
+- Decision not found;
+- invalid lifecycle operation;
+- Decision currently superseded/non-operative;
+- concurrency conflict;
+- continuity conflict;
+- continuity ambiguous;
+- idempotency conflict;
+- Scope state invalid;
+- Deferral basis invalid/missing;
+- substantive-resolution basis invalid/missing;
+- External-Resolution basis invalid/missing;
+- Need-retraction basis invalid/missing;
+- relationship/cycle conflict;
+- lifecycle-correction conflict;
+- persistence unavailable/commit failed.
 
 ---
 
-# 5. Initiation and continuity arbitration
+# 4. Initiation / continuity
 
-## 5.1 Inputs
+## Inputs
 
 - operation ID;
-- Decision Need content;
+- Decision Need determination;
 - Decision Subject;
-- Decision Scope value **or explicit unresolved Scope**;
-- Actor Attribution for Decision Need determination where material;
-- trigger/origin provenance;
-- explicit continuity determination based on the current candidate set: `CREATE_NEW`, `CONTINUE_EXISTING(<id>)`, or `AMBIGUOUS`;
-- continuity observation token/version or equivalent semantic guard supplied by the continuity query/transaction boundary.
+- Decision Scope with confirmed Portfolio refs + `UNRESOLVED|ESTABLISHED` completeness;
+- Actor Attribution for Need determination where material;
+- trigger/source provenance;
+- explicit continuity outcome: `CREATE_NEW`, `CONTINUE_EXISTING(id)`, or `AMBIGUOUS`;
+- continuity observation guard returned by candidate query/transaction boundary.
 
-`renewed_from` and Supersession are separate relationship semantics and are not overloaded onto ordinary new initiation.
+## R2 candidate policy
 
-## 5.2 Behavior
+To avoid hidden matching heuristics, initial R2 continuity query may return **all currently unresolved, non-superseded Decisions**. Optimization/filtering waits until a later owner earns it.
 
-If continuity determination is `CONTINUE_EXISTING`, initiation does not create a new Decision; the caller proceeds through the appropriate existing-Decision use case.
+## Behavior
 
-If `AMBIGUOUS`, no Decision is created.
+- `CONTINUE_EXISTING` creates nothing; caller uses existing-Decision path;
+- `AMBIGUOUS` creates nothing;
+- `CREATE_NEW` revalidates candidate basis atomically before commit.
 
-For `CREATE_NEW`:
+Commit sequence:
 
-1. check operation idempotency;
-2. validate Need/Subject/Scope representation;
-3. revalidate continuity basis atomically against current unresolved candidates;
-4. if the candidate basis changed or now creates material ambiguity, fail with `ContinuityConflict`/`ContinuityAmbiguous`;
-5. ask Decisions domain to establish Decision Need + Investment Decision;
-6. atomically persist Need, current state, initial fact, any initiation relationships, and command receipt;
-7. return success after durable commit.
+1. check idempotency;
+2. validate Need/Subject/Scope;
+3. atomically revalidate continuity observation;
+4. changed candidate basis -> `ContinuityConflict` and no creation;
+5. ambiguous continuity -> `ContinuityAmbiguous` and no creation;
+6. establish exactly one Need + one Decision;
+7. commit Need, Decision, initial fact, initiation relationships, receipt;
+8. return success.
 
-## 5.3 Why operation idempotency is insufficient
-
-Two different operation IDs can race to represent the same coherent unresolved choice. R2 therefore requires continuity arbitration in addition to idempotency.
-
-The persistence adapter may implement this with serializable semantics, locks, bounded generation/version guards, or another correct mechanism; the application contract is only the fail-closed behavior.
-
----
-
-# 6. Scope establishment/revision
-
-## Establish unresolved Scope
-
-Inputs:
-
-- operation ID;
-- Decision ID;
-- expected version;
-- established Scope;
-- attributable basis/provenance.
-
-Valid only when Scope is explicitly unresolved.
-
-Produces `DecisionScopeEstablished`; preserves Decision ID.
-
-## Revise established Scope
-
-Valid for unresolved, currently operative Decision work when the coherent choice remains the same.
-
-Produces `DecisionScopeRevised`; does not manufacture new identity.
-
-If changing Scope reveals that a different coherent choice is now required, caller must use explicit new/renew/supersession semantics.
+At R2 scale, the PostgreSQL adapter may serialize all Decision initiation globally if that is the smallest correct mechanism. This is an adapter choice, not Decision identity.
 
 ---
 
-# 7. Subject revision
+# 5. Scope refinement
 
-Explicit Subject revision is allowed only while the Decision remains unresolved and currently operative.
+Input Scope carries:
+
+```text
+confirmed Portfolio refs
+completeness = UNRESOLVED | ESTABLISHED
+```
 
 Rules:
 
-- same Decision ID;
-- append immutable `DecisionSubjectRevised` fact;
-- expected-version protection;
-- terminal judgment dispositions are immutable except through explicit correction semantics;
-- changing Subject must not be used to hide a genuinely different investment choice.
+- zero-known Portfolio unresolved Scope is valid;
+- partial confirmed Scope can remain `UNRESOLVED`;
+- transitioning/refining Scope preserves same Decision ID when coherent choice remains same;
+- every material change is immutable history;
+- empty/default Portfolio ID is never the unresolved marker;
+- a different coherent choice uses explicit new/renew/supersession semantics.
 
 ---
 
-# 8. Record Deferral consequence
+# 6. Subject revision
 
-Canonical Deferral is a Human Investment Decision owned by Governance.
+Allowed only for unresolved, currently operative Decision when revision still describes same coherent choice.
 
-R2 command records only the **Decisions-side work consequence**.
+Append immutable Subject-revision fact; expected-version protected.
+
+---
+
+# 7. Record Deferral consequence
+
+Canonical Deferral is Governance-owned Human Investment Decision.
+
+R2 records only Decisions-side work posture from a trusted Deferral basis.
 
 Inputs:
 
 - operation ID;
-- Decision ID;
-- expected version;
-- trusted typed Deferral/Human Investment Decision basis reference;
+- Decision ID/version;
+- trusted typed Human Investment Decision/Deferral reference;
 - effective time;
-- optional awaited-condition description/reference when an owner/type exists.
+- optional awaited-condition description/reference.
+
+Valid when Need=`ACTIVE`, judgment=`UNRESOLVED`, Decision operative, and work is `ACTIVE`, `WITHDRAWN`, or already `DEFERRED`.
 
 Behavior:
 
-- requires `UNRESOLVED + ACTIVE` and currently operative Decision;
-- moves work disposition to `DEFERRED`;
-- appends `DecisionDeferred`;
-- does not create a Human Investment Decision record;
-- does not create a Review Condition.
-
-R2 tests may use deterministic trusted fixture references only.
+- result work=`DEFERRED`;
+- append new `DecisionDeferred` fact even for re-Deferral;
+- preserve all prior Deferral facts;
+- no Review Condition is created;
+- no Governance fact is fabricated.
 
 ---
 
-# 9. Resume decision work
+# 8. Resume work
+
+Valid when:
+
+- Need=`ACTIVE`;
+- judgment=`UNRESOLVED`;
+- Decision not currently superseded;
+- work=`DEFERRED` or `WITHDRAWN`.
+
+Result work=`ACTIVE` + immutable resume fact.
+
+If already `ACTIVE`, return explicit no-transition/already-active outcome.
+
+An awaited condition may motivate resume. A Review Condition on a resolved Decision never resumes the old Decision.
+
+---
+
+# 9. Withdraw work
+
+Valid while Need=`ACTIVE`, judgment=`UNRESOLVED`, Decision operative, work=`ACTIVE|DEFERRED`.
+
+Append `DecisionWorkWithdrawn`; result work=`WITHDRAWN`.
+
+No Human Investment Decision, Deferral, substantive resolution, External Resolution, or Supersession is implied.
+
+---
+
+# 10. Record substantive resolution
 
 Inputs:
 
 - operation ID;
-- Decision ID;
-- expected version;
-- resumption basis/reason.
-
-Behavior:
-
-- `UNRESOLVED + DEFERRED` -> `ACTIVE` + `DecisionWorkResumed`;
-- `UNRESOLVED + WITHDRAWN` -> `ACTIVE` only when Decision Need remains supported and same coherent choice is being resumed;
-- already `ACTIVE` returns explicit no-transition/already-active outcome rather than manufacturing history;
-- substantively/external-resolved/retracted Decisions cannot resume;
-- currently superseded unresolved Decision cannot resume until relationship support is corrected.
-
-An awaited condition may motivate resumption. A Review Condition on a resolved Decision does not resume the old Decision.
-
----
-
-# 10. Withdraw current decision work
-
-Inputs:
-
-- operation ID;
-- Decision ID;
-- expected version;
-- Actor Attribution/basis for withdrawal;
-- effective time.
-
-Behavior:
-
-- valid only while unresolved and currently operative;
-- moves work disposition to `WITHDRAWN`;
-- appends `DecisionWorkWithdrawn`;
-- does not create Deferral, Human Investment Decision, External Resolution, or Supersession;
-- later same-choice resumption may return the same ID to `ACTIVE`.
-
----
-
-# 11. Record substantive resolution
-
-Inputs:
-
-- operation ID;
-- Decision ID;
-- expected version;
+- Decision ID/version;
 - trusted typed resolution-basis reference;
 - effective time;
 - optional lifecycle summary.
 
+Ordinary path requires Need=`ACTIVE` and judgment=`UNRESOLVED` at supported effective point.
+
 Behavior:
 
-1. load current Decision/version/relationship applicability;
-2. validate resolution-basis category;
-3. reject if current supported effective state already precludes substantive resolution;
-4. ask domain to establish `SUBSTANTIVELY_RESOLVED`;
-5. atomically persist lifecycle change + receipt;
-6. later Governance implementation coordinates Human Investment Decision + Decisions consequence in one application transaction when required.
+- validate basis category;
+- set judgment=`SUBSTANTIVELY_RESOLVED`;
+- work becomes not applicable;
+- append Decisions-side resolution fact + receipt.
 
-R2 does not expose a public path allowing arbitrary self-asserted Human Investment Decision/authority.
+R2 tests use trusted fixtures. Later Governance implementation coordinates real Human Investment Decision fact + Decisions consequence atomically when required.
+
+If later knowledge proves Need was already eliminated/unsupported at the resolution effective time, use lifecycle correction; do not delete the human act or prior recorded fact.
 
 ---
 
-# 12. External Resolution
+# 11. External Resolution
 
 Inputs:
 
 - operation ID;
-- Decision ID;
-- expected version;
-- attributable basis explaining how circumstances eliminated the Decision Need;
-- external/source fact reference where available;
+- Decision ID/version;
+- basis showing changed circumstance eliminated Decision Need;
+- source/external fact reference where available;
 - effective time.
 
+Ordinary path requires supported Need=`ACTIVE`, judgment=`UNRESOLVED`.
+
 Behavior:
 
-- ordinary command applies to currently unresolved Decision whose choice is eliminated;
-- produces `EXTERNALLY_RESOLVED` + `DecisionExternallyResolved`;
-- creates no Human Investment Decision, Recommendation, or Action Intent;
-- changed attractiveness/state alone is insufficient;
-- if the decisive circumstance is discovered only after a conflicting lifecycle fact was already recorded, use lifecycle correction rather than silently overwriting/rejecting history.
+- Need -> `EXTERNALLY_ELIMINATED`;
+- work becomes not applicable;
+- append `DecisionNeedExternallyEliminated`;
+- judgment axis remains `UNRESOLVED` unless separate historical/corrected facts say otherwise;
+- create no Human Investment Decision/Recommendation/Action Intent.
+
+Changed Evidence/Portfolio attractiveness alone is insufficient.
+
+If discovered after conflicting history was recorded, use correction path.
 
 ---
 
-# 13. Retract unsupported Decision Need
+# 12. Retract unsupported Decision Need
+
+May occur while unresolved or after other historical acts.
 
 Inputs:
 
 - operation ID;
-- Decision ID/Need ID;
-- expected version;
+- Decision/Need ID + expected version;
 - attributable correction basis;
 - effective interpretation time if meaningful;
-- recorded time from application clock.
+- Actor/provenance.
 
 Behavior:
 
-- establishes current supported disposition `NEED_RETRACTED`;
-- appends `DecisionNeedRetracted`;
-- preserves original Need and why it was created;
-- does not classify the case as External Resolution;
-- later genuine supported Need uses normal new identity rules.
+- Need -> `RETRACTED_UNSUPPORTED`;
+- preserve original Need and all historical acts;
+- if a prior Decisions-side resolution interpretation is no longer supported, append lifecycle correction referencing it;
+- never classify this as External Resolution merely because further work stops.
 
-This is a correction of the Need determination, not a generic delete/cancel API.
+A later genuine Need creates a new Need/Decision under normal continuity rules.
 
 ---
 
-# 14. Renewed Decision
+# 13. Renewed Decision
 
 Inputs:
 
 - operation ID;
-- one or more predecessor Decision IDs whose supported dispositions are substantively/external-resolved;
-- new Decision Need;
-- Subject;
-- Scope or explicit unresolved Scope;
+- one or more causal predecessor IDs;
+- new Need/Subject/Scope;
 - Actor/trigger provenance;
-- continuity basis.
+- continuity observation/outcome.
 
-Behavior:
+Each predecessor must currently support either:
 
-- predecessors remain unchanged;
-- successor gets new Decision ID;
-- establish `RENEWED_FROM` edge(s) to each independently supported causal predecessor;
-- ordinary initiation continuity safeguards still apply;
-- if predecessor is still unresolved, caller must continue/supersede as appropriate.
+- substantive judgment resolution; or
+- externally eliminated Decision Need.
+
+Successor gets new ID + `RENEWED_FROM` relationship(s). Predecessors remain unchanged.
+
+A retracted-unsupported Need is not automatically a renewal predecessor.
 
 ---
 
-# 15. Supersession use cases
+# 14. Supersession
 
-Supersession does not terminalize the predecessor's resolution disposition.
+Supersession never rewrites Need/judgment/work axes.
 
-## 15.1 Initiate successor with Supersession
+## Initiate with Supersession
 
-One transaction may:
+One transaction may create successor + one or more `SUPERSEDES` edges.
 
-- establish new successor Decision/Need;
-- add one or more `SUPERSEDES` relationships to existing Decisions;
-- validate no lineage cycle;
-- commit relationship scope/basis/effective time;
-- preserve every predecessor lifecycle fact unchanged.
+## Record later Supersession
 
-## 15.2 Record Supersession between existing Decisions
+May connect already-existing Decisions.
+
+Targets may be unresolved or historically substantively resolved. Scope/basis explains what continuing applicability is displaced.
+
+No one-to-one cardinality.
+
+An unresolved superseded target becomes non-operative while supported relationship applies.
+
+---
+
+# 15. Lifecycle correction
 
 Inputs:
 
 - operation ID;
-- source successor ID + expected version as required;
-- one or more target predecessor IDs + expected versions as required;
-- scope/basis of displacement;
-- effective time.
-
-Targets may be unresolved or already substantively/external-resolved.
-
-A resolved target remains historically resolved while becoming superseded as an operative basis.
-
-A currently unresolved target becomes non-operative for ordinary direct work while the supported Supersession edge remains in force.
-
-No one-to-one cardinality is assumed.
-
----
-
-# 16. Lifecycle correction
-
-Late information may change the supported understanding of an earlier lifecycle disposition.
-
-Inputs:
-
-- operation ID;
-- Decision ID;
-- expected version;
-- correction basis/reference;
-- fact(s)/interpretation being corrected;
-- corrected effective disposition/time;
-- Actor Attribution/provenance where material.
+- Decision ID/version;
+- correction basis;
+- prior fact/interpretation being corrected;
+- corrected Need/judgment/work interpretation + effective time;
+- Actor/provenance.
 
 Behavior:
 
-- append `DecisionLifecycleCorrected` or equivalent explicit correction fact;
-- never update/delete corrected historical fact;
-- recompute current supported effective projection;
-- preserve recorded sequence/what-was-known timeline;
-- correction itself is idempotent/retry-safe.
+- append immutable correction fact/reference;
+- never update/delete corrected fact;
+- recompute supported current/effective projection;
+- preserve recorded sequence and prior as-known-at history;
+- retry-safe/idempotent.
 
-Example late External Resolution:
+Late External Resolution example:
 
-- prior `DecisionResolved` remains recorded history;
-- correction may establish `EXTERNALLY_RESOLVED` as the supported effective disposition at an earlier effective time;
-- Human Investment Decision history remains untouched.
+- 10:05 Human Investment Decision + Decisions-side resolution recorded;
+- 10:10 learn Need was externally eliminated effective 10:00;
+- preserve human act and original resolution record;
+- append correction making Need=`EXTERNALLY_ELIMINATED` effective 10:00 and qualifying Decisions-side substantive-resolution interpretation as unsupported for effective lifecycle;
+- `as_known_at(10:06)` still shows what Polaris knew then.
 
 ---
 
-# 17. Query contracts
+# 16. Queries
 
-## 17.1 Get current Decision
+## Current Decision
 
 Returns:
 
-- Decision ID / Need ID;
+- Decision/Need IDs;
 - Subject;
-- Scope including explicit unresolved state;
-- supported current resolution disposition;
-- work disposition when unresolved;
-- current version;
-- currently supported renewal/Supersession relationships;
-- creation/recorded timestamps;
+- Scope confirmed refs + completeness;
+- supported Need status;
+- supported judgment status;
+- work posture if applicable;
+- current operability/Supersession summary;
+- version;
 - no persistence-native types.
 
-## 17.2 Get Decision history
+## History
 
-Returns immutable lifecycle facts and relationship facts in deterministic recorded order, preserving effective and recorded time plus correction references.
+Immutable lifecycle + relationship facts in recorded order with effective/recorded times/corrections.
 
-## 17.3 As-known-at
+## `as_known_at(K)`
 
-Input: Decision ID + knowledge cutoff.
+Only facts/relationships/corrections recorded by `K`.
 
-Include only facts/relationships/corrections recorded by cutoff. Reconstruct the state Polaris durably knew then.
+## `effective_at(T, knowledge_cutoff=K)`
 
-## 17.4 Effective-at
+Using only knowledge recorded by `K`, return supported Need/judgment/work/applicability state effective at `T`. Default K=current knowledge.
 
-Input:
+## Continuity candidates
 
-- Decision ID;
-- effective time;
-- optional knowledge cutoff (default current knowledge).
+Initial R2 returns all unresolved non-superseded Decisions plus an observation guard suitable for atomic revalidation.
 
-Returns supported effective lifecycle state using only facts known by the knowledge cutoff.
+## Lineage
 
-This is distinct from Evidence Judgment-Time Availability.
-
-## 17.5 Find unresolved Decisions for continuity
-
-Returns a deliberately conservative bounded candidate set plus an application-owned continuity observation token/version or equivalent guard.
-
-The query does not decide same-vs-new identity. It supplies candidates and a basis that must be revalidated atomically before a distinct new Decision commits.
-
-## 17.6 Decision lineage
-
-Returns typed renewal/Supersession edges with effective/recorded times and bounded traversal semantics.
+Typed renewal/Supersession edges with bounded traversal/time filters.
 
 ---
 
-# 18. Transaction patterns
+# 17. Transactions
 
-## Single-Decision mutation
+Single mutation:
 
 ```text
-load Decision + version
-check idempotency
-apply domain change
-atomic commit:
-  current projection
-  + immutable fact
-  + receipt
-return committed result
+load/version/idempotency
+-> domain change
+-> atomic current projection + immutable fact + receipt
 ```
 
-## Initiation with continuity arbitration
+Initiation:
 
 ```text
-query bounded unresolved candidates
-explicit continuity determination
-        ↓
-commit transaction revalidates candidate basis
-        ↓
-changed/ambiguous -> no creation
-unchanged + CREATE_NEW ->
-  Need + Decision + initial fact + receipt
+candidate observation
+-> explicit continuity outcome
+-> atomic revalidation
+-> Need + Decision + initial fact + relationships + receipt
 ```
 
-## Supersession
+Supersession:
 
 ```text
-load source/targets + versions
-validate relationship semantics/cycle
-atomic commit relationship facts
-(and successor creation when combined initiation)
+load source/targets
+-> validate cycle/basis
+-> atomic relationships (+ successor creation if combined)
 ```
 
-No predecessor resolution fact is overwritten.
-
-## Future cross-owner human judgment
+Future cross-owner human judgment:
 
 ```text
-Governance owner fact
-        +
-Decisions work/resolution consequence
-        ↓
-ONE application transaction when use-case atomicity requires it
+Governance fact + Decisions consequence
+-> one application transaction when required
 ```
 
 ---
 
-# 19. Idempotency
+# 18. Idempotency / concurrency
 
-For each retryable command:
-
-1. unseen operation -> execute;
-2. prior committed same semantic request -> return stable prior result;
-3. prior committed different request -> `IdempotencyConflict`.
-
-Operation identity is not Investment Decision identity.
-
-Continuity arbitration remains a separate safeguard for different operation IDs.
+- same operation/same request -> stable replay;
+- same operation/different request -> conflict;
+- expected-version stale -> conflict, no partial fact/receipt;
+- continuity arbitration separately protects distinct operation IDs;
+- relationship commands use required multi-Decision conflict detection.
 
 ---
 
-# 20. Optimistic concurrency
+# 19. Persistence ports
 
-Mutations use expected version(s) as appropriate.
+`DecisionCommandStore` semantics:
 
-Adapter semantics must ensure stale commands leave:
+- current load;
+- idempotency replay;
+- atomic single mutation;
+- atomic continuity-safe initiation;
+- atomic relationship establishment;
+- lifecycle correction.
 
-- no partial current-state change;
-- no lifecycle/relationship fact;
-- no false receipt.
+`DecisionMemoryReader` semantics:
 
-Caller reloads/re-evaluates rather than application silently applying stale intent.
+- current;
+- history;
+- as-known-at;
+- effective-at;
+- all unresolved non-superseded continuity candidates for R2;
+- typed lineage.
 
----
-
-# 21. Persistence ports required by R2
-
-## Decision command store
-
-Must support semantic operations for:
-
-- current state/version load;
-- idempotency inspection/replay;
-- atomic single-Decision change;
-- atomic initiation with continuity revalidation;
-- atomic relationship establishment, including many-target Supersession;
-- lifecycle correction;
-- stable replay result.
-
-## Decision memory reader
-
-Must support:
-
-- current view inputs;
-- ordered lifecycle/relationship history;
-- as-known-at reconstruction;
-- effective-at reconstruction;
-- conservative unresolved continuity candidates;
-- typed renewal/Supersession lineage.
-
-No generic CRUD repository/platform Unit of Work is introduced merely by convention.
+No generic CRUD repository/UoW yet.
 
 ---
 
-# 22. Required application tests
+# 20. Required application tests
 
-- initiation with unresolved Scope succeeds;
-- Scope later establishes without changing Decision ID;
-- actor differs from trigger provenance;
-- initiation same operation replay returns same Decision;
-- same operation/different payload conflicts;
-- two different concurrent initiations cannot silently create duplicate Decisions when continuity basis overlaps;
-- continuity ambiguity creates no Decision;
-- Deferral requires trusted human-decision basis;
-- awaited condition resumes same deferred ID;
-- withdrawal does not create Deferral/resolution;
-- substantive resolution requires trusted basis;
-- External Resolution does not create human judgment;
-- unsupported Need retraction is distinct from External Resolution;
-- resolved Decision cannot reopen; renewal creates linked new ID;
-- resolved Decision may later be superseded without losing resolution history;
-- one successor may supersede multiple predecessors atomically when requested;
-- late lifecycle correction preserves earlier as-known-at view;
-- effective-at current knowledge can differ from earlier as-known-at;
-- persistence failure never returns successful result.
+- zero/partial Scope initiation;
+- Scope refinement preserves ID;
+- actor differs from trigger; model/provider remains provenance;
+- exact Need -> one Decision relationship;
+- same-operation replay/conflict;
+- distinct concurrent initiation re-evaluates after first commit;
+- ambiguity creates no Decision;
+- Deferral from ACTIVE/WITHDRAWN and re-Deferral from DEFERRED;
+- withdrawal distinct from Deferral/resolution;
+- External Resolution changes Need axis only;
+- Need retraction after prior human/resolution history preserves those facts and uses correction as needed;
+- renewal eligibility from substantive resolution or external elimination;
+- resolved Decision later superseded without resolution rewrite;
+- many-target Supersession;
+- as-known-at/effective-at diverge correctly after late correction;
+- persistence failure never returns success.
 
 ---
 
-# 23. Requirements traceability
+# 21. Requirements traceability
 
-| Requirement | Application consequence |
+| Requirement | Consequence |
 |---|---|
-| `DEC-001`–`DEC-004` | explicit continuity arbitration and identity-safe mutation. |
-| `DEC-006` | Deferral consequence requires Human Investment Decision basis. |
-| `DEC-008` | External Resolution has dedicated non-human path. |
-| `DEC-009`–`DEC-011` | renewal and Supersession preserve identities/histories. |
-| `DEC-013` | initiation accepts unresolved Scope. |
-| `DEC-014` | explicit work-withdrawal behavior. |
-| `DEC-015` | explicit Need-retraction correction. |
-| `DEC-016` | Supersession relationship does not replace resolution state/cardinality. |
-| `DEC-017` | continuity arbitration beyond operation idempotency. |
-| `DEC-018` | lifecycle correction + dual temporal queries. |
-| `DEC-019` | actor and trigger provenance separated. |
-| `MEM-011` | later context relationship design preserves historical target boundary. |
-| `REL-*` | atomicity/idempotency/concurrency/failure visibility. |
+| `DEC-001`–`DEC-004` | explicit identity/continuity. |
+| `DEC-006` | trusted Human Deferral basis + work posture. |
+| `DEC-008` | Need-side External Resolution. |
+| `DEC-009`–`DEC-011` | renewal/Supersession preserve histories. |
+| `DEC-013` | partial/unresolved Scope. |
+| `DEC-014` | withdrawal distinct. |
+| `DEC-015` | Need retraction after any historical stage is non-destructive. |
+| `DEC-016` | Supersession orthogonal/no cardinality default. |
+| `DEC-017` | continuity-safe initiation. |
+| `DEC-018` | correction + dual temporal queries. |
+| `DEC-019` | actor vs provenance. |
+| `MEM-011` | future context target historical boundary. |
 
 ---
 
-# 24. Out of scope
+# 22. Out of scope
 
-- web/CLI/MCP transport mapping;
-- authentication provider;
-- Governance/Human Investment Decision persistence;
-- full Review Condition/Awaited Condition entity models;
-- Recommendation/Evidence/Portfolio internals;
-- asynchronous follow-up for R2 unless a concrete command earns it;
-- generic mediator/CQRS/workflow/event-sourcing framework;
-- prior-Decision contextual binding implementation.
+Transport APIs, auth provider, Governance persistence, full Review/Awaited Condition models, Recommendation/Evidence/Portfolio internals, async follow-up unless earned, generic workflow/CQRS/event sourcing, and contextual prior-Decision binding implementation.
 
 ---
 
-# 25. Spec-readiness gate
+# 23. Spec-readiness gate
 
-This design is Spec-ready only when:
+Ready only when no Spec must decide:
 
-1. initiation continuity, concurrency, and ambiguity behavior are deterministic;
-2. Scope-unresolved initiation is supported;
-3. Deferral requires the proper cross-owner human basis;
-4. withdrawal and Need retraction cannot be confused with resolution;
-5. Supersession works independently of historical resolution and without one-to-one assumptions;
-6. lifecycle correction and dual temporal queries are explicit;
-7. Actor Attribution is distinct from trigger/technical provenance;
-8. ports remain technology-neutral;
-9. no Spec must invent these application semantics.
+- Need vs judgment vs work vs Supersession semantics;
+- partial Scope meaning;
+- Deferral/re-Deferral rules;
+- continuity candidate behavior/concurrent initiation;
+- late Need retraction/External Resolution correction;
+- actor/provenance distinction;
+- dual temporal queries;
+- transaction/idempotency guarantees.

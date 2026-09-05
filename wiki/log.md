@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 second adversarial audit | Decision Need status separated from judgment resolution
+
+Refined the proposed R2 lifecycle after the second adversarial pass found that External Resolution and unsupported-Need correction had still been conflated with substantive judgment state. Split Decision Need status, judgment-resolution status, unresolved work posture, and Supersession into independent dimensions; added zero/partial/established Scope completeness, one-Need/one-Decision integrity, explicit re-Deferral, conservative all-unresolved continuity candidates for R2, and correction semantics that preserve human acts when later Need facts change effective lifecycle understanding. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 pre-Spec audit remediation | lifecycle, continuity, graph, and temporal gaps closed
 
 Reworked the proposed R2 Decision design after an adversarial documentation audit. Separated resolution disposition, unresolved work posture, and Supersession; allowed unresolved Scope at initiation; made Deferral depend on a trusted Human Investment Decision basis; added explicit decision-work withdrawal and unsupported-Need retraction semantics; added fail-closed continuity arbitration for concurrent initiation; defined non-destructive lifecycle correction plus distinct as-known-at/effective-at reconstruction; removed one-to-one Supersession assumptions; made prior-Decision context bind the target state actually used; and added the Action Continuity ↔ Portfolio & Risk interaction seam. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, `durable-persistence`, `governance-authority`, `portfolio-risk`, and `action-continuity`.

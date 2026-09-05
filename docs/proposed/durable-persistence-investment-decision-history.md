@@ -4,7 +4,7 @@
 **Release:** 0.2.0  
 **Primary entity:** `durable-persistence`  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
-**Purpose:** Define R2 persistence semantics and the initial PostgreSQL adapter precisely enough that Specs can choose concrete libraries/schema details without redefining lifecycle truth, continuity, temporal correction, idempotency, concurrency, or graph relationships.
+**Purpose:** Define R2 persistence semantics and the initial PostgreSQL adapter precisely enough that Specs can choose concrete libraries/schema details without redefining Decision Need status, judgment resolution, work posture, continuity, temporal correction, idempotency, concurrency, or Decision relationships.
 
 ## Authority
 
@@ -28,19 +28,17 @@ PostgreSQL is the initial/reference adapter, not the persistence architecture.
 
 R2 persistence must make these statements true independently of workflow/job/runtime replay:
 
-1. Decision Need and Investment Decision survive restart;
-2. Decision Scope may remain explicitly unresolved and later be established historically;
-3. lifecycle facts and corrections are immutable/reconstructable;
-4. current supported resolution/work state is efficiently readable;
+1. exactly one Decision Need grounds one Investment Decision and both survive restart;
+2. Decision Scope can preserve zero, partial, or fully established Portfolio applicability without inventing defaults;
+3. Decision Need status, judgment-resolution status, unresolved work posture, and Supersession remain independent semantics;
+4. immutable lifecycle facts and explicit corrections reconstruct both what was known and what is currently supported as effective history;
 5. retries do not duplicate business facts;
-6. stale concurrent mutations cannot overwrite newer state;
-7. distinct concurrent initiation operations cannot silently bypass continuity arbitration;
-8. renewal and many-to-many Supersession relationships are durable/queryable without rewriting predecessor resolution;
-9. as-known-at and effective-as-understood historical queries remain distinct;
-10. late lifecycle correction does not delete prior recorded facts;
-11. Actor Attribution remains distinguishable from trigger/technical provenance;
-12. persistence-native types do not leak inward;
-13. greenfield schema/migrations remain independent of `legacy/`.
+6. stale mutations cannot silently overwrite newer state;
+7. different concurrent initiation operations cannot bypass continuity arbitration merely because their operation IDs differ;
+8. renewal and many-to-many Supersession relationships are durable and queryable without rewriting predecessor lifecycle facts;
+9. Actor Attribution, trigger/source provenance, and technical provenance remain distinguishable;
+10. persistence-native types do not leak inward;
+11. greenfield schema/migrations have no dependency on `legacy/`.
 
 ---
 
@@ -50,78 +48,92 @@ R2 persistence must make these statements true independently of workflow/job/run
 
 The application needs a semantic write capability that can:
 
-- load current Decision state/version;
+- load current Decision state and version;
 - inspect prior command result by operation identity;
 - atomically commit one-Decision lifecycle change;
 - atomically establish a new Decision after continuity revalidation;
-- atomically establish one or multiple typed Decision relationships;
+- atomically establish one or more typed Decision relationships;
 - atomically combine successor initiation with Supersession relationships when requested;
-- persist immutable lifecycle facts/corrections;
-- persist/update current-state projection;
+- persist immutable lifecycle facts and correction facts;
+- maintain current supported projections;
 - persist command idempotency receipt/result;
-- fail explicitly on uniqueness, continuity, or version conflict.
+- fail explicitly on uniqueness, continuity, relationship, or version conflict.
 
-The port must not expose SQL, PostgreSQL connections/sessions, ORM rows, database transaction handles, table names, or vendor exceptions.
+The port must not expose SQL, PostgreSQL connections/sessions, ORM models, database transaction handles, table names, or vendor-specific exceptions.
 
 ## 2.2 Decision memory reader
 
 The application needs a semantic read capability that can:
 
-- return current Decision state inputs;
-- return ordered lifecycle facts and relationship facts;
-- reconstruct as-known-at state;
-- reconstruct effective-at state under a stated knowledge cutoff;
+- return current Decision/Need/Scope inputs;
+- return ordered lifecycle and relationship facts;
+- reconstruct `as_known_at` state;
+- reconstruct `effective_at` state under a stated knowledge cutoff;
 - retrieve renewal/Supersession lineage;
-- return conservative unresolved candidate Decisions plus a continuity observation guard suitable for atomic revalidation.
+- return the R2 continuity candidate universe plus a guard suitable for atomic revalidation.
 
-Optimized projections may exist internally but cannot be sole historical authority.
+Optimized projections may exist internally but cannot be the sole historical authority.
 
 ---
 
 # 3. No platform-wide Unit of Work yet
 
-R2 still does not require a generic platform Unit of Work.
+R2 still does not need a generic platform Unit of Work.
 
-The Decisions command store may expose purpose-specific atomic commit operations because R2 owner facts are within the Decisions boundary.
+The Decisions command store may expose purpose-specific atomic semantic commits because R2 durable business changes remain inside one owning domain boundary.
 
-A broader Unit of Work should be introduced only when a later use case must coordinate independently owned stores, such as Governance-owned Human Investment Decision plus Decisions-owned resolution/Deferral consequence.
+A broader Unit of Work becomes justified only when a later use case atomically coordinates independently owned stores, such as Governance-owned Human Investment Decision plus Decisions-owned Deferral or substantive-resolution consequence.
 
 ---
 
 # 4. Logical durable record set
 
-Exact tables/classes are adapter details. Semantically R2 needs:
+Exact tables/classes are adapter details. Semantically R2 requires the following records.
 
 ## 4.1 Decision Need record
 
 Preserves at least:
 
 - Decision Need ID;
-- need statement;
+- original attributable need statement/determination;
 - effective raised/recognized time;
 - recorded time;
-- current supported Need status (`established` vs explicitly retracted/qualified as unsupported);
-- Actor Attribution for Need determination where material;
-- trigger/origin provenance separately;
+- current supported Need status:
+  - `ACTIVE`;
+  - `EXTERNALLY_ELIMINATED`;
+  - `RETRACTED_UNSUPPORTED`;
+- Actor Attribution for the Need determination where material;
+- trigger/source provenance separately;
 - immutable creation metadata.
 
-Retraction does not delete the original record/history.
+The status values above are design-level representations, not required user-facing vocabulary.
+
+The original Need record is never deleted merely because its current supported status changes.
 
 ## 4.2 Investment Decision current record
 
-Efficient current projection/concurrency root preserving at least:
+Provides efficient current access and concurrency protection while preserving semantic separation.
+
+At minimum:
 
 - Investment Decision ID;
 - Decision Need ID;
-- current Subject;
-- current Scope representation including explicit unresolved Scope;
-- supported current resolution disposition;
-- supported current work disposition when unresolved;
+- current Subject representation/reference;
+- current Scope representation:
+  - zero or more confirmed Portfolio references;
+  - completeness `UNRESOLVED | ESTABLISHED`;
+- current supported judgment-resolution status:
+  - `UNRESOLVED`;
+  - `SUBSTANTIVELY_RESOLVED`;
+- current work posture when Need=`ACTIVE`, judgment=`UNRESOLVED`, and the Decision is operative:
+  - `ACTIVE`;
+  - `DEFERRED`;
+  - `WITHDRAWN`;
 - current domain version;
 - creation time;
-- latest supported correction/application markers needed for deterministic reads.
+- any narrow correction/projection marker required to derive the currently supported view deterministically.
 
-Supersession is **not** stored as a replacement current lifecycle state. Current read models may derive whether the Decision is presently operative from relationship facts/projections.
+Supersession is **not** stored as a replacement lifecycle status. Current operability is derived from supported relationship facts or an explicitly derivable cache/projection.
 
 ## 4.3 Investment Decision lifecycle fact record
 
@@ -135,18 +147,19 @@ Append-only typed history preserving at least:
 - recorded/committed time;
 - operation ID;
 - Actor Attribution where applicable;
-- trigger/technical provenance reference where material;
+- trigger/source provenance where material;
+- technical provenance reference where material;
 - typed business basis/reference;
-- fact-specific payload;
-- correction target/reference where fact is a lifecycle correction.
+- fact-specific content;
+- correction target/reference when the fact qualifies a prior lifecycle interpretation.
 
-Stable/query-critical dimensions must not be hidden solely in opaque generic metadata.
+Stable query-critical dimensions must not be hidden only in opaque generic metadata.
 
 ## 4.4 Decision relationship record
 
-R2 now requires an explicit many-to-many capable relationship representation rather than fixed single predecessor columns as the canonical physical assumption.
+R2 requires a many-to-many-capable typed relation rather than fixed single-predecessor columns as the canonical schema assumption.
 
-Preserves at least:
+Preserve at least:
 
 - relationship ID;
 - source Decision ID;
@@ -156,11 +169,11 @@ Preserves at least:
 - recorded time;
 - operation ID;
 - typed basis/scope;
-- Actor Attribution/provenance where material;
-- relationship correction/reference state when needed;
-- future-compatible target knowledge cutoff for context edges.
+- Actor Attribution/context-selection provenance where material;
+- correction/reference state when needed;
+- future-compatible target knowledge cutoff for contextual edges.
 
-Inverse navigation is derived; reverse duplicate facts are unnecessary unless the physical adapter independently needs them.
+Inverse navigation is derived; reverse duplicate facts are unnecessary unless the adapter independently needs a projection.
 
 ## 4.5 Command idempotency receipt
 
@@ -168,46 +181,61 @@ Preserves:
 
 - operation ID;
 - command kind;
-- canonical semantic request fingerprint/equivalent comparison data;
-- affected Decision IDs;
-- committed result/version(s);
-- stable semantic replay result;
+- canonical semantic request fingerprint or equivalent comparison data;
+- affected Decision ID(s);
+- committed resulting version(s);
+- stable semantic result needed for replay;
 - committed time.
 
 Receipt is application durability metadata, not Decision identity.
 
 ## 4.6 Continuity arbitration state
 
-R2 persistence must provide a technology-neutral way to detect that the bounded unresolved candidate basis used to decide `CREATE_NEW` changed before initiation committed.
+R2 continuity deliberately starts with the complete set of currently unresolved, non-superseded Decisions rather than a hidden semantic matching heuristic.
 
-This may be represented physically through:
+The initial adapter must guarantee that a `CREATE_NEW` initiation commits only if the candidate universe used for that determination remains valid at commit time.
 
-- serializable predicate protection;
-- a bounded continuity-generation row/token;
-- keyed/advisory locking plus re-query;
-- another mechanism satisfying the same contract.
+The smallest initial PostgreSQL mechanism MAY serialize Decision initiation globally. Alternatives include serializable predicate protection, a continuity-generation row/token, or another correct mechanism.
 
 The inward semantic contract is:
 
 ```text
-candidate basis observed
+observe all currently unresolved, non-superseded Decisions
         ↓
-CREATE_NEW determination
+explicit CONTINUE / CREATE_NEW / AMBIGUOUS determination
         ↓
-commit succeeds only if relevant continuity basis remains compatible
+commit revalidates observation atomically
+        ↓
+changed universe -> no creation; re-evaluate
+unchanged + CREATE_NEW -> commit exactly one new Need/Decision
 ```
 
-A stale/changed candidate basis yields `ContinuityConflict`, not a second silently created Decision.
+The concurrency mechanism is replaceable infrastructure; fail-closed continuity is the contract.
 
 ---
 
-# 5. Atomic consistency
+# 5. One Need / one Decision integrity
+
+R2 persistence must enforce as far as mechanically possible:
+
+- every Investment Decision references exactly one Decision Need;
+- one Decision Need grounds at most one Investment Decision;
+- deleting a Decision Need that grounds historical Decision truth is not an ordinary store operation.
+
+A unique relationship/foreign-key constraint may enforce one-Need-to-at-most-one-Decision in PostgreSQL.
+
+If semantic discovery later determines one perceived Need contained multiple independently resolvable choices, new distinct Decision Needs/Decisions are established explicitly rather than sharing the original Need as identity glue.
+
+---
+
+# 6. Atomic consistency
 
 A successful ordinary lifecycle mutation commits atomically:
 
 ```text
 immutable lifecycle fact
-+ current Decision projection/version
++ current supported Decision/Need projection changes
++ Decision version
 + command receipt
 ```
 
@@ -215,8 +243,8 @@ A successful relationship operation commits atomically:
 
 ```text
 relationship fact(s)
-+ any affected operative/current projections
-+ expected-version checks where required
++ any affected operability projection
++ required version/conflict checks
 + command receipt
 ```
 
@@ -225,256 +253,356 @@ A successful new initiation commits atomically:
 ```text
 continuity revalidation
 + Decision Need
-+ Investment Decision current record
++ Investment Decision
 + DecisionInitiated fact
-+ any initiation relationship facts
++ optional initiation relationship facts
 + command receipt
 ```
 
-No partial semantic success is visible.
+No observer may see partial semantic success.
 
 ---
 
-# 6. Version / compare-and-set
+# 7. Version and compare-and-set
 
 Expected-version semantics are enforced durably.
 
-On a normal Decision mutation:
+On a normal lifecycle mutation:
 
-- exactly one new recorded Decision version is committed;
+- one new recorded Decision version is committed;
 - current version increments once;
-- lifecycle fact uses that recorded sequence/version.
+- lifecycle fact carries the corresponding recorded sequence/version.
 
-On conflict:
+On stale conflict:
 
-- no fact/relationship/current projection from stale command remains;
-- no receipt claims success;
-- adapter translates to technology-neutral concurrency conflict.
+- no new fact/relationship/projection from the stale command remains;
+- no command receipt claims success;
+- adapter translates the failure into technology-neutral concurrency semantics.
 
-Relationship commands touching multiple Decisions may require multiple expected versions or equivalent semantic conflict detection.
+Relationship operations spanning multiple Decisions use sufficient expected-version/conflict protection to prevent stale operability/lineage decisions.
 
 ---
 
-# 7. Idempotency
+# 8. Idempotency
 
-Idempotency survives restart.
+Idempotency survives process restart.
 
 Atomic distinctions:
 
-1. no receipt -> command may attempt;
-2. same operation/same semantic request -> return recorded result;
-3. same operation/different semantic request -> idempotency conflict.
+1. no receipt exists -> command may execute;
+2. receipt exists with same semantic request -> replay stable result;
+3. receipt exists with materially different request -> idempotency conflict.
 
-Crash after commit but before response is recoverable by replaying same operation ID.
+A crash after commit but before response is recoverable through the same operation ID.
 
 Idempotency does not replace continuity arbitration for different operation IDs.
 
 ---
 
-# 8. Scope persistence
+# 9. Scope persistence
 
-Decision Scope may be unresolved at initiation.
+Decision Scope is not a nullable scalar.
 
-The physical schema must therefore represent at least three meanings distinctly where applicable:
+The physical model must preserve:
 
 ```text
-unresolved / not yet established
-established value
-later revised established value
+confirmed Portfolio refs: zero or more
+completeness: UNRESOLVED | ESTABLISHED
 ```
 
-Do not collapse unresolved Scope into empty/default Portfolio identifiers.
+Therefore these meanings remain distinct:
 
-`DecisionScopeEstablished` and later revisions remain immutable lifecycle history even if current Scope is denormalized on the current Decision row.
+```text
+no Portfolio known yet, Scope unresolved
+some Portfolios confirmed, Scope still unresolved/incomplete
+Portfolio applicability established
+later established Scope refined while same choice remains
+```
 
----
+Do not use empty strings, sentinel Portfolio IDs, or accidental null semantics to mean unresolved Scope.
 
-# 9. Deferral, withdrawal, and resolution persistence
+Every material establishment/refinement remains immutable lifecycle history even when the latest Scope is denormalized in the current Decision projection.
 
-The current projection must distinguish:
-
-- unresolved + active;
-- unresolved + deferred;
-- unresolved + withdrawn;
-- substantively resolved;
-- externally resolved;
-- Decision Need retracted/unsupported.
-
-Deferral fact includes trusted human-decision basis reference but does not persist Governance-owned Human Investment Decision payload in the Decisions store.
-
-Withdrawal fact does not imply Deferral/resolution.
-
-Need retraction preserves original Need and correction basis.
+The Spec may choose a normalized child relation or another constrained relational representation for multi-Portfolio Scope; a single array/JSON field must not become the inward contract merely for convenience.
 
 ---
 
-# 10. Supersession persistence
+# 10. Need, judgment, work, and applicability persistence
 
-Supersession is represented in `investment_decision_relationships` or equivalent many-to-many relation.
+The current projection must keep these dimensions independently reconstructable:
+
+```text
+Decision Need status
+  ACTIVE | EXTERNALLY_ELIMINATED | RETRACTED_UNSUPPORTED
+
+Judgment-resolution status
+  UNRESOLVED | SUBSTANTIVELY_RESOLVED
+
+Work posture when applicable
+  ACTIVE | DEFERRED | WITHDRAWN
+
+Continuing applicability
+  derived from supported SUPERSEDES relationships
+```
+
+Mechanical consistency rules should reject impossible current combinations such as a non-null work posture for a currently non-operative externally eliminated Need, while historical facts remain preserved.
+
+A late correction may change the **supported current projection** without mutating historical facts.
+
+---
+
+# 11. Deferral and re-Deferral persistence
+
+Every `DecisionDeferred` fact preserves the trusted Human Investment Decision/Deferral basis reference and its own effective/recorded time.
 
 Rules:
 
-- predecessor historical resolution/work facts are unchanged;
-- resolved predecessor can be superseded;
-- unresolved predecessor can be superseded and becomes non-operative while relationship remains supported;
+- Governance-owned Human Investment Decision payload is not copied into the Decisions store;
+- Deferral may move work `ACTIVE -> DEFERRED` or `WITHDRAWN -> DEFERRED`;
+- another attributable Deferral while already `DEFERRED` appends a new fact rather than overwriting the earlier Deferral reason/awaited condition;
+- a later resume appends its own fact;
+- Review Condition is not persisted as the awaited-condition meaning of Deferral unless a later owner explicitly establishes a separate applicable Review Condition.
+
+---
+
+# 12. Work withdrawal persistence
+
+`DecisionWorkWithdrawn` preserves the actor/basis and time that Polaris work stopped while the Need may remain active and judgment unresolved.
+
+It must not be physically encoded as:
+
+- Deferral;
+- substantive resolution;
+- External Resolution;
+- Supersession;
+- deletion of the Decision.
+
+Same-choice resumption later appends a new resume fact.
+
+---
+
+# 13. External Resolution persistence
+
+External Resolution is persisted principally as a **Decision Need status transition**:
+
+```text
+Need ACTIVE -> EXTERNALLY_ELIMINATED
+```
+
+with immutable `DecisionNeedExternallyEliminated` fact/basis.
+
+It does not mechanically set judgment status to `SUBSTANTIVELY_RESOLVED` and does not create a Human Investment Decision.
+
+If discovered late after human/Decisions-side judgment history already exists, use explicit lifecycle correction rather than deleting that history.
+
+---
+
+# 14. Unsupported Decision Need retraction persistence
+
+A later finding that the original Need determination was erroneous/unsupported appends `DecisionNeedRetracted` and changes current supported Need status to `RETRACTED_UNSUPPORTED`.
+
+This may occur before or after other historical acts.
+
+If a prior Decisions-side substantive-resolution interpretation becomes unsupported as effective lifecycle truth, append `DecisionLifecycleCorrected` referencing that interpretation. Do **not** delete:
+
+- original Need;
+- Human Investment Decision;
+- Recommendation or other historical facts;
+- originally recorded Decisions-side lifecycle fact.
+
+This is not External Resolution.
+
+---
+
+# 15. Supersession persistence
+
+Supersession lives in `investment_decision_relationships` or an equivalent many-to-many relation.
+
+Rules:
+
+- target Need/judgment/work history remains unchanged;
+- unresolved or historically substantively resolved targets may be superseded;
+- supported Supersession makes unresolved target non-operative without creating a fake terminal lifecycle state;
 - one source may supersede multiple targets;
-- one target may have multiple supported superseding sources when domain basis permits;
-- no one-to-one unique constraint may be added unless later authority changes this design;
-- graph cycle prevention applies across supported renewal/Supersession lineage.
+- one target may be superseded by multiple sources when scoped displacement supports it;
+- no one-to-one unique constraint is allowed by this design;
+- lineage-cycle prevention applies across supported `RENEWED_FROM` + `SUPERSEDES` graph.
 
-An initiation+Supersession command may atomically create successor and several relationship rows.
-
-A later-recorded Supersession between existing Decisions is also supported.
+An initiation+Supersession command may create successor and several relationship rows in one transaction. Later-recorded Supersession between already-existing Decisions is also supported.
 
 ---
 
-# 11. Renewal persistence
+# 16. Renewal persistence
 
-`RENEWED_FROM` is a typed relationship row/reference from new Decision to one or more substantively/external-resolved causal predecessors when independently supportable.
+`RENEWED_FROM` is a typed relationship from a new Decision to one or more independently supported causal predecessors.
 
-Predecessor current/history rows are not reopened.
+A predecessor is eligible when the prior Decision no longer has unresolved operative judgment because:
 
-Self-reference and lineage cycles are rejected.
+- judgment status is `SUBSTANTIVELY_RESOLVED`; or
+- Need status is `EXTERNALLY_ELIMINATED`.
+
+`RETRACTED_UNSUPPORTED` is not automatically renewal-eligible because the earlier Need may never have been supportable in the first place.
+
+Predecessor rows/history are never reopened.
 
 ---
 
-# 12. Temporal persistence and correction
+# 17. Temporal persistence and correction
 
-Every lifecycle/relationship fact preserves effective and recorded time.
+Every lifecycle/relationship fact preserves:
 
-Recorded sequence/version is canonical ordering of committed knowledge. Timestamps are not the sole ordering primitive.
+- effective time;
+- recorded/committed time;
+- recorded sequence/version.
 
-## 12.1 As-known-at
+Recorded sequence/version is canonical ordering of committed knowledge. Timestamps alone are not the ordering primitive.
+
+## 17.1 `as_known_at(K)`
 
 For knowledge cutoff `K`:
 
 - exclude facts/relationships/corrections recorded after `K`;
-- reconstruct from remaining recorded sequence and correction relationships;
-- late facts with earlier effective times remain invisible before their recorded time.
+- apply only correction knowledge already recorded by `K`;
+- reconstruct what Polaris durably knew then.
 
-## 12.2 Effective-at under knowledge cutoff
+A later-recorded fact with earlier effective time never leaks into an earlier as-known-at result.
 
-For effective time `T` and knowledge cutoff `K`:
+## 17.2 `effective_at(T, knowledge_cutoff=K)`
 
-- use only facts recorded by `K`;
-- apply their effective times and supported corrections;
-- return the lifecycle state supported as effective at `T` under that knowledge boundary.
+Using only facts recorded by `K`, reconstruct the supported Need/judgment/work/applicability state effective at `T`.
 
-Default `K=now` produces current best supported effective history.
+Default `K=now` gives current best supported effective history.
 
-## 12.3 Lifecycle correction
+This is Decision lifecycle temporality, not Evidence Judgment-Time Availability.
 
-A correction is append-only and references the earlier fact/interpretation it qualifies.
+## 17.3 Lifecycle correction
 
-It may alter the **supported current/effective projection** without deleting the earlier fact.
+A correction is append-only and references the exact prior fact/interpretation it qualifies.
 
-Database invariants should ensure a correction references valid Decision/fact identities and cannot silently produce two unqualified competing current interpretations.
+It may change current/effective projections without deleting original records.
+
+The adapter must prevent ambiguous correction chains from producing two unqualified competing current interpretations. A practical implementation may require every correction to identify its target fact/interpretation and current supported replacement/qualification explicitly.
 
 Example:
 
-- `DecisionResolved` recorded at 10:05;
-- at 10:10 a fact proves External Resolution effective 10:00;
-- append correction establishing External Resolution as supported effective disposition from 10:00;
-- keep `DecisionResolved` and Human Investment Decision historical facts;
-- as-known-at 10:06 remains what Polaris knew then.
+```text
+10:00 external circumstance eliminates Need
+10:05 Human Investment Decision + Decisions-side resolution fact recorded
+10:10 10:00 fact learned
+```
+
+Persistence keeps all recorded history and appends correction so:
+
+- `as_known_at(10:06)` remains unchanged;
+- current effective history shows Need externally eliminated at 10:00;
+- Human Investment Decision remains historical;
+- prior Decisions-side resolution interpretation is explicitly qualified rather than erased.
 
 ---
 
-# 13. Actor Attribution vs provenance
+# 18. Actor Attribution vs provenance storage
 
-Persistence must not force actor and trigger into one generic `created_by` field.
+Do not collapse actor and provenance into one generic `created_by` field.
 
-Where material, preserve separate semantics for:
+Where material, preserve separate representations for:
 
 - domain Actor Attribution/reference;
-- trigger/source reference;
+- trigger/source provenance;
 - technical request/work/model/provider provenance.
 
-A model/provider/workflow identifier cannot satisfy the Actor Attribution field merely because it participated technically.
+The Actor representation must support at least the semantic categories established by the lifecycle design, including Polaris, human, collective/organization, external actor, and unknown/disputed attribution.
+
+A model/provider/workflow identifier cannot satisfy Actor Attribution merely because it technically participated.
 
 ---
 
-# 14. PostgreSQL initial adapter
+# 19. PostgreSQL initial adapter
 
-PostgreSQL is the initial/reference adapter because its transaction, relational integrity, uniqueness, indexing, and concurrency capabilities fit R2 well.
+PostgreSQL fits R2 because of transaction, relational integrity, indexing, and concurrency capabilities.
 
-Adapter may use:
+Adapter may use internally:
 
-- UUID identity columns;
+- UUID identities;
 - foreign keys;
-- typed/check constrained enums/values;
-- unique constraints for operation ID and `(decision_id, recorded_sequence)`;
-- conditional updates/row locks;
-- serializable transactions/predicate protection where appropriate for continuity arbitration;
-- JSONB for purpose-named structured payloads that are not stable query dimensions;
-- recursive CTEs for bounded lineage/cycle checks if useful;
+- constrained enum/text values;
+- unique operation receipts;
+- unique `(decision_id, recorded_sequence)`;
+- unique one-Decision-per-Decision-Need relationship;
+- row/transaction locks;
+- serializable initiation if selected;
+- JSONB for purpose-named non-query-critical payload detail;
+- recursive CTEs or application-side bounded ancestry checks for lineage cycles;
 - transactional migrations.
 
-These remain adapter details.
+These mechanisms are adapter details and must not leak inward.
 
 ---
 
-# 15. Expected logical schema
+# 20. Expected logical schema
 
-Roughly:
+Approximately:
 
 ```text
 decision_needs
 investment_decisions
+investment_decision_scope_members       # or equivalent multi-Portfolio representation
 investment_decision_lifecycle_facts
 investment_decision_relationships
 investment_decision_command_receipts
-<optional narrow continuity guard structure if chosen>
+<optional narrow initiation/continuity serialization structure>
 ```
 
-Do not add R2 tables for workflows/jobs, agents/models, reports, RAG, Recommendation, Governance, Action Intent, Outcome/Lesson, generic event sourcing, or global persistence taxonomy.
+Exact table names are not mandated.
+
+Do not add R2 tables for workflow/job/runtime, agents/models, reports, RAG, Recommendation, Governance, Action Intent, Outcome/Lesson, universal event sourcing, or a global persistence taxonomy.
 
 ---
 
-# 16. Constraint strategy
+# 21. Constraint strategy
 
-Good mechanical constraints include:
+Good candidates for mechanical enforcement:
 
 - unique Decision/Need/fact/relationship IDs;
+- each Need grounds at most one Decision;
 - unique operation receipts;
 - unique recorded sequence per Decision;
-- foreign-key integrity;
-- non-null required effective/recorded time;
-- valid resolution/work value combinations;
-- explicit unresolved Scope representation;
+- valid foreign keys;
+- non-null required effective/recorded times;
+- valid current Need/judgment/work combinations;
+- explicit Scope completeness semantics;
+- unique Scope membership per Decision/Portfolio at a current projection level as appropriate;
 - no relationship self-reference;
-- relationship type constraints;
-- correction references valid original fact/relationship;
+- relationship-type checks;
+- correction references valid prior fact/relationship;
 - no one-to-one Supersession uniqueness restriction.
 
-History-dependent semantics remain domain/application validation with transactional defense in depth.
+History-dependent semantic rules remain domain/application validation with transactional defense in depth.
 
 ---
 
-# 17. Fresh migration lineage
-
-Rules:
+# 22. Fresh migration lineage
 
 - fresh greenfield root;
-- no dependency on legacy revisions/tables;
-- current migration metadata imports only current greenfield persistence definitions;
-- empty database can migrate current root -> head;
-- legacy data conversion out of R2 scope.
+- no dependency on legacy migration revisions/tables;
+- current migration metadata imports current greenfield definitions only;
+- empty database migrates root -> head;
+- legacy data conversion is out of R2 scope.
 
-The Spec may choose Alembic if it is the smallest suitable tool.
+The Spec may choose Alembic if it remains the smallest suitable migration tool.
 
 ---
 
-# 18. ORM / driver choice
+# 23. ORM / driver choice
 
-No ORM/driver is mandated by design.
+No ORM/driver is mandated.
 
-Spec should choose smallest maintained stack satisfying:
+Spec selects the smallest maintained stack satisfying:
 
 - explicit transaction control;
-- compare-and-set and continuity arbitration;
+- expected-version concurrency;
+- continuity-safe initiation;
 - migration support;
-- async/sync needs of selected execution style;
+- chosen sync/async execution style;
 - testability;
 - clean inward contract separation.
 
@@ -482,15 +610,15 @@ Legacy SQLAlchemy/Alembic mechanics may be mined after the Spec selects the stac
 
 ---
 
-# 19. Failure translation
+# 24. Failure translation
 
-Database-native failures translate to semantic outcomes, including:
+Database-native failures map to semantic outcomes, e.g.:
 
 - operation uniqueness collision -> idempotency replay/conflict evaluation;
 - expected-version miss -> concurrency conflict;
-- continuity serialization/guard conflict -> continuity conflict/retry/re-evaluation;
+- initiation serialization/guard conflict -> continuity conflict/re-evaluation;
 - relationship/cycle integrity failure -> relationship semantic error;
-- FK/correction integrity failure -> persistence/invariant error;
+- Scope/Need uniqueness/correction integrity failure -> semantic persistence/invariant error;
 - transient database outage -> retryable persistence unavailable;
 - schema/configuration defect -> explicit startup/operation failure.
 
@@ -498,129 +626,133 @@ Raw database exceptions are not application API.
 
 ---
 
-# 20. Recovery behavior
+# 25. Recovery behavior
 
-After restart:
+After ordinary restart:
 
-- current Decisions/Needs load;
-- unresolved Scope remains unresolved rather than defaulted;
-- lifecycle/relationship facts remain complete/ordered;
+- Decision/Need/current Scope load;
+- partial/unresolved Scope remains explicit;
+- lifecycle and relationship facts remain complete/ordered;
 - receipts replay committed results;
-- current supported projections can be reconstructed/verified from immutable facts/corrections;
-- continuity semantics do not depend on in-memory locks alone;
+- supported current projection can be reconstructed/verified from immutable facts/corrections;
+- initiation continuity does not depend solely on in-memory locks;
 - no generic replay engine is required.
 
 ---
 
-# 21. Read/index expectations
+# 26. Read/index expectations
 
 Support efficient bounded reads for:
 
-- Decision by ID;
-- Need by ID;
-- lifecycle history by Decision + recorded sequence;
-- operation receipt by ID;
-- unresolved candidate lookup by conservative continuity dimensions actually used;
+- Decision/Need by ID;
+- lifecycle history by Decision + sequence;
+- receipt by operation ID;
+- all currently unresolved, non-superseded Decisions for initial R2 continuity;
 - renewal/Supersession adjacency and bounded ancestry;
 - recorded-time cutoff;
 - effective-time lookup under knowledge cutoff;
-- correction references.
+- correction references;
+- current Scope membership/completeness.
 
 Do not add speculative analytics/reporting indexes.
 
 ---
 
-# 22. Adapter contract tests
+# 27. Adapter contract tests
 
 ## Atomicity
 
-- single mutation current+fact+receipt together;
+- single mutation commits projection + fact + receipt together;
 - initiation continuity revalidation + Need + Decision + fact + receipt together;
 - many-target Supersession all-or-nothing;
-- injected failures leave no partial semantic success.
+- injected failure leaves no partial semantic success.
 
-## Idempotency
+## Identity / continuity
 
-- replay returns prior result;
-- same operation/different request conflicts;
-- restart preserves receipt.
-
-## Concurrency / continuity
-
-- two stale mutations cannot both succeed;
-- loser leaves no false history/receipt;
-- two distinct initiations against overlapping continuity basis cannot silently both create new Decisions;
+- one Need cannot ground two Decisions;
+- two different initiation operations serialized/racing cannot both silently create a new Decision after candidate universe changes;
 - continuity conflict forces re-query/re-evaluation.
 
 ## Scope
 
-- unresolved Scope persists distinctly;
-- later establishment/revision is historical.
+- zero-known Scope with `UNRESOLVED` completeness persists;
+- partially known Scope persists without becoming `ESTABLISHED` accidentally;
+- establishment/refinement is historical;
+- sentinel/default Portfolio values are not used.
 
-## Dispositions
+## Idempotency / concurrency
 
-- Deferral/withdrawal/resolution/external resolution/Need retraction remain distinct in current/history records.
+- replay returns prior result;
+- same operation/different request conflicts;
+- stale expected version leaves no false fact/receipt;
+- restart preserves receipt.
+
+## Lifecycle axes
+
+- Need status, judgment status, and work posture can be reconstructed independently;
+- External Resolution changes Need status without manufacturing substantive judgment;
+- Deferral/re-Deferral facts are append-only;
+- withdrawal remains distinct;
+- Need retraction after prior human/resolution history preserves those records and applies correction when necessary.
 
 ## Relationships
 
-- renewal durable/queryable;
+- renewal eligibility uses substantive judgment resolution or external Need elimination;
 - resolved target can be superseded without resolution rewrite;
-- one-to-many and many-to-one Supersession supported;
-- self/cycles rejected;
-- late relationships respect as-known-at cutoff.
+- one-to-many/many-to-one Supersession works;
+- self/mixed lineage cycles rejected;
+- late relationship excluded from earlier as-known-at.
 
 ## Temporal correction
 
-- corrected fact cannot be mutated/deleted;
+- corrected facts cannot be updated/deleted through ordinary API;
 - as-known-at before correction remains stable;
-- effective-at current knowledge reflects supported late correction;
-- current projection agrees with currently supported corrected history.
+- effective-at current knowledge reflects late correction;
+- current projection agrees with supported corrected history.
 
 ## Fresh lineage
 
-- empty DB migrates root -> head;
+- empty DB migrates greenfield root -> head;
 - no legacy metadata/schema dependency.
 
 ---
 
-# 23. Requirements traceability
+# 28. Requirements traceability
 
 | Requirement | Persistence consequence |
 |---|---|
-| `GF-003`–`GF-005` | fresh schema; Decision identity independent of rows/runtime. |
-| `DEC-001`–`DEC-004` | durable explicit identity + identity-safe history. |
-| `DEC-013` | unresolved Scope persists explicitly. |
-| `DEC-014`–`DEC-016` | withdrawal/retraction/Supersession distinctions preserved. |
-| `DEC-017` | continuity arbitration survives concurrent distinct operations. |
-| `DEC-018` | effective/recorded time + corrections + dual temporal queries. |
-| `DEC-019` | actor and trigger/provenance storage remain distinct. |
+| `GF-003`–`GF-005` | fresh schema; business identity independent of rows/runtime. |
+| `DEC-001`–`DEC-004` | one Need/Decision identity and immutable continuity history. |
+| `DEC-013` | zero/partial/established Scope states. |
+| `DEC-014` | withdrawal represented distinctly. |
+| `DEC-015` | Need retraction can qualify history non-destructively. |
+| `DEC-016` | Supersession is many-to-many relationship, not lifecycle status. |
+| `DEC-017` | continuity-safe initiation across different operation IDs. |
+| `DEC-018` | dual time + explicit correction. |
+| `DEC-019` | actor/source/technical provenance stored distinctly. |
 | `MEM-005`, `MEM-009` | non-destructive direct business truth. |
-| `MEM-011` | future relationship schema supports target knowledge cutoff. |
-| `REL-*` | durable retry/atomicity/concurrency/recovery. |
+| `MEM-011` | future context edge can bind target knowledge cutoff. |
+| `REL-*` | durable retry, atomicity, concurrency, recovery. |
 
 ---
 
-# 24. Out of scope
+# 29. Out of scope
 
-- full Evidence/Recommendation/Portfolio/Governance/Continuity/Learning stores;
-- generic outbox/event bus;
-- generic persistence registry/UoW;
-- warehouse/vector/graph database;
-- prior-Decision context binding implementation;
-- legacy data conversion.
+R2 persistence does not implement full Evidence, Recommendation, Portfolio/Risk, Governance/Human Decision, Action Continuity, Learning stores; generic outbox/event bus/UoW; warehouse/vector/graph database; contextual prior-Decision binding; or legacy data conversion.
 
 ---
 
-# 25. Spec-readiness gate
+# 30. Spec-readiness gate
 
 Persistence design is Spec-ready only when:
 
-1. unresolved Scope is representable;
-2. disposition/work/Supersession separation survives physical schema choices;
-3. continuity arbitration is stronger than operation idempotency;
-4. relationship representation is many-to-many capable and cycle-safe;
-5. correction is append-only and dual temporal queries are deterministic;
-6. actor/provenance fields cannot be collapsed semantically;
-7. PostgreSQL-specific mechanisms remain adapter-internal;
-8. fresh migration lineage is explicit;
-9. no persistence Spec must invent these guarantees.
+1. four lifecycle dimensions remain separable in physical representation;
+2. Scope supports zero/partial/established Portfolio applicability;
+3. one Need cannot silently ground multiple Decisions;
+4. continuity-safe initiation requires no hidden matching heuristic in the Spec;
+5. re-Deferral/withdrawal/Need retraction remain distinct durable facts;
+6. relationship storage is many-to-many and cycle-safe;
+7. correction is append-only and dual temporal queries are deterministic;
+8. actor/provenance cannot collapse into one field semantically;
+9. PostgreSQL mechanisms stay adapter-internal;
+10. no persistence Spec must invent these guarantees.

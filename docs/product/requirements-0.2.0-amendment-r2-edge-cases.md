@@ -1,15 +1,14 @@
 # Polaris 0.2.0 Requirements Amendment — R2 Decision-Lifecycle Edge Cases
 
-**Status:** Approved  
+**Status:** Proposed  
 **Release:** 0.2.0  
-**Approved:** 2026-09-04  
-**Purpose:** Amend the approved `requirements-0.2.0.md` only where the R2 pre-Spec adversarial audit exposed contradictions or missing load-bearing lifecycle semantics.
+**Purpose:** Reconcile the approved `requirements-0.2.0.md` with already-frozen product/domain semantics where the R2 pre-Spec adversarial audit exposed contradictions or missing load-bearing lifecycle requirements.
 
 ## Authority
 
-This amendment is part of the approved 0.2.0 requirement set. It is subordinate to the frozen product/domain doctrine in [`domain-model.md`](./domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md) and takes precedence over the specific clauses of [`requirements-0.2.0.md`](./requirements-0.2.0.md) explicitly amended below.
+This amendment is a **proposed correction** to the approved 0.2.0 requirement set. It is derived from and subordinate to the already-frozen product/domain doctrine in [`domain-model.md`](./domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md).
 
-No other approved requirement is weakened.
+Until approved, the frozen product/domain doctrine remains authoritative wherever the older requirements wording conflicts with these semantics. Approval of this amendment would make the clauses below part of the explicit 0.2.0 requirement set; no other approved requirement is weakened.
 
 ---
 
@@ -51,6 +50,8 @@ When Polaris later establishes that an earlier Decision Need determination was e
 
 Polaris MUST represent the later correction explicitly and MUST NOT misclassify the case as External Resolution merely because active decision work should stop.
 
+Any Human Investment Decision or other material historical act that actually occurred MUST remain historical even when later correction changes the supported understanding of the Decision Need.
+
 A later genuinely supported choice requires normal Decision Need and Investment Decision identity rules; the corrected historical Decision MUST NOT be silently reactivated as though the erroneous Need had always been valid.
 
 ---
@@ -87,7 +88,7 @@ The implementation MAY use concurrency control, serialization, bounded candidate
 
 A lifecycle-relevant fact MAY be recorded after the time at which it is currently understood to have been effective.
 
-When later information changes the supported understanding of an earlier lifecycle disposition, Polaris MUST:
+When later information changes the supported understanding of an earlier Decision Need status, lifecycle disposition, or applicability, Polaris MUST:
 
 - preserve the originally recorded fact and what was known at the time;
 - preserve the later correction or qualification as a new attributable fact;
@@ -122,14 +123,14 @@ Candidate retrieval or present-day similarity MUST NOT be represented as histori
 
 # 9. Acceptance-scenario correction
 
-## AS-003 — Deferral and later resumption — amended
+## AS-003 — Deferral and later resumption — proposed amended wording
 
-The original AS-003 wording is superseded by the following:
+The approved AS-003 wording should be replaced by the following:
 
 > **AS-003 — Deferral and later resumption**  
 > An attributable human Deferral leaves the same Investment Decision unresolved. A later awaited condition, newly available material Evidence, or other material event may cause Attention to resume that same coherent unresolved choice. A **Review Condition**, by contrast, belongs to a substantively resolved Decision and causes Attention to evaluate whether a renewed Decision Need exists; it does not resume the resolved Decision.
 
-This amendment preserves the canonical distinction:
+This preserves the canonical distinction:
 
 ```text
 deferred unresolved Decision
@@ -145,7 +146,7 @@ resolved Decision
 
 # 10. Milestone acceptance interpretation
 
-R2 is responsible for **foundational acceptance evidence** for the Decision-kernel portions of `AS-001` through `AS-005` and full evidence for `AS-022`.
+R2 is responsible for **foundational acceptance evidence** for the Decision-kernel portions of `AS-001` through `AS-005` and may provide full evidence for `AS-022`.
 
 R2 MUST NOT claim full closure of an acceptance scenario whose required participants are intentionally deferred to later milestones, including Attention, Evidence, Decision Context, Governance-owned Human Investment Decision, or other not-yet-implemented owners.
 

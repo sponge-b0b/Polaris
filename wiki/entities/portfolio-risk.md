@@ -12,4 +12,4 @@
 
 ### Planned
 
-* **Action-continuity reconciliation seam** — authoritative external activity may change Portfolio State while Action Continuity separately owns intended-vs-observed association/reconciliation. One Portfolio change may externally resolve one Decision, materially alter another unresolved Decision, and create a different Decision Need; Portfolio & Risk owns the resulting Portfolio meaning without manufacturing Action Intent causality. (source: docs/proposed/platform-domain-interaction-map.md)
+* **Action-continuity reconciliation seam** — authoritative external activity may change Portfolio State while Action Continuity separately owns intended-vs-observed association/reconciliation. One Portfolio change may externally eliminate one Decision Need, materially alter another unresolved Decision, and contribute to a different Decision Need; Portfolio & Risk owns the resulting Portfolio meaning without manufacturing Action Intent causality or Decision lifecycle meaning. (source: docs/proposed/platform-domain-interaction-map.md)

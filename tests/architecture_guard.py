@@ -162,7 +162,9 @@ class _Guard(ast.NodeVisitor):
         self.import_scopes = [imports]
         self.loader_scopes = [_loader_aliases(tree.body, imports)]
         self.technical_ids = _technical_names(tree.body)
+        self.identity_binding_scopes: list[dict[str, bool]] = [{}]
         self.in_investment_decision = False
+        self.in_investment_decision_class_body = False
         self.violations: list[Violation] = []
 
     def fail(self, node: ast.AST, rule: str, detail: str) -> None:
@@ -172,6 +174,9 @@ class _Guard(ast.NodeVisitor):
     def visit_import(self, node: ast.Import) -> None:
         for alias in node.names:
             self._check_import(node, alias.name)
+            bound = alias.asname or alias.name.split(".", 1)[0]
+            target = alias.name if alias.asname else bound
+            self._bind_imported_identity(node, bound, target)
 
     def visit_import_from(self, node: ast.ImportFrom) -> None:
         base = _from_module(self.package, node)
@@ -179,6 +184,12 @@ class _Guard(ast.NodeVisitor):
             target = base if alias.name == "*" else _join(base, alias.name)
             if target:
                 self._check_import(node, target)
+            if alias.name != "*":
+                self._bind_imported_identity(
+                    node,
+                    alias.asname or alias.name,
+                    target,
+                )
 
     def _check_import(self, node: ast.AST, target: str) -> None:
         if _prefix(target, {"legacy"}):
@@ -244,22 +255,38 @@ class _Guard(ast.NodeVisitor):
         names = [target.id for target in node.targets if isinstance(target, ast.Name)]
         if any(_decision_name(name) for name in names):
             self._check_identity(node, "InvestmentDecisionId", node.value)
-        if self.in_investment_decision and "id" in {_norm(name) for name in names}:
+        if self.in_investment_decision_class_body and "id" in {
+            _norm(name) for name in names
+        }:
             self._check_identity(node, "InvestmentDecision.id", node.value)
+        if len(names) == 1:
+            self._bind_identity_name(names[0], self._identity_technical(node.value))
         self.generic_visit(node)
 
     def visit_ann_assign(self, node: ast.AnnAssign) -> None:
         if isinstance(node.target, ast.Name):
             name = node.target.id
-            value = (
-                node.value
-                if _norm(ast.unparse(node.annotation)) == "typealias"
-                else node.annotation
-            )
+
             if _decision_name(name):
-                self._check_identity(node, name, value)
-            if self.in_investment_decision and _norm(name) == "id":
+                self._check_identity(node, name, node.annotation)
+                if node.value is not None:
+                    self._check_identity(node, name, node.value)
+
+            if self.in_investment_decision_class_body and _norm(name) == "id":
                 self._check_identity(node, "InvestmentDecision.id", node.annotation)
+                if node.value is not None:
+                    self._check_identity(
+                        node,
+                        "InvestmentDecision.id",
+                        node.value,
+                    )
+
+            if node.value is not None:
+                self._bind_identity_name(
+                    name,
+                    self._identity_technical(node.value),
+                )
+
         self.generic_visit(node)
 
     def visit_arg(self, node: ast.arg) -> None:
@@ -268,37 +295,57 @@ class _Guard(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_function_def(self, node: ast.FunctionDef) -> None:
+        previous_class_body = self.in_investment_decision_class_body
+        self.in_investment_decision_class_body = False
         self._visit_scope(node, node.body)
+        self.in_investment_decision_class_body = previous_class_body
+        self._bind_identity_name(node.name, False)
 
     def visit_async_function_def(self, node: ast.AsyncFunctionDef) -> None:
+        previous_class_body = self.in_investment_decision_class_body
+        self.in_investment_decision_class_body = False
         self._visit_scope(node, node.body)
+        self.in_investment_decision_class_body = previous_class_body
+        self._bind_identity_name(node.name, False)
 
     def visit_class_def(self, node: ast.ClassDef) -> None:
-        if _norm(node.name) == "investmentdecisionid":
+        class_is_technical = any(self._identity_technical(base) for base in node.bases)
+
+        if _decision_name(node.name):
             for base in node.bases:
                 self._check_identity(node, node.name, base)
 
         previous_flag = self.in_investment_decision
+        previous_class_body = self.in_investment_decision_class_body
         previous_ids = self.technical_ids
         self.in_investment_decision = _norm(node.name) == "investmentdecision"
+        self.in_investment_decision_class_body = self.in_investment_decision
         if self.in_investment_decision:
             self.technical_ids = _technical_names(node.body, previous_ids)
         self._visit_scope(node, node.body)
+        self.in_investment_decision_class_body = previous_class_body
         self.in_investment_decision = previous_flag
         self.technical_ids = previous_ids
+        self._bind_identity_name(node.name, class_is_technical)
 
     def _visit_scope(self, node: ast.AST, body: list[ast.stmt]) -> None:
         imports = _import_aliases(body, self.package, self.import_scopes[-1])
         loaders = _loader_aliases(body, imports, self.loader_scopes[-1])
         self.import_scopes.append(imports)
         self.loader_scopes.append(loaders)
+        self.identity_binding_scopes.append(dict(self.identity_binding_scopes[-1]))
         self.generic_visit(node)
+        self.identity_binding_scopes.pop()
         self.loader_scopes.pop()
         self.import_scopes.pop()
 
     def visit_type_alias(self, node: ast.TypeAlias) -> None:
-        if _decision_name(node.name.id):
-            self._check_identity(node, node.name.id, node.value)
+        name = node.name.id
+        if _decision_name(name):
+            self._check_identity(node, name, node.value)
+        if self.in_investment_decision_class_body and _norm(name) == "id":
+            self._check_identity(node, "InvestmentDecision.id", node.value)
+        self._bind_identity_name(name, self._identity_technical(node.value))
         self.generic_visit(node)
 
     def visit_name(self, node: ast.Name) -> None:
@@ -322,8 +369,36 @@ class _Guard(ast.NodeVisitor):
     visit_Name = visit_name
     visit_Attribute = visit_attribute
 
+    def _identity_technical(self, value: ast.AST) -> bool:
+        return _technical(
+            value,
+            self.technical_ids,
+            self.identity_binding_scopes[-1],
+        )
+
+    def _bind_identity_name(self, name: str, technical: bool) -> None:
+        normalized = _norm(name)
+        if normalized in TECHNICAL_IDS:
+            return
+        self.identity_binding_scopes[-1][normalized] = technical
+
+    def _bind_imported_identity(
+        self,
+        node: ast.AST,
+        bound: str,
+        target: str,
+    ) -> None:
+        self._bind_identity_name(bound, _technical_import(target))
+        imported = ast.Name(id=bound, ctx=ast.Load())
+
+        if _decision_name(bound):
+            self._check_identity(node, bound, imported)
+
+        if self.in_investment_decision_class_body and _norm(bound) == "id":
+            self._check_identity(node, "InvestmentDecision.id", imported)
+
     def _check_identity(self, node: ast.AST, name: str, value: ast.AST) -> None:
-        if _technical(value, self.technical_ids):
+        if self._identity_technical(value):
             self.fail(
                 node,
                 "ARCH-DECISION-IDENTITY",
@@ -494,16 +569,32 @@ def _annassign_type_binding(
     return _norm(node.target.id), (node.value,)
 
 
-def _technical(node: ast.AST, technical_names: set[str]) -> bool:
-    tokens: set[str] = set()
+def _technical_import(target: str) -> bool:
+    return _norm(target.rsplit(".", 1)[-1]) in TECHNICAL_IDS
+
+
+def _technical(
+    node: ast.AST,
+    technical_names: set[str],
+    bindings: dict[str, bool] | None = None,
+) -> bool:
+    def technical_token(token: str) -> bool:
+        normalized = _norm(token)
+        if normalized in TECHNICAL_IDS:
+            return True
+        if bindings is not None and normalized in bindings:
+            return bindings[normalized]
+        return normalized in technical_names
+
     for item in ast.walk(node):
-        if isinstance(item, ast.Name):
-            tokens.add(_norm(item.id))
-        elif isinstance(item, ast.Attribute):
-            tokens.add(_norm(item.attr))
-        elif isinstance(item, ast.Constant) and isinstance(item.value, str):
-            tokens.update(_norm(token) for token in re.findall(r"\w+", item.value))
-    return bool(tokens & technical_names)
+        if isinstance(item, ast.Name) and technical_token(item.id):
+            return True
+        if isinstance(item, ast.Attribute) and technical_token(item.attr):
+            return True
+        if isinstance(item, ast.Constant) and isinstance(item.value, str):
+            if any(technical_token(token) for token in re.findall(r"\w+", item.value)):
+                return True
+    return False
 
 
 def _resolve(node: ast.AST, aliases: dict[str, str]) -> str | None:

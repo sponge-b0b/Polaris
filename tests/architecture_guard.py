@@ -14,7 +14,7 @@ FORBIDDEN = {
     "domain": {"application", "infrastructure", "interfaces"},
     "application": {"infrastructure", "interfaces"},
     "infrastructure": {"interfaces"},
-    "interfaces": {"infrastructure"},
+    "interfaces": {"domain", "infrastructure"},
 }
 INTERFACE_MODULES = {"click", "django", "fastapi", "flask", "starlette", "typer"}
 VENDORS = {

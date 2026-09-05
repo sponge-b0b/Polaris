@@ -25,49 +25,63 @@ def test_current_greenfield_repository_satisfies_architecture_rules() -> None:
     assert not violations, "\n".join(item.render() for item in violations)
 
 
-@pytest.mark.parametrize(
-    ("path", "dependency"),
-    [
-        ("src/polaris/domain/decisions/model.py", "polaris.application.use_cases"),
-        ("src/polaris/domain/decisions/model.py", "polaris.infrastructure.persistence"),
-        ("src/polaris/domain/decisions/model.py", "polaris.interfaces.cli"),
-        (
-            "src/polaris/application/use_cases/run.py",
-            "polaris.infrastructure.persistence",
-        ),
-        ("src/polaris/application/use_cases/run.py", "polaris.interfaces.cli"),
-        ("src/polaris/interfaces/cli.py", "polaris.infrastructure.persistence"),
-        ("src/polaris/infrastructure/persistence/store.py", "polaris.interfaces.cli"),
-    ],
+LAYER_PATHS = {
+    "domain": "src/polaris/domain/decisions/model.py",
+    "application": "src/polaris/application/use_cases/run.py",
+    "infrastructure": "src/polaris/infrastructure/persistence/store.py",
+    "interfaces": "src/polaris/interfaces/cli.py",
+}
+
+LAYER_MODULES = {
+    "domain": "polaris.domain.decisions",
+    "application": "polaris.application.use_cases",
+    "infrastructure": "polaris.infrastructure.persistence",
+    "interfaces": "polaris.interfaces.cli",
+}
+
+# Authority-derived from ADR 0001 / approved 0.2.0 dependency direction.
+# This matrix is intentionally independent of architecture_guard.FORBIDDEN.
+LAYER_DIRECTION_MATRIX = (
+    ("domain", "application", False),
+    ("domain", "infrastructure", False),
+    ("domain", "interfaces", False),
+    ("application", "domain", True),
+    ("application", "infrastructure", False),
+    ("application", "interfaces", False),
+    ("infrastructure", "domain", True),
+    ("infrastructure", "application", True),
+    ("infrastructure", "interfaces", False),
+    ("interfaces", "domain", False),
+    ("interfaces", "application", True),
+    ("interfaces", "infrastructure", False),
 )
-def test_forbidden_layer_dependencies_fail(
-    tmp_path: Path,
-    path: str,
-    dependency: str,
-) -> None:
-    _write(tmp_path, path, f"from {dependency} import Example\n")
-    assert "ARCH-LAYER" in _rules(tmp_path)
 
 
 @pytest.mark.parametrize(
-    ("path", "dependency"),
-    [
-        ("src/polaris/application/use_cases/run.py", "polaris.domain.decisions"),
-        ("src/polaris/interfaces/cli.py", "polaris.application.use_cases"),
-        (
-            "src/polaris/infrastructure/persistence/store.py",
-            "polaris.application.ports",
-        ),
-        ("src/polaris/infrastructure/persistence/store.py", "polaris.domain.decisions"),
-    ],
+    ("source_layer", "target_layer", "allowed"),
+    LAYER_DIRECTION_MATRIX,
 )
-def test_valid_inward_dependencies_pass(
+def test_root_complete_layer_direction_matrix(
     tmp_path: Path,
-    path: str,
-    dependency: str,
+    source_layer: str,
+    target_layer: str,
+    allowed: bool,
 ) -> None:
-    _write(tmp_path, path, f"from {dependency} import Example\n")
-    assert check_repository(tmp_path) == ()
+    _write(
+        tmp_path,
+        LAYER_PATHS[source_layer],
+        f"from {LAYER_MODULES[target_layer]} import Example\n",
+    )
+
+    violations = check_repository(tmp_path)
+    layer_violations = [item for item in violations if item.rule == "ARCH-LAYER"]
+
+    if allowed:
+        assert violations == ()
+    else:
+        assert len(layer_violations) == 1
+        assert source_layer in layer_violations[0].detail
+        assert target_layer in layer_violations[0].detail
 
 
 @pytest.mark.parametrize("module", ["fastapi", "typer"])

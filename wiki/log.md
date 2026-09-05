@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 final audit correction | lifecycle disposition simplified and contested interpretation preserved
+
+Collapsed the second-audit four-axis draft into the final three-concern model: supported lifecycle disposition (`UNRESOLVED`, `SUBSTANTIVELY_RESOLVED`, `EXTERNALLY_RESOLVED`, `NEED_RETRACTED_UNSUPPORTED`), unresolved work posture (`ACTIVE`, human-`DEFERRED`, `WITHDRAWN`), and orthogonal Supersession relationships. Preserved unresolved/partial Scope, fail-closed continuity arbitration, many-to-many lineage, append-only correction, dual temporal queries, and explicit contested lifecycle interpretation rather than last-writer-wins. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 second adversarial audit | Decision Need status separated from judgment resolution
 
 Refined the proposed R2 lifecycle after the second adversarial pass found that External Resolution and unsupported-Need correction had still been conflated with substantive judgment state. Split Decision Need status, judgment-resolution status, unresolved work posture, and Supersession into independent dimensions; added zero/partial/established Scope completeness, one-Need/one-Decision integrity, explicit re-Deferral, conservative all-unresolved continuity candidates for R2, and correction semantics that preserve human acts when later Need facts change effective lifecycle understanding. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

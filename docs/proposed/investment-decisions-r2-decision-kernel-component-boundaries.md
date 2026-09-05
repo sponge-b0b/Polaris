@@ -4,7 +4,7 @@
 **Release:** 0.2.0  
 **Approved:** 2026-09-04  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
-**Purpose:** Define the implementation-facing boundary for the first greenfield durable Decision kernel while preventing unresolved semantic design from leaking into Specs.
+**Purpose:** Define the implementation-facing component boundaries for the first greenfield product slice without introducing new architectural choices or inheriting legacy business topology.
 
 ## Authority
 
@@ -12,48 +12,48 @@ This plan is subordinate to:
 
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md);
-- proposed audit reconciliation [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md), where frozen domain doctrine already outranks conflicting older wording;
+- proposed [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - [`../roadmap/0.2.0.md`](../roadmap/0.2.0.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/).
 
-This plan does not reopen R1 architecture. `legacy/v0_1/` remains donor material only.
+Approval of this component-boundary plan authorizes detailed R2 design, not immediate implementation. The detailed design set below must be approved and pass adversarial Spec-readiness review before `to-specs`.
 
-The component-boundary decision remains approved, but its **pre-Spec design gate is reopened** until the audit-remediated design set and requirements amendment are reviewed and approved.
+`legacy/v0_1/` is donor material only.
 
 ---
 
 # 1. R2 destination
 
-R2 should leave Polaris able to answer, without workflow replay:
+R2 establishes the smallest durable business kernel capable of answering, without workflow replay:
 
-> What Decision Need and Investment Decision exist; why is work continuing, deferred, withdrawn, renewed, or superseding; what Scope was known; what substantive judgment or external elimination occurred; what was known then versus what is currently understood to have been effective; and can that truth survive retry, restart, correction, and concurrent work without semantic duplication?
+> What Investment Decision exists, why is it the same or a different Decision, what supported lifecycle/work state is known now or was known historically, how is it related to prior Decisions, and can that truth survive retry, restart, correction, and concurrency without semantic duplication?
 
-The R2 path is deliberately narrower than the complete 0.2.0 lifecycle:
+R2 path:
 
 ```text
 Decision Need
       ↓
 Investment Decision identity
       ↓
-Subject + zero/partial/established Decision Scope
+Scope/Subject refinement
       ↓
-Need status + judgment-resolution status + unresolved work posture
+active / human-deferred / withdrawn work
+      ↓
+substantive resolution | External Resolution | unsupported-Need correction
       ↓
 renewal / Supersession relationships
       ↓
-immutable facts + non-destructive correction
+durable current + historical truth
       ↓
-Decision Memory current/historical queries
+Decision Memory query
 ```
 
-R2 does **not** implement Recommendation, full Evidence/Decision Context, Governance persistence, Action Intent, or Learning.
+R2 does not yet form Recommendations, perform AI reasoning, implement Governance, establish Action Intent, or evaluate Outcomes.
 
 ---
 
 # 2. Earned source boundaries
-
-R2 earns only:
 
 ```text
 src/polaris/
@@ -67,328 +67,256 @@ src/polaris/
     └── persistence/
 ```
 
-plus minimum tests and architecture enforcement.
+Plus minimum tests/architecture enforcement.
 
-Do not scaffold other R1 entities merely because they exist architecturally.
+Do not scaffold Evidence, intelligence, portfolio, governance, continuity, learning, follow-up, model, source, identity, scheduling, observability, configuration, or interface packages before a current milestone earns them.
 
 ---
 
 # 3. Decisions domain boundary
 
-R2 must establish:
+R2 owns:
 
-- durable one-Need/one-Decision identity relationship;
+- `InvestmentDecisionId` and `DecisionNeedId` semantics;
 - Decision Subject;
-- Decision Scope with explicit zero-known, partially known, and established applicability;
-- Decision Need status;
-- substantive judgment-resolution status;
-- unresolved work posture;
-- Deferral as a Decisions-side consequence of a trusted Human Investment Decision basis;
-- work withdrawal distinct from Deferral or investment judgment;
-- External Resolution as external elimination of the Decision Need, not substantive judgment;
-- non-destructive Decision Need retraction when the original Need was erroneous/unsupported;
-- renewal relationships;
-- Supersession as an orthogonal many-to-many relationship that may apply to unresolved or resolved Decisions;
-- explicit lifecycle correction when late knowledge changes supported effective interpretation;
-- Actor Attribution distinct from trigger/source/technical provenance;
-- fail-closed same-vs-new continuity under concurrent initiation.
+- Decision Scope with explicit unresolved/partial/established semantics;
+- supported lifecycle disposition:
+  - `UNRESOLVED`;
+  - `SUBSTANTIVELY_RESOLVED`;
+  - `EXTERNALLY_RESOLVED`;
+  - `NEED_RETRACTED_UNSUPPORTED`;
+- unresolved work posture:
+  - `ACTIVE`;
+  - `DEFERRED`;
+  - `WITHDRAWN`;
+- immutable lifecycle facts and explicit correction semantics;
+- Decision-to-Decision relationship validation;
+- same-vs-new continuity invariants;
+- determinate vs contested lifecycle interpretation.
 
-## 3.1 Four independent lifecycle dimensions
+Supersession is not a lifecycle disposition. It is an orthogonal typed relationship affecting continuing applicability.
 
-R2 must preserve, not collapse:
-
-```text
-Decision Need status
-    ACTIVE
-    EXTERNALLY_ELIMINATED
-    RETRACTED_UNSUPPORTED
-
-judgment-resolution status
-    UNRESOLVED
-    SUBSTANTIVELY_RESOLVED
-
-work posture while Need ACTIVE + judgment UNRESOLVED + Decision operative
-    ACTIVE
-    DEFERRED
-    WITHDRAWN
-
-continuing applicability
-    typed SUPERSEDES relationship(s)
-```
-
-The labels are implementation/design vocabulary; they do not create new canonical product nouns by themselves.
-
-External Resolution changes the **Decision Need** axis. Supersession changes **continuing applicability**. Neither may be represented by overwriting substantive judgment history.
+Investment Decision remains a lifecycle root, not a giant aggregate for Evidence/Recommendations/authority/Action Intent/Outcome/Lesson.
 
 ---
 
-# 4. Decision relationship boundary
+# 4. Application boundary
 
-R2 implements:
+R2 application owns:
 
-- `RENEWED_FROM`;
-- `SUPERSEDES`.
+- commands/queries;
+- continuity arbitration;
+- expected-version protection;
+- operation-scoped idempotency;
+- semantic transaction boundaries;
+- actor/trigger/technical-provenance separation;
+- trusted Deferral/substantive-resolution seams;
+- correction coordination;
+- relationship establishment;
+- Decision Memory views.
 
-Required semantics:
-
-- supported renewal/Supersession lineage is acyclic;
-- no fixed one-to-one Supersession cardinality;
-- unresolved or resolved Decisions may be superseded;
-- Supersession never rewrites Need/judgment/work history;
-- relationship facts preserve effective and recorded time;
-- relationship correction is append-only;
-- storage remains compatible with later many-to-many `PRIOR_DECISION_CONTEXT`;
-- future contextual binding preserves the target Decision **as known when actually used**, not its later current state.
-
-R2 does not implement contextual prior-Decision retrieval/binding itself.
-
----
-
-# 5. Application boundary
-
-R2 application responsibilities include:
+Conceptual commands:
 
 ```text
 initiate_decision
-establish_or_refine_decision_scope
-revise_decision_subject
-record_deferral_consequence
+establish_or_revise_scope
+revise_subject
+apply_human_deferral
 resume_decision_work
 withdraw_decision_work
-record_substantive_resolution
-record_external_resolution
+apply_substantive_resolution
+apply_external_resolution
 retract_unsupported_decision_need
-initiate_renewed_decision
-record_supersession
-correct_decision_lifecycle
+record_lifecycle_correction
+renew_decision
+establish_supersession
 ```
 
-Queries include:
-
-```text
-current Decision
-recorded history
-as-known-at
-historically effective state under a knowledge cutoff
-continuity candidates
-renewal/Supersession lineage
-```
-
-## 5.1 Continuity arbitration
-
-Different operation IDs must not bypass same-vs-new Decision semantics.
-
-For initial R2, correctness is favored over clever matching:
-
-- the continuity query MAY return all currently unresolved, non-superseded Decisions;
-- caller/application makes explicit `CONTINUE / CREATE_NEW / AMBIGUOUS` determination;
-- commit atomically revalidates the observed candidate universe;
-- changed universe or ambiguity creates no new Decision.
-
-The initial PostgreSQL adapter MAY globally serialize Decision initiation if that is the smallest correct implementation. Later Attention may earn optimized candidate narrowing without changing Decision identity semantics.
-
-## 5.2 Cross-owner human seams
-
-R2 designs but does not own:
-
-- Human Investment Decision of Deferral;
-- Human Investment Decision or other valid business basis that substantively resolves judgment.
-
-Trusted fixture references may exercise the Decisions-side consequences. No arbitrary caller may manufacture Governance facts.
+No speculative async framework is earned in R2.
 
 ---
 
-# 6. Temporal Decision Memory boundary
+# 5. Continuity and concurrent initiation
 
-R2 must provide two distinct historical semantics.
+R2 must not silently create two Decisions for the same coherent unresolved choice merely because requests use different operation IDs.
 
-## `as_known_at(K)`
+Application must:
 
-What Polaris durably knew by knowledge cutoff `K`.
+1. discover conservative unresolved, operative candidate Decisions;
+2. determine `CONTINUE_EXISTING`, `CREATE_NEW`, or `AMBIGUOUS`;
+3. fail closed on ambiguity;
+4. atomically revalidate candidate basis before committing `CREATE_NEW`;
+5. return continuity conflict when concurrent work invalidates the basis.
 
-Later-recorded facts/corrections are excluded even when their effective time is earlier.
-
-## `effective_at(T, knowledge_cutoff=K)`
-
-Using only knowledge admitted by `K`, what Need/judgment/work/applicability state is supported as having been effective at `T`?
-
-Default current knowledge provides the current best supported effective history.
-
-These Decision lifecycle queries are not substitutes for future Evidence Judgment-Time Availability.
+R2 may use broad/global initiation serialization in PostgreSQL if that is the smallest correct implementation. No universal semantic matching heuristic or hash-derived identity is required.
 
 ---
 
-# 7. Non-destructive correction
+# 6. Governance seam
 
-R2 gives ADR-0002's correction rule executable shape.
+R2 does not implement Governance.
 
-When later information changes supported lifecycle understanding:
+Deferral and substantive resolution consume trusted references to Governance-owned Human Investment Decision or deterministic trusted fixtures in R2 tests.
 
-- original facts remain immutable;
-- append explicit correction referencing the prior interpretation/fact;
-- preserve effective time separately from recorded time;
-- preserve Human Investment Decision or other historical acts that really occurred;
-- update current/effective projections from supported corrected history;
-- earlier `as_known_at` views remain unchanged.
+R2 must not expose a generic arbitrary caller path that fabricates Human Investment Decision, Approval, Mandate Exception, or another authority act.
 
-This applies especially to:
-
-- late External Resolution;
-- later discovery that a Decision Need was erroneous/unsupported;
-- incorrectly asserted relationship/lifecycle interpretation.
-
-No generic cross-domain correction framework is required in R2.
+When Governance arrives, cross-owner atomicity may earn a broader Application Unit of Work.
 
 ---
 
-# 8. Persistence boundary
+# 7. Query / Durable Decision Memory boundary
 
-Logical R2 persistence responsibilities include:
+Required semantic query capabilities:
 
-```text
-Decision Need
-Investment Decision current projection
-multi-Portfolio Scope representation + completeness
-immutable lifecycle facts/corrections
-typed many-to-many Decision relationships
-command idempotency receipts
-minimal continuity-initiation serialization/guard state if needed
-```
+- Decision current view by ID;
+- raw immutable lifecycle history;
+- current determinate or contested lifecycle interpretation;
+- current Scope/Subject/work posture;
+- typed renewal/Supersession lineage;
+- `as_known_at(K)`;
+- `effective_at(T, known_at=K)`;
+- conservative unresolved continuity candidates.
 
-Required guarantees:
+Decision Memory view is not a canonical `DecisionRecord` entity.
 
-- one Need grounds at most one Decision;
-- atomic related writes;
-- expected-version protection;
-- distinct-operation continuity protection;
-- effective/recorded time;
-- Actor Attribution separated from source/technical provenance;
-- many-to-many renewal/Supersession-compatible relationship representation;
+Historical query must never leak later-recorded facts into earlier `as_known_at` views.
+
+---
+
+# 8. Persistence contract
+
+Persistence ports express:
+
+- atomic direct business-fact commit;
+- immutable lifecycle facts/corrections;
+- current projection reconstruction;
+- idempotency receipts;
+- expected-version concurrency;
+- continuity arbitration/revalidation;
+- many-to-many Decision relationships;
 - lifecycle-lineage cycle prevention;
-- restart recovery;
-- fresh greenfield migration lineage;
-- no legacy schema dependency.
+- dual-time historical reconstruction;
+- contested interpretation preservation;
+- recovery after restart.
 
-PostgreSQL remains the initial/reference adapter only.
+No PostgreSQL/ORM/SQL types leak inward.
+
+PostgreSQL remains initial/reference adapter only.
 
 ---
 
-# 9. Architecture enforcement
+# 9. Fresh PostgreSQL lineage
 
-R2 checks must fail when:
+R2 establishes fresh current migration/schema lineage. No current migration targets/reuses legacy tables because analogous legacy structures exist.
+
+Likely logical structures:
+
+```text
+decision_needs
+investment_decisions
+investment_decision_lifecycle_facts
+investment_decision_relationships
+investment_decision_command_receipts
+<optional narrow continuity guard>
+```
+
+Library/ORM/migration choices remain Spec decisions unless they alter inward semantics.
+
+---
+
+# 10. Architecture enforcement
+
+Before substantial production code accumulates, executable checks fail when:
 
 1. current source/tests import `legacy/`;
-2. domain imports application/infrastructure/interfaces;
+2. `domain` imports application/infrastructure/interfaces;
 3. application imports concrete infrastructure/interfaces;
-4. inward ports expose PostgreSQL/ORM/SQL/vendor-native types;
-5. infrastructure bypasses domain/application semantics to invent lifecycle business state;
-6. runtime/work/output IDs become Investment Decision identity;
-7. current migrations target legacy schema objects;
-8. persistence represents Supersession as one-to-one or as a replacement lifecycle status;
-9. unresolved Decision Scope is silently encoded as a fake/default Portfolio identity.
+4. inward ports expose vendor persistence/messaging/model/source types;
+5. adapter/interface bypasses application/domain to invent business lifecycle facts;
+6. runtime/job/output identity becomes Investment Decision identity;
+7. current migrations target legacy schema objects.
 
-Prefer small custom/static enforcement unless a framework independently earns its dependency.
+Prefer a small custom import/AST check over a framework unless one is earned.
 
 ---
 
-# 10. Testing seams
+# 11. R2 test seams
 
-## Domain
+## Pure domain tests
 
-Prove:
+Lifecycle, work posture, Scope, correction, relationship, and identity invariants.
 
-- Need/Decision identity;
-- partial/unresolved Scope;
-- Need vs judgment vs work vs Supersession separation;
-- Deferral/re-Deferral;
-- withdrawal/resumption;
-- External Resolution;
-- unsupported Need retraction;
-- renewal/Supersession/cycle rules;
-- correction semantics.
+## Application tests with fakes
 
-## Application with deterministic fakes
+Continuity, trusted-basis seams, transactions, idempotency, concurrency, correction, and queries without PostgreSQL adapter imports.
 
-Prove:
+## Persistence adapter contract tests
 
-- command/query contracts;
-- Actor Attribution/provenance separation;
-- operation idempotency;
-- expected-version conflict;
-- continuity arbitration for different operation IDs;
-- trusted human-basis seams;
-- dual temporal queries;
-- transaction outcomes.
+Atomicity, uniqueness, recovery, idempotency, continuity concurrency, dual-time history, contested correction, many-to-many lineage, cycle prevention.
 
-## PostgreSQL adapter contract
+## Foundational product acceptance evidence
 
-Prove:
+R2 supplies **foundational Decision-kernel evidence** for:
 
-- atomicity/restart durability;
-- one Need -> at most one Decision;
-- zero/partial/established Scope;
-- continuity-safe initiation;
-- immutable/corrected history;
-- many-to-many Supersession;
-- cycle rejection;
-- dual temporal reads;
-- fresh migration lineage.
+- AS-001 New material Decision Need;
+- AS-002 Same unresolved Decision resumes;
+- AS-003 Deferral and later resumption;
+- AS-004 Resolved Decision followed by renewed judgment;
+- AS-005 External Resolution;
+- full AS-022 Legacy isolation.
 
-## Acceptance
-
-R2 provides **foundational acceptance evidence** for the Decision-kernel portions of:
-
-- `AS-001`;
-- `AS-002`;
-- proposed amended `AS-003`;
-- `AS-004`;
-- `AS-005`.
-
-R2 may fully close:
-
-- `AS-022` Legacy isolation.
-
-R2 must not claim full closure of scenarios requiring not-yet-implemented Attention, Evidence/Decision Context, Governance-owned Human Investment Decision, or other deferred owners.
+R2 does **not** claim full AS-001–005 closure while Attention, Evidence/full Decision Context, Governance Human Investment Decision, or other required participants are intentionally absent.
 
 ---
 
-# 11. Donor disposition
+# 12. Owner-scoped donor findings
 
-Existing owner-scoped donor conclusions remain:
+## PostgreSQL settings
 
-- PostgreSQL settings mechanics/tests → transplant with boundary cleanup / mine test logic;
-- engine/session mechanics → mine mechanics, rewrite boundary;
-- Alembic bootstrap/test mechanics → mine mechanics only;
-- legacy global persistence taxonomy/completed-run/workflow identity → leave in legacy;
-- no first-class legacy `InvestmentDecision` matching greenfield semantics → new domain kernel.
+`legacy/v0_1/core/database/settings.py` and tests: **mine/transplant generic connection-validation mechanics only**.
 
-Donor findings never determine domain/design semantics.
+## Engine/session mechanics
 
----
+`legacy/v0_1/core/database/postgres.py`: **mine mechanics; rewrite boundary/lifetime**. Do not transplant module-global lifecycle or import-time config.
 
-# 12. Explicit exclusions
+## Migration bootstrap
 
-R2 does not implement/pre-scaffold:
+Legacy Alembic mechanics/tests: **mine bootstrap/test mechanics only**. Do not inherit legacy global schema taxonomy.
 
-- Attention engine/scheduler;
-- Evidence owner/store;
-- Investment Intelligence/Recommendation;
-- Portfolio Risk internals;
-- Governance/Human Investment Decision persistence;
-- Review Condition domain implementation;
-- Action Continuity;
-- Learning;
-- prior-Decision contextual retrieval/binding;
-- graph database;
-- generic asynchronous runtime;
-- generic event-sourcing/correction/workflow/plugin framework;
-- legacy data migration.
+## Legacy persistence taxonomy
+
+Completed-run/workflow/event/report/agent/RAG/telemetry generic persistence: **leave in legacy by default**.
+
+## Legacy decision model
+
+No first-class donor `InvestmentDecision` matches frozen greenfield semantics: **new domain kernel**.
 
 ---
 
-# 13. Required pre-Spec design set
+# 13. Explicit R2 exclusions
 
-The complete design set remains:
+Do not implement/pre-scaffold:
+
+- AI/model gateway/reasoning;
+- Evidence acquisition/full bindings;
+- Recommendation formation;
+- Portfolio Risk analysis;
+- Governance/authority domain;
+- Human Investment Decision payload ownership;
+- Action Intent/broker reconciliation;
+- Outcome/Evaluation/Lesson;
+- Attention scheduling/autonomous monitoring;
+- prior-Decision candidate retrieval/context binding;
+- graph database/framework;
+- generic workflow/event-runtime architecture;
+- plugin framework;
+- RAG/report architecture.
+
+---
+
+# 14. Pre-Spec design set
+
+Required proposed design artifacts:
 
 1. [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md)
 2. [`investment-decisions-lifecycle-model.md`](investment-decisions-lifecycle-model.md)
@@ -396,41 +324,26 @@ The complete design set remains:
 4. [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md)
 5. [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md)
 
-The audit also produced a proposed requirements reconciliation:
-
-- [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md)
-
-The five design files and requirement amendment remain **Proposed** pending owner review.
+Before `to-specs`, the complete set must be owner-approved and pass an adversarial Spec-readiness audit demonstrating that Specs need implementation decomposition rather than unresolved domain/architecture invention.
 
 ---
 
-# 14. R2 pre-Spec exit criteria
+# 15. R2 exit criteria
 
-The design gate can close only when:
+R2 is complete only when implementation proves:
 
-- one Need / one Decision identity is explicit;
-- zero/partial/established Scope semantics are explicit;
-- Decision Need status, substantive judgment status, unresolved work posture, and Supersession are independent;
-- Deferral/re-Deferral require proper human basis;
-- work withdrawal is not investment judgment;
-- External Resolution changes Need status, not judgment history;
-- unsupported Need retraction may occur without deleting later human acts;
-- Supersession is many-to-many and may apply after resolution;
-- lineage is acyclic;
-- different concurrent initiation operations fail closed on continuity change/ambiguity;
-- Actor Attribution is distinct from trigger/technical provenance;
-- late facts use explicit correction;
-- as-known-at and effective-at semantics are distinct;
-- future prior-Decision context binds target historical state;
-- Action Continuity ↔ Portfolio & Risk interaction is documented;
-- acceptance claims are milestone-honest;
-- persistence remains technology-neutral;
-- no implementation Spec must invent any remaining load-bearing semantic choice.
-
----
-
-# 15. Immediate transition
-
-Only after owner approval of the audit-remediated design set and requirements amendment, followed by a final adversarial Spec-readiness audit with no blockers, may R2 transition to `to-specs`.
-
-No implementation ticket or production code is authorized before that transition.
+- first-class Decision Need/Decision identity;
+- unresolved/partial Scope is honest and durable;
+- human Deferral preserves same Decision;
+- withdrawal is distinct from investment judgment;
+- substantive vs External Resolution vs unsupported-Need correction are distinct;
+- resolved Decisions never reopen;
+- renewal creates new linked identity;
+- Supersession is orthogonal to lifecycle and many-to-many capable;
+- retries/restarts do not duplicate committed business truth;
+- concurrent initiation cannot silently duplicate one coherent unresolved choice;
+- append-only corrections preserve prior as-known-at history;
+- contested lifecycle interpretation is not silently collapsed;
+- historical queries separate recorded knowledge from effective understanding;
+- actor attribution and technical provenance remain distinct;
+- current paths remain independent of `legacy/`.

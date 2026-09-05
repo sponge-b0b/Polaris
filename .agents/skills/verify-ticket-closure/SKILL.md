@@ -137,6 +137,21 @@ Derive the membership predicate from durable authority, including explicit enume
 
 Discovery may reveal a candidate. Discovery does not create authority.
 
+For every finite or discoverable domain, bind a **Domain Construction Manifest** before disposition begins:
+
+```text
+Domain: ND-<n>
+Parent: <AC-n | ND-n>
+Authority: <durable source(s)>
+Membership predicate: <predicate>
+Dimensions / authoritative source sets: <explicit sets or bounded sources>
+Generation mechanism: <enumeration | Cartesian product | bounded exhaustive search>
+Expected members: <n | open-world closure criterion>
+Generated members: <n>
+```
+
+For finite domains, `Generated members` must equal the independently recoverable `Expected members` before the domain can be closed. For discoverable/open-world domains, the generation mechanism must establish the stated closure criterion. A later finding may change member dispositions; it may not retroactively shrink the construction manifest.
+
 If the authoritative domain is semantically open-world rather than finitely enumerable, define the inclusion rule and the exhaustive/discovery mechanism that can establish closure to the practical boundary required by the claim. If membership of a material candidate cannot be resolved from current authority, the candidate is `ambiguous` and the affected cell/domain remains `unproven`; do not silently widen or narrow the authoritative claim.
 
 ## 3. Per-Cell Proof Contract
@@ -150,7 +165,7 @@ Claim: <exact semantic claim>
 Domain: <authoritative domain>
 Domain authority: <durable source(s) defining membership>
 Membership predicate: <what makes a candidate part of this domain>
-Nested domains: <None | closed domain manifests>
+Nested domains: <None | ND manifests>
 Predicate: <what must be true>
 Falsifier: <concrete state making the claim false>
 Evidence: <current evidence excluding the falsifier>
@@ -183,7 +198,22 @@ Examples include:
 * workflow transition × entry/re-entry/fallback path;
 * operational owner × production composition path.
 
-Each nested domain carries its own durable authority and membership predicate. `unchecked = 0` over an incompletely constructed domain is not proof. Familiar-symbol searches and passing tests are supporting evidence unless they are an independently checkable exhaustive mechanism for the authoritative domain.
+Each nested domain carries its own durable authority, membership predicate, and Domain Construction Manifest. Track construction separately from disposition:
+
+```text
+Domain: ND-<n>
+Expected / closure criterion: <n | criterion>
+Generated: <n>
+Inspected: <n>
+Dispositioned: <n>
+Remaining generated members: 0
+Construction complete: yes
+Sweep complete: yes
+```
+
+`unchecked = 0` over an incompletely constructed domain is not proof. A parent cell becoming `violated` does **not** close, waive, or disposition the rest of its nested domain. Continue generating, inspecting, and dispositioning every remaining authoritative member so the same run accumulates all independently observable failures.
+
+Familiar-symbol searches and passing tests are supporting evidence unless they are an independently checkable exhaustive mechanism for the authoritative domain.
 
 ### Production composition
 
@@ -247,38 +277,54 @@ Apply the disposition mechanically to the certification universe:
 
 Do not classify a candidate `in-domain` solely because it shares a symbol, subsystem, implementation mechanism, or semantic theme with the claim. A broader candidate belongs only when the durable authority or another authoritative carried obligation actually supplies that broader membership predicate.
 
+Finding one falsifier establishes that PASS is impossible for the current candidate, but it does not complete verification. Continue the same bounded generation and disposition procedure for every remaining acceptance cell, nested-domain member, sibling, alternate, and adversarial candidate already authorized by the domain manifests. Do not narrow the remaining sweep to the first defect or its implementation mechanism.
+
 For remediation this is the Root Invariant Sweep and also re-proves applicable carried same-root cells/protected roots against current authority. Historical PASS/satisfied/unchanged state is evidence history, not current proof.
 
 Do not broaden into unrelated review.
 
-## 6. Completeness and Failure Accumulation
+## 6. Completeness and Failure Saturation
 
 After verifier integrity is established, do not fail fast on implementation/proof defects. Record each and complete the bounded universe so one run returns all independently observable closure failures.
 
-Before verdict require:
+A first falsifier changes **verdict polarity** to FAIL; it does not establish **verification completion**. PASS and FAIL therefore require the same universe-construction and sweep-saturation gates. A violated parent cell remains open for search until every authoritative nested member and sibling has been generated and dispositioned.
+
+Before either verdict require:
 
 ```text
 Acceptance coverage: <n> cells
 proven: <n>
 violated: <n>
 unproven: <n>
-unchecked: 0
+uncheckd: 0
 Nested domains required: <n>
+Domain construction manifests complete: <n>/<n>
 Nested domains closed: <n>
 Open nested-domain candidates: 0
+Generated authoritative members: <n>
+Inspected authoritative members: <n>
+Dispositioned authoritative members: <n>
+Remaining authoritative members: 0
+Violated cells with incomplete domain sweep: 0
 Domain-membership candidates: <n>
 in-domain: <n>
 out-of-domain: <n>
 ambiguous membership: 0
 Undispositioned domain candidates: 0
+Independent actionable findings: <n>
+Unexplored authoritative siblings: 0
 Unproven material assumptions: 0
 ```
 
-Any violated/unproven/unchecked cell, incomplete nested domain, ambiguous/undispositioned domain candidate, or unproven material assumption blocks PASS.
+For a finite domain, generated/inspected/dispositioned counts must reconcile to the authoritative expected member count. For a discoverable/open-world domain, the declared exhaustive mechanism must satisfy its closure criterion before either PASS or FAIL is legal.
+
+Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same acceptance cell. Derivative acceptance failures may reference the same root defect rather than duplicating it, but they do not replace independently actionable findings.
+
+Any violated/unproven/unchecked cell, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, or unproven material assumption blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete verification result rather than a partial failure set.
 
 ## 7. Verdict
 
-Return exactly one semantic verdict for the immutable candidate.
+Return exactly one semantic verdict for the immutable candidate only after Section 6 saturation is complete.
 
 ### PASS
 
@@ -291,6 +337,7 @@ Candidate state: <hash>
 Ticket contract identity: <durable identity>
 Acceptance: <n>; proven <n>; violated 0; unproven 0; unchecked 0
 Nested domains: <n>; closed <n>; open 0
+Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
 Production-path obligations: <summary>
 Negative/fail-closed obligations: <summary>
@@ -309,7 +356,9 @@ Ticket baseline: <sha>
 Candidate state: <hash>
 Acceptance: <n>; proven <n>; violated <n>; unproven <n>; unchecked 0
 Nested domains: <n>; closed <n>; open <n>
+Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous <n>
+Failure saturation: complete; independent actionable findings <n>; unexplored authoritative siblings 0
 Findings:
 1. <AC-n / source / falsifier or missing proof / concrete evidence / required correction>
 ...
@@ -317,7 +366,7 @@ Remediation root: <None | RB-n — invariant>
 Protected-root regressions: <None | findings>
 ```
 
-Do not repair. Return the complete verdict to `$implement-ticket`.
+Do not repair. Return the complete saturated verdict to `$implement-ticket`.
 
 ## 8. Candidate Binding
 

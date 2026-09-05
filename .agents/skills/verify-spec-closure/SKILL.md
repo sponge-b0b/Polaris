@@ -55,7 +55,9 @@ Independently disposition every manifest cell:
 Spec cell: <US-* | ID-* | TD-* | OOS-* | other stable cell>
 Claim: <exact manifest requirement>
 Domain: <authoritative domain>
-Nested domains: <None | closed domain manifests>
+Domain authority: <durable source(s) defining membership>
+Membership predicate: <what makes a candidate part of this domain>
+Nested domains: <None | domain construction manifests>
 Predicate: <what must be true>
 Falsifier: <concrete state that makes the claim false>
 Evidence: <current evidence excluding the falsifier>
@@ -78,6 +80,21 @@ Ask for each cell:
 
 If yes, it is not proven.
 
+### Authoritative domain membership
+
+Before proving any material cell whose domain can produce finite, discoverable, alternate, sibling, or adversarial candidates, bind the boundary that determines which candidates belong:
+
+```text
+Domain authority: <durable source(s) that define the boundary>
+Membership predicate: <what makes a candidate a member>
+```
+
+Derive membership from durable authority such as the exact manifest requirement, normative definitions, explicit enumerations, and authoritative composition/ownership boundaries. Do not derive it from changed files, implementation structure, existing tests, known defects, lexical similarity, subsystem proximity, or verifier intuition.
+
+Discovery may reveal a candidate. Discovery does not create authority.
+
+If a material candidate's membership cannot be resolved from current authority, the candidate is `ambiguous` and the affected cell/domain remains `unproven`; do not silently widen or narrow the claim.
+
 ### Nested Universe Closure
 
 For `all`, `every`, `none`, `only`, `complete`, `highest practical`, all profiles, all surfaces, all consumers, or equivalent finite/discoverable domains, materialize and close the nested domain.
@@ -90,7 +107,26 @@ Examples:
 * authoritative presentation owner × all required sinks;
 * workflow invariant × entry/re-entry/fallback path.
 
-Passing tests over selected files do not establish a different semantic matrix.
+Each nested domain carries its own authority, membership predicate, and Domain Construction Manifest:
+
+```text
+Domain: ND-<n>
+Authority: <durable source>
+Membership predicate: <predicate>
+Expected / closure criterion: <n | criterion>
+Generated: <n>
+Inspected: <n>
+Dispositioned: <n>
+Remaining authoritative members: 0
+Construction complete: yes
+Sweep complete: yes
+```
+
+For a finite domain, expected/generated/inspected/dispositioned counts must reconcile exactly. For a discoverable/open-world domain, the declared exhaustive mechanism must satisfy its closure criterion.
+
+Passing tests over selected files do not establish a different semantic matrix. `unchecked = 0` over an incompletely constructed domain is not proof.
+
+A parent Spec cell becoming `violated` does not close, waive, or disposition the rest of its nested domain. Continue generating, inspecting, and dispositioning every remaining authoritative member so the same run accumulates all independently observable failures.
 
 When the nested universe cannot be established exhaustively, mark the cell `unproven`.
 
@@ -120,11 +156,13 @@ Run only narrow non-mutating inspection/checks needed to determine semantic enta
 
 A parent assertion that a cell is proven is not evidence.
 
-## 4. Completeness Gate
+## 4. Completeness and Failure Saturation
 
 Continue the bounded Spec scan after semantic failures so the parent receives all independently observable closure defects in one certification attempt.
 
-Before verdict require:
+A first falsifier changes **verdict polarity** to FAIL; it does not establish **verification completion**. PASS and FAIL require the same universe-construction and sweep-saturation gates. A violated parent cell remains open for search until every authoritative nested member and sibling has been generated and dispositioned.
+
+Before either verdict require:
 
 ```text
 Manifest cells: <n>
@@ -134,16 +172,50 @@ violated: <n>
 unproven: <n>
 unchecked: 0
 Nested domains required: <n>
+Domain construction manifests complete: <n>/<n>
 Nested domains closed: <n>
 Open nested domains: 0
+Generated authoritative members: <n>
+Inspected authoritative members: <n>
+Dispositioned authoritative members: <n>
+Remaining authoritative members: 0
+Violated cells with incomplete domain sweep: 0
+Domain-membership candidates: <n>
+in-domain: <n>
+out-of-domain: <n>
+ambiguous membership: 0
+Undispositioned domain candidates: 0
+Independent actionable findings: <n>
+Unexplored authoritative siblings: 0
 Unproven material assumptions: 0
 ```
 
+Preserve a compact Domain Membership Manifest for inspected candidates:
+
+```text
+Candidate: <surface/path/member>
+Parent: <Spec cell | nested-domain cell>
+Domain authority: <durable source>
+Membership predicate: <predicate>
+Disposition: in-domain | out-of-domain | ambiguous
+Evidence / authority: <why the disposition follows>
+```
+
+Apply dispositions mechanically:
+
+* `in-domain` → the candidate becomes part of the cell/nested-domain sweep and must be dispositioned before verdict;
+* `out-of-domain` → preserve the observation, but it does not become a Spec obligation merely because it is adjacent, similar, or hypothetically exploitable;
+* `ambiguous` → the affected cell/domain remains `unproven`; do not silently broaden durable authority.
+
 `not-applicable` requires exact originating-Spec authority, normally an Out of Scope or explicit exclusion cell.
 
-Any `violated`, `unproven`, `unchecked`, incomplete nested domain, or unproven material assumption blocks PASS.
+Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same Spec cell. Derivative cell failures may reference one root defect rather than duplicating it, but they do not replace independently actionable findings.
+
+Any `violated`, `unproven`, `unchecked`, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, or unproven material assumption blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete certification result rather than a partial failure set.
 
 ## 5. Verdict
+
+Return one semantic verdict only after Section 4 saturation is complete.
 
 ### PASS
 
@@ -157,6 +229,9 @@ Spec body hash: <hash>
 Spec contract hash: <hash>
 Manifest: <n>; proven <n>; not-applicable <n>; violated 0; unproven 0; unchecked 0
 Nested domains: <n>; closed <n>; open 0
+Domain construction: <n>/<n> complete; remaining authoritative members 0
+Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
+Independent actionable findings: 0
 Coverage:
 - <cell IDs grouped only when identical evidence truly entails each claim> — <compact evidence>
 ```
@@ -169,11 +244,19 @@ Spec: #<n>
 Baseline: <sha>
 Branch: spec-<n>
 HEAD: <sha>
+Spec body hash: <hash>
+Spec contract hash: <hash>
 Manifest: <n>; proven <n>; not-applicable <n>; violated <n>; unproven <n>; unchecked 0
+Nested domains: <n>; closed <n>; open <n>
+Domain construction: <n>/<n> complete; remaining authoritative members 0
+Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
+Independent actionable findings: <n>
 Findings:
 1. <cell / exact requirement / falsifier or missing proof / current evidence / correction needed>
 ...
 ```
+
+Do not emit PASS or FAIL when construction/saturation is incomplete. Return an invalid/incomplete certification result to `$verify-spec` instead.
 
 Return the verdict to `$verify-spec`. Do not repair or persist a Spec Verification Receipt.
 

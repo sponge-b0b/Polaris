@@ -378,8 +378,7 @@ def _vendor_family(target: str) -> str | None:
 
 def _prefix(target: str, prefixes: set[str]) -> bool:
     return any(
-        target == prefix or target.startswith(f"{prefix}.")
-        for prefix in prefixes
+        target == prefix or target.startswith(f"{prefix}.") for prefix in prefixes
     )
 
 
@@ -493,7 +492,6 @@ def _annassign_type_binding(
     if not isinstance(node.target, ast.Name) or node.value is None:
         return None
     return _norm(node.target.id), (node.value,)
-
 
 
 def _technical(node: ast.AST, technical_names: set[str]) -> bool:

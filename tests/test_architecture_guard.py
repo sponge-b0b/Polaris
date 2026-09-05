@@ -268,15 +268,8 @@ def test_standard_library_and_internal_semantic_types_pass(tmp_path: Path) -> No
     [
         "class JobId: pass\nInvestmentDecisionId = JobId\n",
         "class ReportId: pass\ndecision_id: ReportId\n",
-        (
-            "class RunId: pass\n\n"
-            "def load(decision_id: RunId) -> None:\n"
-            "    pass\n"
-        ),
-        (
-            "class RuntimeIdentifier: pass\n"
-            "InvestmentDecisionId = RuntimeIdentifier\n"
-        ),
+        ("class RunId: pass\n\ndef load(decision_id: RunId) -> None:\n    pass\n"),
+        ("class RuntimeIdentifier: pass\nInvestmentDecisionId = RuntimeIdentifier\n"),
         (
             "from typing import TypeAlias\n"
             "class WorkflowId: pass\n"
@@ -298,11 +291,7 @@ def test_investment_decision_id_field_cannot_use_runtime_identity(
     _write(
         tmp_path,
         "src/polaris/domain/decisions/model.py",
-        (
-            "class RunId: pass\n\n"
-            "class InvestmentDecision:\n"
-            "    id: RunId\n"
-        ),
+        ("class RunId: pass\n\nclass InvestmentDecision:\n    id: RunId\n"),
     )
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
 

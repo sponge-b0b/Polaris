@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 temporal and identity precision | final audit invariants tightened
+
+Tightened the proposed R2 design after final adversarial pressure testing: one Decision Need now grounds at most one Investment Decision; `ESTABLISHED` Decision Scope requires at least one Portfolio; deliberate hold/no-action versus non-resolving Recommendation rejection is explicit at the human-judgment seam; and `as_known_at(K)` is formally the state effective at K using only knowledge recorded by K, preventing future-effective known facts from applying early. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 final adversarial reconciliation | late correction and continuity provenance made durable
 
 Closed two final Spec-readiness gaps: late External Resolution and unsupported-Need findings may qualify any previously recorded lifecycle disposition only through append-only correction, and every committed distinct Decision identity now preserves the continuity determination, materially considered candidate Decisions, attributable create-new basis, and revalidation knowledge/guard that explain why it was treated as a new coherent choice. Also made contested Supersession/operative applicability fail closed for ordinary work. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

@@ -77,9 +77,11 @@ Actor Attribution, trigger provenance, and technical provenance remain separate.
 
 # 3. Initiation and continuity arbitration
 
-## 3.1 Inputs
+## 3.1 Inputs and one-Need/one-Decision integrity
 
-New initiation includes Need statement/basis, Subject, Scope representation (possibly unresolved/partial), Actor Attribution where material, trigger provenance, operation ID, and an **explicit continuity determination** when unresolved operative candidates exist.
+New initiation includes a **new Decision Need identity**, Need statement/basis, Subject, Scope representation (possibly unresolved/partial), Actor Attribution where material, trigger provenance, operation ID, and an explicit continuity determination when unresolved operative candidates exist.
+
+Every committed Investment Decision references exactly one Decision Need, and one Decision Need may ground at most one Investment Decision. A repeated trigger routed to `CONTINUE_EXISTING` does not create another Need merely to represent the repeated request.
 
 ## 3.2 Candidate discovery
 
@@ -99,18 +101,9 @@ AMBIGUOUS(candidate_ids)
 - R2 has no hidden ranking/matching heuristic;
 - later Attention may automate this contract but must preserve attributable basis.
 
-### Durable continuity basis
+When `CREATE_NEW` commits, initiation history preserves determination kind, candidate IDs materially considered, actor/basis/rationale for explicit create-new, and the candidate knowledge cutoff/guard used for commit revalidation.
 
-When `CREATE_NEW` commits, Application includes in the initiation fact/commit:
-
-- determination kind (`NO_CANDIDATES` or `EXPLICIT_CREATE_NEW` equivalent);
-- candidate Decision IDs materially considered when non-empty;
-- actor/basis/rationale for explicit create-new determination;
-- candidate knowledge cutoff / continuity observation guard used for revalidation.
-
-This lets Decision Memory reconstruct **why** a distinct Decision identity was created.
-
-If `CONTINUE_EXISTING`, no duplicate Decision Need/Decision is created merely to record the repeated trigger; later Attention/Evidence/Context capabilities may preserve the trigger contribution under their own semantics.
+If `CONTINUE_EXISTING`, no duplicate Decision Need/Decision is created merely for the repeated trigger; later Attention/Evidence/Context owners may preserve the trigger contribution under their own semantics.
 
 ## 3.4 Atomic revalidation
 
@@ -120,9 +113,15 @@ If `CONTINUE_EXISTING`, no duplicate Decision Need/Decision is created merely to
 
 # 4. Scope and Subject
 
-Scope mutation accepts zero-or-more confirmed Portfolio refs + completeness (`UNRESOLVED`/`ESTABLISHED`), preserves history, and does not change Decision ID merely because Scope changes.
+Scope mutation accepts zero-or-more confirmed Portfolio refs + completeness (`UNRESOLVED`/`ESTABLISHED`) and preserves history.
 
-Subject refinement similarly preserves identity only while the same coherent choice remains.
+Validation:
+
+- `UNRESOLVED` may contain zero or more confirmed Portfolio refs;
+- `ESTABLISHED` requires at least one Portfolio;
+- no sentinel/default Portfolio identity stands for unresolved Scope.
+
+Subject refinement preserves identity only while the same coherent choice remains; an independently resolvable choice routes to continuity/new-Decision determination.
 
 Ordinary Subject/Scope work requires lifecycle determinately `UNRESOLVED` and operative applicability determinately operative. Historical correction uses explicit correction path.
 
@@ -152,11 +151,13 @@ If Supersession support makes operative status contested, ordinary resume/defer/
 
 # 7. Substantive resolution seam
 
-Requires lifecycle determinately `UNRESOLVED`, Decision determinately operative, and typed trusted basis with semantic effect `SUBSTANTIVELY_RESOLVING`.
+Requires lifecycle determinately `UNRESOLVED`, Decision determinately operative, and typed trusted upstream basis with semantic effect `SUBSTANTIVELY_RESOLVING`.
 
 Application records Decisions-side resolution consequence only; it does not infer Approval, authority sufficiency, Recommendation acceptance, or Action Intent.
 
-A late-discovered historical Human Investment Decision whose effective ordering changes supported lifecycle interpretation enters through `record_lifecycle_correction`, not an ordinary forward resolution transition.
+A deliberate hold/no-action Human Investment Decision may have resolving effect. Recommendation rejection alone has no fixed lifecycle effect: rejection that asks for further judgment leaves the Decision unresolved, while a rejection that substantively disposes of the underlying choice may resolve it. The trusted upstream basis explicitly states the effect.
+
+A late-discovered historical Human Investment Decision whose effective ordering changes supported lifecycle interpretation enters through `record_lifecycle_correction`, not an ordinary forward transition.
 
 ---
 
@@ -172,9 +173,9 @@ Changed Evidence/Portfolio State/alternatives alone is insufficient while the sa
 
 # 9. Unsupported Need retraction
 
-`retract_unsupported_decision_need` is inherently corrective and may apply regardless of previously supported lifecycle disposition when attributable evidence establishes that original Need itself was unsupported.
+`retract_unsupported_decision_need` is corrective and may apply regardless of previously supported lifecycle disposition when attributable evidence establishes that original Need itself was unsupported.
 
-It appends correction/retraction, preserves all prior acts (including Human Investment Decision), and recomputes supported lifecycle interpretation. It never deletes or retroactively converts a prior act.
+It appends correction/retraction, preserves all prior acts, and recomputes supported lifecycle interpretation. It never deletes or retroactively converts a prior act.
 
 ---
 
@@ -190,9 +191,9 @@ No generic public “set lifecycle status” path is allowed.
 
 # 11. Renewal
 
-Creates a new Decision after one/more prior Decisions were supportably substantively or externally resolved and a new Need exists.
+Creates a new Decision after one/more prior Decisions were supportably substantively or externally resolved and a **new Decision Need** exists.
 
-Performs normal initiation continuity arbitration, persists its continuity basis, creates new Need/Decision, establishes supported `RENEWED_FROM` edge(s), and rejects lineage cycles. Predecessors remain unchanged.
+Performs normal initiation continuity arbitration, persists its continuity basis, creates the new Need/Decision, establishes supported `RENEWED_FROM` edge(s), and rejects lineage cycles. Predecessors remain unchanged.
 
 ---
 
@@ -215,7 +216,7 @@ ordinary mutation:
 new initiation:
   continuity determination + durable candidate basis
   + atomic candidate-basis revalidation
-  + Need + Decision + DecisionInitiated
+  + new Decision Need + Investment Decision + DecisionInitiated
   + optional lineage edges
   + receipt
 
@@ -225,7 +226,7 @@ relationship command:
   + receipt
 ```
 
-No partial semantic success.
+No partial semantic success. Initiation must also enforce one-Need/one-Decision uniqueness atomically.
 
 ---
 
@@ -243,7 +244,7 @@ Relationship commands touching several Decisions require sufficient guards on al
 
 Current view returns identity/Need/Subject/Scope, determinate lifecycle or contested interpretation, work posture if applicable, version, determinate/contested operative applicability, Supersession summary, and external-owner references.
 
-`as_known_at(K)` uses only knowledge recorded by K.
+`as_known_at(K)` means the Decision state **effective at K using only knowledge recorded by K**—equivalent to `effective_at(K, known_at=K)`. A fact known by K but effective later does not prematurely change the state at K.
 
 `effective_at(T, known_at=K)` applies effective times/corrections using only knowledge available by K.
 
@@ -259,6 +260,7 @@ Callers distinguish at least:
 
 ```text
 NotFound
+DecisionNeedAlreadyGrounded
 DecisionNonOperative
 DecisionOperativeStatusContested
 InvalidLifecycleTransition
@@ -281,6 +283,9 @@ Concrete names are optional.
 # 17. R2 application tests
 
 - unresolved Scope initiation;
+- empty `ESTABLISHED` Scope rejected;
+- one Need cannot ground two Decisions;
+- repeated continuation creates neither new Decision nor new Need;
 - no candidates -> create + persist `NO_CANDIDATES` basis;
 - candidates + explicit continue -> no new identity;
 - candidates + explicit create -> persist candidate IDs + attributable rationale;
@@ -290,6 +295,7 @@ Concrete names are optional.
 - Deferral requires trusted deferring basis;
 - re-Deferral appends fact;
 - awaited condition != Review Condition;
+- deliberate hold/no-action may resolve; rejection requesting more judgment remains unresolved;
 - withdrawal/resume same identity;
 - supportably superseded unresolved Decision rejects ordinary work;
 - contested operative applicability also rejects ordinary work;
@@ -298,7 +304,7 @@ Concrete names are optional.
 - unsupported Need retraction allowed after prior resolution/human acts;
 - resolved target superseded without lifecycle mutation;
 - many-target Supersession atomic;
-- late correction preserves earlier `as_known_at`;
+- `as_known_at` does not apply later-recorded or future-effective facts prematurely;
 - competing corrections -> contested interpretation;
 - actor/trigger/technical provenance remain separate.
 
@@ -308,4 +314,4 @@ Concrete names are optional.
 
 No Attention service, Evidence assembly, model orchestration, Governance implementation, arbitrary trusted-basis injection, Action Continuity, generic event/workflow runtime, generic graph service, or platform-wide UoW framework.
 
-Specs may choose classes/functions, transaction/lock implementation, error types, and tests. They may not redefine command meanings, durable continuity-determination provenance, operative-state guard, trusted Governance seams, correction semantics, actor/provenance separation, or historical queries.
+Specs may choose classes/functions, transaction/lock implementation, error types, and tests. They may not redefine command meanings, Need/Decision cardinality, Scope completeness, durable continuity-determination provenance, operative-state guard, trusted Governance seams, correction semantics, actor/provenance separation, or historical query semantics.

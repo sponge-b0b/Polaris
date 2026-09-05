@@ -20,6 +20,8 @@ An Investment Decision MAY be initiated while its Decision Scope remains unresol
 
 Unresolved or partially established Scope MUST remain explicit. Polaris MUST NOT invent Portfolio applicability merely to complete an initiation path.
 
+An `ESTABLISHED` Decision Scope MUST identify at least one Portfolio whose investment state or capital consequences are directly implicated; an empty established Scope is invalid.
+
 Before a final Capital-Relevant Investment Recommendation or Human Investment Decision is formed, applicable Portfolio scope MUST be established sufficiently for that consequential use.
 
 ---
@@ -72,6 +74,8 @@ If continuity cannot be determined reliably, Polaris MUST preserve the ambiguity
 
 Technical idempotency by operation ID alone is insufficient because independently initiated operations can use different operation IDs.
 
+When a distinct new Investment Decision is committed after unresolved candidate Decisions were materially considered, Durable Decision Memory MUST preserve the attributable continuity determination and enough of the candidate/knowledge basis to reconstruct why Polaris treated the new work as a distinct coherent choice rather than continuation of an existing Decision.
+
 ---
 
 # 6. Late lifecycle facts and corrections
@@ -102,7 +106,19 @@ A user request MAY be the trigger for a Polaris-attributed Decision Need determi
 
 ---
 
-# 8. Decision-to-Decision context is hindsight-safe
+# 8. Decision Need and Investment Decision cardinality
+
+### DEC-020 — One Decision Need grounds at most one Investment Decision
+
+Every Investment Decision MUST be grounded in exactly one Decision Need.
+
+A Decision Need representing one coherent unresolved choice MUST NOT ground multiple Investment Decision identities. Repeated triggers that continue the same unresolved choice contribute to the existing Decision rather than creating another Decision Need merely to create another Decision identity.
+
+A genuinely new or renewed coherent choice requires a distinct Decision Need and follows the normal same-vs-new Investment Decision rules.
+
+---
+
+# 9. Decision-to-Decision context is hindsight-safe
 
 ### MEM-011 — Prior-Decision context binds the historical state actually used
 
@@ -114,7 +130,7 @@ Candidate retrieval or present-day similarity MUST NOT be represented as histori
 
 ---
 
-# 9. Acceptance-scenario correction
+# 10. Acceptance-scenario correction
 
 ## AS-003 — Deferral and later resumption — proposed amendment
 
@@ -137,7 +153,7 @@ resolved Decision
 
 ---
 
-# 10. Milestone acceptance interpretation
+# 11. Milestone acceptance interpretation
 
 R2 is responsible for **foundational acceptance evidence** for the Decision-kernel portions of `AS-001` through `AS-005` and full evidence for `AS-022`.
 

@@ -124,6 +124,21 @@ Merged-distinct obligations: 0
 
 If the universe cannot be closed, affected cells are `unproven`.
 
+### Authoritative domain membership
+
+Before proving any material cell whose domain can produce finite, discoverable, alternate, sibling, or adversarial candidates, bind the boundary that determines which candidates belong to that domain:
+
+```text
+Domain authority: <durable source(s) that define the boundary>
+Membership predicate: <what makes a candidate a member of this domain>
+```
+
+Derive the membership predicate from durable authority, including explicit enumerations, normative definitions, and authoritative composition or ownership boundaries. Do not derive it from changed files, implementation structure, existing tests, known defects, lexical similarity, subsystem proximity, or verifier intuition.
+
+Discovery may reveal a candidate. Discovery does not create authority.
+
+If the authoritative domain is semantically open-world rather than finitely enumerable, define the inclusion rule and the exhaustive/discovery mechanism that can establish closure to the practical boundary required by the claim. If membership of a material candidate cannot be resolved from current authority, the candidate is `ambiguous` and the affected cell/domain remains `unproven`; do not silently widen or narrow the authoritative claim.
+
 ## 3. Per-Cell Proof Contract
 
 Every material cell binds compact certification state:
@@ -133,6 +148,8 @@ Acceptance: AC-<n>
 Source: <exact ticket / Spec / root obligation>
 Claim: <exact semantic claim>
 Domain: <authoritative domain>
+Domain authority: <durable source(s) defining membership>
+Membership predicate: <what makes a candidate part of this domain>
 Nested domains: <None | closed domain manifests>
 Predicate: <what must be true>
 Falsifier: <concrete state making the claim false>
@@ -166,7 +183,7 @@ Examples include:
 * workflow transition × entry/re-entry/fallback path;
 * operational owner × production composition path.
 
-`unchecked = 0` over an incompletely constructed domain is not proof. Familiar-symbol searches and passing tests are supporting evidence unless they are an independently checkable exhaustive mechanism for the authoritative domain.
+Each nested domain carries its own durable authority and membership predicate. `unchecked = 0` over an incompletely constructed domain is not proof. Familiar-symbol searches and passing tests are supporting evidence unless they are an independently checkable exhaustive mechanism for the authoritative domain.
 
 ### Production composition
 
@@ -211,7 +228,24 @@ Inspect only bounded surfaces capable of satisfying or bypassing it, including w
 * configuration/CI alternates;
 * docs/ADR competing authority.
 
-Every newly discovered material same-claim surface becomes an invariant-sweep cell and must be dispositioned before verdict.
+Every candidate inspected because it could plausibly satisfy or bypass the exact claim must first be classified against that claim's authoritative domain membership predicate. Preserve a compact Domain Membership Manifest:
+
+```text
+Candidate: <surface/path/member>
+Parent: <AC-n | nested-domain cell>
+Domain authority: <durable source>
+Membership predicate: <predicate>
+Disposition: in-domain | out-of-domain | ambiguous
+Evidence / authority: <why the disposition follows>
+```
+
+Apply the disposition mechanically to the certification universe:
+
+* `in-domain` → the candidate becomes an invariant-sweep or nested-domain cell and must be dispositioned before verdict;
+* `out-of-domain` → preserve the observation, but it does not become a ticket acceptance obligation and cannot block certification solely because it is adjacent, similar, or hypothetically exploitable;
+* `ambiguous` → the affected acceptance/nested-domain cell remains `unproven`; do not resolve uncertainty by silently broadening durable authority.
+
+Do not classify a candidate `in-domain` solely because it shares a symbol, subsystem, implementation mechanism, or semantic theme with the claim. A broader candidate belongs only when the durable authority or another authoritative carried obligation actually supplies that broader membership predicate.
 
 For remediation this is the Root Invariant Sweep and also re-proves applicable carried same-root cells/protected roots against current authority. Historical PASS/satisfied/unchanged state is evidence history, not current proof.
 
@@ -232,10 +266,15 @@ unchecked: 0
 Nested domains required: <n>
 Nested domains closed: <n>
 Open nested-domain candidates: 0
+Domain-membership candidates: <n>
+in-domain: <n>
+out-of-domain: <n>
+ambiguous membership: 0
+Undispositioned domain candidates: 0
 Unproven material assumptions: 0
 ```
 
-Any violated/unproven/unchecked cell, incomplete nested domain, or unproven material assumption blocks PASS.
+Any violated/unproven/unchecked cell, incomplete nested domain, ambiguous/undispositioned domain candidate, or unproven material assumption blocks PASS.
 
 ## 7. Verdict
 
@@ -252,6 +291,7 @@ Candidate state: <hash>
 Ticket contract identity: <durable identity>
 Acceptance: <n>; proven <n>; violated 0; unproven 0; unchecked 0
 Nested domains: <n>; closed <n>; open 0
+Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
 Production-path obligations: <summary>
 Negative/fail-closed obligations: <summary>
 Remediation root: <None | RB-n — invariant>
@@ -269,6 +309,7 @@ Ticket baseline: <sha>
 Candidate state: <hash>
 Acceptance: <n>; proven <n>; violated <n>; unproven <n>; unchecked 0
 Nested domains: <n>; closed <n>; open <n>
+Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous <n>
 Findings:
 1. <AC-n / source / falsifier or missing proof / concrete evidence / required correction>
 ...

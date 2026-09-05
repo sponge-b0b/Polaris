@@ -2,21 +2,11 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
 
-from tests.architecture_guard import TECHNICAL_IDS, check_repository
-
-
-def _write(root: Path, relative: str, source: str) -> None:
-    path = root / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dedent(source).lstrip(), encoding="utf-8")
-
-
-def _rules(root: Path) -> set[str]:
-    return {violation.rule for violation in check_repository(root)}
+from tests.architecture_guard import TECHNICAL_IDS
+from tests.test_architecture_guard import _rules, _write
 
 
 def _technical_type_name(normalized: str) -> str:

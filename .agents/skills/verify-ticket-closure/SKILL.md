@@ -262,7 +262,7 @@ Acceptance coverage: <n> cells
 proven: <n>
 violated: <n>
 unproven: <n>
-uncheckd: 0
+unchecked: 0
 Nested domains required: <n>
 Nested domains closed: <n>
 Open nested-domain candidates: 0

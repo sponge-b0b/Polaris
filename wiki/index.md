@@ -15,6 +15,15 @@ The pre-greenfield registry remains historical donor/reference material under `l
 | [Governance & Authority](entities/governance-authority.md) | Domain | pending | — | Policy, admissibility, power-specific authority acts, human investment judgment, contestability, and residual-risk acceptance. |
 | [Action Continuity](entities/action-continuity.md) | Domain | pending | — | Post-human Action Intent and reconciliation between intended consequence and authoritative external activity. |
 | [Learning](entities/learning.md) | Domain | pending | — | Outcome, Decision Evaluation, Lesson, and hindsight-faithful retrospective learning semantics. |
+| [Application Use Cases](entities/application-use-cases.md) | Application | pending | — | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |
+| [Durable Persistence](entities/durable-persistence.md) | Infrastructure | pending | — | Durable transactional business persistence, immutable history, concurrency, recovery, and replaceable storage adapters. |
+| [Model Access](entities/model-access.md) | Infrastructure | pending | — | Replaceable model/provider access, structured draft responses, deterministic validation, retries, and technical provenance. |
+| [External Facts](entities/external-facts.md) | Infrastructure | pending | — | Observation adapters for Evidence, authoritative Portfolio State, execution activity, and other externally owned facts. |
+| [Background Work & Durable Follow-Up](entities/background-work-follow-up.md) | Infrastructure | pending | — | Scheduling, worker execution, and reliable post-commit asynchronous follow-up without business-identity ownership. |
+| [Observability & Technical Provenance](entities/observability-provenance.md) | Infrastructure | pending | — | Execution correlation, model/source call provenance, diagnostics, sanitation, and replaceable observability backends. |
+| [Security & Identity](entities/security-identity.md) | Infrastructure | pending | — | Authenticated actor context, application access control, secrets, and security mechanisms distinct from investment authority. |
+| [Configuration](entities/configuration.md) | Infrastructure | pending | — | Domain-facing product configuration and isolation of technical/provider configuration from business semantics. |
+| [Interfaces & Presentation](entities/interfaces-presentation.md) | Interfaces | pending | — | Thin human/machine surfaces over shared application commands, queries, and canonical decision truth. |
 
 ## Cross-Cutting Discovery
 

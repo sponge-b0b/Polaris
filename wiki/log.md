@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-04] R2 pre-Spec audit remediation | lifecycle, continuity, graph, and temporal gaps closed
+
+Reworked the proposed R2 Decision design after an adversarial documentation audit. Separated resolution disposition, unresolved work posture, and Supersession; allowed unresolved Scope at initiation; made Deferral depend on a trusted Human Investment Decision basis; added explicit decision-work withdrawal and unsupported-Need retraction semantics; added fail-closed continuity arbitration for concurrent initiation; defined non-destructive lifecycle correction plus distinct as-known-at/effective-at reconstruction; removed one-to-one Supersession assumptions; made prior-Decision context bind the target state actually used; and added the Action Continuity ↔ Portfolio & Risk interaction seam. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, `durable-persistence`, `governance-authority`, `portfolio-risk`, and `action-continuity`.
+
 ## [2026-09-04] R2 Decision relationship design | lineage and contextual graph semantics separated
 
 Added the proposed `investment-decisions` relationship model separating lifecycle-lineage edges (`RENEWED_FROM`, `SUPERSEDES`) from materially used prior-Decision context (`PRIOR_DECISION_CONTEXT`). Recorded that candidate retrieval alone does not create durable context, the lifecycle subgraph must remain acyclic, contextual influence may form richer temporal graphs, and R2 implements only lifecycle edges while preserving later many-to-many context compatibility. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

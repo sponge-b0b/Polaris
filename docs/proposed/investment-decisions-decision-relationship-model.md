@@ -4,7 +4,7 @@
 **Release:** 0.2.0  
 **Primary entity:** `investment-decisions`  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
-**Purpose:** Define typed relationships among Investment Decisions so lifecycle lineage, materially used prior-decision context, and graph-shaped Decision Memory remain explicit without turning an Investment Decision into a graph container or requiring graph-database infrastructure.
+**Purpose:** Define typed relationships among Investment Decisions so lifecycle lineage, Supersession, materially used prior-decision context, and graph-shaped Decision Memory remain explicit without turning an Investment Decision into a graph container or requiring graph-database infrastructure.
 
 ## Authority
 
@@ -17,122 +17,123 @@ This design refines, but does not override:
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
 - [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md);
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md);
+- [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/).
 
-This document fills a deliberate design gap in the first R2 design pass: lifecycle-causal relationships existed, but broader durable relationships showing that one prior Investment Decision materially informed another had not yet been modeled.
-
-`legacy/v0_1/` is not a relationship-model source.
+`legacy/v0_1/` is not a relationship-model authority.
 
 ---
 
 # 1. Design objective
 
-Polaris must be able to distinguish:
+Polaris must distinguish:
 
-1. a prior Investment Decision that is the lifecycle predecessor of a newer Decision;
-2. a prior Investment Decision that was materially used as context for another Decision;
-3. a Decision that merely appeared in search/retrieval results but was never materially used;
-4. a Lesson, Evidence item, View, Recommendation, or other owner-specific fact that influenced later work without flattening that influence into a generic Decision-to-Decision claim.
+1. a prior Decision that is a renewal predecessor;
+2. a Decision whose continuing applicability/operative basis is displaced by another Decision;
+3. a prior Decision materially used as context for a later Decision;
+4. a Decision merely retrieved as a candidate but never materially used;
+5. a Lesson, Evidence item, View, Recommendation, Risk Assessment, or other owner-specific fact that influences later work without flattening that influence into a generic whole-Decision edge.
 
-The model must preserve those distinctions historically and make them queryable without:
+Relationships must remain historically reconstructable without:
 
-- embedding mutable lists of related Decision IDs inside the Investment Decision aggregate;
-- treating retrieval similarity as durable business truth;
-- forcing all relationships into one generic untyped edge;
+- embedding mutable adjacency lists inside the Investment Decision aggregate;
+- treating retrieval similarity as durable truth;
+- forcing every relationship into one untyped edge;
+- assuming one-to-one lineage/cardinality without domain authority;
 - requiring a graph database;
-- allowing relationship creation to redefine Investment Decision identity.
-
-The resulting logical model is graph-shaped, but graph traversal is a query capability rather than a new source of business authority.
+- allowing relationships to redefine Decision identity.
 
 ---
 
-# 2. Core rule: Decision relationships are separate durable facts
+# 2. Core rule: relationships are separate durable facts
 
-An Investment Decision does not discover, assign, or mutate arbitrary relationships to other Investment Decisions by itself.
-
-Instead:
+An Investment Decision does not discover or mutate arbitrary graph neighbors itself.
 
 ```text
 Application Use Case
         ↓
-selects/coordinates a relationship operation
+coordinates explicit relationship establishment
         ↓
 Investment Decisions validates relationship semantics
         ↓
-Durable Persistence commits the typed relationship
+Durable Persistence commits typed relationship fact
         ↓
-Decision Memory queries may traverse it later
+Decision Memory may traverse it later
 ```
 
-The relationship is a first-class durable fact referencing two independently durable Investment Decision identities.
+Relationship facts reference independently durable Decision identities.
 
-The Investment Decision aggregate remains responsible for its own lifecycle state and invariants. It does not become a container holding an ever-growing `related_decisions` collection.
+The Decision lifecycle root therefore remains small: relationship truth is adjacent to Decision identity, not stored as an ever-growing mutable collection inside it.
 
 ---
 
 # 3. Relationship classes
 
-The design separates two classes of Decision-to-Decision relationship.
-
-## 3.1 Lifecycle lineage relationships
-
-These relationships change or explain lifecycle continuity itself.
-
-R2 requires:
-
-### `RENEWED_FROM`
+## 3.1 Renewal lineage: `RENEWED_FROM`
 
 Direction:
 
 ```text
-new Decision ──RENEWED_FROM──> prior terminal Decision
+new Decision ──RENEWED_FROM──> prior Decision
 ```
 
 Meaning:
 
-A new coherent unresolved choice was established after an earlier Decision had already been substantively or externally resolved, and the new Decision is explicitly a renewal of judgment related to that earlier Decision.
+A new Decision Need requires renewed deliberate judgment after the prior Decision's unresolved judgment was already substantively or externally resolved.
 
 Rules:
 
-- source and target Decision IDs must differ;
-- target must already be `RESOLVED` or `EXTERNALLY_RESOLVED` when the relationship is established;
-- source is a newly established Decision identity;
-- the relationship does not reopen or mutate the target;
-- one source Decision has at most one canonical `RENEWED_FROM` predecessor in R2;
-- later contextual links may point to additional earlier Decisions without changing this canonical predecessor.
+- source and target differ;
+- target's supported disposition at relationship effective time is `SUBSTANTIVELY_RESOLVED` or `EXTERNALLY_RESOLVED`;
+- relationship never reopens/mutates target;
+- source is a distinct Decision identity;
+- no fixed one-predecessor cardinality is imposed by the inward model; one or more prior Decisions may be causal predecessors only when each relationship is independently supportable;
+- materially relevant additional prior Decisions that are not causal renewal predecessors use owner-specific/context relationships instead.
 
-### `SUPERSEDES`
+## 3.2 Supersession: `SUPERSEDES`
 
 Direction:
 
 ```text
-successor Decision ──SUPERSEDES──> predecessor Decision
+later/current Decision ──SUPERSEDES──> earlier Decision
 ```
 
 Meaning:
 
-A newly established Decision intentionally replaces an existing unresolved Decision as the coherent choice that should continue forward.
+The source Decision displaces some or all of the target Decision's continuing applicability or operative investment basis going forward.
+
+Supersession is **orthogonal** to the target's historical resolution/work disposition.
 
 Rules:
 
-- source and target Decision IDs must differ;
-- target must be `ACTIVE` or `DEFERRED` immediately before the atomic Supersession operation;
-- source is a newly established Decision identity;
-- target becomes `SUPERSEDED` in the same semantic transaction;
-- source has at most one canonical Supersession predecessor in R2;
-- target has at most one canonical direct Supersession successor in R2;
+- source and target differ;
+- target may be unresolved, deferred, withdrawn, substantively resolved, or externally resolved;
+- target's historical disposition is not changed to `SUPERSEDED`;
+- unresolved superseded target is no longer independently operative for ordinary decision work while the relationship remains currently supported;
+- one source may supersede multiple prior Decisions when a broader Decision displaces several operative bases;
+- one target may be superseded by multiple later Decisions when the earlier basis is deliberately decomposed/displaced across several later Decisions;
+- no one-to-one cardinality is assumed;
+- relationship preserves explicit scope/basis sufficient to understand what applicability was displaced;
 - Supersession does not copy predecessor facts into successor ownership.
 
-The inverse query labels `RENEWED_BY` and `SUPERSEDED_BY` may be exposed as derived navigation terms. They do not require separately persisted reverse facts.
+Example:
 
-## 3.2 Material context relationships
+```text
+D-610
+historical Human Investment Decision: Hold AAPL
+supported disposition: SUBSTANTIVELY_RESOLVED
 
-Lifecycle lineage is too narrow to represent every prior Decision that materially informed a current Decision.
+later D-611
+Exit all individual equities
 
-The planned contextual relationship is:
+D-611 SUPERSEDES D-610
 
-### `PRIOR_DECISION_CONTEXT`
+D-610 remains SUBSTANTIVELY_RESOLVED historically
+and is additionally superseded as an operative basis.
+```
+
+## 3.3 Material prior-decision context: `PRIOR_DECISION_CONTEXT`
 
 Direction:
 
@@ -142,147 +143,126 @@ current Decision ──PRIOR_DECISION_CONTEXT──> materially used prior Decis
 
 Meaning:
 
-The referenced Decision was actually selected and used as attributable Decision Context for the source Decision at a particular point in time.
+The target Decision itself was actually selected and materially used as Decision Context for the source Decision at an attributable point in time.
 
-This does **not** mean:
+This relationship does **not** mean:
 
-- the target caused the source Decision to exist;
-- the target is the source Decision's lifecycle predecessor;
-- the target's Recommendation was adopted;
-- the target's Outcome proves anything about the current Decision;
-- the target was merely retrieved as a candidate;
-- every judgment made under the source Decision relied on the target.
-
-The relationship means only that the target Decision itself became a materially used element of the source Decision's context.
+- target caused source to exist;
+- target is a lifecycle predecessor;
+- target Recommendation was accepted;
+- target Outcome proves current action;
+- target merely appeared in retrieval/search;
+- every judgment within source used target.
 
 ---
 
 # 4. Retrieval is not relationship creation
 
-Decision Memory may retrieve candidate related Decisions using future mechanisms such as:
+Candidate discovery may use:
 
-- same or related Subject;
-- overlapping Portfolio exposure;
-- shared Investment Thesis or Assumption;
-- similar Decision Scope or horizon;
-- historical analog search;
-- Lessons connected to prior Decisions;
-- explicit user reference;
-- Attention or Review Condition context;
+- same/related Subject;
+- overlapping Portfolio/Exposure;
+- shared Thesis/Assumption;
+- similar Scope/Horizon;
+- historical analog retrieval;
+- Lessons;
+- explicit human reference;
 - deterministic lookup;
-- semantic retrieval or AI-assisted ranking.
+- semantic/AI ranking.
 
-A candidate result is not durable Decision Context merely because it was found.
-
-The required progression is:
+Required progression:
 
 ```text
 candidate discovery
         ↓
 relevance/materiality selection
         ↓
-attributable use in current Decision Context
+attributable material use in current Decision Context
         ↓
 durable PRIOR_DECISION_CONTEXT binding
 ```
 
-Therefore:
-
 > **Retrieved prior Decision ≠ materially referenced prior Decision.**
 
-This mirrors the existing product distinction that available Information is not automatically Evidence.
-
-A search returning 30 similar Decisions may result in zero, one, or several durable context bindings.
+A query returning many candidates may produce zero durable context bindings.
 
 ---
 
-# 5. Who establishes a contextual relationship
+# 5. Hindsight-safe contextual binding
 
-The Application Use Cases boundary coordinates relationship creation.
+A `PRIOR_DECISION_CONTEXT` edge must identify not only **which** Decision was used but enough temporal boundary to reconstruct **which state of that Decision was actually available/used**.
 
-A future context-assembly use case may:
+At minimum the durable relationship preserves or references:
 
-1. query Decision Memory for candidate related Decisions;
-2. assemble enough historical state to judge relevance without hindsight leakage;
-3. apply deterministic/user/analytical selection appropriate to the use case;
-4. preserve attributable selection provenance;
-5. ask the Investment Decisions domain to validate the proposed relationship;
-6. persist the durable typed relationship when the prior Decision was actually used materially;
-7. make the relationship available to later Decision Memory reconstruction.
-
-The source Investment Decision does not call a repository, search service, model, or another Decision object to discover its own graph neighbors.
-
-## 5.1 Attribution
-
-A contextual relationship must preserve enough provenance to explain how it entered Decision Context.
-
-At minimum the durable relationship carries or references:
-
-- relationship identity;
 - source Decision ID;
 - target Decision ID;
-- relationship type;
+- relationship identity/type;
 - effective/use time;
 - recorded/committed time;
 - operation/idempotency identity;
-- attributable initiating context where applicable;
-- concise typed basis/rationale or reference to the context-selection fact that explains why the target was materially included.
+- Actor Attribution/context-selection provenance where applicable;
+- typed material-use basis;
+- **target knowledge cutoff** (`target_as_known_at`) or an equivalent immutable Decision Memory snapshot/version boundary.
 
-Model/provider/workflow identifiers remain technical provenance, not human actor identity.
+Optional implementation metadata may include a stable assembled-view digest/reference, but that cannot replace the semantic target knowledge cutoff.
 
----
+Therefore later mutations/corrections to the target Decision do not alter what the source historically used.
 
-# 6. Relationship immutability and historical meaning
+Example:
 
-Once a `PRIOR_DECISION_CONTEXT` relationship truthfully records that a prior Decision was materially used, later changes do not erase that historical fact.
+```text
+Decision B at 2026-09-10 11:00
+uses Decision A as it was knowable at 2026-09-10 10:55
 
-If the prior Decision is no longer relevant to later reasoning, later Decision Context may simply omit it or establish a newer context version without rewriting the earlier relationship away.
+Decision A later receives a late-recorded lifecycle correction
 
-The relationship therefore answers:
-
-> Was this prior Decision materially part of the source Decision's context at the recorded point?
-
-It does not answer:
-
-> Is this prior Decision still relevant to every current judgment under the source Decision?
-
-Judgment-specific support remains owned by the relevant Evidence/Investment Intelligence/Governance semantics and may require more specific bindings later.
-
----
-
-# 7. Decision graph semantics
-
-Decision-to-Decision relationships naturally form a typed directed graph.
-
-Conceptually:
-
-```mermaid
-flowchart LR
-    A[Decision A]
-    B[Decision B]
-    C[Decision C]
-    D[Decision D]
-    E[Decision E]
-
-    B -->|RENEWED_FROM| A
-    C -->|PRIOR_DECISION_CONTEXT| A
-    C -->|PRIOR_DECISION_CONTEXT| B
-    D -->|SUPERSEDES| C
-    E -->|PRIOR_DECISION_CONTEXT| B
-    E -->|PRIOR_DECISION_CONTEXT| D
+B's historical context still points to A-as-known-at-10:55.
 ```
 
-The graph is a logical/query model over durable relationship facts.
+---
 
-It is not a requirement to use Neo4j, a graph database, a generic graph framework, or graph-shaped domain aggregates.
+# 6. Who establishes relationships
 
-## 7.1 Lifecycle lineage subgraph
+Application Use Cases coordinates relationship creation.
 
-The subgraph containing only `RENEWED_FROM` and `SUPERSEDES` relationships must be acyclic.
+For contextual relationships a future use case may:
 
-A cycle would contradict historical lifecycle direction.
+1. query candidate prior Decisions;
+2. assemble candidate historical states using explicit knowledge cutoffs;
+3. determine relevance/materiality or preserve ambiguity;
+4. preserve attributable selection provenance;
+5. ask Decisions domain to validate proposed relationship semantics;
+6. persist relationship only when target was actually materially used;
+7. expose it through Decision Memory later.
 
-Examples that must be rejected:
+The Decision aggregate does not call search/model/repository services to discover its own neighbors.
+
+---
+
+# 7. Immutability and correction
+
+Relationship facts are immutable once committed.
+
+If a relationship was recorded incorrectly or later knowledge changes its supported interpretation:
+
+- do not delete/mutate the earlier relationship fact;
+- append an explicit relationship correction/supersession-of-assertion fact or equivalent non-destructive correction record;
+- preserve what was known and asserted before correction;
+- current graph queries apply supported corrections according to knowledge cutoff.
+
+A relationship correction is not the same as the `SUPERSEDES` business relationship between Investment Decisions.
+
+---
+
+# 8. Graph semantics
+
+Decision-to-Decision relationships form a typed directed graph.
+
+## 8.1 Lifecycle/continuity lineage graph
+
+The subgraph containing `RENEWED_FROM` and `SUPERSEDES` must be acyclic with respect to supported effective lineage.
+
+Cycles such as these are invalid:
 
 ```text
 A RENEWED_FROM B
@@ -294,99 +274,109 @@ A SUPERSEDES B
 B SUPERSEDES A
 ```
 
-and any longer cycle produced by mixing lifecycle-lineage edge types.
+or longer mixed lineage cycles.
 
-R2 must validate enough ancestry to prevent creating such cycles.
+No fixed one-to-one cardinality is required to enforce acyclicity.
 
-## 7.2 Context subgraph
+## 8.2 Context graph
 
-`PRIOR_DECISION_CONTEXT` relationships are directed but need not be globally acyclic.
+`PRIOR_DECISION_CONTEXT` is directed but need not be globally acyclic.
 
-Two concurrently evolving unresolved Decisions can legitimately become context for one another at different times.
+Two concurrently evolving Decisions may legitimately use one another at different times if each material use was historically possible and bound to the correct target knowledge cutoff.
 
-For example:
+The temporal edge data makes such a static cycle coherent.
 
-```text
-Decision A materially uses Decision B at t1
-Decision B later materially uses Decision A at t2
-```
+## 8.3 Combined graph
 
-That forms a static cycle in the context graph but is historically coherent because each edge has its own recorded/effective time.
+The combined Decision graph may contain cycles because context edges may cycle while lifecycle lineage may not.
 
-Temporal provenance therefore matters more than an artificial DAG requirement for contextual influence.
+Queries must preserve:
 
-## 7.3 Combined graph
-
-The combined Decision graph may contain cycles because contextual edges may cycle even though the lifecycle-lineage subgraph may not.
-
-Queries must preserve relationship type and time rather than treating all adjacency as equivalent.
+- relationship type;
+- direction;
+- effective time;
+- recorded time;
+- supported/corrected status;
+- target knowledge cutoff for contextual use.
 
 ---
 
-# 8. Decision graph vs Durable Decision Memory graph
+# 9. Supersession semantics in detail
 
-The Decision graph is only the Decision-to-Decision portion of a broader graph-shaped Decision Memory view.
+Supersession may be known at successor initiation or established later after both Decisions already exist.
 
-Durable Decision Memory may eventually compose:
+R2 therefore supports two semantic patterns:
 
-```text
-Investment Decision
-    ├── other Investment Decisions
-    ├── Evidence
-    ├── Investment Views
-    ├── Recommendations
-    ├── Portfolio State / Risk Assessments
-    ├── authority acts
-    ├── Human Investment Decisions
-    ├── Action Intents
-    ├── Outcomes
-    ├── Decision Evaluations
-    └── Lessons
-```
+## 9.1 Initiate with Supersession
 
-Those edges remain owned by their respective semantic owners.
+One application transaction may:
 
-Polaris must not introduce one generic graph entity or relationship table as the semantic owner of all cross-lifecycle meaning.
+- create successor Decision/Need;
+- establish one or more `SUPERSEDES` edges to existing Decisions;
+- make the successor immediately operative where applicable.
 
-A graph-shaped read model is allowed. A graph-shaped universal business model is not required.
+No predecessor resolution state is rewritten.
+
+## 9.2 Record later Supersession
+
+When the displacement relationship is established after both Decisions exist:
+
+- append the relationship with effective and recorded time;
+- apply graph/cycle/continuity validation;
+- preserve predecessor history unchanged;
+- if the relationship is recorded late, as-known-at queries before recorded time must not show it.
+
+This supports historically resolved Decisions later becoming superseded as operative bases.
 
 ---
 
-# 9. Lesson-mediated influence stays explicit
+# 10. Lesson-mediated and owner-specific influence remains explicit
 
-Sometimes a prior Decision affects a current Decision only through a later Lesson.
-
-Correct semantic path:
+If a later Decision uses a Lesson derived from an earlier Decision, preserve:
 
 ```text
 Decision A
-    ↓
-Outcome
-    ↓
-Decision Evaluation
-    ↓
+  ↓
+Outcome / Evaluation
+  ↓
 Lesson L
-    ↓
-Decision B context / Attention
+  ↓
+Decision B
 ```
 
-In that case Polaris should preserve the Lesson relationship rather than automatically flattening it into:
+Do not automatically flatten this to `B PRIOR_DECISION_CONTEXT A` unless Decision A itself was materially used.
 
-```text
-Decision B PRIOR_DECISION_CONTEXT Decision A
-```
-
-A direct Decision-to-Decision context edge should exist only when Decision A itself was materially used in Decision B's context.
-
-Likewise, if only an Evidence item, View, Recommendation, or Portfolio Risk Assessment from Decision A is reused, the owner-specific binding should be preserved rather than fabricating a generic whole-Decision influence edge.
+Similarly, reuse of only a View, Recommendation, Evidence item, or Risk Assessment from another Decision should use the appropriate owner-specific binding rather than fabricating whole-Decision influence.
 
 ---
 
-# 10. Persistence semantics
+# 11. Decision graph vs Durable Decision Memory graph
 
-The canonical persistence contract is relationship-oriented, not graph-database-oriented.
+Decision-to-Decision relationships are one portion of broader graph-shaped Decision Memory:
 
-A durable Decision relationship must be representable with semantics equivalent to:
+```text
+Investment Decision
+    ├── Investment Decisions
+    ├── Evidence
+    ├── Views / Recommendations
+    ├── Portfolio/Risk facts
+    ├── Governance acts / Human Investment Decisions
+    ├── Action Intents / external activity
+    ├── Outcomes / Evaluations
+    └── Lessons
+```
+
+Each edge remains owned by its semantic owner.
+
+No generic graph entity/table becomes the semantic owner of all cross-lifecycle relationships.
+
+A graph-shaped query projection is allowed; a graph-shaped universal aggregate is not required.
+
+---
+
+# 12. Persistence contract
+
+A durable Decision relationship must support semantics equivalent to:
 
 ```text
 DecisionRelationship
@@ -397,167 +387,152 @@ DecisionRelationship
     effective_time
     recorded_time
     operation_id
-    attributable_context
+    actor/context provenance
     typed_basis/reference
+    target_as_known_at      # required for PRIOR_DECISION_CONTEXT
+    correction_status/reference
 ```
 
-Exact physical representation remains an adapter decision.
+Exact physical representation is adapter-owned.
 
-For R2, the PostgreSQL adapter may represent `RENEWED_FROM` and `SUPERSEDES` through:
+For R2, PostgreSQL should prefer a dedicated typed relationship relation/table because R2 now requires many-to-many Supersession compatibility and later many-to-many contextual edges. Fixed single foreign-key columns must not become the inward contract.
 
-- constrained foreign-key columns;
-- a dedicated typed relationship relation/table;
-- another relational representation satisfying the inward contract.
-
-R2 does not need to persist `PRIOR_DECISION_CONTEXT` before the first Decision Context use case earns it.
-
-However, the R2 inward contracts and domain identity model must not assume that one Decision can relate to only one other Decision overall. Future many-to-many contextual relationships must be addable without redefining Investment Decision identity or rewriting lifecycle history.
+No graph database is required.
 
 ---
 
-# 11. Query semantics
+# 13. Query semantics
 
-Decision Memory should eventually support relationship-aware queries such as:
+Semantic query capabilities may include:
 
 ```text
-get_lifecycle_predecessor(decision_id)
-get_lifecycle_successors(decision_id)
-get_supersession_chain(decision_id)
-get_renewal_lineage(decision_id)
+get_renewal_predecessors(decision_id)
+get_renewal_successors(decision_id)
+get_superseded_decisions(decision_id)
+get_superseding_decisions(decision_id)
+get_lifecycle_lineage(decision_id, depth=..., as_known_at=...)
 get_material_prior_decision_context(decision_id, as_known_at=...)
 get_related_decision_graph(decision_id, relationship_types=..., depth=..., as_known_at=...)
 ```
 
-These are semantic capabilities, not required function names.
+Queries must:
 
-Graph queries must:
-
-- preserve edge type;
-- preserve source/target direction;
+- preserve type/direction;
 - support bounded depth;
-- apply recorded-time filtering for hindsight-safe `as_known_at` reconstruction;
-- avoid silently traversing through relationship types the caller did not request;
-- return application-owned read models rather than persistence-native graph/row objects.
-
-A graph database or graph projection may later optimize these queries, but only behind the inward query contract.
+- apply recorded-time/correction filtering for `as_known_at`;
+- avoid traversing unrequested edge types;
+- preserve target knowledge cutoff for context edges;
+- return application-owned read models rather than persistence-native rows/graph objects.
 
 ---
 
-# 12. R2 implementation boundary
-
-This design is intentionally broader than R2 implementation scope.
+# 14. R2 implementation boundary
 
 ## R2 implements
 
-- durable `RENEWED_FROM` relationship semantics;
-- durable `SUPERSEDES` relationship semantics;
+- `RENEWED_FROM` durable relationship semantics;
+- `SUPERSEDES` durable many-to-many semantics;
+- Supersession of unresolved or already resolved Decisions without rewriting disposition;
 - lifecycle-lineage cycle prevention;
-- persistence/query support needed by `AS-004`, Supersession, and historical reconstruction;
-- a relationship representation that does not prevent later many-to-many context edges.
+- relationship effective/recorded time;
+- relationship correction compatibility;
+- persistence/query support required by renewal, Supersession, and historical reconstruction;
+- schema/contracts compatible with later `PRIOR_DECISION_CONTEXT` many-to-many edges.
 
 ## R2 does not implement
 
-- candidate prior-Decision retrieval;
+- prior-Decision candidate retrieval;
 - historical analog ranking;
 - `PRIOR_DECISION_CONTEXT` creation commands;
-- AI-assisted relationship selection;
+- AI-assisted context selection;
 - Attention-based memory search;
-- graph database infrastructure;
-- generic graph traversal framework;
+- generic graph framework/database;
 - user-facing graph visualization.
 
-`PRIOR_DECISION_CONTEXT` should first be implemented when Decision Context materially uses prior Decisions, expected no earlier than R3. R6 Attention may then use the same relationship semantics for memory-grounded initiation and resumption.
+The contextual relationship is designed now to prevent R2 schema/contract lock-in, but first implementation waits until Decision Context materially uses prior Decisions.
 
 ---
 
-# 13. Validation rules
+# 15. Validation rules
 
-All Decision relationship types require:
+All relationships require:
 
-- valid source Decision identity;
-- valid target Decision identity;
-- source and target are different;
+- valid source/target Decision identities;
+- source != target;
 - recognized relationship type;
-- durable idempotency identity for creation;
-- immutable committed relationship identity;
-- recorded time;
-- relationship-specific preconditions.
+- durable operation/idempotency identity;
+- immutable relationship identity;
+- effective and recorded time;
+- relationship-specific basis;
+- no supported lineage cycle for `RENEWED_FROM`/`SUPERSEDES`.
 
-Additional lifecycle-lineage rules:
+Additional renewal rules:
 
-- `RENEWED_FROM` target is terminal `RESOLVED` or `EXTERNALLY_RESOLVED`;
-- `SUPERSEDES` target is unresolved immediately before the atomic operation;
-- lifecycle-lineage cycle creation is rejected;
-- canonical predecessor cardinality rules are enforced.
+- target was substantively or externally resolved at applicable effective/knowledge boundary;
+- relationship does not mutate/reopen target.
 
-Additional contextual rules when implemented later:
+Additional Supersession rules:
 
-- target Decision existed and was durably knowable by the relationship's recorded context point;
-- candidate retrieval alone is insufficient;
-- a durable material-use basis/provenance is required;
-- duplicate retry of the same binding is idempotent;
-- a repeated distinct material use may be represented separately when the later context/judgment semantics require it rather than mutating prior history.
+- target may be unresolved or resolved;
+- relationship states what applicability/operative basis is displaced sufficiently for later interpretation;
+- no one-to-one cardinality assumption;
+- unresolved superseded target becomes non-operative without changing its historical resolution/work facts.
 
----
+Additional contextual rules when later implemented:
 
-# 14. Test model
-
-## R2 tests
-
-- `RENEWED_FROM` source and target IDs differ;
-- renewed predecessor must be eligible terminal state;
-- renewed relationship does not reopen/mutate predecessor;
-- `SUPERSEDES` is atomic with predecessor terminalization and successor creation;
-- self-relationship is rejected;
-- direct lifecycle cycle is rejected;
-- indirect lifecycle cycle is rejected;
-- inverse navigation is derived correctly;
-- as-known-at lineage query excludes relationships recorded after the cutoff;
-- relational persistence does not leak vendor-native relationship objects inward.
-
-## Later Decision Context tests
-
-- candidate retrieval creates no durable context edge;
-- explicit/material selection creates exactly one idempotent binding for the operation;
-- several prior Decisions may be bound to one current Decision;
-- one prior Decision may inform many later Decisions;
-- contextual cycles are allowed when temporally coherent;
-- as-known-at query excludes later bindings;
-- using only a Lesson does not automatically create a whole-Decision context edge;
-- graph query preserves edge type and direction.
+- target existed and was knowable by the preserved `target_as_known_at` cutoff;
+- retrieval alone is insufficient;
+- material-use basis/provenance is required;
+- retry is idempotent;
+- later target changes cannot alter historical binding meaning.
 
 ---
 
-# 15. Design consequences for the companion R2 artifacts
+# 16. Test model
 
-## Investment Decision lifecycle design
+R2 tests must cover:
 
-Its `renewed_from` and Supersession concepts are lifecycle-lineage relationships, not the complete Decision relationship model.
+- renewal source/target differ;
+- renewal target eligibility by historical disposition;
+- renewal does not reopen predecessor;
+- Supersession can target unresolved Decision;
+- Supersession can target substantively resolved Decision without changing its resolution fact;
+- one successor can supersede multiple predecessors;
+- one predecessor can have multiple supported superseding successors when scoped semantics justify it;
+- self relationship rejected;
+- direct/indirect mixed lineage cycles rejected;
+- late-recorded Supersession excluded from earlier as-known-at query;
+- relationship correction is non-destructive;
+- relational persistence does not assume one predecessor column as inward contract.
 
-The lifecycle aggregate must not acquire a mutable arbitrary relationship collection.
-
-## Application-use-case design
-
-Application coordination owns relationship establishment. Lifecycle commands create the two R2 lineage edges. Future context assembly will own candidate retrieval, material selection, and `PRIOR_DECISION_CONTEXT` binding.
-
-## Durable-persistence design
-
-The R2 adapter must persist lifecycle lineage faithfully while keeping physical representation private. It must not make a one-predecessor physical convenience into an inward contract that prevents later many-to-many context relationships.
-
-## Domain interaction map
-
-The platform map describes relationships among architectural entities. This document describes relationships among Investment Decision instances inside the `investment-decisions` entity. The two graphs are different and complementary.
+Later contextual tests must cover target knowledge cutoff and retrieval-vs-material-use distinction.
 
 ---
 
-# 16. Spec-readiness gate
+# 17. Requirements traceability
 
-This design is ready to feed implementation Specs only after review confirms:
+| Requirement | Relationship consequence |
+|---|---|
+| `DEC-009` | renewed judgment creates new linked Decision. |
+| `DEC-011` | Supersession preserves both histories. |
+| `DEC-016` | Supersession is orthogonal to historical disposition and not one-to-one by default. |
+| `DEC-018` | late relationship/correction facts preserve effective vs known history. |
+| `MEM-005` | relationship correction is non-destructive. |
+| `MEM-006` | relationships are recorded only to supported strength. |
+| `MEM-007` | Decision Memory can use durable relationships as future active context. |
+| `MEM-011` | contextual edges preserve target historical state actually used. |
 
-1. lifecycle lineage and contextual influence are correctly separated;
-2. `RENEWED_FROM` and `SUPERSEDES` direction/cardinality are unambiguous;
-3. candidate retrieval cannot silently become durable context;
-4. contextual binding provenance is sufficient for hindsight-safe reconstruction;
-5. lifecycle-lineage DAG rules and contextual-cycle allowance are correct;
-6. R2 implementation is limited to lifecycle edges while preserving a clean path to later many-to-many context relationships;
-7. no graph database, generic graph framework, or giant aggregate has become an accidental architectural requirement.
+---
+
+# 18. Spec-readiness gate
+
+This relationship design is Spec-ready only when review confirms:
+
+1. Supersession is a relationship, never a replacement lifecycle state;
+2. unresolved and resolved Decisions may both be superseded;
+3. no unsupported one-to-one Supersession cardinality remains;
+4. lifecycle lineage stays acyclic while context graph may cycle temporally;
+5. `PRIOR_DECISION_CONTEXT` binds a target historical knowledge boundary;
+6. relationship correction is non-destructive;
+7. persistence remains graph-technology neutral;
+8. R2 implementation scope remains limited to renewal/Supersession mechanics while preserving later context compatibility.

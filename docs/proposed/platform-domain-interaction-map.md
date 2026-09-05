@@ -2,7 +2,7 @@
 
 **Status:** Proposed  
 **Release:** 0.2.0  
-**Purpose:** Define the cross-entity relationship model for the greenfield Polaris architecture so later entity designs and implementation Specs do not invent boundary semantics independently.
+**Purpose:** Define cross-entity relationship, authority-flow, runtime-collaboration, and historical-reference semantics so entity designs and implementation Specs do not invent boundary behavior independently.
 
 ## Authority and scope
 
@@ -10,37 +10,35 @@ This document is subordinate to:
 
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md);
+- [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/);
-- the active entity registry at [`../../wiki/index.md`](../../wiki/index.md).
+- active entity registry [`../../wiki/index.md`](../../wiki/index.md).
 
-It is a cross-cutting design artifact, not a replacement for entity ownership. Each entity remains authoritative only for the semantics assigned to it by the approved architecture. The map defines how those owners collaborate without collapsing their boundaries.
-
-`legacy/v0_1/` is not a relationship source for this map.
+It is cross-cutting design, not a replacement for entity ownership. `legacy/v0_1/` is not a relationship source.
 
 ---
 
 # 1. Relationship vocabulary
 
-The map uses these relationship types deliberately:
-
 | Relationship | Meaning |
 |---|---|
-| **owns** | The entity defines the canonical semantics and lifecycle of the concept. |
-| **references** | One entity may retain a stable reference to another entity-owned fact without taking ownership of it. |
-| **consumes** | An application use case obtains another entity's fact or judgment as an input. Consumption does not transfer ownership. |
-| **coordinates** | The Application Use Cases boundary sequences work across owners and establishes transaction/idempotency behavior. |
-| **observes** | Infrastructure normalizes externally authoritative facts without claiming business ownership of those facts. |
-| **implements** | Infrastructure satisfies an inward-owned application/domain capability contract. |
-| **authorizes** | Governance determines whether a power-specific act is permitted or records that act. Authorization does not transfer ownership of the governed concept. |
-| **presents** | Interfaces expose application commands/queries without reconstructing alternate business truth. |
-| **correlates** | Observability attaches technical provenance/correlation without becoming business identity. |
+| **owns** | Entity defines canonical semantics/lifecycle. |
+| **references** | Stable identity/fact reference without ownership transfer. |
+| **consumes** | Application use case uses another owner's fact/judgment as input. |
+| **coordinates** | Application sequences work across owners and owns transaction/idempotency behavior. |
+| **observes** | Infrastructure normalizes externally authoritative facts without claiming ownership. |
+| **implements** | Infrastructure satisfies inward-owned capability contract. |
+| **authorizes** | Governance evaluates/records a power-specific authority act. |
+| **presents** | Interface exposes application semantics without alternate business truth. |
+| **correlates** | Observability attaches technical provenance without becoming business identity. |
+| **qualifies/corrects** | Later attributable fact changes supported interpretation without deleting earlier history. |
 
-The default cross-domain rule is:
+Default rule:
 
 > **Domain entities own semantics; Application Use Cases coordinate cross-entity behavior.**
 
-A domain entity may reference stable IDs/value semantics owned by another domain entity, but cross-entity business workflows should not be implemented as one domain module calling another module's application/service implementation directly.
+An interaction edge does not itself authorize a static import.
 
 ---
 
@@ -56,158 +54,164 @@ flowchart LR
     A[Action Continuity]
     L[Learning]
 
-    E -->|supports / conflicts / binds| I
-    E -->|supports decision context| D
+    E -->|supports / conflicts / context| D
+    E -->|supports judgments| I
+    E -->|fitness / support| G
+
     P -->|current + projected portfolio meaning| I
-    P -->|constraints + risk context| G
+    P -->|risk / constraints| G
+    P -->|authoritative resulting Portfolio State meaning| A
+
     I -->|views / alternatives / recommendations| D
     I -->|recommendation candidate| G
+
     D -->|decision identity + lifecycle| G
-    G -->|human decision / authority act reference| D
+    G -->|human-decision / authority basis| D
+
     D -->|decision identity| A
-    G -->|human decision reference| A
-    A -->|implementation reality| L
-    D -->|historical decision identity| L
+    G -->|Human Investment Decision| A
+    A -->|observed implementation + resulting state| P
+
+    D -->|historical identity| L
     E -->|judgment-time support| L
     I -->|historical judgments| L
     P -->|historical context / risk| L
     G -->|authority + human judgment| L
+    A -->|implementation reality| L
 ```
 
-The arrows show collaboration, not ownership transfer and not required static imports.
+Arrows show collaboration/meaning flow, not ownership transfer.
 
 ---
 
-# 3. Domain relationship contracts
+# 3. Investment Decisions boundary relationships
 
-## 3.1 Investment Decisions ↔ Evidence
+## 3.1 Decisions ↔ Evidence
 
-**Investment Decisions owns:** Decision Need, Investment Decision identity, lifecycle continuity, Deferral, resolution state, External Resolution, Supersession, and renewed-decision linkage.
+- Decisions owns Decision Need/identity/lifecycle; Evidence owns provenance, temporal fitness, sufficiency/conflict, and material evidence bindings.
+- Evidence changes do not by themselves create a new Decision.
+- prior Evidence availability/usage is historically reconstructable without rewriting Decision lifecycle.
 
-**Evidence owns:** Evidence identity, provenance, temporal availability, freshness/sufficiency state, conflict/missing state, and bindings showing which Evidence supported a material judgment.
+## 3.2 Decisions ↔ Investment Intelligence
 
-Relationship rules:
+- Recommendation/View/Alternative identities remain Intelligence-owned.
+- zero, one, or many Recommendations may exist under one unresolved Decision.
+- Intelligence cannot resolve a Decision merely by generating a Recommendation.
 
-- an Investment Decision may reference Evidence and Decision Context without embedding Evidence ownership;
-- changing the Evidence set does not by itself create a new Investment Decision;
-- Evidence may be associated with one or more decisions/judgments, but Evidence identity never becomes Decision identity;
-- historical Decision Memory must be able to show which Evidence was available/used at the relevant time without rewriting the earlier decision lifecycle.
+## 3.3 Decisions ↔ Portfolio & Risk
 
-## 3.2 Investment Decisions ↔ Investment Intelligence
+- Decision Scope may be unresolved early; Portfolio applicability must not be fabricated.
+- Portfolio State/Risk changes may continue the same unresolved Decision, externally resolve it only when the Decision Need itself disappears, or create another Decision Need through Attention.
+- Portfolio/Risk does not own Decision identity.
 
-**Investment Intelligence owns:** Investment Hypotheses, Views, uncertainty, alternatives, materially used Signals, Recommendations, and Proposed Actions.
+## 3.4 Decisions ↔ Governance & Authority
 
-Relationship rules:
+- Decisions owns the Decisions-side lifecycle consequence.
+- Governance owns Human Investment Decision and power-specific authority facts.
+- Deferral is a Human Investment Decision; Decisions records resulting `DEFERRED` work posture only from a trusted basis.
+- substantive resolution similarly requires a trusted resolution basis.
+- Decisions may not fabricate Human Investment Decision merely to reach a lifecycle disposition.
 
-- every Recommendation is bound to an Investment Decision, but remains separately identified;
-- zero, one, or multiple Recommendations may exist during one unresolved Investment Decision;
-- a changed Recommendation does not create a new Investment Decision while the coherent unresolved choice is unchanged;
-- Decisions does not absorb Recommendation content into its lifecycle state;
-- Intelligence does not resolve an Investment Decision by generating a Recommendation.
+## 3.5 Decisions ↔ Action Continuity
 
-## 3.3 Investment Decisions ↔ Portfolio & Risk
+- Action Continuity references Investment Decision identity and applicable Human Investment Decision.
+- Action Intent does not reopen/resolve a Decision retroactively.
+- external implementation divergence may cause Attention but cannot rewrite historical Decision judgment.
 
-**Portfolio & Risk owns:** Portfolio identity, decision-oriented Portfolio State meaning, projected state/consequence, Portfolio Risk, Portfolio Risk Assessment, mandate semantics, and deterministic Formal Constraint evaluation where applicable.
+## 3.6 Decisions ↔ Learning
 
-Relationship rules:
-
-- Investment Decision identity is independent of mutable Portfolio State;
-- Portfolio State/Risk changes may cause new work on the same unresolved decision;
-- Portfolio/Risk may provide inputs that materially alter Recommendation formation without gaining decision-lifecycle ownership;
-- authoritative operational Portfolio facts retain external-source authority even when Portfolio & Risk gives them decision meaning inside Polaris.
-
-## 3.4 Investment Decisions ↔ Governance & Authority
-
-This relationship is intentionally split because the entities own different halves of resolution semantics.
-
-**Investment Decisions owns:** whether the Decision is unresolved, deferred, resolved, externally resolved, or superseded.
-
-**Governance & Authority owns:** Human Investment Decision and other power-specific authority acts.
-
-Relationship rules:
-
-- a Human Investment Decision is a separate durable fact that may substantively resolve an Investment Decision;
-- recording the Human Investment Decision must not mutate or erase prior Recommendations;
-- Decisions may record that substantive resolution occurred only through an attributable resolution basis supplied by the application coordination path;
-- the Decisions entity must not manufacture a Human Investment Decision merely to reach a terminal lifecycle state;
-- Governance may refer to an Investment Decision and Recommendation, but cannot replace their identities;
-- a Human Investment Decision may exist even when no Investment Recommendation was supportable.
-
-## 3.5 Investment Decisions ↔ Action Continuity
-
-**Action Continuity owns:** Action Intent and reconciliation with authoritative external activity.
-
-Relationship rules:
-
-- Action Intent is downstream of an attributable Human Investment Decision and references the applicable Investment Decision;
-- Deferral, hold, or no-action resolution may produce zero Action Intents;
-- external activity does not retroactively manufacture an Investment Decision or Action Intent;
-- Action Continuity cannot reopen a resolved Investment Decision merely because implementation diverged.
-
-## 3.6 Investment Decisions ↔ Learning
-
-**Learning owns:** Outcome, Decision Evaluation, Lesson, retrospective criteria, and evaluation judgment.
-
-Relationship rules:
-
-- Learning references the historical Investment Decision and its material decision-time context;
-- Outcome does not determine whether the earlier decision process was sound;
-- later Evaluation/Lesson facts never rewrite what the earlier Decision, Evidence, Recommendation, Risk, authority, or Action Intent actually was;
-- Lessons may influence future Attention/Decision Need formation but do not become Policy, Formal Constraints, Mandates, or authority merely by being learned.
-
-## 3.7 Evidence ↔ Investment Intelligence
-
-- Intelligence consumes attributable Evidence through application coordination;
-- Information is not automatically Evidence merely because a model or analytical component received it;
-- supporting and Conflicting Evidence remain inspectable after a preferred View/Recommendation is formed;
-- model output cannot self-declare Evidence provenance or authority.
-
-## 3.8 Evidence ↔ Portfolio & Risk
-
-- external portfolio/market facts may become Evidence for an attributable judgment;
-- Portfolio & Risk owns portfolio interpretation and risk semantics, while Evidence owns the preserved support/provenance relationship;
-- stale or missing Evidence may weaken current Portfolio Risk support without erasing historical assessments.
-
-## 3.9 Evidence ↔ Governance & Authority
-
-- Governance consumes Evidence sufficiency/freshness and other support facts where a consequential authority decision requires them;
-- Evidence does not grant authority;
-- authority acts preserve the Evidence/version context on which they relied where materially required.
-
-## 3.10 Investment Intelligence ↔ Portfolio & Risk
-
-- Intelligence consumes current/projected Portfolio context and Portfolio Risk to form or withhold Recommendations;
-- Portfolio Risk shapes Recommendation formation rather than being only a post-hoc approval gate;
-- Intelligence owns analytical preference; Portfolio & Risk owns economic portfolio consequence/risk semantics.
-
-## 3.11 Investment Intelligence ↔ Governance & Authority
-
-- Governance may evaluate a Recommendation for admissibility/approval/review while preserving the Recommendation as a separate attributable judgment;
-- Recommendation rejection, modification, or override does not mutate the original Recommendation;
-- model-generated Recommendation content carries no authority by itself.
-
-## 3.12 Portfolio & Risk ↔ Governance & Authority
-
-- deterministic Formal Constraint results and Portfolio Risk are distinct inputs to governance;
-- Portfolio Risk is economic judgment, not authority;
-- Formal Constraint violation, Policy denial, Approval denial, Human Investment Decision, and Residual-Risk Acceptance remain separate facts;
-- Governance owns power-specific acts, not the underlying risk calculation.
-
-## 3.13 Governance & Authority ↔ Action Continuity
-
-- Action Continuity consumes an attributable Human Investment Decision when establishing Action Intent;
-- authority to decide does not imply external execution authority;
-- Action Continuity has no outbound broker execution authority in 0.2.0.
-
-## 3.14 Action Continuity ↔ Learning
-
-- Learning may consume intended-vs-actual continuity facts when evaluating consequences;
-- authoritative external activity remains operational reality even when it diverges from Action Intent;
-- reconciliation ambiguity must remain explicit rather than being converted into a false Outcome attribution.
+- Learning references historically faithful Decision Memory.
+- Outcome/Evaluation/Lesson never rewrite earlier Decision facts.
+- a Lesson may influence later Decision work without creating an unsupported direct Decision-to-Decision relationship.
 
 ---
 
-# 4. Application boundary map
+# 4. Other domain relationship contracts
+
+## 4.1 Evidence ↔ Intelligence
+
+- Intelligence consumes Evidence; Information/model input is not automatically Evidence.
+- supporting/conflicting Evidence remains inspectable after a preferred judgment.
+
+## 4.2 Evidence ↔ Portfolio & Risk
+
+- external portfolio/market facts may play Evidence roles;
+- Portfolio & Risk owns economic interpretation/risk semantics;
+- stale Evidence may qualify current support without erasing historical assessments.
+
+## 4.3 Evidence ↔ Governance
+
+- Governance may require Evidence freshness/sufficiency/readiness;
+- Evidence strength does not itself grant authority.
+
+## 4.4 Intelligence ↔ Portfolio & Risk
+
+- Portfolio context/risk shapes Recommendation formation before governance;
+- Intelligence owns analytical preference; Portfolio & Risk owns economic consequence/risk semantics.
+
+## 4.5 Intelligence ↔ Governance
+
+- Governance evaluates consequential use while preserving Recommendation as separate judgment;
+- rejection/override does not mutate the original Recommendation.
+
+## 4.6 Portfolio & Risk ↔ Governance
+
+- Portfolio Risk, Formal Constraint result, Policy result, Admissibility, Approval, Mandate Exception, Residual-Risk Acceptance, and Human Investment Decision remain distinct facts.
+
+## 4.7 Governance ↔ Action Continuity
+
+- Human Investment Decision may establish zero/one/many Action Intents;
+- investment authority does not create broker execution authority.
+
+## 4.8 Action Continuity ↔ Portfolio & Risk
+
+This edge is load-bearing and explicit.
+
+- External Facts supplies authoritative activity/Portfolio observations.
+- Action Continuity owns intended-vs-observed reconciliation and association support.
+- Portfolio & Risk owns decision meaning of authoritative Portfolio State/Positions/Exposure/Allocation/Risk.
+- external activity may change Portfolio State while other Decisions remain unresolved.
+- the same authoritative Portfolio change may externally resolve one Decision, materially alter another unresolved Decision, and create a new Decision Need through Attention; those meanings are coordinated separately rather than collapsed.
+- Action Continuity does not manufacture Portfolio facts; Portfolio & Risk does not manufacture Action Intent causality.
+
+## 4.9 Action Continuity ↔ Learning
+
+- Learning may consume implementation fidelity/divergence;
+- reconciliation ambiguity remains explicit and does not become false Outcome causality.
+
+---
+
+# 5. Decision-to-Decision relationship map
+
+The `investment-decisions` entity owns typed relationships among Decision identities; Application coordinates establishment.
+
+```mermaid
+flowchart LR
+    A[Prior Decision A]
+    B[Prior Decision B]
+    C[Current Decision C]
+    D[Later Decision D]
+
+    C -->|RENEWED_FROM| A
+    C -->|SUPERSEDES| B
+    D -->|PRIOR_DECISION_CONTEXT @ target_as_known_at| C
+```
+
+Rules:
+
+- `RENEWED_FROM` and `SUPERSEDES` form acyclic supported lifecycle lineage;
+- Supersession may target unresolved or resolved Decisions and does not replace historical disposition;
+- no one-to-one Supersession cardinality is assumed;
+- `PRIOR_DECISION_CONTEXT` is created only by attributable material use, not retrieval;
+- contextual binding preserves target historical knowledge cutoff/version boundary;
+- context graph may contain temporally coherent cycles;
+- graph is logical/query shape, not graph-database mandate.
+
+See [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md).
+
+---
+
+# 6. Application boundary map
 
 ```mermaid
 flowchart TB
@@ -225,271 +229,273 @@ flowchart TB
     DP[Durable Persistence] -->|implements ports| APP
     MA[Model Access] -->|implements ports| APP
     EF[External Facts] -->|implements ports| APP
-    SI[Security & Identity] -->|ActorContext / secrets boundary| APP
+    SI[Security & Identity] -->|authenticated context / secrets| APP
     CFG[Configuration] -->|owned config contracts| APP
-    OBS[Observability & Technical Provenance] -.correlates.-> APP
+    OBS[Observability & Provenance] -.correlates.-> APP
 ```
 
 Application rules:
 
-1. cross-entity commands are coordinated by the application layer;
-2. one application command owns the business transaction boundary for the facts it establishes;
-3. application commands invoke domain behavior and persist through inward-owned ports;
-4. interfaces, workers, and schedulers use the same application commands/queries;
-5. application code must not call concrete infrastructure implementations;
-6. long external/model calls occur outside durable-store transactions and are revalidated before commit;
-7. cross-owner atomicity is introduced only when an actual use case requires it.
+1. cross-entity commands are application-coordinated;
+2. one application command owns the semantic transaction boundary for facts it establishes;
+3. application invokes domain behavior and inward-owned ports;
+4. interfaces/workers/schedulers use same use cases;
+5. application does not call concrete infrastructure;
+6. long external/model calls occur outside durable transactions and are revalidated before commit;
+7. cross-owner atomicity is introduced only when a real use case requires it;
+8. continuation/same-vs-new Decision ambiguity fails closed rather than creating duplicate identity.
 
 ---
 
-# 5. Infrastructure relationship contracts
+# 7. Infrastructure contracts
 
-## 5.1 Durable Persistence
+## Durable Persistence
 
-- implements owner-specific persistence/query capabilities required by Application Use Cases;
-- preserves direct business truth and immutable history without becoming the owner of Decision semantics;
-- may use PostgreSQL-specific mechanisms internally, but inward contracts remain vendor-neutral;
-- may coordinate multiple owner-specific stores within one application transaction when required.
+- implements semantic storage/query guarantees;
+- preserves direct business truth, immutable facts/corrections, dual temporal reconstruction, concurrency/idempotency/continuity arbitration;
+- PostgreSQL remains initial adapter only.
 
-## 5.2 Model Access
+## Model Access
 
-- implements model/reasoning capability ports;
-- returns draft analytical results plus technical provenance;
-- cannot directly persist authoritative domain judgments or authority acts;
-- provider/model identity remains technical provenance, not business identity.
+- returns draft analytical results + technical provenance;
+- cannot persist authority/business truth directly.
 
-## 5.3 External Facts
+## External Facts
 
-- implements narrow observation ports for Evidence, authoritative Portfolio State, external execution activity, and future specialist sources;
-- preserves source identity/as-of/observation metadata and source authority;
-- normalizes data without converting expected or cached state into external operational truth.
+- observes/normalizes externally authoritative Evidence, Portfolio State, and execution activity;
+- preserves source/as-of/observation identity/authority.
 
-## 5.4 Background Work & Durable Follow-Up
+## Background Work & Durable Follow-Up
 
-- invokes ordinary application use cases with technical work identity and idempotency metadata;
-- may deliver through outbox, queue, broker, event bus, CDC, or another adapter satisfying the inward contract;
-- never uses work-item identity as Investment Decision identity;
-- stores/delivers required follow-up obligations, not canonical investment-domain truth.
+- invokes normal application use cases;
+- technical work identity never becomes Decision identity;
+- mechanism may be outbox/queue/broker/event bus/CDC if guarantees hold.
 
-## 5.5 Observability & Technical Provenance
+## Observability & Technical Provenance
 
-- correlates requests, work attempts, source calls, model calls, timings, failures, and applicable Investment Decision IDs;
-- does not become the sole location of required business provenance;
-- optional telemetry failure must not erase business facts.
+- correlates requests, work, model/source calls, timings/failures;
+- never substitutes for Actor Attribution or canonical business provenance.
 
-## 5.6 Security & Identity
+## Security & Identity
 
-- establishes authenticated ActorContext and application access-control inputs;
-- remains distinct from Investment Authority Regime powers owned by Governance;
-- provides secret/backend mechanisms without placing secrets into domain history.
+- authenticates actor/access context;
+- authentication remains distinct from application authorization and investment authority.
 
-## 5.7 Configuration
+## Configuration
 
-- supplies domain-facing product configuration through owned contracts;
-- isolates provider/runtime settings from investment-domain semantics;
-- does not become a generic workflow/plugin topology definition.
+- supplies product/domain-facing config contracts and isolates provider/runtime settings.
 
-## 5.8 Interfaces & Presentation
+## Interfaces & Presentation
 
-- presents shared application commands/queries;
-- never persists an independent report/UI-specific decision model;
-- may render transport-specific DTOs, but canonical semantics come from application/domain contracts.
+- thin adapters over shared application commands/queries;
+- no UI/report-specific business truth.
 
 ---
 
-# 6. Authority flow
-
-Authority is intentionally non-transitive.
+# 8. Authority flow
 
 ```text
-External factual authority
+external factual authority
         ↓ observations
 Evidence / Portfolio meaning
         ↓ support
 Polaris analytical judgment
         ↓ recommendation candidate
-Deterministic rules + Investment Authority Regime
+rules + Investment Authority Regime
         ↓
-Human authority act / Human Investment Decision
+Human authority acts / Human Investment Decision
         ↓
 Action Intent where applicable
         ↓
-Authoritative external operational reality
+authoritative external operational reality
 ```
 
-Rules:
+Authority is non-transitive:
 
-- Evidence strength does not grant authority;
-- Portfolio Risk does not grant or deny authority by itself;
-- Recommendation does not become Human Investment Decision;
-- Human Investment Decision does not create external execution authority;
-- external execution facts outrank Polaris expectation inside the external system's responsibility domain;
-- technical authentication proves actor identity/access context, not investment authority power.
+- Evidence does not grant authority;
+- Risk does not grant/deny authority by itself;
+- Recommendation is not Human Investment Decision;
+- Human Investment Decision is not broker execution authority;
+- authentication is not investment authority.
 
 ---
 
-# 7. Business-truth and persistence ownership
-
-Durable Decision Memory is assembled across owner-specific business facts:
+# 9. Actor Attribution vs provenance flow
 
 ```text
-Investment Decisions  ─┐
-Evidence              ─┤
-Investment Intelligence─┤
-Portfolio & Risk      ─┤
-Governance & Authority─┤──> Decision Memory Query
-Action Continuity     ─┤
-Learning              ─┘
+trigger/request/observation
+        ↓
+Application work
+        ↓
+domain act
+        ├── Actor Attribution: who formed/performed it
+        └── provenance: what technical/external path contributed
 ```
 
-Each owning entity controls the meaning of its facts. Durable Persistence provides storage guarantees but does not define a universal `DecisionRecord`, workflow archive, event-log truth model, or generic persistence taxonomy.
+Examples:
 
-Cross-entity query assembly may denormalize for read efficiency, but a projection must remain reconstructable from owner facts and must not become the sole authority.
+- human request may trigger Polaris-attributed Decision Need determination;
+- human may directly establish attributable Decision Need;
+- model/provider/workflow IDs remain provenance, not actors.
 
 ---
 
-# 8. Interaction sequences
+# 10. Business truth / Decision Memory
 
-## 8.1 New Decision Need
+Durable Decision Memory composes owner-specific facts:
+
+```text
+Decisions ─┐
+Evidence   ─┤
+Intelligence─┤
+Portfolio/Risk─┤
+Governance ─┤──> Decision Memory Query
+Continuity ─┤
+Learning   ─┘
+```
+
+Cross-entity projections may denormalize for reads but cannot become sole authority.
+
+---
+
+# 11. Key interaction sequences
+
+## 11.1 New Decision with continuity check
 
 ```mermaid
 sequenceDiagram
-    participant S as Interface / Scheduled Source
-    participant App as Application Use Cases
+    participant S as Interface / Attention source
+    participant App as Application
     participant D as Investment Decisions
     participant P as Durable Persistence
 
-    S->>App: initiate decision work
-    App->>D: establish Decision Need + Investment Decision
-    D-->>App: decision lifecycle facts
-    App->>P: commit facts + idempotency/version state
-    P-->>App: durable commit
-    App-->>S: Investment Decision identity
+    S->>App: request/initiation trigger
+    App->>P: find conservative unresolved candidates
+    P-->>App: candidates + continuity guard
+    App->>D: determine explicit new/continue/ambiguous
+    App->>P: revalidate guard + commit if CREATE_NEW
+    P-->>App: durable Decision identity
 ```
 
-No workflow/job/report identity may substitute for the returned Investment Decision identity.
+Ambiguity creates no automatic duplicate Decision.
 
-## 8.2 Iterative unresolved decision work
+## 11.2 Deferral
 
 ```mermaid
 sequenceDiagram
-    participant App as Application Use Cases
-    participant D as Investment Decisions
-    participant E as Evidence
-    participant I as Investment Intelligence
-    participant R as Portfolio & Risk
-
-    App->>D: load unresolved decision
-    App->>E: assemble qualified Evidence
-    App->>I: form/challenge judgment
-    App->>R: assess portfolio consequence/risk
-    App->>I: form or withhold Recommendation
-    Note over D,I: Decision identity remains unchanged while the coherent choice remains unresolved
-```
-
-## 8.3 Human resolution seam
-
-```mermaid
-sequenceDiagram
-    participant UI as Interface
-    participant App as Application Use Cases
     participant G as Governance & Authority
+    participant App as Application
     participant D as Investment Decisions
-    participant P as Durable Persistence
+    participant P as Persistence
 
-    UI->>App: record attributable human judgment
-    App->>G: validate power + create Human Investment Decision
-    G-->>App: human-decision fact/reference
-    App->>D: apply substantive resolution using attributable basis
-    D-->>App: resolution lifecycle fact
-    App->>P: atomically commit required owner facts
+    G-->>App: attributable Human Investment Decision: Deferral
+    App->>D: apply Decisions-side deferred work consequence
+    D-->>App: DecisionDeferred fact
+    App->>P: commit consequence + receipt
 ```
 
-R2 may establish the Decisions-side resolution contract before Governance is implemented, but must not expose a path that fabricates the future Governance-owned Human Investment Decision.
+R2 may test with trusted fixture but must not fabricate Governance fact.
 
-## 8.4 Action continuity
+## 11.3 Substantive resolution
 
 ```mermaid
 sequenceDiagram
-    participant App as Application Use Cases
     participant G as Governance & Authority
+    participant App as Application
     participant D as Investment Decisions
-    participant A as Action Continuity
+    participant P as Persistence
+
+    G-->>App: Human Investment Decision / trusted resolution basis
+    App->>D: apply substantive resolution
+    App->>P: commit required owner facts atomically when later implemented
+```
+
+## 11.4 Late lifecycle correction
+
+```mermaid
+sequenceDiagram
     participant X as External Facts
+    participant App as Application
+    participant D as Investment Decisions
+    participant P as Persistence
 
-    App->>G: load Human Investment Decision
-    App->>D: load Decision identity/state
-    App->>A: establish zero/one/many Action Intents
-    X-->>App: authoritative execution/activity observations
-    App->>A: reconcile intended vs observed reality
+    Note over P: Earlier DecisionResolved already recorded
+    X-->>App: late authoritative fact, effective before prior resolution
+    App->>D: qualify/correct supported lifecycle interpretation
+    D-->>App: DecisionLifecycleCorrected
+    App->>P: append correction; preserve old fact
 ```
 
-## 8.5 Learning
+Earlier `as_known_at` history remains stable.
+
+## 11.5 Action continuity changes portfolio context
 
 ```mermaid
 sequenceDiagram
-    participant App as Application Use Cases
-    participant L as Learning
-    participant Q as Decision Memory Query
+    participant X as External Facts
+    participant App as Application
+    participant A as Action Continuity
+    participant P as Portfolio & Risk
+    participant D as Investment Decisions
 
-    App->>Q: reconstruct decision-time history
-    Q-->>App: historically faithful context
-    App->>L: record Outcome / evaluate / derive scoped Lesson
-    L-->>App: attributable evaluation + Lesson
+    X-->>App: authoritative external activity / Portfolio observation
+    App->>A: reconcile intended vs observed activity
+    App->>P: establish updated decision-oriented Portfolio State meaning
+    App->>D: evaluate affected unresolved Decision lifecycle consequence when applicable
 ```
 
-Later facts must not be projected backward into the reconstructed decision-time basis.
+One observation may affect several Decisions differently; no implicit causal collapse occurs.
 
 ---
 
-# 9. Static dependency expectations
+# 12. Static dependency expectations
 
-The relationship map is compatible with the approved hexagonal dependency direction:
+Compatible with:
 
 ```text
 interfaces -> application -> domain
-infrastructure -> application/domain contracts
+infrastructure -> inward contracts
 ```
 
-Within the domain layer:
+Within domain:
 
-- entity packages may share deliberately small stable value/reference types only where the architecture/design explicitly earns them;
-- one entity must not import another entity's application orchestration or infrastructure adapter;
-- cross-entity business sequencing belongs to Application Use Cases;
-- creating a shared-domain utility package solely to bypass ownership is prohibited;
-- a relationship shown in this document does not itself authorize a static import.
+- packages may share only deliberately earned stable types;
+- no entity imports another entity's application orchestration/infrastructure;
+- cross-entity sequencing belongs to Application;
+- no shared-domain utility package merely to bypass ownership.
 
 ---
 
-# 10. R2 design consequence
+# 13. R2 design consequence
 
-R2 currently exercises three primary entities:
+R2 primarily exercises:
 
-- `investment-decisions` — lifecycle identity and history;
-- `application-use-cases` — commands, queries, transaction/idempotency/concurrency semantics;
-- `durable-persistence` — technology-neutral persistence guarantees plus the initial PostgreSQL adapter.
+- `investment-decisions`;
+- `application-use-cases`;
+- `durable-persistence`.
 
-R2 must design the Decisions-side substantive-resolution seam so later `governance-authority` can provide the attributable Human Investment Decision without forcing the Decisions model to be redesigned.
+The complete R2 pre-Spec design set is:
 
-The R2 design set is therefore:
-
+- [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
 - [`investment-decisions-lifecycle-model.md`](investment-decisions-lifecycle-model.md);
+- [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
 - [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md).
 
-The approved R2 component-boundary plan remains the milestone-level integration source. These designs refine it; they do not widen R2 scope.
+The approved component-boundary plan remains milestone integration authority.
 
 ---
 
-# 11. Approval gate
+# 14. Approval / Spec-readiness gate
 
-Before this map is treated as a design authority for Specs, review must confirm that:
+Before this map becomes design authority for Specs, review must confirm:
 
-1. every active entity has a clear role in the interaction model;
+1. every active entity has a clear role;
 2. no edge transfers ownership accidentally;
-3. application coordination remains distinct from domain semantics;
-4. factual authority, analytical judgment, investment authority, and external operational authority remain separated;
-5. no legacy runtime/workflow relationship has been reintroduced;
-6. the map introduces no unresolved architectural choice that requires an ADR or Wayfinder.
-
-Until approved, this document is proposed design and may support only Planned wiki knowledge.
+3. Decisions/Governance Deferral and resolution seams are explicit;
+4. Supersession is orthogonal to historical resolution;
+5. Action Continuity ↔ Portfolio & Risk is explicit;
+6. Actor Attribution and technical provenance do not collapse;
+7. Decision relationship graph semantics preserve hindsight-safe historical context;
+8. no legacy topology is reintroduced;
+9. no unresolved architecture choice requires an ADR/Wayfinder.

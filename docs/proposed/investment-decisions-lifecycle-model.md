@@ -4,7 +4,7 @@
 **Release:** 0.2.0  
 **Primary entity:** `investment-decisions`  
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth  
-**Purpose:** Define the R2 Investment Decision domain model precisely enough that implementation Specs do not need to invent lifecycle identity, transition, temporal, or cross-entity resolution semantics.
+**Purpose:** Define the R2 Investment Decision domain model precisely enough that implementation Specs do not need to invent lifecycle identity, state decomposition, temporal correction, actor-attribution, continuity, or cross-entity resolution semantics.
 
 ## Authority
 
@@ -13,31 +13,38 @@ This design refines, but does not override:
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`investment-decisions-r2-decision-kernel-component-boundaries.md`](investment-decisions-r2-decision-kernel-component-boundaries.md);
 - [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
+- [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md);
+- [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/).
 
-The relevant requirement families are principally `GF-*`, `DEC-*`, `MEM-*`, `TMP-*`, and the R2 acceptance scenarios `AS-001` through `AS-005` plus `AS-022`.
+The relevant requirement families are principally `GF-*`, `DEC-*`, `MEM-*`, `REL-*`, `TMP-*`, and the Decision-kernel portions of `AS-001` through `AS-005` plus `AS-022`.
 
 ---
 
 # 1. Design objective
 
-R2 must establish a first-class Investment Decision domain whose identity and history survive:
+R2 establishes a first-class Investment Decision domain whose identity and history survive:
 
+- unresolved Decision Scope at initiation;
 - additional Evidence;
 - changed Portfolio State or Portfolio Risk;
 - revised analytical judgment;
 - changed Recommendation;
-- Deferral and later resumption;
+- human Deferral and later resumption;
+- explicit withdrawal of decision work without investment judgment;
 - retries and process restarts;
-- concurrent commands;
+- concurrent initiation and mutation;
 - substantive resolution;
 - External Resolution;
-- Supersession;
-- later renewed judgment.
+- later discovery that an earlier Decision Need was erroneous or unsupported;
+- Supersession before or after substantive resolution;
+- later renewed judgment;
+- late-recorded facts whose effective time precedes their recorded time;
+- explicit correction of lifecycle understanding without destructive history rewriting.
 
-The model must not depend on workflow/job/report/model/database identity.
+The model must not depend on workflow, job, report, model, provider, or database identity.
 
 ---
 
@@ -45,129 +52,198 @@ The model must not depend on workflow/job/report/model/database identity.
 
 ## 2.1 Investment Decision
 
-An **Investment Decision** represents one coherent unresolved portfolio-relevant choice.
+An **Investment Decision** is one durable identified decision lifecycle established to resolve a Decision Need about one coherent Portfolio-relevant investment choice.
 
 It has:
 
 - a durable `InvestmentDecisionId`;
 - one grounding `DecisionNeedId`;
 - a current Decision Subject reference;
-- a current Decision Scope value;
-- a lifecycle state derived from committed lifecycle facts;
+- a Decision Scope that may be unresolved during early work;
+- a current resolution disposition derived from committed lifecycle facts;
+- a current work disposition when the Decision remains unresolved;
+- zero or more typed Decision-to-Decision relationships;
 - a monotonic domain version used for concurrency control;
-- immutable creation time;
-- optional causal relationship to an earlier resolved Investment Decision;
-- optional Supersession relationship when one decision replaces another.
+- immutable creation time.
 
-Investment Decision identity is opaque. It is not a hash of Subject, Scope, Evidence, Recommendation, Portfolio State, or runtime metadata.
+Investment Decision identity is opaque. It is not a hash of Subject, Scope, Evidence, Recommendation, Portfolio State, text similarity, or runtime metadata.
 
 ## 2.2 Decision Need
 
-A **Decision Need** is the attributable reason deliberate investment judgment is required.
+A **Decision Need** is the attributable determination that an unresolved Portfolio-relevant investment choice warrants deliberate judgment.
 
-R2 makes Decision Need durable because `DEC-002` requires every Investment Decision to be grounded in one and later history must explain why the decision existed.
-
-The R2 semantic shape includes:
+R2 preserves:
 
 - durable `DecisionNeedId`;
 - concise need statement;
-- time the need was raised/recognized;
-- attributable origin reference;
-- optional source/context references that explain the triggering matter.
+- raised/recognized effective time;
+- recorded time;
+- Actor Attribution for the determination where material;
+- trigger/origin provenance separately from Actor Attribution;
+- optional source/context references explaining the triggering matter;
+- explicit later retraction/correction when the original determination is established to have been erroneous or unsupported.
 
-R2 does not implement the full future Attention engine. The origin representation must be able to preserve user, scheduled, or system-detected provenance later without forcing a new Decision Need model.
+A user request, schedule, observation, or system event may trigger Decision Need evaluation without necessarily being the actor that formed the Decision Need determination.
 
 ## 2.3 Decision Subject
 
-Decision Subject identifies what the judgment is about.
+Decision Subject identifies the investment matter being judged.
 
-It is distinct from Investment Decision identity and Decision Scope.
+It is distinct from Investment Decision identity, Decision Scope, Evidence, trigger, and implementation instrument.
 
-R2 treats Subject as a stable typed reference, not as the primary key of the Decision. Multiple Investment Decisions may concern the same Subject over time.
+R2 treats Subject as a stable typed representation/reference. Multiple Investment Decisions may concern the same Subject through time.
 
 ## 2.4 Decision Scope
 
-Decision Scope describes the boundaries of the coherent choice under consideration.
+Decision Scope identifies the Portfolio or Portfolios whose state, capital consequences, and Mandates are directly implicated.
 
-It may include portfolio/instrument/horizon or other canonical scope dimensions as applicable, but it is not itself the Investment Decision identity.
+R2 permits:
 
-A Scope revision during unresolved work does not automatically create a new Investment Decision. If the coherent choice remains the same, the Decision keeps its ID and the change is preserved historically.
+```text
+Decision exists
+Decision Need exists
+Decision Subject exists
+Decision Scope = unresolved
+```
 
-R2 therefore treats material Subject/Scope changes as explicit lifecycle-supporting facts rather than silently overwriting earlier values.
+when a genuine coherent choice already warrants deliberate work but Portfolio applicability is not yet established.
 
-## 2.5 Causal relationships
+Rules:
 
-R2 distinguishes at least these relationships:
+- unresolved Scope is explicit, never silently invented;
+- later Scope establishment is historical fact;
+- later Scope refinement may preserve the same Decision ID when the coherent unresolved choice remains the same;
+- final Capital-Relevant Recommendation/Human Investment Decision requirements belong to later owners, but the R2 model must be capable of enforcing that unresolved Scope cannot masquerade as established applicability.
 
-- **renewed from** — a new Investment Decision created after a prior Decision was already substantively or externally resolved because deliberate judgment is needed again;
-- **supersedes** — a new Investment Decision intentionally replaces another Investment Decision before the predecessor would otherwise continue as the active choice.
+## 2.5 Actor Attribution and trigger provenance
 
-These relationships never merge histories or reuse the predecessor Decision ID.
+R2 preserves two different relationships:
+
+```text
+Actor Attribution
+Who formed/performed the domain act?
+
+Trigger / technical provenance
+What request, observation, schedule, process, model/provider call,
+or other event caused work to occur?
+```
+
+The two may coincide but must not be collapsed.
+
+Examples:
+
+- a human explicitly establishes a Decision Need -> human Actor Attribution;
+- a human asks a question and Polaris determines it creates a Decision Need -> request is trigger, Polaris is the actor for the determination;
+- an internal model/provider contributes to a Polaris determination -> model/provider identity remains technical provenance, not Actor Attribution.
 
 ---
 
-# 3. Lifecycle state model
+# 3. Lifecycle is multi-dimensional
 
-R2 uses five externally meaningful lifecycle states:
+The prior five-state model is rejected because it conflated unresolved work posture, judgment/Need disposition, and continuing applicability.
+
+R2 instead models three orthogonal concerns.
+
+## 3.1 Resolution disposition
+
+```text
+UNRESOLVED
+SUBSTANTIVELY_RESOLVED
+EXTERNALLY_RESOLVED
+NEED_RETRACTED
+```
+
+### UNRESOLVED
+
+The Decision Need still warrants unresolved investment judgment.
+
+### SUBSTANTIVELY_RESOLVED
+
+The investment choice has been substantively answered through an attributable resolution basis. The Decision may still have later Action Continuity, Outcome, Evaluation, or Supersession relationships; this is terminal only for the unresolved investment judgment, not for every lifecycle activity associated with the Decision.
+
+### EXTERNALLY_RESOLVED
+
+Changed circumstances eliminated the Decision Need before substantive human resolution. External Resolution resolves the need for further judgment, not a missing Human Investment Decision.
+
+### NEED_RETRACTED
+
+A later attributable correction establishes that the earlier Decision Need determination was erroneous or unsupported rather than eliminated by changed circumstances. The historical Decision Need remains preserved; its current supported status is retracted.
+
+`NEED_RETRACTED` is an R2 design label for implementation clarity, not a requirement that product UI expose that exact phrase.
+
+## 3.2 Work disposition
+
+While resolution disposition is `UNRESOLVED`, current work posture may be:
 
 ```text
 ACTIVE
 DEFERRED
-RESOLVED
-EXTERNALLY_RESOLVED
-SUPERSEDED
+WITHDRAWN
 ```
-
-`ACTIVE` and `DEFERRED` are unresolved states.
-
-`RESOLVED`, `EXTERNALLY_RESOLVED`, and `SUPERSEDED` are terminal for that Investment Decision identity.
-
-A terminal Investment Decision never returns to `ACTIVE` or `DEFERRED`.
-
-## 3.1 State semantics
 
 ### ACTIVE
 
-The coherent choice remains unresolved and decision work may proceed.
+Decision work may proceed.
 
 ### DEFERRED
 
-The coherent choice remains unresolved, but deliberate work is intentionally paused. Deferral is not a negative Recommendation, Human Investment Decision, no-action resolution, or External Resolution.
+The unresolved choice remains real, but an attributable **Human Investment Decision of Deferral** has postponed substantive judgment. A Deferral may carry an awaited condition or reason.
 
-### RESOLVED
+R2 does not fabricate the Governance-owned Human Investment Decision. It records the Decisions-side work consequence only from a trusted attributable Deferral basis.
 
-The coherent choice has been substantively answered through an attributable resolution basis.
+### WITHDRAWN
 
-R2 owns this lifecycle state but does **not** own the future Governance fact—such as Human Investment Decision—that may justify it.
+Current Polaris work has been explicitly stopped or withdrawn while the underlying Decision Need may still exist.
 
-### EXTERNALLY_RESOLVED
+Withdrawal is not automatically:
 
-Circumstances eliminated the Decision Need before substantive human resolution.
+- Deferral;
+- Human Investment Decision;
+- substantive resolution;
+- External Resolution;
+- Supersession.
 
-No Human Investment Decision may be inferred merely because the Decision became externally resolved.
+If the same coherent unresolved choice later resumes and no later fact requires a new Decision, the same Decision ID may return to `ACTIVE`.
 
-### SUPERSEDED
+## 3.3 Continuing applicability / Supersession
 
-Another explicit Investment Decision replaces this Decision as the active unresolved choice. The predecessor remains permanently inspectable and links to the successor.
+Supersession is **not** a resolution or work state.
+
+A Decision may be superseded while:
+
+- unresolved;
+- deferred;
+- withdrawn;
+- substantively resolved;
+- externally resolved.
+
+Supersession says another Investment Decision has displaced some or all of the earlier Decision's continuing applicability or operative investment basis.
+
+The earlier Decision's resolution/work history remains unchanged.
+
+A currently superseded unresolved Decision is no longer independently operative for normal work unless a later explicit correction changes the supported Supersession relationship.
 
 ---
 
-# 4. Lifecycle facts
+# 4. Canonical R2 lifecycle facts
 
-Current state is reconstructable from immutable lifecycle facts. The canonical R2 fact set is conceptually:
+Current projections are reconstructable from immutable facts. The conceptual fact set is:
 
 ```text
 DecisionInitiated
 DecisionSubjectRevised
+DecisionScopeEstablished
 DecisionScopeRevised
 DecisionDeferred
-DecisionResumed
+DecisionWorkResumed
+DecisionWorkWithdrawn
 DecisionResolved
 DecisionExternallyResolved
-DecisionSuperseded
+DecisionNeedRetracted
+DecisionLifecycleCorrected
 ```
 
-A renewed Decision is represented by a new `DecisionInitiated` fact on a new Decision with a `renewed_from` relationship. It is not a reopening fact on the old Decision.
+Decision-to-Decision relationships such as `RENEWED_FROM` and `SUPERSEDES` are separate durable relationship facts defined in the relationship model.
 
 The names above describe semantics, not mandatory Python class names.
 
@@ -177,43 +253,50 @@ Every lifecycle fact preserves at least:
 
 - unique fact identity;
 - Investment Decision identity;
-- per-decision monotonic sequence/version;
+- monotonic recorded sequence/version;
 - fact kind;
-- effective/occurred time supplied or established by the use case;
+- effective/occurred time;
 - durable recorded/committed time;
 - operation/idempotency identity;
-- attributable initiating context appropriate to the fact;
-- related Decision identity when the fact represents renewal or Supersession;
+- Actor Attribution where the fact is an attributable domain act;
+- trigger/technical provenance separately where material;
+- typed business basis/reference;
 - typed fact-specific content.
 
 Facts are immutable after commit.
 
-Later correction, if eventually required, must be represented explicitly rather than editing an older fact in place.
-
 ---
 
-# 5. Transition table
+# 5. Transition and operation matrix
 
-| Current state | Operation | Result state | Same Decision ID? | Required durable fact | Notes |
-|---|---|---:|---:|---|---|
-| none | initiate | ACTIVE | new | DecisionInitiated | Establishes Decision Need, Subject, Scope, version 1. |
-| ACTIVE | revise Subject | ACTIVE | yes | DecisionSubjectRevised | Must not manufacture a new Decision when coherent choice remains same. |
-| DEFERRED | revise Subject | DEFERRED | yes | DecisionSubjectRevised | Revision alone does not resume work. |
-| ACTIVE | revise Scope | ACTIVE | yes | DecisionScopeRevised | Same-choice rule applies. |
-| DEFERRED | revise Scope | DEFERRED | yes | DecisionScopeRevised | Same-choice rule applies. |
-| ACTIVE | defer | DEFERRED | yes | DecisionDeferred | Remains unresolved. |
-| DEFERRED | resume | ACTIVE | yes | DecisionResumed | Resumes same identity. |
-| ACTIVE | resolve substantively | RESOLVED | yes | DecisionResolved | Requires attributable resolution basis; does not fabricate Governance fact. |
-| DEFERRED | resolve substantively | RESOLVED | yes | DecisionResolved | Explicit resolution may terminate deferred work without a ceremonial resume. |
-| ACTIVE | externally resolve | EXTERNALLY_RESOLVED | yes | DecisionExternallyResolved | Must record external-resolution basis; no Human Investment Decision inferred. |
-| DEFERRED | externally resolve | EXTERNALLY_RESOLVED | yes | DecisionExternallyResolved | Same rule. |
-| ACTIVE | supersede | SUPERSEDED | predecessor no; successor new | DecisionSuperseded + successor DecisionInitiated | Must be one semantic atomic operation. |
-| DEFERRED | supersede | SUPERSEDED | predecessor no; successor new | DecisionSuperseded + successor DecisionInitiated | Must be one semantic atomic operation. |
-| RESOLVED | renewed judgment | RESOLVED + new ACTIVE | old no; new yes | successor DecisionInitiated with renewed_from | Old Decision remains untouched. |
-| EXTERNALLY_RESOLVED | renewed judgment | EXTERNALLY_RESOLVED + new ACTIVE | old no; new yes | successor DecisionInitiated with renewed_from | Same rule. |
-| SUPERSEDED | any reopen/resume/defer | invalid | — | none | Terminal Decisions never reopen. |
-| RESOLVED | resume/defer/re-resolve | invalid | — | none | Renewed work uses a new Decision. |
-| EXTERNALLY_RESOLVED | resume/defer/re-resolve | invalid | — | none | Renewed work uses a new Decision. |
+| Current resolution | Current work | Operation | Result | Durable fact / relationship | Notes |
+|---|---|---|---|---|---|
+| none | none | initiate | `UNRESOLVED` + `ACTIVE` | `DecisionInitiated` | Scope may be unresolved. |
+| `UNRESOLVED` | `ACTIVE`/`DEFERRED`/`WITHDRAWN` | revise Subject | unchanged dispositions | `DecisionSubjectRevised` | Same-choice rule applies. |
+| `UNRESOLVED` | any | establish previously unresolved Scope | unchanged dispositions | `DecisionScopeEstablished` | Explicit historical establishment. |
+| `UNRESOLVED` | any | revise established Scope | unchanged dispositions | `DecisionScopeRevised` | Same-choice rule applies. |
+| `UNRESOLVED` | `ACTIVE` | human Deferral basis | `DEFERRED` | `DecisionDeferred` | Requires trusted Human Investment Decision/Deferral basis. |
+| `UNRESOLVED` | `DEFERRED` | resume | `ACTIVE` | `DecisionWorkResumed` | Awaited condition may motivate resume; no Review Condition required. |
+| `UNRESOLVED` | `ACTIVE`/`DEFERRED` | withdraw current work | `WITHDRAWN` | `DecisionWorkWithdrawn` | No investment judgment implied. |
+| `UNRESOLVED` | `WITHDRAWN` | resume same choice | `ACTIVE` | `DecisionWorkResumed` | Same identity only if Need remains supported. |
+| `UNRESOLVED` | any operative work state | substantive resolution basis | `SUBSTANTIVELY_RESOLVED` | `DecisionResolved` | Requires trusted attributable basis. |
+| `UNRESOLVED` | any operative work state | External Resolution | `EXTERNALLY_RESOLVED` | `DecisionExternallyResolved` | Must preserve cause; no Human Investment Decision inferred. |
+| `UNRESOLVED` | any | retract unsupported Need | `NEED_RETRACTED` | `DecisionNeedRetracted` | Correction of earlier determination, not changed circumstances. |
+| `SUBSTANTIVELY_RESOLVED` | n/a | renewed judgment | old unchanged + new Decision | `RENEWED_FROM` + new `DecisionInitiated` | New ID; predecessor remains historical. |
+| `EXTERNALLY_RESOLVED` | n/a | renewed judgment | old unchanged + new Decision | `RENEWED_FROM` + new `DecisionInitiated` | New ID. |
+| any eligible disposition | any | record Supersession | disposition unchanged | `SUPERSEDES` | May target unresolved or resolved Decision; relationship is orthogonal. |
+| any | any | late correction | append correction; recompute supported projection | `DecisionLifecycleCorrected` | Never mutates/deletes prior fact. |
+
+## 5.1 Invalid operations
+
+At minimum:
+
+- resume a substantively/external-resolved/retracted Decision -> invalid;
+- defer without a trusted Deferral/Human Investment Decision basis -> invalid;
+- classify withdrawal as External Resolution when the choice still exists -> invalid;
+- classify unsupported original Decision Need as External Resolution merely because work should stop -> invalid;
+- reopen a substantively or externally resolved Decision -> invalid; renewed judgment uses a new Decision;
+- mutate an unresolved Decision that is currently superseded as though it remained operative -> invalid unless an explicit correction first changes the supported Supersession relationship.
 
 ---
 
@@ -221,270 +304,372 @@ Later correction, if eventually required, must be represented explicitly rather 
 
 Polaris must not infer Decision identity mechanically from Subject/Scope or from a change in Evidence/Recommendation.
 
-R2 therefore uses an explicit continuity model:
+The continuity outcomes are:
 
-1. **Resume existing** — caller/use case identifies the existing unresolved Investment Decision being continued.
-2. **Create new** — caller/use case explicitly establishes a new coherent unresolved choice.
-3. **Renew after terminal resolution** — new Decision explicitly references the prior terminal Decision through `renewed_from`.
-4. **Supersede** — one atomic use case terminates the predecessor as `SUPERSEDED` and creates the successor with an explicit relationship.
+1. **continue existing** — an unresolved Decision already represents the same coherent choice;
+2. **create new independent Decision** — a different coherent unresolved choice exists;
+3. **renew after substantive/External Resolution** — create a new Decision with explicit `RENEWED_FROM`;
+4. **supersede** — preserve both Decisions and add explicit `SUPERSEDES` relationship;
+5. **ambiguous continuity** — do not automatically create another Decision until continuity can be determined reliably.
 
-R2 does not introduce a new universal `DecisionThread`, `ContinuityKey`, or hash-derived identity abstraction merely to automate this judgment.
+No universal `DecisionThread`, hash-derived ID, or Subject/Scope uniqueness rule is introduced.
 
-Later Attention logic may search Decision Memory for candidate unresolved Decisions and determine whether material change resumes one or creates another. That later decision must still obey these identity rules.
+## 6.1 Concurrent initiation
 
----
+Operation-id idempotency alone does not prevent two different operations from creating duplicate Decision identities.
 
-# 7. Resolution seam with Governance
+Before a distinct new Decision is committed, the application/persistence boundary must support an **atomic continuity arbitration** against the bounded unresolved candidate set used for the initiation decision.
 
-This is the most important cross-entity R2 seam.
+Required semantics:
 
-## 7.1 Ownership split
+```text
+observe candidate unresolved Decisions
+        ↓
+make explicit continuity determination
+        ↓
+before commit, ensure candidate continuity basis did not change
+        ↓
+changed / ambiguous -> ContinuityConflict or ContinuityAmbiguous
+unchanged + explicitly new -> commit new Decision
+```
 
-- `investment-decisions` owns the lifecycle fact that a Decision is substantively resolved.
-- `governance-authority` owns Human Investment Decision and other power-specific authority acts.
+The persistence mechanism may use serializable transactions, predicate/row locking, a bounded continuity generation/version, or another correct technique. The inward contract owns the semantic guarantee, not the mechanism.
 
-R2 must not collapse those into one object.
-
-## 7.2 Resolution basis
-
-A substantive resolution transition requires an attributable **resolution basis reference** supplied through Application Use Cases.
-
-The Decisions domain only needs to know enough to preserve:
-
-- that the basis is a valid business fact/reference from an allowed source category;
-- the referenced fact identity;
-- the time the substantive resolution became effective;
-- optional human-readable resolution summary appropriate to Decision lifecycle history.
-
-The Decisions domain does not duplicate the Human Investment Decision payload or authority evaluation.
-
-## 7.3 R2 behavior before Governance exists
-
-R2 may implement the domain/application contract for substantive resolution and test it with a deterministic trusted fixture representing an external resolution-basis owner.
-
-R2 must **not** expose a user-facing or generic public API that lets an arbitrary caller self-assert a Human Investment Decision or authority act.
-
-When Governance is implemented later, its application path will produce the authoritative Human Investment Decision fact/reference and then coordinate the Decisions resolution transition atomically where required.
+Because semantic equivalence cannot always be proven mechanically, candidate selection must be conservative and ambiguity must fail closed rather than creating another Decision automatically.
 
 ---
 
-# 8. External Resolution seam
+# 7. Deferral seam with Governance
 
-External Resolution requires a basis describing the circumstance that eliminated the Decision Need.
+Canonical Deferral is a Human Investment Decision.
 
-The R2 semantic record preserves:
+Ownership split:
 
-- source/basis reference where one exists;
-- attributable explanation;
+- `governance-authority` owns the Human Investment Decision of Deferral;
+- `investment-decisions` owns the resulting unresolved work posture (`DEFERRED`).
+
+R2 may implement and test the Decisions-side transition using a trusted deterministic fixture/reference.
+
+R2 must not expose a generic public command that allows an arbitrary caller to manufacture human Deferral authority.
+
+An **awaited condition** attached to Deferral is not a Review Condition. When it becomes available/due, Attention may resume the same unresolved Decision.
+
+A **Review Condition** belongs to a substantively resolved Decision and later causes Attention to evaluate whether a new Decision Need exists.
+
+---
+
+# 8. Substantive resolution seam with Governance
+
+A substantive resolution transition requires an attributable **resolution basis reference** from an allowed owner/category.
+
+The Decisions domain preserves enough to establish:
+
+- referenced business fact identity;
+- basis category;
+- effective time;
+- optional lifecycle summary;
+- Actor Attribution/reference as appropriate.
+
+It does not duplicate the Human Investment Decision payload or authority evaluation.
+
+R2 may exercise the seam with trusted fixtures; later Governance implementation will coordinate the real owner facts in one application transaction when required.
+
+---
+
+# 9. External Resolution
+
+External Resolution is valid only when changed circumstances eliminate the underlying Decision Need itself.
+
+It is not triggered merely by:
+
+- changed price;
+- changed Evidence;
+- changed Portfolio State;
+- a changed Recommendation;
+- user cancellation/withdrawal;
+- another Investment Decision displacing the earlier one.
+
+The fact preserves:
+
+- attributable cause/basis;
+- source reference where available;
 - effective time;
 - recorded time.
 
-The External Resolution transition must not create:
-
-- Human Investment Decision;
-- Recommendation;
-- Action Intent;
-- implied approval or denial.
-
-Later external-fact integration may provide richer typed source references without redefining the Decisions lifecycle.
+No Human Investment Decision, Recommendation, Action Intent, Approval, or authority act is inferred.
 
 ---
 
-# 9. Supersession semantics
+# 10. Decision Need retraction
 
-Supersession is a two-Decision operation.
+A Decision Need may later be established as erroneous or unsupported.
 
-The operation must atomically establish:
+Example:
 
-1. predecessor remains durably identifiable;
-2. predecessor gains terminal `SUPERSEDED` state;
-3. successor gets a new Investment Decision identity;
-4. successor is grounded in a Decision Need;
-5. explicit predecessor/successor relationship is preserved;
-6. no history is copied or rewritten as though it belonged to the successor.
+```text
+Decision Need established from believed Portfolio concentration
+        ↓
+later authoritative correction shows concentration never existed
+        ↓
+original Need remains historical
+current support for that Need is retracted
+```
 
-The successor may reference inherited context in future use cases, but inherited context does not transfer ownership of predecessor facts.
+This is not External Resolution because changed circumstances did not eliminate a genuine choice.
 
----
+R2 records a non-destructive `DecisionNeedRetracted` fact with:
 
-# 10. Temporal model
+- correction basis;
+- Actor Attribution;
+- effective scope of the correction;
+- recorded time;
+- references to the Need/observations being corrected where available.
 
-R2 preserves two time concepts on lifecycle facts:
-
-- **effective/occurred time** — when the business lifecycle event is understood to have occurred;
-- **recorded/committed time** — when Polaris durably knew/recorded the fact.
-
-This dual-time preservation is required so later historical reasoning can distinguish late-recorded facts from facts actually known at an earlier point.
-
-## 10.1 Historical query default
-
-The safe historical default is **as-known-at** reconstruction:
-
-> Return only facts committed no later than the requested knowledge cutoff, then derive the lifecycle state from that fact set.
-
-A later-recorded fact with an earlier effective time must not silently appear in an earlier as-known-at view.
-
-R2 may also expose effective-time information for analysis, but it must not confuse effective time with Judgment-Time Availability.
-
-Full Evidence Judgment-Time Availability belongs to the Evidence owner and later milestones.
+A later genuine need normally creates a new Investment Decision rather than silently reactivating the Decision grounded in the unsupported Need.
 
 ---
 
-# 11. Version and concurrency semantics
+# 11. Withdrawal of decision work
 
-Each Investment Decision has a monotonic domain version.
+Withdrawal records that current Polaris work is intentionally stopped while the unresolved choice may still exist.
+
+Examples include:
+
+- user says “stop evaluating this” without making the investment choice;
+- operating policy suppresses further current work without determining the economic answer;
+- resource/attention decision stops work without a Human Investment Decision of Deferral.
+
+Withdrawal preserves:
+
+- reason/basis;
+- Actor Attribution where applicable;
+- effective and recorded time.
+
+It does not invent Deferral, Human Investment Decision, External Resolution, or Supersession.
+
+---
+
+# 12. Temporal model and correction
+
+R2 preserves:
+
+- **effective/occurred time** — when the domain fact is currently understood to have applied;
+- **recorded/committed time** — when Polaris durably recorded/knew the fact;
+- monotonic recorded sequence/version — deterministic ordering of committed knowledge for one Decision.
+
+## 12.1 As-known-at
+
+`as_known_at(T)`:
+
+- uses only facts recorded no later than knowledge cutoff `T`;
+- applies corrections only if those corrections were themselves recorded by `T`;
+- reconstructs what Polaris could durably know about lifecycle at that time;
+- never leaks a later-recorded fact backward merely because its effective time is earlier.
+
+## 12.2 Effective-as-understood
+
+R2 also needs a distinct effective reconstruction capability:
+
+```text
+state_effective_at(effective_time=T, knowledge_cutoff=K)
+```
+
+Meaning:
+
+> Using only knowledge recorded by `K`, what lifecycle disposition is supported as having been effective at `T`?
+
+When `K` is omitted, current durable knowledge is used.
+
+This query is not Judgment-Time Availability for Evidence; it is Decision lifecycle temporal reconstruction.
+
+## 12.3 Late-discovered conflicting lifecycle fact
+
+If a later-recorded fact shows that the supported effective lifecycle differs from an earlier recorded lifecycle interpretation, Polaris appends an explicit `DecisionLifecycleCorrected` fact/reference.
+
+Example:
+
+```text
+10:00 actual circumstance eliminates Decision Need
+10:05 Human Investment Decision is recorded while Polaris does not know that
+10:10 Polaris learns the 10:00 circumstance
+```
+
+Required result:
+
+- the 10:05 Human Investment Decision remains historical and attributable;
+- the earlier `DecisionResolved` lifecycle fact, if one was recorded, is not deleted;
+- a later correction establishes that the supported effective Decision disposition became External Resolution at 10:00;
+- `as_known_at(10:06)` still shows the state Polaris knew then;
+- current effective reconstruction can show External Resolution effective at 10:00;
+- no history is rewritten to pretend the human judgment never occurred.
+
+A correction must reference the corrected/superseded interpretation or fact set sufficiently to avoid ambiguous competing “current truth” facts.
+
+---
+
+# 13. Version and concurrency semantics
+
+Each Investment Decision has a monotonic recorded domain version.
 
 Rules:
 
 - initiation establishes version 1;
-- each committed lifecycle mutation increments the version exactly once;
-- every mutating command against an existing Decision supplies an expected version;
-- stale expected version produces an explicit concurrency conflict rather than overwriting newer truth;
-- retry of the same successfully committed operation returns the original semantic result rather than creating another lifecycle fact;
-- two different commands using the same idempotency identity with different semantic payloads produce an idempotency conflict.
+- each committed lifecycle mutation/correction increments the Decision version once;
+- relationship facts may have their own identity/version semantics and must participate in expected-version checks when they affect operative behavior;
+- every mutating command against an existing Decision supplies expected version(s) as required;
+- stale expected version produces explicit concurrency conflict;
+- same successfully committed operation replay returns original semantic result;
+- same operation ID with materially different request produces idempotency conflict;
+- continuity arbitration protects concurrent initiation separately from command idempotency.
 
-The version is business concurrency metadata, not database row identity.
-
----
-
-# 12. Invalid-transition behavior
-
-Invalid transitions are domain outcomes, not generic infrastructure errors.
-
-The R2 domain/application contract must distinguish at least:
-
-- Decision not found;
-- Decision already terminal;
-- resume attempted when not deferred;
-- defer attempted when already deferred under a different operation;
-- stale expected version;
-- idempotency key reused for a different command payload;
-- invalid/missing substantive resolution basis;
-- invalid/missing External Resolution basis;
-- invalid Supersession relationship such as self-supersession;
-- causal relationship to a non-terminal predecessor where `renewed_from` requires terminal history.
-
-Error names are implementation details, but callers must be able to distinguish these meanings deterministically.
+Version orders recorded business knowledge; it does not replace effective time.
 
 ---
 
-# 13. Domain construction and mutation rules
+# 14. Domain construction rules
 
-The domain model should expose behavior rather than allow arbitrary state mutation.
+The domain model exposes behavior, not public setters.
 
-A practical R2 shape is:
+A practical shape is conceptually:
 
 ```text
 InvestmentDecision
-  - current immutable identity values
-  - current lifecycle state
+  - identity
+  - DecisionNeed identity/status
+  - Subject
+  - Scope (possibly unresolved)
+  - resolution disposition
+  - work disposition when unresolved
   - current version
-  - behavior methods that return typed lifecycle changes/facts
+  - behavior returning typed changes
 
 DecisionLifecycleFact
-  - immutable typed history
+  - immutable recorded history
+
+DecisionRelationship
+  - immutable typed cross-Decision relationship
 ```
 
-The implementation must not expose public setters that allow callers to assign `status = RESOLVED` or rewrite version/history directly.
-
-Persistence reconstruction may use an internal rehydration path, but that path must not become a general application mutation bypass.
+Persistence reconstruction may use internal rehydration, but application callers cannot assign status/version/history arbitrarily.
 
 ---
 
-# 14. R2 domain test matrix
+# 15. Required domain test matrix
 
-Pure domain tests must cover at least:
+## Scope
 
-## Identity
+- initiation with unresolved Scope is valid;
+- Scope establishment preserves Decision ID and history;
+- Scope revision while same choice remains unresolved preserves Decision ID.
 
-- same Subject can have multiple Decisions over time;
-- same Scope can have multiple Decisions over time;
-- changed Evidence/Portfolio/Risk/Recommendation does not change Decision ID;
-- workflow/job/report/model IDs do not participate in Decision ID.
+## Actor/provenance
 
-## Deferral/resumption
+- actor and trigger can differ;
+- model/provider identity cannot be substituted for Actor Attribution.
 
-- ACTIVE → DEFERRED keeps ID;
-- DEFERRED → ACTIVE keeps ID;
-- repeated retry does not duplicate fact;
-- terminal Decision cannot resume.
+## Deferral/work posture
+
+- Deferral requires trusted Human Investment Decision/Deferral basis;
+- `ACTIVE -> DEFERRED` preserves Decision ID;
+- awaited condition may resume same deferred Decision;
+- Review Condition is not used to resume deferred Decision;
+- withdrawal does not create Deferral or resolution;
+- withdrawn same choice may resume with same ID.
 
 ## Resolution
 
-- ACTIVE/DEFERRED may resolve with valid attributable basis;
+- valid basis moves unresolved Decision to `SUBSTANTIVELY_RESOLVED`;
 - resolution basis is referenced, not copied into Decisions ownership;
-- terminal Decision cannot reopen;
-- new judgment after resolution creates a new Decision with `renewed_from`.
+- resolved judgment never reopens;
+- renewed judgment creates new ID + `RENEWED_FROM`.
 
 ## External Resolution
 
-- ACTIVE/DEFERRED may become EXTERNALLY_RESOLVED;
-- no Human Investment Decision is created or implied;
-- renewed judgment creates a new linked Decision.
+- changed circumstances must eliminate the Need;
+- changed Evidence/state alone is insufficient;
+- no Human Investment Decision is inferred;
+- renewed judgment uses new ID.
+
+## Need retraction
+
+- erroneous/unsupported Need remains historical;
+- current supported status becomes retracted;
+- it is not classified as External Resolution;
+- later genuine Need does not silently reactivate old Decision.
 
 ## Supersession
 
-- predecessor and successor IDs differ;
-- predecessor becomes terminal SUPERSEDED;
-- both histories remain queryable;
-- self-supersession and cycles are rejected;
-- predecessor history is not copied as successor-owned facts.
+- Supersession does not replace historical resolution disposition;
+- resolved predecessor can be superseded;
+- unresolved predecessor can be superseded;
+- superseded unresolved Decision is not treated as independently operative;
+- relationship graph rules are tested in the relationship model.
 
-## Temporal/version behavior
+## Continuity/concurrency
 
-- fact sequence/version is monotonic;
-- stale expected version is rejected;
-- as-known-at reconstruction excludes later-recorded facts;
-- historical states remain stable after later lifecycle changes.
+- same operation retry is idempotent;
+- two distinct initiations racing against same candidate continuity basis cannot both silently commit as independent new Decisions;
+- ambiguity returns explicit non-success rather than duplicate identity.
+
+## Temporal correction
+
+- as-known-at excludes later-recorded facts/corrections;
+- effective-as-understood can incorporate late facts at their effective time;
+- late External Resolution does not erase later-recorded Human Investment Decision history;
+- correction does not mutate/delete the earlier lifecycle fact.
 
 ---
 
-# 15. Requirements traceability
+# 16. Requirements traceability
 
 | Requirement | Design consequence |
 |---|---|
-| `GF-001`, `GF-005` | Decision ID is first-class and independent of runtime/persistence identity. |
-| `DEC-001` | Opaque durable Decision ID plus explicit lifecycle root. |
-| `DEC-002` | Durable attributable Decision Need. |
-| `DEC-003`, `DEC-004` | Subject/Scope/context changes do not automatically create new Decision identity. |
-| `DEC-005` | Unresolved lifecycle supports iterative work without identity replacement. |
-| `DEC-006` | DEFERRED remains unresolved and resumable. |
-| `DEC-008` | EXTERNALLY_RESOLVED is distinct and does not invent Human Investment Decision. |
-| `DEC-009`, `DEC-010` | Terminal Decisions never reopen; renewed work creates linked new identity. |
-| `DEC-011` | Supersession preserves both histories and explicit relationship. |
-| `DEC-012` | Immutable lifecycle facts + effective/recorded times support reconstruction. |
-| `MEM-*` | Decision history remains direct business truth independent of runtime replay. |
-| `TMP-*` | Dual-time preservation leaves judgment-time faithful reconstruction possible. |
-| `AS-001`–`AS-005` | Transition/test matrix supplies objective R2 evidence. |
-| `AS-022` | Domain model contains no legacy dependency. |
+| `GF-001`, `GF-005` | Decision identity is first-class and independent of runtime/persistence identity. |
+| `DEC-001`–`DEC-004` | Explicit identity/continuity and Scope/Subject separation. |
+| `DEC-006` | Deferral preserves unresolved identity but requires Human Investment Decision basis. |
+| `DEC-008` | External Resolution preserves no inferred Human Investment Decision. |
+| `DEC-009`–`DEC-012` | Resolution never reopens; historical lifecycle remains reconstructable. |
+| `DEC-013` | Scope may be unresolved at initiation. |
+| `DEC-014` | Work withdrawal is distinct from investment resolution/Deferral. |
+| `DEC-015` | Unsupported Need is corrected non-destructively. |
+| `DEC-016` | Supersession is orthogonal to historical resolution. |
+| `DEC-017` | Concurrent initiation fails closed on continuity ambiguity. |
+| `DEC-018` | Late lifecycle facts preserve effective truth and prior knowledge. |
+| `DEC-019` | Actor Attribution remains separate from trigger provenance. |
+| `MEM-*` | Immutable facts and distinct historical reconstructions support Decision Memory. |
+| `REL-*` | Retry, concurrency, and recovery never silently duplicate/rewrite business truth. |
+| `TMP-*` | Effective and recorded time remain distinct. |
 
 ---
 
-# 16. Out of scope for this design
+# 17. Out of scope
 
-This design does not define:
+This design does not implement:
 
-- Evidence data structures or binding model beyond references;
-- Recommendation/View schemas;
-- Human Investment Decision payload or authority evaluation;
-- Action Intent;
+- Attention candidate reasoning;
+- Evidence internals;
+- Recommendation/Investment Intelligence internals;
+- Governance/Human Investment Decision persistence;
+- Review Condition domain implementation;
+- Action Continuity;
 - Outcome/Evaluation/Lesson;
-- Attention heuristics for deciding same-vs-new Decision automatically;
-- PostgreSQL tables or ORM classes;
-- interface protocol;
-- worker/event/outbox architecture;
-- generic correction framework;
-- legacy data migration.
+- generic event sourcing;
+- generic correction framework for every future domain entity;
+- a generic workflow/state-machine framework.
+
+R2 implements only the Decisions-side seams needed to avoid later redesign.
 
 ---
 
-# 17. Spec-readiness gate
+# 18. Spec-readiness gate
 
-This design is ready to feed Specs only after review confirms:
+This lifecycle design is Spec-ready only when review confirms:
 
-1. the five lifecycle states are sufficient and semantically non-overlapping;
-2. substantive resolution ownership is correctly split from Governance;
-3. Supersession and renewal relationships are unambiguous;
-4. dual-time history is sufficient for R2 without pretending full Evidence temporality is implemented;
-5. idempotency/version rules are precise enough for the application and persistence designs;
-6. no implementation agent must invent same-vs-new Decision semantics or terminal transition rules.
+1. Scope may be unresolved without inventing applicability;
+2. Deferral, withdrawal, substantive resolution, External Resolution, Need retraction, and Supersession remain semantically distinct;
+3. Supersession is orthogonal to resolution/work disposition and may apply after resolution;
+4. Actor Attribution is distinct from trigger/technical provenance;
+5. concurrent initiation has an explicit fail-closed continuity contract beyond operation-id idempotency;
+6. late-recorded lifecycle facts use explicit non-destructive correction;
+7. as-known-at and effective-as-understood queries have different semantics;
+8. no Spec must invent how these lifecycle cases behave.

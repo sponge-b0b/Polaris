@@ -9,3 +9,7 @@
 * Authoritative operational Portfolio State may come from an external specialist source; Polaris owns its decision meaning and derived consequences without claiming external books-and-records authority. (source: docs/current/platform-architecture-0.2.0.md)
 * Projected Portfolio Consequence and Portfolio Risk are economic decision inputs, not approval or authority facts. (source: docs/current/platform-architecture-0.2.0.md)
 * Machine-evaluable Formal Constraints are deterministic rules; their evaluation remains distinct from power-specific human authority acts. (source: docs/current/platform-architecture-0.2.0.md)
+
+### Planned
+
+* **Action-continuity reconciliation seam** — authoritative external activity may change Portfolio State while Action Continuity separately owns intended-vs-observed association/reconciliation. One Portfolio change may externally resolve one Decision, materially alter another unresolved Decision, and create a different Decision Need; Portfolio & Risk owns the resulting Portfolio meaning without manufacturing Action Intent causality. (source: docs/proposed/platform-domain-interaction-map.md)

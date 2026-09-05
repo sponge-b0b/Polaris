@@ -1,6 +1,6 @@
 # Application Use Cases (Entity ID: application-use-cases)
 
-**Boundary Rationale:** This boundary owns commands, queries, use-case coordination, application transaction semantics, idempotency, concurrency protection, and inward-owned capability ports. It is distinct because interfaces and infrastructure must reach business truth through one application boundary rather than establishing alternate write paths.
+**Boundary Rationale:** This boundary owns commands, queries, cross-entity use-case coordination, application transaction semantics, idempotency, continuity arbitration, concurrency protection, and inward-owned capability ports. It is distinct because interfaces and infrastructure must reach business truth through one application boundary rather than establishing alternate write paths.
 (source: owner-approved entity boundary determination)
 
 ### Strict Invariants
@@ -12,5 +12,8 @@
 
 ### Planned
 
-* **R2 Investment Decision application contract** — define explicit lifecycle commands and Decision Memory queries with operation-scoped idempotency, expected-version concurrency protection, semantic transaction boundaries, and an internal substantive-resolution seam that can later coordinate with Governance without fabricating Governance-owned authority facts. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md)
-* **Decision relationship coordination** — application use cases establish Decision-to-Decision relationships; lifecycle commands create renewal/Supersession edges, while future Decision Context assembly must distinguish candidate retrieval from attributable material selection before persisting `PRIOR_DECISION_CONTEXT`. The Investment Decision aggregate does not discover or mutate its own graph neighbors. (source: docs/proposed/investment-decisions-decision-relationship-model.md)
+* **R2 Investment Decision application contract** — coordinate initiation, Scope establishment/revision, Decisions-side Deferral/resolution consequences, work withdrawal/resumption, External Resolution, unsupported-Need retraction, renewal, Supersession, lifecycle correction, and current/historical queries through one technology-neutral application boundary. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md)
+* **Continuity arbitration beyond idempotency** — before a distinct new Decision commits, revalidate the bounded unresolved-candidate basis used for same/new continuity; different operation IDs cannot silently create duplicate Decision identity when continuity overlaps, and ambiguity fails closed. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md)
+* **Cross-owner human-judgment seams** — Deferral and substantive resolution require trusted Governance-owned Human Investment Decision/resolution bases; R2 may test the Decisions-side consequences with fixtures but must not fabricate authority facts. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md; docs/proposed/platform-domain-interaction-map.md)
+* **Dual temporal query semantics** — distinguish `as_known_at` from effective-at-under-a-knowledge-cutoff, with explicit non-destructive lifecycle correction when late facts change supported effective interpretation. (source: docs/proposed/application-use-cases-investment-decision-lifecycle.md)
+* **Decision relationship coordination** — application use cases establish renewal/Supersession edges and later contextual bindings; the Decision aggregate does not discover graph neighbors. Future `PRIOR_DECISION_CONTEXT` is created only after attributable material use and preserves the target Decision historical knowledge boundary actually used. (source: docs/proposed/investment-decisions-decision-relationship-model.md)

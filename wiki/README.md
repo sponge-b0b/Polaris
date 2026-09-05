@@ -76,7 +76,9 @@ The first Polaris Living Entity Wiki was bootstrapped on August 9, 2026 as part 
 
 The initial bootstrap established **18 architectural entities** and **4 cross-cutting discovery documents** from an owner-approved entity-boundary determination and normalized documentation set. The introducing commit, `7bf7656`, aligned architectural documents to entities, separated historical audit material from current authority, and added the first Living Entity Wiki pages with updated authority citations.
 
-From that bootstrap, the wiki evolved into three complementary operating modes:
+On September 4, 2026, the pre-greenfield platform and its wiki topology were retained under `legacy/v0_1/` as historical donor/reference material while the active root wiki was rebooted from the approved Polaris 0.2.0 greenfield architecture. The greenfield registry intentionally does not inherit the original 18-entity topology merely because it existed; `wiki/index.md` is the authoritative current registry.
+
+From the original bootstrap, the wiki evolved into three complementary operating modes:
 
 ```text
 $wiki-sync       maintain durable knowledge around a change
@@ -455,8 +457,8 @@ wiki/
 ├── _template.md
 ├── log.md
 └── entities/
-    ├── runtime-workflow-platform.md
-    ├── governance-authority-decision-evidence.md
+    ├── investment-decisions.md
+    ├── model-access.md
     └── ...
 ```
 

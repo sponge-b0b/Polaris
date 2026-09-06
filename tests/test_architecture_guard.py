@@ -84,17 +84,79 @@ def test_root_complete_layer_direction_matrix(
         assert target_layer in layer_violations[0].detail
 
 
-@pytest.mark.parametrize("module", ["fastapi", "typer"])
-def test_application_cannot_depend_on_interface_framework(
+BOUNDARY_SURFACE_PATHS = {
+    **LAYER_PATHS,
+    "test": "tests/test_boundary_surface.py",
+}
+
+INTERFACE_FRAMEWORK_MODULES = (
+    "click",
+    "django",
+    "fastapi",
+    "flask",
+    "starlette",
+    "typer",
+)
+
+# Authority-derived from Spec #277 US-16 / ID-2 / ID-14 / US-2 / ID-4
+# and Review #283 RB-5. Tests are not a fifth product layer, but hard
+# legacy quarantine applies to every current production/test surface.
+PRODUCT_LAYER_BOUNDARY_MATRIX = (
+    ("domain", "interface-framework", "ARCH-LAYER"),
+    ("application", "interface-framework", "ARCH-LAYER"),
+    ("infrastructure", "interface-framework", "ARCH-LAYER"),
+    ("interfaces", "interface-framework", None),
+    ("test", "interface-framework", None),
+    ("domain", "legacy", "ARCH-LEGACY"),
+    ("application", "legacy", "ARCH-LEGACY"),
+    ("infrastructure", "legacy", "ARCH-LEGACY"),
+    ("interfaces", "legacy", "ARCH-LEGACY"),
+    ("test", "legacy", "ARCH-LEGACY"),
+)
+
+
+@pytest.mark.parametrize(
+    ("surface", "dependency_family", "expected_rule"),
+    PRODUCT_LAYER_BOUNDARY_MATRIX,
+)
+def test_root_complete_product_layer_and_legacy_matrix(
     tmp_path: Path,
-    module: str,
+    surface: str,
+    dependency_family: str,
+    expected_rule: str | None,
+) -> None:
+    modules = (
+        INTERFACE_FRAMEWORK_MODULES
+        if dependency_family == "interface-framework"
+        else ("legacy.v0_1.core",)
+    )
+
+    for index, module in enumerate(modules):
+        case_root = tmp_path / f"case-{index}"
+        _write(
+            case_root,
+            BOUNDARY_SURFACE_PATHS[surface],
+            f"import {module}\n",
+        )
+
+        rules = _rules(case_root)
+        if expected_rule is None:
+            assert rules == set(), f"{surface}/{module} unexpectedly failed: {rules}"
+        else:
+            assert rules == {expected_rule}, (
+                f"{surface}/{module} expected only {expected_rule}, got {rules}"
+            )
+
+
+def test_test_surface_rejects_static_dynamic_legacy_dependency(
+    tmp_path: Path,
 ) -> None:
     _write(
         tmp_path,
-        "src/polaris/application/use_cases/run.py",
-        f"import {module}\n",
+        "tests/test_dynamic_legacy.py",
+        ('from importlib import import_module\nimport_module("legacy.v0_1.core")\n'),
     )
-    assert "ARCH-LAYER" in _rules(tmp_path)
+    assert _rules(tmp_path) == {"ARCH-LEGACY-DYNAMIC"}
 
 
 @pytest.mark.parametrize(

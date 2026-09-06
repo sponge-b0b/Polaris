@@ -205,9 +205,11 @@ class _Guard(ast.NodeVisitor):
 
         imported_layer = _imported_layer(target)
         outward = self.layer and imported_layer in FORBIDDEN[self.layer]
-        interface_vendor = self.layer != "interfaces" and _prefix(
-            target, INTERFACE_MODULES
-        )
+        interface_vendor = self.layer in {
+            "domain",
+            "application",
+            "infrastructure",
+        } and _prefix(target, INTERFACE_MODULES)
         if outward or interface_vendor:
             dependency = imported_layer or "interface implementation"
             self.fail(

@@ -255,6 +255,7 @@ graphify-out/
 
 #Codegraph
 .codegraph/
+codegraph.json
 
 # codebase-memory-mcp
 .cbmignore

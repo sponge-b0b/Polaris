@@ -120,6 +120,59 @@ def test_root_complete_static_legacy_loader_matrix(
         )
 
 
+@pytest.mark.parametrize("scope", ("module", "class"))
+def test_later_import_shadow_does_not_hide_earlier_legacy_loader(
+    tmp_path: Path,
+    scope: str,
+) -> None:
+    statements = (
+        'importlib.import_module("legacy.v0_1.core")\nimport json as importlib\n'
+    )
+    body = (
+        statements
+        if scope == "module"
+        else "class Loader:\n" + indent(statements, "    ")
+    )
+    _write(
+        tmp_path,
+        "src/polaris/application/use_cases/run.py",
+        "import importlib\n" + body,
+    )
+    assert "ARCH-LEGACY-DYNAMIC" in _rules(tmp_path)
+
+
+def test_loader_alias_rebinding_to_nonloader_clears_loader_identity(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "src/polaris/application/use_cases/run.py",
+        (
+            "from importlib import import_module\n"
+            "loader = import_module\n"
+            "loader = print\n"
+            'loader("legacy.v0_1.core")\n'
+        ),
+    )
+    assert check_repository(tmp_path) == ()
+
+
+def test_function_local_import_shadow_still_masks_outer_loader(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "src/polaris/application/use_cases/run.py",
+        (
+            "import importlib\n\n"
+            "def load():\n"
+            '    importlib.import_module("legacy.v0_1.core")\n'
+            "    import json as importlib\n"
+        ),
+    )
+    assert check_repository(tmp_path) == ()
+
+
 def test_bound_legacy_target_survives_loader_alias_chain(tmp_path: Path) -> None:
     _write(
         tmp_path,

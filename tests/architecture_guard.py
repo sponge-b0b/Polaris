@@ -158,9 +158,8 @@ class _Guard(ast.NodeVisitor):
         self.layer = _layer(root, path)
         self.migration = "migrations" in path.relative_to(root).parts
         self.package = _package(root, path)
-        imports = _import_aliases(tree.body, self.package)
-        self.import_scopes = [imports]
-        self.loader_scopes = [_loader_aliases(tree.body, imports)]
+        self.import_scopes: list[dict[str, str]] = [{}]
+        self.loader_scopes: list[dict[str, str]] = [{}]
         self.literal_scopes: list[dict[str, str | None]] = [{}]
         self.literal_scope_kinds = ["module"]
         self.technical_ids = _technical_names(tree.body)
@@ -178,6 +177,7 @@ class _Guard(ast.NodeVisitor):
             self._check_import(node, alias.name)
             bound = alias.asname or alias.name.split(".", 1)[0]
             target = alias.name if alias.asname else bound
+            self._bind_import_name(bound, target)
             self._bind_imported_identity(node, bound, target)
             self._bind_literal_name(bound, None)
 
@@ -189,6 +189,7 @@ class _Guard(ast.NodeVisitor):
                 self._check_import(node, target)
             if alias.name != "*":
                 bound = alias.asname or alias.name
+                self._bind_import_name(bound, target)
                 self._bind_imported_identity(node, bound, target)
                 self._bind_literal_name(bound, None)
 
@@ -233,9 +234,7 @@ class _Guard(ast.NodeVisitor):
             )
 
     def visit_call(self, node: ast.Call) -> None:
-        loader = _resolve(node.func, self.import_scopes[-1])
-        for scope in reversed(self.loader_scopes):
-            loader = scope.get(loader or "", loader)
+        loader = self._resolve_loader(node.func)
         if loader in LOADERS:
             legacy = _legacy_literal(node, self.literal_scopes[-1])
             if legacy:
@@ -265,6 +264,7 @@ class _Guard(ast.NodeVisitor):
         self.generic_visit(node)
         literal = _literal_string(node.value)
         for name in names:
+            self._bind_runtime_name(name, node.value)
             self._bind_literal_name(name, literal)
 
     def visit_ann_assign(self, node: ast.AnnAssign) -> None:
@@ -292,9 +292,11 @@ class _Guard(ast.NodeVisitor):
 
         self.generic_visit(node)
         if name is not None and node.value is not None:
+            self._bind_runtime_name(name, node.value)
             self._bind_literal_name(name, _literal_string(node.value))
 
     def visit_arg(self, node: ast.arg) -> None:
+        self._mask_runtime_name(node.arg)
         self._bind_literal_name(node.arg, None)
         if _decision_name(node.arg) and node.annotation is not None:
             self._check_identity(node, node.arg, node.annotation)
@@ -305,6 +307,7 @@ class _Guard(ast.NodeVisitor):
         self.in_investment_decision_class_body = False
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
+        self._mask_runtime_name(node.name)
         self._bind_identity_name(node.name, False)
         self._bind_literal_name(node.name, None)
 
@@ -313,6 +316,7 @@ class _Guard(ast.NodeVisitor):
         self.in_investment_decision_class_body = False
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
+        self._mask_runtime_name(node.name)
         self._bind_identity_name(node.name, False)
         self._bind_literal_name(node.name, None)
 
@@ -334,18 +338,31 @@ class _Guard(ast.NodeVisitor):
         self.in_investment_decision_class_body = previous_class_body
         self.in_investment_decision = previous_flag
         self.technical_ids = previous_ids
+        self._mask_runtime_name(node.name)
         self._bind_identity_name(node.name, class_is_technical)
         self._bind_literal_name(node.name, None)
 
     def _visit_scope(self, node: ast.AST, body: list[ast.stmt]) -> None:
-        imports = _import_aliases(body, self.package, self.import_scopes[-1])
-        loaders = _loader_aliases(body, imports, self.loader_scopes[-1])
+        import_parent = self.import_scopes[-1]
+        loader_parent = self.loader_scopes[-1]
         literal_parent = self.literal_scopes[-1]
-        if self.literal_scope_kinds[-1] == "class" and len(self.literal_scopes) > 1:
+        function_scope = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if (
+            function_scope
+            and self.literal_scope_kinds[-1] == "class"
+            and len(self.literal_scopes) > 1
+        ):
+            import_parent = self.import_scopes[-2]
+            loader_parent = self.loader_scopes[-2]
             literal_parent = self.literal_scopes[-2]
+
+        imports = dict(import_parent)
+        loaders = dict(loader_parent)
         literal_scope = dict(literal_parent)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if function_scope:
             for name in _function_local_names(body):
+                imports[name] = f"<bound:{name}>"
+                loaders.pop(name, None)
                 literal_scope[name] = None
         self.import_scopes.append(imports)
         self.loader_scopes.append(loaders)
@@ -407,6 +424,26 @@ class _Guard(ast.NodeVisitor):
 
     def _bind_literal_name(self, name: str, value: str | None) -> None:
         self.literal_scopes[-1][name] = value
+
+    def _bind_import_name(self, name: str, target: str) -> None:
+        self.import_scopes[-1][name] = target
+        self.loader_scopes[-1].pop(name, None)
+
+    def _bind_runtime_name(self, name: str, value: ast.AST) -> None:
+        loader = self._resolve_loader(value)
+        if loader in LOADERS:
+            self.import_scopes[-1][name] = name
+            self.loader_scopes[-1][name] = loader
+        else:
+            self._mask_runtime_name(name)
+
+    def _mask_runtime_name(self, name: str) -> None:
+        self.import_scopes[-1][name] = f"<bound:{name}>"
+        self.loader_scopes[-1].pop(name, None)
+
+    def _resolve_loader(self, node: ast.AST) -> str | None:
+        loader = _resolve(node, self.import_scopes[-1])
+        return self.loader_scopes[-1].get(loader or "", loader)
 
     def _bind_imported_identity(
         self,
@@ -570,60 +607,6 @@ def _from_module(package: str | None, node: ast.ImportFrom) -> str:
         )
     except (ImportError, ValueError):
         return node.module or ""
-
-
-def _import_aliases(
-    body: list[ast.stmt],
-    package: str | None,
-    inherited: dict[str, str] | None = None,
-) -> dict[str, str]:
-    aliases = dict(inherited or {})
-    for node in body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                bound = alias.asname or alias.name.split(".", 1)[0]
-                aliases[bound] = alias.name if alias.asname else bound
-        elif isinstance(node, ast.ImportFrom):
-            base = _from_module(package, node)
-            for alias in node.names:
-                if alias.name != "*":
-                    aliases[alias.asname or alias.name] = _join(base, alias.name)
-    return aliases
-
-
-def _loader_aliases(
-    body: list[ast.stmt],
-    imports: dict[str, str],
-    inherited: dict[str, str] | None = None,
-) -> dict[str, str]:
-    bindings = [binding for node in body for binding in _loader_bindings(node)]
-    aliases = dict(inherited or {})
-    changed = True
-    while changed:
-        changed = False
-        for name, value in bindings:
-            resolved = _resolve(value, imports)
-            resolved = aliases.get(resolved or "", resolved)
-            if resolved in LOADERS and aliases.get(name) != resolved:
-                aliases[name] = resolved
-                changed = True
-    return aliases
-
-
-def _loader_bindings(node: ast.stmt) -> list[tuple[str, ast.expr]]:
-    if isinstance(node, ast.Assign):
-        return [
-            (target.id, node.value)
-            for target in node.targets
-            if isinstance(target, ast.Name)
-        ]
-    if (
-        isinstance(node, ast.AnnAssign)
-        and isinstance(node.target, ast.Name)
-        and node.value is not None
-    ):
-        return [(node.target.id, node.value)]
-    return []
 
 
 def _technical_names(

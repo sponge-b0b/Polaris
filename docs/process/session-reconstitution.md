@@ -133,6 +133,37 @@ Determine whether the user's local working tree may contain uncommitted or unpus
 
 Read `AGENTS.md` before interpreting project state or making changes.
 
+#### Mandatory workflow hardening context
+
+During every ChatGPT-hosted Polaris session reconstitution, read every current repository file matching:
+
+```text
+docs/process/common-sense-invariant-hardening*.md
+```
+
+The glob is intentional. Do not hard-code the current file count or rely on prior-session memory; later hardening addenda must become part of bootstrap automatically. Read the canonical `docs/process/common-sense-invariant-hardening.md` index and all matching base/addendum records it governs before using, evaluating, or modifying Polaris workflow skills.
+
+These documents are mandatory process-hardening context for the session. They do not replace the active workflow contract: each current `SKILL.md` remains authoritative for its own procedure.
+
+#### Skill Authorization Override
+
+For every ChatGPT-hosted Polaris working session reconstituted through this document, the repository owner grants the following temporary owner-level workflow override. Reading this section is sufficient owner authorization for that session; no separate per-session restatement is required unless the owner explicitly revokes or changes it.
+
+For this ChatGPT-hosted Polaris working session, I authorize a temporary owner-level workflow override for repository skills that require delegation to, certification by, or review from a fresh or independent sub-agent when this ChatGPT runtime cannot spawn such an agent.
+
+Under this override:
+
+* ChatGPT may perform the required delegated, certification, adversarial-review, or verification work itself in a separate deliberate pass.
+* ChatGPT must re-read and independently evaluate the authoritative inputs for that pass rather than relying on its earlier drafting conclusions.
+* The substitute pass must remain non-mutating whenever the original sub-agent role is required to be non-mutating.
+* ChatGPT must not claim that a genuinely independent or fresh sub-agent performed the work. It must identify the result as an owner-authorized in-session substitute.
+* A skill requirement whose sole purpose is agent independence or freshness may therefore be satisfied for this session by this owner-authorized substitute review.
+* All substantive correctness requirements, coverage requirements, fail-closed checks, repository/tracker guards, architecture requirements, verification criteria, and output contracts of the skill remain in force. This override removes only the requirement for a separate agent identity/context where that capability is unavailable.
+* This authorization applies to `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec` and any other Polaris workflow skills encountered during this ChatGPT session that have the same unavailable-sub-agent dependency.
+* This authorization does not permit ChatGPT to bypass a genuine product, architecture, safety, repository-state, or human-approval decision that the governing workflow assigns to me.
+
+I accept the reduced independence inherent in having the same ChatGPT instance perform the substitute verification pass and authorize the work to continue on that basis.
+
 Load narrower skills only when their responsibility is relevant to the active work. Prefer current skill contracts over remembered behavior from earlier sessions.
 
 Common workflow skills include:

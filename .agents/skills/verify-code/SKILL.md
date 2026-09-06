@@ -107,8 +107,8 @@ Do not alter unrelated pre-existing files merely to make this check clean.
 Run only against resolved Python targets:
 
 ```bash
-uv run ruff format --check <changed_python_paths>
-uv run ruff check <changed_python_paths>
+uv run --locked ruff format --check <changed_python_paths>
+uv run --locked ruff check <changed_python_paths>
 ```
 
 Do not replace targets with `.`.
@@ -118,7 +118,7 @@ Do not replace targets with `.`.
 Run only against changed Python files and directly affected tests:
 
 ```bash
-uv run mypy --explicit-package-bases <changed_python_paths_and_affected_tests>
+uv run --locked mypy --explicit-package-bases <changed_python_paths_and_affected_tests>
 ```
 
 Do not broaden to `mypy .`.
@@ -128,7 +128,7 @@ Do not broaden to `mypy .`.
 Run tests relevant to the changed behavior and directly affected modules:
 
 ```bash
-UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q tests/path/to/test_relevant_module.py
+UV_CACHE_DIR=/tmp/uv-cache uv run --locked pytest -q tests/path/to/test_relevant_module.py
 ```
 
 Do not run the full suite by default.

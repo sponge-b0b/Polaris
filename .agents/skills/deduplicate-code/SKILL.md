@@ -36,7 +36,7 @@ Duplication is relational. A changed block can duplicate an unchanged implementa
 Always run both scanners from the repository root over their normal configured project scope:
 
 ```bash
-arid .
+uv run --locked arid .
 jscpd .
 ```
 
@@ -147,7 +147,7 @@ Arid permits a disabled region through EOF, but prefer a bounded region whenever
 After suppression changes, audit suppression health. The final Arid gate is:
 
 ```bash
-arid . --fail-on-stale --suppression-summary
+uv run --locked arid . --fail-on-stale --suppression-summary
 ```
 
 It must exit successfully with zero reportable duplicate groups and zero stale suppressions.
@@ -208,7 +208,7 @@ After every repair cycle:
 Use:
 
 ```bash
-arid . --fail-on-stale --suppression-summary
+uv run --locked arid . --fail-on-stale --suppression-summary
 jscpd .
 ```
 

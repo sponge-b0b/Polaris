@@ -33,13 +33,13 @@ git status --porcelain | awk '{print $2}' | grep '\.py$'
 ### Step 2: Targeted Automated Lint Correction
 Execute the `ruff` lint engine using the explicit auto-fixer modifier, targeting **only** the space-separated list of file paths extracted in Step 1. Do not use a trailing dot (`.`):
 ```bash
-ruff check --fix <path_to_modified_file_1> <path_to_modified_file_2>
+uv run --locked ruff check --fix <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ### Step 3: Targeted Code Layout Standardisation
 Execute the native code formatter over **only** the identified target file paths to adjust line spacing, wrapping bounds, indentation, and quote alignments to match our 88-character rule baseline:
 ```bash
-ruff format <path_to_modified_file_1> <path_to_modified_file_2>
+uv run --locked ruff format <path_to_modified_file_1> <path_to_modified_file_2>
 ```
 
 ---
@@ -50,11 +50,11 @@ You must preserve the integrity of the project's formatting metrics. You are str
 
 ### Core Constraint
 **Never generate, execute, or commit automated rule suppressions.** 
-You are explicitly prohibited from running commands like `ruff check . --select E501 --add-noqa` (or any equivalent variant like `C901`) to inject `# noqa: E501` or `C901` comments into the codebase. You must never use `--add-noqa` in any form to bypass or suppress project rules. All formatting must be achieved through proper code restructuring and layout adjustments.
+You are explicitly prohibited from running commands like `uv run --locked ruff check . --select E501 --add-noqa` (or any equivalent variant like `C901`) to inject `# noqa: E501` or `C901` comments into the codebase. You must never use `--add-noqa` in any form to bypass or suppress project rules. All formatting must be achieved through proper code restructuring and layout adjustments.
 
 ### Compliance Rules
 1. **No Automation Cheating:** Long lines must be broken up manually using Python's native syntactic elements (e.g., implicit string concatenation inside parentheses, wrapping data structures, or breaking logical blocks).
-2. **Reject Inline Overrides:** If a code implementation generates lines exceeding the project's max-character limit, you must refactor the layout of the code until `ruff check .` passes naturally. 
+2. **Reject Inline Overrides:** If a code implementation generates lines exceeding the project's max-character limit, you must refactor the layout of the code until `uv run --locked ruff check .` passes naturally. 
 3. **Escalation Exception:** The only acceptable way to change line-length constraints is by modifying the project's global `pyproject.toml` or `ruff.toml` file—and this requires explicit, manual human authorization before execution.
 
 ## Examples
@@ -68,10 +68,10 @@ You are explicitly prohibited from running commands like `ruff check . --select 
 git status --porcelain | awk '{print $2}' | grep '\.py$'
 
 # 2. Agent runs targeted lint correction
-ruff check --fix core/runtime/execution/runtime_engine.py
+uv run --locked ruff check --fix core/runtime/execution/runtime_engine.py
 
 # 3. Agent runs targeted code formatting
-ruff format core/runtime/execution/runtime_engine.py
+uv run --locked ruff format core/runtime/execution/runtime_engine.py
 ```
 
 ### Example 2: Workspace Code Changes
@@ -83,8 +83,8 @@ ruff format core/runtime/execution/runtime_engine.py
 git status --porcelain | awk '{print $2}' | grep '\.py$'
 
 # 2. Agent runs targeted lint correction on your current working files
-ruff check --fix core/auth/login.py tests/test_login.py
+uv run --locked ruff check --fix core/auth/login.py tests/test_login.py
 
 # 3. Agent runs targeted code formatting on your current working files
-ruff format core/auth/login.py tests/test_login.py
+uv run --locked ruff format core/auth/login.py tests/test_login.py
 ```

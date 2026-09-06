@@ -434,14 +434,14 @@ gh api --paginate --slurp \
   "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100" \
   > "$SPEC_COMMENTS_FILE"
 
-uv run python "$VERIFY_TOOL" comments \
+python "$VERIFY_TOOL" comments \
   --input "$SPEC_COMMENTS_FILE" \
   > "$SPEC_COMMENTS_SUMMARY"
 
 gh issue view "$SPEC_NUMBER" --repo "$REPO" --json body --jq .body \
   > "$SPEC_BODY_FILE"
 
-uv run python "$REVIEW_TOOL" checkpoint \
+python "$REVIEW_TOOL" checkpoint \
   --comments-summary "$SPEC_COMMENTS_SUMMARY" \
   --spec-body "$SPEC_BODY_FILE" \
   --spec "$SPEC_NUMBER" \
@@ -467,7 +467,7 @@ Use the canonical `$spec-contract` provenance helper:
 ```bash
 OWNERSHIP_FILE=$(mktemp)
 
-uv run python \
+python \
   .agents/skills/spec-contract/scripts/classify_ownership.py \
   --baseline "$(jq -r .baseline "$REVIEW_CHECKPOINT")" \
   --branch "$CURRENT_BRANCH" \
@@ -752,7 +752,7 @@ EXIT_JSON=$(mktemp)
 COMMENT_JSON=$(mktemp)
 READBACK_FILE=$(mktemp)
 
-uv run python "$REVIEW_TOOL" render-exit \
+python "$REVIEW_TOOL" render-exit \
   --input "$EXIT_INPUT" \
   --output "$EXIT_FILE"
 

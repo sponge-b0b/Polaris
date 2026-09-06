@@ -88,18 +88,29 @@ Before every pytest invocation, identify the exact selected greenfield test scop
 
 Do not use pytest startup, a client timeout, a connection exception, or a skip as the readiness probe. If prerequisites cannot be verified, do not launch pytest; report the verification as unresolved.
 
-`POLARIS_BROAD_VERIFY_AUTHORIZED` must be supplied only for the individual command requiring authorization, for example `POLARIS_BROAD_VERIFY_AUTHORIZED=<task-specific-value> uv run pytest ...`. Never export it globally or persist it into a shell/session environment.
+`POLARIS_BROAD_VERIFY_AUTHORIZED` must be supplied only for the individual command requiring authorization, for example `POLARIS_BROAD_VERIFY_AUTHORIZED=<task-specific-value> uv run --locked pytest ...`. Never export it globally or persist it into a shell/session environment.
 
 ---
 
 ## Dependencies and Shell
 
-Use:
+`uv.lock` is committed project state and is the resolved dependency source of truth for Polaris. Keep it synchronized with `pyproject.toml` when dependency declarations intentionally change.
 
-* `uv run`
-* `uv add`
-* `uv remove`
-* `uv sync`
+For canonical Polaris Python development, verification, and runtime commands whose tools or dependencies are declared by the project, use:
+
+```text
+uv run --locked <command>
+```
+
+`--locked` is mandatory for ordinary execution because it verifies that `uv.lock` is current and fails rather than rewriting dependency state. `uv` may synchronize `.venv` or build/install Polaris as normal generated local environment state; `.venv` is not repository state.
+
+Every canonical Python tool invoked this way must be declared in the applicable project dependency group and therefore represented in `uv.lock`. Do not rely on a same-named executable from ambient `PATH` as a substitute for locked project tooling.
+
+Use `uv add`, `uv remove`, `uv lock`, or an intentional unlocked `uv sync` only for authorized dependency-management work. Commit the resulting `pyproject.toml` and `uv.lock` changes together when both change.
+
+Use `uvx` only for genuinely one-off external Python tools that are not part of the Polaris development/runtime contract. Use plain `python` for repository helper scripts that are intentionally standard-library-only and do not require the Polaris environment.
+
+Missing or stale `uv.lock` is a dependency-state defect for ordinary locked execution; do not delete, ignore, regenerate, or rewrite it as incidental verification cleanup.
 
 Standard read-only discovery and diagnostic shell commands are allowed.
 

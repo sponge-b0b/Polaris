@@ -49,9 +49,9 @@ Branch-local Python work classified `excluded` is not part of the current Spec q
 Use:
 
 ```bash
-uv run ruff format --check <authorized_python_targets>
-uv run ruff check <authorized_python_targets>
-uv run mypy --explicit-package-bases <authorized_python_targets_and_affected_tests>
+uv run --locked ruff format --check <authorized_python_targets>
+uv run --locked ruff check <authorized_python_targets>
+uv run --locked mypy --explicit-package-bases <authorized_python_targets_and_affected_tests>
 ```
 
 Do not replace those targets with `.` unless the Verification Scope Manifest explicitly proves repository-wide scope is required.
@@ -108,7 +108,7 @@ When invoked:
 * if correct repair would require inventing or changing durable architectural semantics, the child returns `ARCHITECTURE INVARIANT: UNRESOLVED`; route that blocker set to `$architecture-remediation` rather than making a pass-only repair;
 * repository-wide architecture repair does not broaden ordinary Ruff, Mypy, acceptance-test, deduplication, or unrelated cleanup authority.
 
-When this gate runs inside `$verify-spec`, preserve the non-mutating verification-environment invariant: running the architecture suite must not cause `uv` to build/install Polaris, synchronize the project, or create `uv.lock` merely for verification. Use the already-provisioned non-mutating execution path required by `$verify-architecture`.
+When this gate runs inside `$verify-spec`, use the committed locked Polaris environment required by `$verify-architecture`. `uv` may synchronize `.venv` and build/install Polaris as generated local state, but `uv run --locked` must not rewrite `uv.lock`; missing or stale lock state is a dependency-state blocker rather than verification-owned cleanup.
 
 If `$verify-architecture` mutates the repository, treat those mutations as verification-owned changes, rerun every invalidated parent gate/test/evidence, commit/push through the normal verification-owned mutation path, refresh exact-HEAD contract bindings, and obtain fresh semantic certification. Any prior exact-HEAD semantic certification is stale.
 
@@ -379,7 +379,7 @@ gh api --paginate --slurp \
   "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100" \
   > "$SPEC_COMMENTS_FILE"
 
-uv run python "$ARTIFACT_TOOL" comments \
+python "$ARTIFACT_TOOL" comments \
   --input "$SPEC_COMMENTS_FILE" \
   > "$SPEC_COMMENTS_SUMMARY"
 
@@ -466,10 +466,10 @@ git diff --check "$BASELINE_COMMIT"
 When code quality applies:
 
 ```bash
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff format --check .
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run ruff check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run --locked ruff format --check .
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> uv run --locked ruff check .
 POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-<spec_issue_number> \
-  uv run mypy . --explicit-package-bases
+  uv run --locked mypy . --explicit-package-bases
 ```
 
 Never use Ruff `--add-noqa`.
@@ -477,7 +477,7 @@ Never use Ruff `--add-noqa`.
 Run the deterministic verifier self-test when this workflow utility is in scope:
 
 ```bash
-uv run python "$ARTIFACT_TOOL" self-test
+python "$ARTIFACT_TOOL" self-test
 ```
 
 Invoke the `$wiki-lint` skill when Living Entity Wiki routing applies. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible.
@@ -637,7 +637,7 @@ PROOFS_INPUT=$(mktemp)
 GATES_INPUT=$(mktemp)
 RECEIPT_FILE=$(mktemp)
 
-uv run python "$ARTIFACT_TOOL" finalize-parts \
+python "$ARTIFACT_TOOL" finalize-parts \
   --contract-input "$CONTRACT_HANDOFF" \
   --proofs-input "$PROOFS_INPUT" \
   --gates-input "$GATES_INPUT" \

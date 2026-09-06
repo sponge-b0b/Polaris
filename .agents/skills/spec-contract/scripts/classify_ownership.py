@@ -18,8 +18,7 @@ def _run(*args: str, check: bool = True) -> str:
         args,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     if check and result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or "command failed"

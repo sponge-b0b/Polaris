@@ -161,6 +161,8 @@ class _Guard(ast.NodeVisitor):
         imports = _import_aliases(tree.body, self.package)
         self.import_scopes = [imports]
         self.loader_scopes = [_loader_aliases(tree.body, imports)]
+        self.literal_scopes: list[dict[str, str | None]] = [{}]
+        self.literal_scope_kinds = ["module"]
         self.technical_ids = _technical_names(tree.body)
         self.identity_binding_scopes: list[dict[str, bool]] = [{}]
         self.in_investment_decision = False
@@ -177,6 +179,7 @@ class _Guard(ast.NodeVisitor):
             bound = alias.asname or alias.name.split(".", 1)[0]
             target = alias.name if alias.asname else bound
             self._bind_imported_identity(node, bound, target)
+            self._bind_literal_name(bound, None)
 
     def visit_import_from(self, node: ast.ImportFrom) -> None:
         base = _from_module(self.package, node)
@@ -185,11 +188,9 @@ class _Guard(ast.NodeVisitor):
             if target:
                 self._check_import(node, target)
             if alias.name != "*":
-                self._bind_imported_identity(
-                    node,
-                    alias.asname or alias.name,
-                    target,
-                )
+                bound = alias.asname or alias.name
+                self._bind_imported_identity(node, bound, target)
+                self._bind_literal_name(bound, None)
 
     def _check_import(self, node: ast.AST, target: str) -> None:
         if _prefix(target, {"legacy"}):
@@ -236,7 +237,7 @@ class _Guard(ast.NodeVisitor):
         for scope in reversed(self.loader_scopes):
             loader = scope.get(loader or "", loader)
         if loader in LOADERS:
-            legacy = _legacy_literal(node)
+            legacy = _legacy_literal(node, self.literal_scopes[-1])
             if legacy:
                 self.fail(
                     node,
@@ -262,11 +263,13 @@ class _Guard(ast.NodeVisitor):
         if len(names) == 1:
             self._bind_identity_name(names[0], self._identity_technical(node.value))
         self.generic_visit(node)
+        literal = _literal_string(node.value)
+        for name in names:
+            self._bind_literal_name(name, literal)
 
     def visit_ann_assign(self, node: ast.AnnAssign) -> None:
-        if isinstance(node.target, ast.Name):
-            name = node.target.id
-
+        name = node.target.id if isinstance(node.target, ast.Name) else None
+        if name is not None:
             if _decision_name(name):
                 self._check_identity(node, name, node.annotation)
                 if node.value is not None:
@@ -288,8 +291,11 @@ class _Guard(ast.NodeVisitor):
                 )
 
         self.generic_visit(node)
+        if name is not None and node.value is not None:
+            self._bind_literal_name(name, _literal_string(node.value))
 
     def visit_arg(self, node: ast.arg) -> None:
+        self._bind_literal_name(node.arg, None)
         if _decision_name(node.arg) and node.annotation is not None:
             self._check_identity(node, node.arg, node.annotation)
         self.generic_visit(node)
@@ -300,6 +306,7 @@ class _Guard(ast.NodeVisitor):
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
         self._bind_identity_name(node.name, False)
+        self._bind_literal_name(node.name, None)
 
     def visit_async_function_def(self, node: ast.AsyncFunctionDef) -> None:
         previous_class_body = self.in_investment_decision_class_body
@@ -307,6 +314,7 @@ class _Guard(ast.NodeVisitor):
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
         self._bind_identity_name(node.name, False)
+        self._bind_literal_name(node.name, None)
 
     def visit_class_def(self, node: ast.ClassDef) -> None:
         class_is_technical = any(self._identity_technical(base) for base in node.bases)
@@ -327,15 +335,29 @@ class _Guard(ast.NodeVisitor):
         self.in_investment_decision = previous_flag
         self.technical_ids = previous_ids
         self._bind_identity_name(node.name, class_is_technical)
+        self._bind_literal_name(node.name, None)
 
     def _visit_scope(self, node: ast.AST, body: list[ast.stmt]) -> None:
         imports = _import_aliases(body, self.package, self.import_scopes[-1])
         loaders = _loader_aliases(body, imports, self.loader_scopes[-1])
+        literal_parent = self.literal_scopes[-1]
+        if self.literal_scope_kinds[-1] == "class" and len(self.literal_scopes) > 1:
+            literal_parent = self.literal_scopes[-2]
+        literal_scope = dict(literal_parent)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for name in _function_local_names(body):
+                literal_scope[name] = None
         self.import_scopes.append(imports)
         self.loader_scopes.append(loaders)
+        self.literal_scopes.append(literal_scope)
+        self.literal_scope_kinds.append(
+            "class" if isinstance(node, ast.ClassDef) else "function"
+        )
         self.identity_binding_scopes.append(dict(self.identity_binding_scopes[-1]))
         self.generic_visit(node)
         self.identity_binding_scopes.pop()
+        self.literal_scope_kinds.pop()
+        self.literal_scopes.pop()
         self.loader_scopes.pop()
         self.import_scopes.pop()
 
@@ -346,6 +368,7 @@ class _Guard(ast.NodeVisitor):
         if self.in_investment_decision_class_body and _norm(name) == "id":
             self._check_identity(node, "InvestmentDecision.id", node.value)
         self._bind_identity_name(name, self._identity_technical(node.value))
+        self._bind_literal_name(name, None)
         self.generic_visit(node)
 
     def visit_name(self, node: ast.Name) -> None:
@@ -381,6 +404,9 @@ class _Guard(ast.NodeVisitor):
         if normalized in TECHNICAL_IDS:
             return
         self.identity_binding_scopes[-1][normalized] = technical
+
+    def _bind_literal_name(self, name: str, value: str | None) -> None:
+        self.literal_scopes[-1][name] = value
 
     def _bind_imported_identity(
         self,
@@ -419,6 +445,83 @@ class _Guard(ast.NodeVisitor):
                 "ARCH-MIGRATION-LEGACY-SCHEMA",
                 f"migration reuses legacy schema object {text!r}",
             )
+
+
+class _FunctionLocalCollector(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+        self.external_names: set[str] = set()
+
+    def visit_name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, (ast.Store, ast.Del)):
+            self.names.add(node.id)
+
+    def visit_import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self.names.add(alias.asname or alias.name.split(".", 1)[0])
+
+    def visit_import_from(self, node: ast.ImportFrom) -> None:
+        for alias in node.names:
+            if alias.name != "*":
+                self.names.add(alias.asname or alias.name)
+
+    def visit_function_def(self, node: ast.FunctionDef) -> None:
+        self.names.add(node.name)
+
+    def visit_async_function_def(self, node: ast.AsyncFunctionDef) -> None:
+        self.names.add(node.name)
+
+    def visit_class_def(self, node: ast.ClassDef) -> None:
+        self.names.add(node.name)
+
+    def visit_lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_list_comp(self, node: ast.ListComp) -> None:
+        return
+
+    def visit_set_comp(self, node: ast.SetComp) -> None:
+        return
+
+    def visit_dict_comp(self, node: ast.DictComp) -> None:
+        return
+
+    def visit_generator_exp(self, node: ast.GeneratorExp) -> None:
+        return
+
+    def visit_except_handler(self, node: ast.ExceptHandler) -> None:
+        if node.name:
+            self.names.add(node.name)
+        for statement in node.body:
+            self.visit(statement)
+
+    def visit_global(self, node: ast.Global) -> None:
+        self.external_names.update(node.names)
+
+    def visit_nonlocal(self, node: ast.Nonlocal) -> None:
+        self.external_names.update(node.names)
+
+    visit_Name = visit_name
+    visit_Import = visit_import
+    visit_ImportFrom = visit_import_from
+    visit_FunctionDef = visit_function_def
+    visit_AsyncFunctionDef = visit_async_function_def
+    visit_ClassDef = visit_class_def
+    visit_Lambda = visit_lambda
+    visit_ListComp = visit_list_comp
+    visit_SetComp = visit_set_comp
+    visit_DictComp = visit_dict_comp
+    visit_GeneratorExp = visit_generator_exp
+    visit_ExceptHandler = visit_except_handler
+    visit_Global = visit_global
+    visit_Nonlocal = visit_nonlocal
+
+
+def _function_local_names(body: list[ast.stmt]) -> set[str]:
+    collector = _FunctionLocalCollector()
+    for statement in body:
+        collector.visit(statement)
+    return collector.names - collector.external_names
 
 
 def _layer(root: Path, path: Path) -> str | None:
@@ -614,18 +717,27 @@ def _dotted(node: ast.AST) -> str | None:
     return None
 
 
-def _legacy_literal(node: ast.Call) -> str | None:
+def _literal_string(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _legacy_literal(node: ast.Call, bindings: dict[str, str | None]) -> str | None:
     for value in (*node.args, *(keyword.value for keyword in node.keywords)):
-        if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+        literal = _literal_string(value)
+        if literal is None and isinstance(value, ast.Name):
+            literal = bindings.get(value.id)
+        if literal is None:
             continue
-        normalized = value.value.replace("\\", "/")
+        normalized = literal.replace("\\", "/")
         dotted = normalized.lstrip("./").replace("/", ".")
         if (
             dotted == "legacy"
             or dotted.startswith("legacy.")
             or "/legacy/" in normalized
         ):
-            return value.value
+            return literal
     return None
 
 

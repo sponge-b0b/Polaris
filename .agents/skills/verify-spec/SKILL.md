@@ -78,6 +78,21 @@ Only `spec-relevant` failures authorize `$verify-spec` repository repair. Do not
 
 After a `non-spec` failure is causally dispositioned, rerun the authorized target scope when needed to obtain the actual Spec gate result. The original observed failure remains recorded; the narrower authorized rerun does not erase it.
 
+### Delegated repository-wide deduplication exception
+
+`$deduplicate-code` is an explicit repository-wide delegated quality gate when this workflow classifies it applicable.
+
+When invoked:
+
+* the child skill owns its whole-repository Arid/JSCPD scan scope and terminal zero-unsuppressed-findings contract;
+* the child skill may perform only the narrowly bounded consolidation or justified source-suppression repairs its own contract requires, including on files outside the active Spec's semantic ownership;
+* those child-owned repairs are authorized by the delegated deduplication gate itself and are **not** prohibited by the ordinary `non-spec = report-only` rule above;
+* child-internal duplicate findings that are fully resolved inside `$deduplicate-code` do not each become parent `Observed Failure Disposition` rows; the parent consumes the child's terminal result and records repository mutation/evidence normally;
+* any unresolved child result remains a required delegated-gate failure and blocks PASS;
+* repository-wide deduplication repair does not broaden Ruff, Mypy, Pytest, acceptance-test, or unrelated cleanup authority.
+
+If `$deduplicate-code` mutates the repository, treat those mutations as verification-owned changes for branch/candidate/commit handling. Any prior exact-HEAD semantic certification becomes stale under the normal Exact-HEAD Invalidation rule.
+
 ### Conditional/deferred evidence handoff
 
 When the current Spec contract contains a materially conditional obligation, recover its current decomposition disposition from the parent `Ticket Coverage Manifest` when available and pass that evidence to `$verify-spec-closure`.
@@ -93,7 +108,7 @@ Unclassified scope candidates: 0
 Unresolved scope candidates: 0
 Repository-wide gates without explicit authority: 0
 Observed failures without causal disposition: 0
-Repairs without spec-relevant authority: 0
+Repairs without spec-relevant or explicit delegated-gate authority: 0
 ```
 
 ## Separation of Authority
@@ -106,7 +121,7 @@ The `$verify-spec` parent owns:
 * deterministic and delegated gate execution;
 * acceptance-test execution and service preflight;
 * observed-failure disposition;
-* Spec-relevant repair;
+* Spec-relevant repair and explicitly delegated repository-wide gate repair;
 * stabilizing the exact candidate HEAD;
 * deterministic receipt assembly/persistence after certification.
 

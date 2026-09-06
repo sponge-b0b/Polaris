@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Review the **exact verified state** of a completed Spec along the applicable independent axes. This `SKILL.md` is the single authoritative procedure for `$review-spec`.
 
-The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance, semantic scope attribution, certified review-proof reuse, and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
+The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance, semantic scope attribution, certified review-proof reuse, certified semantic-domain finality, and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
 
 ## Human-Facing Aggregate Format
 
@@ -58,9 +58,9 @@ Do not:
 * verify ordinary ticket closure here;
 * rerun `$verify-ticket-closure` or `$verify-spec-closure` merely to confirm a review finding;
 * repair upstream verifier policy during the review;
-* weaken a current finding because an earlier verifier reported PASS.
+* weaken a current **in-domain** finding because an earlier verifier reported PASS.
 
-Prior ticket/Spec certification is historical evidence. A current reviewer finding is evaluated from its own axis authority under this procedure.
+Prior ticket/Spec certification is historical evidence about member correctness, but a certified semantic closure domain is durable membership authority under **Certified Semantic Domain Finality** below. A current reviewer may challenge behavior inside that domain; it may not silently redefine the domain under unchanged authority.
 
 ## Upstream Certification Provenance
 
@@ -103,7 +103,7 @@ Upstream certification:
 - Contradiction: <what earlier certified claim this finding falsifies>
 ```
 
-This is process provenance, not a new review axis and not a reason to reject a valid finding.
+This is process provenance, not a new review axis and not a reason to reject a valid in-domain finding.
 
 For legacy tickets created before `Spec obligations` / Ticket Coverage Manifest existed, record `legacy mapping unavailable` rather than reconstructing uncertain lineage.
 
@@ -132,6 +132,108 @@ Spec obligation
 ```
 
 without relying on conversational memory.
+
+## Certified Semantic Domain Finality
+
+This section is authoritative and supersedes later preserved wording that allows a full re-review, a `root-definition gap`, or convergence saturation to replace a previously certified semantic membership boundary merely because a later reviewer adopts a broader plausible interpretation of unchanged authority.
+
+### What certification freezes
+
+A prior semantic PASS does not make implementation behavior permanently correct. It may, however, establish a **Certified Closure Domain**: the independently certified authority identity, membership predicate, source sets/dimensions, and closure criterion that defined which candidates belonged to a material completion claim/root.
+
+When the relevant ticket/root certification contains `<!-- certified-closure-domain:v1 -->`, use those records directly.
+
+For historical certifications predating that marker, treat durable closure evidence as an equivalent frozen domain only when it contains enough state to recover without guesswork:
+
+* exact governing authority;
+* explicit membership predicate or equivalent bounded inclusion rule;
+* authoritative dimensions/source sets or closure criterion;
+* complete construction/disposition evidence;
+* enough explicit boundary/out-of-domain evidence to distinguish excluded candidates from omitted in-domain members.
+
+If that state cannot be recovered, no legacy finality claim exists. Do not invent one from memory, implementation shape, or current reviewer intuition.
+
+### Full re-review does not erase frozen domains
+
+Missing/malformed `review-spec-proof-reuse:v1` state may require a full current review. That resets clean-review proof reuse only.
+
+It does **not** erase applicable Certified Closure Domains from prior semantic ticket/root completion.
+
+Likewise, a repository mutation that makes member proof stale does not by itself change domain membership. Domain membership becomes stale only when its recorded governing authority changes or an explicit closure-authority defect is reconciled.
+
+### Domain Finality Reconciliation
+
+After primaries/challengers return provisional findings and **before accepting a Blocking finding that would reopen a previously satisfied/closed root or materially enlarge its acceptance domain**, recover the latest applicable Certified Closure Domain and reconcile the candidate.
+
+Do not expose Root Blocker history to primary reviewers. This gate runs only after provisional findings are returned, at the bounded root/provenance reconciliation stage.
+
+For each candidate record:
+
+```text
+Candidate: <finding/member>
+Prior certified domain: <domain ID / durable certification reference>
+Prior authority identity: <identity>
+Current authority identity: <identity>
+Authority changed: yes | no
+Membership under frozen predicate: in-domain | out-of-domain | ambiguous
+Exact explicit authority contradiction to frozen predicate: <None | exact source>
+Finality disposition:
+  in-domain-falsifier
+  authority-changed-domain-stale
+  closure-authority-defect
+  domain-expansion
+```
+
+If membership/authority judgment is semantic rather than mechanically decidable, use one targeted challenger limited to this reconciliation question. The parent may orchestrate and validate references; it must not invent a broader domain itself.
+
+#### `in-domain-falsifier`
+
+The candidate satisfies the frozen membership predicate. The finding may remain Blocking. Classify as regression/missed-prior-finding from provenance after ordinary root reconciliation.
+
+Prior PASS does not suppress an in-domain falsifier.
+
+#### `authority-changed-domain-stale`
+
+The governing Spec/root/architecture/contract authority materially changed after certification. The prior domain is stale for the affected claim. A fresh current domain may be built from the changed authority, and ordinary review/remediation may proceed.
+
+The Pending packet must name the actual authority change; “reviewer now interprets it differently” is not authority change.
+
+#### `closure-authority-defect`
+
+Unchanged durable authority contains an **exact explicit contradiction** to the certified membership predicate/source set, such as an authoritative enumerated member omitted from a certification that claimed that exact enumeration.
+
+This is process-integrity evidence about semantic certification. Do not convert it silently into current implementation remediation. Halt the affected root/cell behind explicit authority/domain reconciliation; preserve the implementation observation separately.
+
+A broader plausible reading, thematic similarity, sibling implementation mechanism, lexical adjacency, or reviewer preference is not an explicit authority contradiction.
+
+#### `domain-expansion`
+
+The candidate does not satisfy the frozen membership predicate, governing authority is unchanged, and no exact explicit authority contradiction invalidates the frozen domain.
+
+It is not a current Blocking remediation finding for that closed domain. Preserve it as a **Domain Expansion Observation**. It may be Advisory, future planning input, workflow-hardening evidence, or owner-directed new scope, but it may not reopen the satisfied root or be passed to `$to-tickets`.
+
+#### Ambiguous membership
+
+If the historical domain record is malformed or candidate membership cannot be resolved, do not silently broaden it. Record a certification/process-integrity challenge and require explicit reconciliation. Ambiguity is not implementation-remediation authority.
+
+### Root/saturation consequences
+
+For a root with an applicable Certified Closure Domain:
+
+* `missed prior finding` requires `in-domain-falsifier`;
+* `regression` requires an in-domain behavior whose previously proven disposition later changed;
+* `root-definition gap` may not expand the frozen domain under unchanged authority;
+* saturation challengers sweep only the frozen domain plus members newly admitted by an actual governing-authority change;
+* a challenger may discover additional **in-domain** siblings omitted by prior execution, but may not replace the membership predicate/source sets with a broader sibling universe;
+* `domain-expansion` and `closure-authority-defect` observations are excluded from active remediation until their own finality disposition authorizes otherwise.
+
+A genuinely distinct current obligation not governed by an existing certified root/domain may still become a Candidate new root normally.
+
+### Pending/aggregate state
+
+Only findings that survive Domain Finality Reconciliation count as current Blocking findings, Root Blocker reopenings, convergence triggers, or `$to-tickets` inputs.
+
+Persist non-actionable domain-expansion/process-integrity observations in the Pending packet's provenance/scope/finality section so history is not erased.
 
 ## Semantic Attribution and Certified Review Reuse
 
@@ -278,13 +380,13 @@ Rules:
 
 A proposed new finding against a `reused` proof group whose boundary is deterministically untouched is a **review-process integrity contradiction**, not automatically a new remediation root. Do not silently invalidate reusable proof by choosing a different interpretation on unchanged evidence. Instead, halt persistence for that affected group and treat the contradiction as evidence that the prior clean certification or invalidation boundary was unsound; hardening/remediation of that review authority is separate from inventing Spec work. If new durable authority actually changes the claim, that authority change makes the group stale and ordinary current review applies.
 
-On a first review, or when no valid reusable ledger exists, execute the normal complete primaries below and establish reusable clean proof if remediation remains.
+On a first review, or when no valid reusable ledger exists, execute the normal complete primaries below and establish reusable clean proof if remediation remains. Any applicable Certified Closure Domain still remains in force during that full review.
 
 ## Procedure
 
 Review the **exact verified state** of a completed Spec along the applicable independent axes:
 
-- **Standards** — deterministic repository standards over Spec-owned/Mixed surfaces only;
+- **Standards** — deterministic repository standards over semantically current-Spec surfaces;
 - **Spec** — every cell in the persisted Spec Contract Manifest;
 - **Architecture** — current architecture authority governing the affected boundaries.
 
@@ -295,19 +397,21 @@ This skill is review-only. `$verify-spec` owns verification and tool/gate execut
 - Recover durable state; do not rely on prior conversation.
 - The newest passing Spec Verification Receipt for the exact current `HEAD` is the review contract.
 - Do not rerun Ruff, mypy, pytest, duplicate scanners, wiki lint, or other `$verify-spec` gates merely to strengthen a review finding.
-- Fresh current ownership classification is still required because the default branch may advance after verification.
+- Fresh current change provenance/semantic attribution is still required because the default branch may advance after verification.
 - One genuinely fresh primary reviewer per applicable axis is the default. Challengers are conditional, not ceremonial.
 - After primary dispatch, the parent orchestrates; it does not become a fourth semantic reviewer.
-- Persist only frozen, provenance-valid findings and compact lifecycle state.
+- Persist only provenance-valid, **domain-finality-valid** findings and compact lifecycle state.
 
 ## Finding Taxonomy
 
-- **Blocking** — must be remediated before review closes.
+- **Blocking** — must be remediated before review closes and has survived applicable Certified Semantic Domain Finality reconciliation.
 - **Advisory** — useful but non-blocking.
 - **Owner-overridden** — explicitly accepted/rejected by the owner.
 - **Scope-retired** — historical root/cell proven no longer owned or required by this Spec; history remains durable.
+- **Domain Expansion Observation** — current observation outside an applicable certified semantic domain under unchanged authority; preserved but non-actionable for current remediation.
+- **Closure Authority Defect** — explicit conflict between a certified domain and unchanged durable authority; process/authority reconciliation required before implementation remediation.
 
-Exact Spec mismatches are Blocking. Deterministic Standards violations are Blocking only on Spec-owned/Mixed or Spec-owned tracker state. Architecture violations returned under current architecture authority are Blocking. Inherited-only unrelated defects are not current-Spec Standards blockers.
+Exact Spec mismatches are Blocking only after applicable semantic attribution/conditional/domain-finality gates. Deterministic Standards violations are Blocking only on semantically current-Spec surfaces. Architecture violations returned under current architecture authority are Blocking unless an applicable frozen domain proves the proposed member is a non-actionable expansion of an already closed current-Spec root.
 
 ## 1. Pin the Verified Checkpoint Once
 
@@ -354,11 +458,11 @@ Do **not** independently parse receipt Markdown, walk backward to an older recei
 
 The checkpoint JSON is the immutable review contract for this invocation. Retain exactly its baseline, body/contract hashes, manifest, verification hash, and receipt identity.
 
-## 2. Refresh Ownership Only
+## 2. Refresh Change Provenance Only
 
-The verification receipt proves the immutable contract; review needs only fresh ownership attribution against the **current** default branch.
+The verification receipt proves the immutable contract; review needs fresh mechanical change provenance against the **current** default branch.
 
-Use the canonical `$spec-contract` ownership helper:
+Use the canonical `$spec-contract` provenance helper:
 
 ```bash
 OWNERSHIP_FILE=$(mktemp)
@@ -371,14 +475,7 @@ uv run python \
   > "$OWNERSHIP_FILE"
 ```
 
-This is an ownership refresh, not contract validation. It owns GitHub-pinned default-head resolution/fetch and current Spec-change ownership classification. Do not independently resolve/fetch the default branch or reproduce its diff algorithm in the parent.
-
-Use the resulting ownership as follows:
-
-- Standards universe → Spec-owned/Mixed repository surfaces + Spec-owned tracker surfaces only.
-- Spec universe → the persisted manifest exactly.
-- Architecture universe → current authority plus all owned/Mixed and explicitly required sibling/alternate surfaces.
-- Inherited-only behavior can still violate an exact Spec/Architecture obligation, but it is not a Standards blocker merely because it exists.
+This is a provenance refresh, not contract validation and not semantic ownership. The Semantic Attribution section above owns current-Spec Standards scope.
 
 ## 3. Project Delivery Guard
 
@@ -411,11 +508,12 @@ When Blocking findings require first-time remediation, create the conventional S
 If a conventional Spec Review exists, recover privately:
 
 - existing `RB-*` IDs/stable invariants;
-- active/satisfied/owner-overridden/scope-retired cells;
+- active/satisfied/owner-overridden/scope-retired/domain-excluded cells;
 - cumulative acceptance matrix and semantic surfaces;
-- prior reviewed/satisfied heads and Owner Overrides.
+- prior reviewed/satisfied heads and Owner Overrides;
+- applicable durable ticket/root closure certifications sufficient to recover Certified Closure Domains.
 
-Do not expose root history to primary reviewers.
+Do not expose root history/domain conclusions to primary reviewers. Domain Finality Reconciliation happens after provisional findings return.
 
 ### Scope Attribution Gate
 
@@ -434,7 +532,7 @@ Build routing coverage before dispatch.
 
 ### Standards
 
-Create `STD-*` cells for every Spec-owned/Mixed artifact group and each applicable deterministic Standards rule/category. Include Spec-owned tracker transitions governed by workflow policy. Do not create Standards cells for inherited-only surfaces.
+Use the provisional Standards candidate universe and semantic attribution procedure defined above. Do not substitute raw branch-local/Mixed labels for semantic ownership.
 
 ### Spec
 
@@ -444,7 +542,9 @@ A reviewer-discovered originating-Spec obligation absent from the manifest is a 
 
 ### Architecture
 
-Create `ARCH-*` cells covering current affected architecture authorities, canonical owner/path/boundary/lifecycle/source-of-truth, owned/Mixed participants, and any sibling/alternate/named surface that the authority requires to obey the same rule. `$review-architecture` owns architecture evidence procedure.
+Create `ARCH-*` cells covering current affected architecture authorities, canonical owner/path/boundary/lifecycle/source-of-truth, semantically affected participants, and sibling/alternate/named surfaces that current authority independently requires to obey the same rule. `$review-architecture` owns architecture evidence procedure.
+
+Architecture universe construction does not itself override a Certified Closure Domain governing an already satisfied current-Spec root; that reconciliation occurs after provisional findings return.
 
 ## 6. Reviewer Execution Integrity
 
@@ -479,8 +579,8 @@ Give each primary only:
 
 - axis authority;
 - complete cells;
-- relevant evidence pointers/owned surfaces;
-- no Root Blocker history or prior reviewer conclusions.
+- relevant evidence pointers/semantically current surfaces;
+- no Root Blocker history, Certified Closure Domain conclusions, or prior reviewer conclusions.
 
 Each primary must disposition every supplied cell and continue after discovering a blocker.
 
@@ -496,23 +596,17 @@ checked-no-finding | blocking | advisory | not-applicable
 
 For every material cell, the reviewer must internally establish claim/predicate/domain/falsifier/evidence and exclude the falsifier before `checked-no-finding`. Material assumptions must themselves be proven.
 
-Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full findings. A useful primary result is:
+Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full provisional findings. A useful primary result is:
 
 ```text
 Coverage: <cell IDs grouped by disposition>; missing 0; unchecked 0
-Blocking: <full finding records>
+Blocking: <full provisional finding records>
 Advisory: <records>
 N/A: <cells + reasons>
 Challenge triggers: <None | exact cell/question>
 ```
 
-This keeps reviewer reasoning rigorous without spending output budget reproducing internal proof records.
-
-Axis blocker authority:
-
-- Standards → exact deterministic standard + owned/Mixed surface.
-- Spec → exact manifest cell + originating Spec source.
-- Architecture → current authority with `Architecture decision required: Yes|No` and routing.
+Axis blocker authority remains necessary but is not sufficient for a finding that would reopen an applicable certified root; Domain Finality Reconciliation must also survive.
 
 ## 8. Parent Orchestration Boundary
 
@@ -537,7 +631,7 @@ After results return, parent inspection is allowed only at these narrow boundari
 
 1. **Axis-Provenance validation** — confirm that the cited native authority exists and applies to the cited surface/cell;
 2. **concrete challenge trigger** — resolve ambiguity/contradiction through a targeted challenger, not an open-ended parent review;
-3. **root reconciliation** — inspect only historical root evidence implicated by frozen findings.
+3. **root/domain reconciliation** — inspect only historical root/Certified Closure Domain evidence implicated by provisional findings.
 
 If accepting/rejecting a finding would require broad semantic exploration, dispatch the targeted challenger instead.
 
@@ -548,7 +642,8 @@ Dispatch one targeted challenger only for a concrete trigger:
 1. coverage gap/materially omitted applicable cell;
 2. authority conflict/ambiguity;
 3. contradictory or materially insufficient finding evidence;
-4. convergence trigger after root reconciliation.
+4. Domain Finality Reconciliation requiring semantic membership/authority judgment;
+5. convergence trigger after finality-valid root reconciliation.
 
 Challenge only the affected cell/question. Do not intentionally give the challenger the primary conclusion. It applies the same Claim-Proof Integrity. If a required challenge remains unresolved, review is incomplete and nothing is persisted as PASS/remediation-ready.
 
@@ -556,30 +651,34 @@ Challenge only the affected cell/question. Do not intentionally give the challen
 
 Coverage is complete only when every supplied cell is dispositioned, no manifest cell is missing, no applicable Standards/Architecture cell is unchecked, and every N/A has a reason.
 
-Freeze and deduplicate the current findings. Accept Blocking only when its own axis authority establishes it; do not move a rejected finding to another axis.
+First freeze/deduplicate **provisional** findings and validate their axis authority. Then apply Certified Semantic Domain Finality to every finding implicated by a prior satisfied/closed root/domain.
+
+Only finality-surviving findings become current Blocking findings. Preserve rejected domain-expansion/closure-authority-defect observations explicitly; do not silently delete them or move them to another axis.
 
 ## 11. Reconcile Durable Roots
 
-Only after findings are frozen may the parent use Root Blocker history.
+Only after findings survive axis provenance **and Domain Finality Reconciliation** may the parent use them to mutate Root Blocker state.
 
-Map a finding to an existing root only when the stable invariant already derives it. Otherwise mark `Candidate new root`; if materially related but broader, mark `possible root-definition gap`.
+Map a finding to an existing root only when the stable invariant and applicable certified domain already derive it, or when an actual changed authority has made the prior domain stale. Otherwise mark `Candidate new root` only for a genuinely distinct current obligation, not as an escape hatch around domain finality.
 
 For a newly accepted violation against a previously satisfied/closed root, classify only from implicated history:
 
-- **Missed prior finding**;
-- **Regression**;
-- **Origin uncertain**.
+- **Missed prior finding** — must be `in-domain-falsifier`;
+- **Regression** — must be in-domain and provenance must show the behavior changed after proof;
+- **Origin uncertain** — permitted only for an in-domain finding whose temporal origin cannot be recovered.
 
 Previously satisfied sibling cells remain satisfied unless directly contradicted.
 
 ### Convergence Saturation
 
-A Missed prior finding against a satisfied root or a root-definition gap proves incomplete prior closure enumeration. Before persistence:
+A finality-valid Missed prior finding proves incomplete prior **member disposition/execution** inside the frozen domain. Before persistence:
 
-1. derive the bounded Root Closure Domain Manifest;
-2. execute exactly one saturation challenger under the originating axis;
-3. require every domain item checked and `unchecked 0`;
-4. provenance-validate new findings and merge them before persistence.
+1. recover the applicable Certified Closure Domain rather than deriving a broader root universe from scratch;
+2. execute exactly one saturation challenger under the originating axis over that frozen domain and any newly admitted members caused by an actual governing-authority change;
+3. require every authorized domain item checked and `unchecked 0`;
+4. provenance-validate new **in-domain** findings and merge them before persistence.
+
+A `root-definition gap` cannot broaden a frozen domain under unchanged authority. A challenger-discovered candidate outside the frozen predicate becomes a Domain Expansion Observation, not another remediation obligation.
 
 Do not run another generic full-axis review.
 
@@ -593,52 +692,37 @@ Standards: <coverage>; unchecked 0
 Spec: <manifest count>; unchecked 0
 Architecture: <coverage>; unchecked 0
 Targeted challengers: <n>
+Domain-finality challengers: <n>
 Saturation challengers: <n>
 Primary validated findings: <n>
+Finality-surviving Blocking findings: <n>
+Domain-expansion observations: <n>
+Closure-authority defects: <n>
 Targeted-only validated findings: <n>
-Saturation-only validated findings: <n>
+Saturation-only in-domain findings: <n>
 ```
 
-If any Blocking Architecture finding requires an architecture decision, halt with `$architecture-remediation`; do not invent the decision.
+If any finality-surviving Blocking Architecture finding requires an architecture decision, halt with `$architecture-remediation`; do not invent the decision.
 
 ## 13. Pending Review Remediation
 
-If architecture-conforming Blocking findings remain, or Scope corrections must update existing durable review state:
+If architecture-conforming finality-surviving Blocking findings remain, Scope corrections must update existing durable review state, or prior persisted findings require Domain Finality correction:
 
 1. revalidate Project Delivery guard for the already-resolved governor(s);
 2. require `HEAD` still equals the verification checkpoint;
 3. create/re-resolve the conventional Spec Review only when Blocking remediation requires one;
-4. render the Pending packet through the deterministic review utility;
+4. render/persist the Pending packet through the deterministic review utility where possible; fold Domain Finality Reconciliation into existing provenance/root/scope/saturation text when the utility has no dedicated field rather than changing its schema solely for this hardening;
 5. POST once, GET that exact comment, and require byte-for-byte equality;
 6. invoke `$review-spec-remediation` only after persistence succeeds.
 
-Build one compact JSON input containing checkpoint bindings, reviewer execution metadata, accepted findings by axis, compact coverage/effectiveness, root mappings/state, provenance, scope corrections, and saturation result. Then:
+The Pending packet must make the active/non-actionable distinction recoverable:
 
-```bash
-PENDING_INPUT=$(mktemp)
-PENDING_FILE=$(mktemp)
-PENDING_JSON=$(mktemp)
-COMMENT_JSON=$(mktemp)
-READBACK_FILE=$(mktemp)
-
-uv run python "$REVIEW_TOOL" render-pending \
-  --input "$PENDING_INPUT" \
-  --output "$PENDING_FILE"
-
-jq -Rs '{body: .}' "$PENDING_FILE" > "$PENDING_JSON"
-gh api --method POST \
-  "repos/$REPO/issues/$SPEC_REVIEW_ISSUE_NUMBER/comments" \
-  --input "$PENDING_JSON" > "$COMMENT_JSON"
-
-COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
-COMMENT_URL=$(jq -r .html_url "$COMMENT_JSON")
-[ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]
-gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
-  | jq -j .body > "$READBACK_FILE"
-cmp -s "$PENDING_FILE" "$READBACK_FILE"
+```text
+Domain Finality Reconciliation:
+- <candidate> -> <finality disposition> -> actionable yes|no -> evidence
 ```
 
-The renderer owns packet shape and validation. Do not hand-build the Markdown with shell substitution, `sed`, regex patching, or a second wrapper object. Exact readback of the deterministic renderer output is sufficient persistence integrity; do not reparse/rewrite the persisted packet merely for ceremony.
+Do not hand-build a parallel root-remediation packet that bypasses the deterministic renderer's existing checkpoint bindings.
 
 If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, reconcile Project state before presenting that handoff.
 
@@ -649,10 +733,11 @@ PASS requires:
 - current `HEAD` and Spec body still match the checkpoint;
 - reviewer execution integrity satisfied;
 - every Spec/Standards/Architecture review cell dispositioned;
-- no unresolved targeted/saturation coverage;
-- zero current Blocking findings;
-- all existing roots `satisfied`, `owner-overridden`, or `scope-retired`;
-- zero Candidate new roots.
+- no unresolved targeted/domain-finality/saturation coverage;
+- zero finality-surviving current Blocking findings;
+- all existing roots `satisfied`, `owner-overridden`, or `scope-retired` after domain-excluded cells are ignored for active remediation;
+- zero Candidate new roots;
+- zero unresolved Closure Authority Defects.
 
 The immutable contract itself does not need to be rebuilt again at Exit. Re-read current `HEAD`, clean worktree, Spec body hash, and mutable delivery guard; if any checkpoint binding changed, require fresh `$verify-spec`.
 
@@ -729,6 +814,6 @@ Material assumptions
 Disposition
 ```
 
-`checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, and no incomplete clean dispositions before PASS.
+`checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, no incomplete clean dispositions, and no unresolved Domain Finality Reconciliation before PASS/remediation handoff.
 
 These records are **working reasoning state**, not mandatory serialized output. Primaries/challengers should return compact grouped coverage and full findings rather than dumping one verbose proof object per clean cell. Fresh reviewer independence remains mandatory unless explicitly owner-overridden for the current invocation.

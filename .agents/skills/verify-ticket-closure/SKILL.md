@@ -15,6 +15,58 @@ This skill is the **single semantic closure authority** for both ordinary Implem
 
 Remediation extends the acceptance universe. It does not create a second verifier or a second verdict.
 
+## Certified Semantic Domain Finality
+
+This section is authoritative and strengthens every later domain-construction/closure rule in this file.
+
+When PASS depends on closing a material finite/discoverable semantic domain, the fresh verifier is not only proving the candidate. It is also certifying the **membership interpretation** used to define that domain.
+
+For every such domain, preserve one compact **Certified Closure Domain** record in the verifier PASS returned to `$implement-ticket`:
+
+```text
+Certified Closure Domain: <stable ND/domain ID>
+Parent claim/root: <AC-n / RB-n when applicable>
+Authority identity: <exact durable source identities/hashes when available>
+Membership predicate: <what makes a candidate a member>
+Dimensions / authoritative source sets: <explicit sets or bounded sources>
+Closure criterion: <expected count | independently checkable open-world criterion>
+Expected/generated/inspected/dispositioned: <counts when finite>
+Material out-of-domain boundary observations: <concise list/families when needed>
+Finality: frozen-under-unchanged-authority
+```
+
+A domain record is required when domain construction materially contributes to semantic PASS. Do not hide the final membership interpretation only inside narrative evidence.
+
+Before PASS require:
+
+```text
+Material closure domains required: <n>
+Certified closure-domain records: <n>
+Missing domain records: 0
+Unresolved domain identities: 0
+```
+
+The verifier must derive each record from the same durable authority/membership predicate already required below. The record does not broaden that authority.
+
+### Meaning of finality
+
+A later actor may challenge whether an **in-domain** member was incorrectly proven or later regressed. PASS never makes implementation behavior unquestionable.
+
+But while the recorded authority identity is unchanged, a later actor may not silently replace the frozen membership predicate/source sets with a broader plausible interpretation and call that enlargement ordinary remediation.
+
+A later candidate outside the frozen predicate is a domain-expansion observation unless:
+
+* governing authority materially changed after certification; or
+* unchanged durable authority contains an exact explicit contradiction to the certified predicate/source set that establishes a certification-integrity defect.
+
+Lexical similarity, sibling APIs, implementation adjacency, subsystem proximity, or a broader plausible reading do not themselves invalidate the certified domain.
+
+### Durability
+
+`$implement-ticket` persists the complete verifier result in the durable closure checkpoint. The Certified Closure Domain records are therefore part of ticket/root semantic completion state and must remain recoverable after conversational/session loss.
+
+A historical verifier result without these explicit records is not retroactively strengthened by this rule; later consumers may treat it as an equivalent frozen domain only when its durable record already contains enough authority, membership, construction, and boundary state to reconstruct the same interpretation without guesswork.
+
 ## Invocation Semantics
 
 `$verify-ticket-closure` has two execution modes. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
@@ -279,7 +331,7 @@ Do not classify a candidate `in-domain` solely because it shares a symbol, subsy
 
 Finding one falsifier establishes that PASS is impossible for the current candidate, but it does not complete verification. Continue the same bounded generation and disposition procedure for every remaining acceptance cell, nested-domain member, sibling, alternate, and adversarial candidate already authorized by the domain manifests. Do not narrow the remaining sweep to the first defect or its implementation mechanism.
 
-For remediation this is the Root Invariant Sweep and also re-proves applicable carried same-root cells/protected roots against current authority. Historical PASS/satisfied/unchanged state is evidence history, not current proof.
+For remediation this is the Root Invariant Sweep and also re-proves applicable carried same-root cells/protected roots against current authority. Historical PASS/satisfied/unchanged state is evidence history, not current proof of member disposition; **the certified membership boundary itself remains authoritative under the finality rules above until its governing authority changes or an explicit closure-authority defect is reconciled.**
 
 Do not broaden into unrelated review.
 
@@ -314,13 +366,17 @@ Undispositioned domain candidates: 0
 Independent actionable findings: <n>
 Unexplored authoritative siblings: 0
 Unproven material assumptions: 0
+Material closure domains required: <n>
+Certified closure-domain records: <n>
+Missing domain records: 0
+Unresolved domain identities: 0
 ```
 
 For a finite domain, generated/inspected/dispositioned counts must reconcile to the authoritative expected member count. For a discoverable/open-world domain, the declared exhaustive mechanism must satisfy its closure criterion before either PASS or FAIL is legal.
 
 Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same acceptance cell. Derivative acceptance failures may reference the same root defect rather than duplicating it, but they do not replace independently actionable findings.
 
-Any violated/unproven/unchecked cell, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, or unproven material assumption blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete verification result rather than a partial failure set.
+Any violated/unproven/unchecked cell, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, unproven material assumption, missing required Certified Closure Domain record, or unresolved domain identity blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete verification result rather than a partial failure set.
 
 ## 7. Verdict
 
@@ -339,11 +395,16 @@ Acceptance: <n>; proven <n>; violated 0; unproven 0; unchecked 0
 Nested domains: <n>; closed <n>; open 0
 Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
+Certified closure domains: <n>; frozen <n>; unresolved 0
 Production-path obligations: <summary>
 Negative/fail-closed obligations: <summary>
 Remediation root: <None | RB-n — invariant>
 Protected roots: <None | concise dispositions>
 Evidence: <compact per-cell/current evidence summary>
+
+<!-- certified-closure-domain:v1 -->
+Certified Closure Domains:
+- <complete records required by Certified Semantic Domain Finality>
 ```
 
 ### FAIL
@@ -370,8 +431,10 @@ Do not repair. Return the complete saturated verdict to `$implement-ticket`.
 
 ## 8. Candidate Binding
 
-PASS authorizes only the exact candidate state, baseline, ticket contract, lineage, and remediation/root state certified.
+PASS authorizes only the exact candidate state, baseline, ticket contract, lineage, remediation/root state, and Certified Closure Domain membership interpretations certified.
 
-Any substantive repository/tracker mutation after PASS makes certification stale unless an independently certified invalidation boundary plus deterministic fail-closed delta analysis proves the exact proof remains valid. `$implement-ticket` does not make that semantic judgment itself.
+Any substantive repository/tracker mutation after PASS makes member dispositions stale unless an independently certified invalidation boundary plus deterministic fail-closed delta analysis proves the exact proof remains valid. `$implement-ticket` does not make that semantic judgment itself.
 
-When uncertain, recertify.
+A repository mutation alone does not silently change frozen domain membership. Membership becomes stale only when its recorded governing authority changes or an explicit closure-authority defect is reconciled.
+
+When uncertain about candidate proof, recertify. When uncertain about frozen domain membership, do not silently broaden it.

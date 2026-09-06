@@ -10,6 +10,7 @@ Before modifying or evaluating workflow `SKILL.md` files, read **all** documents
 1. `docs/process/common-sense-invariant-hardening-base.md` — original audit, failure modes, cross-skill principles, audit results, and prior implementation notes.
 2. `docs/process/common-sense-invariant-hardening-spec-68-addendum.md` — Spec #68 postmortem evidence and the independent semantic-certification hardening derived from it.
 3. `docs/process/common-sense-invariant-hardening-attribution-and-reuse-addendum.md` — generic hardening for change provenance vs semantic ownership, authorized verification scope, conditional/deferred obligation routing, and review-proof invalidation/reuse.
+4. `docs/process/common-sense-invariant-hardening-semantic-domain-finality-addendum.md` — generic hardening that makes independently certified semantic closure domains durable under unchanged authority and prevents later review from silently moving the completion boundary.
 
 Together they are the current hardening record. No document may be used to narrow another.
 
@@ -37,6 +38,8 @@ Current generic hardening principles include:
 * change provenance must not be substituted for semantic lifecycle ownership;
 * verification scope must be explicitly authorized from the active change/impact universe;
 * conditional obligations must preserve both trigger state and durable destination;
-* clean review proof may be reused only through certifier-approved invalidation boundaries and fail-closed delta analysis.
+* clean review proof may be reused only through certifier-approved invalidation boundaries and fail-closed delta analysis;
+* independently certified semantic closure domains remain the membership authority while their governing contract/architecture authority is unchanged;
+* later review may reopen a closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicitly demonstrated closure-authority contradiction—not by silently adopting a broader plausible interpretation.
 
 Do not add defect-specific workflow rules until the failure has first been tested against these generic principles and enforced at the earliest authoritative transition owner.

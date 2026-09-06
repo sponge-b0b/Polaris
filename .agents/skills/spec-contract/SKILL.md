@@ -1,6 +1,6 @@
 ---
 name: spec-contract
-description: Build or validate the deterministic Spec obligation manifest and distinguish Spec-owned changes from inherited integration history for Spec verification and review.
+description: Build or validate the deterministic Spec obligation manifest and classify repository change provenance without inferring semantic lifecycle ownership from Git history.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -12,9 +12,50 @@ disable-model-invocation: true
 It owns two shared facts that must not be independently reinvented by those callers:
 
 1. the complete **Spec Contract Manifest** of normative obligations;
-2. the **Spec Change Ownership** classification separating fixed-baseline integration history from work owned by the current Spec.
+2. the complete **Spec Change Provenance** universe separating branch-local, mixed-provenance, inherited-only, and unchanged/named repository surfaces.
 
-It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, or decide remediation. A caller-supplied temporary contract-handoff file is permitted working state, not a repository artifact.
+It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, decide remediation, or decide semantic lifecycle ownership from Git position. A caller-supplied temporary contract-handoff file is permitted working state, not a repository artifact.
+
+## Change Provenance Is Not Semantic Ownership
+
+This section is authoritative and supersedes every preserved section below that equates branch-local Git history with `Spec-owned` or `Mixed` semantic ownership.
+
+The deterministic provenance helper and this skill may establish only where a repository change sits relative to the fixed Spec baseline, current `HEAD`, and immutable default-branch head. They must not infer that a change is owned by the current Spec merely because it is reachable only from the Spec branch.
+
+Canonical repository provenance states are:
+
+* **branch-local** — changed on the current branch relative to the immutable default-branch head and not also changed by inherited default-branch integration;
+* **mixed-provenance** — the same surface changed in both inherited default-branch history and current branch-local history;
+* **inherited-only** — present in fixed-baseline → `HEAD` integration history but absent from the current branch-local delta;
+* **unchanged/named** — unchanged by the branch but explicitly named by a Spec obligation or governing authority and therefore potentially relevant to proof.
+
+The complete branch/integration surface universe must be materialized before callers reason about scope. Every provenance candidate must appear in exactly one mechanical provenance state; missing/ambiguous provenance fails closed.
+
+Use `.agents/skills/spec-contract/scripts/classify_ownership.py` only as a **change-provenance** helper. Its canonical output fields are:
+
+```text
+branch_local_commits
+integration_surfaces
+branch_local_surfaces
+mixed_provenance_surfaces
+inherited_only_surfaces
+```
+
+The helper intentionally emits no `spec_owned_*` field.
+
+Semantic attribution is a separate transition-bound judgment owned by the lifecycle transition that needs it. A caller may classify a surface as in-scope for the current Spec only from durable contract/architecture/tracker authority, not from its path, commit author, branch locality, directory class, or timing alone. A path is never globally in-scope or out-of-scope by category.
+
+For later preserved wording in this file:
+
+* read `Spec Change Ownership` as `Spec Change Provenance`;
+* read Git-derived `Spec-owned` as `branch-local`;
+* read Git-derived `Mixed` as `mixed-provenance`;
+* read `Spec-owned commits` as `branch-local commits`;
+* `SPEC OWNERSHIP: AMBIGUOUS` becomes `SPEC CHANGE PROVENANCE: AMBIGUOUS` when the unresolved fact is mechanical provenance.
+
+These substitutions do **not** grant semantic Spec ownership. `$verify-spec` and `$review-spec` must perform their own explicit scope attribution before a repository-standard failure, repair, or Standards finding can be assigned to the Spec.
+
+Tracker attribution remains mechanically tied to formal lifecycle identity: the Spec itself, direct artifacts created by its lifecycle, and their native hierarchy/receipt state may be treated as current-Spec tracker state. Unrelated global Project/repository policy state is never acquired merely because it changed while the Spec branch was active.
 
 ## Session Independence
 

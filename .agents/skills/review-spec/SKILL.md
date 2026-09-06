@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Review the **exact verified state** of a completed Spec along the applicable independent axes. This `SKILL.md` is the single authoritative procedure for `$review-spec`.
 
-The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
+The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance, semantic scope attribution, certified review-proof reuse, and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
 
 ## Human-Facing Aggregate Format
 
@@ -132,6 +132,153 @@ Spec obligation
 ```
 
 without relying on conversational memory.
+
+## Semantic Attribution and Certified Review Reuse
+
+This section is authoritative and supersedes preserved wording below that treats Git-derived branch-local/mixed provenance as semantic Spec ownership or requires every remediation re-review to rediscover every clean cell from zero.
+
+### Change provenance is not Standards authority
+
+`$spec-contract` / `classify_ownership.py` supplies mechanical **change provenance** only. Read later preserved `Refresh Ownership Only` wording as `Refresh Change Provenance Only`.
+
+Before reviewer dispatch, the parent constructs a complete **provisional Standards candidate universe** without making a semantic ownership judgment. Include:
+
+* every branch-local or mixed-provenance repository surface/group crossed with every deterministic Standards category that could mechanically apply to that artifact class;
+* every formal current-Spec tracker transition whose native lifecycle identity makes repository workflow policy applicable.
+
+Assign stable working IDs such as `STD-CAND-1`, `STD-CAND-2`, and require:
+
+```text
+Provenance candidates: <n>
+Provisional Standards candidates: <n>
+Candidates omitted before attribution: 0
+```
+
+The parent may group mechanically identical surfaces/categories to control cost, but it may not omit a candidate because it assumes the change is project-level, incidental, inherited in spirit, or unrelated to the Spec. That semantic question belongs to the Standards reviewer.
+
+Give the Standards reviewer the complete provisional candidate universe. For every candidate it must return one **Standards Attribution Manifest** row:
+
+```text
+Candidate: <STD-CAND-*>
+Surface/group and Standards category
+Mechanical provenance
+Relevant Spec/architecture/tracker authority
+Scope disposition: in-scope | out-of-scope | ambiguous
+Evidence/reason
+Standards disposition when in-scope: checked-no-finding | blocking | advisory
+```
+
+Rules:
+
+* `in-scope` means an exact current Spec obligation, Spec-authorized contract transition, governing architecture requirement, or formal current-Spec tracker transition materially owns the candidate for Standards review;
+* `out-of-scope` means the candidate is real branch/integration work but no current Spec authority owns that repository-standard behavior; it remains project/integration context and cannot become a current-Spec Standards blocker merely because it is on the branch;
+* `ambiguous` makes Standards review incomplete and prevents Pending/Exit persistence;
+* path, directory, file class, commit author, branch locality, or timing alone cannot establish either `in-scope` or `out-of-scope`;
+* no repository surface is categorically exempt: a Spec may legitimately own project configuration, workflow files, tests, or source code when its exact contract materially requires changing them;
+* Standards Blocking requires both `in-scope` attribution and an actual deterministic Standards violation;
+* Spec and Architecture axes remain independent: an out-of-Standards-scope surface may still violate an exact Spec/Architecture obligation when those authorities govern its behavior.
+
+Every provisional candidate remains an explicit current Standards-universe member. `out-of-scope` is counted as an explicit N/A disposition; it does not disappear. Before accepting Standards coverage require:
+
+```text
+Provisional Standards candidates: <n>
+Attribution rows: <n>
+In-scope: <n>
+Out-of-scope: <n>
+Ambiguous: 0
+Missing attribution rows: 0
+In-scope candidates without Standards disposition: 0
+```
+
+### Conditional Spec cells preserve their trigger
+
+When a persisted Spec manifest cell is materially conditional, the Spec reviewer must preserve the exact source trigger and consume durable decomposition routing evidence when the trigger is inactive.
+
+```text
+Condition/trigger: <source condition>
+Current trigger state: active | inactive | ambiguous
+Deferred routing evidence: <Ticket Coverage Manifest / durable destination | None>
+```
+
+* `active` → review the consequent normally;
+* `inactive` → do not invent present automation, policy, infrastructure, or other pre-provisioning absent exact Spec authority;
+* an inactive cell may be `not-applicable` for the current candidate only when its originating condition is exact and a durable future destination/owner is preserved, normally by a `deferred-conditional` Ticket Coverage Manifest row or equivalent durable authority that already names the future lifecycle/verification destination;
+* inactive with no durable destination, or ambiguous trigger state, is unresolved review state and requires a targeted provenance/routing challenge rather than a manufactured implementation blocker;
+* when the trigger later becomes active, prior inactive proof is stale.
+
+### Review Proof Reuse Ledger
+
+A complete review may certify clean proof for later remediation reuse. Reuse never comes from the parent’s memory or from the mere fact that a cell was previously reported clean.
+
+Every primary/challenger that returns `checked-no-finding` or `not-applicable` must additionally certify a compact invalidation boundary for each group of clean cells sharing the same evidence/boundary:
+
+```text
+Proof group: RPR-<axis>-<n>
+Axis: Standards | Spec | Architecture
+Cells: <stable cell IDs>
+Disposition: checked-no-finding | not-applicable
+Evidence identity: <concise durable/current evidence reference>
+Evidence stability: repository-immutable | mutable
+Invalidation boundary:
+- repository surfaces/predicates whose change invalidates this proof
+- contract/authority inputs whose change invalidates this proof
+- tracker/lifecycle inputs when material
+Reviewed HEAD: <sha>
+Spec Body Hash: <hash>
+Spec Contract Hash: <hash>
+```
+
+For Standards, the proof-group identity may use the stable `STD-CAND-*` IDs from the current provisional universe plus its semantic attribution. The reviewer, not the parent, owns semantic sufficiency of the clean proof and boundary. The parent may only validate identity/completeness fields and persist the reviewer-certified result.
+
+When Blocking findings create or update a conventional Spec Review, persist one compact comment after the Pending packet succeeds:
+
+```text
+<!-- review-spec-proof-reuse:v1 -->
+## Review Proof Reuse Ledger
+...
+```
+
+POST once, GET that exact comment, and require byte-for-byte equality. This ledger is separate from the Pending renderer because it is reusable proof state, not a finding packet. Do not change `review_spec_artifacts.py` merely to carry it.
+
+The ledger must cover every clean/N/A current review cell exactly once. Blocking/Advisory cells are not reusable clean proof groups. Before persistence require:
+
+```text
+Clean/N/A cells: <n>
+Proof-reuse cells: <n>
+Missing clean/N/A cells: 0
+Duplicate proof-reuse cells: 0
+Proof groups without invalidation boundary: 0
+```
+
+### Remediation re-review
+
+If a canonical Spec Review already contains a valid latest `review-spec-proof-reuse:v1` ledger whose Spec body/contract identity matches the current checkpoint, do not automatically dispatch a fresh reviewer over every prior clean cell.
+
+First derive the complete deterministic delta from the ledger’s `Reviewed HEAD` to the current verified `HEAD`, plus any changed mutable Spec/architecture/tracker authority. For every prior proof group record:
+
+```text
+Prior proof group: <ID>
+Changed surface/authority set: <complete delta relevant to boundary analysis>
+Boundary intersection: zero | non-zero | ambiguous
+Reuse state: reused | stale
+Evidence: <deterministic intersection/stability witness>
+```
+
+Rules:
+
+* `zero` intersection + compatible contract identity + stable evidence → `reused`;
+* `non-zero` or `ambiguous` intersection, changed material authority/evidence, or missing boundary state → `stale`;
+* active remediation/root cells and any cell whose proof evidence was intentionally changed are stale;
+* a missing/malformed ledger or changed Spec contract requires full review for the affected universe rather than guessed reuse;
+* reused cells remain explicit members of the current review universe and count as currently dispositioned; omission is not reuse;
+* dispatch fresh axis reviewers only for stale/uncovered cells plus any new provisional Standards/Architecture candidates created by current provenance or authority;
+* current coverage = reused cells + freshly reviewed cells; require missing 0 and unchecked 0 across every axis;
+* a mutation never forces unrelated clean cells to be semantically rediscovered when their independently certified boundary is provably untouched;
+* uncertainty is fail-closed: stale, not reused.
+
+A proposed new finding against a `reused` proof group whose boundary is deterministically untouched is a **review-process integrity contradiction**, not automatically a new remediation root. Do not silently invalidate reusable proof by choosing a different interpretation on unchanged evidence. Instead, halt persistence for that affected group and treat the contradiction as evidence that the prior clean certification or invalidation boundary was unsound; hardening/remediation of that review authority is separate from inventing Spec work. If new durable authority actually changes the claim, that authority change makes the group stale and ordinary current review applies.
+
+On a first review, or when no valid reusable ledger exists, execute the normal complete primaries below and establish reusable clean proof if remediation remains.
 
 ## Procedure
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically classify Spec-owned versus inherited repository changes."""
+"""Deterministically classify repository change provenance for Spec workflows."""
 
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ def _run(*args: str, check: bool = True) -> str:
         args,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     if check and result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or "command failed"
@@ -74,7 +73,7 @@ def _default_head(repo: str) -> tuple[str, str]:
         fetched = _run("git", "rev-parse", "FETCH_HEAD")
         if fetched != default_head:
             raise OwnershipError(
-                "default branch advanced while ownership head was being pinned"
+                "default branch advanced while change provenance was being pinned"
             )
 
     _require_commit(default_head, "default HEAD")
@@ -106,12 +105,12 @@ def classify(baseline: str, branch: str, head: str) -> dict[str, object]:
 
     default_branch, default_head = _default_head(repo)
     integration = _changed_files(baseline, head)
-    owned_delta = _changed_files(default_head, head)
+    branch_delta = _changed_files(default_head, head)
     inherited_delta = _changed_files(baseline, default_head)
 
-    mixed = owned_delta & inherited_delta
-    spec_owned = owned_delta - mixed
-    inherited_only = integration - owned_delta
+    mixed_provenance = branch_delta & inherited_delta
+    branch_local = branch_delta - mixed_provenance
+    inherited_only = integration - branch_delta
     commits = [
         line
         for line in _run(
@@ -121,15 +120,17 @@ def classify(baseline: str, branch: str, head: str) -> dict[str, object]:
     ]
 
     return {
+        "change_provenance_version": 1,
         "repository": repo,
         "baseline": baseline,
         "branch": branch,
         "head": head,
         "default_branch": default_branch,
         "default_head": default_head,
-        "spec_owned_commits": commits,
-        "spec_owned_surfaces": sorted(spec_owned),
-        "mixed_surfaces": sorted(mixed),
+        "branch_local_commits": commits,
+        "integration_surfaces": sorted(integration),
+        "branch_local_surfaces": sorted(branch_local),
+        "mixed_provenance_surfaces": sorted(mixed_provenance),
         "inherited_only_surfaces": sorted(inherited_only),
     }
 
@@ -147,7 +148,7 @@ def main() -> int:
     try:
         result = classify(args.baseline, args.branch, args.head)
     except OwnershipError as exc:
-        print(f"SPEC OWNERSHIP: AMBIGUOUS\nReason: {exc}", file=sys.stderr)
+        print(f"SPEC CHANGE PROVENANCE: AMBIGUOUS\nReason: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

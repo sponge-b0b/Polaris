@@ -438,6 +438,24 @@ At every synchronization:
 
 If there is no meaningful ephemeral continuation state, record that explicitly and keep the ledger minimal.
 
+### Deferred Future Work Capture
+
+Whenever Polaris work consciously defers something valuable for later, do not leave that future work only in conversation or in the ChatGPT Session Ledger.
+
+Before moving past a thread that reaches a conclusion such as **“good idea, deliberately not now”**, ask:
+
+> **Is this already durably represented somewhere?**
+
+Check current durable lifecycle and Project state first. An existing Wayfinder, Spec, Ticket, issue, pull request, or Idea & Intake item counts only when it actually represents the deferred work. Do not create a duplicate intake item for work that is already represented.
+
+If no durable representation exists and the deferred work is genuinely worth remembering, create an **Idea & Intake** item before moving on.
+
+The intake item should preserve enough context to recover what should eventually be revisited, why it is valuable, why it is deliberately deferred now, and any known prerequisite or trigger for reconsidering it.
+
+Idea & Intake is the durable future-work inbox, not authorization to implement the item and not a reason to manufacture a Spec prematurely. Do not capture speculative noise merely because it was mentioned.
+
+During session reconstitution, if restored session-only evidence reveals valuable work that was consciously deferred but never durably represented, apply this same rule before discarding that evidence from the ledger.
+
 ## Collaboration Boundary
 
 Perform work directly through available repository, GitHub, and other connected tooling whenever possible.

@@ -16,6 +16,46 @@ It is not `$review-spec`:
 * `$verify-spec-closure` asks whether the integrated candidate satisfies the authoritative Spec contract;
 * `$review-spec` remains the later independent Standards / Spec / Architecture adversarial review and convergence layer.
 
+## Conditional Claim Discipline
+
+This section is authoritative for any manifest cell whose requirement contains a material condition, trigger, phase, future event, or other predicate controlling when its consequent applies.
+
+Preserve the source condition exactly. Do not silently transform:
+
+```text
+when X occurs, Y must happen
+```
+
+into:
+
+```text
+build a mechanism now that guarantees Y for every future X
+```
+
+unless the originating Spec itself requires that present mechanism/pre-provisioning.
+
+For every materially conditional cell, record concise proof state:
+
+```text
+Condition/trigger: <exact authoritative trigger>
+Current trigger state: active | inactive | ambiguous
+Trigger evidence: <current evidence>
+Deferred routing evidence: <durable destination/owner | None>
+```
+
+Apply these rules:
+
+* `active` → certify the consequent normally; current behavior must satisfy the cell;
+* `inactive` → current implementation of the consequent is not required unless the source explicitly requires pre-provisioning;
+* an inactive cell may be `not-applicable` for the current candidate only when the originating source establishes the condition and durable decomposition/lifecycle evidence preserves a future destination/owner for the obligation;
+* the preferred routing evidence is the parent Spec's current `Ticket Coverage Manifest` row with a `deferred-conditional` disposition; equivalent durable authority is acceptable only when it clearly names the future lifecycle/verification destination;
+* `inactive` without durable future routing is `unproven`, not silently complete, because the obligation would otherwise escape by omission;
+* `ambiguous` trigger state is `unproven`;
+* when the trigger later becomes active, any prior inactive/not-applicable proof is stale by definition and may not be reused;
+* the verifier must not invent CI, automation, project policy, a new workflow owner, or another durable mechanism merely to make an inactive conditional cell provable.
+
+This extends `not-applicable`; it does not weaken Out-of-Scope handling. A conditional inactive disposition still requires exact originating-Spec authority plus durable routing evidence.
+
 ## Invocation Integrity
 
 Execute only in one genuinely fresh non-mutating verifier subagent dispatched by the `$verify-spec` parent at a stable exact HEAD.

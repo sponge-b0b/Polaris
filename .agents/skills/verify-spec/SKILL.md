@@ -9,19 +9,104 @@ disable-model-invocation: true
 
 Verify a completed Spec as one integrated acceptance universe and record a passing receipt only after a fresh independent `$verify-spec-closure` certifier proves the exact stable HEAD.
 
-This `SKILL.md` is the single authoritative procedure for `$verify-spec`. The preserved integration/gate/repair/finalization procedure later in this file remains normative except where the semantic-certification hardening immediately below explicitly supersedes parent-authored semantic PASS.
+This `SKILL.md` is the single authoritative procedure for `$verify-spec`. The preserved integration/gate/repair/finalization procedure later in this file remains normative except where the hardening sections immediately below explicitly supersede older wording.
+
+## Authorized Verification Scope and Repair Attribution
+
+This section is authoritative and supersedes preserved wording that treats Git-derived `Spec-owned/Mixed` labels as semantic ownership, uses repository-wide Ruff/Mypy scope by default, or allows a gate failure to authorize repair merely because the affected file changed on the Spec branch.
+
+`$spec-contract` now supplies **change provenance**, not semantic lifecycle ownership. Preserve the complete `branch-local`, `mixed-provenance`, `inherited-only`, and `unchanged/named` candidate universe it returns.
+
+Before executing any scope-sensitive gate, build one working **Verification Scope Manifest** from that provenance plus exact Spec obligations and directly affected consumer/contract surfaces:
+
+```text
+Gate: <gate identity>
+Candidate: <repository/tracker/consumer surface>
+Provenance: <branch-local | mixed-provenance | inherited-only | unchanged/named>
+Scope disposition: <target | excluded | unresolved>
+Authority/reason: <exact contract/impact reason>
+```
+
+Rules:
+
+* every candidate relevant to a gate receives exactly one disposition; omission is not exclusion;
+* `target` means the gate must include the candidate;
+* `excluded` requires durable authority or independently checkable evidence that the candidate cannot affect the active Spec verification claim; path/category/branch locality alone is insufficient;
+* `unresolved` blocks PASS;
+* contract-impact discovery may add unchanged consumers when they can observe a Spec-relevant transition;
+* do not invent repository-wide scope merely because a tool accepts `.`;
+* repository-wide scope is legal only when an exact active Spec obligation/contract transition is itself repository-wide or another authoritative gate contract explicitly requires whole-repository execution;
+* when repository-wide scope is not authorized, later preserved examples using `ruff ... .` or `mypy .` are superseded.
+
+For Python quality gates, the ordinary target universe is the union of:
+
+1. branch-local and mixed-provenance Python candidates that the Verification Scope Manifest classifies `target` from exact Spec/impact authority;
+2. unchanged Python consumers classified `target` by direct contract-impact closure;
+3. directly affected tests classified `target` because they are required to type/format/lint the active transition coherently.
+
+Branch-local Python work classified `excluded` is not part of the current Spec quality gate merely because it shares the branch.
+
+Use:
+
+```bash
+uv run ruff format --check <authorized_python_targets>
+uv run ruff check <authorized_python_targets>
+uv run mypy --explicit-package-bases <authorized_python_targets_and_affected_tests>
+```
+
+Do not replace those targets with `.` unless the Verification Scope Manifest explicitly proves repository-wide scope is required.
+
+A broad exploratory command may still be useful, but it is not automatically a required Spec gate. If an executed required check observes a failure, retain that failure exactly as required by **Observed Failure Disposition** below.
+
+### Failure causality and repair authority
+
+Failure disposition is semantic relevance, not Git provenance. For preserved failure rows, use:
+
+```text
+Disposition: spec-relevant | non-spec | unresolved
+```
+
+* `spec-relevant` means the active Spec obligation, Spec-authorized contract transition, or directly affected consumer owns the failed behavior; repair is required;
+* `non-spec` means the failure is real but no current Spec obligation/authorized transition owns it; it is report-only for this Spec;
+* `unresolved` blocks PASS.
+
+A `non-spec` disposition requires independently checkable causal evidence. Valid witnesses include baseline reproduction, deterministic delta/impact proof, exact absence from the active Spec/consumer contract combined with a stable external/project owner, or fresh non-mutating semantic certification when causality remains judgmental.
+
+Branch-local provenance is **never** sufficient evidence for `spec-relevant`; inherited provenance is **never** sufficient evidence for `non-spec`.
+
+Only `spec-relevant` failures authorize `$verify-spec` repository repair. Do not edit a file merely to make a broad command green when the failure is outside the active Spec's semantic/impact universe.
+
+After a `non-spec` failure is causally dispositioned, rerun the authorized target scope when needed to obtain the actual Spec gate result. The original observed failure remains recorded; the narrower authorized rerun does not erase it.
+
+### Conditional/deferred evidence handoff
+
+When the current Spec contract contains a materially conditional obligation, recover its current decomposition disposition from the parent `Ticket Coverage Manifest` when available and pass that evidence to `$verify-spec-closure`.
+
+Do not strengthen an inactive condition into present implementation/automation merely to prove the cell. Do not silently treat it as absent either. The semantic certifier owns whether the trigger is active and whether a valid inactive/deferred disposition is entailed by the source and durable routing evidence.
+
+Before finalization require:
+
+```text
+Verification-scope candidates: <n>
+Verification-scope rows: <n>
+Unclassified scope candidates: 0
+Unresolved scope candidates: 0
+Repository-wide gates without explicit authority: 0
+Observed failures without causal disposition: 0
+Repairs without spec-relevant authority: 0
+```
 
 ## Separation of Authority
 
 The `$verify-spec` parent owns:
 
 * deterministic Spec Contract construction;
-* ownership classification;
+* change-provenance recovery and verification-scope attribution;
 * delivery/actionability guards;
 * deterministic and delegated gate execution;
 * acceptance-test execution and service preflight;
 * observed-failure disposition;
-* Spec-owned repair;
+* Spec-relevant repair;
 * stabilizing the exact candidate HEAD;
 * deterministic receipt assembly/persistence after certification.
 
@@ -41,13 +126,13 @@ A genuinely fresh non-mutating `$verify-spec-closure` subagent owns:
 
 ## Semantic Candidate Gate
 
-Follow the procedure below through deterministic/delegated gates, acceptance tests, observed-failure disposition, and all actionable Spec-owned repairs.
+Follow the procedure below through deterministic/delegated gates, acceptance tests, observed-failure disposition, and all actionable Spec-relevant repairs.
 
 At the point where older wording below would establish semantic proof itself:
 
 1. finish all parent-owned gates and failure disposition;
 2. require a clean worktree;
-3. pin exact `BASELINE_COMMIT`, branch, current `HEAD`, Spec body hash, Spec contract hash, current ownership, architecture impact, and native gate/test evidence;
+3. pin exact `BASELINE_COMMIT`, branch, current `HEAD`, Spec body hash, Spec contract hash, current change provenance/scope state, architecture impact, and native gate/test evidence;
 4. rebuild/refresh the `$spec-contract` handoff if prior repair changed HEAD;
 5. treat that exact state as the immutable semantic-certification candidate.
 
@@ -67,7 +152,7 @@ It may only:
    * Spec issue/body identity;
    * exact baseline/branch/HEAD;
    * deterministic `$spec-contract` handoff/manifest and hashes;
-   * ownership classifications;
+   * change-provenance and Verification Scope Manifest state;
    * applicable current architecture authority/context;
    * native deterministic/delegated gate results;
    * acceptance-test/preflight evidence;
@@ -143,8 +228,8 @@ After a complete verifier FAIL returns:
 
 1. exit dispatcher-only mode;
 2. retain every returned independently actionable finding as current verification state;
-3. classify whether each finding is Spec-owned repair, unresolved architecture, external/environmental blocker, or a deterministic contract defect requiring the owning workflow;
-4. repair every actionable Spec-owned finding through the normal procedure and required owner skills;
+3. classify whether each finding is Spec-relevant repair, unresolved architecture, external/environmental blocker, or a deterministic contract defect requiring the owning workflow;
+4. repair every actionable Spec-relevant finding through the normal procedure and required owner skills;
 5. rerun only invalidated gates/tests/failure dispositions;
 6. refresh exact-HEAD `$spec-contract` bindings;
 7. obtain another fresh semantic certification for the new stable candidate.

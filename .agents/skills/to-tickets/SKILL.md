@@ -11,9 +11,61 @@ Create tracer-bullet tickets using the publication workflow below, with hard bou
 
 This `SKILL.md` is the single authoritative procedure for `$to-tickets`. The preserved procedure later in this file remains normative for session recovery, project-delivery guards, codebase exploration, mode routing, `$to-remediation-tickets`, vertical slicing, user approval, Spec Branch Rule, tracker publication, native hierarchy/dependencies, ticket baseline/branch semantics, Project reconciliation, and handoff.
 
-The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, and exact Spec provenance on ordinary tickets. On conflict with older wording later in this file, these hardening sections win.
+The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, exact Spec provenance on ordinary tickets, and conditional/deferred obligation routing. On conflict with older wording later in this file, these hardening sections win.
 
 The remediation path remains owned by `$to-remediation-tickets`; do not replace its Root Blocker delta contract with the fresh-Spec mapping below.
+
+## Conditional / Deferred Obligation Routing
+
+This section is authoritative for every materially conditional fresh-Spec obligation and supersedes preserved disposition schemas below where they omit conditional trigger state.
+
+A conditional requirement must retain both its trigger and its eventual destination. Do not turn an inactive condition into current implementation work merely to make decomposition complete, and do not let it disappear because the trigger has not fired.
+
+For each materially conditional Spec cell, extend the normal disposition row with:
+
+```text
+Condition/trigger: <exact originating-Spec trigger>
+Trigger state at publication: active | inactive | ambiguous
+Deferred destination/owner: <durable future lifecycle/verification owner | None>
+Trigger evidence: <current evidence>
+```
+
+The allowed fresh-Spec dispositions are:
+
+```text
+implementation-ticket | verification-only | no-implementation-work | authoritative-exclusion | deferred-conditional
+```
+
+Rules:
+
+* `deferred-conditional` is legal only when the originating Spec itself makes the obligation conditional and the trigger is currently inactive;
+* preserve the source trigger exactly; do not strengthen `when X, do Y` into `build machinery now that guarantees Y for all future X` unless the Spec expressly requires pre-provisioning;
+* an inactive conditional obligation receives no implementation ticket merely because future work will eventually be required;
+* `deferred-conditional` must name a durable future destination/owner already established by current authority; `$to-tickets` may not invent CI, automation, a workflow owner, project policy, or another mechanism solely to create that destination;
+* if the trigger is active, `deferred-conditional` is invalid and the obligation must use the ordinary implementation/verification/no-work disposition that the active consequent requires;
+* if trigger state is ambiguous, proposal readiness fails closed;
+* if the trigger is inactive but no durable future destination can be established, decomposition remains unresolved; surface a genuine owner decision only when authoritative project sources truly leave that destination undecided;
+* when a later transition observes the trigger becoming active, the deferred disposition is stale and that transition must evaluate the consequent normally;
+* `verification-only` continues to mean later proof of a currently applicable obligation; it is not a substitute for an inactive future condition whose trigger has not fired.
+
+The durable parent `Ticket Coverage Manifest` must preserve `deferred-conditional` rows with the exact trigger and destination, for example:
+
+```text
+<Cell ID> → deferred-conditional — trigger: <condition>; destination: <owner>
+```
+
+That row is routing evidence, not proof that the future consequent has already been implemented or verified.
+
+Proposal readiness additionally requires:
+
+```text
+Conditional obligation rows: <n>
+Ambiguous trigger states: 0
+Inactive conditional rows without durable destination: 0
+Active conditional rows misclassified as deferred: 0
+```
+
+The independent proposal certifier must check these fields from the originating Spec and durable destination authority rather than trusting the drafting parent’s trigger classification.
 
 ## Human Approval Is Not Verification
 

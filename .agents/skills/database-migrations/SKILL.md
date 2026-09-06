@@ -1,6 +1,6 @@
 ---
 name: database-migrations
-description: Manage, generate, apply, and validate PostgreSQL schema migrations using SQLAlchemy and Alembic, including the pre-1.0 branch-baseline policy and targeted database verification.
+description: Manage, generate, apply, and validate PostgreSQL schema migrations using SQLAlchemy and Alembic, including the pre-1.0 branch-baseline policy, targeted database verification, and the architecture invariant gate for changed current migrations.
 compatibility: product=codex product=claude-code system=python system=git network=none
 ---
 
@@ -260,7 +260,21 @@ Before 1.0, reset/rebuild the disposable database whenever mutable migration his
 
 After 1.0, do not destructively downgrade a data-preserving environment merely to satisfy this workflow.
 
-## 7. Post-change Wiki Sync
+## 7. Architecture Invariant Gate
+
+When the current work changes migration Python that is part of the scan universe owned by `tests/architecture_guard.py`, invoke `$verify-architecture` as prescribed internal composition after the migration's authoritative schema/model shape is established.
+
+The architecture child runs its complete suite; do not narrow it to the changed revision. Current migrations are architecture-relevant because the guard enforces current/legacy isolation and other mechanically observable repository boundaries over migration code.
+
+If `$verify-architecture` repairs a migration or any migration-adjacent executable surface, rerun every invalidated migration lifecycle check from this skill, including applicable upgrade/check/inspection, downgrade/re-upgrade proof, and targeted database tests.
+
+If it repairs only the architecture guard/tests, retain that mutation for the owning parent workflow and rerun this migration lifecycle only when the repair changes what the migration is required to satisfy.
+
+If `$verify-architecture` returns unresolved durable architecture, return the complete blocker set to the owning lifecycle. Do not invent a schema/architecture decision or weaken the architecture guard to make the migration pass.
+
+A required architecture gate that is unavailable, incomplete, failing, or unresolved prevents database migration completion.
+
+## 8. Post-change Wiki Sync
 
 After substantive database work, invoke `$wiki-sync` when the Living Entity Wiki exists.
 
@@ -281,6 +295,7 @@ Database migration work is incomplete while any required condition remains unres
 * failed targeted database tests;
 * required DB tests skipped for missing local setup;
 * stale revision state not reset/reconciled according to the release policy;
+* required `$verify-architecture` gate not passing for changed current migration Python;
 * blocking `$wiki-sync` findings.
 
 Before 1.0, **existing disposable data is never a valid reason to leave one of these conditions unresolved**.
@@ -319,6 +334,7 @@ Required schema inspection: <pass | unresolved>
 Downgrade/prior-schema proof: <pass | not-applicable-with-authority | unresolved>
 Final re-upgrade/head/check: <pass | unresolved>
 Required migration/PostgreSQL tests: <pass | not-applicable-with-reason | unresolved>
+Architecture invariant: <pass | not-applicable-with-reason | unresolved>
 External prerequisites: <satisfied | unresolved>
 ```
 

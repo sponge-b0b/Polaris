@@ -1,6 +1,6 @@
 ---
 name: verify-spec
-description: Perform authorized Spec-wide integration verification and repairs, then obtain fresh independent semantic certification before persisting a passing receipt for the exact final HEAD.
+description: Perform authorized Spec-wide integration verification and repairs, including applicable repository-wide invariant gates, then obtain fresh independent semantic certification before persisting a passing receipt for the exact final HEAD.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -92,6 +92,25 @@ When invoked:
 * repository-wide deduplication repair does not broaden Ruff, Mypy, Pytest, acceptance-test, or unrelated cleanup authority.
 
 If `$deduplicate-code` mutates the repository, treat those mutations as verification-owned changes for branch/candidate/commit handling. Any prior exact-HEAD semantic certification becomes stale under the normal Exact-HEAD Invalidation rule.
+
+### Delegated repository-wide architecture invariant exception
+
+`$verify-architecture` is an explicit repository-wide delegated invariant gate when the integrated Spec can affect mechanically enforced Polaris architecture.
+
+Classify it applicable when Spec-owned/Mixed work changes current Python under `src/polaris/`, current tests under `tests/`, current migration Python scanned by `tests/architecture_guard.py`, the architecture guard/tests themselves, or accepted architecture authority whose mechanically enforceable rule is represented by the guard.
+
+When invoked:
+
+* the child skill owns its complete architecture-suite scope and terminal zero-failures/zero-live-violations contract;
+* the child may perform only narrowly bounded repairs for repository architecture violations, architecture-guard defects, or realization of an architecture change already established by current accepted authority, including on files outside ordinary Spec semantic repair ownership;
+* those child-owned repairs are authorized by the delegated architecture gate itself and are **not** prohibited by the ordinary `non-spec = report-only` rule above;
+* child-internal architecture failures that are fully resolved inside `$verify-architecture` do not each become parent `Observed Failure Disposition` rows; the parent consumes the child's terminal result and records repository mutation/evidence normally;
+* if correct repair would require inventing or changing durable architectural semantics, the child returns `ARCHITECTURE INVARIANT: UNRESOLVED`; route that blocker set to `$architecture-remediation` rather than making a pass-only repair;
+* repository-wide architecture repair does not broaden ordinary Ruff, Mypy, acceptance-test, deduplication, or unrelated cleanup authority.
+
+When this gate runs inside `$verify-spec`, preserve the non-mutating verification-environment invariant: running the architecture suite must not cause `uv` to build/install Polaris, synchronize the project, or create `uv.lock` merely for verification. Use the already-provisioned non-mutating execution path required by `$verify-architecture`.
+
+If `$verify-architecture` mutates the repository, treat those mutations as verification-owned changes, rerun every invalidated parent gate/test/evidence, commit/push through the normal verification-owned mutation path, refresh exact-HEAD contract bindings, and obtain fresh semantic certification. Any prior exact-HEAD semantic certification is stale.
 
 ### Conditional/deferred evidence handoff
 
@@ -461,7 +480,11 @@ Run the deterministic verifier self-test when this workflow utility is in scope:
 uv run python "$ARTIFACT_TOOL" self-test
 ```
 
-Invoke the `$wiki-lint` skill when Living Entity Wiki routing applies. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible. Run other deterministic checks only when their artifact classes apply.
+Invoke the `$wiki-lint` skill when Living Entity Wiki routing applies. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible.
+
+Invoke `$verify-architecture` when the integrated Spec can affect mechanically enforced architecture under the applicability rule above. Its complete architecture suite is intentionally repository-wide even when ordinary Python quality targets are narrower. Do not substitute an individual architecture test or direct guard call for the child skill.
+
+Run other deterministic checks only when their artifact classes apply.
 
 Inherited-only unrelated failures are report-only only after **Observed Failure Disposition** below proves that causal classification. Surface ownership alone is not causal evidence.
 
@@ -566,7 +589,7 @@ Inherited exclusions without sufficient witness: 0
 
 When no failure was observed, record `Observed failures: 0`; do not manufacture rows.
 
-Repair only Spec-owned failures, at the narrowest authoritative point. Use the owning skill where required (`$wiki-sync`, `$to-doc`, `$classify-doc`, `$to-adr-doc`, etc.). A fix that requires choosing/changing a durable architecture invariant routes to `$architecture-remediation`; do not invent the decision locally.
+Repair only Spec-owned failures at the narrowest authoritative point **except for repository-wide repairs explicitly owned and completed by an applicable delegated invariant gate such as `$deduplicate-code` or `$verify-architecture`**. Use the owning skill where required (`$wiki-sync`, `$to-doc`, `$classify-doc`, `$to-adr-doc`, etc.). A fix that requires choosing/changing a durable architecture invariant routes to `$architecture-remediation`; do not invent the decision locally.
 
 After a repair:
 
@@ -682,7 +705,7 @@ Report concisely:
 
 - baseline/final `HEAD` and verification mode;
 - Spec contract count/hash;
-- applicable gate results;
+- applicable gate results, including `$verify-architecture` when required;
 - coverage summary;
 - proof-group count and Verification Hash;
 - repairs and unrelated inherited findings;

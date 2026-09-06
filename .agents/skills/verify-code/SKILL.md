@@ -1,6 +1,6 @@
 ---
 name: verify-code
-description: Performs diff hygiene, contract-impact closure, syntax/format/static typing verification, and targeted testing on Python files modified in the workspace or active ticket.
+description: Performs diff hygiene, contract-impact closure, syntax/format/static typing verification, targeted testing, and the complete architecture invariant gate when the active Python change can affect mechanically enforced Polaris architecture.
 compatibility: product=codex product=claude-code system=git system=python network=none
 ---
 
@@ -8,7 +8,7 @@ compatibility: product=codex product=claude-code system=git system=python networ
 
 ## Objective
 
-Verify changes introduced by the current workspace or active ticket without broadening execution into repository-wide verification.
+Verify changes introduced by the current workspace or active ticket without broadening execution into repository-wide verification **except for explicitly repository-wide delegated invariant gates such as `$verify-architecture` when applicable**.
 
 `$coding-standards` owns coding policy. Verify applicable requirements without duplicating that skill.
 
@@ -16,11 +16,12 @@ Repository-wide discovery is required when necessary to prove that an authoritat
 
 ## Guardrails
 
-* Verify only the active change and directly affected tests.
+* Verify only the active change and directly affected tests except where an explicitly delegated invariant skill owns broader scope.
 * Resolve target files before verification.
 * When a shared contract changes, discover its complete affected consumer set before declaring verification scope complete.
 * Do not refactor unrelated code, weaken configuration, or add pass-only suppressions.
 * Shell permissions do not authorize broader verification.
+* `$verify-architecture`, when applicable, is intentionally whole-suite; do not narrow that child gate to changed files merely because Ruff, Mypy, and behavioral tests are targeted.
 * Do not bypass repository command guards.
 * Deterministic whitespace defects owned by the active change are mechanical fixes: fix them, rerun the check, and continue without asking.
 * Do not modify semantic content while fixing whitespace.
@@ -48,6 +49,14 @@ If no ticket baseline applies, use workspace changes only.
 
 Do not broaden scope because no Python targets exist.
 
+### Architecture Invariant Applicability
+
+From the same resolved change set, classify `$verify-architecture` as `applicable` when the candidate changes any Python surface that the current architecture guard can inspect or changes the guard/tests themselves. This includes current Python under `src/polaris/`, current tests under `tests/`, and current migration Python scanned by `tests/architecture_guard.py`.
+
+If the active change is entirely outside those surfaces and does not alter accepted architecture represented by the guard, classify the architecture gate `not-applicable` with the concrete reason.
+
+Applicability determines whether the child runs. Once applicable, `$verify-architecture` owns its complete repository-wide suite; do not reduce it to this skill's target list.
+
 ### Contract-Impact Closure
 
 Inspect the active diff before finalizing the target set.
@@ -67,7 +76,7 @@ Internal source compatibility is not assumed. Apply `$coding-standards` **Author
 
 If explicit authority requires genuine compatibility, verify that it is isolated at the compatibility boundary and that the canonical internal contract remains clean.
 
-Repository-wide consumer discovery does not by itself authorize a full-suite pytest run or unrelated cleanup. Keep Ruff, Mypy, and test execution targeted to the changed contract and affected consumers.
+Repository-wide consumer discovery does not by itself authorize a full-suite pytest run or unrelated cleanup. Keep Ruff, Mypy, and ordinary behavioral test execution targeted to the changed contract and affected consumers. `$verify-architecture` remains the explicit whole-suite exception when applicable.
 
 ## 2. Diff Hygiene
 
@@ -142,7 +151,24 @@ If setup cannot be safely resolved, report the check as unresolved.
 
 Do not broaden testing to compensate.
 
-## 6. Coding Standards
+## 6. Architecture Invariant Gate
+
+When **Architecture Invariant Applicability** is `applicable`, invoke `$verify-architecture` as prescribed internal composition.
+
+The child owns:
+
+* the complete architecture-suite scope;
+* current-authority classification of architecture failures;
+* narrowly bounded repair of repository architecture violations, guard defects, or already-accepted architecture realization;
+* `ARCHITECTURE INVARIANT: PASS | UNRESOLVED`.
+
+Do not substitute one architecture test, a direct `check_repository()` call, or an ad hoc import scan for the child skill.
+
+If `$verify-architecture` repairs executable Python or tests, add those changed paths and directly affected consumers to this skill's verification set and rerun every invalidated Ruff, Mypy, targeted behavioral test, diff-hygiene, and contract-impact check before reporting success. Do not recursively call `$verify-code` from the child.
+
+An unresolved architectural semantic is not an ordinary code-verification failure. Return the child's complete blocker set to the owning lifecycle so it can route through `$architecture-remediation`.
+
+## 7. Coding Standards
 
 Inspect changed code for `$coding-standards` requirements implicated by the diff, such as:
 
@@ -168,12 +194,15 @@ A stale or unexplained consumer found by Contract-Impact Closure is Blocking for
 
 For deterministic whitespace-only failures, fix mechanically without confirmation.
 
+`$verify-architecture` is the explicit exception to ordinary target-local repair attribution. When applicable, consume that child skill's repository-wide repair/result exactly as its contract defines. Its repair authority is limited to mechanically enforced architecture and does not authorize unrelated cleanup.
+
 Do not:
 
 * use Ruff `--add-noqa`;
 * weaken repository configuration;
 * add pass-only suppressions;
-* broaden verification to compensate for failure.
+* broaden ordinary verification to compensate for failure;
+* weaken or deselect architecture tests to make `$verify-architecture` pass.
 
 If a failure cannot be safely resolved within scope, report the affected file/test, failed check, concise error, and required next action.
 
@@ -184,8 +213,10 @@ Distinguish:
 * targeted verification actually run;
 * contract-impact closure status when applicable;
 * whitespace defects mechanically fixed;
+* architecture invariant status when applicable;
+* architecture repairs returned by `$verify-architecture` and the targeted checks rerun because of them;
 * unresolved/skipped targeted checks;
-* broader verification not run.
+* broader verification not run other than explicitly delegated invariant gates.
 
 On success:
 
@@ -198,12 +229,13 @@ Targeted verification passed.
 - Ruff lint: passed
 - Mypy: passed
 - Targeted tests: passed
+- Architecture invariant: passed | not applicable
 - Applicable coding standards: verified
 
-Full repository verification was not run.
+Full repository verification was not run except for explicitly applicable repository-wide invariant gates.
 ```
 
-If any required contract-impact discovery or targeted check remains unresolved, do not report targeted verification as passed.
+If any required contract-impact discovery, targeted check, or applicable architecture invariant remains unresolved, do not report targeted verification as passed.
 
 ## Transition-Bound Contract Consumer Closure
 

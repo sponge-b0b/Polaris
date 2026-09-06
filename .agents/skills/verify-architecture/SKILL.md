@@ -55,13 +55,39 @@ tests/test_architecture_guard_legacy_loaders.py
 
 Before every pytest invocation, perform the mandatory test-service preflight from `AGENTS.md`. Re-derive prerequisites from the current complete suite rather than assuming they remain service-free forever. Do not use pytest startup, timeout, skip, or connection failure as the preflight.
 
-Run the complete suite in one invocation:
+### Non-Mutating Verification Environment
+
+Architecture verification must not build/install Polaris, synchronize or rewrite the project environment, create/update `uv.lock`, or otherwise mutate repository state merely to execute the invariant suite.
+
+Prefer the already-provisioned repository virtualenv when it has pytest:
 
 ```bash
-POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+  .venv/bin/pytest -q \
+  tests/test_architecture_guard.py \
+  tests/test_architecture_guard_identity_aliases.py \
+  tests/test_architecture_guard_legacy_loaders.py
 ```
 
-When the caller has a stricter non-mutating verification-environment rule, preserve it. In particular, `$verify-spec` verification must not cause `uv` to build/install Polaris, synchronize the project, or create `uv.lock` merely to run this gate. Use the caller's already-provisioned non-mutating Python/pytest execution path instead of weakening that invariant.
+If `.venv/bin/pytest` is unavailable, use an isolated non-project, offline uv invocation that may consume only already-cached pytest artifacts:
+
+```bash
+POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+  uv run --no-project --offline --no-python-downloads \
+    --with 'pytest>=9.1.1' \
+    pytest -q \
+    tests/test_architecture_guard.py \
+    tests/test_architecture_guard_identity_aliases.py \
+    tests/test_architecture_guard_legacy_loaders.py
+```
+
+Do not use ordinary project-aware `uv run pytest ...` for this gate. Project-aware `uv run` may synchronize the environment, build/install Polaris, and create/update `uv.lock`.
+
+If neither non-mutating execution path can run the complete suite, classify the result `environment-or-tooling-blocker`. Do not relax the invariant by allowing a project sync.
+
+Before and after execution, require the repository's tracked/untracked `uv.lock` state to be unchanged. Never delete or rewrite a pre-existing lockfile as part of verification cleanup; unexpected lockfile mutation is itself a verification-environment defect that must be reported and corrected at the invocation mechanism.
+
+When a parent caller has an even stricter non-mutating verification rule, preserve the stricter caller rule.
 
 The suite is intentionally complete because it proves two distinct things together:
 
@@ -195,4 +221,4 @@ Blockers:
 - <question/conflict + current authority evidence + material consequence>
 ```
 
-Do not report PASS with a non-zero suite failure count, a non-zero live repository violation count, incomplete suite execution, or unresolved architectural semantics.
+Do not report PASS with a non-zero suite failure count, a non-zero live repository violation count, incomplete suite execution, unresolved architectural semantics, or verification-environment mutation.

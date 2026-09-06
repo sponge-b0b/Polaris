@@ -60,7 +60,7 @@ def _read_json(path: str) -> Any:
 
 def _field(lines: list[str], label: str) -> str:
     prefix = f"**{label}:** "
-    matches = [line[len(prefix):] for line in lines if line.startswith(prefix)]
+    matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
     _require(len(matches) == 1, f"receipt must contain exactly one {label} field")
     return matches[0].strip()
 
@@ -133,9 +133,7 @@ def _coverage(
     for state in ("proven", "not-applicable", "unresolved"):
         prefix = f"- {state}: "
         matches = [
-            line[len(prefix) :].strip()
-            for line in section
-            if line.startswith(prefix)
+            line[len(prefix) :].strip() for line in section if line.startswith(prefix)
         ]
         _require(len(matches) == 1, f"coverage must contain exactly one {state} row")
         result[state] = (
@@ -159,9 +157,7 @@ def _source_counts(lines: list[str]) -> dict[str, int]:
     for label, key in SOURCE_LABELS.items():
         prefix = f"- {label}: "
         matches = [
-            line[len(prefix) :].strip()
-            for line in section
-            if line.startswith(prefix)
+            line[len(prefix) :].strip() for line in section if line.startswith(prefix)
         ]
         _require(len(matches) == 1, f"receipt must contain exactly one {label} count")
         _require(matches[0].isdigit(), f"{label} count must be numeric")
@@ -236,9 +232,7 @@ def checkpoint(
     ):
         prefix = f"- {label}: "
         matches = [
-            line[len(prefix) :].strip()
-            for line in integrity
-            if line.startswith(prefix)
+            line[len(prefix) :].strip() for line in integrity if line.startswith(prefix)
         ]
         _require(len(matches) == 1, f"receipt must contain one {label} row")
         _require(matches[0].isdigit(), f"{label} must be numeric")
@@ -333,10 +327,7 @@ def render_pending(raw: Any) -> str:
             "- Architecture: "
             f"{_text(coverage.get('architecture'), 'Architecture coverage')}"
         ),
-        (
-            "- Saturation challengers: "
-            f"{int(coverage.get('saturation_challengers', 0))}"
-        ),
+        (f"- Saturation challengers: {int(coverage.get('saturation_challengers', 0))}"),
         "",
         "### Reviewer Effectiveness",
         f"- Primary validated findings: {int(effectiveness.get('primary', 0))}",
@@ -393,10 +384,12 @@ def render_exit(raw: Any) -> str:
         ),
         (
             "**Reviewer execution override:** "
-            f"{_text(
-                raw.get('reviewer_execution_override'),
-                'reviewer execution override',
-            )}"
+            f"{
+                _text(
+                    raw.get('reviewer_execution_override'),
+                    'reviewer execution override',
+                )
+            }"
         ),
     ]
     return "\n".join(lines) + "\n"

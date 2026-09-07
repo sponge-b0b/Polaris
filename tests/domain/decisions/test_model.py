@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -9,10 +10,15 @@ import pytest
 from polaris.domain.decisions import (
     ActorId,
     ContestedActorAttribution,
+    DecisionApplicability,
+    DecisionApplicabilityContested,
     DecisionContinuity,
+    DecisionDeferred,
+    DecisionExternallyResolved,
     DecisionInitiated,
     DecisionInitiationContinuity,
     DecisionInitiationDetermination,
+    DecisionLifecycleDisposition,
     DecisionLifecycleFactId,
     DecisionLifecycleFactMetadata,
     DecisionLifecycleSequence,
@@ -20,13 +26,22 @@ from polaris.domain.decisions import (
     DecisionNeed,
     DecisionNeedAlreadyGrounded,
     DecisionNeedId,
+    DecisionNotOperative,
     DecisionScope,
     DecisionScopeEstablished,
     DecisionScopeRevised,
     DecisionSubject,
     DecisionSubjectRevised,
+    DecisionSubstantivelyResolved,
     DecisionVersion,
+    DecisionWorkControlBasis,
+    DecisionWorkPosture,
+    DecisionWorkResumed,
+    DecisionWorkWithdrawn,
+    ExternalResolutionBasis,
+    HumanInvestmentDecisionEffect,
     IndependentChoiceRequiresNewDecision,
+    InvalidDecisionBasis,
     InvalidDecisionHistory,
     InvalidDecisionIdentity,
     InvalidDecisionScope,
@@ -41,12 +56,18 @@ from polaris.domain.decisions import (
     TechnicalReferenceKind,
     TriggerKind,
     TriggerProvenance,
+    TrustedHumanInvestmentDecisionBasis,
     UnknownActorAttribution,
+    defer_decision,
     establish_or_revise_scope,
+    externally_resolve_decision,
     find_reconciliation_requirements,
     initiate_decision,
     reconstruct_decision,
+    resume_decision_work,
     revise_subject,
+    substantively_resolve_decision,
+    withdraw_decision_work,
 )
 
 NOW = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
@@ -149,6 +170,20 @@ def metadata(*, identity, sequence, version, attribution=None):
         effective_at=NOW,
         recorded_at=NOW,
     )
+
+
+def human_basis(
+    effect: HumanInvestmentDecisionEffect,
+) -> TrustedHumanInvestmentDecisionBasis:
+    return TrustedHumanInvestmentDecisionBasis("human-investment-decision-1", effect)
+
+
+def work_basis() -> DecisionWorkControlBasis:
+    return DecisionWorkControlBasis("work-control-1")
+
+
+def external_basis() -> ExternalResolutionBasis:
+    return ExternalResolutionBasis("market-closed-choice-1")
 
 
 def test_uuid_identities_are_distinct_and_reject_invalid_values() -> None:
@@ -260,6 +295,8 @@ def test_initiation_version_sequence_created_at_and_need_reuse() -> None:
     assert initiation.metadata.sequence == DecisionLifecycleSequence(1)
     assert decision.version == DecisionVersion(1)
     assert decision.created_at == NOW
+    assert decision.disposition is DecisionLifecycleDisposition.UNRESOLVED
+    assert decision.work_posture is DecisionWorkPosture.ACTIVE
     existing = decision_id()
     with pytest.raises(DecisionNeedAlreadyGrounded):
         initiate_decision(
@@ -280,6 +317,7 @@ def test_subject_revision_noop_change_and_independent_choice() -> None:
             decision,
             subject=decision.subject,
             continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
         is decision
@@ -288,6 +326,7 @@ def test_subject_revision_noop_change_and_independent_choice() -> None:
         decision,
         subject=DecisionSubject("Whether to modestly increase SPY exposure."),
         continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
         mutation=mutation(),
     )
     assert isinstance(revised.history[-1], DecisionSubjectRevised)
@@ -297,6 +336,7 @@ def test_subject_revision_noop_change_and_independent_choice() -> None:
             decision,
             subject=DecisionSubject("Whether to hedge unrelated FX exposure."),
             continuity=DecisionContinuity.INDEPENDENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
 
@@ -308,6 +348,7 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
         decision,
         scope=DecisionScope.unresolved(first, second),
         continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
         mutation=mutation(),
     )
     assert isinstance(revised.history[-1], DecisionScopeRevised)
@@ -315,6 +356,7 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
         revised,
         scope=DecisionScope.established(first, second),
         continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
         mutation=mutation(),
     )
     assert isinstance(established.history[-1], DecisionScopeEstablished)
@@ -323,6 +365,7 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
             established,
             scope=established.scope,
             continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
         is established
@@ -332,6 +375,7 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
             established,
             scope=DecisionScope.unresolved(first, second),
             continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
 
@@ -422,3 +466,265 @@ def test_superseded_public_foundation_names_are_not_exported() -> None:
         "refine_scope",
     ):
         assert not hasattr(decisions, removed)
+
+
+def test_lifecycle_work_posture_and_applicability_are_distinct_typed_concepts() -> None:
+    assert DecisionLifecycleDisposition.UNRESOLVED != DecisionWorkPosture.ACTIVE
+    assert DecisionApplicability.OPERATIVE != DecisionWorkPosture.ACTIVE
+    assert set(DecisionLifecycleDisposition) == {
+        DecisionLifecycleDisposition.UNRESOLVED,
+        DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED,
+        DecisionLifecycleDisposition.EXTERNALLY_RESOLVED,
+        DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED,
+    }
+    assert set(DecisionWorkPosture) == {
+        DecisionWorkPosture.ACTIVE,
+        DecisionWorkPosture.DEFERRED,
+        DecisionWorkPosture.WITHDRAWN,
+    }
+
+
+def test_deferral_and_redeferral_require_trusted_deferring_basis() -> None:
+    decision = create_decision()
+    deferred = defer_decision(
+        decision,
+        basis=human_basis(HumanInvestmentDecisionEffect.DEFERRING),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+    assert deferred.decision_id == decision.decision_id
+    assert deferred.work_posture is DecisionWorkPosture.DEFERRED
+    assert isinstance(deferred.history[-1], DecisionDeferred)
+    assert deferred.history[-1].metadata.sequence == DecisionLifecycleSequence(2)
+    assert deferred.version == DecisionVersion(2)
+
+    redeferred = defer_decision(
+        deferred,
+        basis=TrustedHumanInvestmentDecisionBasis(
+            "human-investment-decision-2",
+            HumanInvestmentDecisionEffect.DEFERRING,
+        ),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+    assert redeferred.decision_id == decision.decision_id
+    assert redeferred.work_posture is DecisionWorkPosture.DEFERRED
+    assert isinstance(redeferred.history[-1], DecisionDeferred)
+    assert redeferred.history[-1].metadata.sequence == DecisionLifecycleSequence(3)
+    assert redeferred.version == DecisionVersion(3)
+    assert len(redeferred.history) == len(deferred.history) + 1
+
+    with pytest.raises(InvalidDecisionBasis):
+        defer_decision(
+            decision,
+            basis=human_basis(HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING),
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+
+
+def test_advisory_and_unauthorized_references_cannot_satisfy_trusted_basis() -> None:
+    decision = create_decision()
+    for invalid in (
+        "analytical-advisory-human-judgment",
+        "unauthorized-attempted-authority-act",
+    ):
+        with pytest.raises(InvalidDecisionBasis):
+            defer_decision(
+                decision,
+                basis=cast(TrustedHumanInvestmentDecisionBasis, invalid),
+                applicability=DecisionApplicability.OPERATIVE,
+                mutation=mutation(),
+            )
+
+
+def test_work_withdrawal_and_resumption_preserve_identity_and_same_choice() -> None:
+    decision = create_decision()
+    withdrawn = withdraw_decision_work(
+        decision,
+        basis=work_basis(),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+    assert withdrawn.decision_id == decision.decision_id
+    assert withdrawn.work_posture is DecisionWorkPosture.WITHDRAWN
+    assert isinstance(withdrawn.history[-1], DecisionWorkWithdrawn)
+
+    resumed = resume_decision_work(
+        withdrawn,
+        basis=work_basis(),
+        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+    assert resumed.decision_id == decision.decision_id
+    assert resumed.work_posture is DecisionWorkPosture.ACTIVE
+    assert isinstance(resumed.history[-1], DecisionWorkResumed)
+
+    with pytest.raises(IndependentChoiceRequiresNewDecision):
+        resume_decision_work(
+            withdrawn,
+            basis=work_basis(),
+            continuity=DecisionContinuity.INDEPENDENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+
+
+def test_ordinary_work_fails_closed_for_nonoperative_or_contested_applicability() -> None:
+    decision = create_decision()
+    with pytest.raises(DecisionNotOperative):
+        defer_decision(
+            decision,
+            basis=human_basis(HumanInvestmentDecisionEffect.DEFERRING),
+            applicability=DecisionApplicability.NON_OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(DecisionApplicabilityContested):
+        withdraw_decision_work(
+            decision,
+            basis=work_basis(),
+            applicability=DecisionApplicability.CONTESTED,
+            mutation=mutation(),
+        )
+    with pytest.raises(DecisionNotOperative):
+        revise_subject(
+            decision,
+            subject=DecisionSubject("Whether to reduce SPY exposure."),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.NON_OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(DecisionApplicabilityContested):
+        establish_or_revise_scope(
+            decision,
+            scope=DecisionScope.unresolved(portfolio_id()),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.CONTESTED,
+            mutation=mutation(),
+        )
+
+
+def test_substantive_resolution_requires_explicit_resolving_effect() -> None:
+    decision = create_decision()
+    with pytest.raises(InvalidDecisionBasis):
+        substantively_resolve_decision(
+            decision,
+            basis=TrustedHumanInvestmentDecisionBasis(
+                "recommendation-rejection-requesting-more-judgment",
+                HumanInvestmentDecisionEffect.DEFERRING,
+            ),
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    assert decision.disposition is DecisionLifecycleDisposition.UNRESOLVED
+    assert len(decision.history) == 1
+
+    resolved = substantively_resolve_decision(
+        decision,
+        basis=TrustedHumanInvestmentDecisionBasis(
+            "human-investment-decision-hold-no-action",
+            HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+        ),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+    assert resolved.disposition is DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED
+    assert resolved.work_posture is None
+    assert isinstance(resolved.history[-1], DecisionSubstantivelyResolved)
+
+
+def test_external_resolution_is_distinct_from_human_resolution() -> None:
+    decision = create_decision()
+    resolved = externally_resolve_decision(
+        decision,
+        basis=external_basis(),
+        mutation=mutation(),
+    )
+    assert resolved.disposition is DecisionLifecycleDisposition.EXTERNALLY_RESOLVED
+    assert resolved.work_posture is None
+    fact = resolved.history[-1]
+    assert isinstance(fact, DecisionExternallyResolved)
+    assert isinstance(fact.basis, ExternalResolutionBasis)
+    assert not isinstance(fact.basis, TrustedHumanInvestmentDecisionBasis)
+
+
+def test_resolved_decisions_reject_ordinary_work_and_changed_subject_scope() -> None:
+    decision = create_decision()
+    resolved = substantively_resolve_decision(
+        decision,
+        basis=human_basis(HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=mutation(),
+    )
+
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        defer_decision(
+            resolved,
+            basis=human_basis(HumanInvestmentDecisionEffect.DEFERRING),
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        withdraw_decision_work(
+            resolved,
+            basis=work_basis(),
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        substantively_resolve_decision(
+            resolved,
+            basis=human_basis(
+                HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING
+            ),
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        resume_decision_work(
+            resolved,
+            basis=work_basis(),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        externally_resolve_decision(
+            resolved,
+            basis=external_basis(),
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        revise_subject(
+            resolved,
+            subject=DecisionSubject("Whether to change a resolved choice."),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+    with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
+        establish_or_revise_scope(
+            resolved,
+            scope=DecisionScope.established(portfolio_id()),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=mutation(),
+        )
+
+
+def test_new_lifecycle_facts_preserve_separate_attribution_and_provenance() -> None:
+    decision = create_decision()
+    context = mutation()
+    deferred = defer_decision(
+        decision,
+        basis=human_basis(HumanInvestmentDecisionEffect.DEFERRING),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=context,
+    )
+    metadata = deferred.history[-1].metadata
+    assert metadata.actor_attribution == context.actor_attribution
+    assert metadata.trigger == context.trigger
+    assert metadata.technical_provenance == context.technical_provenance
+    assert metadata.actor_attribution != metadata.trigger
+    assert metadata.trigger != metadata.technical_provenance

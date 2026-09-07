@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-07] R2 unresolved lifecycle work posture | #295 implementation
+
+Implemented the Decisions-domain forward lifecycle/work-posture slice: distinct supported lifecycle disposition, unresolved `ACTIVE`/`DEFERRED`/`WITHDRAWN` posture, trusted Human Investment Decision Deferral/substantive-resolution effects, work withdrawal/resumption, External Resolution, operative-applicability guards, immutable lifecycle facts, and resolved-state fail-closed behavior. Corrected the derived Investment Decisions wiki wording to match the already-frozen no-`ActorKind` Actor Attribution contract.
+
 ## [2026-09-06] R2 foundation public contract completion | implementation-time design gaps closed
 
 Closed the post-#294 foundation design gaps before further R2 implementation: established canonical UUIDv4-backed `PortfolioId` ownership under Portfolio & Risk without requiring a full Portfolio implementation; completed Decision/Need/Operation identity contracts; made Decision Scope membership unordered and unique over canonical Portfolio identity; fixed Decision Subject, lifecycle-fact naming, common metadata naming, Actor/trigger/technical provenance typing, fact-specific business-basis rules, and the behavior-oriented public Decision construction/reconstruction surface. Updated Planned knowledge for `portfolio-risk`, `investment-decisions`, `application-use-cases`, and `durable-persistence`.
@@ -46,4 +50,4 @@ Completed the owner-approved greenfield entity registry by adding the explicit A
 
 ## [2026-09-04] greenfield wiki reboot | seven domain entities initialized
 
-Re-established the active Living Entity Wiki at the repository root from the approved 0.2.0 greenfield architecture. Initialized seven pending domain entities matching the R1 owner-approved semantic boundaries, retained the pre-greenfield wiki only under `legacy/v0_1/wiki/`, and normalized newly created current/proposed/ADR document naming to the active entity registry and `platform-` cross-cutting convention.
+Re-established the active Living Entity Wiki at the repository root from the approved 0.2.0 greenfield architecture. Initialized seven pending domain entities matching the approved R1 semantic boundaries, retained the pre-greenfield wiki only under `legacy/v0_1/wiki/`, and normalized newly created current/proposed/ADR document naming to the active entity registry and `platform-` cross-cutting convention.

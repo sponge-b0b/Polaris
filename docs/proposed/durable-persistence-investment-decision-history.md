@@ -41,7 +41,8 @@ R2 persistence must ensure, independently of runtime replay:
 11. contested lifecycle/operative interpretation remains representable;
 12. Actor Attribution remains distinct from trigger/technical provenance;
 13. no persistence-native types leak inward;
-14. greenfield schema/migrations remain independent of `legacy/`.
+14. greenfield schema/migrations remain independent of `legacy/`;
+15. domain `InvestmentDecisionId`, `DecisionNeedId`, and application `OperationId` UUIDv4-backed identity contracts survive persistence without conversion to semantic strings or database-generated business identity.
 
 ---
 
@@ -71,7 +72,7 @@ R2 owner facts live within Decisions, so a purpose-specific atomic command-store
 
 ## 4.1 Decision Need
 
-Preserve Need ID, statement, effective establishment time, recorded time, Actor Attribution where material, trigger/origin provenance separately, and immutable creation metadata.
+Preserve UUID-backed Need ID, statement, effective establishment time, recorded time, Actor Attribution where material, trigger/origin provenance separately, and immutable creation metadata.
 
 One Need may be referenced by **at most one** Investment Decision. The initial PostgreSQL adapter should enforce this mechanically where practical, e.g. a unique FK/reference from Investment Decision to Decision Need.
 
@@ -79,13 +80,13 @@ Later Need correction is append-only lifecycle history.
 
 ## 4.2 Investment Decision current projection
 
-Preserve Decision/Need IDs, current Subject, current Scope (`confirmed_portfolio_refs` + completeness), supported lifecycle interpretation summary (determinate or contested), work posture when applicable, supported operative-applicability summary (operative/non-operative/contested), current version, creation time, and projection/correction marker sufficient to rebuild/verify drift.
+Preserve UUID-backed Decision/Need IDs, current Subject, current Scope (`confirmed_portfolio_refs` + completeness), supported lifecycle interpretation summary (determinate or contested), work posture when applicable, supported operative-applicability summary (operative/non-operative/contested), current version, creation time, and projection/correction marker sufficient to rebuild/verify drift.
 
 Supersession is not a replacement lifecycle status.
 
 ## 4.3 Lifecycle fact
 
-Append-only record preserving fact ID, Decision ID, recorded sequence/version, fact kind, effective time, recorded time, operation ID, Actor Attribution where applicable, trigger/technical provenance separately, typed business basis/reference, fact-specific payload, and correction target/reference where applicable.
+Append-only record preserving fact ID, Decision ID, recorded sequence/version, fact kind, effective time, recorded time, UUID-backed operation ID, Actor Attribution where applicable, trigger/technical provenance separately, typed business basis/reference, fact-specific payload, and correction target/reference where applicable.
 
 ### `DecisionInitiated` continuity provenance
 
@@ -105,7 +106,9 @@ No one-to-one Supersession uniqueness by default.
 
 ## 4.5 Command receipt
 
-Preserves operation ID, command kind, semantic request fingerprint/equivalent, affected Decision IDs, committed result/version(s), stable replay result, committed time.
+Preserves UUID-backed operation ID, command kind, semantic request fingerprint/equivalent, affected Decision IDs, committed result/version(s), stable replay result, committed time.
+
+The UUID value is only the opaque operation identity. Same-operation/same-request replay semantics remain determined by the receipt/request contract, not by interpreting UUID contents.
 
 ## 4.6 Continuity arbitration state
 
@@ -176,6 +179,8 @@ Constraints:
 - `ESTABLISHED` with zero confirmed Portfolios is invalid;
 - no null/sentinel Portfolio identity overload;
 - Scope establishment/revision remains immutable history even if denormalized currently.
+
+The canonical Portfolio identity/reference representation and Scope ordering/equality contract are unresolved foundation design items owned upstream. Persistence must not invent them by selecting a text/UUID surrogate or order-sensitive storage contract before the domain contract is frozen.
 
 ---
 
@@ -256,11 +261,17 @@ Competing corrections do not use newest-wins. If typed support cannot establish 
 
 Do not collapse domain Actor Attribution, trigger/source provenance, and technical request/work/model/provider provenance into one generic origin field.
 
+Their public typed representations remain foundation-contract work owned upstream; persistence must not define the inward contract by leaking a generic `(kind, identifier)` storage shape.
+
 ---
 
 # 12. Initial PostgreSQL adapter
 
-May use UUIDs, FKs, unique Need reference, checks, unique `(decision_id, recorded_sequence)`, receipt uniqueness, conditional updates/row locks, serializable transactions/predicate protection, advisory/global initiation lock for R2, JSONB for purpose-named non-query-critical payload, recursive CTEs for bounded lineage/cycle checks, and transactional migrations.
+For the frozen domain/application identity contracts, use PostgreSQL's native `uuid` representation for `InvestmentDecisionId`, `DecisionNeedId`, and `OperationId` values. Do not convert them into semantic text identifiers or database-generated integer business identity.
+
+The adapter may choose FKs, checks, unique `(decision_id, recorded_sequence)`, receipt uniqueness, conditional updates/row locks, serializable transactions/predicate protection, advisory/global initiation lock for R2, JSONB for purpose-named non-query-critical payload, recursive CTEs for bounded lineage/cycle checks, and transactional migrations where those choices do not alter inward semantics.
+
+Persistence-native record IDs such as physical fact/relationship row identity may use adapter-appropriate mechanisms unless/until a domain contract requires otherwise; they must not leak inward as domain identity.
 
 These are adapter details.
 
@@ -283,7 +294,7 @@ No R2 workflow/job/agent/report/RAG/Recommendation/Governance/Action Intent/Outc
 
 # 14. Constraint strategy
 
-Use DB constraints where practical for unique IDs/receipts/recorded sequence, one-Need/one-Decision uniqueness, FKs, non-null effective/recorded times, `ESTABLISHED` Scope requiring at least one Portfolio, work values, relationship self-reference/type, correction references, and absence of one-to-one Supersession restriction.
+Use DB constraints where practical for unique UUID-backed Decision/Need IDs and receipts/operation IDs, recorded sequence, one-Need/one-Decision uniqueness, FKs, non-null effective/recorded times, `ESTABLISHED` Scope requiring at least one Portfolio, work values, relationship self-reference/type, correction references, and absence of one-to-one Supersession restriction.
 
 History-dependent semantics remain domain/application validated with transactional defense in depth.
 
@@ -365,6 +376,8 @@ Support efficient bounded reads for Decision/Need, lifecycle history, operation 
 
 # 19. Spec-readiness rule
 
-Specs may choose driver/ORM/migration library, exact tables/indexes, lock/isolation strategy, and reconstruction implementation.
+Specs may choose driver/ORM/migration library, exact tables/indexes, lock/isolation strategy, and reconstruction implementation only when those choices do not establish an unresolved inward/public contract.
 
-Specs may not weaken one-Need/one-Decision cardinality, Scope validity, atomicity, durable continuity explanation/revalidation, many-to-many relationship semantics, append-only correction, contested lifecycle/operative interpretation, dual temporal queries, or actor/provenance separation.
+Specs may not weaken one-Need/one-Decision cardinality, UUID-backed Decision/Need/Operation identity contracts, Scope validity, atomicity, durable continuity explanation/revalidation, many-to-many relationship semantics, append-only correction, contested lifecycle/operative interpretation, dual temporal queries, or actor/provenance separation.
+
+The lifecycle model's unresolved foundation public-contract items remain upstream blockers. Persistence must not resolve them accidentally through schema convenience.

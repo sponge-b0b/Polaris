@@ -78,11 +78,54 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    If no originating Wayfinder artifact can be resolved, report that the architectural planning source must be established before specification can continue rather than guessing one.
 
+### Design Completeness Gate
+
+Architecture consistency is necessary but is not sufficient implementation readiness.
+
+Before a software Spec may be published or amended as implementation-ready, prove that current durable planning/design authority determines every materially consequential product/domain/public/downstream contract needed by the Spec. Include, where applicable:
+
+* identity representation and generation semantics;
+* public domain/application type meaning and cross-component contracts;
+* cardinality and ownership;
+* lifecycle/state and temporal behavior;
+* authority/provenance meaning;
+* persistence-visible identity/reference contracts;
+* externally observable failure meaning;
+* any contract on which a downstream component must rely.
+
+Apply the `AGENTS.md` materially-different-implementations test:
+
+> Could two reasonable implementations satisfy the proposed Spec while establishing materially different public, product, domain, architecture, persistence, or downstream behavior/contracts?
+
+If **yes**, the Spec is not implementation-ready. Do not choose the missing material design merely to complete the Spec unless the current planning source already delegates that exact non-architectural design authority to `$to-specs`; otherwise route the unresolved choice to its owning planning/design authority and stop publication for the affected scope.
+
+For each Spec candidate materialize:
+
+```text
+Design readiness: <pass | blocked>
+Material public/domain/downstream choices required: <exact set>
+Choices determined by current authority: <exact set>
+Unresolved material choices: <count + details>
+Implementation-delegated material design choices: <count + details>
+```
+
+Publication requires:
+
+```text
+Design readiness: pass
+Unresolved material choices: 0
+Implementation-delegated material design choices: 0
+```
+
+Missing private helper structure, local algorithms/data structures with no contract consequence, code organization, formatting, or equivalent test mechanics are implementation details and do not block readiness.
+
+Invoke `$attention` as prescribed internal composition after this gate and before publication/amendment. Any Attention finding is handled under the authority/routing rules in `AGENTS.md`; `$attention` itself does not decide or mutate.
+
 4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
 
    Use seams already established by the resolved solution, durable Wayfinder decisions, or current repository state. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
 
-5. **Write and publish the complete currently specifiable set** using the template below. Apply the `ready-for-agent` triage label.
+5. **Write and publish the complete currently specifiable set** using the template below. Apply the `ready-for-agent` triage label only to Specs that pass both architecture and design readiness. A Spec intentionally persisted while blocked by unresolved design must instead use the appropriate human/blocking lifecycle state and receives no `$to-tickets` handoff.
 
    Partition the planning source into every implementation Spec that is currently decision-complete and independently specifiable. Publish that complete set up front; do not serialize Spec creation merely because one Spec depends on another. A blocked Spec may be fully specified and published while remaining non-actionable.
 
@@ -129,7 +172,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    Then re-read every in-progress Derived/Remediation Spec handled for this source, including complete native blocker data.
 
-   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec.
+   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec **and whose own implementation-readiness gate is currently satisfied**.
 
    For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
 
@@ -170,8 +213,8 @@ After all Spec publication/amendment, provenance, and native dependency mutation
 
 Build one reconciliation set from the durable post-transition state:
 
-* every handled open Spec with zero open native Spec blockers → base `Spec / Ready to Ticket / $to-tickets / Ready`;
-* every handled open Spec with one or more open native Spec blockers → base `Spec / Blocked / None / Blocked`;
+* every handled open implementation-ready Spec with zero open native Spec blockers → base `Spec / Ready to Ticket / $to-tickets / Ready`;
+* every handled open Spec with one or more open native Spec blockers or a failed implementation-readiness gate → base `Spec / Blocked / None / Blocked` (or the repository's human-design state when unresolved owner judgment is the blocker);
 * the source Wayfinder map when Step 7 establishes `Spec Delivery` → the exact `Wayfinder Map / Spec Delivery / None / In Progress` projection defined there;
 * any other formal artifact whose base lifecycle state changed during this invocation.
 
@@ -222,6 +265,8 @@ For software work, record:
 * Governing architectural decisions or constraints
 * Required ADRs/docs already resolved
 * Unresolved architecture questions: `none`
+* Unresolved material design questions: `none`
+* Implementation readiness: `pass`
 
 Do not duplicate full invariants or architectural documentation into the spec.
 
@@ -237,6 +282,8 @@ A list of implementation decisions that were made. This can include:
 * Specific interactions
 
 Architectural decisions belong here only as references to decisions already resolved during `$wayfinder`, not as new architecture created during specification.
+
+Do not leave a materially consequential public/domain/downstream choice implicit merely because it can be expressed later as a class, primitive type, schema field, or conventional implementation pattern.
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 
@@ -285,17 +332,29 @@ Deferred items without unresolved architecture evidence: 0
 Rows without reason/authority: 0
 ```
 
-For each Spec candidate also create an **Architecture Readiness Record**:
+For each Spec candidate also create an **Architecture and Design Readiness Record**:
 
 ```text
 Spec candidate: <identity/title>
 Affected architecture obligations: <exact set>
 Current accepted authority: <sources>
-Unresolved durable choices: <count + details>
+Unresolved durable architecture choices: <count + details>
+Material product/domain/public/downstream choices: <exact set>
+Unresolved material design choices: <count + details>
+Implementation-delegated material design choices: <count + details>
 Concrete implementability: <pass | blocked>
 Evidence: <contracts/production seams inspected where applicable>
 ```
 
-Publication requires `Unresolved durable choices: 0` and `Concrete implementability: pass`. Missing implementation wiring is not an unresolved durable choice when authority already determines its semantics.
+Publication as implementation-ready requires:
+
+```text
+Unresolved durable architecture choices: 0
+Unresolved material design choices: 0
+Implementation-delegated material design choices: 0
+Concrete implementability: pass
+```
+
+Missing implementation wiring is not an unresolved durable/material choice when authority already determines its semantics.
 
 After publication/amendment and dependency reconciliation, recompute the partition against durable handoffs and recompute the Spec/actionable frontier before emitting any `$to-tickets` handoff. The final handoff set must be derivable from the completed partition, not from publication order or the subset most recently discussed.

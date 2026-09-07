@@ -1,20 +1,20 @@
 # R2 Investment Decision Foundation Public Contract Completion
 
-**Status:** Owner-approved
+**Status:** Owner-approved in part; design completion in progress
 **Release:** 0.2.0
 **Primary entities:** `investment-decisions`, `portfolio-risk`, `application-use-cases`
 **Roadmap milestone:** R2 — Durable decision kernel and historical truth
-**Purpose:** Close the public/domain contract gaps exposed by the post-#294 foundation audit so downstream Specs and implementation execute explicit design rather than inventing identity, reference, naming, equality, or public API semantics.
+**Purpose:** Close the public/domain contract gaps exposed by the post-#294 foundation audit so downstream Specs and implementation execute explicit design rather than inventing identity, reference, naming, equality, failure, or public API semantics.
 
 ## Authority and scope
 
-This document refines the already-approved R2 lifecycle/application/persistence design without changing their core lifecycle semantics. It is the owner-approved completion authority for the gaps recorded after ticket #294.
+This document refines the already-approved R2 lifecycle/application/persistence design without changing their core lifecycle semantics. Sections explicitly identified as approved are current completion authority. Open items remain non-authoritative until owner approval and block implementation that depends on them.
 
 It does not authorize a full Portfolio implementation, a generic actor registry, a generic provenance framework, or a universal event/record abstraction.
 
 ---
 
-## 1. Portfolio domain entity identity
+## 1. Portfolio domain entity identity — approved
 
 `Portfolio` is a durable domain entity/concept owned by the Portfolio & Risk boundary. The Living Entity Wiki entity `Portfolio & Risk` is an architectural ownership boundary; it is not the same thing as the `Portfolio` domain entity.
 
@@ -36,7 +36,7 @@ Investment Decision Scope therefore contains `PortfolioId` values. A Decision-lo
 
 ---
 
-## 2. Investment Decision, Decision Need, and operation identity
+## 2. Investment Decision, Decision Need, and operation identity — approved
 
 `InvestmentDecisionId` and `DecisionNeedId` are distinct immutable UUID-backed UUIDv4 domain identity types. `OperationId` is a distinct immutable UUID-backed UUIDv4 application operation identity.
 
@@ -48,7 +48,7 @@ Retry/replay of the same semantic application operation reuses the same `Operati
 
 ---
 
-## 3. Decision Subject public representation
+## 3. Decision Subject public representation — approved
 
 R2 represents Decision Subject with one immutable `DecisionSubject` value whose public payload is:
 
@@ -64,7 +64,7 @@ R2 does not introduce a structured instrument/position/action subject graph mere
 
 ---
 
-## 4. Decision Scope collection semantics
+## 4. Decision Scope collection semantics — approved in part
 
 Decision Scope contains an immutable unique collection of zero or more canonical `PortfolioId` values plus `UNRESOLVED | ESTABLISHED` completeness.
 
@@ -78,63 +78,44 @@ Duplicate Portfolio identities are invalid. `ESTABLISHED` with zero Portfolios i
 
 The public semantic contract is set-like equality/uniqueness. A concrete immutable collection such as `frozenset[PortfolioId]` is an appropriate direct realization; another internal representation is acceptable only if it preserves the same externally observable unordered semantics.
 
----
-
-## 5. Actor Attribution foundation type
-
-Actor Attribution remains distinct from authority and provenance.
-
-R2 uses:
-
-```text
-ActorKind = HUMAN | COLLECTIVE | ORGANIZATION | POLARIS | EXTERNAL
-ActorId   = opaque UUIDv4 domain identity
-ActorAttribution = ActorKind + ActorId
-```
-
-`ActorId` identifies a domain-recognized originator, not a model, provider, workflow node, tool, prompt, job, or other implementation component. `ActorKind` classifies the originator role without encoding authority.
-
-The special `POLARIS` kind still uses a stable `ActorId`; callers do not infer Polaris ownership from a magic string or from technical provenance.
-
-This foundation establishes attributable-actor identity only. It does not implement actor directory/profile lifecycle or Governance authority assignment.
+**Open before implementation:** exact ordinary transition semantics among unresolved partial Scope, first establishment, later established revision, same-value no-op, and any attempted `ESTABLISHED -> UNRESOLVED` change.
 
 ---
 
-## 6. Trigger and technical provenance
+## 5. Actor Attribution — direction approved, concrete contract open
 
-Trigger provenance and technical provenance are non-business-identity context. Their carriers may reflect heterogeneous external/runtime identifier formats, so their reference values are not required to be UUID domain identities.
+Actor Attribution remains distinct from authentication, authority, and technical provenance. It identifies the domain-recognized originator of a material attributable act.
 
-R2 uses constrained role types rather than arbitrary `(kind: str, identifier: str)` pairs.
+Approved direction:
 
-Trigger provenance uses:
+- no arbitrary `(kind: str, identifier: str)` public contract;
+- actor identity must be typed and stable enough for durable attribution;
+- a model, provider, workflow node, tool, prompt, job, trace, or execution identifier is not an actor merely because it contributed technically;
+- actor attribution does not itself establish authorization or Investment Authority Regime power.
 
-```text
-TriggerKind = HUMAN_REQUEST | ATTENTION | SCHEDULED_REVIEW | EXTERNAL_EVENT | APPLICATION_REQUEST
-TriggerProvenance = TriggerKind + non-empty reference
-```
+**Open before implementation:** the exact greenfield actor identity owner, identity type, actor classification/taxonomy, package location, and how Polaris/human/collective/organization/external originators are represented without reviving the superseded pre-greenfield Principal architecture.
 
-The trigger reference identifies the originating occurrence within the corresponding source context. The enum is the R2 foundation vocabulary; adding another trigger category is an explicit contract extension rather than passing an arbitrary new string.
-
-Technical provenance uses zero or more typed references:
-
-```text
-TechnicalReferenceKind =
-    WORKFLOW_EXECUTION
-  | JOB_EXECUTION
-  | MODEL_INVOCATION
-  | PROVIDER_REQUEST
-  | TOOL_INVOCATION
-  | REPORT_OUTPUT
-
-TechnicalReference = TechnicalReferenceKind + non-empty reference
-TechnicalProvenance = immutable collection of TechnicalReference
-```
-
-These references are provenance only and may never serve as Investment Decision, Decision Need, Portfolio, actor, or other business identity.
+The pre-greenfield Identity & Access Wayfinder #182 and its Principal/Cerbos/Dishka architecture are historical only; its supersession record explicitly states that it no longer carries planning authority and identity/access must be independently re-derived against the greenfield architecture.
 
 ---
 
-## 7. Business basis/reference typing
+## 6. Trigger and technical provenance — direction approved, concrete vocabulary open
+
+Trigger provenance and technical provenance are non-business-identity context and remain separate from Actor Attribution.
+
+Approved direction:
+
+- do not expose arbitrary generic `(kind: str, identifier: str)` pairs as the stable contract;
+- use purpose-named typed references/vocabularies;
+- heterogeneous source/runtime reference values need not be UUID business identities;
+- technical references may never substitute for Investment Decision, Decision Need, Portfolio, actor, or other business identity;
+- no ordering semantics should be inferred merely from collection position unless explicitly designed.
+
+**Open before implementation:** the exact trigger categories, exact technical-reference categories, whether their reference collections are semantically unordered/unique, and which foundation facts require trigger/technical provenance versus permit absence/empty provenance.
+
+---
+
+## 7. Business basis/reference typing — approved direction
 
 R2 does **not** define a generic public `BusinessBasis(kind: str, identifier: str)` or `BusinessReference(kind: str, identifier: str)` abstraction.
 
@@ -144,11 +125,13 @@ Examples include the later trusted Human Investment Decision basis for Deferral/
 
 Initiation and Subject/Scope refinement do not manufacture a generic business-basis field merely to keep one universal metadata envelope shape.
 
+**Open before implementation:** Decision Need itself must preserve the attributable reason deliberate judgment was warranted; its exact statement/rationale/basis representation is not yet frozen.
+
 ---
 
-## 8. Lifecycle fact vocabulary and common metadata
+## 8. Lifecycle fact vocabulary and common metadata — approved in part
 
-The approved public fact vocabulary uses:
+The approved foundation fact vocabulary includes:
 
 ```text
 DecisionInitiated
@@ -157,7 +140,7 @@ DecisionScopeEstablished
 DecisionScopeRevised
 ```
 
-for the #294 foundation slice. `DecisionSubjectRefined` is not the approved public fact name. Scope establishment and subsequent revision are distinct historical meanings and must not be collapsed into one generic `DecisionScopeRefined` fact.
+`DecisionSubjectRefined` is not the approved public fact name. Scope establishment and revision are distinct historical meanings and must not be collapsed into one generic `DecisionScopeRefined` fact.
 
 Common lifecycle-fact temporal/ordering/operation/attribution/provenance attributes, when represented by one public value type, use the name:
 
@@ -169,9 +152,11 @@ Bare `FactMetadata` is not a stable public domain name.
 
 `DecisionLifecycleFactMetadata` contains only attributes genuinely common to the applicable lifecycle facts. Fact-specific business basis/reference remains on the fact or a purpose-specific fact payload when required rather than forcing unrelated optional generic fields into universal metadata.
 
+**Open before implementation:** lifecycle-fact identity, exact recorded-sequence/version rules, required Actor/Trigger fields for each foundation fact, timezone/instant validation semantics, and the immutable creation-time derivation.
+
 ---
 
-## 9. Public Investment Decision construction and reconstruction surface
+## 9. Public Investment Decision construction and reconstruction surface — approved direction, exact API open
 
 The stable public domain surface is behavior-oriented.
 
@@ -181,18 +166,31 @@ The stable public domain surface is behavior-oriented.
 - Durable-history reconstruction uses one explicit validation/reconstruction boundary rather than exposing direct aggregate construction as an unchecked public contract.
 - Package exports are intentional stable contracts, not “every implemented class/helper”. Private realization helpers stay private.
 
-The implementation may choose the narrowest function/class arrangement that realizes this contract, but it may not expose a broader public API merely because the implementation uses additional classes internally.
+**Open before implementation:** exact public operation names/signatures, revision-continuity input, reconstruction/history property names, duplicate-reconciliation result surface, and whether semantic transition failures are typed exceptions or returned result values.
 
 ---
 
-## 10. Implementation readiness consequence
+## 10. Additional approved upstream obligations discovered by Attention
 
-With this document approved:
+The already-approved lifecycle/application designs require, but #294 did not implement:
 
-- the post-#294 foundation design questions for Decision Subject, Portfolio identity/reference, Scope equality, actor/provenance representation, business-basis typing, lifecycle-fact naming, and public construction/export surface are resolved;
-- Spec #278 must be reconciled to these decisions before remediation code changes;
-- ticket #294 remains closed as truthful history for its original contract;
-- a new explicit remediation ticket must repair the #294 implementation against the amended #278 contract;
-- #295 remains non-actionable until that remediation ticket is certified and closed.
+- a reconstructable Decision Need statement/basis and attributable establishment context;
+- identity for every lifecycle fact;
+- initiation recorded version/sequence `1` with each committed Decision mutation incrementing once;
+- immutable Decision creation time and monotonic current domain version;
+- `DecisionInitiated` continuity provenance sufficient to reconstruct `NO_CANDIDATES` versus explicit create-new, materially considered candidate Decision IDs, attributable create-new rationale/basis when required, and the candidate knowledge/revalidation basis used for commit;
+- the earned source boundary `src/polaris/domain/decisions/`, rather than the implementation-selected `src/polaris/domain/investment_decisions/` package.
 
-Implementation is not authorized to reinterpret or replace these decisions with a different public/domain contract.
+These are not optional implementation refinements. Their concrete public representation must be completed before remediation code is authorized.
+
+---
+
+## 11. Implementation readiness consequence
+
+**FOUNDATION IMPLEMENTATION READINESS: BLOCKED.**
+
+The owner-approved identity, Portfolio, Subject, Scope-equality, business-basis direction, fact naming, metadata naming, and behavior-oriented API decisions remain authoritative. However, the additional open items above must be owner-approved and reconciled into Spec #278 and remediation ticket #299 before implementation mutates the foundation code.
+
+Ticket #294 remains closed as truthful history for its original contract. #299 is the explicit remediation vehicle but is not actionable while this design-completion gate remains open. #295 remains non-actionable until #299 is certified and closed.
+
+Implementation is not authorized to fill any open item by choosing the most convenient code shape.

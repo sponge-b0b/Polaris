@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
@@ -35,7 +35,7 @@ from polaris.domain.investment_decisions import (
 
 
 def _metadata(sequence: int, *, workflow: str = "workflow-1") -> FactMetadata:
-    moment = datetime(2026, 9, 6, 12, sequence, tzinfo=timezone.utc)
+    moment = datetime(2026, 9, 6, 12, sequence, tzinfo=UTC)
     return FactMetadata(
         effective_at=moment,
         recorded_at=moment,
@@ -259,8 +259,9 @@ def test_current_state_is_derived_from_immutable_facts() -> None:
     initiation = refined.facts[0]
     assert isinstance(initiation, DecisionInitiated)
     assert initiation.subject == original.subject
+    attribute = "subject"
     with pytest.raises(FrozenInstanceError):
-        setattr(initiation, "subject", DecisionSubject("mutated"))
+        setattr(initiation, attribute, DecisionSubject("mutated"))
 
 
 def test_history_requires_strict_recorded_sequence() -> None:

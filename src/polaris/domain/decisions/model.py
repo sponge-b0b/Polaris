@@ -653,7 +653,9 @@ def _same_choice(decision: InvestmentDecision, continuity: DecisionContinuity) -
 
 def _require_unresolved(decision: InvestmentDecision) -> None:
     if decision.disposition is not DecisionLifecycleDisposition.UNRESOLVED:
-        raise InvalidDecisionTransition("resolved Decision cannot receive ordinary work")
+        raise InvalidDecisionTransition(
+            "resolved Decision cannot receive ordinary work"
+        )
 
 
 def _require_operative(applicability: DecisionApplicability) -> None:

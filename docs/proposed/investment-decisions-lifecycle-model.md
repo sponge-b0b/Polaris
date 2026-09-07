@@ -12,6 +12,7 @@ This design refines, but does not override:
 
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`investment-decisions-r2-decision-kernel-component-boundaries.md`](investment-decisions-r2-decision-kernel-component-boundaries.md);
+- [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md);
 - [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
 - [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
@@ -20,6 +21,8 @@ This design refines, but does not override:
 - proposed [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/).
+
+The owner-approved foundation public-contract document explicitly refines this earlier lifecycle design. Where this document's historical foundation wording conflicts with that completion authority, the completed foundation contract controls.
 
 `legacy/v0_1/` is not lifecycle authority.
 
@@ -39,7 +42,7 @@ Investment Decision identity is never derived from workflow/job/report/model/dat
 
 An Investment Decision has opaque durable identity, **exactly one** grounding Decision Need, current Subject/Scope view, supported lifecycle interpretation, unresolved work posture when applicable, monotonic recorded domain version, and immutable creation time. Decision relationships are separate durable facts.
 
-A Decision Need is the attributable determination that one coherent unresolved Portfolio-relevant choice warrants deliberate judgment. Preserve Need identity/statement, effective establishment time, recorded time, Actor Attribution where material, trigger provenance separately, and later correction without deleting original establishment.
+A Decision Need is the attributable determination that one coherent unresolved Portfolio-relevant choice warrants deliberate judgment. Preserve Need identity/statement, effective establishment time, recorded time, Operation ID, Actor Attribution, required Trigger Provenance, optional Technical Provenance, and later correction without deleting original establishment.
 
 Cardinality is deliberate:
 
@@ -60,6 +63,8 @@ DecisionNeedId       -> distinct UUID-backed domain identity
 UUID generation      -> UUIDv4
 ```
 
+The completed foundation contract additionally freezes `DecisionLifecycleFactId`, `OperationId`, `PortfolioId`, and `ActorId` as distinct opaque UUIDv4-backed identities under their respective ownership semantics.
+
 The UUID value carries **no domain meaning**. Consumers must not infer Subject, Scope, Portfolio applicability, continuity, chronology, lifecycle state, actor, provenance, or any other semantic fact from it.
 
 New UUIDv4 values are allocated independently of Decision/Need content and supplied to the domain transition; the domain never derives identity from mutable state or from technical execution identity. Distinct domain wrappers remain required even when both use UUID values so Decision and Need identity cannot be substituted accidentally.
@@ -68,16 +73,16 @@ UUID generation makes collision negligibly probable; durable persistence remains
 
 ## Decision Subject
 
-Subject identifies the matter being judged. It is required for coherent Decision identity but is not the Decision ID. Refinement preserves history and does not automatically create a new Decision.
+Subject identifies the matter being judged. It is required for coherent Decision identity but is not the Decision ID. Revision preserves history and does not automatically create a new Decision.
 
-**Foundation contract still unresolved:** this design has not yet frozen the public representation of Decision Subject. In particular, an implementation may not assume that the canonical public Subject contract is one arbitrary string merely because a textual description is convenient. The representation must preserve the possibility of coherent composite subjects without inventing accidental identity or structure.
+The completed foundation contract freezes the public representation as immutable `DecisionSubject(statement: non-empty string)`. The statement may describe a composite subject only when the elements form one mutually dependent investment judgment; independently resolvable matters require separate Decisions. A semantically identical Subject revision is a no-op with no lifecycle fact and no Decision-version increment.
 
 ## Decision Scope
 
 Scope is:
 
 ```text
-confirmed portfolio references: zero or more
+confirmed PortfolioId values: zero or more
 scope completeness: UNRESOLVED | ESTABLISHED
 ```
 
@@ -91,27 +96,36 @@ Examples:
 
 Rules:
 
+- Scope references canonical Portfolio & Risk-owned `PortfolioId` values;
+- membership is immutable, unique, and semantically unordered;
 - `UNRESOLVED` may contain zero or more confirmed Portfolios;
 - `ESTABLISHED` MUST contain at least one Portfolio;
+- duplicate Portfolio identities are invalid;
 - no fake/default Portfolio identity may represent unresolved Scope;
-- final Capital-Relevant Recommendation or Human Investment Decision requires sufficiently established Portfolio applicability; initiation does not.
-
-**Foundation contracts still unresolved:**
-
-- Portfolio & Risk defines durable Portfolio identity semantically, but the canonical greenfield `PortfolioId` representation/type has not yet been frozen. Investment Decisions must ultimately reference that canonical identity rather than inventing its own arbitrary string/UUID convention.
-- Scope ordering/equality semantics are not yet frozen. Implementation must not accidentally make Portfolio ordering part of Decision Scope identity/equality merely because a tuple/list representation is convenient.
+- final Capital-Relevant Recommendation or Human Investment Decision requires sufficiently established Portfolio applicability; initiation does not;
+- `UNRESOLVED -> UNRESOLVED` with changed membership records `DecisionScopeRevised`;
+- `UNRESOLVED -> ESTABLISHED` records `DecisionScopeEstablished`;
+- `ESTABLISHED -> ESTABLISHED` with changed membership records `DecisionScopeRevised`;
+- `ESTABLISHED -> UNRESOLVED` is invalid as an ordinary forward transition and requires correction semantics if the prior establishment was erroneous;
+- semantically identical Scope input is a no-op with no lifecycle fact and no Decision-version increment.
 
 ## Foundation public-contract completion
 
-The #294 authority audit established that the semantic model above was stronger than the concrete public type contract available to implementation. Before further R2 implementation advances, the following material contracts must be resolved upstream:
+The #294 authority audit identified material public-contract gaps in the earlier lifecycle design. Those blockers are now resolved by the owner-approved [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md) and were implemented/certified through #299.
 
-1. canonical public representation for Decision Subject;
-2. canonical Portfolio identity/reference type used by Decision Scope;
-3. Decision Scope ordering/equality semantics;
-4. public representation contracts for Actor Attribution, trigger provenance, technical provenance/reference, and typed business basis/reference rather than generic arbitrary string pairs;
-5. intended public construction/reconstruction/export surface for the Investment Decision domain so raw implementation representations are not promoted to stable downstream API accidentally.
+The completed contract freezes, among other items:
 
-These are design-completion blockers, not implementation choices.
+1. canonical `DecisionSubject` representation;
+2. canonical Portfolio & Risk-owned `PortfolioId` and unordered Scope semantics;
+3. known/unknown/contested Actor Attribution without a universal persisted `ActorKind`;
+4. constrained Trigger Provenance and optional unordered Technical Provenance;
+5. purpose-specific business basis/reference typing rather than generic string pairs;
+6. lifecycle fact identity, lifecycle sequence, separate Decision version, timezone-aware temporal semantics, and semantic no-ops;
+7. initiation-continuity provenance;
+8. typed Decision-domain failures; and
+9. behavior-oriented public construction/reconstruction/export semantics.
+
+Downstream R2 implementation consumes these contracts and may not redesign them.
 
 ---
 
@@ -275,7 +289,11 @@ Governance owns Human Investment Decision/authority acts. Decisions owns resulti
 
 Trusted basis is typed: upstream owner/business fact plus semantic effect `DEFERRING` or `SUBSTANTIVELY_RESOLVING`. An arbitrary Human Investment Decision reference is not presumed resolving.
 
-R2 tests may use deterministic trusted fixtures. A historical human judgment may exist even when consequential authority was deficient; attribution and authority remain distinct.
+When the trusted basis is a Human Investment Decision, it denotes a canonical authority-bearing Human Investment Decision that was validly established only after the applicable Investment Authority Regime confirmed the attributable actor possessed the specific required power for the act's subject, Portfolio scope, conditions, and authority-effective time. Analytical/advisory human judgment and unauthorized attempted authority acts remain separately attributable/auditable where applicable but do not satisfy the Human Investment Decision basis seam. Decisions does not implement Governance or re-evaluate that authority assignment.
+
+Historical validity uses the authority regime and authority facts that actually applied when the authority-bearing act occurred. Later authority revocation or reassignment does not retroactively invalidate a Human Investment Decision that was validly authorized at the time.
+
+R2 tests may use deterministic trusted fixtures representing already-valid upstream bases. Actor Attribution and authority remain distinct.
 
 ---
 
@@ -382,4 +400,4 @@ R2 excludes Attention, Evidence/full Decision Context, Intelligence/Recommendati
 
 Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
 
-Specs and implementation **may not** choose any unresolved foundation public contract listed in Section 2, nor may they redefine the semantics above. Until those foundation blockers are resolved, downstream implementation of the affected contract is not implementation-ready.
+Specs and implementation may not redefine the completed foundation public contract, lifecycle semantics above, or another owner boundary by implementation convenience. The earlier foundation blockers are resolved; downstream tickets must consume the completed contract rather than reopen it.

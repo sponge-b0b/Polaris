@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-06] R2 foundation public contract completion | implementation-time design gaps closed
+
+Closed the post-#294 foundation design gaps before further R2 implementation: established canonical UUIDv4-backed `PortfolioId` ownership under Portfolio & Risk without requiring a full Portfolio implementation; completed Decision/Need/Operation identity contracts; made Decision Scope membership unordered and unique over canonical Portfolio identity; fixed Decision Subject, lifecycle-fact naming, common metadata naming, Actor/trigger/technical provenance typing, fact-specific business-basis rules, and the behavior-oriented public Decision construction/reconstruction surface. Updated Planned knowledge for `portfolio-risk`, `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-06] R2 foundation contract audit | public identity and design gaps surfaced
 
 Re-opened R2 foundation design completeness after Ticket #294 exposed implementation-selected public contracts that upstream authority had not frozen. Added UUIDv4-backed opaque `InvestmentDecisionId`, `DecisionNeedId`, and `OperationId` contracts; restored explicit lifecycle-fact vocabulary including separate Scope establishment/revision and qualified `DecisionLifecycleFactMetadata`; and recorded unresolved public-contract questions for Decision Subject, canonical Portfolio identity/reference, Scope ordering/equality, Actor/provenance/business references, and the public Decision construction/export surface. Updated Planned/Open Question knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

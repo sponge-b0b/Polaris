@@ -227,9 +227,7 @@ class FactMetadata:
             raise InvalidDecisionIdentity("operation_id", "OperationId")
         if not isinstance(self.actor, ActorAttribution):
             raise ValueError("actor must be ActorAttribution")
-        if self.trigger is not None and not isinstance(
-            self.trigger, TriggerProvenance
-        ):
+        if self.trigger is not None and not isinstance(self.trigger, TriggerProvenance):
             raise ValueError("trigger must be TriggerProvenance or None")
         if not isinstance(self.technical, TechnicalProvenance):
             raise ValueError("technical must be TechnicalProvenance")

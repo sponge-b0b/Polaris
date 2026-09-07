@@ -489,9 +489,7 @@ def _metadata(
     context: DecisionMutationContext,
 ) -> DecisionLifecycleFactMetadata:
     sequence = (
-        1
-        if decision is None
-        else decision.history[-1].metadata.sequence.value + 1
+        1 if decision is None else decision.history[-1].metadata.sequence.value + 1
     )
     version = 1 if decision is None else decision.version.value + 1
     return DecisionLifecycleFactMetadata(

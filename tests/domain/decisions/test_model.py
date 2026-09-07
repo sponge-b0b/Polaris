@@ -171,9 +171,7 @@ def test_uuid_identities_are_distinct_and_reject_invalid_values() -> None:
 
 def test_actor_attribution_has_no_authority_or_actor_kind() -> None:
     known = actor()
-    contested = ContestedActorAttribution(
-        frozenset({known.actor_id, ActorId(uuid4())})
-    )
+    contested = ContestedActorAttribution(frozenset({known.actor_id, ActorId(uuid4())}))
     assert known.actor_id in contested.candidate_actor_ids
     assert UnknownActorAttribution() != known
     assert not hasattr(known, "authorized")
@@ -250,7 +248,9 @@ def test_initiation_continuity_requires_rationale_for_candidate_override() -> No
             candidate_decision_ids=[candidate],
             known_at=NOW,
         )
-    value = continuity(candidates=(candidate,), rationale="Independent investment matter.")
+    value = continuity(
+        candidates=(candidate,), rationale="Independent investment matter."
+    )
     assert value.candidate_decision_ids == frozenset({candidate})
 
 
@@ -275,12 +275,15 @@ def test_initiation_version_sequence_created_at_and_need_reuse() -> None:
 
 def test_subject_revision_noop_change_and_independent_choice() -> None:
     decision = create_decision()
-    assert revise_subject(
-        decision,
-        subject=decision.subject,
-        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        mutation=mutation(),
-    ) is decision
+    assert (
+        revise_subject(
+            decision,
+            subject=decision.subject,
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            mutation=mutation(),
+        )
+        is decision
+    )
     revised = revise_subject(
         decision,
         subject=DecisionSubject("Whether to modestly increase SPY exposure."),
@@ -315,12 +318,15 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
         mutation=mutation(),
     )
     assert isinstance(established.history[-1], DecisionScopeEstablished)
-    assert establish_or_revise_scope(
-        established,
-        scope=established.scope,
-        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        mutation=mutation(),
-    ) is established
+    assert (
+        establish_or_revise_scope(
+            established,
+            scope=established.scope,
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            mutation=mutation(),
+        )
+        is established
+    )
     with pytest.raises(InvalidDecisionTransition, match="cannot become unresolved"):
         establish_or_revise_scope(
             established,
@@ -389,8 +395,9 @@ def test_public_aggregate_construction_is_closed_and_values_are_immutable() -> N
 
 def test_duplicate_need_groundings_are_preserved_for_reconciliation() -> None:
     shared = need()
-    first, second = create_decision(decision_need=shared), create_decision(
-        decision_need=shared
+    first, second = (
+        create_decision(decision_need=shared),
+        create_decision(decision_need=shared),
     )
     requirements = find_reconciliation_requirements([first, second])
     assert len(requirements) == 1

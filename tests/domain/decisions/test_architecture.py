@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 DOMAIN_ROOT = Path(__file__).parents[3] / "src" / "polaris" / "domain"
 
 
@@ -18,7 +17,7 @@ def test_decisions_domain_has_no_outward_or_legacy_imports() -> None:
     )
     for path in (DOMAIN_ROOT / "decisions").glob("*.py"):
         tree = ast.parse(path.read_text())
-        modules = []
+        modules: list[str] = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 modules.extend(alias.name for alias in node.names)

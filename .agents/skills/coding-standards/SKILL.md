@@ -174,10 +174,6 @@ Use names that communicate domain meaning:
 
 Do not encode incidental implementation details into names.
 
-For exported domain/public types, include enough bounded-context meaning that the name remains understandable at its import/use site. Do not rely on hidden file-local or conversational context to explain a generic noun.
-
-Names such as `Fact`, `Record`, `Data`, `Metadata`, `State`, `Context`, or `Manager` require qualification when the owning domain concept or lifecycle role is necessary to understand what the type represents. Prefer the shortest name that preserves the material distinction; do not add verbosity when the context is already explicit in the public name.
-
 ### Exception Handling
 
 Catch the narrowest exception the current layer can meaningfully handle.
@@ -421,3 +417,64 @@ Avoid:
 * production abstractions created solely for unit-test convenience.
 
 Use integration tests when the real contract depends on wiring, persistence, component interaction, framework behavior, or an external boundary.
+
+Do not distort production architecture merely to make everything unit-testable.
+
+For procedural testing workflow, use the applicable `$tdd`, `$verify-code`, or `$verify-spec` skill rather than duplicating those workflows here.
+
+When scoring behavior changes, verification must cover canonical score semantics and precision.
+
+When an operational boundary changes, verification must cover required observability through the established telemetry path.
+
+---
+
+## Code-Smell Review
+
+Smells are diagnostic signals, not automatic violations.
+
+Repository architecture and explicit standards take precedence.
+
+Smells are **Advisory by default** unless a documented rule makes the condition a violation.
+
+Do not duplicate issues that Ruff, Mypy, formatting, or tests already reliably detect.
+
+Watch for:
+
+* **Mysterious Name** — names conceal domain intent.
+* **Duplicated Code** — the same knowledge or business rule has multiple owners.
+* **Feature Envy** — behavior appears to belong with another component's state.
+* **Data Clumps** — a repeated value group may represent a real domain concept.
+* **Primitive Obsession** — primitives repeatedly reconstruct meaningful domain invariants.
+* **Repeated Switches** — repeated dispatch may indicate fragmented ownership.
+* **Shotgun Surgery** — one concept requires changes across many unrelated locations.
+* **Divergent Change** — one module owns unrelated reasons to change.
+* **Speculative Generality** — abstractions exist for requirements that do not.
+* **Message Chains** — callers navigate another component's internal structure.
+* **Middle Man** — a layer delegates without adding meaningful responsibility.
+* **Refused Bequest** — inheritance does not satisfy true substitutability.
+
+Never apply a textbook refactoring mechanically.
+
+Refactor only when the result is simpler and more correct for the actual system.
+
+---
+
+## Required Correctness
+
+Never simplify away required:
+
+* trust-boundary validation;
+* authentication or authorization;
+* security and accessibility controls;
+* transaction, rollback, concurrency, or idempotency behavior;
+* domain invariants;
+* external contracts;
+* canonical data-contract semantics;
+* canonical score semantics;
+* numerical precision;
+* observability;
+* explicitly required architecture.
+
+The goal is not the smallest diff or fewest lines.
+
+The goal is the **smallest correct resulting system**.

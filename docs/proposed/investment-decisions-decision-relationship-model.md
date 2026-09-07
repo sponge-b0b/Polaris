@@ -12,11 +12,14 @@ This design refines:
 
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`investment-decisions-r2-decision-kernel-component-boundaries.md`](investment-decisions-r2-decision-kernel-component-boundaries.md);
+- [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md);
 - [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
 - [`investment-decisions-lifecycle-model.md`](investment-decisions-lifecycle-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
 - [`durable-persistence-investment-decision-history.md`](durable-persistence-investment-decision-history.md);
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md).
+
+The completed foundation contract and the post-#299 #278 synchronization authority refine the concrete identity/attribution/provenance contracts used by this relationship model.
 
 `legacy/v0_1/` is not relationship-model authority.
 
@@ -39,6 +42,17 @@ Decision Memory traverses it later
 ```
 
 The Investment Decision object does not contain an arbitrary mutable `related_decisions` collection and does not search for its own neighbors.
+
+Every immutable relationship fact has its own opaque domain identity:
+
+```text
+DecisionRelationshipFactId -> distinct UUID-backed domain identity
+UUID generation             -> UUIDv4
+```
+
+`DecisionRelationshipFactId` is allocated independently of source/target Decision IDs, relationship type, effective/recorded time, Operation ID, provenance, basis, or persistence row identity. It is not a composite edge key and is not derived from relationship content.
+
+When common relationship-fact attributes are represented by one exported/public value object, the approved name is `DecisionRelationshipFactMetadata`. Bare `FactMetadata` is not used because it loses lifecycle-vs-relationship context.
 
 ---
 
@@ -111,7 +125,7 @@ optional target recorded version/fact boundary
 
 Later changes to the target Decision must not silently change what the source Decision historically considered.
 
-R2 designs this edge but does not implement it before a real Decision Context use case earns it.
+R2 designs this future edge contract but does not implement it before a real Decision Context use case earns it. Current `RENEWED_FROM` and `SUPERSEDES` facts do not gain speculative optional target-context fields merely for future possibility; the relationship model remains purpose-specific and extensible so the later relationship type can add its required historical boundary without changing existing relationship meanings.
 
 ---
 
@@ -139,24 +153,27 @@ A candidate set can produce zero durable context edges.
 
 ---
 
-# 4. Attribution and temporal semantics
+# 4. Attribution, provenance, identity, and temporal semantics
 
-Every relationship preserves at least:
+Every base relationship fact preserves at least:
 
-- relationship identity;
+- `DecisionRelationshipFactId`;
 - source Decision ID;
 - target Decision ID;
 - relationship type;
 - effective/use time;
 - recorded time;
-- operation/idempotency identity;
+- `OperationId`;
 - Actor Attribution where material;
-- trigger/technical provenance separately where material;
-- typed basis/reference;
-- correction reference if later qualification is required;
-- target knowledge/version boundary for contextual use.
+- one semantic Trigger Provenance;
+- optional Technical Provenance;
+- purpose-specific typed basis/reference when required.
+
+Actor Attribution, Trigger Provenance, and Technical Provenance use the completed foundation contracts and remain separate. No universal persisted `ActorKind` is required. Technical references remain provenance and cannot become Decision/Need/Portfolio/Actor/relationship-fact identity.
 
 Relationship facts are immutable. Later correction/qualification is append-only.
+
+A relationship-only committed mutation may advance affected `DecisionVersion` values when required by concurrency protection without fabricating a lifecycle fact or advancing `DecisionLifecycleSequence`.
 
 ---
 
@@ -185,7 +202,7 @@ Temporal provenance keeps that meaning coherent.
 
 ## 5.3 Combined graph
 
-Combined graph may contain context cycles. Queries must preserve type, direction, recorded/effective time, and target knowledge boundary.
+Combined graph may contain context cycles. Queries must preserve type, direction, recorded/effective time, and target knowledge boundary where the relationship type owns such a boundary.
 
 This is a semantic/query graph, not a graph-database mandate.
 
@@ -195,18 +212,25 @@ This is a semantic/query graph, not a graph-database mandate.
 
 A relationship fact remains historical even if later evidence challenges its currently supported interpretation.
 
-A later correction may qualify:
+Relationship qualification/correction is itself append-only. Each correction fact:
+
+- has its own `DecisionRelationshipFactId`;
+- explicitly references the prior relationship fact it qualifies or disconfirms;
+- preserves effective time, recorded time, `OperationId`, Actor Attribution where material, one Trigger Provenance, optional Technical Provenance, and purpose-specific typed correction basis;
+- never deletes, mutates, or replaces the original fact.
+
+A correction may qualify:
 
 - whether an edge remains currently supported;
 - effective time;
 - typed basis;
-- target historical boundary.
+- for a future contextual relationship, its target historical boundary.
 
-Corrections never delete original edge facts.
-
-If competing attributable facts leave an edge's support contested, Decision Memory must expose that ambiguity rather than treating the newest record as automatically authoritative.
+Recorded recency is not authority. If competing typed relationship facts/corrections cannot establish one supported interpretation, support is **contested/indeterminate** rather than newest-write-wins.
 
 Lifecycle-cycle checks apply to the **currently supported** lifecycle-lineage graph. A command that cannot determine whether adding an edge would create a cycle because existing support is contested must fail closed.
+
+Supported unresolved Supersession drives non-operative applicability. Contested Supersession support drives contested operative applicability; ordinary work requiring determinate operative status fails closed.
 
 ---
 
@@ -267,11 +291,11 @@ Likewise reuse of one Evidence item, View, Recommendation, or Risk Assessment sh
 
 # 9. Persistence contract
 
-The semantic record is equivalent to:
+A base relationship semantic record is equivalent to:
 
 ```text
-DecisionRelationship
-    relationship_id
+DecisionRelationshipFact
+    relationship_fact_id
     source_decision_id
     target_decision_id
     relationship_type
@@ -279,11 +303,27 @@ DecisionRelationship
     recorded_time
     operation_id
     actor_attribution
-    provenance
+    trigger_provenance
+    technical_provenance
     typed_basis
-    target_as_known_at / target_version_boundary (when contextual)
-    correction_reference (when applicable)
 ```
+
+A correction semantic record is equivalent to:
+
+```text
+DecisionRelationshipCorrected
+    relationship_fact_id
+    target_relationship_fact_id
+    effective_time
+    recorded_time
+    operation_id
+    actor_attribution
+    trigger_provenance
+    technical_provenance
+    typed_correction_basis
+```
+
+A future `PRIOR_DECISION_CONTEXT` relationship adds its purpose-specific `target_as_known_at` / optional target version/fact boundary when that use case is implemented; those fields are not universal base-edge metadata.
 
 Exact PostgreSQL representation is adapter-owned.
 
@@ -307,11 +347,12 @@ get_related_decision_graph(decision_id, relationship_types=..., depth=..., as_kn
 
 Queries must:
 
-- preserve relationship type/direction;
+- preserve relationship fact identity, type, and direction;
 - apply recorded-time cutoff;
 - expose correction/contested support where material;
 - bound traversal depth;
 - not silently traverse unrequested edge types;
+- preserve a contextual relationship's target historical boundary when that relationship type is implemented;
 - return application-owned read models, not DB-native graph/row objects.
 
 ---
@@ -320,8 +361,10 @@ Queries must:
 
 R2 implements:
 
+- `DecisionRelationshipFactId` and purpose-specific relationship-fact metadata semantics;
 - `RENEWED_FROM`;
 - `SUPERSEDES`;
+- append-only relationship qualification/correction and contested-support interpretation;
 - many-to-many-capable persistence;
 - lifecycle-lineage cycle prevention;
 - correction-aware/as-known-at lineage queries;
@@ -331,6 +374,7 @@ R2 does not implement:
 
 - prior-Decision candidate retrieval;
 - `PRIOR_DECISION_CONTEXT` command creation;
+- speculative universal context fields on current relationship facts;
 - historical analog ranking;
 - AI relationship selection;
 - generic graph engine/database;
@@ -340,6 +384,9 @@ R2 does not implement:
 
 # 12. Required R2 tests
 
+- relationship fact IDs are UUIDv4-backed, type-distinct, and not derived from edge content;
+- relationship correction has a new fact ID, explicitly targets the prior fact, and preserves the original;
+- incompatible typed relationship support/corrections yield contested support rather than newest-wins;
 - self-reference rejected;
 - direct and indirect lifecycle cycles rejected;
 - mixed `RENEWED_FROM`/`SUPERSEDES` cycle rejected;
@@ -351,13 +398,14 @@ R2 does not implement:
 - renewal never reopens target;
 - relationship retry is idempotent;
 - as-known-at excludes later-recorded relationship/correction;
-- future `PRIOR_DECISION_CONTEXT` contract carries target historical boundary;
+- relationship-only version mutation does not fabricate lifecycle sequence;
+- future `PRIOR_DECISION_CONTEXT` contract carries target historical boundary without adding speculative fields to current relationship types;
 - graph persistence does not require graph-database types inward.
 
 ---
 
 # 13. Spec-readiness rule
 
-Specs may choose schema/index/cycle-check algorithms and query implementation details.
+Specs may choose schema/index/cycle-check algorithms, private realization helpers, and query implementation details.
 
-Specs may not redefine relationship type meaning, cardinality, Supersession orthogonality, lifecycle-lineage acyclicity, contextual historical binding, or retrieval-vs-material-use semantics.
+Specs may not redefine relationship fact identity, relationship type meaning, cardinality, Supersession orthogonality, append-only correction/support semantics, contested-support behavior, lifecycle-lineage acyclicity, contextual historical binding, retrieval-vs-material-use semantics, Actor/Trigger/Technical Provenance separation, or lifecycle-sequence-vs-Decision-version separation.

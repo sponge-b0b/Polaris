@@ -73,6 +73,22 @@ command-specific payload
 
 Actor Attribution, trigger provenance, and technical provenance remain separate.
 
+## 2.1 Opaque identity allocation
+
+Application consumes the domain identity contract frozen by the lifecycle model:
+
+```text
+InvestmentDecisionId -> distinct UUID-backed identity, UUIDv4
+DecisionNeedId       -> distinct UUID-backed identity, UUIDv4
+OperationId          -> distinct UUID-backed operation identity, UUIDv4
+```
+
+For `CREATE_NEW`, the application initiation boundary allocates fresh Decision Need and Investment Decision UUIDv4 values independently of Subject, Scope, Portfolio State, continuity candidates, workflow/job/model/report identity, persistence row identity, or any other business/technical content. Those typed values are supplied to the domain transition; the domain does not derive them.
+
+`OperationId` is an opaque idempotency/correlation identity for one semantic application operation. Its UUID value carries no business meaning. A retry/replay of the **same semantic operation** reuses the same `OperationId`; a distinct operation uses a distinct value. Same-operation request equivalence remains determined by the semantic request fingerprint/contract, not by interpreting UUID contents.
+
+Identity generation does not replace transactional uniqueness, continuity, or idempotency enforcement.
+
 ---
 
 # 3. Initiation and continuity arbitration
@@ -124,6 +140,8 @@ Validation:
 Subject refinement preserves identity only while the same coherent choice remains; an independently resolvable choice routes to continuity/new-Decision determination.
 
 Ordinary Subject/Scope work requires lifecycle determinately `UNRESOLVED` and operative applicability determinately operative. Historical correction uses explicit correction path.
+
+The lifecycle model's current **foundation public-contract completion blockers** are application blockers too. Application code must not freeze an arbitrary string representation for Decision Subject or Portfolio identity, make Scope ordering semantically significant by accident, invent generic string-pair Actor/provenance/business reference contracts, or promote an implementation-selected raw Decision constructor/export surface while those contracts remain unresolved.
 
 ---
 
@@ -314,4 +332,4 @@ Concrete names are optional.
 
 No Attention service, Evidence assembly, model orchestration, Governance implementation, arbitrary trusted-basis injection, Action Continuity, generic event/workflow runtime, generic graph service, or platform-wide UoW framework.
 
-Specs may choose classes/functions, transaction/lock implementation, error types, and tests. They may not redefine command meanings, Need/Decision cardinality, Scope completeness, durable continuity-determination provenance, operative-state guard, trusted Governance seams, correction semantics, actor/provenance separation, or historical query semantics.
+Specs may choose classes/functions, transaction/lock implementation, error types, and tests only after the lifecycle model's foundation public-contract blockers are resolved. They may not redefine command meanings, Need/Decision cardinality, identity representation/generation, Scope completeness, durable continuity-determination provenance, operative-state guard, trusted Governance seams, correction semantics, actor/provenance separation, historical query semantics, or any unresolved public contract by implementation convenience.

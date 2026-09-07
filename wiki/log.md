@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-07] R2 lifecycle correction reconciliation | correction chains made deterministic
+
+Closed the Ticket #296 implementation-entry design gap by freezing explicit lifecycle-correction target/effect/reconciliation semantics: corrections target one earlier same-Decision lifecycle fact/correction; `QUALIFY` supplies a complete replacement claim; `DISCONFIRM` withdraws support; disconfirming a correction restores the interpretation immediately preceding it on that branch; equivalent surviving claims coalesce while incompatible support remains contested; knowledge-time filtering precedes effective-time correction application; and lifecycle sequence remains distinct from current-state `DecisionVersion`. Also synchronized that the post-#299 foundation public contract is complete and surviving older “foundation unresolved” wording is not implementation authority. Updated Planned knowledge for `investment-decisions`.
+
 ## [2026-09-07] R2 unresolved lifecycle work posture | #295 implementation
 
 Implemented the Decisions-domain forward lifecycle/work-posture slice: distinct supported lifecycle disposition, unresolved `ACTIVE`/`DEFERRED`/`WITHDRAWN` posture, trusted Human Investment Decision Deferral/substantive-resolution effects, work withdrawal/resumption, External Resolution, operative-applicability guards, immutable lifecycle facts, and resolved-state fail-closed behavior. Corrected the derived Investment Decisions wiki wording to match the already-frozen no-`ActorKind` Actor Attribution contract.

@@ -571,7 +571,9 @@ def test_work_withdrawal_and_resumption_preserve_identity_and_same_choice() -> N
         )
 
 
-def test_ordinary_work_fails_closed_for_nonoperative_or_contested_applicability() -> None:
+def test_ordinary_work_fails_closed_for_nonoperative_or_contested_applicability() -> (
+    None
+):
     decision = create_decision()
     with pytest.raises(DecisionNotOperative):
         defer_decision(
@@ -675,9 +677,7 @@ def test_resolved_decisions_reject_ordinary_work_and_changed_subject_scope() -> 
     with pytest.raises(InvalidDecisionTransition, match="resolved Decision"):
         substantively_resolve_decision(
             resolved,
-            basis=human_basis(
-                HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING
-            ),
+            basis=human_basis(HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING),
             applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )

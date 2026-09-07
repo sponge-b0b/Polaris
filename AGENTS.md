@@ -20,6 +20,76 @@ At the start of a task:
 
 3. Merge these repository rules with narrower user instructions for the active task.
 
+### Proactive Attention Duty
+
+At any time during analysis, planning, architecture, design, specification, ticketing, implementation, verification, review, remediation, or ordinary repository work, **surface material concerns promptly when you notice them**. Do not wait for the user, a checklist, a failing test, or a later review to ask the question first.
+
+Material concerns include, when applicable:
+
+* likely correctness defects or missing failure boundaries;
+* unresolved product, domain, architecture, identity, lifecycle, authority, temporal, persistence, or public-contract choices;
+* ambiguous or misleading domain/public names;
+* accidental coupling, duplicate meaning, weak typing, unnecessary complexity, or a suspicious abstraction/representation choice;
+* behavior that passes current checks but appears inconsistent with authoritative intent;
+* incomplete proof, hidden assumptions, source conflict, scope leakage, or workflow/process defects;
+* a materially better or safer approach that the current path may be overlooking.
+
+Attention is **report-only authority**. Noticing or surfacing a concern does not authorize you to change product/design/architecture, expand scope, mutate repository/tracker state, override an owning workflow, or silently implement your preferred resolution.
+
+When a concern appears:
+
+1. state the observation and why it matters;
+2. identify the governing authority when it is already known;
+3. if existing authority resolves it, follow that authority rather than redesigning it;
+4. if it exposes a material unresolved choice, use the owning workflow's fail-closed/routing rule rather than choosing for convenience;
+5. if it is valid but outside current scope, do not expand scope silently; use the established deferred-future-work capture policy when durable preservation is warranted.
+
+Passing tests, satisfying an explicit checklist, or lacking authority to fix the concern does **not** excuse silence. The duty is to notice and speak up; change authority remains separate.
+
+`$attention` is the reusable report-only skill for deliberate Attention sweeps. The following checkpoints are prescribed internal composition even when the owning skill does not restate the global invariant:
+
+* `$wayfinder` — before declaring the route clear or handing off downstream;
+* `$to-specs` — before publishing/amending a Spec as implementation-ready;
+* `$to-tickets` — before proposal-readiness certification/publication;
+* `$implement-ticket` — before first substantive mutation and again before freezing closure evidence;
+* `$verify-ticket-closure` — during the independent adversarial sweep;
+* `$verify-spec` — before integrated semantic certification is finalized;
+* `$review-spec` — before review exit/handoff.
+
+A formal Attention result does not create a new blocking authority. The owning workflow determines whether a surfaced concern is already resolved, blocking, deferred, or informational under its existing rules.
+
+### Design-to-Implementation Boundary
+
+Implementation executes frozen design; it is not a design phase.
+
+Before implementation, every materially consequential product/domain/architecture/public/downstream contract must already be determined by authoritative durable sources. This includes, where applicable:
+
+* identity representation and generation semantics;
+* public domain/application type semantics and cross-component contracts;
+* cardinality and ownership;
+* lifecycle/state transitions and temporal interpretation;
+* authority/provenance meaning;
+* persistence-visible identity and reference contracts;
+* externally observable failure meaning;
+* any choice on which downstream components are expected to rely.
+
+Use this test:
+
+> Could two reasonable implementations satisfy the written requirement while establishing materially different public, product, domain, architecture, persistence, or downstream behavior/contracts?
+
+If **yes**, the work is not implementation-ready. The choice must be resolved upstream; an implementation agent must not select one merely because it is convenient or conventional.
+
+Semantically equivalent private mechanics remain implementation-owned, including ordinary helper decomposition, local algorithms/data structures with no contract consequence, local variable names, formatting, and equivalent test mechanics.
+
+Workflow consequences:
+
+* `$wayfinder` must not declare a route clear while a material architecture/design choice remains unresolved;
+* `$to-specs` must require material design completeness, not merely architecture consistency or obligation coverage;
+* `$to-tickets` decomposes frozen design and must not delegate material design choices to implementation;
+* `$implement-ticket` must classify any material choice it encounters as `authorized contract`, `semantically equivalent mechanic`, or `design gap`; a `design gap` fails closed before that choice is implemented;
+* `$verify-ticket-closure` must reject a candidate that introduces an unowned material design/public contract even when explicit tests pass;
+* later integrated verification/review must surface cross-ticket design gaps that only become visible after composition.
+
 ### Domain Vocabulary
 
 Do not preload `CONTEXT.md`.

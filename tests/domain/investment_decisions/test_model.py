@@ -77,13 +77,21 @@ def test_initiation_allows_unresolved_scope_without_portfolios() -> None:
     assert decision.need_id == DecisionNeedId("need-1")
 
 
-def test_unresolved_scope_preserves_confirmed_partial_portfolios() -> None:
+def test_initiation_preserves_confirmed_partial_scope() -> None:
     portfolio = PortfolioRef("portfolio-a")
-
     scope = DecisionScope.unresolved(portfolio)
 
-    assert scope.portfolios == (portfolio,)
-    assert scope.completeness is ScopeCompleteness.UNRESOLVED
+    decision = initiate_decision(
+        decision_id=InvestmentDecisionId("decision-1"),
+        need_id=DecisionNeedId("need-1"),
+        subject=DecisionSubject("Evaluate SPY exposure"),
+        scope=scope,
+        metadata=_metadata(0),
+    )
+
+    assert decision.scope == scope
+    assert decision.scope.portfolios == (portfolio,)
+    assert decision.scope.completeness is ScopeCompleteness.UNRESOLVED
 
 
 def test_established_scope_requires_at_least_one_real_portfolio() -> None:

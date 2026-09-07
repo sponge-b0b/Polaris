@@ -11,9 +11,40 @@ Create tracer-bullet tickets using the publication workflow below, with hard bou
 
 This `SKILL.md` is the single authoritative procedure for `$to-tickets`. The preserved procedure later in this file remains normative for session recovery, project-delivery guards, codebase exploration, mode routing, `$to-remediation-tickets`, vertical slicing, user approval, Spec Branch Rule, tracker publication, native hierarchy/dependencies, ticket baseline/branch semantics, Project reconciliation, and handoff.
 
-The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, exact Spec provenance on ordinary tickets, and conditional/deferred obligation routing. On conflict with older wording later in this file, these hardening sections win.
+The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, exact Spec provenance on ordinary tickets, conditional/deferred obligation routing, and the design-delegation guard. On conflict with older wording later in this file, these hardening sections win.
 
 The remediation path remains owned by `$to-remediation-tickets`; do not replace its Root Blocker delta contract with the fresh-Spec mapping below.
+
+## Design Delegation Guard
+
+`$to-tickets` decomposes a frozen implementation-ready contract. It does not design the behavior that `$implement-ticket` will later choose.
+
+Before proposal-readiness certification for every software ticket set:
+
+1. require the source Spec/remediation authority to be currently implementation-ready under its own durable readiness state;
+2. inspect every proposed ticket for material choices left to implementation;
+3. apply the `AGENTS.md` materially-different-implementations test;
+4. invoke `$attention` as prescribed internal composition before freezing the proposal.
+
+For each material candidate choice classify:
+
+```text
+Choice: <public/domain/downstream choice>
+Authority: <exact source>
+Disposition: frozen-upstream | semantically-equivalent-mechanic | unresolved-design
+```
+
+`unresolved-design` is never a legal ticket handoff. If two reasonable implementations could satisfy the ticket while establishing materially different public, product, domain, architecture, persistence, or downstream contracts, return the affected scope to its owning Spec/design authority rather than drafting acceptance criteria that silently delegate the choice.
+
+Before certification require:
+
+```text
+Material design choices delegated to implementation: 0
+Source implementation readiness: pass
+Attention design-gap findings unresolved: 0
+```
+
+Private helper decomposition, equivalent algorithms/local data structures with no contract consequence, formatting, and equivalent test mechanics remain implementation-owned and do not need Spec-level prescription.
 
 ## Conditional / Deferred Obligation Routing
 
@@ -84,13 +115,14 @@ Before the user ever sees a publication proposal, `$to-tickets` owns proving tha
 * preservation and verification classification;
 * blocking relationships/dependency direction;
 * closed-ticket preservation and duplicate prevention;
-* publication-state consistency with the exact source contract.
+* publication-state consistency with the exact source contract;
+* source implementation readiness and absence of implementation-delegated material design.
 
 Do not ask the user to validate, repair, or reconstruct those mechanics.
 
 An unqualified `approve`, `approved`, `yes`, or equivalent after a certified proposal is presented authorizes publication of that exact proposal. The user does not need to restate its metadata, prove its coverage, or independently verify repository policy.
 
-If a genuine unresolved product, architecture, or decomposition choice remains, surface that specific choice. Do not disguise an internal ticket-construction or policy-validation failure as a human design decision.
+If a genuine unresolved product, domain, public-contract, architecture, or decomposition choice remains, surface that specific choice. Do not disguise an internal ticket-construction or policy-validation failure as a human design decision, and do not bury a real upstream design gap inside ticket acceptance wording.
 
 ## Proposal Readiness Certification
 
@@ -136,7 +168,7 @@ For a **fresh Spec** proposal, independently validate against:
 * the exact deterministic `$spec-contract` manifest;
 * the Spec Obligation Disposition Manifest;
 * the proposed ticket `Spec obligations` mappings;
-* the applicable parent Spec, branch, and workspace metadata.
+* the applicable parent Spec, branch, workspace metadata, and current implementation-readiness/design-completeness state.
 
 For a **Spec Review remediation** proposal, independently validate against:
 
@@ -145,7 +177,8 @@ For a **Spec Review remediation** proposal, independently validate against:
 * every current unresolved/regressed Root Blocker and active cumulative acceptance cell;
 * the complete remediation / verification / preservation partition;
 * current existing-ticket lineage and closed/open state;
-* the Root Delta Coverage returned under `$to-remediation-tickets` authority.
+* the Root Delta Coverage returned under `$to-remediation-tickets` authority;
+* the current parent/remediation design-readiness state where material public/domain contracts are affected.
 
 The certifier must not define completeness from what the proposal happened to mention.
 
@@ -154,6 +187,9 @@ The certifier must not define completeness from what the proposal happened to me
 A proposal may PASS only when all applicable checks are independently established:
 
 ```text
+Source implementation readiness: pass
+Material design choices delegated to implementation: 0
+Attention design-gap findings unresolved: 0
 Source obligations/root cells complete: yes
 Proposal coverage complete: yes
 Missing obligations/cells: 0
@@ -192,6 +228,7 @@ TICKET PROPOSAL READINESS: PASS
 Source: <identity>
 Mode: fresh | remediation
 Proposal identity: <sha256>
+Design delegation: 0
 Coverage: <n>/<n>; missing 0; ambiguous 0; unclassified 0
 Mechanics: template/lineage/branch/baseline/status/dependencies valid
 Repository-policy conflicts: 0
@@ -304,7 +341,7 @@ Every ordinary Implementation Ticket created from a Spec must contain:
 
 The IDs are exact provenance, not a replacement for good ticket acceptance criteria.
 
-The ticket must still describe the end-to-end behavior it delivers and carry acceptance criteria sufficient to implement its slice.
+The ticket must still describe the end-to-end behavior it delivers and carry acceptance criteria sufficient to implement its slice without delegating material design to `$implement-ticket`.
 
 When a ticket supports another ticket mechanically without directly realizing a Spec cell, `Spec obligations: None` requires an explicit row/reason in the coverage manifest showing why the supporting ticket exists and which covered ticket(s) depend on it.
 
@@ -334,6 +371,7 @@ Spec contract cells: <n>
 Mapped: <n>
 Unmapped: 0
 Ambiguous: 0
+Material design choices delegated to implementation: 0
 ```
 
 Persist it once per approved decomposition state. If ticket semantics are later changed through an authorized workflow, that owner must supersede/reconcile the manifest rather than leaving contradictory active coverage records.
@@ -344,15 +382,17 @@ The manifest is provenance and coverage authority for decomposition. It is **not
 
 Immediately before Step 5 publication, require all of the following together:
 
-* Spec Branch Rule passed;
+* source Spec/remediation authority is still implementation-ready;
 * exact approved ticket proposal still matches planned semantics;
 * the latest `TICKET PROPOSAL READINESS: PASS` binds to the exact approved proposal identity and current source state;
+* Spec Branch Rule passed;
 * `$spec-contract` manifest still matches retained body/contract hashes when applicable;
 * Spec Obligation Disposition Manifest is complete when applicable;
 * every ticket's `Spec obligations` set equals its approved mapping when applicable;
+* material design choices delegated to implementation remain zero;
 * blocking edges/hierarchy still match the approved proposal.
 
-A changed proposal, source contract/root state, branch/baseline authority, or Spec body/contract invalidates readiness and returns to drafting/certification/approval as applicable.
+A changed proposal, source contract/root/readiness state, branch/baseline authority, or Spec body/contract invalidates readiness and returns to drafting/certification/approval as applicable.
 
 Do not publish tickets and promise to reconcile the coverage manifest or proposal correctness afterward.
 
@@ -361,6 +401,8 @@ Do not publish tickets and promise to reconcile the coverage manifest or proposa
 The durable chain is:
 
 ```text
+frozen planning/design contract
+    ↓
 Spec contract cell
     ↓
 Ticket Coverage Manifest
@@ -408,17 +450,11 @@ If the user passes a spec path, issue number, or URL, fetch and read its full bo
 
 If the source is a Spec, use its **Architecture Impact** as routing context. Carry forward only the affected entities and governing ADR/doc references relevant to each ticket.
 
-If the Spec still contains an unresolved material architecture question, halt with a Human Handoff. Do not resolve architecture here.
+If the source Spec declares itself not implementation-ready, contains an unresolved material design/public-contract question, or still contains an unresolved material architecture question, halt with a Human Handoff. Do not resolve those choices here.
 
-> ⚠️ **Ticket creation is blocked by unresolved architecture.**
+> ⚠️ **Ticket creation is blocked by unresolved upstream design/architecture.**
 >
-> Please run:
->
-> ```
-> $to-specs - <Spec Title> (<Spec URL>)
-> ```
-
-Use the actual Spec title and URL.
+> Return to the owning Spec/planning workflow and resolve the listed readiness blocker before `$to-tickets` continues.
 
 A Blocking Architecture finding in a Spec Review issue is not itself unresolved architecture. `$to-remediation-tickets` owns that routing.
 
@@ -532,6 +568,8 @@ Give each ticket its **blocking edges**.
 
 **Wide refactors are the exception.** When one mechanical change fans across the codebase and individual vertical slices cannot stay green, use expand–contract: expand first, migrate callers in manageable batches, then contract after all migrations complete.
 
+Before proposal freeze, perform the **Design Delegation Guard** above and require `$attention` to return no unresolved design-gap finding.
+
 ### 4. Quiz the User
 
 Present only a proposal that has passed **Proposal Readiness Certification** above, except for deterministic metadata-only normalization allowed below.
@@ -577,7 +615,8 @@ Before requesting approval for Spec Review remediation, verify:
 * blocking edges and dependency changes match the returned delta;
 * no closed ticket is being reopened or rewritten;
 * `Ticket branch`, `Ticket baseline`, and required label/status are shown;
-* architecture-blocked roots, if any, halted ordinary publication instead of appearing as ordinary tickets.
+* architecture-blocked roots, if any, halted ordinary publication instead of appearing as ordinary tickets;
+* no material design/public-contract choice is delegated to implementation.
 
 If any check fails, correct the proposal before presenting it to the user. Do not rely on the user to discover omissions or repair the remediation contract during approval.
 
@@ -627,7 +666,7 @@ New tickets must:
 * use the shared **Ticket branch**;
 * declare **Ticket baseline** as `Pending`;
 * receive correct blocking relationships;
-* receive `ready-for-agent` unless instructed otherwise.
+* receive `ready-for-agent` only when the source/ticket remains implementation-ready after the final pre-publication guard.
 
 For Spec Review remediation, publish the Root Blocker contract returned by `$to-remediation-tickets` without weakening it:
 
@@ -644,26 +683,26 @@ When updating an existing open ticket, preserve valid execution metadata and add
 
 Do not reopen or rewrite closed tickets to represent newly required work.
 
-Do not close or modify the parent Spec issue.
+Do not close or modify the parent Spec issue except through the owning upstream workflow.
 
-### Architecture Readiness Language
+### Architecture and Design Readiness Language
 
 Scope ticket readiness claims to what the current Spec, review state, and accepted decisions actually establish.
 
-When architecture dependencies for a ticket are resolved, prefer language such as:
+When architecture and material design dependencies for a ticket are resolved, prefer language such as:
 
-> All architecture decisions currently required by this ticket are accepted; no known architecture blocker remains unresolved.
+> All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
 
 Do not write absolute claims such as:
 
-* `no architecture decision remains unresolved`;
-* `architecture is fully resolved`;
-* `all architecture is settled`;
+* `no architecture/design decision remains unresolved`;
+* `architecture/design is fully resolved`;
+* `all design is settled`;
 * equivalent language implying implementation cannot expose another material blocker.
 
-Ticket readiness means **no known architecture blocker currently prevents this ticket from starting**.
+Ticket readiness means **no known architecture or material design blocker currently prevents this ticket from starting**.
 
-It does not waive `$implement-ticket`'s obligation to halt on a newly discovered material architecture blocker.
+It does not waive `$implement-ticket`'s obligation to halt on a newly discovered material architecture/design blocker or its proactive Attention duty.
 
 More generally, state only what the workflow has established. Do not turn current evidence into broader or final claims.
 
@@ -673,9 +712,9 @@ More generally, state only what the workflow has established. Do not turn curren
 
 **Root blocker:** for Spec Review remediation tickets only, `RB-<n>` and the stable root invariant this ticket closes. Omit otherwise.
 
-**Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture Readiness Language**.
+**Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture and Design Readiness Language**.
 
-**What to build:** the end-to-end behaviour this ticket makes work.
+**What to build:** the end-to-end behaviour this ticket makes work. It must execute the frozen upstream contract rather than delegate a material design choice.
 
 **Blocked by:** ticket numbers/titles, or "None — can start immediately".
 
@@ -724,11 +763,11 @@ For Spec Review remediation tickets only: `RB-<n>` and the stable root invariant
 
 ## Architecture context
 
-Affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture Readiness Language**.
+Affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture and Design Readiness Language**.
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work.
+The end-to-end behaviour this ticket makes work. Do not leave a material public/domain/downstream contract for `$implement-ticket` to choose.
 
 ## Acceptance criteria
 
@@ -929,11 +968,12 @@ After ticket publication/reconciliation and Spec branch metadata are durable, de
 
 Use one post-transition reconciliation set:
 
-* ordinary ticketing parent Spec → base `Spec / Ready to Implement / None / Ready`;
+* ordinary ticketing parent implementation-ready Spec → base `Spec / Ready to Implement / None / Ready`;
+* a parent Spec whose design/readiness gate is blocked → base `Spec / Blocked / None / Blocked` (or the repository's human-design state when owner judgment is required), with no implementation handoff;
 * Spec Review remediation parent Spec Review → base `Spec Review / Review Remediation / None / Ready` once executable remediation-ticket children exist; before such children exist its route remains `$to-tickets`;
 * the originating parent Spec in remediation remains `Spec / Review Remediation / None / Ready` when that lifecycle state is already established, and must be included when this invocation changes or re-establishes it;
-* every open frontier Implementation Ticket or Review Remediation Ticket with zero open native blockers → base `Ready to Implement / $implement-ticket / Ready` for its artifact type;
-* every open ticket with one or more open native blockers → base `Blocked / None / Blocked` for its artifact type;
+* every open frontier Implementation Ticket or Review Remediation Ticket with zero open native blockers **and valid implementation readiness** → base `Ready to Implement / $implement-ticket / Ready` for its artifact type;
+* every open ticket with one or more open native blockers or invalid implementation readiness → base `Blocked / None / Blocked` for its artifact type;
 * every updated/superseded formal ticket or other formal artifact whose lifecycle state or open-blocker set changed during this invocation.
 
 For Review Remediation Tickets, supply the durable `Root Blocker` value. For all non-complete artifacts, `Completed On = None`.
@@ -946,7 +986,7 @@ If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not roll 
 
 ## Implementation Human Handoff
 
-After ticket publication/reconciliation, Spec branch metadata, and mandatory Project reconciliation are complete, identify every open, unblocked frontier ticket for the Spec.
+After ticket publication/reconciliation, Spec branch metadata, and mandatory Project reconciliation are complete, identify every open, unblocked **implementation-ready** frontier ticket for the Spec.
 
 If one frontier ticket is available, halt with:
 
@@ -960,13 +1000,15 @@ If one frontier ticket is available, halt with:
 
 If multiple frontier tickets are available, output one copy-ready `$implement-ticket` line per ticket and let the user choose which fresh implementation session to start.
 
+If no ticket is implementation-ready because an upstream design/readiness blocker remains, report that blocker and stop without an `$implement-ticket` handoff.
+
 Do not invoke `$implement-ticket` implicitly.
 
 ## Transition-Bound Decomposition Coverage
 
-Ticket publication is authorized only after the complete source contract has been dispositioned into executable or explicitly non-executable work. A well-formed set of proposed tickets is not proof that the decomposition universe was complete.
+Ticket publication is authorized only after the complete source contract has been dispositioned into executable or explicitly non-executable work. A well-formed set of proposed tickets is not proof that the decomposition universe was complete or design-complete.
 
-For an originating Spec, use the current `$spec-contract` contract as the decomposition universe. If the current invocation does not already hold a valid contract for the exact Spec body/branch/baseline/HEAD, invoke `$spec-contract` in `build` mode after branch/baseline readiness and before approval. `$spec-contract` is source parsing/contract construction here; it does not verify implementation.
+For an originating Spec, use the current `$spec-contract` contract as the decomposition universe. If the current invocation does not already hold a valid contract for the exact Spec body/branch/baseline/HEAD, invoke `$spec-contract` in `build` mode after branch/baseline readiness and before approval. `$spec-contract` is source parsing/contract construction here; it does not verify implementation or cure a design-readiness gap.
 
 Build one working **Decomposition Coverage** row per manifest cell:
 
@@ -989,6 +1031,8 @@ Rules:
 Before presenting the approval proposal and again before publication require:
 
 ```text
+Source implementation readiness: pass
+Material design choices delegated to implementation: 0
 Spec contract cells: <n>
 Decomposition coverage rows: <n>
 Missing cells: 0
@@ -998,4 +1042,4 @@ Unclassified dispositions: 0
 Disposition rows without reason/authority: 0
 ```
 
-Human approval authorizes publication of the exact complete proposal; it does not waive decomposition completeness. For Spec Review remediation, `$to-remediation-tickets` owns its Root Delta Coverage and returns that complete semantic delta; preserve it without condensation or omission.
+Human approval authorizes publication of the exact complete proposal; it does not waive decomposition or design completeness. For Spec Review remediation, `$to-remediation-tickets` owns its Root Delta Coverage and returns that complete semantic delta; preserve it without condensation or omission.

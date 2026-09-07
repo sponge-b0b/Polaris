@@ -16,9 +16,12 @@ This design refines:
 - [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
 - [`investment-decisions-r2-decision-kernel-component-boundaries.md`](investment-decisions-r2-decision-kernel-component-boundaries.md);
+- [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md);
 - [`../product/requirements-0.2.0.md`](../product/requirements-0.2.0.md);
 - proposed [`../product/requirements-0.2.0-amendment-r2-edge-cases.md`](../product/requirements-0.2.0-amendment-r2-edge-cases.md);
 - accepted ADR 0002 and ADR 0003.
+
+The owner-approved foundation public-contract document resolves the foundation blockers that existed when this persistence design was first written. Where historical wording below conflicts with that completion authority, the completed foundation contract controls.
 
 PostgreSQL is the initial/reference adapter, not the persistence architecture.
 
@@ -38,11 +41,11 @@ R2 persistence must ensure, independently of runtime replay:
 8. renewal and many-to-many Supersession are durable without rewriting predecessor lifecycle disposition;
 9. `as_known_at` and `effective_at` remain distinct and correct;
 10. late correction does not delete prior facts;
-11. contested lifecycle/operative interpretation remains representable;
-12. Actor Attribution remains distinct from trigger/technical provenance;
+11. contested lifecycle/relationship/operative interpretation remains representable;
+12. Actor Attribution remains distinct from Trigger Provenance and Technical Provenance;
 13. no persistence-native types leak inward;
 14. greenfield schema/migrations remain independent of `legacy/`;
-15. domain `InvestmentDecisionId`, `DecisionNeedId`, and application `OperationId` UUIDv4-backed identity contracts survive persistence without conversion to semantic strings or database-generated business identity.
+15. the completed opaque UUIDv4-backed domain/application identity contracts survive persistence without conversion to semantic strings or database-generated business identity, including `PortfolioId`, `InvestmentDecisionId`, `DecisionNeedId`, `DecisionLifecycleFactId`, `DecisionRelationshipFactId`, `OperationId`, and `ActorId`.
 
 ---
 
@@ -50,13 +53,13 @@ R2 persistence must ensure, independently of runtime replay:
 
 ## Decisions command store
 
-Must support loading current state/version, prior command result, atomic lifecycle mutation/correction, new Decision establishment after continuity revalidation, one/multiple typed relationships, projection update, receipt persistence, and explicit uniqueness/continuity/version/relationship/correction failure.
+Must support loading current state/version, prior command result, atomic lifecycle mutation/correction, new Decision establishment after continuity revalidation, one/multiple typed relationship facts/corrections, projection update, receipt persistence, and explicit uniqueness/continuity/version/relationship/correction failure.
 
 No SQL/PostgreSQL/session/ORM/table/vendor exception leaks inward.
 
 ## Decision Memory reader
 
-Must support current view, immutable history/corrections, `as_known_at`, `effective_at(T, known_at=K)`, determinate vs contested lifecycle/operative interpretation, renewal/Supersession lineage, conservative unresolved operative candidates, initiation continuity basis, and observation guard for atomic revalidation.
+Must support current view, immutable history/corrections, `as_known_at`, `effective_at(T, known_at=K)`, determinate vs contested lifecycle/operative interpretation, renewal/Supersession lineage and relationship support, conservative unresolved operative candidates, initiation continuity basis, and observation guard for atomic revalidation.
 
 Optimized projections are never sole historical authority.
 
@@ -72,7 +75,7 @@ R2 owner facts live within Decisions, so a purpose-specific atomic command-store
 
 ## 4.1 Decision Need
 
-Preserve UUID-backed Need ID, statement, effective establishment time, recorded time, Actor Attribution where material, trigger/origin provenance separately, and immutable creation metadata.
+Preserve UUID-backed `DecisionNeedId`, non-empty statement, effective establishment time, recorded time, UUID-backed `OperationId`, Actor Attribution, required Trigger Provenance, optional Technical Provenance, and immutable creation metadata.
 
 One Need may be referenced by **at most one** Investment Decision. The initial PostgreSQL adapter should enforce this mechanically where practical, e.g. a unique FK/reference from Investment Decision to Decision Need.
 
@@ -80,33 +83,43 @@ Later Need correction is append-only lifecycle history.
 
 ## 4.2 Investment Decision current projection
 
-Preserve UUID-backed Decision/Need IDs, current Subject, current Scope (`confirmed_portfolio_refs` + completeness), supported lifecycle interpretation summary (determinate or contested), work posture when applicable, supported operative-applicability summary (operative/non-operative/contested), current version, creation time, and projection/correction marker sufficient to rebuild/verify drift.
+Preserve UUID-backed Decision/Need IDs, current `DecisionSubject`, current `DecisionScope` (canonical unordered unique `PortfolioId` membership + completeness), supported lifecycle interpretation summary (determinate or contested), work posture when applicable, supported operative-applicability summary (operative/non-operative/contested), current `DecisionVersion`, `created_at`, and projection/correction marker sufficient to rebuild/verify drift.
 
 Supersession is not a replacement lifecycle status.
 
 ## 4.3 Lifecycle fact
 
-Append-only record preserving fact ID, Decision ID, recorded sequence/version, fact kind, effective time, recorded time, UUID-backed operation ID, Actor Attribution where applicable, trigger/technical provenance separately, typed business basis/reference, fact-specific payload, and correction target/reference where applicable.
+Append-only record preserving `DecisionLifecycleFactId`, Decision ID, `DecisionLifecycleSequence`, Decision version associated with the committed mutation, fact kind, effective time, recorded time, UUID-backed `OperationId`, Actor Attribution where applicable, required Trigger Provenance, optional Technical Provenance, purpose-specific typed business basis/reference when required, fact-specific payload, and correction target/reference where applicable.
+
+`DecisionLifecycleSequence` and `DecisionVersion` are separate concepts. Lifecycle initiation starts both at 1; each committed lifecycle/current-state mutation appends the immediately next lifecycle sequence and increments Decision version once. A later relationship-only mutation may increment Decision version without inventing a lifecycle fact or lifecycle-sequence entry.
 
 ### `DecisionInitiated` continuity provenance
 
 The initiation fact (or inseparable typed initiation record referenced by it) preserves:
 
-- continuity determination kind (`NO_CANDIDATES`, `EXPLICIT_CREATE_NEW`, or equivalent);
+- continuity determination kind (`NO_CANDIDATES` or `EXPLICIT_CREATE_NEW`);
 - candidate Decision IDs materially considered when non-empty;
-- attributable actor/basis/rationale for explicit create-new determination;
-- candidate knowledge cutoff / continuity observation-guard reference;
-- any lineage relationship basis established in the same initiation.
+- known Actor Attribution plus non-empty rationale for explicit create-new with candidates;
+- candidate knowledge cutoff used for continuity determination and commit revalidation;
+- any typed lineage relationship basis established in the same initiation.
+
+Persistence-specific lock IDs, advisory-lock keys, row-version tokens, and equivalent mechanical guard details belong to adapter/receipt evidence rather than lifecycle provenance.
 
 ## 4.4 Decision relationship
 
-Many-to-many-capable record preserving relationship ID, source/target Decision IDs, type, effective/recorded time, operation ID, Actor Attribution/provenance where material, typed basis/scope, future context target knowledge/version boundary, and correction/support reference when applicable.
+Many-to-many-capable append-only record preserving `DecisionRelationshipFactId`, source/target Decision IDs, relationship type, effective time, recorded time, UUID-backed `OperationId`, Actor Attribution where material, required Trigger Provenance, optional Technical Provenance, and purpose-specific typed basis/reference when required.
+
+`DecisionRelationshipFactId` is domain fact identity, not persistence row identity and not a hash/key derived from source/type/target values.
+
+Relationship qualification/correction is append-only. A correction fact receives its own `DecisionRelationshipFactId`, explicitly references the prior relationship fact it qualifies/disconfirms, and never rewrites/deletes the original. If typed support cannot reconcile competing facts/corrections, supported relationship interpretation is contested/indeterminate rather than newest-write-wins.
 
 No one-to-one Supersession uniqueness by default.
 
+R2 does not create `PRIOR_DECISION_CONTEXT`. The inward relationship model must remain extensible so that a future purpose-specific context relationship can carry the exact target historical knowledge/version boundary actually used, but current `RENEWED_FROM`/`SUPERSEDES` records do not gain speculative nullable context fields merely for future possibility.
+
 ## 4.5 Command receipt
 
-Preserves UUID-backed operation ID, command kind, semantic request fingerprint/equivalent, affected Decision IDs, committed result/version(s), stable replay result, committed time.
+Preserves UUID-backed `OperationId`, command kind, semantic request fingerprint/equivalent, affected Decision IDs, committed result/version(s), stable replay result, committed time.
 
 The UUID value is only the opaque operation identity. Same-operation/same-request replay semantics remain determined by the receipt/request contract, not by interpreting UUID contents.
 
@@ -146,7 +159,7 @@ durable continuity determination/candidate basis
 + new Decision Need
 + Investment Decision referencing that Need
 + DecisionInitiated fact
-+ optional lineage relationships
++ optional lineage relationship facts
 + receipt
 ```
 
@@ -155,8 +168,9 @@ The transaction must enforce both Decision identity uniqueness and one-Need/one-
 Relationship command:
 
 ```text
-all relationship facts
+all relationship facts/corrections
 + affected operative projections/guards
++ Decision version updates where semantically affected
 + receipt
 ```
 
@@ -170,17 +184,20 @@ Must distinguish:
 
 ```text
 [] + UNRESOLVED
-[some confirmed] + UNRESOLVED
-[one-or-more confirmed] + ESTABLISHED
+[some confirmed PortfolioId values] + UNRESOLVED
+[one-or-more confirmed PortfolioId values] + ESTABLISHED
 ```
 
 Constraints:
 
+- membership is semantically unordered and duplicate-free;
 - `ESTABLISHED` with zero confirmed Portfolios is invalid;
 - no null/sentinel Portfolio identity overload;
-- Scope establishment/revision remains immutable history even if denormalized currently.
+- Scope establishment/revision remains immutable history even if denormalized currently;
+- `ESTABLISHED -> UNRESOLVED` is not an ordinary transition;
+- semantic no-op does not append history or increment Decision version.
 
-The canonical Portfolio identity/reference representation and Scope ordering/equality contract are unresolved foundation design items owned upstream. Persistence must not invent them by selecting a text/UUID surrogate or order-sensitive storage contract before the domain contract is frozen.
+The canonical Portfolio identity and Scope equality/ordering contracts are resolved by the completed foundation: Scope references Portfolio & Risk-owned opaque UUIDv4-backed `PortfolioId` values and preserves set-like equality/uniqueness. Persistence may choose normalized rows, arrays, JSONB, or another adapter representation only if the inward unordered/unique semantics remain unchanged.
 
 ---
 
@@ -200,7 +217,7 @@ operative applicability:
   OPERATIVE | NON_OPERATIVE | CONTESTED
 ```
 
-Deferral stores trusted Human Investment Decision basis reference, not Governance payload. Re-Deferral appends another fact. Withdrawal is not judgment. Need retraction preserves original history.
+Deferral stores a purpose-specific reference to an already-valid trusted Human Investment Decision basis, not Governance payload. Analytical/advisory judgment or an unauthorized attempted authority act cannot be persisted as that canonical Human Investment Decision basis. Re-Deferral appends another fact. Withdrawal is not judgment. Need retraction preserves original history.
 
 Supported Supersession of an unresolved Decision projects `NON_OPERATIVE`; contested Supersession support may project `CONTESTED`, and normal work fails closed.
 
@@ -210,6 +227,7 @@ Supported Supersession of an unresolved Decision projects `NON_OPERATIVE`; conte
 
 `RENEWED_FROM` and `SUPERSEDES` use many-to-many-capable storage.
 
+- every immutable base/correction record carries unique `DecisionRelationshipFactId` domain identity;
 - resolved target may be superseded;
 - unresolved target becomes non-operative without lifecycle mutation;
 - one source may supersede multiple targets;
@@ -217,15 +235,18 @@ Supported Supersession of an unresolved Decision projects `NON_OPERATIVE`; conte
 - no one-to-one unique constraint;
 - supported lineage acyclic;
 - cycle validation fails closed when relevant edge support is contested;
-- relationship correction append-only.
+- relationship correction is append-only and explicitly targets prior relationship-fact identity;
+- original relationship facts remain queryable after qualification/disconfirmation;
+- irreconcilable typed support is contested, not newest-wins;
+- a relationship-only committed mutation may advance `DecisionVersion` without advancing `DecisionLifecycleSequence`.
 
-R2 does not yet create `PRIOR_DECISION_CONTEXT`, but storage/port shape must permit later target historical knowledge boundary.
+R2 does not yet create `PRIOR_DECISION_CONTEXT`; future storage/port extension must be able to preserve a target historical knowledge/version boundary when that real use case is introduced, without pre-populating current relationship records with speculative context fields.
 
 ---
 
 # 9. Version / compare-and-set and idempotency
 
-Initiation sets version 1. Each committed Decisions mutation increments version once. Stale expected version commits nothing. Relationship commands touching several Decisions use sufficient guards. Continuity conflict is distinct from expected-version conflict.
+Initiation sets `DecisionVersion` 1. Each committed mutation of concurrency-protected Decision current state increments version once. Stale expected version commits nothing. Relationship commands touching several Decisions use sufficient guards. Relationship-only mutations may increment affected Decision versions without fabricating lifecycle facts. Continuity conflict is distinct from expected-version conflict.
 
 Idempotency:
 
@@ -239,7 +260,7 @@ Crash after commit/before response is recoverable. Idempotency does not solve di
 
 # 10. Temporal reconstruction and correction
 
-Every lifecycle/relationship fact/correction carries effective and recorded time; recorded sequence is canonical commit ordering.
+Every lifecycle/relationship fact/correction carries effective and recorded time. Lifecycle facts additionally carry contiguous `DecisionLifecycleSequence`; that sequence is not reused as relationship-history ordering merely to keep counters aligned.
 
 `as_known_at(K)` is the state **effective at K using only records committed by K**. Equivalently:
 
@@ -253,25 +274,33 @@ A fact recorded by K but explicitly effective after K is part of what was known,
 
 Late correction is append-only and may alter supported projection/effective interpretation without deleting original facts. External Resolution or unsupported-Need correction discovered after a previously recorded disposition is persisted as correction history, not rejected as an impossible ordinary transition.
 
-Competing corrections do not use newest-wins. If typed support cannot establish one interpretation, projection/query is contested with basis references.
+Competing lifecycle or relationship corrections do not use newest-wins. If typed support cannot establish one interpretation, projection/query is contested with basis references.
 
 ---
 
 # 11. Actor Attribution vs provenance
 
-Do not collapse domain Actor Attribution, trigger/source provenance, and technical request/work/model/provider provenance into one generic origin field.
+Do not collapse Actor Attribution, Trigger Provenance, and Technical Provenance into one generic origin field.
 
-Their public typed representations remain foundation-contract work owned upstream; persistence must not define the inward contract by leaking a generic `(kind, identifier)` storage shape.
+The completed public contracts are:
+
+- Actor Attribution uses canonical `ActorId` and truthful known/unknown/contested states; no universal persisted `ActorKind` is required;
+- every new Decisions fact has one constrained semantic Trigger Provenance;
+- Technical Provenance is optional, immutable, semantically unordered, and duplicate-free;
+- neither attribution nor technical provenance grants investment authority;
+- purpose-specific business basis/reference types remain separate from provenance.
+
+Persistence may map these contracts to efficient storage, but it must not redefine the inward types with one generic `(kind, identifier)` representation.
 
 ---
 
 # 12. Initial PostgreSQL adapter
 
-For the frozen domain/application identity contracts, use PostgreSQL's native `uuid` representation for `InvestmentDecisionId`, `DecisionNeedId`, and `OperationId` values. Do not convert them into semantic text identifiers or database-generated integer business identity.
+For frozen UUID-backed identities, use PostgreSQL native `uuid` representation for `PortfolioId`, `InvestmentDecisionId`, `DecisionNeedId`, `DecisionLifecycleFactId`, `DecisionRelationshipFactId`, `OperationId`, and `ActorId` values where persisted. Do not convert them into semantic text identifiers or database-generated integer business identity.
 
-The adapter may choose FKs, checks, unique `(decision_id, recorded_sequence)`, receipt uniqueness, conditional updates/row locks, serializable transactions/predicate protection, advisory/global initiation lock for R2, JSONB for purpose-named non-query-critical payload, recursive CTEs for bounded lineage/cycle checks, and transactional migrations where those choices do not alter inward semantics.
+The adapter may choose FKs, checks, unique `(decision_id, lifecycle_sequence)`, receipt uniqueness, conditional updates/row locks, serializable transactions/predicate protection, advisory/global initiation lock for R2, JSONB for purpose-named non-query-critical payload, recursive CTEs for bounded lineage/cycle checks, and transactional migrations where those choices do not alter inward semantics.
 
-Persistence-native record IDs such as physical fact/relationship row identity may use adapter-appropriate mechanisms unless/until a domain contract requires otherwise; they must not leak inward as domain identity.
+Physical row identity may use adapter-appropriate mechanisms, but it is separate from `DecisionLifecycleFactId` and `DecisionRelationshipFactId` and must not leak inward as domain identity.
 
 These are adapter details.
 
@@ -288,13 +317,15 @@ investment_decision_command_receipts
 <optional narrow continuity guard>
 ```
 
+The relationship table/equivalent may carry both base and correction fact kinds or use another purpose-specific append-only representation; the exact physical split is adapter-owned so long as immutable fact identity/support semantics survive.
+
 No R2 workflow/job/agent/report/RAG/Recommendation/Governance/Action Intent/Outcome/Lesson/generic-event tables.
 
 ---
 
 # 14. Constraint strategy
 
-Use DB constraints where practical for unique UUID-backed Decision/Need IDs and receipts/operation IDs, recorded sequence, one-Need/one-Decision uniqueness, FKs, non-null effective/recorded times, `ESTABLISHED` Scope requiring at least one Portfolio, work values, relationship self-reference/type, correction references, and absence of one-to-one Supersession restriction.
+Use DB constraints where practical for unique UUID-backed Decision/Need/lifecycle-fact/relationship-fact identities and receipts/operation IDs, lifecycle sequence, one-Need/one-Decision uniqueness, FKs, non-null effective/recorded times, `ESTABLISHED` Scope requiring at least one Portfolio, work values, relationship self-reference/type, correction target references, and absence of one-to-one Supersession restriction.
 
 History-dependent semantics remain domain/application validated with transactional defense in depth.
 
@@ -318,9 +349,9 @@ Raw DB exceptions never become application API.
 
 # 17. Recovery and reads
 
-After restart, Decision/Need/Scope load; unresolved Scope remains explicit; facts/corrections remain ordered; receipts replay; determinate/contested lifecycle and operative projections rebuild; continuity semantics do not depend on in-memory locks; lineage remains queryable; initiation continuity basis remains reconstructable; one-Need/one-Decision integrity remains durable; no replay engine is required.
+After restart, Decision/Need/Scope load; unresolved Scope remains explicit; lifecycle and relationship facts/corrections remain inspectable; receipts replay; determinate/contested lifecycle, relationship-support, and operative projections rebuild; continuity semantics do not depend on in-memory locks; lineage remains queryable; initiation continuity basis remains reconstructable; one-Need/one-Decision integrity remains durable; no replay engine is required.
 
-Support efficient bounded reads for Decision/Need, lifecycle history, operation receipt, unresolved operative candidates, continuity basis, renewal/Supersession adjacency/ancestry, recorded cutoff, effective-time lookup, and correction/support references.
+Support efficient bounded reads for Decision/Need, lifecycle history, operation receipt, unresolved operative candidates, continuity basis, renewal/Supersession adjacency/ancestry, relationship support/corrections, recorded cutoff, effective-time lookup, and correction/support references.
 
 ---
 
@@ -340,6 +371,7 @@ Support efficient bounded reads for Decision/Need, lifecycle history, operation 
 - partial Scope;
 - established non-empty Scope;
 - empty `ESTABLISHED` Scope rejected;
+- unordered membership/duplicate rejection survives adapter round-trip;
 - revisions reconstruct historically.
 
 ## Continuity
@@ -360,24 +392,26 @@ Support efficient bounded reads for Decision/Need, lifecycle history, operation 
 - later-recorded earlier-effective fact excluded from earlier `as_known_at`;
 - future-effective fact already recorded does not affect `as_known_at` before its effective time;
 - current effective query applies supported correction;
-- original fact remains queryable;
+- original lifecycle/relationship fact remains queryable after correction;
 - External/unsupported correction may qualify earlier recorded resolution;
-- competing corrections -> contested, not newest-wins.
+- competing lifecycle/relationship corrections -> contested, not newest-wins.
 
 ## Relationships / insulation
 
+- relationship fact IDs round-trip as domain identity distinct from row identity;
 - resolved Decision can be superseded without lifecycle mutation;
 - many-to-many Supersession persists;
+- relationship correction targets prior fact append-only;
+- relationship-only version increment does not fabricate lifecycle sequence;
 - direct/indirect mixed lineage cycles blocked;
 - ambiguous cycle support fails closed;
+- current relationship storage does not require speculative `PRIOR_DECISION_CONTEXT` payload;
 - same port contract testable without PostgreSQL-native types inward.
 
 ---
 
 # 19. Spec-readiness rule
 
-Specs may choose driver/ORM/migration library, exact tables/indexes, lock/isolation strategy, and reconstruction implementation only when those choices do not establish an unresolved inward/public contract.
+The foundation public-contract blockers are resolved. Specs may choose driver/ORM/migration library, exact tables/indexes, lock/isolation strategy, and reconstruction implementation only when those choices preserve the completed inward/public contract.
 
-Specs may not weaken one-Need/one-Decision cardinality, UUID-backed Decision/Need/Operation identity contracts, Scope validity, atomicity, durable continuity explanation/revalidation, many-to-many relationship semantics, append-only correction, contested lifecycle/operative interpretation, dual temporal queries, or actor/provenance separation.
-
-The lifecycle model's unresolved foundation public-contract items remain upstream blockers. Persistence must not resolve them accidentally through schema convenience.
+Specs may not weaken one-Need/one-Decision cardinality, UUID-backed identity contracts, Scope validity/equality, lifecycle sequence vs Decision version separation, atomicity, durable continuity explanation/revalidation, many-to-many relationship semantics, relationship fact identity, append-only lifecycle/relationship correction, contested lifecycle/relationship/operative interpretation, dual temporal queries, or Actor/Trigger/Technical Provenance separation.

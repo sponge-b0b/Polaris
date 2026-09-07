@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-06] R2 foundation contract audit | public identity and design gaps surfaced
+
+Re-opened R2 foundation design completeness after Ticket #294 exposed implementation-selected public contracts that upstream authority had not frozen. Added UUIDv4-backed opaque `InvestmentDecisionId`, `DecisionNeedId`, and `OperationId` contracts; restored explicit lifecycle-fact vocabulary including separate Scope establishment/revision and qualified `DecisionLifecycleFactMetadata`; and recorded unresolved public-contract questions for Decision Subject, canonical Portfolio identity/reference, Scope ordering/equality, Actor/provenance/business references, and the public Decision construction/export surface. Updated Planned/Open Question knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.
+
 ## [2026-09-04] R2 temporal and identity precision | final audit invariants tightened
 
 Tightened the proposed R2 design after final adversarial pressure testing: one Decision Need now grounds at most one Investment Decision; `ESTABLISHED` Decision Scope requires at least one Portfolio; deliberate hold/no-action versus non-resolving Recommendation rejection is explicit at the human-judgment seam; and `as_known_at(K)` is formally the state effective at K using only knowledge recorded by K, preventing future-effective known facts from applying early. Updated Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`.

@@ -43,6 +43,18 @@ class InvalidDecisionHistory(InvestmentDecisionError):
     pass
 
 
+class InvalidDecisionBasis(InvestmentDecisionError):
+    pass
+
+
+class DecisionNotOperative(InvalidDecisionTransition):
+    pass
+
+
+class DecisionApplicabilityContested(InvalidDecisionTransition):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionNeedAlreadyGrounded(InvestmentDecisionError):
     need_id: DecisionNeedId
@@ -349,6 +361,83 @@ class DecisionContinuity(StrEnum):
     INDEPENDENT_CHOICE = "independent_choice"
 
 
+class DecisionLifecycleDisposition(StrEnum):
+    UNRESOLVED = "unresolved"
+    SUBSTANTIVELY_RESOLVED = "substantively_resolved"
+    EXTERNALLY_RESOLVED = "externally_resolved"
+    NEED_RETRACTED_UNSUPPORTED = "need_retracted_unsupported"
+
+
+class DecisionWorkPosture(StrEnum):
+    ACTIVE = "active"
+    DEFERRED = "deferred"
+    WITHDRAWN = "withdrawn"
+
+
+class DecisionApplicability(StrEnum):
+    OPERATIVE = "operative"
+    NON_OPERATIVE = "non_operative"
+    CONTESTED = "contested"
+
+
+class HumanInvestmentDecisionEffect(StrEnum):
+    DEFERRING = "deferring"
+    SUBSTANTIVELY_RESOLVING = "substantively_resolving"
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedHumanInvestmentDecisionBasis:
+    decision_reference: str
+    effect: HumanInvestmentDecisionEffect
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "decision_reference",
+            _text(
+                self.decision_reference,
+                "TrustedHumanInvestmentDecisionBasis.decision_reference",
+                InvalidDecisionBasis,
+            ),
+        )
+        if not isinstance(self.effect, HumanInvestmentDecisionEffect):
+            raise InvalidDecisionBasis(
+                "Trusted Human Investment Decision effect is invalid"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionWorkControlBasis:
+    reference: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "reference",
+            _text(
+                self.reference,
+                "DecisionWorkControlBasis.reference",
+                InvalidDecisionBasis,
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalResolutionBasis:
+    reference: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "reference",
+            _text(
+                self.reference,
+                "ExternalResolutionBasis.reference",
+                InvalidDecisionBasis,
+            ),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionLifecycleFactMetadata:
     fact_id: DecisionLifecycleFactId
@@ -390,11 +479,46 @@ class DecisionScopeRevised:
     scope: DecisionScope
 
 
+@dataclass(frozen=True, slots=True)
+class DecisionDeferred:
+    metadata: DecisionLifecycleFactMetadata
+    basis: TrustedHumanInvestmentDecisionBasis
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionWorkWithdrawn:
+    metadata: DecisionLifecycleFactMetadata
+    basis: DecisionWorkControlBasis
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionWorkResumed:
+    metadata: DecisionLifecycleFactMetadata
+    basis: DecisionWorkControlBasis
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionSubstantivelyResolved:
+    metadata: DecisionLifecycleFactMetadata
+    basis: TrustedHumanInvestmentDecisionBasis
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionExternallyResolved:
+    metadata: DecisionLifecycleFactMetadata
+    basis: ExternalResolutionBasis
+
+
 DecisionLifecycleFact = (
     DecisionInitiated
     | DecisionSubjectRevised
     | DecisionScopeEstablished
     | DecisionScopeRevised
+    | DecisionDeferred
+    | DecisionWorkWithdrawn
+    | DecisionWorkResumed
+    | DecisionSubstantivelyResolved
+    | DecisionExternallyResolved
 )
 
 
@@ -404,6 +528,8 @@ class InvestmentDecision:
     _subject: DecisionSubject
     _scope: DecisionScope
     _version: DecisionVersion
+    _disposition: DecisionLifecycleDisposition
+    _work_posture: DecisionWorkPosture | None
 
     def __init__(self) -> None:
         raise TypeError(
@@ -418,12 +544,16 @@ class InvestmentDecision:
         subject: DecisionSubject,
         scope: DecisionScope,
         version: DecisionVersion,
+        disposition: DecisionLifecycleDisposition,
+        work_posture: DecisionWorkPosture | None,
     ) -> InvestmentDecision:
         instance = object.__new__(cls)
         object.__setattr__(instance, "_history", history)
         object.__setattr__(instance, "_subject", subject)
         object.__setattr__(instance, "_scope", scope)
         object.__setattr__(instance, "_version", version)
+        object.__setattr__(instance, "_disposition", disposition)
+        object.__setattr__(instance, "_work_posture", work_posture)
         return instance
 
     @property
@@ -451,6 +581,14 @@ class InvestmentDecision:
     @property
     def version(self) -> DecisionVersion:
         return self._version
+
+    @property
+    def disposition(self) -> DecisionLifecycleDisposition:
+        return self._disposition
+
+    @property
+    def work_posture(self) -> DecisionWorkPosture | None:
+        return self._work_posture
 
     @property
     def created_at(self) -> datetime:
@@ -513,6 +651,36 @@ def _same_choice(decision: InvestmentDecision, continuity: DecisionContinuity) -
         raise InvalidDecisionTransition("requested change must classify continuity")
 
 
+def _require_unresolved(decision: InvestmentDecision) -> None:
+    if decision.disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+        raise InvalidDecisionTransition("resolved Decision cannot receive ordinary work")
+
+
+def _require_operative(applicability: DecisionApplicability) -> None:
+    if type(applicability) is not DecisionApplicability:
+        raise InvalidDecisionTransition("Decision applicability is invalid")
+    if applicability is DecisionApplicability.CONTESTED:
+        raise DecisionApplicabilityContested(
+            "ordinary Decision work requires determinate operative applicability"
+        )
+    if applicability is DecisionApplicability.NON_OPERATIVE:
+        raise DecisionNotOperative("ordinary Decision work requires operative status")
+
+
+def _require_human_effect(
+    basis: TrustedHumanInvestmentDecisionBasis,
+    expected: HumanInvestmentDecisionEffect,
+) -> None:
+    if type(basis) is not TrustedHumanInvestmentDecisionBasis:
+        raise InvalidDecisionBasis(
+            "operation requires a trusted Human Investment Decision basis"
+        )
+    if basis.effect is not expected:
+        raise InvalidDecisionBasis(
+            f"Human Investment Decision basis must have {expected.value} effect"
+        )
+
+
 def initiate_decision(
     *,
     decision_id: InvestmentDecisionId,
@@ -545,10 +713,13 @@ def revise_subject(
     *,
     subject: DecisionSubject,
     continuity: DecisionContinuity,
+    applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     if subject == decision.subject:
         return decision
+    _require_unresolved(decision)
+    _require_operative(applicability)
     _same_choice(decision, continuity)
     return reconstruct_decision(
         (
@@ -565,10 +736,13 @@ def establish_or_revise_scope(
     *,
     scope: DecisionScope,
     continuity: DecisionContinuity,
+    applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     if scope == decision.scope:
         return decision
+    _require_unresolved(decision)
+    _require_operative(applicability)
     _same_choice(decision, continuity)
     if _established_to_unresolved(decision.scope, scope):
         raise InvalidDecisionTransition(
@@ -584,15 +758,120 @@ def establish_or_revise_scope(
     return reconstruct_decision((*decision.history, fact))
 
 
+def defer_decision(
+    decision: InvestmentDecision,
+    *,
+    basis: TrustedHumanInvestmentDecisionBasis,
+    applicability: DecisionApplicability,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _require_unresolved(decision)
+    _require_operative(applicability)
+    _require_human_effect(basis, HumanInvestmentDecisionEffect.DEFERRING)
+    fact = DecisionDeferred(
+        _metadata(decision, decision.decision_id, mutation),
+        basis,
+    )
+    return reconstruct_decision((*decision.history, fact))
+
+
+def withdraw_decision_work(
+    decision: InvestmentDecision,
+    *,
+    basis: DecisionWorkControlBasis,
+    applicability: DecisionApplicability,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _require_unresolved(decision)
+    _require_operative(applicability)
+    if type(basis) is not DecisionWorkControlBasis:
+        raise InvalidDecisionBasis("work withdrawal requires a work-control basis")
+    if decision.work_posture is DecisionWorkPosture.WITHDRAWN:
+        raise InvalidDecisionTransition("Decision work is already withdrawn")
+    fact = DecisionWorkWithdrawn(
+        _metadata(decision, decision.decision_id, mutation),
+        basis,
+    )
+    return reconstruct_decision((*decision.history, fact))
+
+
+def resume_decision_work(
+    decision: InvestmentDecision,
+    *,
+    basis: DecisionWorkControlBasis,
+    continuity: DecisionContinuity,
+    applicability: DecisionApplicability,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _require_unresolved(decision)
+    _require_operative(applicability)
+    _same_choice(decision, continuity)
+    if type(basis) is not DecisionWorkControlBasis:
+        raise InvalidDecisionBasis("work resumption requires a work-control basis")
+    if decision.work_posture not in (
+        DecisionWorkPosture.DEFERRED,
+        DecisionWorkPosture.WITHDRAWN,
+    ):
+        raise InvalidDecisionTransition("only deferred or withdrawn work may resume")
+    fact = DecisionWorkResumed(
+        _metadata(decision, decision.decision_id, mutation),
+        basis,
+    )
+    return reconstruct_decision((*decision.history, fact))
+
+
+def substantively_resolve_decision(
+    decision: InvestmentDecision,
+    *,
+    basis: TrustedHumanInvestmentDecisionBasis,
+    applicability: DecisionApplicability,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _require_unresolved(decision)
+    _require_operative(applicability)
+    _require_human_effect(
+        basis,
+        HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+    )
+    fact = DecisionSubstantivelyResolved(
+        _metadata(decision, decision.decision_id, mutation),
+        basis,
+    )
+    return reconstruct_decision((*decision.history, fact))
+
+
+def externally_resolve_decision(
+    decision: InvestmentDecision,
+    *,
+    basis: ExternalResolutionBasis,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _require_unresolved(decision)
+    if type(basis) is not ExternalResolutionBasis:
+        raise InvalidDecisionBasis(
+            "External Resolution requires an attributable external basis"
+        )
+    fact = DecisionExternallyResolved(
+        _metadata(decision, decision.decision_id, mutation),
+        basis,
+    )
+    return reconstruct_decision((*decision.history, fact))
+
+
 def reconstruct_decision(
     history: Iterable[DecisionLifecycleFact],
 ) -> InvestmentDecision:
     facts = tuple(history)
     initiation = _history_start(facts)
     _validate_metadata(facts, initiation.metadata.decision_id)
-    subject, scope = _replay(facts, initiation)
+    subject, scope, disposition, work_posture = _replay(facts, initiation)
     return InvestmentDecision._from_validated(
-        facts, subject, scope, facts[-1].metadata.decision_version
+        facts,
+        subject,
+        scope,
+        facts[-1].metadata.decision_version,
+        disposition,
+        work_posture,
     )
 
 
@@ -606,6 +885,11 @@ def _history_start(facts: tuple[DecisionLifecycleFact, ...]) -> DecisionInitiate
         DecisionSubjectRevised,
         DecisionScopeEstablished,
         DecisionScopeRevised,
+        DecisionDeferred,
+        DecisionWorkWithdrawn,
+        DecisionWorkResumed,
+        DecisionSubstantivelyResolved,
+        DecisionExternallyResolved,
     )
     if any(not isinstance(fact, supported) for fact in facts):
         raise InvalidDecisionHistory("Decision history contains unsupported fact type")
@@ -665,19 +949,110 @@ def _validate_meta_types(meta: object) -> None:
 def _replay(
     facts: tuple[DecisionLifecycleFact, ...],
     initiation: DecisionInitiated,
-) -> tuple[DecisionSubject, DecisionScope]:
+) -> tuple[
+    DecisionSubject,
+    DecisionScope,
+    DecisionLifecycleDisposition,
+    DecisionWorkPosture | None,
+]:
     _validate_initiation(initiation)
     subject, scope = initiation.subject, initiation.scope
+    disposition = DecisionLifecycleDisposition.UNRESOLVED
+    work_posture: DecisionWorkPosture | None = DecisionWorkPosture.ACTIVE
     for fact in facts[1:]:
         if isinstance(fact, DecisionSubjectRevised):
+            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+                raise InvalidDecisionHistory("resolved Decision cannot revise Subject")
             if type(fact.subject) is not DecisionSubject or fact.subject == subject:
                 raise InvalidDecisionHistory("invalid or no-op Subject revision")
             subject = fact.subject
         elif isinstance(fact, DecisionScopeEstablished):
+            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+                raise InvalidDecisionHistory("resolved Decision cannot establish Scope")
             scope = _replay_establishment(scope, fact)
         elif isinstance(fact, DecisionScopeRevised):
+            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+                raise InvalidDecisionHistory("resolved Decision cannot revise Scope")
             scope = _replay_scope_revision(scope, fact)
-    return subject, scope
+        else:
+            disposition, work_posture = _replay_lifecycle_fact(
+                fact,
+                disposition,
+                work_posture,
+            )
+    return subject, scope, disposition, work_posture
+
+
+def _replay_lifecycle_fact(
+    fact: DecisionLifecycleFact,
+    disposition: DecisionLifecycleDisposition,
+    work_posture: DecisionWorkPosture | None,
+) -> tuple[DecisionLifecycleDisposition, DecisionWorkPosture | None]:
+    if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+        raise InvalidDecisionHistory("resolved Decision cannot receive ordinary work")
+    if isinstance(fact, DecisionDeferred):
+        _validate_deferred_fact(fact)
+        return disposition, DecisionWorkPosture.DEFERRED
+    if isinstance(fact, DecisionWorkWithdrawn):
+        _validate_work_withdrawn_fact(fact, work_posture)
+        return disposition, DecisionWorkPosture.WITHDRAWN
+    if isinstance(fact, DecisionWorkResumed):
+        _validate_work_resumed_fact(fact, work_posture)
+        return disposition, DecisionWorkPosture.ACTIVE
+    if isinstance(fact, DecisionSubstantivelyResolved):
+        _validate_substantive_resolution_fact(fact)
+        return DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED, None
+    if isinstance(fact, DecisionExternallyResolved):
+        _validate_external_resolution_fact(fact)
+        return DecisionLifecycleDisposition.EXTERNALLY_RESOLVED, None
+    raise InvalidDecisionHistory("unsupported lifecycle fact")
+
+
+def _validate_deferred_fact(fact: DecisionDeferred) -> None:
+    try:
+        _require_human_effect(fact.basis, HumanInvestmentDecisionEffect.DEFERRING)
+    except InvalidDecisionBasis as error:
+        raise InvalidDecisionHistory(str(error)) from error
+
+
+def _validate_work_withdrawn_fact(
+    fact: DecisionWorkWithdrawn,
+    work_posture: DecisionWorkPosture | None,
+) -> None:
+    if type(fact.basis) is not DecisionWorkControlBasis:
+        raise InvalidDecisionHistory("work withdrawal basis is invalid")
+    if work_posture is DecisionWorkPosture.WITHDRAWN:
+        raise InvalidDecisionHistory("Decision work is already withdrawn")
+
+
+def _validate_work_resumed_fact(
+    fact: DecisionWorkResumed,
+    work_posture: DecisionWorkPosture | None,
+) -> None:
+    if type(fact.basis) is not DecisionWorkControlBasis:
+        raise InvalidDecisionHistory("work resumption basis is invalid")
+    if work_posture not in (
+        DecisionWorkPosture.DEFERRED,
+        DecisionWorkPosture.WITHDRAWN,
+    ):
+        raise InvalidDecisionHistory("only deferred or withdrawn work may resume")
+
+
+def _validate_substantive_resolution_fact(
+    fact: DecisionSubstantivelyResolved,
+) -> None:
+    try:
+        _require_human_effect(
+            fact.basis,
+            HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+        )
+    except InvalidDecisionBasis as error:
+        raise InvalidDecisionHistory(str(error)) from error
+
+
+def _validate_external_resolution_fact(fact: DecisionExternallyResolved) -> None:
+    if type(fact.basis) is not ExternalResolutionBasis:
+        raise InvalidDecisionHistory("External Resolution basis is invalid")
 
 
 def _validate_initiation(fact: DecisionInitiated) -> None:

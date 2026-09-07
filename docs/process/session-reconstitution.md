@@ -482,6 +482,8 @@ During session reconstitution, if restored session-only evidence reveals valuabl
 
 Perform work directly through available repository, GitHub, and other connected tooling whenever possible.
 
+Repository mutation ownership is explicit: when the available ChatGPT tooling can safely create, edit, delete, commit, push, or otherwise mutate repository/tracker state, the agent must perform that work directly, subject to the active workflow's own sequencing and guards. Do not substitute a patch, downloadable repository file, generated diff, copy/paste implementation, or instructions asking the user to apply/commit/push those changes merely because local execution would also be possible. Only provide such artifacts or mutation commands when the user explicitly asks for them or when the required mutation genuinely cannot be performed through the available tooling.
+
 The normal collaboration model is:
 
 1. the agent performs every safe workflow/repository/tracker step that its available tools support;

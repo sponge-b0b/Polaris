@@ -296,6 +296,34 @@ Do not introduce another DTO, model, wrapper, context object, enum, state contai
 
 Convert representations at genuine boundaries.
 
+### File Size and Module Cohesion
+
+Treat file length as an **attention signal, not a defect**.
+
+Do not impose or satisfy arbitrary line-count limits unless repository configuration or an explicit requirement establishes one. A large cohesive module is preferable to several artificial micro-modules that scatter one responsibility.
+
+Review a growing module for separation when size reveals structural evidence such as:
+
+* multiple independently meaningful domain concepts;
+* different sections changing for different reasons;
+* clearly separate dependency or import clusters;
+* tests naturally dividing into independent behavioral surfaces;
+* substantial navigation burden when understanding one operation;
+* a section that has earned a clear, purpose-specific module name of its own.
+
+A module in the high hundreds of lines merits a cohesion review; crossing roughly 1,000 lines is a stronger review signal, not an automatic split requirement. Generated, declarative, table-driven, or tightly coupled state-machine modules may legitimately be larger.
+
+When splitting, split along real domain, ownership, dependency, or behavioral boundaries.
+
+Do not split code merely to reduce line count when doing so would:
+
+* scatter one invariant or state transition across modules;
+* create circular imports or unnecessary indirection;
+* introduce vague `utils`, `helpers`, `common`, or `misc` modules;
+* separate value objects or operations that are easier to understand together.
+
+Prefer the smallest number of cohesive modules that make ownership and navigation clear.
+
 ### Authoritative Contract Changes and Compatibility
 
 Internal source compatibility is **not** a default Polaris requirement.
@@ -352,6 +380,31 @@ Comments should explain non-obvious:
 * reasons.
 
 Do not narrate mechanics already clear from the code.
+
+### Docstrings
+
+Use docstrings to preserve **non-obvious semantic information**, not to satisfy a documentation quota.
+
+A useful docstring may explain:
+
+* domain meaning or business semantics;
+* invariants, preconditions, or postconditions not evident from the signature;
+* side effects or ownership boundaries;
+* failure semantics that callers must understand;
+* temporal, authority, trust, or concurrency behavior;
+* a public API contract whose meaning is not obvious from names and types.
+
+For public or domain-facing APIs, add a docstring when there is meaningful contract information that the signature, type hints, and name do not already communicate. For private helpers, add one only when the helper has a non-obvious invariant, algorithm, or behavioral contract worth preserving.
+
+Do not add docstrings that merely:
+
+* restate the function, class, or field name;
+* paraphrase parameters already clear from names and type hints;
+* narrate straightforward implementation mechanics;
+* duplicate nearby comments or authoritative documentation;
+* exist only to satisfy a docstring coverage metric.
+
+Keep docstrings behavior- and contract-oriented so they remain valid when implementation details change.
 
 ---
 

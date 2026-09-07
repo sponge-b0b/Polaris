@@ -50,9 +50,27 @@ one Decision Need       -> at most one Investment Decision
 
 A repeated trigger that continues the same unresolved choice does not create another Decision Need merely to create another Decision identity. A genuinely new or renewed coherent choice requires a distinct Decision Need.
 
+### Identity representation
+
+R2 freezes the concrete opaque identity contract for Decision and Need:
+
+```text
+InvestmentDecisionId -> distinct UUID-backed domain identity
+DecisionNeedId       -> distinct UUID-backed domain identity
+UUID generation      -> UUIDv4
+```
+
+The UUID value carries **no domain meaning**. Consumers must not infer Subject, Scope, Portfolio applicability, continuity, chronology, lifecycle state, actor, provenance, or any other semantic fact from it.
+
+New UUIDv4 values are allocated independently of Decision/Need content and supplied to the domain transition; the domain never derives identity from mutable state or from technical execution identity. Distinct domain wrappers remain required even when both use UUID values so Decision and Need identity cannot be substituted accidentally.
+
+UUID generation makes collision negligibly probable; durable persistence remains responsible for enforcing actual uniqueness/cardinality as defense in depth.
+
 ## Decision Subject
 
 Subject identifies the matter being judged. It is required for coherent Decision identity but is not the Decision ID. Refinement preserves history and does not automatically create a new Decision.
+
+**Foundation contract still unresolved:** this design has not yet frozen the public representation of Decision Subject. In particular, an implementation may not assume that the canonical public Subject contract is one arbitrary string merely because a textual description is convenient. The representation must preserve the possibility of coherent composite subjects without inventing accidental identity or structure.
 
 ## Decision Scope
 
@@ -77,6 +95,23 @@ Rules:
 - `ESTABLISHED` MUST contain at least one Portfolio;
 - no fake/default Portfolio identity may represent unresolved Scope;
 - final Capital-Relevant Recommendation or Human Investment Decision requires sufficiently established Portfolio applicability; initiation does not.
+
+**Foundation contracts still unresolved:**
+
+- Portfolio & Risk defines durable Portfolio identity semantically, but the canonical greenfield `PortfolioId` representation/type has not yet been frozen. Investment Decisions must ultimately reference that canonical identity rather than inventing its own arbitrary string/UUID convention.
+- Scope ordering/equality semantics are not yet frozen. Implementation must not accidentally make Portfolio ordering part of Decision Scope identity/equality merely because a tuple/list representation is convenient.
+
+## Foundation public-contract completion
+
+The #294 authority audit established that the semantic model above was stronger than the concrete public type contract available to implementation. Before further R2 implementation advances, the following material contracts must be resolved upstream:
+
+1. canonical public representation for Decision Subject;
+2. canonical Portfolio identity/reference type used by Decision Scope;
+3. Decision Scope ordering/equality semantics;
+4. public representation contracts for Actor Attribution, trigger provenance, technical provenance/reference, and typed business basis/reference rather than generic arbitrary string pairs;
+5. intended public construction/reconstruction/export surface for the Investment Decision domain so raw implementation representations are not promoted to stable downstream API accidentally.
+
+These are design-completion blockers, not implementation choices.
 
 ---
 
@@ -144,7 +179,11 @@ DecisionNeedRetractedUnsupported
 DecisionLifecycleCorrected
 ```
 
+`DecisionScopeEstablished` and `DecisionScopeRevised` are distinct fact meanings. Establishment records the transition from incomplete applicability to sufficiently established Scope; later revision records a change to an already established Scope. Implementations must not collapse the two merely because their payloads look similar.
+
 Every fact preserves fact/Decision identity, recorded sequence/version, kind, effective time, recorded time, operation ID, Actor Attribution where applicable, trigger/technical provenance separately, typed basis/reference, and correction target/reference where applicable.
+
+When those common lifecycle-fact attributes are represented by one exported/public value object, the approved name is **`DecisionLifecycleFactMetadata`**. Bare `FactMetadata` is rejected because it loses the lifecycle-vs-relationship context at import/use sites. This naming decision does not require relationship facts to reuse the same common type.
 
 ### Initiation continuity payload
 
@@ -341,4 +380,6 @@ R2 implements Decision/Need/Subject/Scope semantics, lifecycle/work posture, imm
 
 R2 excludes Attention, Evidence/full Decision Context, Intelligence/Recommendation, Governance implementation, Action Continuity, Learning, contextual prior-Decision retrieval, and generic graph infrastructure.
 
-Specs may choose code organization, algorithms, libraries, schema details, and test mechanics. They may not redefine the semantics above.
+Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
+
+Specs and implementation **may not** choose any unresolved foundation public contract listed in Section 2, nor may they redefine the semantics above. Until those foundation blockers are resolved, downstream implementation of the affected contract is not implementation-ready.

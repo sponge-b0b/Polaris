@@ -90,6 +90,44 @@ Workflow consequences:
 * `$verify-ticket-closure` must reject a candidate that introduces an unowned material design/public contract even when explicit tests pass;
 * later integrated verification/review must surface cross-ticket design gaps that only become visible after composition.
 
+### Spec Governance Mode
+
+Spec governance is **orthogonal to Spec validity and lifecycle state**. Every Spec, and every downstream artifact whose delivery governance derives from that Spec, must resolve exactly one governance mode from durable tracker evidence before any Wayfinder- or project-delivery-dependent step:
+
+```text
+Wayfinder-managed
+Independent
+```
+
+A Spec is **Wayfinder-managed** only when current durable evidence establishes one or more governing Wayfinders through canonical `wayfinder-source`, `wayfinder-remediation`, or reconciled `Spec Handoff` provenance.
+
+A Spec is **Independent** only when exhaustive governance recovery establishes no Wayfinder governor and no evidence suggests missing, contradictory, or ambiguous Wayfinder provenance. Missing expected provenance is governance drift, not proof of independence.
+
+This section is a repository-wide workflow hardening rule and **supersedes any narrower skill wording that unconditionally assumes a Spec has a governing Wayfinder**. In particular:
+
+* any instruction to recover a governing Wayfinder, invoke `$project-delivery-management` `guard`/`reconcile`, require Wayfinder focus, or reconcile/close governing Wayfinders for a Spec or Spec-derived artifact applies **only** after that artifact's parent Spec is proven Wayfinder-managed, even if the local skill later omits the qualifier;
+* an Independent Spec and its descendants never acquire, infer, or require a Wayfinder merely because they enter ticketing, implementation, verification, review, remediation, dependency handling, merge/cleanup, or Project reconciliation;
+* Independent Specs do not participate in Wayfinder focus. Their authoritative Project Delivery State is `independent` while open, subject to their ordinary lifecycle and native blockers;
+* if `$project-delivery-management` is invoked with an Independent Spec or a descendant whose only governing Spec is Independent, it must return `PROJECT DELIVERY: OUTSIDE OWNER` without mutation rather than treating the missing Wayfinder as ambiguous or creating one;
+* `$to-remediation-specs` is intentionally Wayfinder-only. It is not the remediation path for an Independent Spec. Independent architecture remediation is owned by `$architecture-remediation`, which amends the existing Spec in place and then returns through `$to-tickets` for ticket reconciliation;
+* native GitHub `blocked by` relationships remain the dependency truth for both governance modes. A closed blocker satisfies the existing edge; reopening it makes the edge blocking again.
+
+Spec dependency semantic ownership is:
+
+| Consumer Spec | Blocker Spec | Semantic owner |
+| --- | --- | --- |
+| Wayfinder-managed | Wayfinder-managed, same governing lineage | `$to-specs` |
+| Wayfinder-managed | Wayfinder-managed, different governing lineages | `$project-delivery-management` |
+| Independent | Independent | `$to-specs` |
+| Independent | Wayfinder-managed | `$to-specs` |
+| Wayfinder-managed | Independent | `$to-specs` |
+
+`$github-issue-dependencies` owns only the authorized native relationship mechanics. When either endpoint is Independent, `$to-specs` validates the exact Spec-level semantic prerequisite, lowest accurate placement, cycle safety, and complete native blocker graph before delegating the mutation. Never promote an Independent-involved Spec dependency to a synthetic Wayfinder dependency.
+
+A Wayfinder-managed Spec blocked by an Independent Spec remains governed by its existing Wayfinder; the narrower open Spec blocker makes the Spec non-actionable without making the Wayfinder itself dependent on or governed by the Independent Spec. If the map otherwise remains frontier-eligible, it may remain focused-but-stalled.
+
+Governance mode is revalidated at every fresh human lifecycle entry and whenever durable provenance changes. It is never inferred from GitHub Project fields, labels other than canonical provenance mechanisms, issue age/order, branch names, conversation state, or the fact that a prior workflow happened to use or not use Wayfinder.
+
 ### Domain Vocabulary
 
 Do not preload `CONTEXT.md`.

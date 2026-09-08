@@ -38,7 +38,21 @@ Disposition: frozen-upstream | semantically-equivalent-mechanic | unresolved-des
 
 ### Architecture Remediation Human Handoff
 
-When `unresolved-design` is discovered for an existing Implementation Ticket during ticket reconciliation, identify the affected open frontier ticket and halt after reporting the concise blocker evidence.
+When `unresolved-design` is discovered for an existing Implementation Ticket during ticket reconciliation, identify the affected open frontier ticket and halt after preserving the blocker as durable transition state.
+
+Before presenting the handoff, create or update the ticket's single machine-managed `<!-- architecture-blocker:v1 -->` comment under the cross-skill contract in `.agents/skills/README.md`.
+
+Persist at least:
+
+- `Status: unresolved`;
+- `Source workflow: $to-tickets`;
+- the exact source ticket identity and parent Spec;
+- every coupled unresolved question/conflict;
+- durable evidence and governing authority;
+- material consequence;
+- exact blocked ticket/Spec obligation.
+
+If an active report already exists, reconcile/update that same managed comment rather than creating a competing report. Read the comment back and require the marker, unresolved status, source identity, parent Spec, and complete blocker set to match before emitting the Human Handoff. A chat summary or prior-session output is never a substitute for this persisted report.
 
 Terminate the handoff with:
 
@@ -48,9 +62,9 @@ Terminate the handoff with:
 > $architecture-remediation - <Frontier Ticket Title> (<Ticket URL>)
 > ```
 
-Use the actual frontier ticket title and URL. Do not replace the copy-ready command with free-form prose such as `Next: $architecture-remediation for ...`, and do not scope the invocation to the parent Spec when an existing blocked ticket is the source artifact. If multiple independent frontier tickets each contain unresolved architecture/design, output one copy-ready `$architecture-remediation` line per affected ticket and let the user choose which fresh remediation session to start.
+Use the actual frontier ticket title and URL. Do not replace the copy-ready command with free-form prose such as `Next: $architecture-remediation for ...`, and do not scope the invocation to the parent Spec when an existing blocked ticket is the source artifact. If multiple independent frontier tickets each contain unresolved architecture/design, persist one valid blocker report on each affected ticket, output one copy-ready `$architecture-remediation` line per ticket, and let the user choose which fresh remediation session to start.
 
-Do not invoke `$architecture-remediation` implicitly. For a fresh Spec with no existing Implementation Ticket, return to the owning Spec/planning workflow using its applicable handoff contract rather than fabricating a ticket identity.
+Do not invoke `$architecture-remediation` implicitly. For a fresh Spec with no existing Implementation Ticket, do not fabricate a ticket identity: persist any correctness-critical stopping context on the owning durable Spec/planning artifact as required by the cross-skill Fresh-Session Durability Gate, then use that owning workflow's handoff contract.
 
 Before certification require:
 
@@ -468,6 +482,8 @@ If the source is a Spec, use its **Architecture Impact** as routing context. Car
 
 If the source Spec declares itself not implementation-ready, contains an unresolved material design/public-contract question, or still contains an unresolved material architecture question, halt with a Human Handoff. Do not resolve those choices here.
 
+Before that handoff, apply the cross-skill Fresh-Session Durability Gate. If the exact readiness blocker is not already recoverable from the invoked durable planning artifact, persist it there and verify readback before stopping.
+
 > ⚠️ **Ticket creation is blocked by unresolved upstream design/architecture.**
 >
 > Return to the owning Spec/planning workflow and resolve the listed readiness blocker before `$to-tickets` continues.
@@ -530,7 +546,7 @@ Before drafting:
 * remediation, verification, and preservation obligations;
 * determining which new tickets are required.
 
-If `$to-remediation-tickets` returns one or more **architecture-blocked roots**, halt with a Human Handoff to the parent Spec review lifecycle:
+If `$to-remediation-tickets` returns one or more **architecture-blocked roots**, halt with a Human Handoff to the parent Spec review lifecycle. The returned Root Blocker state is already durable review/remediation authority; do not replace it with conversational context.
 
 > ⚠️ **Ticket remediation is blocked by unresolved architecture.**
 >

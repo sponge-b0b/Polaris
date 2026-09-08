@@ -22,11 +22,23 @@ Assume no prior conversational or agent-session state.
 
 Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
 
+A blocker-driven Human Handoff must not depend on explanatory prose from the producing session. When the invoked source artifact has a durable `<!-- architecture-blocker:v1 -->` report, that report is the blocker authority for this remediation. A concise blocker summary in the invocation is supplemental only.
+
 If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
 ## 1. Capture the Blocker Set
 
-Use the caller-provided context to capture every unresolved architecture blocker at the stopping point.
+First resolve the invocation mode from durable evidence:
+
+```text
+Invocation mode: blocker-remediation | explicit-readiness-audit
+```
+
+Use **blocker-remediation** when the source artifact contains an active `<!-- architecture-blocker:v1 -->` report with `Status: unresolved`. Read the complete source-artifact comment history needed to resolve that marker, require zero or one active unresolved report, and use its blocker set as the exact stopping-point input. Validate its source workflow, source artifact, parent Spec, blocker questions/conflicts, evidence, material consequences, blocked obligations, and governing-authority references against current durable state before proceeding.
+
+Use **explicit-readiness-audit** only when the human invocation itself explicitly requests an architecture/readiness audit and states the audit scope. Do not silently convert a missing blocker report into an audit merely to keep the workflow moving.
+
+If the invocation is presented as a blocker-remediation handoff but no recoverable active blocker report exists, halt and identify `<!-- architecture-blocker:v1 -->` as the missing durable artifact. Do not ask the human to reconstruct the prior session's finding.
 
 A blocker includes:
 
@@ -39,7 +51,7 @@ A blocker includes:
 For each blocker capture:
 
 * unresolved question/conflict;
-* caller evidence;
+* durable blocker-report evidence or explicit audit evidence;
 * material consequence;
 * affected owners, contracts, canonical paths, boundaries, dependencies, or lifecycle responsibilities;
 * governing ADR/doc references already known;
@@ -51,7 +63,25 @@ Also capture:
 * parent Spec;
 * Spec Review issue when applicable.
 
-Preserve caller evidence and terminology. Do not invent a resolution while capturing the blocker set.
+Preserve durable source evidence and terminology. Do not invent a resolution while capturing the blocker set.
+
+### Architecture blocker report lifecycle
+
+For blocker-remediation mode, retain the source artifact and exact managed blocker-comment identity throughout the workflow.
+
+The cross-skill contract in `.agents/skills/README.md` owns the report format and the meaning of:
+
+```text
+Status: unresolved | routed | resolved
+```
+
+Do not create a second active `<!-- architecture-blocker:v1 -->` report. When this workflow changes the blocker disposition, update that same managed comment in place and read it back before any Human Handoff or ordinary return that depends on the new disposition.
+
+* **Wayfinder-managed unresolved work:** after the exact governing Wayfinder decision ticket(s) are durable, set the report to `routed` and record those decision references in `Disposition` before handing off to `$wayfinder`.
+* **Independent Spec resolution:** after authoritative architecture, Spec amendment, remediation receipt, and required synchronization are durable, set the report to `resolved` and record the remediation receipt/authority references before handing off to `$to-tickets`.
+* **Existing authority fully resolves the blocker:** set the report to `resolved` and record the exact accepted authority that removes the missing choice before returning control.
+
+Changing blocker-report status is provenance/disposition state; it does not by itself imply a Project lifecycle transition unless this workflow separately changes the source artifact's authoritative lifecycle state.
 
 ### Decision Coupling
 
@@ -86,7 +116,7 @@ Read the parent Spec and recover its complete current Wayfinder governance from 
   ```
 
 * matching `Derived Spec` / `Remediation Spec` handoff metadata on canonical Wayfinder maps;
-* source ticket / Spec Review lineage supplied by the caller.
+* source ticket / Spec Review lineage supplied by the durable blocker report or explicit audit invocation.
 
 Preserve original source provenance. Remediation governance is additive and must never replace `wayfinder-source`.
 
@@ -124,7 +154,7 @@ Governance evidence: <exact durable evidence>
 
 Before creating decision work or asking the owner to decide anything, inspect relevant accepted authority and resolved architectural decisions.
 
-A prior decision resolves the blocker only when current accepted authority **directly determines the exact durable choice the caller says is missing**.
+A prior decision resolves the blocker only when current accepted authority **directly determines the exact durable choice the blocker report says is missing**.
 
 For each blocker ask:
 
@@ -257,7 +287,7 @@ When coupled:
 
 ## Discovery Context
 
-<caller evidence and why current work cannot proceed>
+<durable blocker-report evidence and why current work cannot proceed>
 
 ## Blocked Obligation
 
@@ -282,6 +312,8 @@ Do not:
 The ticket must preserve enough context for `$wayfinder` to determine whether authority must change, the blocked obligation must change, existing authority must be completed, or both must be reconciled.
 
 After the required decision-ticket/map mutations are durable, invoke `$project-delivery-management` `reconcile`. This reduction may remove invalid focus but must never select, switch, or broaden focus.
+
+For blocker-remediation mode, update the source `architecture-blocker:v1` report to `Status: routed`, record the governing Wayfinder and exact decision ticket references in `Disposition`, and verify the readback before the `$wayfinder` Human Handoff.
 
 ## 5B. Persist Independent-Spec Remediation
 
@@ -359,6 +391,8 @@ Do not rewrite existing Implementation Ticket bodies, Ticket baselines, dependen
 
 If repository-side architecture changes are required, do not post the completion receipt until those changes are durably committed/pushed and the active Spec branch contains the required authority.
 
+For blocker-remediation mode, after the receipt and all required repository/Spec synchronization are durable, update the source `architecture-blocker:v1` report to `Status: resolved`, record the receipt URL and controlling authority in `Disposition`, and verify the readback before the `$to-tickets` Human Handoff.
+
 ## Mandatory Project Reconciliation
 
 After every architecture-remediation tracker transition is durable, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
@@ -373,7 +407,7 @@ Synchronize only formal artifacts whose authoritative lifecycle state this skill
 * a source Implementation Ticket or review artifact only when this skill itself durably records a lifecycle change for that artifact;
 * any additional formal artifact whose lifecycle state this skill durably changes.
 
-Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.
+Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. A blocker-report status update alone is provenance/disposition, not a Project lifecycle mutation. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.
 
 Supply current Project Delivery State separately from the base lifecycle projection. Independent Specs remain outside Wayfinder delivery-focus governance. `$project-tracking` owns validation, delivery overlay, and Project mutation; it does not discover which artifacts this skill changed.
 
@@ -383,7 +417,7 @@ If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not undo 
 
 ### Wayfinder-managed unresolved decisions remain
 
-When a Wayfinder-managed blocker remains unresolved, halt after every independent decision has one corresponding open Wayfinder ticket.
+When a Wayfinder-managed blocker remains unresolved, halt after every independent decision has one corresponding open Wayfinder ticket and, in blocker-remediation mode, after the source blocker report is durably `routed`.
 
 Present all decisions and identify the next one:
 
@@ -407,7 +441,7 @@ Do not resume implementation, review remediation, or Spec amendment until the ap
 
 ### Independent Spec resolution complete
 
-After Independent-Spec architecture authority, Spec amendment, receipt persistence, and Project reconciliation are complete, do not return directly to the previously blocked implementation ticket.
+After Independent-Spec architecture authority, Spec amendment, receipt persistence, blocker-report resolution when applicable, and Project reconciliation are complete, do not return directly to the previously blocked implementation ticket.
 
 Present:
 
@@ -434,6 +468,8 @@ Report for each blocker:
 * why no architectural invention remains necessary.
 
 Do not infer resolution from topic overlap.
+
+For blocker-remediation mode, update the source `architecture-blocker:v1` report to `Status: resolved`, record the exact controlling authority in `Disposition`, and verify readback before return or any downstream handoff.
 
 If current authority invalidates or materially changes the existing Spec/remediation obligation:
 
@@ -479,9 +515,11 @@ A legitimately reopened Spec or blocker participates through the existing native
 This skill is complete when:
 
 * governance mode is recovered without guessing;
+* blocker-remediation mode has a recoverable durable source blocker report, or explicit-readiness-audit mode is unambiguously human-requested;
 * caller blockers are reduced to the minimum set of genuinely independent decisions;
 * existing accepted authority is tested against the exact missing durable choices;
 * no duplicate or artificially split decisions are introduced;
+* every blocker-remediation report is durably `routed` or `resolved` before the corresponding handoff/return;
 * mandatory `$project-tracking` reconciliation runs for every formal artifact whose lifecycle state this skill changed;
 * the mode-specific completion conditions below are satisfied.
 
@@ -509,7 +547,7 @@ For **Independent Spec** remediation:
 
 Architecture routing/resolution decisions that suppress or create durable work must be explicit working state.
 
-After capturing the caller blocker set, create one **Architecture Blocker Disposition** row per reported blocker before deduplication:
+After capturing the blocker set, create one **Architecture Blocker Disposition** row per reported blocker before deduplication:
 
 ```text
 Blocker: AB-<n>
@@ -543,6 +581,7 @@ Resolved blockers with incomplete durable-choice proof: 0
 Wayfinder unresolved groups without exactly one open decision ticket: 0
 Independent unresolved groups without explicit owner decision: 0
 Independent unresolved material choices after bounded closure: 0
+Active source blocker reports left unresolved at handoff/return: 0
 ```
 
-These rows are working state only and need not be persisted as a second architecture registry. Durable Wayfinder decisions, accepted architecture authority, the amended Independent Spec, and its remediation receipt remain the durable truth.
+These rows are working state only and need not be persisted as a second architecture registry. Durable blocker reports, Wayfinder decisions, accepted architecture authority, the amended Independent Spec, and its remediation receipt remain the durable truth.

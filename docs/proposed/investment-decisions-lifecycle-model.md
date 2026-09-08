@@ -23,6 +23,8 @@ This design refines, but does not override:
 
 `legacy/v0_1/` is not lifecycle authority.
 
+For R2 lifecycle-disposition correction and temporal interpretation, the later owner-approved [lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls. It freezes target-lineage eligibility, recursive independent activation, exact surviving support, cross-root compatibility, append-time validation, explicit observation boundaries, and correction replay/version behavior. It supersedes broader historical Subject/Scope correction wording and requires unsupported-Need qualification on initiation's lineage, not a separate forward `DecisionNeedRetractedUnsupported` fact. Earlier temporal/reconstruction shorthand below does not permit a domain wall clock, an implicit now derived from fact timestamps, or a public lifecycle interpretation without its explicit `(T,K)` boundary.
+
 ---
 
 # 1. Design objective

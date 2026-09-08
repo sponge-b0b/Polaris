@@ -21,6 +21,10 @@ This design refines:
 
 Application coordinates owner behavior; it does not create a second domain model.
 
+The later owner-approved [R2 lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls lifecycle-disposition correction and temporal interpretation. Application supplies current observation time and trusted command recording time; every public lifecycle interpretation exposes `(effective_at=T, known_at=K)`. Unknown-at-K is not found, while a known Decision with zero effective positive claims is `NOT_YET_EFFECTIVE`, with no effective support or work posture. Commands reconstruct at their recording boundary and consume the domain's append-time validation, branch-local compatibility, and exact surviving support rules.
+
+Every distinct valid attributable correction act appends, even when its claim is equivalent; exact operation/request replay is the only correction append no-op, and changed-request reuse conflicts through Application/persistence receipts. Compare preceding and appended history at the same recording boundary to determine the version consequence, including support-only changes. Future-only append may retain version, and clock/query execution creates no version. These rules supersede older two-state temporal-result and unconditional correction-version shorthand below. Corrections bypass the ordinary work gate but retain correction-specific eligibility; #296 does not implement Subject/Scope/work-posture correction or a domain receipt framework.
+
 ---
 
 # 1. R2 application surface

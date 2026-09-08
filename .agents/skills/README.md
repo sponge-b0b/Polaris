@@ -518,6 +518,50 @@ HITL inside a skill is not automatically a lifecycle handoff.
 
 Use a Human Handoff only at an intentional lifecycle or fresh-session boundary.
 
+### Fresh-Session Durability Gate
+
+Every Human Handoff is a fresh-session boundary. The user may clear all conversational context before invoking the next skill.
+
+Before emitting a Human Handoff, the current lifecycle owner must prove that the destination can recover every correctness-critical reason, blocker, binding, and required input from the copy-ready invocation plus durable repository/tracker state. Prior chat, prose elsewhere in the current response, local scratch files, and agent memory are not recoverable handoff state.
+
+If the invoked durable artifact does not already contain enough information, persist the missing transition context on its authoritative source/destination artifact before presenting the handoff, then read it back and verify it. The handoff command must identify a durable artifact by title and URL when available. A concise summary in the command or surrounding prose may help the human, but it is supplemental and must never be the only source of correctness-critical transition state.
+
+Do not require the human to copy explanatory prose, restate a prior finding, remember why the workflow stopped, or reconstruct evidence in the fresh session.
+
+#### Durable architecture-blocker report
+
+Any lifecycle owner that stops because an existing Spec, Implementation Ticket, Spec Review, or other formal artifact requires a new or changed durable architecture/design choice before it can continue must persist exactly one active machine-managed blocker report on the artifact handed to `$architecture-remediation` before emitting that Human Handoff.
+
+Use:
+
+```markdown
+<!-- architecture-blocker:v1 -->
+## Architecture Blocker
+
+**Status:** unresolved | routed | resolved
+**Source workflow:** `$<skill>`
+**Source artifact:** <#n title + URL>
+**Parent Spec:** <#n | None>
+
+### Blockers
+1. **Question/conflict:** <exact unresolved durable choice>
+   - **Evidence:** <durable source / concrete seam evidence>
+   - **Material consequence:** <what materially differs if implementation chooses>
+   - **Blocked obligation:** <exact requirement/acceptance obligation>
+   - **Governing authority:** <applicable ADR/doc/contract references>
+
+### Disposition
+<None while unresolved | routing/resolution references>
+```
+
+The marker is single-owner state for the source artifact: maintain zero or one active comment containing `<!-- architecture-blocker:v1 -->`; update that comment in place rather than creating competing active reports. `unresolved` means `$architecture-remediation` must consume it. `routed` means the blocker has a durable governing architecture decision path and no longer depends on the producing session. `resolved` means durable authority directly determines the blocker and the disposition names that authority/remediation receipt.
+
+When a helper discovers the blocker, it returns structured blocker state to its lifecycle-owning parent; the parent persists the report and owns the Human Handoff.
+
+`$architecture-remediation` is the consumer/disposition owner for blocker reports handed to it. A producer may include a concise blocker summary in the command, but the report—not the prior session—is the recoverable blocker authority.
+
+For a pre-Spec handoff directly back to an existing Wayfinder rather than `$architecture-remediation`, apply the same durability rule: the invoked Wayfinder map/decision must durably contain the unresolved question or receive an equivalent persisted blocker record before the handoff.
+
 A handoff should:
 
 1. state why the current lifecycle is stopping;
@@ -577,6 +621,7 @@ Prefer durable repository or tracker artifacts over conversational memory whenev
 Examples include:
 
 * Wayfinder source/remediation provenance and Spec handoff metadata;
+* Architecture Blocker report at unresolved-architecture Human Handoffs;
 * Independent Architecture Remediation Receipt on an Independent Spec;
 * Spec baseline metadata;
 * Ticket branch and Ticket baseline;
@@ -650,6 +695,7 @@ Before adding or changing a cross-skill edge, answer these questions in order:
 12. **Does Project tracking need synchronization?** Update it only as a projection of the durable transition and never make it the semantic source of truth.
 13. **Does the transition preserve the durable artifact ownership contract?** In particular, reuse the one conventional Spec Review issue across clean review, remediation, and re-review rather than omitting it or creating one issue per pass.
 14. **Does this transition respect the parent Spec's governance mode?** Never create or require a Wayfinder solely because an intentionally Independent Spec encountered architecture remediation.
+15. **Can the destination recover the complete transition after total session loss?** If not, persist the missing handoff state before presenting the command.
 
 When changing an existing skill, preserve unrelated behavior. Cross-skill governance changes should be lean and surgical.
 
@@ -728,7 +774,9 @@ Prefer returning the blocker to the parent lifecycle owner.
 
 ### Conversational State as Durable Authority
 
-Do not rely on prior-session memory for branch identity, baselines, review findings, closure state, or other correctness-critical workflow inputs when durable recovery is possible.
+Do not rely on prior-session memory for branch identity, baselines, review findings, closure state, blocker provenance, handoff reasons, or other correctness-critical workflow inputs when durable recovery is possible.
+
+A Human Handoff that requires the destination to ask “what finding prompted this?” is a workflow defect: the producing lifecycle owner failed the Fresh-Session Durability Gate.
 
 ### README Procedure Duplication
 

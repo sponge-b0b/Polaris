@@ -24,6 +24,8 @@ Recover every correctness-critical input from the explicit invocation, repositor
 
 A blocker-driven Human Handoff must not depend on explanatory prose from the producing session. When the invoked source artifact has a durable `<!-- architecture-blocker:v1 -->` report, that report is the blocker authority for this remediation. A concise blocker summary in the invocation is supplemental only.
 
+Independent-Spec owner-guided HITL may itself span multiple model/context sessions. Once that mode begins, the active `<!-- independent-architecture-remediation-checkpoint:v1 -->` on the remediation source artifact is the recoverable in-progress decision state. Owner answers, the semantic decision map, dependency/frontier state, and closure-discovered material choices must never exist only in agent context.
+
 If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
 ## 1. Capture the Blocker Set
@@ -198,6 +200,91 @@ Perform this section only for `Architecture governance mode: Independent Spec` a
 
 The existing parent Spec is the durable lifecycle owner for this bounded remediation. Do not create a Wayfinder map, Wayfinder decision ticket, Spec Review, or other new formal issue merely to host the architecture decision.
 
+### Durable decision-map checkpoint
+
+Before asking the owner the first architecture question, establish one durable in-progress checkpoint on the remediation **source artifact**. In blocker-remediation mode, this is the artifact carrying the active `architecture-blocker:v1` report. In explicit-readiness-audit mode, use the explicitly audited formal artifact; if the audit has no narrower tracker artifact, use the parent Spec.
+
+Use one active machine-managed comment:
+
+```markdown
+<!-- independent-architecture-remediation-checkpoint:v1 -->
+## Independent Architecture Remediation Checkpoint
+
+**Status:** in-progress | closure | completed
+**Source artifact:** <#n title + URL>
+**Parent Spec:** <#n title + URL>
+**Source blocker:** <architecture-blocker comment URL | explicit-readiness-audit>
+**Governance mode:** Independent Spec
+**Generation:** <monotonic integer>
+
+### Decision map
+
+| ID | Coupling group | Semantic dimension | Depends on | State | Resolution / durable reference |
+| --- | --- | --- | --- | --- | --- |
+| D-1 | CG-1 | <material dimension> | <D-IDs | None> | <authority-resolved | owner-resolved | ready | dependent | closure-discovered> | <decision or Pending> |
+
+### Owner decisions
+
+1. **D-<n> — <decision name>**
+   - **Owner answer:** <explicit answer>
+   - **Frozen semantic consequence:** <complete durable choice>
+   - **Recorded from:** <current invocation / owner response>
+
+### Current owner question
+
+**State:** none | awaiting-owner
+**Decision:** <D-n | None>
+**Question:** <exact durable choice | None>
+**Recommendation:** <recommended answer | None>
+**Material alternatives/tradeoffs:** <alternatives | None>
+
+### Bounded closure
+
+**Reported blocker coupling groups:** <n>
+**Owner-resolved coupling groups:** <n>
+**New material choices discovered by closure:** <n>
+**Unresolved material choices:** <n>
+**Material implementation-delegated architecture choices:** <n>
+**Closure notes:** <dimensions tested / Pending>
+
+### Completion references
+
+<None while active | architecture authority + Spec amendment + remediation receipt>
+```
+
+Checkpoint rules:
+
+* maintain zero or one **active** checkpoint (`Status: in-progress | closure`) for the same remediation source; update it in place rather than creating competing active comments;
+* a completed checkpoint remains historical provenance and is not architecture authority. A later distinct remediation may create a new active checkpoint;
+* validate the checkpoint's source artifact, parent Spec, blocker/audit source, governance mode, and current authority before trusting it;
+* if multiple active checkpoints exist, or the checkpoint conflicts materially with the current blocker/authority, fail closed and reconcile the durable state rather than choosing one;
+* the checkpoint is recoverable workflow state, not a substitute for final architecture docs, the amended Spec, or the Independent Architecture Remediation Receipt;
+* checkpoint create/update/readback is workflow-state persistence, not a formal artifact lifecycle transition and does not by itself trigger `$project-tracking`.
+
+#### Precompute the semantic decision space
+
+Before the first owner question, enumerate the **materially known semantic dimensions and their dependencies across the entire blocker-defined contract**, not merely the first example that triggered remediation. Use the bounded-closure dimensions below as the minimum adversarial lens.
+
+This is a decision map, not an immutable questionnaire:
+
+* precompute every currently identifiable material dimension and dependency;
+* mark dimensions that cannot yet be formulated independently as `dependent`;
+* owner answers may eliminate, split, merge, or reshape later dimensions;
+* newly exposed material dimensions are added as they become identifiable;
+* do not invent a final exact question before prerequisite owner decisions determine its decision space.
+
+Persist the initial map and read the checkpoint back successfully **before** asking the first owner question.
+
+#### Fresh-session resume
+
+At every fresh invocation of an active Independent remediation:
+
+1. recover and validate the source blocker/audit, parent Spec, current authority, and active checkpoint;
+2. treat checkpointed `owner-resolved` decisions as durable owner inputs; do not re-ask them merely because agent context was lost;
+3. if `Current owner question` is `awaiting-owner` and no durable answer exists, resume by presenting that exact pending choice;
+4. if the human explicitly reaffirms, refines, or changes a prior checkpointed decision, update the checkpoint and propagate the change through the map before continuing;
+5. if an older interrupted remediation predates this checkpoint contract, explicit owner decisions supplied in the current invocation may seed the initial checkpoint after durable authority/blocker validation. Do not treat unverified remembered decisions as equivalent.
+
 ### Owner-guided decision resolution
 
 Resolve one coupled architectural decision at a time inside this workflow.
@@ -205,10 +292,15 @@ Resolve one coupled architectural decision at a time inside this workflow.
 For each unresolved coupling group:
 
 1. research every recoverable fact from repository/tracker/accepted authority rather than asking the owner;
-2. state the exact durable choice that remains;
-3. provide the recommended answer and the material alternatives/tradeoffs;
-4. ask the owner for one decision at a time;
-5. preserve the owner's explicit answer before advancing to the next coupled decision.
+2. propagate all checkpointed owner decisions through the decision map and identify the next materially answerable choice;
+3. state the exact durable choice that remains;
+4. provide the recommended answer and the material alternatives/tradeoffs;
+5. **before asking**, update `Current owner question` in the checkpoint to `awaiting-owner`, persist the exact question/recommendation/alternatives, and verify readback;
+6. ask the owner for one decision at a time;
+7. **as the first workflow action after the owner answers**, update the corresponding decision to `owner-resolved`, record the explicit answer plus its frozen semantic consequence, recompute dependent/frontier states, clear `Current owner question`, increment `Generation`, and verify readback before doing additional analysis/research;
+8. only after that successful durable readback may the workflow formulate or ask the next owner question.
+
+An owner answer is not considered preserved merely because it is present in the current conversation or agent working state. Token exhaustion, context reset, interruption, or a fresh model session after an answer must not require the owner to reconstruct that decision.
 
 `$grilling` and `$domain-modeling` may be used as prescribed internal composition when they materially improve the decision analysis. Their HITL is in-skill HITL, not a separate lifecycle handoff.
 
@@ -236,7 +328,9 @@ Apply the repository's design-to-implementation test:
 
 > Could two reasonable implementations satisfy the amended authority while producing materially different domain, public, persistence, temporal, authority, or downstream behavior?
 
-If **Yes**, architecture remains incomplete. Add the newly discovered material choice to the current independent remediation, re-apply Decision Coupling, and continue owner-guided resolution before persistence.
+If **Yes**, architecture remains incomplete. Add every newly discovered material choice to the durable decision map, assign its coupling/dependencies, update the checkpoint back to `Status: in-progress`, and verify readback **before** asking the owner about it. Re-apply Decision Coupling and continue owner-guided resolution before persistence.
+
+When all reported blocker choices are owner-resolved, set the checkpoint to `Status: closure`, persist/read back the current closure counts and tested semantic universe, then run the adversarial closure. If closure discovers a material choice, return to `in-progress` as above. Do not let closure findings exist only in working context.
 
 Closure requires:
 
@@ -364,8 +458,8 @@ Add one durable comment to the parent Spec for this completed independent remedi
 <!-- independent-architecture-remediation:v1 -->
 ## Independent Architecture Remediation Receipt
 
-**Source workflow:** `$architecture-remediation`
-**Source ticket/review:** <artifact | None>
+**Source workflow:** `$architecture-remediation`  
+**Source ticket/review:** <artifact | None>  
 **Governance mode:** Independent Spec
 
 ### Blockers
@@ -391,7 +485,9 @@ Do not rewrite existing Implementation Ticket bodies, Ticket baselines, dependen
 
 If repository-side architecture changes are required, do not post the completion receipt until those changes are durably committed/pushed and the active Spec branch contains the required authority.
 
-For blocker-remediation mode, after the receipt and all required repository/Spec synchronization are durable, update the source `architecture-blocker:v1` report to `Status: resolved`, record the receipt URL and controlling authority in `Disposition`, and verify the readback before the `$to-tickets` Human Handoff.
+After the receipt and all required repository/Spec synchronization are durable, update the active Independent checkpoint to `Status: completed`, record the controlling architecture/Spec/receipt references under `Completion references`, require `Current owner question: none`, and verify readback. The completed checkpoint remains workflow provenance; final architecture authority lives in the documented/Spec surfaces named by those references.
+
+For blocker-remediation mode, only after that completed-checkpoint readback succeeds, update the source `architecture-blocker:v1` report to `Status: resolved`, record the receipt URL and controlling authority in `Disposition`, and verify the readback before the `$to-tickets` Human Handoff.
 
 ## Mandatory Project Reconciliation
 
@@ -535,11 +631,16 @@ For **Wayfinder-managed** remediation:
 
 For **Independent Spec** remediation:
 
+* the source artifact has one recoverable active checkpoint before owner-guided HITL begins;
+* the checkpoint contains the blocker-wide semantic decision map and dependency/frontier state;
+* every owner question is persisted/read back before it is asked;
+* every owner answer is persisted/read back before the next question is formulated;
 * every unresolved coupled architecture choice is explicitly owner-resolved;
-* bounded design-completeness closure reports zero unresolved material choices;
+* bounded design-completeness closure reports zero unresolved material choices, with closure-discovered choices checkpointed before any additional HITL;
 * resulting architecture is persisted in its authoritative repository/doc/wiki surfaces;
 * the existing Spec is amended in place without changing its identity or inventing Wayfinder provenance;
 * one Independent Architecture Remediation Receipt is persisted;
+* the checkpoint is durably `completed` with final authority/receipt references and no pending owner question;
 * existing ticket bodies/baselines remain untouched here;
 * the `$to-tickets` Human Handoff is presented.
 
@@ -581,7 +682,10 @@ Resolved blockers with incomplete durable-choice proof: 0
 Wayfinder unresolved groups without exactly one open decision ticket: 0
 Independent unresolved groups without explicit owner decision: 0
 Independent unresolved material choices after bounded closure: 0
+Independent active remediation without recoverable checkpoint: 0
+Independent owner decisions present only in conversational/agent state: 0
+Independent pending owner question at completion: 0
 Active source blocker reports left unresolved at handoff/return: 0
 ```
 
-These rows are working state only and need not be persisted as a second architecture registry. Durable blocker reports, Wayfinder decisions, accepted architecture authority, the amended Independent Spec, and its remediation receipt remain the durable truth.
+These disposition rows remain working-state accounting and need not become a second architecture registry. For Independent remediation, however, every correctness-critical in-progress decision-map/frontier/owner-answer state required to resume the workflow must be represented in the managed checkpoint. The checkpoint is workflow provenance only; durable blocker reports, accepted architecture authority, the amended Independent Spec, and its remediation receipt remain the semantic truth.

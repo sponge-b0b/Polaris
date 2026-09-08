@@ -51,7 +51,7 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
    If one or more derived or remediation in-progress Specs exist after reconciliation, invoke `$to-remediation-specs` and do not create another spec for that handed-off scope. Wait for that internal child to return, then continue through dependency/frontier and Wayfinder projection reconciliation below.
 
-   `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment.
+   `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment. It is intentionally Wayfinder-only and is not a remediation path for an Independent Spec.
 
    If no in-progress handed-off Spec exists, continue with normal spec creation.
 
@@ -161,22 +161,27 @@ Invoke `$attention` as prescribed internal composition after this gate and befor
 
    For each required Spec dependency:
 
-   * recover the governing Wayfinder lineage of consumer and blocker from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence;
+   * resolve the governance mode of consumer and blocker independently under `AGENTS.md`: `Wayfinder-managed` with exact governing lineage(s), or `Independent`; ambiguous/missing expected provenance fails closed rather than being treated as Independent;
    * place the edge on the narrowest authoritative Specs whose closure expresses the prerequisite; do not promote a narrower dependency to a Wayfinder edge;
-   * when both Specs belong to the same Wayfinder lineage, `$to-specs` owns the semantic relationship and invokes `$github-issue-dependencies` for the exact native `blocked by` mutation;
-   * when the relationship crosses Wayfinder lineages, delegate semantic validation and mutation to `$project-delivery-management` `dependency ensure <consumer> blocked-by <blocker>`;
-   * reject same-lineage cycles or incomplete blocker graphs before mutation; cross-lineage cycle/placement validation remains owned by `$project-delivery-management`;
+   * when both Specs are Wayfinder-managed under the same exact governing lineage, `$to-specs` owns the semantic relationship and invokes `$github-issue-dependencies` for the exact native `blocked by` mutation;
+   * when both Specs are Wayfinder-managed and the relationship crosses governing Wayfinder lineages, delegate semantic validation and mutation to `$project-delivery-management` `dependency ensure <consumer> blocked-by <blocker>`;
+   * when **either Spec is Independent**, `$to-specs` owns the exact Spec-level semantic relationship. Validate the durable prerequisite, lowest accurate completion boundary, complete native blocker graph, and cycle safety, then invoke `$github-issue-dependencies` for only that native `blocked by` mutation;
+   * never create or require a Wayfinder merely because an Independent Spec is a consumer or blocker;
    * re-read the consumer after mutation and require the exact native edge to exist.
+
+   For every `$to-specs`-owned edge, reject self-dependency, incomplete blocker data, and any edge that would create a cycle by proving the consumer is not reachable from the blocker through the complete native `blocked by` graph. Do not interpret unreadable/truncated graph data as acyclic.
+
+   A Wayfinder-managed Spec blocked by an Independent Spec remains in its original governance lineage. The narrower Spec edge removes it from the actionable Spec frontier; do not promote that prerequisite to a map-level blocker. Its governing map may remain focused-but-stalled when otherwise eligible.
 
    Do not maintain a parallel dependency registry in Spec bodies, handoff metadata, or Project fields. Human-readable planning prose may explain why an edge exists but never substitutes for the native relationship.
 
-   Then re-read every in-progress Derived/Remediation Spec handled for this source, including complete native blocker data.
+   Then re-read every in-progress Spec handled for this source, including complete native blocker data. For a Wayfinder source this includes every reconciled Derived/Remediation Spec; for an Independent source it includes every Spec published/amended by this invocation.
 
    The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec **and whose own implementation-readiness gate is currently satisfied**.
 
    For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
 
-   An intentionally non-Wayfinder Spec is durably outside Wayfinder delivery governance. If it is in the Spec dependency frontier, include it directly in the actionable Spec frontier according to its ordinary lifecycle without invoking or inventing a Wayfinder/project-delivery guard.
+   An Independent Spec is durably outside Wayfinder delivery governance. If it is in the Spec dependency frontier, include it directly in the actionable Spec frontier according to its ordinary lifecycle without invoking or inventing a Wayfinder/project-delivery guard.
 
    Do not assume the invocation source remains the Spec's only or currently focused governor. If a Wayfinder-managed governing set is ambiguous or no governing Wayfinder is authorized, exclude the Spec from the actionable frontier and report the exact reason. One currently focused governing Wayfinder is sufficient.
 
@@ -209,7 +214,7 @@ Invoke `$attention` as prescribed internal composition after this gate and befor
 
 ### Mandatory Project Reconciliation
 
-After all Spec publication/amendment, provenance, and native dependency mutations are durable, and after the source-Wayfinder state in Step 7 has been derived, invoke `$project-tracking` as prescribed internal composition **before** Step 8 or any ordinary return.
+After all Spec publication/amendment, provenance, and native dependency mutations are durable, and after the source-Wayfinder state in Step 7 has been derived when applicable, invoke `$project-tracking` as prescribed internal composition **before** Step 8 or any ordinary return.
 
 Build one reconciliation set from the durable post-transition state:
 
@@ -218,13 +223,13 @@ Build one reconciliation set from the durable post-transition state:
 * the source Wayfinder map when Step 7 establishes `Spec Delivery` → the exact `Wayfinder Map / Spec Delivery / None / In Progress` projection defined there;
 * any other formal artifact whose base lifecycle state changed during this invocation.
 
-Supply current authoritative Project Delivery State separately from the base lifecycle projection. Preserve existing `Area` and `Priority` unless this invocation has separate authority to change them.
+Supply current authoritative Project Delivery State separately from the base lifecycle projection. Use `independent` for Independent Specs and their descendants; only Wayfinder-managed artifacts derive delivery state from `$project-delivery-management`. Preserve existing `Area` and `Priority` unless this invocation has separate authority to change them.
 
 Do not ask `$project-tracking` to discover affected artifacts or infer the lifecycle transition. `$to-specs` owns this set and these base states; `$project-tracking` owns validation, delivery overlay, and Project mutation.
 
 If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not roll back durable Spec/Wayfinder state and do not suppress an otherwise-authorized Step 8 handoff.
 
-8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, source-Wayfinder projection, and mandatory Project reconciliation are complete, output handoffs only for Specs in the actionable Spec frontier.
+8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, source-Wayfinder projection when applicable, and mandatory Project reconciliation are complete, output handoffs only for Specs in the actionable Spec frontier.
 
    Output one copy-ready handoff line per actionable Spec:
 

@@ -12,6 +12,45 @@ Before creating any issue, identify the lifecycle-owning skill and follow its pu
 
 Direct issue reads and mechanical operations are allowed only when an owning skill or explicit repository procedure authorizes them for the active lifecycle.
 
+## Spec governance modes
+
+A Spec is valid in exactly one of two delivery-governance modes:
+
+```text
+Wayfinder-managed
+Independent
+```
+
+Wayfinder management exists only when durable `wayfinder-source`, `wayfinder-remediation`, or reconciled Wayfinder `Spec Handoff` evidence establishes a governor. An Independent Spec is one for which exhaustive recovery establishes no governor and no evidence of missing/contradictory governance provenance.
+
+Do not infer Wayfinder governance from Project fields, labels, branch names, issue order, prior agent behavior, or the presence of architecture work. Do not infer independence when durable evidence suggests a Wayfinder linkage is missing or contradictory; that is governance drift and fails closed.
+
+Every Spec-derived formal artifact inherits delivery governance through its parent Spec unless another owning lifecycle explicitly establishes additional valid Wayfinder remediation provenance for that same Spec.
+
+Only Wayfinder-managed Specs and descendants participate in `$project-delivery-management` focus/guard/reconciliation. Independent Specs and descendants use `Project Delivery State = independent` while open and must never be enrolled into Wayfinder focus merely because a lifecycle step mentions a governing Wayfinder.
+
+If a workflow's local wording says to recover a Wayfinder, call `$project-delivery-management`, or require Wayfinder focus without restating the condition, apply that step only after the parent Spec has been proven Wayfinder-managed, as required by `AGENTS.md`.
+
+### Spec dependency ownership
+
+Native GitHub `blocked by` relationships are the single dependency truth for all Specs regardless of governance mode.
+
+Choose the semantic owner from the exact endpoints:
+
+| Consumer Spec | Blocker Spec | Semantic owner |
+| --- | --- | --- |
+| Wayfinder-managed | Wayfinder-managed, same governing lineage | `$to-specs` |
+| Wayfinder-managed | Wayfinder-managed, different governing lineages | `$project-delivery-management` |
+| Independent | Independent | `$to-specs` |
+| Independent | Wayfinder-managed | `$to-specs` |
+| Wayfinder-managed | Independent | `$to-specs` |
+
+When either endpoint is Independent, `$to-specs` owns semantic validation and delegates only native relationship mechanics to `$github-issue-dependencies`. It must validate the lowest accurate Spec-level completion boundary, complete blocker graph, and cycle safety before mutation.
+
+Do not create a Wayfinder dependency or new Wayfinder merely because an Independent Spec participates in a prerequisite. A Wayfinder-managed Spec blocked by an Independent Spec remains under its existing governor; its open Spec blocker simply removes it from the actionable Spec frontier. The governing map may remain focused-but-stalled when otherwise map-eligible.
+
+A dependency edge remains durably useful after satisfaction: closing the blocker satisfies it; reopening the blocker makes the unchanged edge blocking again. Do not replace native dependency truth with body metadata, Project fields, or a separate satisfaction flag.
+
 ## Conventions
 
 The commands below describe mechanics to use when the applicable lifecycle owner authorizes the operation.
@@ -88,6 +127,8 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 `$project-delivery-management` owns project-level delivery coordination across independent Wayfinder lineages. Dependency answers **what may proceed**; focus answers **what Polaris intends to work now**.
 
+It does **not** own Independent Specs or dependencies whose consumer or blocker is Independent. If asked to guard/reconcile an Independent Spec/descendant as though it had a Wayfinder, return `PROJECT DELIVERY: OUTSIDE OWNER` without mutation.
+
 Canonical rules:
 
 - discover Wayfinder maps from open issues labelled `wayfinder:map`; do not maintain a second map registry;
@@ -95,9 +136,9 @@ Canonical rules:
 - derive the Wayfinder frontier from open canonical maps with no open direct native blockers;
 - persist only focused Wayfinders and exact parallel-focus authorization on the control issue; frontier/blocked/queued state remains derived;
 - require explicit human focus/switch/parallel authorization; never infer focus from Project fields, Priority, assignees, issue order/age, activity, branches, or conversation state;
-- keep cross-Wayfinder semantic dependencies at the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics and delegates native relationship mutation to `$github-issue-dependencies`;
+- keep cross-Wayfinder semantic dependencies at the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics only when **both endpoints are Wayfinder-managed**, and delegates native relationship mutation to `$github-issue-dependencies`;
 - reserve Wayfinder-to-Wayfinder blockers for true whole-map prerequisites; never create dependency edges merely to enforce project WIP;
-- derive the Spec dependency frontier from open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused;
+- derive the Spec dependency frontier from open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused; an Independent Spec follows its ordinary lifecycle outside Wayfinder focus;
 - permit multiple independent actionable Specs inside a focused Wayfinder; do not persist a separate active-Spec queue or WIP field;
 - treat a closed Wayfinder as the durable delivery-complete marker. If authoritative re-entry or open governed Derived/Remediation Spec work exists, reopen the Wayfinder before substantive advancement;
 - keep the public GitHub Project downstream and non-authoritative. Project drift is repaired from canonical issue/provenance/dependency/focus state, never the reverse.

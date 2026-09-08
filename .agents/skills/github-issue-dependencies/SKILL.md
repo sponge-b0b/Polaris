@@ -11,11 +11,11 @@ This is a **mechanical relationship helper**, not a semantic lifecycle owner and
 
 Authorized callers:
 
-* `$to-specs` — native dependency mutations for same-lineage Spec prerequisites after it has established semantic ownership and cycle safety;
+* `$to-specs` — native Spec dependency mutations after it has established semantic ownership and cycle safety. This includes same-Wayfinder-lineage Spec prerequisites **and every Spec prerequisite where either endpoint is intentionally Independent**;
 * `$to-tickets` — native direct-decomposition hierarchy plus dependency edges it already owns;
-* `$project-delivery-management` — native `blocked by` / `blocking` mutations only after it has established cross-Wayfinder semantic ownership, lowest-accurate placement, and cycle safety.
+* `$project-delivery-management` — native `blocked by` / `blocking` mutations only after it has established cross-Wayfinder semantic ownership, lowest-accurate placement, and cycle safety. Both dependency endpoints must be Wayfinder-managed.
 
-Do not let this helper decide whether a dependency is semantically required, where it belongs, or which lifecycle owns it.
+Do not let this helper decide whether a dependency is semantically required, where it belongs, which lifecycle owns it, or whether a Spec is Wayfinder-managed versus Independent.
 
 ## Native `gh` flags
 
@@ -108,7 +108,7 @@ gh issue edit <issue_number> --remove-blocking <blocked_issue_numbers_or_urls>
 
 The relationship flags accept comma-separated issue numbers or URLs where multiple relationships are supported.
 
-For `$to-specs`, mutate only same-lineage Spec dependency edges it owns. For `$project-delivery-management`, mutate only the exact cross-Wayfinder edge it authorized. Neither caller may add/remove neighboring dependencies, hierarchy, labels, Project fields, or lifecycle state in the same helper call.
+For `$to-specs`, mutate only the exact Spec dependency edge it semantically owns: either both Specs share the same Wayfinder lineage, or at least one endpoint is intentionally Independent under the repository Spec-governance rules. For `$project-delivery-management`, mutate only the exact cross-Wayfinder edge it authorized between two Wayfinder-managed endpoints. Neither caller may add/remove neighboring dependencies, hierarchy, labels, Project fields, or lifecycle state in the same helper call.
 
 ## Verification
 

@@ -1,6 +1,6 @@
 ---
 name: architecture-remediation
-description: Route unresolved architecture blockers through the parent Spec's actual governance: back into the existing governing Wayfinder effort when Wayfinder-managed, or through in-place owner-guided remediation when the Spec is intentionally Independent.
+description: "Route unresolved architecture blockers through the parent Spec's actual governance: back into the existing governing Wayfinder effort when Wayfinder-managed, or through in-place owner-guided remediation when the Spec is intentionally Independent."
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---

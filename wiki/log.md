@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-07] R2 lifecycle correction bounded closure | disposition-only correction contract finalized
+
+Replaced the too-broad Ticket #296 correction model after a bounded adversarial closure pass. R2 lifecycle correction now targets only lifecycle-disposition claims contributed by `DecisionInitiated`, substantive/external resolution facts, or prior lifecycle corrections; Subject, Scope, work-posture, and relationship correction are explicitly outside #296. Unsupported-Need retraction is a qualification of the initial disposition claim, work posture is independently reconstructed when corrected lifecycle returns to `UNRESOLVED`, historical acts remain valid under what was known when recorded, contested interpretation is explicit/queryable, lifecycle sequence may advance without `DecisionVersion`, and clock passage never manufactures a version. Older R2 wording implying Scope correction is currently available is explicitly superseded; erroneous historical Scope/Subject correction is deferred to a future purpose-specific contract rather than a generic correction framework. Updated Planned knowledge for `investment-decisions`.
+
 ## [2026-09-07] R2 lifecycle correction reconciliation | correction chains made deterministic
 
 Closed the Ticket #296 implementation-entry design gap by freezing explicit lifecycle-correction target/effect/reconciliation semantics: corrections target one earlier same-Decision lifecycle fact/correction; `QUALIFY` supplies a complete replacement claim; `DISCONFIRM` withdraws support; disconfirming a correction restores the interpretation immediately preceding it on that branch; equivalent surviving claims coalesce while incompatible support remains contested; knowledge-time filtering precedes effective-time correction application; and lifecycle sequence remains distinct from current-state `DecisionVersion`. Also synchronized that the post-#299 foundation public contract is complete and surviving older “foundation unresolved” wording is not implementation authority. Updated Planned knowledge for `investment-decisions`.
@@ -42,7 +46,7 @@ Added the proposed `investment-decisions` relationship model separating lifecycl
 
 ## [2026-09-04] R2 pre-specification design | lifecycle/application/persistence plans made explicit
 
-Added proposed R2 design authority beneath the approved component-boundary plan: a cross-entity interaction map plus detailed Investment Decision lifecycle, application-use-case, and durable-persistence designs. Recorded the resulting Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence` without changing current implementation state.
+Added proposed R2 design authority beneath the approved R2 component-boundary plan: a cross-entity interaction map plus detailed Investment Decision lifecycle, application-use-case, and durable-persistence designs. Recorded the resulting Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence` without changing current implementation state.
 
 ## [2026-09-04] greenfield wiki bootstrap completion | supporting boundaries registered
 

@@ -95,7 +95,7 @@ Do not mutate an informal Intake item into architecture authority merely because
 
 The Polaris delivery lifecycle is a **state machine, not a forward-only pipeline**.
 
-The happy path is intentionally simple, but implementation, verification, review, or specification may discover a genuine architecture blocker and route the work back through Wayfinder. Review blockers may create a remediation loop that repeats ticketing, implementation, verification, and review until the review Exit Gate passes.
+The happy path is intentionally simple, but implementation, verification, review, or specification may discover a genuine architecture blocker and route the work through `$architecture-remediation` according to the parent Spec's actual governance. Wayfinder-managed work re-enters its existing Wayfinder; an intentionally Independent Spec remediates the bounded architecture in place without inventing a Wayfinder. Review blockers may create a remediation loop that repeats ticketing, implementation, verification, and review until the review Exit Gate passes.
 
 Important invariants:
 
@@ -123,6 +123,7 @@ Cross-skill invariants:
 * cross-Wayfinder semantic dependencies belong on the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics and delegates native relationship mechanics to `$github-issue-dependencies`;
 * Wayfinder-to-Wayfinder blockers are reserved for true whole-map prerequisites and must never encode project WIP preference;
 * `$to-specs` may publish all currently specifiable Specs. The Spec dependency frontier is open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused;
+* intentionally Independent Specs remain outside Wayfinder focus management and follow their ordinary Spec lifecycle directly;
 * multiple independent actionable Specs inside one focused Wayfinder are allowed; do not create a separate active-Spec queue or WIP state;
 * authoritative transitions happen before project-delivery reconciliation. Reconciliation may remove completed or directly ineligible focus but never chooses a replacement;
 * a map that remains frontier-eligible but has only lower-level blocked work stays focused-but-stalled rather than acquiring a synthetic map blocker;
@@ -138,8 +139,8 @@ $wayfinder
     ↓ route clear
     ↓ HUMAN
 $to-specs
-    ├─ internal → $to-remediation-specs when an existing Spec must be reconciled
-    ├─ unresolved architecture → HUMAN → $wayfinder
+    ├─ internal → $to-remediation-specs when an existing Wayfinder-managed Spec must be reconciled
+    ├─ unresolved architecture → HUMAN → owning architecture path
     └─ Spec ready
            ↓ HUMAN
 $to-tickets
@@ -159,10 +160,17 @@ $implement-ticket
     ├─ unresolved architecture
     │      ↓ HUMAN
     │   $architecture-remediation
-    │      ↓ HUMAN
-    │   $wayfinder
-    │      ↓ HUMAN after route clear
-    │   $to-specs → $to-tickets → $implement-ticket
+    │      ├─ Wayfinder-managed
+    │      │      ↓ HUMAN
+    │      │   $wayfinder
+    │      │      ↓ HUMAN after route clear
+    │      │   $to-specs → $to-tickets → $implement-ticket
+    │      │
+    │      └─ Independent Spec
+    │             ↺ in-skill HITL / bounded design closure
+    │             ↓ amend existing Spec in place
+    │             ↓ HUMAN
+    │          $to-tickets → $implement-ticket
     │
     └─ Spec Review remediation ticket
            ↓ HUMAN authorization
@@ -181,7 +189,7 @@ $implement-ticket
 
 $verify-spec
     ├─ verification-owned failure → repair and rerun inside $verify-spec
-    ├─ unresolved architecture → HUMAN → $architecture-remediation → $wayfinder → ...
+    ├─ unresolved architecture → HUMAN → $architecture-remediation → governance-specific return path
     └─ passing Spec Verification Receipt
            ↓ HUMAN
 $review-spec
@@ -198,10 +206,8 @@ $review-spec
     └─ Blocking architecture finding with a new decision required
            ↓ HUMAN
        $architecture-remediation
-           ↓ HUMAN
-       $wayfinder
-           ↓ HUMAN after route clear
-       $to-specs → $to-tickets → $implement-ticket → $verify-spec → $review-spec
+           ├─ Wayfinder-managed → HUMAN → $wayfinder → $to-specs → $to-tickets → ...
+           └─ Independent Spec → in-place Spec remediation → HUMAN → $to-tickets → ...
 
 $spec-merge-cleanup
     ├─ validate current Spec Review Exit Receipt
@@ -225,7 +231,7 @@ When a Wayfinder source already has an in-progress derived or remediation Spec, 
 
 `$to-remediation-specs` preserves the original Spec identity, source provenance, branch/baseline lineage, tickets, and review lineage while applying the decision delta in place.
 
-If accepted architecture does not determine the durable semantics required to amend the Spec, specification stops and returns to Wayfinder rather than inventing architecture inside the Spec.
+If accepted architecture does not determine the durable semantics required to amend a Wayfinder-managed Spec, specification stops and returns to its governing architecture path rather than inventing architecture inside the Spec. Independent-Spec architecture remediation is owned by `$architecture-remediation` after a downstream lifecycle discovers the gap; it amends that existing Spec in place and then returns through `$to-tickets`.
 
 ### Ticket Creation and Reconciliation
 
@@ -293,30 +299,48 @@ When a workflow cannot continue without a new or changed durable architectural c
 active lifecycle owner
     ↓ HUMAN
 $architecture-remediation
-    ↓ HUMAN
-$wayfinder
+    ↓
+resolve parent Spec governance mode
 ```
 
-`$architecture-remediation` routes unresolved questions into the **existing Wayfinder effort**. It does not resolve architecture, modify implementation, amend a Spec, or create a replacement Wayfinder map.
+`$architecture-remediation` has two valid modes.
+
+**Wayfinder-managed Spec:** recover the exact existing governing Wayfinder. The remediation workflow remains routing-only for that mode: reopen the same map when authoritative re-entry requires it, create/reuse one decision ticket per independent architectural decision, and hand resolution to `$wayfinder`. It never creates a replacement map.
+
+**Independent Spec:** do not invent a Wayfinder. `$architecture-remediation` owns the bounded in-place architecture-resolution lifecycle for the existing Spec: perform owner-guided HITL for unresolved durable choices, run bounded design-completeness closure, persist architecture authority/docs/wiki, amend the existing Spec, persist remediation provenance, and hand off to `$to-tickets` so existing tickets are reconciled before implementation resumes.
+
+A Spec is not converted from Independent to Wayfinder-managed merely because implementation discovers architecture. Creating a new Wayfinder is a separate planning decision for genuinely new destination scope, not an automatic remediation prerequisite.
 
 Do not treat missing realization of already accepted architecture as a new architecture decision. The owning skill decides whether the blocker is implementation work or genuinely unresolved architecture.
 
-If the governing Wayfinder was previously closed by normal lifecycle completion, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus. A Wayfinder retired as `superseded` / `not_planned` is historical and is not reopened by this ordinary re-entry path; new work must use a current artifact and may reference the superseded lineage as prior research/provenance.
+For Wayfinder-managed work, if the governing Wayfinder was previously closed by normal lifecycle completion, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus. A Wayfinder retired as `superseded` / `not_planned` is historical and is not reopened by this ordinary re-entry path; new work must use a current artifact and may reference the superseded lineage as prior research/provenance.
 
-After new architecture is resolved, or current authority requires Spec reconciliation, the normal return path is:
+Mode-specific return paths are:
 
 ```text
-$wayfinder
+Wayfinder-managed:
+$architecture-remediation
     ↓ HUMAN
+$wayfinder
+    ↓ HUMAN after route clear
 $to-specs
     ↓ internal $to-remediation-specs when an existing Spec is affected
     ↓ HUMAN
 $to-tickets
     ↓ HUMAN
 $implement-ticket
+
+Independent Spec:
+$architecture-remediation
+    ↺ in-skill owner decisions + bounded closure
+    ↓ amend existing Spec in place
+    ↓ HUMAN
+$to-tickets
+    ↓ HUMAN
+$implement-ticket
 ```
 
-Do **not** jump directly back to the previously blocked implementation ticket when the architectural decision changes or invalidates its Spec/remediation obligation. The Spec and ticket contracts must first be reconciled against the new authority.
+Do **not** jump directly back to the previously blocked implementation ticket when an architectural decision changes or invalidates its Spec/remediation obligation. The Spec and ticket contracts must first be reconciled against the new authority.
 
 This architecture re-entry path may originate from `$implement-ticket`, `$verify-spec`, `$review-spec`, `$to-remediation-specs`, or another lifecycle owner that encounters a genuine unresolved durable choice.
 
@@ -417,6 +441,7 @@ Cross-skill rules:
 * **Superseded is terminal non-completion.** Formal artifacts retired by newer product or architecture authority project `Workflow State=Superseded`, `Work Status=Done`, `Next Skill=None`, `Delivery State=Superseded`, and no `Completed On`; never normalize them to `Complete` / `Released`.
 * **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
 * **Project-delivery authorization overlays, rather than replaces, lifecycle routing.** Eligible-unfocused Wayfinder Maps use `Next Skill=$project-delivery-management`; Wayfinder-managed descendants preserve the lifecycle `Next Skill` for `In Focus`, `Eligible`, and `Denied`, while lifecycle-owned `None` remains `None`. `Delivery State` carries project-delivery authorization independently of `Workflow State` and `Next Skill`.
+* **Intentionally Independent Specs and descendants are not enrolled into Wayfinder delivery focus merely because they enter architecture remediation.** Their lifecycle projection remains governed by the Spec/ticket workflow itself.
 * **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
 * **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection rather than changing the underlying lifecycle to match the board.
 * **Project synchronization happens after the corresponding durable transition succeeds.** Do not let a board update create authority that the owning skill has not established.
@@ -481,7 +506,7 @@ A helper should not jump directly into another lifecycle owner unless its contra
 $verify-root-closure
 ```
 
-Independent verification must remain isolated from implementation/remediation ownership.
+Independent verification must remain isolated from implementation.
 
 ### Interactive / HITL Utilities
 
@@ -552,6 +577,7 @@ Prefer durable repository or tracker artifacts over conversational memory whenev
 Examples include:
 
 * Wayfinder source/remediation provenance and Spec handoff metadata;
+* Independent Architecture Remediation Receipt on an Independent Spec;
 * Spec baseline metadata;
 * Ticket branch and Ticket baseline;
 * Spec Verification Receipt;
@@ -623,6 +649,7 @@ Before adding or changing a cross-skill edge, answer these questions in order:
 11. **Does the change preserve reviewer/verifier independence?** Never trade independence for convenience.
 12. **Does Project tracking need synchronization?** Update it only as a projection of the durable transition and never make it the semantic source of truth.
 13. **Does the transition preserve the durable artifact ownership contract?** In particular, reuse the one conventional Spec Review issue across clean review, remediation, and re-review rather than omitting it or creating one issue per pass.
+14. **Does this transition respect the parent Spec's governance mode?** Never create or require a Wayfinder solely because an intentionally Independent Spec encountered architecture remediation.
 
 When changing an existing skill, preserve unrelated behavior. Cross-skill governance changes should be lean and surgical.
 
@@ -639,6 +666,16 @@ wayfinder → specs → tickets → implementation → verification → review
 is the happy path, not a guarantee that work can only move forward.
 
 Architecture discovery and review remediation may legitimately loop back through earlier lifecycle owners.
+
+### Synthetic Wayfinder for an Independent Spec
+
+```text
+Independent Spec
+    ↓ architecture blocker
+create Wayfinder only because remediation expects one
+```
+
+This is invalid. Architecture remediation must preserve the Spec's established governance mode. Chart a new Wayfinder only when the owner is starting a genuinely new planning effort/destination, not as a compatibility shim for an Independent Spec.
 
 ### Duplicate or Parent-Owned Spec Review State
 

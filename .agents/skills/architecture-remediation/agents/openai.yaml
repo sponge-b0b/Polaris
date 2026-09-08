@@ -1,5 +1,5 @@
 interface:
   display_name: "Architecture Remediation"
-  short_description: "Route a newly discovered unresolved material architecture decision back into the existing Wayfinder effort."
+  short_description: "Route Wayfinder-managed blockers to their existing map or resolve Independent-Spec architecture in place."
 policy:
   allow_implicit_invocation: false

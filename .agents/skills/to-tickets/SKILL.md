@@ -36,6 +36,22 @@ Disposition: frozen-upstream | semantically-equivalent-mechanic | unresolved-des
 
 `unresolved-design` is never a legal ticket handoff. If two reasonable implementations could satisfy the ticket while establishing materially different public, product, domain, architecture, persistence, or downstream contracts, return the affected scope to its owning Spec/design authority rather than drafting acceptance criteria that silently delegate the choice.
 
+### Architecture Remediation Human Handoff
+
+When `unresolved-design` is discovered for an existing Implementation Ticket during ticket reconciliation, identify the affected open frontier ticket and halt after reporting the concise blocker evidence.
+
+Terminate the handoff with:
+
+> Please continue with:
+>
+> ```
+> $architecture-remediation - <Frontier Ticket Title> (<Ticket URL>)
+> ```
+
+Use the actual frontier ticket title and URL. Do not replace the copy-ready command with free-form prose such as `Next: $architecture-remediation for ...`, and do not scope the invocation to the parent Spec when an existing blocked ticket is the source artifact. If multiple independent frontier tickets each contain unresolved architecture/design, output one copy-ready `$architecture-remediation` line per affected ticket and let the user choose which fresh remediation session to start.
+
+Do not invoke `$architecture-remediation` implicitly. For a fresh Spec with no existing Implementation Ticket, return to the owning Spec/planning workflow using its applicable handoff contract rather than fabricating a ticket identity.
+
 Before certification require:
 
 ```text

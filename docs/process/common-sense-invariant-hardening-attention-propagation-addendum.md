@@ -5,7 +5,7 @@
 
 ## Observed failure
 
-A material Polaris contract change can be implemented and locally verified correctly while known downstream artifacts still carry superseded assumptions. If ChatGPT waits for the repository owner to notice and request each downstream audit, the immediate task may be correct while the delivery system remains internally inconsistent.
+A material Polaris contract change can be implemented and locally verified correctly while known downstream artifacts still carry superseded assumptions. If the active Polaris agent waits for the repository owner to notice and request each downstream audit, the immediate task may be correct while the delivery system remains internally inconsistent.
 
 The observed failure mode is therefore not unauthorized mutation. It is **failure to surface propagation risk** after a material durable change.
 
@@ -23,7 +23,7 @@ These changes can invalidate or stale downstream Specs, Tickets, design document
 
 ## Invariant — Downstream Contract Propagation Attention
 
-After a material durable change to a frozen contract, architecture boundary, authority model, canonical vocabulary, public API/domain contract, or implementation/dependency sequence, ChatGPT must proactively inspect the **known downstream artifact chain** before treating the change as locally complete.
+After a material durable change to a frozen contract, architecture boundary, authority model, canonical vocabulary, public API/domain contract, or implementation/dependency sequence, the active Polaris agent must proactively inspect the **known downstream artifact chain** before treating the change as locally complete.
 
 The duty is to surface likely propagation work, not to assume authority over it.
 
@@ -56,11 +56,11 @@ This is not a requirement to perform a broad repository audit after every edit. 
 
 Attention grants **zero** design, mutation, implementation, or scope authority.
 
-ChatGPT may and should say, for example:
+An agent may and should say, for example:
 
 > This foundation change likely affects Tickets X–Y and downstream Specs A–C; I recommend auditing them before implementation continues.
 
-That statement does not authorize ChatGPT to rewrite those artifacts unless mutation is already permitted by the active workflow or the owner explicitly authorizes it.
+That statement does not authorize the agent to rewrite those artifacts unless mutation is already permitted by the active workflow or the owner explicitly authorizes it.
 
 Likewise, the owner may decline or defer the suggested audit. If so, preserve any material known risk in the appropriate durable place rather than silently treating the downstream chain as synchronized.
 
@@ -80,7 +80,7 @@ The Attention propagation duty fails when all of the following are true:
 
 1. a material durable contract/architecture/authority/sequencing change occurred;
 2. one or more known downstream artifacts plausibly depend on that changed meaning;
-3. ChatGPT proceeds as though the local change is complete without surfacing those downstream audit candidates; and
+3. the active Polaris agent proceeds as though the local change is complete without surfacing those downstream audit candidates; and
 4. the owner later has to independently notice and request the obvious propagation audit.
 
 The owner having to ask does not make the eventual audit wrong; it demonstrates that the proactive Attention obligation was missed.

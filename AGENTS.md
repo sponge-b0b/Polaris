@@ -24,6 +24,8 @@ At the start of a task:
 
 At any time during analysis, planning, architecture, design, specification, ticketing, implementation, verification, review, remediation, or ordinary repository work, **surface material concerns promptly when you notice them**. Do not wait for the user, a checklist, a failing test, or a later review to ask the question first.
 
+The current task is the **immediate work surface, not the boundary of Attention**. Maintain a standing Polaris-wide meta-level Attention posture: while doing the work in front of you, continuously evaluate what the current observation implies for Polaris as a whole across materially implicated product intent, domain semantics, architecture, authority, code, persistence, APIs, tests, documentation, Living Entity Wiki knowledge, workflow skills, tracker/lifecycle/governance state, and upstream/downstream contracts.
+
 Material concerns include, when applicable:
 
 * likely correctness defects or missing failure boundaries;
@@ -32,7 +34,17 @@ Material concerns include, when applicable:
 * accidental coupling, duplicate meaning, weak typing, unnecessary complexity, or a suspicious abstraction/representation choice;
 * behavior that passes current checks but appears inconsistent with authoritative intent;
 * incomplete proof, hidden assumptions, source conflict, scope leakage, or workflow/process defects;
-* a materially better or safer approach that the current path may be overlooking.
+* architecture, domain language, code, persistence, APIs, docs, wiki, skills, tests, or tracker state no longer telling the same material story;
+* duplicate or competing sources of truth, stale authority, or assumptions invalidated by a later decision;
+* repeated local symptoms that indicate an earlier governing lifecycle, ownership, architecture, or workflow defect;
+* technically valid work that is materially wrong for Polaris as a product;
+* a materially better or safer approach or opportunity that the current path may be overlooking.
+
+Use this materiality threshold:
+
+> **Would a competent architect who understood Polaris as a whole want this brought to their attention now?**
+
+If yes, surface it. If no, continue without distraction. Polaris-wide Attention is not a requirement to run a whole-repository audit after every edit; inspect the smallest broader surface necessary to test the material concern or consequence exposed by the current work.
 
 Attention is **report-only authority**. Noticing or surfacing a concern does not authorize you to change product/design/architecture, expand scope, mutate repository/tracker state, override an owning workflow, or silently implement your preferred resolution.
 
@@ -40,17 +52,19 @@ When a concern appears:
 
 1. state the observation and why it matters;
 2. identify the governing authority when it is already known;
-3. if existing authority resolves it, follow that authority rather than redesigning it;
-4. if it exposes a material unresolved choice, use the owning workflow's fail-closed/routing rule rather than choosing for convenience;
-5. if it is valid but outside current scope, do not expand scope silently; use the established deferred-future-work capture policy when durable preservation is warranted.
+3. determine whether it belongs to the current obligation, invalidates the current path, or is a broader Polaris concern that requires separate routing/deferment;
+4. if existing authority resolves it, follow that authority rather than redesigning it;
+5. if it exposes a material unresolved choice, use the owning workflow's fail-closed/routing rule rather than choosing for convenience;
+6. if it is valid but outside current scope, do not expand scope silently; use the established deferred-future-work capture policy when durable preservation is warranted.
 
 Passing tests, satisfying an explicit checklist, or lacking authority to fix the concern does **not** excuse silence. The duty is to notice and speak up; change authority remains separate.
 
-`$attention` is the reusable report-only skill for deliberate Attention sweeps. The following checkpoints are prescribed internal composition even when the owning skill does not restate the global invariant:
+`$attention` is the reusable report-only skill for deliberate Attention sweeps. Every formal sweep inherits the Polaris-wide scope above; a workflow-specific checkpoint profile is an additional lens, never a boundary. The following checkpoints are prescribed internal composition even when the owning skill does not restate the global invariant:
 
 * `$wayfinder` — before declaring the route clear or handing off downstream;
 * `$to-specs` — before publishing/amending a Spec as implementation-ready;
 * `$to-tickets` — before proposal-readiness certification/publication;
+* `$architecture-remediation` — before bounded closure and downstream handoff;
 * `$implement-ticket` — before first substantive mutation and again before freezing closure evidence;
 * `$verify-ticket-closure` — during the independent adversarial sweep;
 * `$verify-spec` — before integrated semantic certification is finalized;

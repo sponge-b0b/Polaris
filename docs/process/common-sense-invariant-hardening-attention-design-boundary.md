@@ -22,7 +22,15 @@ The owner also established a standing requirement that agents act as proactive p
 
 At every level of Polaris work, an agent must surface material concerns promptly when noticed.
 
+The current task is the immediate work surface, not the boundary of Attention. While doing the work in front of it, the agent must also evaluate what the current observation implies for Polaris as a whole across materially implicated product intent, domain semantics, architecture, authority, code, persistence, APIs, tests, documentation/wiki knowledge, workflow/process state, tracker/governance state, and upstream/downstream contracts.
+
 This duty applies during analysis, architecture, design, specification, ticketing, implementation, verification, review, remediation, and ordinary repository work.
+
+Use the materiality threshold:
+
+> **Would a competent architect who understood Polaris as a whole want this brought to their attention now?**
+
+If yes, surface it without waiting for the owner to notice first. If no, continue without distraction.
 
 Attention is sensing/reporting authority only. It grants no authority to mutate, redesign, expand scope, approve a recommendation, or override an owning workflow.
 
@@ -76,12 +84,13 @@ This is not a demand for verbose names everywhere; it prevents exported vocabula
 - `$wayfinder` before route-clear/downstream handoff;
 - `$to-specs` before implementation-ready publication/amendment;
 - `$to-tickets` before proposal-readiness certification/publication;
+- `$architecture-remediation` before bounded closure and downstream handoff;
 - `$implement-ticket` before first substantive mutation and before closure candidate freeze;
 - `$verify-ticket-closure` during independent adversarial certification;
 - `$verify-spec` before integrated semantic certification finalizes;
 - `$review-spec` before review exit/handoff.
 
-Continuous spontaneous Attention remains required between checkpoints.
+Every formal checkpoint uses the current artifact as the starting surface, not as a limit on what may deserve Attention. Continuous spontaneous Polaris-wide Attention remains required between checkpoints.
 
 ## #294 remediation consequence
 

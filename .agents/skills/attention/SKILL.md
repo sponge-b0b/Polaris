@@ -1,6 +1,6 @@
 ---
 name: attention
-description: Surface material concerns proactively without gaining mutation, design, scope, or workflow authority.
+description: Surface Polaris-wide material concerns proactively without gaining mutation, design, scope, or workflow authority.
 compatibility: product=codex product=claude-code system=git network=none
 disable-model-invocation: true
 ---
@@ -12,6 +12,22 @@ disable-model-invocation: true
 It exists to prevent an agent from silently proceeding past something material merely because the current task, checklist, tests, or workflow did not explicitly ask the right question.
 
 The always-on duty lives in `AGENTS.md`. This skill provides a deliberate sweep for formal workflow checkpoints.
+
+## Polaris-Wide Scope
+
+The current artifact, diff, ticket, Spec, or workflow checkpoint is the **immediate work surface, not the boundary of Attention**.
+
+Every deliberate sweep must also evaluate what the current observation implies for Polaris as a whole, using the relevant durable system model already recoverable from authority. Consider, when materially implicated, product intent, domain semantics, architecture, authority, code, persistence, APIs, tests, documentation, Living Entity Wiki knowledge, workflow skills, tracker/lifecycle/governance state, and upstream/downstream contracts.
+
+Do not wait for the repository owner to notice a broader consequence first.
+
+Use this materiality threshold:
+
+> **Would a competent architect who understood Polaris as a whole want this brought to their attention now?**
+
+If yes, surface it. If no, continue without distraction.
+
+Polaris-wide scope does not authorize a whole-repository audit after every edit. Inspect the smallest broader surface necessary to test a material concern or consequence exposed by the current work.
 
 ## Authority Boundary
 
@@ -49,7 +65,11 @@ Surface a concern when it could materially affect one or more of:
 * domain/public naming likely to mislead future consumers;
 * verification completeness or hidden assumptions;
 * workflow/process correctness;
-* a materially better or safer approach that current work may be overlooking.
+* consistency among architecture, domain language, code, persistence, APIs, docs, wiki, skills, tests, and tracker state;
+* stale authority or assumptions invalidated by a later decision;
+* repeated local symptoms that indicate an earlier governing defect;
+* technically valid work that is materially wrong for Polaris as a product;
+* a materially better or safer approach or opportunity that current work may be overlooking.
 
 Do not interrupt for trivial stylistic preference, private local naming with no material effect, or speculative future work with no present consequence.
 
@@ -58,11 +78,13 @@ Do not interrupt for trivial stylistic preference, private local naming with no 
 At a formal checkpoint:
 
 1. Recover the exact current artifact/change and the authority already loaded by the owning workflow.
-2. Look outward from the intended transition, not only inward from the diff or checklist.
-3. Ask what a competent reviewer, downstream consumer, domain owner, or future maintainer could reasonably find surprising, ambiguous, under-specified, unsafe, or unnecessarily constraining.
-4. For every candidate concern, determine whether current authority already resolves it.
-5. Do not invent a resolution when authority is silent.
-6. Report every material concern before the owning workflow crosses the checkpoint.
+2. Treat that artifact as the starting point, then look outward across the smallest materially implicated Polaris surface rather than only inward from the diff or checklist.
+3. Compare the current observation with relevant upstream, downstream, sibling, product, domain, architecture, persistence, public-contract, documentation/wiki, workflow, and tracker/governance assumptions where a material dependency is plausible.
+4. Ask what a competent architect, reviewer, downstream consumer, domain owner, or future maintainer could reasonably find surprising, ambiguous, inconsistent, under-specified, unsafe, unnecessarily constraining, or product-wrong.
+5. Check whether the observation exposes drift, duplicate truth, stale authority, missing ownership, a repeated symptom of an earlier defect, or a material opportunity outside the immediate task.
+6. For every candidate concern, determine whether current authority already resolves it.
+7. Do not invent a resolution when authority is silent.
+8. Report every material concern before the owning workflow crosses the checkpoint, and route/defer it without silently expanding mutation scope.
 
 Useful challenge questions include:
 
@@ -75,9 +97,15 @@ Useful challenge questions include:
 * Are we proving the actual authoritative claim, or only the behavior we happened to implement/test?
 * Is an abstraction/name broad or generic enough to hide its bounded context?
 * Did current work create an unnecessary framework, compatibility path, representation, or coupling?
+* Does something elsewhere in Polaris now encode an assumption that this work invalidated?
+* Are multiple authoritative-looking surfaces now telling materially different stories?
+* Are we repeatedly repairing symptoms while an earlier lifecycle, ownership, architecture, or workflow defect remains?
+* Is the work locally correct but materially wrong for Polaris's product intent?
 * Is a valid concern being silently treated as out of scope instead of surfaced and, when warranted, durably deferred?
 
 ## Workflow Checkpoint Profiles
+
+These profiles are **additional checkpoint-specific lenses**. None narrows the Polaris-wide scope above.
 
 ### `$wayfinder`
 
@@ -90,6 +118,10 @@ Before publication/amendment as implementation-ready, challenge whether the plan
 ### `$to-tickets`
 
 Before proposal-readiness certification/publication, challenge whether decomposition delegates any material design/public-contract choice to `$implement-ticket`.
+
+### `$architecture-remediation`
+
+Before bounded closure is declared complete and again before downstream handoff, challenge whether the remediation resolved the reported architecture choice while creating or exposing a material Polaris-wide inconsistency, stale authority, missing downstream ownership, or additional materially coupled choice. Surface broader findings without silently expanding the remediation's mutation scope.
 
 ### `$implement-ticket`
 

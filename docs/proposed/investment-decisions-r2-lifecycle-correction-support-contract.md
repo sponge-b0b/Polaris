@@ -1,9 +1,9 @@
 # R2 Investment Decision Lifecycle Correction Support Contract
 
-**Status:** Owner-approved; design complete after bounded adversarial closure  
+**Status:** Owner-approved; design complete after bounded adversarial closure and temporal-cardinality completion  
 **Release:** 0.2.0  
 **Primary entity:** `investment-decisions`  
-**Purpose:** Freeze the complete R2/#296 lifecycle-disposition correction contract without creating a generic correction framework for every Decision fact.
+**Purpose:** Freeze the complete R2/#296 lifecycle-disposition correction and temporal-interpretation contract without creating a generic correction framework for every Decision fact.
 
 ## Authority and supersession
 
@@ -16,7 +16,7 @@ This contract completes and narrows the lifecycle-correction semantics required 
 - `docs/product/requirements-0.2.0-amendment-r2-edge-cases.md`;
 - Spec #278 and Ticket #296.
 
-This document supersedes the earlier revision of this same contract that allowed correction to target any lifecycle fact. That broad target rule was internally inconsistent because lifecycle facts contribute different semantic dimensions: lifecycle disposition, work posture, Subject, Scope, and provenance are not one interchangeable status.
+This document supersedes earlier revisions of this same contract that either allowed correction to target any lifecycle fact or treated lifecycle interpretation as only determinate/contested. Those formulations were incomplete because lifecycle facts contribute different semantic dimensions and temporal queries may legitimately contain zero effective lifecycle-disposition claims.
 
 For R2 and Ticket #296, **lifecycle correction means correction of supported lifecycle-disposition interpretation only**. A correction never generically rewrites a fact or every semantic contribution carried by that fact.
 
@@ -30,7 +30,7 @@ Older proposal text says that an erroneous `ESTABLISHED -> UNRESOLVED` Scope est
 - Ticket #296 does **not** correct Decision Scope or Decision Subject;
 - erroneous historical Scope/Subject correction is deferred until a future purpose-specific contract actually requires it;
 - R2 must not misuse `DecisionLifecycleCorrected` or invent a generic Decision-fact correction abstraction to solve that future problem;
-- discovering an erroneous Scope/Subject fact in R2 preserves the immutable history and fails closed for any operation that requires a corrected value until such a purpose-specific contract exists.
+- discovering an erroneous Scope/Subject fact in R2 preserves immutable history and fails closed for any operation that requires a corrected value until such a purpose-specific contract exists.
 
 This is a deliberate scope boundary, not an implementation omission.
 
@@ -77,7 +77,7 @@ R2 represents a later supported finding that the original Decision Need was erro
 
 Older proposal vocabulary listing `DecisionNeedRetractedUnsupported` as a separate ordinary forward lifecycle fact is superseded for R2. Unsupported-Need retraction is corrective by definition and must not create a second competing mechanism for the same semantic outcome.
 
-Direct `DISCONFIRM` of the initial `DecisionInitiated` claim is invalid because every Decision requires an interpretable lifecycle root. If the Need was unsupported, qualify that root to `NEED_RETRACTED_UNSUPPORTED` instead.
+Direct `DISCONFIRM` of the initial `DecisionInitiated` claim is invalid because every Decision requires an interpretable lifecycle root once that root is effective. If the Need was unsupported, qualify that root to `NEED_RETRACTED_UNSUPPORTED` instead.
 
 ---
 
@@ -174,13 +174,30 @@ A valid contested history is not invalid history and must never be collapsed to 
 
 ---
 
-## 5. Determinate and contested interpretation contract
+## 5. Temporal result cardinality and lifecycle interpretation
 
-The public semantic result is explicitly either determinate or contested. Semantics are equivalent to:
+Temporal querying distinguishes **knowledge-universe absence** from a **known Decision with no effective lifecycle-disposition claim yet**.
+
+### Decision not known at the knowledge cutoff
+
+If `DecisionInitiated.recorded_at > K`, the Decision is not part of the historical knowledge universe at `known_at=K`.
+
+That outcome is **not** a `DecisionLifecycleInterpretation` variant. The historical query returns the existing domain/application not-found-at-cutoff semantic outcome because there is no known Decision to interpret at that knowledge boundary.
+
+Do not fabricate `UNRESOLVED`, `NOT_YET_EFFECTIVE`, or `CONTESTED` for a Decision that was not yet known.
+
+### Decision known but not yet effective
+
+If `DecisionInitiated.recorded_at <= K` but, after correction resolution and effective-time filtering, zero supported positive lifecycle-disposition claims are effective at `T`, the Decision is known but **not yet effective** at that temporal boundary.
+
+This is valid lifecycle interpretation, distinct from both `UNRESOLVED` and contest.
+
+The public semantic result is equivalent to:
 
 ```text
 DecisionLifecycleInterpretation =
-    DeterminateDecisionLifecycleInterpretation(
+    NotYetEffectiveDecisionLifecycleInterpretation
+  | DeterminateDecisionLifecycleInterpretation(
         disposition,
         support_fact_ids,
     )
@@ -189,11 +206,33 @@ DecisionLifecycleInterpretation =
     )
 ```
 
-Support IDs are immutable, duplicate-free `DecisionLifecycleFactId` values sufficient to explain the current determination/contest.
+`NotYetEffectiveDecisionLifecycleInterpretation` has no disposition and no effective support fact-ID set. The known raw initiation/correction history remains inspectable separately.
 
-`InvestmentDecision.lifecycle_interpretation` is the canonical current lifecycle result. A determinate-disposition convenience may exist, but any operation requiring one disposition must fail with the typed `DecisionLifecycleInterpretationContested` semantic failure when interpretation is contested.
+A determinate result has one reconciled effective disposition and immutable duplicate-free supporting `DecisionLifecycleFactId` values. A contested result preserves the immutable duplicate-free support fact IDs whose effective support cannot reconcile.
 
-Contested interpretation is queryable state, not an exception merely because uncertainty exists.
+`InvestmentDecision.lifecycle_interpretation` is the canonical current lifecycle result. A determinate-disposition convenience may exist, but operations requiring one effective disposition must fail explicitly when interpretation is either `NOT_YET_EFFECTIVE` or contested.
+
+Contested and not-yet-effective interpretation are queryable states; neither is invalid history.
+
+### Cardinality closure
+
+After knowledge filtering and correction/effective-time resolution, the lifecycle query universe is closed as:
+
+```text
+Decision unknown at K
+    -> not found at knowledge cutoff; no lifecycle interpretation
+
+Decision known at K, zero effective positive claims at T
+    -> NOT_YET_EFFECTIVE
+
+Decision known at K, one reconciled effective interpretation at T
+    -> DETERMINATE
+
+Decision known at K, irreconcilable effective support at T
+    -> CONTESTED
+```
+
+No fourth implicit/nullable state is left to implementation.
 
 ---
 
@@ -203,7 +242,8 @@ Work posture remains an independent semantic dimension and is **not corrected di
 
 When lifecycle interpretation at `(T, K)` is:
 
-- determinately `UNRESOLVED` and applicability is determinately operative -> reconstruct work posture independently from the applicable immutable work-posture history;
+- `NOT_YET_EFFECTIVE` -> no effective work posture exists and ordinary Decision work cannot proceed;
+- determinately `UNRESOLVED` and applicability is determinately operative -> reconstruct work posture independently from applicable immutable work-posture history;
 - determinately non-`UNRESOLVED` -> work posture is not applicable;
 - contested -> no deterministic work posture may authorize ordinary work.
 
@@ -244,13 +284,14 @@ Reconstruction must therefore not validate the entire raw history solely against
 
 For `effective_at(T, known_at=K)`:
 
-1. select only lifecycle facts/corrections with `recorded_at <= K`;
-2. preserve raw immutable history and correction target graph;
-3. resolve only correction effects with correction `effective_at <= T`;
-4. reconcile correction branches under Sections 3-4;
-5. evaluate surviving positive disposition claims with claim `effective_at <= T`;
-6. derive determinate/contested lifecycle interpretation;
-7. only if determinately `UNRESOLVED`, derive work posture independently under Section 6.
+1. determine whether `DecisionInitiated.recorded_at <= K`; if not, return not-found-at-knowledge-cutoff and do not construct lifecycle interpretation;
+2. select only other lifecycle facts/corrections with `recorded_at <= K`;
+3. preserve raw immutable history and correction target graph;
+4. resolve only correction effects with correction `effective_at <= T`;
+5. reconcile correction branches under Sections 3-4;
+6. evaluate surviving positive disposition claims with claim `effective_at <= T`;
+7. derive `NOT_YET_EFFECTIVE` when zero effective positive claims remain, otherwise derive determinate/contested lifecycle interpretation under Section 5;
+8. only if determinately `UNRESOLVED`, derive work posture independently under Section 6.
 
 Do not discard a known target merely because its original effective time is later than `T` before correction resolution; a qualification may establish an earlier supported effective time.
 
@@ -262,10 +303,20 @@ Among sequential compatible surviving ordinary disposition claims, effective tim
 as_known_at(K) = effective_at(T=K, known_at=K)
 ```
 
+Examples for initiation recorded at 10:00 and effective at 11:00:
+
+```text
+as_known_at(09:30) -> not found at knowledge cutoff
+as_known_at(10:30) -> NOT_YET_EFFECTIVE
+as_known_at(11:00) -> DETERMINATE(UNRESOLVED)
+```
+
+A later correction recorded at 12:00 that qualifies initiation to `UNRESOLVED` effective at 09:00 does not change `as_known_at(10:30)`, because it was not yet known. But `effective_at(10:30, known_at=12:30)` may then be `DETERMINATE(UNRESOLVED)`.
+
 Consequences:
 
 - later-recorded earlier-effective correction affects only knowledge cutoffs at/after its recording;
-- known future-effective correction does not apply early;
+- known future-effective initiation/correction does not apply early;
 - correction-of-correction applies only when both known and effective;
 - earlier `as_known_at` results remain stable.
 
@@ -281,21 +332,21 @@ Every committed correction appends one lifecycle fact and always receives the im
 
 A correction increments `DecisionVersion` exactly once when, at its recorded/commit boundary, it changes current concurrency-protected interpretation. Current concurrency-relevant interpretation includes:
 
-- determinate vs contested result;
+- `NOT_YET_EFFECTIVE` vs determinate vs contested result;
 - current determinate disposition when one exists;
-- the support fact-ID set that establishes that current result.
+- the support fact-ID set that establishes the current determinate/contested result.
 
-Therefore a currently effective correction that adds/removes material current support advances version even when the displayed disposition remains the same.
+Therefore a currently effective correction that changes `NOT_YET_EFFECTIVE -> DETERMINATE`, `DETERMINATE -> CONTESTED`, disposition, or current support set advances version exactly once.
 
 A historical-only or future-effective correction may append lifecycle sequence while repeating the prior `DecisionVersion` because current concurrency-protected interpretation did not change at commit time.
 
-Crossing a future correction's `effective_at` due only to passage of time does **not** manufacture a synthetic fact or version increment. `DecisionVersion` is a commit concurrency token, not a clock token. Commands must evaluate authoritative temporal interpretation at their command-time boundary in addition to checking expected version; version alone cannot certify that a time-dependent interpretation is still applicable.
+Crossing a future initiation/correction `effective_at` due only to passage of time does **not** manufacture a synthetic fact or version increment. `DecisionVersion` is a commit concurrency token, not a clock token. Commands must evaluate authoritative temporal interpretation at their command-time boundary in addition to checking expected version; version alone cannot certify that a time-dependent interpretation is still applicable.
 
 Same-operation/same-request replay never appends another correction. A semantic no-op does not manufacture history merely to move sequence/version.
 
 ---
 
-## 10. Invalid correction vs valid contested interpretation
+## 10. Invalid correction vs valid temporal/contested interpretation
 
 Reject correction creation/reconstruction as invalid when, among ordinary metadata/history failures:
 
@@ -313,7 +364,13 @@ Reject correction creation/reconstruction as invalid when, among ordinary metada
 
 Historical reconstruction may preserve truthful unknown or contested Actor Attribution.
 
-By contrast, well-formed irreconcilable support is valid contested history. Operations requiring a deterministic disposition fail through `DecisionLifecycleInterpretationContested`; historical/query surfaces remain available.
+By contrast:
+
+- Decision absent from the knowledge universe is a historical-query not-found outcome, not invalid history;
+- a known Decision with zero effective disposition claims is valid `NOT_YET_EFFECTIVE` interpretation;
+- well-formed irreconcilable support is valid contested interpretation.
+
+Operations requiring a deterministic effective disposition fail through explicit typed semantics for not-yet-effective or contested interpretation; historical/query surfaces remain available.
 
 ---
 
@@ -329,9 +386,12 @@ History/query surfaces preserve at least:
 - correction basis;
 - effective/recorded time;
 - Actor Attribution and provenance;
+- temporal result kind (`NOT_YET_EFFECTIVE | DETERMINATE | CONTESTED`) for a known Decision;
 - support fact IDs explaining determinate or contested interpretation.
 
-Durable persistence must reconstruct this target graph and must never implement correction as mutable overwrite, maximum sequence wins, `ORDER BY recorded_at DESC LIMIT 1`, or a latest-status row as sole authority.
+Application/query behavior must distinguish not-found-at-knowledge-cutoff from `NOT_YET_EFFECTIVE`; neither may be encoded as `UNRESOLVED` or `CONTESTED`.
+
+Durable persistence must reconstruct the correction target graph and temporal result and must never implement correction as mutable overwrite, maximum sequence wins, `ORDER BY recorded_at DESC LIMIT 1`, or a latest-status row as sole authority.
 
 A projection/cache remains derived and reproducible from immutable history.
 
@@ -356,15 +416,19 @@ Domain verification must cover at least:
 11. positive-vs-disconfirm siblings are contested;
 12. `Deferred -> Resolved -> correction` restores `UNRESOLVED + DEFERRED`;
 13. `Deferred -> Resumed -> Resolved -> correction` restores `UNRESOLVED + ACTIVE`;
-14. later backdated correction preserves the validity/attribution of acts that were valid under earlier knowledge;
-15. later-recorded earlier-effective correction affects only knowledge cutoffs at/after recording;
-16. known future-effective correction does not apply early;
-17. `as_known_at(K) = effective_at(K, known_at=K)`;
-18. valid contested state is queryable and deterministic operations fail typed;
-19. correction identity/sequence is fresh/contiguous while metadata `DecisionVersion` may repeat for historical/future-only correction;
-20. currently effective support-set change advances `DecisionVersion` exactly once;
-21. clock passage across future `effective_at` creates no synthetic version/fact;
-22. original/correction Actor Attribution, correction basis, replacement basis, Trigger Provenance, and Technical Provenance remain separately inspectable;
-23. no #296 path corrects Scope/Subject/work posture or introduces a generic correction framework.
+14. later backdated correction preserves validity/attribution of acts valid under earlier knowledge;
+15. initiation not recorded by `K` yields not-found-at-knowledge-cutoff and no lifecycle interpretation;
+16. initiation recorded by `K` but future-effective at `T` yields `NOT_YET_EFFECTIVE`, not `UNRESOLVED`, `CONTESTED`, or not-found;
+17. `NOT_YET_EFFECTIVE` exposes no work posture and ordinary work requiring an effective disposition fails explicitly;
+18. later correction may establish an earlier effective initiation only for knowledge cutoffs at/after correction recording;
+19. later-recorded earlier-effective correction affects only knowledge cutoffs at/after recording;
+20. known future-effective correction does not apply early;
+21. `as_known_at(K) = effective_at(K, known_at=K)`;
+22. valid contested state is queryable and deterministic operations fail typed;
+23. correction identity/sequence is fresh/contiguous while metadata `DecisionVersion` may repeat for historical/future-only correction;
+24. currently effective `NOT_YET_EFFECTIVE`/determinate/contested/disposition/support-set change caused by a committed correction advances `DecisionVersion` exactly once;
+25. clock passage across future initiation/correction `effective_at` creates no synthetic version/fact;
+26. original/correction Actor Attribution, correction basis, replacement basis, Trigger Provenance, and Technical Provenance remain separately inspectable;
+27. no #296 path corrects Scope/Subject/work posture or introduces a generic correction framework.
 
-This bounded closure exhausts the #296 correction semantic universe. No remaining lifecycle-disposition correction choice is delegated to implementation.
+This closure exhausts the bounded #296 correction and temporal-result cardinality universe: unknown-at-K, zero effective claims, one reconciled effective interpretation, and irreconcilable effective support are all explicitly dispositioned. No remaining lifecycle-disposition correction or zero-claim temporal-result choice is delegated to implementation.

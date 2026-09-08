@@ -36,33 +36,74 @@ Disposition: frozen-upstream | semantically-equivalent-mechanic | unresolved-des
 
 `unresolved-design` is never a legal ticket handoff. If two reasonable implementations could satisfy the ticket while establishing materially different public, product, domain, architecture, persistence, or downstream contracts, return the affected scope to its owning Spec/design authority rather than drafting acceptance criteria that silently delegate the choice.
 
-### Architecture Remediation Human Handoff
+### Architecture Readiness Saturation and Remediation Human Handoff
 
-When `unresolved-design` is discovered for an existing Implementation Ticket during ticket reconciliation, identify the affected open frontier ticket and halt after preserving the blocker as durable transition state.
+For existing Implementation Tickets during ticket reconciliation, architecture/design readiness discovery is **saturation-based, not fail-fast**. Run this sweep before any empty-delta `$implement-ticket` handoff and before proposal-readiness certification or user approval.
 
-Before presenting the handoff, create or update the ticket's single machine-managed `<!-- architecture-blocker:v1 -->` comment under the cross-skill contract in `.agents/skills/README.md`.
+Construct the complete applicable **existing-ticket reconciliation universe** from durable Spec/ticket lineage. Include every open existing Implementation Ticket whose contract belongs to the current Spec reconciliation, including tickets that currently have open native blockers. Native dependency/frontier state determines implementation actionability; it does not exempt a ticket from design-readiness evaluation. Closed or superseded tickets remain historical and are excluded unless current authority explicitly returns them to active reconciliation.
+
+Evaluate every materially determinable design dimension for every ticket. Do not stop the sweep when the first architecture gap is found, and do not stop evaluating a ticket merely because an upstream ticket has unresolved architecture. Continue evaluating every dimension whose answer does not depend on that upstream choice.
+
+Assign exactly one ticket-level disposition:
+
+```text
+design-ready | architecture-blocked | upstream-readiness-deferred
+```
+
+Rules:
+
+- `architecture-blocked` when at least one determinate ticket-owned unresolved durable choice exists, even when other dimensions remain dependent on upstream architecture;
+- `upstream-readiness-deferred` only when no determinate ticket-owned architecture/design gap is currently established but complete readiness cannot be decided until a specific unresolved upstream architecture choice is resolved;
+- `design-ready` only when current authority freezes every material choice required by that ticket;
+- incomplete/unreadable ticket-universe data or an unresolved ticket-level classification is a hard blocker, not `upstream-readiness-deferred`;
+- an open native blocker is never by itself evidence of an architecture/design gap;
+- never create an `architecture-blocker:v1` report solely because another ticket blocks the ticket.
+
+Before any architecture Human Handoff require complete saturation accounting:
+
+```text
+Existing-ticket reconciliation universe: <n>
+Design-ready: <n>
+Architecture-blocked: <n>
+Upstream-readiness-deferred: <n>
+Unclassified: 0
+Architecture-blocked reports required: <n>
+Architecture-blocked reports persisted/read-back: <n>/<n>
+Missing blocker reports: 0
+```
+
+After the complete sweep, for **every** `architecture-blocked` ticket create or update that ticket's single machine-managed `<!-- architecture-blocker:v1 -->` comment under the cross-skill contract in `.agents/skills/README.md`.
 
 Persist at least:
 
 - `Status: unresolved`;
 - `Source workflow: $to-tickets`;
 - the exact source ticket identity and parent Spec;
-- every coupled unresolved question/conflict;
+- every coupled unresolved question/conflict determinately established for that ticket;
 - durable evidence and governing authority;
 - material consequence;
 - exact blocked ticket/Spec obligation.
 
-If an active report already exists, reconcile/update that same managed comment rather than creating a competing report. Read the comment back and require the marker, unresolved status, source identity, parent Spec, and complete blocker set to match before emitting the Human Handoff. A chat summary or prior-session output is never a substitute for this persisted report.
+If an active report already exists, reconcile/update that same managed comment rather than creating a competing report. Read every required report back and require the marker, unresolved status, source identity, parent Spec, and complete determinate blocker set to match. Partial report persistence is non-terminal: resume/reconcile until every required report is durable before presenting any Human Handoff. A chat summary or prior-session output is never a substitute for these persisted reports.
 
-Terminate the handoff with:
+The saturation pass is read-only with respect to ticket contracts, baselines, dependencies, and closure state. If one or more tickets are `architecture-blocked`, do not publish, rewrite, close, or otherwise reconcile ticket semantics in that invocation after the sweep; persist/verify the blocker reports and halt ordinary ticketing.
+
+When one or more tickets are `architecture-blocked`, terminate with one copy-ready handoff per affected ticket:
 
 > Please continue with:
 >
 > ```
-> $architecture-remediation - <Frontier Ticket Title> (<Ticket URL>)
+> $architecture-remediation - <Architecture-Blocked Ticket Title> (<Ticket URL>)
+> $architecture-remediation - <Architecture-Blocked Ticket Title> (<Ticket URL>)
 > ```
 
-Use the actual frontier ticket title and URL. Do not replace the copy-ready command with free-form prose such as `Next: $architecture-remediation for ...`, and do not scope the invocation to the parent Spec when an existing blocked ticket is the source artifact. If multiple independent frontier tickets each contain unresolved architecture/design, persist one valid blocker report on each affected ticket, output one copy-ready `$architecture-remediation` line per ticket, and let the user choose which fresh remediation session to start.
+Use the actual ticket titles and URLs. Present every architecture-blocked ticket discovered by the saturated sweep together and let the user choose which fresh remediation session to start. Do not replace the copy-ready commands with free-form prose, do not scope the invocation to the parent Spec when an existing blocked ticket is the source artifact, and do not omit a ticket merely because it is not currently on the implementation frontier.
+
+A ticket classified only `upstream-readiness-deferred` receives **no** architecture-blocker report and no `$architecture-remediation` handoff solely for that dependency. Report its exact upstream architecture dependency as deferred state. After the governing upstream architecture changes, a later `$to-tickets` reconciliation re-evaluates that ticket from durable authority and may then classify it `design-ready` or `architecture-blocked`.
+
+If the saturated sweep has zero `architecture-blocked` tickets but one or more `upstream-readiness-deferred` tickets, stop ordinary ticketing and report the exact durable upstream blocker(s) preventing readiness completion; do not emit a synthetic remediation handoff for the deferred tickets.
+
+If both `architecture-blocked` and `upstream-readiness-deferred` tickets exist, emit the complete architecture-remediation handoff set for the architecture-blocked tickets and report the deferred tickets separately as dependent follow-up state.
 
 Do not invoke `$architecture-remediation` implicitly. For a fresh Spec with no existing Implementation Ticket, do not fabricate a ticket identity: persist any correctness-critical stopping context on the owning durable Spec/planning artifact as required by the cross-skill Fresh-Session Durability Gate, then use that owning workflow's handoff contract.
 
@@ -72,6 +113,14 @@ Before certification require:
 Material design choices delegated to implementation: 0
 Source implementation readiness: pass
 Attention design-gap findings unresolved: 0
+```
+
+For existing-ticket reconciliation, certification additionally requires:
+
+```text
+Architecture-blocked tickets: 0
+Upstream-readiness-deferred tickets: 0
+Unclassified ticket readiness: 0
 ```
 
 Private helper decomposition, equivalent algorithms/local data structures with no contract consequence, formatting, and equivalent test mechanics remain implementation-owned and do not need Spec-level prescription.
@@ -569,7 +618,9 @@ If it returns a delta, treat each returned ticket block as the authoritative sem
 
 Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
-If it returns an empty delta, report that the current ticket set already represents the source, identify the applicable open/frontier ticket, and halt with a Human Handoff:
+If it returns an empty delta, do not hand off to implementation yet. First complete **Architecture Readiness Saturation and Remediation Human Handoff** over the full applicable existing-ticket reconciliation universe. Any `architecture-blocked` or `upstream-readiness-deferred` result supersedes the empty-delta implementation handoff and must be handled by that saturation contract.
+
+Only when every applicable existing ticket is `design-ready` may the empty-delta path report that the current ticket set already represents the source, identify the applicable open/frontier ticket, and halt with a Human Handoff:
 
 > ✅ **No ticket changes are required.**
 >

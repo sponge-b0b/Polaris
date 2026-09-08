@@ -1,13 +1,13 @@
 # R2 Investment Decision Lifecycle Correction Support Contract
 
-**Status:** Owner-approved; design complete  
+**Status:** Owner-approved; design complete after bounded adversarial closure  
 **Release:** 0.2.0  
 **Primary entity:** `investment-decisions`  
-**Purpose:** Close the lifecycle-correction reconciliation gap discovered at Ticket #296 implementation entry without broadening R2 scope.
+**Purpose:** Freeze the complete R2/#296 lifecycle-disposition correction contract without creating a generic correction framework for every Decision fact.
 
-## Authority and synchronization
+## Authority and supersession
 
-This contract completes the lifecycle-correction semantics required by:
+This contract completes and narrows the lifecycle-correction semantics required by:
 
 - `docs/proposed/investment-decisions-lifecycle-model.md`;
 - `docs/proposed/application-use-cases-investment-decision-lifecycle.md`;
@@ -16,129 +16,245 @@ This contract completes the lifecycle-correction semantics required by:
 - `docs/product/requirements-0.2.0-amendment-r2-edge-cases.md`;
 - Spec #278 and Ticket #296.
 
-Where the three older proposed lifecycle/application/persistence documents leave lifecycle-correction support or reconciliation underspecified, this contract controls. It does not change their product scope or ownership boundaries.
+This document supersedes the earlier revision of this same contract that allowed correction to target any lifecycle fact. That broad target rule was internally inconsistent because lifecycle facts contribute different semantic dimensions: lifecycle disposition, work posture, Subject, Scope, and provenance are not one interchangeable status.
 
-The R2 foundation public contract is already complete. Any surviving statements in those older proposals saying Decision Subject, canonical `PortfolioId`, Scope equality/order, Actor/provenance typing, public construction/reconstruction, or other #299 foundation items remain unresolved are historical text superseded by `docs/proposed/investment-decisions-r2-foundation-public-contract.md` and the post-#299 synchronization authority on Spec #278. They are not implementation blockers.
+For R2 and Ticket #296, **lifecycle correction means correction of supported lifecycle-disposition interpretation only**. A correction never generically rewrites a fact or every semantic contribution carried by that fact.
+
+The R2 foundation public contract is complete. Surviving older proposal text that still calls #299 foundation items unresolved is historical text and not an implementation blocker.
+
+### Scope-correction source conflict resolved
+
+Older proposal text says that an erroneous `ESTABLISHED -> UNRESOLVED` Scope establishment/revision “requires correction” or that historical Subject/Scope correction uses an explicit correction path. For R2, those statements are superseded as follows:
+
+- ordinary `ESTABLISHED -> UNRESOLVED` Scope mutation remains invalid;
+- Ticket #296 does **not** correct Decision Scope or Decision Subject;
+- erroneous historical Scope/Subject correction is deferred until a future purpose-specific contract actually requires it;
+- R2 must not misuse `DecisionLifecycleCorrected` or invent a generic Decision-fact correction abstraction to solve that future problem;
+- discovering an erroneous Scope/Subject fact in R2 preserves the immutable history and fails closed for any operation that requires a corrected value until such a purpose-specific contract exists.
+
+This is a deliberate scope boundary, not an implementation omission.
 
 ---
 
-## 1. Correction fact contract
+## 1. Corrected semantic dimension
 
-`DecisionLifecycleCorrected` is an immutable lifecycle fact. It reuses the canonical lifecycle fact identity, metadata, sequence, version, time, Actor Attribution, Trigger Provenance, Technical Provenance, and `OperationId` contracts; it does not introduce a parallel correction-history model.
+The corrected semantic dimension is the Decision's **supported lifecycle disposition**:
+
+```text
+UNRESOLVED
+SUBSTANTIVELY_RESOLVED
+EXTERNALLY_RESOLVED
+NEED_RETRACTED_UNSUPPORTED
+```
+
+`DecisionLifecycleCorrected` may qualify or disconfirm only a lifecycle-disposition claim contributed by an eligible source fact/correction.
+
+The following ordinary lifecycle facts contribute correctable disposition claims in R2:
+
+- `DecisionInitiated` -> initial `UNRESOLVED` disposition claim only;
+- `DecisionSubstantivelyResolved` -> `SUBSTANTIVELY_RESOLVED`;
+- `DecisionExternallyResolved` -> `EXTERNALLY_RESOLVED`.
+
+An earlier `DecisionLifecycleCorrected` is also an eligible correction target because correction-of-correction must be append-only.
+
+The following are **not** direct #296 correction targets:
+
+- `DecisionSubjectRevised`;
+- `DecisionScopeEstablished`;
+- `DecisionScopeRevised`;
+- `DecisionDeferred`;
+- `DecisionWorkWithdrawn`;
+- `DecisionWorkResumed`;
+- relationship facts/corrections;
+- technical/provenance records;
+- the immutable `DecisionNeed` payload itself.
+
+`target_fact_id` still names the immutable source fact/correction, but for an eligible ordinary fact it refers only to that fact's lifecycle-disposition contribution. Other payload and semantic dimensions on the target remain untouched.
+
+### Unsupported Decision Need
+
+R2 represents a later supported finding that the original Decision Need was erroneous/unsupported by a `DecisionLifecycleCorrected` **qualification of the initial `DecisionInitiated` disposition claim** to `NEED_RETRACTED_UNSUPPORTED`.
+
+Older proposal vocabulary listing `DecisionNeedRetractedUnsupported` as a separate ordinary forward lifecycle fact is superseded for R2. Unsupported-Need retraction is corrective by definition and must not create a second competing mechanism for the same semantic outcome.
+
+Direct `DISCONFIRM` of the initial `DecisionInitiated` claim is invalid because every Decision requires an interpretable lifecycle root. If the Need was unsupported, qualify that root to `NEED_RETRACTED_UNSUPPORTED` instead.
+
+---
+
+## 2. Correction fact contract
+
+`DecisionLifecycleCorrected` is an immutable lifecycle fact using the established lifecycle fact identity, metadata, sequence, time, Actor Attribution, Trigger Provenance, Technical Provenance, and `OperationId` contracts.
 
 Every correction has:
 
 - its own fresh `DecisionLifecycleFactId`;
-- the immediately next `DecisionLifecycleSequence` for the Decision;
+- the immediately next `DecisionLifecycleSequence`;
 - complete `DecisionLifecycleFactMetadata`;
-- exactly one `target_fact_id` naming an earlier lifecycle fact for the same Decision;
-- one correction effect: `QUALIFY` or `DISCONFIRM`;
-- one purpose-specific typed correction basis that establishes why the correction is semantically supported.
+- exactly one `target_fact_id` naming an earlier eligible same-Decision disposition-bearing fact/correction;
+- one effect: `QUALIFY` or `DISCONFIRM`;
+- one required `DecisionLifecycleCorrectionBasis` carrying a non-empty purpose-specific reference explaining why this interpretive correction is supported;
+- for `QUALIFY`, one complete replacement lifecycle-disposition claim as defined below.
 
-A correction may target either an ordinary lifecycle fact or an earlier `DecisionLifecycleCorrected` fact.
+The target must exist in the reconstructed history, belong to the same `InvestmentDecisionId`, be an eligible target under Section 1, and have a strictly lower lifecycle sequence. These constraints make correction targeting acyclic by construction.
 
-The target must:
+Original facts/corrections remain permanently inspectable. Correction never rewrites the target's identity, metadata, Actor Attribution, provenance, business basis, effective time, or recorded time.
 
-- exist in the same reconstructed Decision history;
-- have the same `InvestmentDecisionId`;
-- have a strictly lower `DecisionLifecycleSequence` than the correction;
-- be a lifecycle fact, not a relationship fact or technical execution record.
+### Replacement support typing
 
-These rules make the correction target graph acyclic by construction. No generic graph service or separate correction-cycle mechanism is required.
+A `QUALIFY` correction always carries:
 
-Original facts remain immutable and inspectable. A correction never rewrites the target fact's identity, metadata, Actor Attribution, provenance, basis, effective time, or recorded time.
+- replacement `DecisionLifecycleDisposition`;
+- correction fact `effective_at`, which is the effective time of the replacement disposition claim;
+- required `DecisionLifecycleCorrectionBasis`.
+
+Additional replacement support is disposition-specific:
+
+- `UNRESOLVED` -> no additional disposition basis; the correction basis supports restoration/qualification of unresolved interpretation;
+- `SUBSTANTIVELY_RESOLVED` -> required `TrustedHumanInvestmentDecisionBasis` with `SUBSTANTIVELY_RESOLVING` effect;
+- `EXTERNALLY_RESOLVED` -> required `ExternalResolutionBasis`;
+- `NEED_RETRACTED_UNSUPPORTED` -> required `UnsupportedDecisionNeedBasis` carrying the attributable support that the original Need determination was unsupported.
+
+No generic `BusinessBasis(kind, identifier)` is introduced.
 
 ### `QUALIFY`
 
-`QUALIFY` says that the target branch remains historically present but its prior interpretive claim is replaced by a complete corrected lifecycle claim.
-
-A qualifying correction therefore requires:
-
-- one supported `DecisionLifecycleDisposition`;
-- the correction fact's own `effective_at` as the effective time of that corrected interpretation;
-- the correction's purpose-specific typed basis as the support for the corrected interpretation.
-
-Using the same disposition with a different effective time or corrected semantic basis is still a qualification. Using a different disposition establishes the corrected supported disposition without deleting the original source fact.
+`QUALIFY` replaces the target branch's prior lifecycle-disposition claim with the correction's complete replacement claim. It may change disposition, effective time, or supporting basis while preserving all original history.
 
 ### `DISCONFIRM`
 
-`DISCONFIRM` says that the target branch's interpretive claim is no longer supported from the correction's effective time.
-
-A disconfirming correction:
-
-- does not supply a replacement lifecycle disposition;
-- still requires its own truthful Actor Attribution/provenance and purpose-specific typed correction basis;
-- preserves the target fact or correction as historical truth.
+`DISCONFIRM` withdraws the target branch's lifecycle-disposition claim and supplies no replacement disposition or replacement disposition basis. It still requires its own truthful correction basis, Actor Attribution, and provenance.
 
 ---
 
-## 2. Correction-chain semantics
+## 3. Correction-chain semantics
 
-Correction targeting creates one or more support branches rooted in ordinary lifecycle facts.
+Correction targeting creates support branches rooted in eligible ordinary disposition-bearing facts.
 
-At a given knowledge/effective query boundary, the active leaves of those branches determine the supported interpretation of each root lifecycle fact.
+At a query boundary:
 
-For one branch:
-
-1. no applicable correction after the root -> the root contributes its native interpretive claim;
-2. leaf `QUALIFY` -> the branch contributes that correction's complete replacement claim;
-3. leaf `DISCONFIRM` targeting the root -> the branch contributes explicit disconfirmation and no positive replacement claim;
-4. leaf `DISCONFIRM` targeting an earlier correction -> the targeted correction's effect is defeated and the branch restores the interpretation that existed immediately before that targeted correction.
-
-That fourth rule is deliberate. A correction can itself be wrong. Append-only correction of the correction must be able to restore the previously supported interpretation without mutating or deleting either correction fact.
+1. root with no applicable correction contributes its native disposition claim;
+2. leaf `QUALIFY` contributes that correction's complete replacement claim;
+3. leaf `DISCONFIRM` targeting an ordinary non-initiation disposition fact withdraws that branch's positive claim;
+4. leaf `DISCONFIRM` targeting an earlier correction defeats that correction and restores the branch interpretation that existed immediately before the targeted correction;
+5. `QUALIFY` targeting an earlier correction replaces that branch with the later complete replacement claim.
 
 Example:
 
 ```text
-F1  native claim: UNRESOLVED
-C1  QUALIFY F1 -> EXTERNALLY_RESOLVED
+F1  DecisionInitiated -> UNRESOLVED
+F2  DecisionSubstantivelyResolved -> SUBSTANTIVELY_RESOLVED
+C1  QUALIFY F2 -> EXTERNALLY_RESOLVED effective earlier
 C2  DISCONFIRM C1
 
-supported branch after C2 -> F1's UNRESOLVED claim is restored
+supported F2 branch after C2 -> F2's SUBSTANTIVELY_RESOLVED claim is restored
 ```
 
-Restoration is not newest-write authority. It follows the explicit target relationship and correction effect. If another surviving correction branch still qualifies or disconfirms `F1`, that branch remains independently material.
+Restoration follows explicit target/effect semantics, never recorded recency.
 
-A later `QUALIFY` targeting an earlier correction replaces that correction branch with the later complete replacement claim. This permits correcting disposition, effective time, or semantic basis without mutating the earlier correction.
+If an ordinary resolution fact is directly disconfirmed, interpretation falls back to the surviving earlier disposition timeline; it does not manufacture a new `UNRESOLVED` fact.
 
 ---
 
-## 3. Reconciliation of competing branches
+## 4. Reconciliation of competing support
 
 Recorded recency and larger lifecycle sequence never make one correction semantically authoritative merely because it was recorded later.
 
-For one root lifecycle fact, evaluate every surviving correction branch that is available at the query boundary.
+For each disposition-bearing root, evaluate every surviving correction branch available at the query boundary.
 
-Branch outcomes reconcile as follows:
-
-- materially equivalent positive claims coalesce into one supported claim while preserving all supporting correction/fact references;
-- all surviving branches explicitly disconfirming the root produce a determinate disconfirmed root with no positive claim;
-- a positive claim competing with an explicit disconfirmation is irreconcilable;
+- materially equivalent positive claims coalesce while preserving all support fact IDs;
+- all surviving branches disconfirming a non-initiation root determinately withdraw that root claim;
+- positive support competing with explicit disconfirmation is irreconcilable;
 - materially different positive claims are irreconcilable.
 
-Positive claims are materially equivalent only when they establish the same lifecycle disposition and the same effective time. Different typed support references may jointly support the same claim and do not create conflict by themselves; all such support remains inspectable.
+Positive claims are materially equivalent only when they establish the same disposition and effective time. Different valid typed support references may jointly support the same claim and remain separately inspectable.
 
-Different disposition or different effective time is materially different because it changes lifecycle history, even if two claims happen to yield the same present-day disposition after both effective times have passed.
+Any irreconcilable root makes lifecycle interpretation contested/indeterminate for that query. If every root is determinate but surviving independent roots still imply incompatible lifecycle histories, overall interpretation is contested/indeterminate.
 
-Any irreconcilable root interpretation makes lifecycle interpretation **contested/indeterminate** for the affected query. A valid contested state is not an invalid history and must not be converted into last-writer-wins certainty.
-
-If every root interpretation is determinate, replay the surviving interpreted lifecycle claims under the existing lifecycle semantics. If independently supported roots still imply incompatible lifecycle interpretations at the query boundary and no explicit correction relationship resolves them, the overall lifecycle interpretation is contested/indeterminate.
+A valid contested history is not invalid history and must never be collapsed to newest-write-wins certainty.
 
 ---
 
-## 4. Temporal evaluation order
+## 5. Determinate and contested interpretation contract
 
-Historical interpretation keeps knowledge time and effective time separate.
+The public semantic result is explicitly either determinate or contested. Semantics are equivalent to:
+
+```text
+DecisionLifecycleInterpretation =
+    DeterminateDecisionLifecycleInterpretation(
+        disposition,
+        support_fact_ids,
+    )
+  | ContestedDecisionLifecycleInterpretation(
+        support_fact_ids,
+    )
+```
+
+Support IDs are immutable, duplicate-free `DecisionLifecycleFactId` values sufficient to explain the current determination/contest.
+
+`InvestmentDecision.lifecycle_interpretation` is the canonical current lifecycle result. A determinate-disposition convenience may exist, but any operation requiring one disposition must fail with the typed `DecisionLifecycleInterpretationContested` semantic failure when interpretation is contested.
+
+Contested interpretation is queryable state, not an exception merely because uncertainty exists.
+
+---
+
+## 6. Work-posture consequences
+
+Work posture remains an independent semantic dimension and is **not corrected directly by #296**.
+
+When lifecycle interpretation at `(T, K)` is:
+
+- determinately `UNRESOLVED` and applicability is determinately operative -> reconstruct work posture independently from the applicable immutable work-posture history;
+- determinately non-`UNRESOLVED` -> work posture is not applicable;
+- contested -> no deterministic work posture may authorize ordinary work.
+
+For determinately `UNRESOLVED`, replay the work-posture facts that are known by `K`, effective by `T`, and were valid domain acts under the knowledge available when they were recorded. Their semantics remain:
+
+```text
+no applicable posture fact -> ACTIVE
+DecisionDeferred           -> DEFERRED
+DecisionWorkWithdrawn       -> WITHDRAWN
+DecisionWorkResumed         -> ACTIVE
+```
+
+Thus correcting a later resolution does not invent a posture transition. If history was `Deferred -> Resolved -> correction disconfirms Resolved`, the restored unresolved posture is `DEFERRED`. If history was `Deferred -> Resumed -> Resolved -> correction`, the restored posture is `ACTIVE`.
+
+---
+
+## 7. Historical validity and hindsight
+
+Later correction may change today's supported understanding of an earlier effective interval without making a previously valid historical act retroactively invalid.
+
+Raw-history validation asks whether an ordinary fact was valid under the facts/corrections **known when that act was recorded**. Effective interpretation asks what disposition is supported for `T` using knowledge cutoff `K`. These are related but distinct questions.
+
+Example:
+
+```text
+10:00 Decision initiated
+10:05 human Deferral recorded while Decision was known as UNRESOLVED
+10:30 correction recorded establishing EXTERNALLY_RESOLVED effective 10:03
+```
+
+`as_known_at(10:05)` preserves the Deferral as a valid historical act. Current best interpretation may nevertheless say `EXTERNALLY_RESOLVED` effective 10:03. The Deferral remains attributable history but does not create effective work posture during an interval now understood as resolved.
+
+Reconstruction must therefore not validate the entire raw history solely against today's corrected hindsight interpretation.
+
+---
+
+## 8. Temporal evaluation order
 
 For `effective_at(T, known_at=K)`:
 
 1. select only lifecycle facts/corrections with `recorded_at <= K`;
-2. preserve their target graph and raw history;
-3. at `T`, apply only correction effects whose correction `effective_at <= T`;
-4. resolve correction branches and reconciliation under Sections 2-3;
-5. interpret the surviving lifecycle claims at `T`.
+2. preserve raw immutable history and correction target graph;
+3. resolve only correction effects with correction `effective_at <= T`;
+4. reconcile correction branches under Sections 3-4;
+5. evaluate surviving positive disposition claims with claim `effective_at <= T`;
+6. derive determinate/contested lifecycle interpretation;
+7. only if determinately `UNRESOLVED`, derive work posture independently under Section 6.
 
-Do not discard a known target fact merely because its original effective time is after `T` before correction resolution. A later-recorded correction may establish that the supported interpretation was actually effective earlier.
+Do not discard a known target merely because its original effective time is later than `T` before correction resolution; a qualification may establish an earlier supported effective time.
+
+Among sequential compatible surviving ordinary disposition claims, effective time determines temporal transition order. Lifecycle sequence is the deterministic tie-break only for otherwise compatible claims with the same effective instant; sequence never resolves competing correction support.
 
 `as_known_at(K)` remains exactly:
 
@@ -148,91 +264,107 @@ as_known_at(K) = effective_at(T=K, known_at=K)
 
 Consequences:
 
-- a later-recorded earlier-effective correction changes historical interpretation only for knowledge cutoffs at or after its `recorded_at`;
-- a known future-effective correction does not affect state before its `effective_at`;
-- a correction-of-correction changes only query boundaries at which that later correction is both known and effective;
+- later-recorded earlier-effective correction affects only knowledge cutoffs at/after its recording;
+- known future-effective correction does not apply early;
+- correction-of-correction applies only when both known and effective;
 - earlier `as_known_at` results remain stable.
 
 ---
 
-## 5. Sequence and Decision-version behavior
+## 9. Lifecycle sequence and Decision version
 
-Every committed correction appends a lifecycle fact and therefore always receives the immediately next `DecisionLifecycleSequence`.
+Every committed correction appends one lifecycle fact and always receives the immediately next `DecisionLifecycleSequence`.
 
-`DecisionLifecycleSequence` and `DecisionVersion` remain separate concepts.
+`DecisionLifecycleSequence` and `DecisionVersion` are not numerically coupled.
 
-A committed correction increments `DecisionVersion` exactly once **only when the correction changes the Decision's current concurrency-protected derived state at commit/recorded time**. Examples include changing the current determinate disposition or changing current interpretation from determinate to contested or vice versa.
+`DecisionLifecycleFactMetadata.decision_version` records the Decision version resulting from that committed fact. Across lifecycle history, metadata versions are **non-decreasing**, not required to strictly increase on every fact.
 
-A valid correction that changes only an earlier historical interval or only a future-effective interval may append the next lifecycle sequence without changing `DecisionVersion` because current concurrency-protected state did not change.
+A correction increments `DecisionVersion` exactly once when, at its recorded/commit boundary, it changes current concurrency-protected interpretation. Current concurrency-relevant interpretation includes:
 
-No correction may increment `DecisionVersion` more than once. A semantic retry/no-op does not manufacture another correction fact merely to advance either counter.
+- determinate vs contested result;
+- current determinate disposition when one exists;
+- the support fact-ID set that establishes that current result.
+
+Therefore a currently effective correction that adds/removes material current support advances version even when the displayed disposition remains the same.
+
+A historical-only or future-effective correction may append lifecycle sequence while repeating the prior `DecisionVersion` because current concurrency-protected interpretation did not change at commit time.
+
+Crossing a future correction's `effective_at` due only to passage of time does **not** manufacture a synthetic fact or version increment. `DecisionVersion` is a commit concurrency token, not a clock token. Commands must evaluate authoritative temporal interpretation at their command-time boundary in addition to checking expected version; version alone cannot certify that a time-dependent interpretation is still applicable.
+
+Same-operation/same-request replay never appends another correction. A semantic no-op does not manufacture history merely to move sequence/version.
 
 ---
 
-## 6. Invalid correction vs valid contested interpretation
+## 10. Invalid correction vs valid contested interpretation
 
-Reject correction creation/reconstruction as invalid when, among other ordinary metadata/history failures:
+Reject correction creation/reconstruction as invalid when, among ordinary metadata/history failures:
 
-- `target_fact_id` is missing or unknown;
+- target is missing or unknown;
 - target belongs to another Decision;
-- target is not a lifecycle fact;
+- target is not an eligible disposition-bearing fact/correction from Section 1;
 - target sequence is not strictly earlier;
 - correction fact identity is duplicated;
-- `QUALIFY` lacks a supported disposition;
-- `DISCONFIRM` supplies a replacement disposition;
-- correction basis is missing, empty, wrong-purpose, or otherwise invalid;
-- ordinary live correction creation lacks known Actor Attribution;
-- required time/provenance metadata is invalid.
+- direct `DISCONFIRM` targets `DecisionInitiated`;
+- `QUALIFY` lacks a complete replacement disposition/support contract;
+- `DISCONFIRM` supplies replacement disposition/support;
+- correction or replacement basis is missing/wrong-purpose;
+- live correction creation lacks known Actor Attribution;
+- required temporal/provenance metadata is invalid.
 
-Historical reconstruction may preserve truthful unknown or contested Actor Attribution under the completed foundation contract.
+Historical reconstruction may preserve truthful unknown or contested Actor Attribution.
 
-By contrast, a well-formed history with irreconcilable surviving support is valid history with contested/indeterminate lifecycle interpretation. Querying that state is not itself exceptional. An operation that requires one deterministic lifecycle disposition fails through the existing typed contested-interpretation semantic failure.
+By contrast, well-formed irreconcilable support is valid contested history. Operations requiring a deterministic disposition fail through `DecisionLifecycleInterpretationContested`; historical/query surfaces remain available.
 
 ---
 
-## 7. Application and persistence consequences
-
-Application/use-case behavior must expose correction support rather than hide it behind a current status field.
+## 11. Application and persistence consequences
 
 History/query surfaces preserve at least:
 
-- raw original lifecycle facts;
+- every raw original lifecycle fact;
 - correction fact identity;
 - `target_fact_id`;
-- correction effect;
-- qualifying replacement disposition when present;
+- effect;
+- replacement disposition and replacement basis when applicable;
 - correction basis;
 - effective/recorded time;
 - Actor Attribution and provenance;
-- the support references explaining determinate or contested interpretation.
+- support fact IDs explaining determinate or contested interpretation.
 
-Durable persistence must store enough to reconstruct this target graph and must never implement correction semantics as `ORDER BY recorded_at DESC LIMIT 1`, maximum sequence wins, mutable overwrite, or a latest-status row as sole authority.
+Durable persistence must reconstruct this target graph and must never implement correction as mutable overwrite, maximum sequence wins, `ORDER BY recorded_at DESC LIMIT 1`, or a latest-status row as sole authority.
 
-A current projection/cache may be maintained, but it is derived state and must be reproducible from immutable lifecycle facts/corrections under this contract.
+A projection/cache remains derived and reproducible from immutable history.
 
-No generic support graph, event-sourcing framework, or platform-wide correction abstraction is introduced by R2.
+R2 introduces no generic support graph, generic Subject/Scope/work-posture correction, event-sourcing framework, or platform-wide correction abstraction.
 
 ---
 
-## 8. Required R2 correction fixtures
+## 12. Required #296 closure fixtures
 
-R2 domain verification must cover at least:
+Domain verification must cover at least:
 
-1. unsupported-Need correction after prior lifecycle/human history preserves every original fact;
-2. qualifying correction changes current supported disposition;
-3. qualifying correction preserves disposition while correcting effective time or semantic basis;
-4. disconfirming an ordinary source fact removes that source branch's positive support;
-5. disconfirming a qualifying correction restores the interpretation immediately preceding that correction;
-6. qualifying a prior correction replaces that branch with the new complete claim;
-7. equivalent sibling qualifying corrections coalesce without false contest;
-8. conflicting sibling qualifying corrections produce contested/indeterminate interpretation;
-9. positive qualification competing with explicit disconfirmation produces contested/indeterminate interpretation;
-10. later-recorded earlier-effective correction affects only `known_at` boundaries at/after recording;
-11. known future-effective correction does not apply early;
-12. `as_known_at(K) = effective_at(K, known_at=K)`;
-13. historical-only/future-only correction advances lifecycle sequence without incorrectly advancing current `DecisionVersion`;
-14. current-state-changing correction advances `DecisionVersion` exactly once;
-15. invalid/cross-Decision/forward correction targets are rejected;
-16. original and correction Actor Attribution/provenance remain separately inspectable.
+1. late External Resolution qualifies a prior resolution/initial claim without deleting history;
+2. unsupported Need qualifies the initial disposition claim to `NEED_RETRACTED_UNSUPPORTED`;
+3. direct `DISCONFIRM` of initiation is rejected;
+4. Subject/Scope/work-posture/relationship facts are rejected as lifecycle-correction targets;
+5. qualification may correct disposition, effective time, and typed replacement support;
+6. disconfirming an ordinary resolution falls back to the surviving prior disposition timeline;
+7. disconfirming a correction restores the immediately preceding branch interpretation;
+8. qualifying a correction replaces that branch;
+9. equivalent sibling positive claims coalesce;
+10. conflicting positive siblings are contested;
+11. positive-vs-disconfirm siblings are contested;
+12. `Deferred -> Resolved -> correction` restores `UNRESOLVED + DEFERRED`;
+13. `Deferred -> Resumed -> Resolved -> correction` restores `UNRESOLVED + ACTIVE`;
+14. later backdated correction preserves the validity/attribution of acts that were valid under earlier knowledge;
+15. later-recorded earlier-effective correction affects only knowledge cutoffs at/after recording;
+16. known future-effective correction does not apply early;
+17. `as_known_at(K) = effective_at(K, known_at=K)`;
+18. valid contested state is queryable and deterministic operations fail typed;
+19. correction identity/sequence is fresh/contiguous while metadata `DecisionVersion` may repeat for historical/future-only correction;
+20. currently effective support-set change advances `DecisionVersion` exactly once;
+21. clock passage across future `effective_at` creates no synthetic version/fact;
+22. original/correction Actor Attribution, correction basis, replacement basis, Trigger Provenance, and Technical Provenance remain separately inspectable;
+23. no #296 path corrects Scope/Subject/work posture or introduces a generic correction framework.
 
-This closes the correction-support design gap that blocked Ticket #296. No unresolved lifecycle-correction design choice is delegated to implementation.
+This bounded closure exhausts the #296 correction semantic universe. No remaining lifecycle-disposition correction choice is delegated to implementation.

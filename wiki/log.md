@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-07] Independent R2 correction remediation | support and temporal semantics completed
+
+Resolved restoration support-ID membership and cross-root compatibility for #296, then completed six additional owner-guided decisions covering recursive independent activation, minimal whole-result support, strict-prefix historical validation, explicit observation boundaries and posture ordering, replay versus distinct correction support, and unsupported-Need initiation-lineage eligibility. Current support excludes defeated/unrelated ancestry, terminal conflicts cannot be resolved by recency, and append/version/clock consequences are distinct. Reconciled the correction authority and its foundation/lifecycle/application/persistence consumption, updating Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`. This is architecture completion for Independent Spec #278, not implementation certification.
+
 ## [2026-09-07] R2 temporal cardinality completion | zero-claim lifecycle state made explicit
 
 Closed the remaining Ticket #296 temporal-result gap after implementation entry exposed a legitimate zero-effective-claim boundary. Historical querying now distinguishes a Decision not yet known at `known_at=K` from a known Decision whose initiation/lifecycle claim is not yet effective at `T`: the former is a not-found-at-knowledge-cutoff outcome outside lifecycle interpretation, while the latter is explicit `NOT_YET_EFFECTIVE`. The known-Decision lifecycle result universe is now `NOT_YET_EFFECTIVE | DETERMINATE | CONTESTED`; not-yet-effective Decisions have no work posture and cannot authorize ordinary Decision work. Correction/version semantics now include transitions to/from `NOT_YET_EFFECTIVE`, while wall-clock passage across future effective time still creates no synthetic fact or `DecisionVersion`. Updated Planned knowledge for `investment-decisions`.

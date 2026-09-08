@@ -14,6 +14,8 @@ Where an earlier R2 artifact, Spec body, wiki entry, or glossary sentence confli
 
 This document does not authorize a full Portfolio implementation, a generic actor registry, a generic authorization framework, a generic provenance framework, a universal event/record abstraction, or #299 source implementation merely by existing. It freezes the design that #299 must execute.
 
+The later owner-approved [R2 lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) completes and controls #296's lifecycle-disposition correction and temporal interpretation. Its explicit observation boundaries, append-time historical validation, exact surviving support, correction eligibility, and replay/version rules refine this foundation. In particular, the history-only reconstruction shorthand below does not authorize a public interpretation without supplied `(effective_at, known_at)` boundaries; a current view requires caller-supplied time. Ordinary Subject/Scope no-op rules do not suppress distinct equivalent correction acts. Historical Subject/Scope correction remains outside #296.
+
 ---
 
 ## 1. Portfolio domain entity identity

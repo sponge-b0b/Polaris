@@ -25,6 +25,12 @@ The owner-approved foundation public-contract document resolves the foundation b
 
 PostgreSQL is the initial/reference adapter, not the persistence architecture.
 
+The later owner-approved [R2 lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls lifecycle-disposition correction and temporal interpretation. Preserve each public result's explicit `(effective_at=T, known_at=K)` boundary and exact surviving support. Unknown-at-K is not found; known zero-effective-positive history is `NOT_YET_EFFECTIVE`, without effective support or posture. This supersedes older two-state summaries and implicit-current-time shorthand below; Application supplies observation time rather than the domain reading a clock or deriving now from the latest fact.
+
+Preserve non-decreasing `recorded_at` in lifecycle sequence, including timestamp ties, so ordinary acts can be validated against their strictly earlier sequence prefix at recording and proposed effective time. Retain known future-effective target ancestry for independently active correction descendants. Reconstruct branch-local restoration, semantic cross-root compatibility, and minimal surviving support without latest-write selection or retroactive invalidation of admitted ordinary acts.
+
+Exact operation/request replay returns the receipt without append; changed-request reuse conflicts. Every distinct valid correction act appends even if equivalent. Compare preceding and appended histories at the same command recording boundary for the version consequence, including support-only changes. A future-only correction may advance lifecycle sequence without advancing version; clock passage and queries create neither facts nor versions. Existing receipt/transaction ownership remains here and in Application; #296 introduces no domain receipt framework or generic Subject/Scope/work-posture correction. These rules control any less precise correction/version wording below.
+
 ---
 
 # 1. Persistence objective

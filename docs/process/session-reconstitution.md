@@ -39,6 +39,55 @@ The ledger must contain **one active continuation record**, not an accumulating 
 
 If remembered conversation or the ChatGPT Session Ledger conflicts with current durable state, surface the conflict and prefer the applicable authority defined by `AGENTS.md` unless the user explicitly resolves it otherwise.
 
+## Polaris-Wide Meta-Level Attention
+
+A reconstituted ChatGPT Polaris session carries a standing **Polaris-wide meta-level Attention** obligation for the entire active session.
+
+The current task is the immediate work surface, **not the boundary of attention**. While doing the work in front of it, ChatGPT must also continuously evaluate what the current observation implies for Polaris as a whole. This includes product intent, domain semantics, architecture, authority, code, persistence, APIs, tests, documentation, Living Entity Wiki knowledge, workflow skills, tracker state, lifecycle/governance mechanics, and downstream/upstream contracts.
+
+The operating model is:
+
+```text
+do the current work correctly
+
+AND, continuously:
+
+current observation
+    ↓
+compare against the Polaris system model
+    ↓
+detect material inconsistency / drift / latent risk / missing ownership / opportunity
+    ↓
+raise Attention when warranted
+    ↓
+disposition it to the right lifecycle or no action
+```
+
+In particular, do not wait for the repository owner to notice a broader consequence first. Surface materially relevant findings such as:
+
+- an inconsistency elsewhere in Polaris exposed by the current work;
+- architecture, domain language, persistence, APIs, docs, wiki, skills, tests, or tracker state no longer telling the same story;
+- duplicate or competing sources of truth;
+- stale authority or assumptions invalidated by a later decision;
+- ownership, boundary, dependency, lifecycle, or abstraction drift;
+- a workflow/process defect revealed by an otherwise local failure;
+- a downstream artifact silently depending on semantics that no durable authority owns;
+- repeated symptom fixes indicating an earlier governing defect;
+- technically valid work that is wrong for Polaris as a product;
+- unnecessary machinery, scope creep, or a violation of established lean/bottom-up principles;
+- latent temporal, concurrency, correction, replay, auditability, lineage, authority, or fail-closed consequences;
+- a materially useful opportunity that should become Attention even though it is outside the immediate task.
+
+Use a materiality threshold rather than generating speculative noise:
+
+> **Would a competent architect who understood Polaris as a whole want this brought to their attention now?**
+
+If yes, surface it. If no, continue without distraction.
+
+Polaris-wide Attention does **not** authorize uncontrolled scope expansion or unrelated mutation. A finding must be dispositioned appropriately: address it in current work when it is truly part of the current obligation; treat it as a blocker when it invalidates current work; route it through the appropriate architecture/planning/workflow lifecycle when separate action is required; capture valuable deliberate deferral through the existing future-work mechanism; or take no action when it is not material.
+
+This is a standing collaboration/reasoning obligation, not conversational state and not a substitute for the product's durable Attention/domain artifacts. It survives session loss by virtue of this document and must be restored during every session reconstitution.
+
 ## Authority
 
 Start with `AGENTS.md` and follow its authority model.
@@ -291,7 +340,7 @@ Use the applicable workflow's current `SKILL.md` as authority for exact guards a
 | `$verify-spec` | Spec branch candidate `HEAD`; Spec/workspace baseline; Spec state; open implementation/remediation children; current verification receipt/checkpoint or proof state; native blockers relevant to verification actionability |
 | `$review-spec` | exact verified candidate `HEAD`; latest valid verification receipt; Spec state; current review/remediation artifact state; open remediation children when any exist |
 | `$spec-merge-cleanup` | exact reviewed candidate `HEAD`; current default-branch `HEAD`; durable review/merge authorization state; current PR/merge state when applicable; remaining child/remediation state |
-| `$architecture-remediation` | blocked artifact; exact unresolved architecture question/conflict; governing authority set; current remediation/decision artifact and native relationship state |
+| `$architecture-remediation` | blocked artifact; exact unresolved architecture question/conflict; governing authority set; current remediation/decision artifact and native relationship state; active `independent-architecture-remediation-checkpoint:v1` when Independent-Spec owner-guided remediation is in progress |
 
 For an active branch with a durable SHA baseline, compare baseline → `HEAD` and confirm the exact changed-file set. For a suspended workflow, recover the owning skill's current contract and resume at the first incomplete authoritative stage rather than replaying already completed stages.
 

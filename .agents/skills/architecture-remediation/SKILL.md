@@ -1,6 +1,6 @@
 ---
 name: architecture-remediation
-description: Route unresolved architecture blockers back into the existing governing Wayfinder effort, reopening that map when authoritative re-entry requires it, creating or reusing one decision ticket per independent architectural decision, and handing resolution to `$wayfinder`.
+description: Route unresolved architecture blockers through the parent Spec's actual governance: back into the existing governing Wayfinder effort when Wayfinder-managed, or through in-place owner-guided remediation when the Spec is intentionally Independent.
 compatibility: product=codex product=claude-code system=git system=gh network=required
 disable-model-invocation: true
 ---
@@ -9,7 +9,12 @@ disable-model-invocation: true
 
 Use when `$implement-ticket`, `$review-spec`, `$to-remediation-specs`, or another workflow cannot continue because of unresolved or incomplete architecture.
 
-This is a **routing workflow**. Do not resolve architecture, modify implementation, amend a Spec, or create a new Wayfinder map here.
+This workflow is **governance-mode aware**:
+
+- for a **Wayfinder-managed Spec**, it remains a routing workflow: recover the exact existing governor, reopen it when authoritative re-entry requires it, create/reuse decision work there, and hand resolution to `$wayfinder`;
+- for an intentionally **Independent Spec**, do not invent a Wayfinder merely to satisfy remediation. Resolve the bounded architecture decision in place with the owner, persist the resulting authority, amend the existing Spec, and return through `$to-tickets` before implementation resumes.
+
+Never modify implementation here. Never create a new Wayfinder map for an Independent Spec solely because architecture remediation was required.
 
 ## Session Independence
 
@@ -46,7 +51,7 @@ Also capture:
 * parent Spec;
 * Spec Review issue when applicable.
 
-Preserve caller evidence and terminology. Do not invent a resolution.
+Preserve caller evidence and terminology. Do not invent a resolution while capturing the blocker set.
 
 ### Decision Coupling
 
@@ -64,7 +69,7 @@ If **Yes**, keep them independent.
 
 Do not create separate decisions merely because the caller reported several numbered blockers.
 
-## 2. Recover the Existing Governing Wayfinder Effort
+## 2. Resolve Architecture Governance Mode
 
 Read the parent Spec and recover its complete current Wayfinder governance from durable evidence:
 
@@ -85,15 +90,39 @@ Read the parent Spec and recover its complete current Wayfinder governance from 
 
 Preserve original source provenance. Remediation governance is additive and must never replace `wayfinder-source`.
 
+Resolve exactly one governance mode:
+
+### Wayfinder-managed
+
+The Spec is Wayfinder-managed when durable source/remediation provenance or reconciled `Spec Handoff` evidence establishes one or more current Wayfinder governors.
+
 Resolve the **exact governing Wayfinder whose scope owns the architecture blocker being routed**. A Spec may have more than one governor; do not default to the original source when the blocker belongs to a later remediation Wayfinder.
 
 If one candidate governor is established unambiguously, use it. If multiple governors plausibly own the blocker and durable context does not distinguish one, fail closed. Do not guess, create a replacement map, or duplicate the decision under several maps.
 
 Blockers remain under that governing map unless one is genuinely outside its destination.
 
+### Independent Spec
+
+A Spec may intentionally exist outside Wayfinder governance.
+
+Treat it as **Independent** only when durable recovery establishes no Wayfinder source/remediation provenance and an exhaustive reconciliation against canonical Wayfinder `Derived Spec` / `Remediation Spec` handoffs does not establish a governor.
+
+This is a valid lifecycle mode. Do not create, infer, or require a Wayfinder merely because implementation later discovers an architecture blocker.
+
+If evidence suggests a Wayfinder relationship should exist but provenance/handoff state is missing, contradictory, or ambiguous, fail closed as governance drift rather than silently classifying the Spec as Independent.
+
+Record:
+
+```text
+Architecture governance mode: Wayfinder-managed | Independent Spec
+Governing Wayfinder: #<map> | None
+Governance evidence: <exact durable evidence>
+```
+
 ## 3. Test Existing Architecture Coverage
 
-Before creating or reusing a decision ticket, inspect relevant accepted authority and resolved Wayfinder decisions.
+Before creating decision work or asking the owner to decide anything, inspect relevant accepted authority and resolved architectural decisions.
 
 A prior decision resolves the blocker only when current accepted authority **directly determines the exact durable choice the caller says is missing**.
 
@@ -105,7 +134,7 @@ If **Yes**:
 
 * record the exact accepted decision/authority that determines the missing choice;
 * explain concisely how it resolves that specific blocker;
-* do not create a duplicate decision.
+* do not create or ask for a duplicate decision.
 
 If **No**, the blocker remains unresolved.
 
@@ -115,9 +144,9 @@ For example, deciding **who owns** a lifecycle does not automatically determine 
 
 If existing authority resolves only part of a blocker, preserve only the unresolved dimensions and re-apply **Decision Coupling** to them.
 
-## 4. Re-enter the Governing Wayfinder Before New Decision Work
+## 4A. Wayfinder-Managed Re-entry
 
-Perform this step only when at least one architecture blocker remains unresolved after Step 3.
+Perform this section only for `Architecture governance mode: Wayfinder-managed` and only when at least one architecture blocker remains unresolved after Section 3.
 
 Re-read the exact governing Wayfinder immediately before mutation.
 
@@ -133,7 +162,73 @@ If the Wayfinder is already open, do not create a synthetic reopen/close cycle.
 
 If the map cannot be reopened or its identity/state cannot be verified, halt. Do not create/reuse a decision ticket against a lifecycle state that still says delivery-complete.
 
-## 5. Create or Reuse Decision Tickets
+## 4B. Independent-Spec Architecture Resolution
+
+Perform this section only for `Architecture governance mode: Independent Spec` and only when at least one blocker remains unresolved after Section 3.
+
+The existing parent Spec is the durable lifecycle owner for this bounded remediation. Do not create a Wayfinder map, Wayfinder decision ticket, Spec Review, or other new formal issue merely to host the architecture decision.
+
+### Owner-guided decision resolution
+
+Resolve one coupled architectural decision at a time inside this workflow.
+
+For each unresolved coupling group:
+
+1. research every recoverable fact from repository/tracker/accepted authority rather than asking the owner;
+2. state the exact durable choice that remains;
+3. provide the recommended answer and the material alternatives/tradeoffs;
+4. ask the owner for one decision at a time;
+5. preserve the owner's explicit answer before advancing to the next coupled decision.
+
+`$grilling` and `$domain-modeling` may be used as prescribed internal composition when they materially improve the decision analysis. Their HITL is in-skill HITL, not a separate lifecycle handoff.
+
+Do not select a materially consequential architecture choice merely to keep implementation moving.
+
+### Bounded design-completeness closure
+
+After the reported blockers are answered, do **not** persist immediately. Perform one bounded adversarial closure over the affected public/domain/architecture contract so the workflow does not return one example at a time.
+
+Within the blocker-defined contract boundary, enumerate every materially relevant semantic dimension and nested universe, including where applicable:
+
+* owners and authority/input sources;
+* identity and support/reference membership;
+* lifecycle/state transitions and correction/restoration semantics;
+* zero / one / many cardinality cases;
+* temporal knowledge/effective boundaries;
+* ordering and compatibility rules;
+* version/concurrency consequences;
+* determinate/contested/absent states;
+* failure and fail-closed behavior;
+* downstream/public/persistence-visible consequences;
+* correction-of-correction, competing support, or equivalent nested closure where the contract contains those structures.
+
+Apply the repository's design-to-implementation test:
+
+> Could two reasonable implementations satisfy the amended authority while producing materially different domain, public, persistence, temporal, authority, or downstream behavior?
+
+If **Yes**, architecture remains incomplete. Add the newly discovered material choice to the current independent remediation, re-apply Decision Coupling, and continue owner-guided resolution before persistence.
+
+Closure requires:
+
+```text
+Reported blocker coupling groups: <n>
+Owner-resolved coupling groups: <n>
+New material choices discovered by closure: <n>
+Unresolved material choices after closure: 0
+Material implementation-delegated architecture choices: 0
+```
+
+Ordinary private helper structure, local algorithms, code organization, formatting, and equivalent test mechanics remain implementation details and do not block closure.
+
+### Scope boundary
+
+Independent remediation may complete or correct architecture required by the existing Spec destination. It may not silently turn the Spec into a materially broader planning effort.
+
+If resolving the blocker reveals genuinely new destination scope that should be separately planned, halt and explain that a new planning lifecycle is required. Do not chart that Wayfinder implicitly.
+
+## 5A. Create or Reuse Wayfinder Decision Tickets
+
+Perform this section only for Wayfinder-managed remediation.
 
 For every blocker still unresolved after the coverage test, inspect the governing map's open child decisions.
 
@@ -188,28 +283,107 @@ The ticket must preserve enough context for `$wayfinder` to determine whether au
 
 After the required decision-ticket/map mutations are durable, invoke `$project-delivery-management` `reconcile`. This reduction may remove invalid focus but must never select, switch, or broaden focus.
 
+## 5B. Persist Independent-Spec Remediation
+
+Perform this section only after Independent-Spec bounded design-completeness closure passes.
+
+### Persist architecture authority
+
+Reconcile every owner-approved architectural decision into its actual durable authority.
+
+Use the existing documentation lifecycles rather than inventing parallel records:
+
+* `$to-adr-doc` for durable ADR decisions when an ADR is required;
+* `$to-doc` for new non-ADR architecture documentation;
+* `$classify-doc` when existing documentation must be reclassified;
+* `$wiki-sync` after substantive authoritative architecture/document changes that affect Living Entity Wiki knowledge.
+
+When an existing authoritative document can be amended directly under repository policy, make the smallest coherent update rather than creating a new document solely for remediation history.
+
+Respect repository branch/authority rules. Do not leave canonical architecture authority only on an unauthorized feature branch. When repository policy requires canonical architecture changes on another branch, persist there and synchronize the active Spec branch through the repository's normal merge/synchronization procedure before downstream ticket reconciliation.
+
+### Amend the existing Spec in place
+
+Update the existing parent Spec rather than creating another Spec.
+
+Preserve:
+
+* Spec issue identity;
+* original planning/source provenance;
+* branch and fixed Spec baseline lineage;
+* existing ticket and Spec Review lineage;
+* unaffected requirements and decisions.
+
+Amend only what the resolved architecture requires:
+
+* affected user stories/requirements;
+* `Architecture Impact`;
+* affected implementation decisions;
+* affected testing decisions/acceptance obligations;
+* stale contradictory design-completeness assertions.
+
+Do not add unrelated scope or regenerate the Spec from scratch.
+
+### Persist one remediation receipt
+
+Add one durable comment to the parent Spec for this completed independent remediation:
+
+```markdown
+<!-- independent-architecture-remediation:v1 -->
+## Independent Architecture Remediation Receipt
+
+**Source workflow:** `$architecture-remediation`
+**Source ticket/review:** <artifact | None>
+**Governance mode:** Independent Spec
+
+### Blockers
+<exact blocker/coupling groups>
+
+### Owner decisions
+<resolved durable choices>
+
+### Bounded closure
+<closure counts + materially tested semantic universe>
+
+### Authority changed
+<ADRs/docs/wiki/Spec sections changed>
+
+### Downstream reconciliation
+**Affected existing tickets:** <#IDs | None>
+**Next lifecycle:** `$to-tickets`
+```
+
+The Spec and architectural documents remain semantic authority; the receipt is durable remediation provenance, not a second architecture registry.
+
+Do not rewrite existing Implementation Ticket bodies, Ticket baselines, dependency edges, or closure evidence here. Existing ticket contracts may now be stale; `$to-tickets` / `$to-remediation-tickets` owns their reconciliation.
+
+If repository-side architecture changes are required, do not post the completion receipt until those changes are durably committed/pushed and the active Spec branch contains the required authority.
+
 ## Mandatory Project Reconciliation
 
-After every architecture-remediation tracker transition is durable and after `$project-delivery-management` reconciliation, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
+After every architecture-remediation tracker transition is durable, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
+
+For Wayfinder-managed remediation, first perform the existing required `$project-delivery-management` reconciliation after Wayfinder mutations.
 
 Synchronize only formal artifacts whose authoritative lifecycle state this skill actually created, reopened, or changed:
 
 * a governing Wayfinder map reopened or kept active because unresolved architectural decision work now exists → base `Wayfinder Map / Architecture Decision / $wayfinder / Ready`;
 * each newly created or lifecycle-changed open Wayfinder decision → base `Wayfinder Decision / Architecture Decision / $wayfinder / Ready`;
-* a source Spec, Implementation Ticket, Spec Review, or Review Remediation Ticket only when this skill itself durably records that artifact in `Architecture Remediation` → use that artifact type's `Architecture Remediation / $architecture-remediation / Ready` base route;
+* an Independent parent Spec successfully amended and architecture-complete but requiring existing ticket reconciliation → base `Spec / Ready to Ticket / $to-tickets / Ready`;
+* a source Implementation Ticket or review artifact only when this skill itself durably records a lifecycle change for that artifact;
 * any additional formal artifact whose lifecycle state this skill durably changes.
 
 Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.
 
-Supply current Project Delivery State separately from the base lifecycle projection. `$project-tracking` owns validation, delivery overlay, and mutation; it does not discover which artifacts this skill changed.
+Supply current Project Delivery State separately from the base lifecycle projection. Independent Specs remain outside Wayfinder delivery-focus governance. `$project-tracking` owns validation, delivery overlay, and Project mutation; it does not discover which artifacts this skill changed.
 
-If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not undo durable Wayfinder/decision state and do not suppress an otherwise-authorized handoff or resolved-authority return.
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not undo durable architecture/Spec state and do not suppress an otherwise-authorized handoff or resolved-authority return.
 
 ## 6. Human Handoff Intercept
 
-### Unresolved Decisions Remain
+### Wayfinder-managed unresolved decisions remain
 
-When any blocker remains unresolved, halt the current workflow after every independent decision has one corresponding open Wayfinder ticket.
+When a Wayfinder-managed blocker remains unresolved, halt after every independent decision has one corresponding open Wayfinder ticket.
 
 Present all decisions and identify the next one:
 
@@ -231,9 +405,27 @@ Do not resume implementation, review remediation, or Spec amendment until the ap
 
 `$wayfinder` owns decision sequencing and resolves one decision ticket per session. Its project-delivery focus guard applies at that substantive decision-entry boundary. If this remediation reopened a previously completed map, `$wayfinder` may require an explicit human focus/switch/parallel decision before resolution proceeds.
 
+### Independent Spec resolution complete
+
+After Independent-Spec architecture authority, Spec amendment, receipt persistence, and Project reconciliation are complete, do not return directly to the previously blocked implementation ticket.
+
+Present:
+
+> ✅ **Independent architecture remediation is complete.**
+>
+> The existing Spec has been reconciled in place. Existing ticket contracts must now be reconciled against the amended Spec.
+>
+> Please continue with:
+>
+> ```
+> $to-tickets - <Parent Spec Title> (<Spec URL>)
+> ```
+
+This is the next human lifecycle boundary. `$to-tickets` owns reuse/reconciliation of existing tickets and establishment of any new Ticket baselines required by the amended contract.
+
 ### Existing Authority Fully Resolves the Blocker Set
 
-If every reported blocker is directly resolved by current accepted authority, create no Wayfinder decision and do not reopen a closed Wayfinder solely to restate existing authority.
+If every reported blocker is directly resolved by current accepted authority, create no Wayfinder decision and do not start Independent-Spec owner decision work solely to restate existing authority.
 
 Report for each blocker:
 
@@ -243,11 +435,16 @@ Report for each blocker:
 
 Do not infer resolution from topic overlap.
 
-If current authority invalidates or materially changes the existing Spec/remediation obligation, continue through the normal Wayfinder-to-Spec reconciliation path rather than returning directly to implementation.
+If current authority invalidates or materially changes the existing Spec/remediation obligation:
+
+* Wayfinder-managed Spec → continue through the normal Wayfinder-to-Spec reconciliation path;
+* Independent Spec → perform the bounded in-place Spec reconciliation under Section 5B, then hand off to `$to-tickets`.
 
 Otherwise report that the blocker set is already architecturally resolved and return control to the calling workflow.
 
 ## 7. Return Path
+
+### Wayfinder-managed Spec
 
 After new architectural decisions are resolved, or existing accepted authority requires Spec reconciliation:
 
@@ -259,9 +456,21 @@ $wayfinder
 → $implement-ticket
 ```
 
-Do not hand directly back to a blocked implementation ticket when architecture changes or invalidates its Spec/remediation obligation.
+`$to-remediation-specs` owns reconciling existing Wayfinder-managed Spec requirements and downstream ticket intent against newly resolved architecture.
 
-`$to-remediation-specs` owns reconciling existing Spec requirements and downstream ticket intent against newly resolved architecture.
+### Independent Spec
+
+After owner-guided architecture resolution and in-place Spec amendment:
+
+```text
+$architecture-remediation
+→ $to-tickets
+→ $implement-ticket
+```
+
+Do not insert `$wayfinder`, `$to-specs`, or `$to-remediation-specs` merely to simulate governance that the Independent Spec does not have.
+
+For either mode, do not hand directly back to a blocked implementation ticket when architecture changes or invalidates its Spec/remediation obligation. The ticket contract must first be reconciled against the new authority.
 
 A legitimately reopened Spec or blocker participates through the existing native dependency graph. Do not write a separate satisfaction/ineligibility flag; downstream frontier guards must re-read current open/closed blocker state.
 
@@ -269,24 +478,36 @@ A legitimately reopened Spec or blocker participates through the existing native
 
 This skill is complete when:
 
-* the exact existing governing Wayfinder map is recovered without rewriting source/remediation provenance;
+* governance mode is recovered without guessing;
 * caller blockers are reduced to the minimum set of genuinely independent decisions;
 * existing accepted authority is tested against the exact missing durable choices;
+* no duplicate or artificially split decisions are introduced;
+* mandatory `$project-tracking` reconciliation runs for every formal artifact whose lifecycle state this skill changed;
+* the mode-specific completion conditions below are satisfied.
+
+For **Wayfinder-managed** remediation:
+
+* the exact governing Wayfinder is recovered without rewriting source/remediation provenance;
 * when unresolved decision work re-enters a closed map, that same map is reopened and verified open before decision work is created/reused;
 * every unresolved decision is represented by exactly one open Wayfinder ticket;
-* blocked obligations are preserved when applicable;
-* project-delivery reconciliation runs after authoritative reopen/decision-tracker transitions without auto-focusing a map;
-* mandatory `$project-tracking` reconciliation runs for every formal artifact whose lifecycle state this skill changed;
-* no duplicate or artificially split decisions were introduced;
-* the appropriate Human Handoff or resolved-authority return is presented.
+* project-delivery reconciliation runs after authoritative Wayfinder transitions without auto-focusing a map;
+* the appropriate `$wayfinder` Human Handoff or resolved-authority return is presented.
 
-`$wayfinder` owns architectural resolution and authority reconciliation.
+`$wayfinder` owns architectural resolution and authority reconciliation for Wayfinder-managed Specs. `$to-specs` / `$to-remediation-specs` own propagating those changed decisions back into the governed Spec.
 
-`$to-specs` / `$to-remediation-specs` own propagating changed architecture back into an existing Spec before implementation resumes.
+For **Independent Spec** remediation:
+
+* every unresolved coupled architecture choice is explicitly owner-resolved;
+* bounded design-completeness closure reports zero unresolved material choices;
+* resulting architecture is persisted in its authoritative repository/doc/wiki surfaces;
+* the existing Spec is amended in place without changing its identity or inventing Wayfinder provenance;
+* one Independent Architecture Remediation Receipt is persisted;
+* existing ticket bodies/baselines remain untouched here;
+* the `$to-tickets` Human Handoff is presented.
 
 ## Transition-Bound Architecture Blocker Disposition
 
-Architecture routing decisions that suppress or create durable decision work must be explicit working state.
+Architecture routing/resolution decisions that suppress or create durable work must be explicit working state.
 
 After capturing the caller blocker set, create one **Architecture Blocker Disposition** row per reported blocker before deduplication:
 
@@ -297,17 +518,21 @@ Underlying durable choice(s): <owner/path/key/boundary/lifecycle/failure semanti
 Coupling group: <CG-<n>>
 Existing authority: <resolves | partial | unresolved>
 Authority/evidence: <exact accepted source and durable choice>
-Result: <return-to-caller | decision-work>
+Governance mode: <Wayfinder-managed | Independent Spec>
+Result: <return-to-caller | wayfinder-decision-work | independent-resolution>
 Decision ticket: <existing/new ticket | None>
+Owner decision: <resolved choice | Pending | None>
 ```
 
 Decision Coupling must itself be reflected by the `Coupling group`: every blocker belongs to exactly one group, and the group must explain why its questions cannot be resolved independently. Do not silently merge caller blockers merely because they concern the same subsystem.
 
 `Existing authority: resolves` and `Result: return-to-caller` are legal only when the recorded authority directly determines every durable choice required by that blocker. Apply this counterexample test: **could the blocked work still have to invent a durable semantic while all cited authority remains true?** If yes, the blocker is `partial` or `unresolved`, not resolved.
 
-For every coupling group containing any unresolved/partial blocker, exactly one open governing Wayfinder decision must represent that independent durable decision unless authoritative existing tracker state already provides that exact ticket.
+For Wayfinder-managed remediation, every coupling group containing any unresolved/partial blocker requires exactly one open governing Wayfinder decision unless authoritative existing tracker state already provides that exact ticket.
 
-Before either resolved-authority return or unresolved-decision Human Handoff require:
+For Independent-Spec remediation, every coupling group containing any unresolved/partial blocker requires one explicit owner decision inside this workflow and must pass bounded design-completeness closure before persistence. No Wayfinder decision ticket is required or permitted solely for this remediation mode.
+
+Before mode-specific Human Handoff or resolved-authority return require:
 
 ```text
 Caller blockers: <n>
@@ -315,7 +540,9 @@ Disposition rows: <n>
 Missing blockers: 0
 Unassigned coupling groups: 0
 Resolved blockers with incomplete durable-choice proof: 0
-Unresolved coupling groups without exactly one open decision ticket: 0
+Wayfinder unresolved groups without exactly one open decision ticket: 0
+Independent unresolved groups without explicit owner decision: 0
+Independent unresolved material choices after bounded closure: 0
 ```
 
-These rows are routing state only and need not be persisted as a second architecture registry. The Wayfinder decisions/accepted authorities remain durable truth.
+These rows are working state only and need not be persisted as a second architecture registry. Durable Wayfinder decisions, accepted architecture authority, the amended Independent Spec, and its remediation receipt remain the durable truth.

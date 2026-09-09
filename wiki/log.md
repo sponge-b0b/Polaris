@@ -1,12 +1,16 @@
 # wiki/log.md
 
+## [2026-09-08] Independent R2 relationship remediation | support, admission, version, and temporal graph contract completed
+
+Completed the owner-guided #297 relationship architecture after bounded adversarial closure: recursive same-lineage `QUALIFY`/`DISCONFIRM`, four-state `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE` interpretation, complete support/basis membership, distinct correction and replacement effective instants, historical endpoint/renewal admission, same-command acyclic correction ancestry, distinct attributable append versus exact replay, support-sensitive both-endpoint `DecisionVersion`, and complete historical/known-future conservative graph admission with transactional protection beyond endpoint versions. Preserved the explicit tradeoff that stronger relationship version protection may increase optimistic-concurrency contention and must be optimized without weakening semantics. Reconciled Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`. This is architecture completion for Independent Spec #278 and Ticket #297, not implementation certification.
+
 ## [2026-09-07] Independent R2 correction remediation | support and temporal semantics completed
 
 Resolved restoration support-ID membership and cross-root compatibility for #296, then completed six additional owner-guided decisions covering recursive independent activation, minimal whole-result support, strict-prefix historical validation, explicit observation boundaries and posture ordering, replay versus distinct correction support, and unsupported-Need initiation-lineage eligibility. Current support excludes defeated/unrelated ancestry, terminal conflicts cannot be resolved by recency, and append/version/clock consequences are distinct. Reconciled the correction authority and its foundation/lifecycle/application/persistence consumption, updating Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`. This is architecture completion for Independent Spec #278, not implementation certification.
 
 ## [2026-09-07] R2 temporal cardinality completion | zero-claim lifecycle state made explicit
 
-Closed the remaining Ticket #296 temporal-result gap after implementation entry exposed a legitimate zero-effective-claim boundary. Historical querying now distinguishes a Decision not yet known at `known_at=K` from a known Decision whose initiation/lifecycle claim is not yet effective at `T`: the former is a not-found-at-knowledge-cutoff outcome outside lifecycle interpretation, while the latter is explicit `NOT_YET_EFFECTIVE`. The known-Decision lifecycle result universe is now `NOT_YET_EFFECTIVE | DETERMINATE | CONTESTED`; not-yet-effective Decisions have no work posture and cannot authorize ordinary Decision work. Correction/version semantics now include transitions to/from `NOT_YET_EFFECTIVE`, while wall-clock passage across future effective time still creates no synthetic fact or `DecisionVersion`. Updated Planned knowledge for `investment-decisions`.
+Closed the remaining Ticket #296 temporal-result gap after implementation entry exposed a legitimate zero-effective-claim boundary. Historical querying now distinguishes a Decision not yet known at `known_at=K` from a known Decision whose initiation/lifecycle claim is not yet effective at `T`: the former is a not-found-at-knowledge-cutoff outcome outside lifecycle interpretation, while the latter is explicit `NOT_YET_EFFECTIVE`. The known-Decision lifecycle result universe is now `NOT_YET_EFFECTIVE | DETERMINATE | CONTESTED`; not-yet-effective Decisions have no work posture and cannot authorize ordinary Decision work. Clock passage across future effective time changes interpretation without manufacturing a lifecycle fact or `DecisionVersion`. Updated Planned knowledge for `investment-decisions`.
 
 ## [2026-09-07] R2 lifecycle correction bounded closure | disposition-only correction contract finalized
 
@@ -15,6 +19,10 @@ Replaced the too-broad Ticket #296 correction model after a bounded adversarial 
 ## [2026-09-07] R2 lifecycle correction reconciliation | correction chains made deterministic
 
 Closed the Ticket #296 implementation-entry design gap by freezing explicit lifecycle-correction target/effect/reconciliation semantics: corrections target one earlier same-Decision lifecycle fact/correction; `QUALIFY` supplies a complete replacement claim; `DISCONFIRM` withdraws support; disconfirming a correction restores the interpretation immediately preceding it on that branch; equivalent surviving claims coalesce while incompatible support remains contested; knowledge-time filtering precedes effective-time correction application; and lifecycle sequence remains distinct from current-state `DecisionVersion`. Also synchronized that the post-#299 foundation public contract is complete and surviving older “foundation unresolved” wording is not implementation authority. Updated Planned knowledge for `investment-decisions`.
+
+## [2026-09-07] R2 unresolved lifecycle work posture | #295 implementation
+
+Implemented the Decisions-domain forward lifecycle/work-posture slice: distinct supported lifecycle disposition, unresolved `ACTIVE`/`DEFERRED`/`WITHDRAWN` posture, trusted Human Investment Decision Deferral/substantive-resolution effects, work withdrawal/resumption, External Resolution, operative-applicability guards, immutable lifecycle facts, and resolved-state fail-closed behavior. Corrected the derived Investment Decisions wiki wording to match the already-frozen no-`ActorKind` Actor Attribution contract.
 
 ## [2026-09-06] R2 foundation public contract completion | implementation-time design gaps closed
 

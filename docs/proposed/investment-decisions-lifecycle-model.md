@@ -12,6 +12,7 @@ This design refines, but does not override:
 
 - [`../current/platform-architecture-0.2.0.md`](../current/platform-architecture-0.2.0.md);
 - [`investment-decisions-r2-decision-kernel-component-boundaries.md`](investment-decisions-r2-decision-kernel-component-boundaries.md);
+- [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md);
 - [`platform-domain-interaction-map.md`](platform-domain-interaction-map.md);
 - [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md);
 - [`application-use-cases-investment-decision-lifecycle.md`](application-use-cases-investment-decision-lifecycle.md);
@@ -21,9 +22,13 @@ This design refines, but does not override:
 - [`../product/domain-model.md`](../product/domain-model.md) and [`../../CONTEXT.md`](../../CONTEXT.md);
 - accepted ADRs under [`../adr/`](../adr/).
 
+The owner-approved foundation public-contract document explicitly refines this earlier lifecycle design. Where this document's historical foundation wording conflicts with that completion authority, the completed foundation contract controls.
+
 `legacy/v0_1/` is not lifecycle authority.
 
 For R2 lifecycle-disposition correction and temporal interpretation, the later owner-approved [lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls. It freezes target-lineage eligibility, recursive independent activation, exact surviving support, cross-root compatibility, append-time validation, explicit observation boundaries, and correction replay/version behavior. It supersedes broader historical Subject/Scope correction wording and requires unsupported-Need qualification on initiation's lineage, not a separate forward `DecisionNeedRetractedUnsupported` fact. Earlier temporal/reconstruction shorthand below does not permit a domain wall clock, an implicit now derived from fact timestamps, or a public lifecycle interpretation without its explicit `(T,K)` boundary.
+
+For R2 renewal, Supersession, relationship correction/support, historical admission, relationship-driven `DecisionVersion`, and temporal graph-consumption semantics, the later owner-approved [Investment Decision Relationship Model](investment-decisions-decision-relationship-model.md) controls. Relationship admission truth is preserved separately from later endpoint lifecycle interpretation; relationship correction owns relationship-semantic change. Relationship facts have no lifecycle-style monotonic sequence, and relationship append, current version change, and clock/query passage are distinct. Where Sections 11–14 summarize these concerns, they are consumer summaries of that relationship authority rather than a second reducer.
 
 ---
 
@@ -41,7 +46,7 @@ Investment Decision identity is never derived from workflow/job/report/model/dat
 
 An Investment Decision has opaque durable identity, **exactly one** grounding Decision Need, current Subject/Scope view, supported lifecycle interpretation, unresolved work posture when applicable, monotonic recorded domain version, and immutable creation time. Decision relationships are separate durable facts.
 
-A Decision Need is the attributable determination that one coherent unresolved Portfolio-relevant choice warrants deliberate judgment. Preserve Need identity/statement, effective establishment time, recorded time, Actor Attribution where material, trigger provenance separately, and later correction without deleting original establishment.
+A Decision Need is the attributable determination that one coherent unresolved Portfolio-relevant choice warrants deliberate judgment. Preserve Need identity/statement, effective establishment time, recorded time, Operation ID, Actor Attribution, required Trigger Provenance, optional Technical Provenance, and later correction without deleting original establishment.
 
 Cardinality is deliberate:
 
@@ -62,6 +67,8 @@ DecisionNeedId       -> distinct UUID-backed domain identity
 UUID generation      -> UUIDv4
 ```
 
+The completed foundation contract additionally freezes `DecisionLifecycleFactId`, `OperationId`, `PortfolioId`, and `ActorId` as distinct opaque UUIDv4-backed identities under their respective ownership semantics.
+
 The UUID value carries **no domain meaning**. Consumers must not infer Subject, Scope, Portfolio applicability, continuity, chronology, lifecycle state, actor, provenance, or any other semantic fact from it.
 
 New UUIDv4 values are allocated independently of Decision/Need content and supplied to the domain transition; the domain never derives identity from mutable state or from technical execution identity. Distinct domain wrappers remain required even when both use UUID values so Decision and Need identity cannot be substituted accidentally.
@@ -70,16 +77,16 @@ UUID generation makes collision negligibly probable; durable persistence remains
 
 ## Decision Subject
 
-Subject identifies the matter being judged. It is required for coherent Decision identity but is not the Decision ID. Refinement preserves history and does not automatically create a new Decision.
+Subject identifies the matter being judged. It is required for coherent Decision identity but is not the Decision ID. Revision preserves history and does not automatically create a new Decision.
 
-**Foundation contract still unresolved:** this design has not yet frozen the public representation of Decision Subject. In particular, an implementation may not assume that the canonical public Subject contract is one arbitrary string merely because a textual description is convenient. The representation must preserve the possibility of coherent composite subjects without inventing accidental identity or structure.
+The completed foundation contract freezes the public representation as immutable `DecisionSubject(statement: non-empty string)`. The statement may describe a composite subject only when the elements form one mutually dependent investment judgment; independently resolvable matters require separate Decisions. A semantically identical Subject revision is a no-op with no lifecycle fact and no Decision-version increment.
 
 ## Decision Scope
 
 Scope is:
 
 ```text
-confirmed portfolio references: zero or more
+confirmed PortfolioId values: zero or more
 scope completeness: UNRESOLVED | ESTABLISHED
 ```
 
@@ -93,27 +100,36 @@ Examples:
 
 Rules:
 
+- Scope references canonical Portfolio & Risk-owned `PortfolioId` values;
+- membership is immutable, unique, and semantically unordered;
 - `UNRESOLVED` may contain zero or more confirmed Portfolios;
 - `ESTABLISHED` MUST contain at least one Portfolio;
+- duplicate Portfolio identities are invalid;
 - no fake/default Portfolio identity may represent unresolved Scope;
-- final Capital-Relevant Recommendation or Human Investment Decision requires sufficiently established Portfolio applicability; initiation does not.
-
-**Foundation contracts still unresolved:**
-
-- Portfolio & Risk defines durable Portfolio identity semantically, but the canonical greenfield `PortfolioId` representation/type has not yet been frozen. Investment Decisions must ultimately reference that canonical identity rather than inventing its own arbitrary string/UUID convention.
-- Scope ordering/equality semantics are not yet frozen. Implementation must not accidentally make Portfolio ordering part of Decision Scope identity/equality merely because a tuple/list representation is convenient.
+- final Capital-Relevant Recommendation or Human Investment Decision requires sufficiently established Portfolio applicability; initiation does not;
+- `UNRESOLVED -> UNRESOLVED` with changed membership records `DecisionScopeRevised`;
+- `UNRESOLVED -> ESTABLISHED` records `DecisionScopeEstablished`;
+- `ESTABLISHED -> ESTABLISHED` with changed membership records `DecisionScopeRevised`;
+- `ESTABLISHED -> UNRESOLVED` is invalid as an ordinary forward transition and requires correction semantics if the prior establishment was erroneous;
+- semantically identical Scope input is a no-op with no lifecycle fact and no Decision-version increment.
 
 ## Foundation public-contract completion
 
-The #294 authority audit established that the semantic model above was stronger than the concrete public type contract available to implementation. Before further R2 implementation advances, the following material contracts must be resolved upstream:
+The #294 authority audit identified material public-contract gaps in the earlier lifecycle design. Those blockers are now resolved by the owner-approved [`investment-decisions-r2-foundation-public-contract.md`](investment-decisions-r2-foundation-public-contract.md) and were implemented/certified through #299.
 
-1. canonical public representation for Decision Subject;
-2. canonical Portfolio identity/reference type used by Decision Scope;
-3. Decision Scope ordering/equality semantics;
-4. public representation contracts for Actor Attribution, trigger provenance, technical provenance/reference, and typed business basis/reference rather than generic arbitrary string pairs;
-5. intended public construction/reconstruction/export surface for the Investment Decision domain so raw implementation representations are not promoted to stable downstream API accidentally.
+The completed contract freezes, among other items:
 
-These are design-completion blockers, not implementation choices.
+1. canonical `DecisionSubject` representation;
+2. canonical Portfolio & Risk-owned `PortfolioId` and unordered Scope semantics;
+3. known/unknown/contested Actor Attribution without a universal persisted `ActorKind`;
+4. constrained Trigger Provenance and optional unordered Technical Provenance;
+5. purpose-specific business basis/reference typing rather than generic string pairs;
+6. lifecycle fact identity, lifecycle sequence, separate Decision version, timezone-aware temporal semantics, and semantic no-ops;
+7. initiation-continuity provenance;
+8. typed Decision-domain failures; and
+9. behavior-oriented public construction/reconstruction/export semantics.
+
+Downstream R2 implementation consumes these contracts and may not redesign them.
 
 ---
 
@@ -177,9 +193,10 @@ DecisionWorkWithdrawn
 DecisionWorkResumed
 DecisionSubstantivelyResolved
 DecisionExternallyResolved
-DecisionNeedRetractedUnsupported
 DecisionLifecycleCorrected
 ```
+
+Unsupported-Need correction is represented through the approved initiation-lineage lifecycle correction contract rather than a separate forward lifecycle fact.
 
 `DecisionScopeEstablished` and `DecisionScopeRevised` are distinct fact meanings. Establishment records the transition from incomplete applicability to sufficiently established Scope; later revision records a change to an already established Scope. Implementations must not collapse the two merely because their payloads look similar.
 
@@ -277,7 +294,11 @@ Governance owns Human Investment Decision/authority acts. Decisions owns resulti
 
 Trusted basis is typed: upstream owner/business fact plus semantic effect `DEFERRING` or `SUBSTANTIVELY_RESOLVING`. An arbitrary Human Investment Decision reference is not presumed resolving.
 
-R2 tests may use deterministic trusted fixtures. A historical human judgment may exist even when consequential authority was deficient; attribution and authority remain distinct.
+When the trusted basis is a Human Investment Decision, it denotes a canonical authority-bearing Human Investment Decision that was validly established only after the applicable Investment Authority Regime confirmed the attributable actor possessed the specific required power for the act's subject, Portfolio scope, conditions, and authority-effective time. Analytical/advisory human judgment and unauthorized attempted authority acts remain separately attributable/auditable where applicable but do not satisfy the Human Investment Decision basis seam. Decisions does not implement Governance or re-evaluate that authority assignment.
+
+Historical validity uses the authority regime and authority facts that actually applied when the authority-bearing act occurred. Later authority revocation or reassignment does not retroactively invalidate a Human Investment Decision that was validly authorized at the time.
+
+R2 tests may use deterministic trusted fixtures representing already-valid upstream bases. Actor Attribution and authority remain distinct.
 
 ---
 
@@ -291,21 +312,26 @@ Neither path fabricates another owner's judgment/authority fact.
 
 ---
 
-# 11. Supersession
+# 11. Renewal and Supersession consumption
 
-- source/target IDs differ;
-- unresolved/resolved targets allowed;
-- no one-to-one cardinality assumption;
-- target lifecycle facts never rewritten;
-- unresolved supported target becomes non-operative;
-- contested Supersession support yields contested operative applicability and ordinary work fails closed;
-- supported `RENEWED_FROM` + `SUPERSEDES` lineage remains acyclic.
+Relationship truth is owned by [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md). This lifecycle model consumes it as follows:
+
+- renewal creates a distinct Decision/Need and may establish one or more `RENEWED_FROM` relationships only when their historical admission predicates are satisfied; “resolved at renewal” is checked at admission and is not continuously re-evaluated as relationship validity later;
+- a genuinely omitted renewal relationship may be recorded later against the existing source/Need when the original historical prerequisites and explicit renewal basis are proven;
+- predecessor identity, Need, lifecycle/work history, and immutable facts are never reopened or rewritten, although its current `DecisionVersion` may advance when incoming renewal interpretation changes;
+- Supersession may target unresolved or resolved Decisions without changing their lifecycle facts;
+- any `SUPPORTED` incoming Supersession makes an otherwise unresolved target non-operative for ordinary work;
+- any relevant incoming `CONTESTED` Supersession makes applicability contested even alongside clean supported incoming Supersession;
+- `WITHDRAWN` and `NOT_EFFECTIVE` relationship groups contribute no current Supersession edge/effect;
+- `RENEWED_FROM` has no Supersession applicability effect;
+- later endpoint lifecycle/applicability changes do not erase admitted relationship truth; current work still consumes current lifecycle/applicability independently;
+- lifecycle-lineage graph admission consumes the relationship model's complete known-timeline conservative cycle predicate.
 
 ---
 
 # 12. Temporal and correction model
 
-Every lifecycle/relationship fact has effective time plus recorded time/monotonic sequence.
+Lifecycle facts preserve effective time, recorded time, and contiguous `DecisionLifecycleSequence`. Relationship facts/corrections preserve their own effective/recorded times and explicit target ancestry but **do not** acquire a lifecycle-style relationship sequence; request-list, insertion, UUID, or timestamp-tie order confers no relationship precedence.
 
 `as_known_at(K)` is defined as the lifecycle/operative state **effective at K using only facts and corrections recorded no later than K**. Semantically it is equivalent to:
 
@@ -321,6 +347,8 @@ Therefore a fact already recorded by K but explicitly effective only after K is 
 
 If typed support cannot reconcile competing interpretations, Decision Memory exposes **contested/indeterminate** lifecycle interpretation rather than last-writer-wins.
 
+Relationship correction follows its separate recursive `QUALIFY`/`DISCONFIRM`, four-state support, admission, and temporal rules in the relationship model. Lifecycle correction never implicitly rewrites or restores a relationship, and relationship correction never fabricates lifecycle facts.
+
 Example:
 
 ```text
@@ -333,16 +361,24 @@ Preserve human act + originally recorded Decisions fact; append correction suppo
 
 ---
 
-# 13. Version/idempotency and invalid outcomes
+# 13. Version, idempotency, and invalid outcomes
 
-- initiation version 1;
-- each committed Decisions mutation increments version once;
-- existing-Decision mutation uses expected version;
-- same operation/same request replays result;
-- same operation/different request conflicts;
-- different operations still require continuity protection.
+- initiation starts `DecisionVersion` at 1;
+- lifecycle mutation follows the frozen lifecycle current-interpretation comparison contract;
+- relationship mutation follows the frozen both-endpoint complete-current-relationship-interpretation comparison contract;
+- one atomic command advances each already-existing affected Decision at most once even when lifecycle and multiple relationship dimensions change together;
+- a distinct valid relationship act may append without a version change when it affects only history/future and leaves protected current meaning unchanged;
+- a support-only or basis-only relationship change may advance source and target versions even when coarse applicability/result is unchanged;
+- relationship mutation never advances `DecisionLifecycleSequence`;
+- existing-Decision mutation uses expected version, but matching versions are not sufficient for temporal relationship/graph safety;
+- Application/persistence must transactionally protect every material history/path/absence dependency through commit, including future-only or non-endpoint facts whose DecisionVersion does not advance;
+- same operation/same semantic request replays result with no append/version;
+- same operation/different semantic request conflicts;
+- every distinct valid attributable relationship assertion/correction appends a fresh fact even when equivalent to existing support;
+- time passage and queries create no facts or versions;
+- higher optimistic-concurrency contention from both-endpoint support-sensitive relationship versions is an accepted correctness tradeoff; coordination may be optimized later without weakening protected semantics.
 
-Callers distinguish not-found, invalid/reused Decision Need, non-operative/operative-contested, non-unresolved, invalid trusted basis, invalid Scope, invalid work transition, stale version, idempotency conflict, continuity conflict/ambiguity, relationship/cycle conflict, and contested lifecycle interpretation when deterministic state is required.
+Callers distinguish not-found, invalid/reused Decision Need, non-operative/operative-contested, non-unresolved, invalid trusted basis, invalid Scope, invalid work transition, stale/concurrency conflict, idempotency conflict, continuity conflict/ambiguity, relationship conflict/cycle, indeterminate cycle safety, invalid/incomplete relationship history, and contested lifecycle/relationship interpretation when deterministic state is required.
 
 ---
 
@@ -369,19 +405,25 @@ Callers distinguish not-found, invalid/reused Decision Need, non-operative/opera
 19. candidates + explicit create -> preserve candidate IDs and attributable continuity rationale;
 20. candidates + missing/contradictory determination -> ambiguity/no creation;
 21. different-operation race -> no silent duplicate;
-22. competing corrections -> contested interpretation, not newest-wins;
+22. competing lifecycle corrections -> contested interpretation, not newest-wins;
 23. `as_known_at` excludes later-recorded facts and does not prematurely apply future-effective known facts;
-24. `effective_at` applies currently supported correction;
-25. runtime/job/model/report IDs never determine Decision identity.
+24. `effective_at` applies currently supported lifecycle correction;
+25. runtime/job/model/report IDs never determine Decision identity;
+26. renewal admission proves predecessor resolution at new-episode start and relationship effective instant, while later lifecycle correction does not silently rewrite the relationship;
+27. recursive relationship correction/restoration preserves independent sibling support and distinguishes `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE`;
+28. distinct equivalent relationship acts append fresh support while exact replay does not;
+29. relationship support/basis-only current changes advance both affected endpoint versions once, while future-only unchanged-current meaning may retain versions;
+30. relationship graph admission rejects definite and possible mixed cycles across historical and every known future topology interval, including correction restoration;
+31. matching endpoint versions alone cannot authorize a command when a material relationship/path/absence dependency changed.
 
 ---
 
 # 15. R2 implementation scope / Spec gate
 
-R2 implements Decision/Need/Subject/Scope semantics, lifecycle/work posture, immutable facts/corrections, explicit and durable continuity arbitration, trusted human-judgment seams, External/unsupported correction, renewal/Supersession, dual-time queries, and contested interpretation.
+R2 implements Decision/Need/Subject/Scope semantics, lifecycle/work posture, immutable facts/corrections, explicit and durable continuity arbitration, trusted human-judgment seams, External/unsupported correction, renewal/Supersession, dual-time queries, contested interpretation, and the relationship contract consumed from the relationship model.
 
 R2 excludes Attention, Evidence/full Decision Context, Intelligence/Recommendation, Governance implementation, Action Continuity, Learning, contextual prior-Decision retrieval, and generic graph infrastructure.
 
-Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
+Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, locking/serialization, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
 
-Specs and implementation **may not** choose any unresolved foundation public contract listed in Section 2, nor may they redefine the semantics above. Until those foundation blockers are resolved, downstream implementation of the affected contract is not implementation-ready.
+Specs and implementation may not redefine the completed foundation public contract, lifecycle correction semantics, relationship interpretation/admission/version/graph-consumption semantics above, or another owner boundary by implementation convenience. The earlier foundation/#296/#297 architecture blockers are resolved; downstream tickets must consume the completed contracts rather than reopen them.

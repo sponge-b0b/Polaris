@@ -1,524 +1,67 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
-from enum import StrEnum
-from uuid import UUID
 
-from polaris.domain.actors import (
-    ActorAttribution,
-    ContestedActorAttribution,
-    KnownActorAttribution,
-    UnknownActorAttribution,
+from .facts import (
+    DecisionApplicability,
+    DecisionApplicabilityContested,
+    DecisionContinuity,
+    DecisionDeferred,
+    DecisionExternallyResolved,
+    DecisionInitiated,
+    DecisionInitiationContinuity,
+    DecisionLifecycleCorrected,
+    DecisionLifecycleCorrectionBasis,
+    DecisionLifecycleCorrectionEffect,
+    DecisionLifecycleDisposition,
+    DecisionLifecycleFact,
+    DecisionLifecycleFactId,
+    DecisionLifecycleFactMetadata,
+    DecisionLifecycleSequence,
+    DecisionMutationContext,
+    DecisionNeed,
+    DecisionNeedAlreadyGrounded,
+    DecisionNeedId,
+    DecisionNotOperative,
+    DecisionScope,
+    DecisionScopeCompleteness,
+    DecisionScopeEstablished,
+    DecisionScopeRevised,
+    DecisionSubject,
+    DecisionSubjectRevised,
+    DecisionSubstantivelyResolved,
+    DecisionVersion,
+    DecisionWorkControlBasis,
+    DecisionWorkPosture,
+    DecisionWorkResumed,
+    DecisionWorkWithdrawn,
+    ExternalResolutionBasis,
+    HumanInvestmentDecisionEffect,
+    IndependentChoiceRequiresNewDecision,
+    InvalidDecisionBasis,
+    InvalidDecisionHistory,
+    InvalidDecisionLifecycleCorrection,
+    InvalidDecisionNeed,
+    InvalidDecisionTransition,
+    InvestmentDecisionId,
+    OperationId,
+    TechnicalProvenance,
+    TriggerProvenance,
+    TrustedHumanInvestmentDecisionBasis,
+    UnsupportedDecisionNeedBasis,
+    _actor,
+    _aware,
+    _exact,
+    _known_actor,
 )
-from polaris.domain.portfolio import PortfolioId
-
-
-class InvestmentDecisionError(ValueError):
-    """Base class for Investment Decision semantic failures."""
-
-
-class InvalidDecisionIdentity(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionNeed(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionSubject(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionScope(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionTransition(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionHistory(InvestmentDecisionError):
-    pass
-
-
-class InvalidDecisionBasis(InvestmentDecisionError):
-    pass
-
-
-class DecisionNotOperative(InvalidDecisionTransition):
-    pass
-
-
-class DecisionApplicabilityContested(InvalidDecisionTransition):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionNeedAlreadyGrounded(InvestmentDecisionError):
-    need_id: DecisionNeedId
-    existing_decision_id: InvestmentDecisionId
-
-
-@dataclass(frozen=True, slots=True)
-class IndependentChoiceRequiresNewDecision(InvestmentDecisionError):
-    decision_id: InvestmentDecisionId
-
-
-def _uuid4(value: object, field: str) -> None:
-    if type(value) is not UUID or value.version != 4:
-        raise InvalidDecisionIdentity(f"{field} must be UUIDv4")
-
-
-def _text(value: object, field: str, error: type[InvestmentDecisionError]) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise error(f"{field} must be a non-empty string")
-    return value.strip()
-
-
-def _aware(value: object, field: str) -> None:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
-        raise ValueError(f"{field} must be timezone-aware")
-
-
-def _exact(value: object, expected: type[object], field: str) -> None:
-    if type(value) is not expected:
-        raise InvalidDecisionIdentity(f"{field} must be {expected.__name__}")
-
-
-@dataclass(frozen=True, slots=True)
-class InvestmentDecisionId:
-    value: UUID
-
-    def __post_init__(self) -> None:
-        _uuid4(self.value, "InvestmentDecisionId.value")
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionNeedId:
-    value: UUID
-
-    def __post_init__(self) -> None:
-        _uuid4(self.value, "DecisionNeedId.value")
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionLifecycleFactId:
-    value: UUID
-
-    def __post_init__(self) -> None:
-        _uuid4(self.value, "DecisionLifecycleFactId.value")
-
-
-@dataclass(frozen=True, slots=True)
-class OperationId:
-    value: UUID
-
-    def __post_init__(self) -> None:
-        _uuid4(self.value, "OperationId.value")
-
-
-@dataclass(frozen=True, slots=True, order=True)
-class DecisionLifecycleSequence:
-    value: int
-
-    def __post_init__(self) -> None:
-        if type(self.value) is not int or self.value < 1:
-            raise ValueError("DecisionLifecycleSequence.value must be >= 1")
-
-
-@dataclass(frozen=True, slots=True, order=True)
-class DecisionVersion:
-    value: int
-
-    def __post_init__(self) -> None:
-        if type(self.value) is not int or self.value < 1:
-            raise ValueError("DecisionVersion.value must be >= 1")
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionSubject:
-    statement: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "statement",
-            _text(self.statement, "DecisionSubject.statement", InvalidDecisionSubject),
-        )
-
-
-class DecisionScopeCompleteness(StrEnum):
-    UNRESOLVED = "unresolved"
-    ESTABLISHED = "established"
-
-
-@dataclass(frozen=True, slots=True, init=False)
-class DecisionScope:
-    portfolio_ids: frozenset[PortfolioId]
-    completeness: DecisionScopeCompleteness
-
-    def __init__(
-        self,
-        portfolio_ids: Iterable[PortfolioId],
-        completeness: DecisionScopeCompleteness,
-    ) -> None:
-        values = tuple(portfolio_ids)
-        if any(type(value) is not PortfolioId for value in values):
-            raise InvalidDecisionScope("Scope may contain only PortfolioId values")
-        if len(values) != len(set(values)):
-            raise InvalidDecisionScope("Scope cannot contain duplicate PortfolioIds")
-        if not isinstance(completeness, DecisionScopeCompleteness):
-            raise InvalidDecisionScope("Scope completeness is invalid")
-        canonical = frozenset(values)
-        if completeness is DecisionScopeCompleteness.ESTABLISHED and not canonical:
-            raise InvalidDecisionScope(
-                "Established Decision Scope must contain at least one PortfolioId"
-            )
-        object.__setattr__(self, "portfolio_ids", canonical)
-        object.__setattr__(self, "completeness", completeness)
-
-    @classmethod
-    def unresolved(cls, *portfolio_ids: PortfolioId) -> DecisionScope:
-        return cls(portfolio_ids, DecisionScopeCompleteness.UNRESOLVED)
-
-    @classmethod
-    def established(cls, *portfolio_ids: PortfolioId) -> DecisionScope:
-        return cls(portfolio_ids, DecisionScopeCompleteness.ESTABLISHED)
-
-
-class TriggerKind(StrEnum):
-    HUMAN_REQUEST = "human_request"
-    ATTENTION = "attention"
-    SCHEDULED_REVIEW = "scheduled_review"
-    EXTERNAL_OBSERVATION = "external_observation"
-    INTERNAL_FOLLOW_UP = "internal_follow_up"
-
-
-@dataclass(frozen=True, slots=True)
-class TriggerProvenance:
-    kind: TriggerKind
-    reference: str
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.kind, TriggerKind):
-            raise TypeError("kind must be TriggerKind")
-        object.__setattr__(
-            self,
-            "reference",
-            _text(
-                self.reference, "TriggerProvenance.reference", InvalidDecisionHistory
-            ),
-        )
-
-
-class TechnicalReferenceKind(StrEnum):
-    REQUEST = "request"
-    WORK_ITEM = "work_item"
-    MODEL_INVOCATION = "model_invocation"
-    PROVIDER_CALL = "provider_call"
-    ADAPTER_SOURCE_CALL = "adapter_source_call"
-    TRACE = "trace"
-
-
-@dataclass(frozen=True, slots=True)
-class TechnicalReference:
-    kind: TechnicalReferenceKind
-    reference: str
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.kind, TechnicalReferenceKind):
-            raise TypeError("kind must be TechnicalReferenceKind")
-        object.__setattr__(
-            self,
-            "reference",
-            _text(
-                self.reference, "TechnicalReference.reference", InvalidDecisionHistory
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True, init=False)
-class TechnicalProvenance:
-    references: frozenset[TechnicalReference]
-
-    def __init__(self, references: Iterable[TechnicalReference] = ()) -> None:
-        values = tuple(references)
-        if any(type(value) is not TechnicalReference for value in values):
-            raise TypeError("TechnicalProvenance requires TechnicalReference values")
-        if len(values) != len(set(values)):
-            raise ValueError("TechnicalProvenance cannot contain duplicate references")
-        object.__setattr__(self, "references", frozenset(values))
-
-
-EMPTY_TECHNICAL_PROVENANCE = TechnicalProvenance()
-
-
-def _actor(value: object) -> None:
-    if not isinstance(
-        value,
-        (KnownActorAttribution, UnknownActorAttribution, ContestedActorAttribution),
-    ):
-        raise TypeError("actor_attribution must be a canonical Actor Attribution value")
-
-
-def _known_actor(value: object) -> None:
-    if type(value) is not KnownActorAttribution:
-        raise InvalidDecisionTransition(
-            "live Decision mutation requires known Actor Attribution"
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionNeed:
-    need_id: DecisionNeedId
-    statement: str
-    effective_at: datetime
-    recorded_at: datetime
-    operation_id: OperationId
-    actor_attribution: ActorAttribution
-    trigger: TriggerProvenance
-    technical_provenance: TechnicalProvenance = EMPTY_TECHNICAL_PROVENANCE
-
-    def __post_init__(self) -> None:
-        _exact(self.need_id, DecisionNeedId, "need_id")
-        object.__setattr__(
-            self,
-            "statement",
-            _text(self.statement, "DecisionNeed.statement", InvalidDecisionNeed),
-        )
-        _aware(self.effective_at, "DecisionNeed.effective_at")
-        _aware(self.recorded_at, "DecisionNeed.recorded_at")
-        _exact(self.operation_id, OperationId, "operation_id")
-        _actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
-
-
-class DecisionInitiationDetermination(StrEnum):
-    NO_CANDIDATES = "no_candidates"
-    EXPLICIT_CREATE_NEW = "explicit_create_new"
-
-
-@dataclass(frozen=True, slots=True, init=False)
-class DecisionInitiationContinuity:
-    determination: DecisionInitiationDetermination
-    candidate_decision_ids: frozenset[InvestmentDecisionId]
-    known_at: datetime
-    rationale: str | None
-
-    def __init__(
-        self,
-        *,
-        determination: DecisionInitiationDetermination,
-        candidate_decision_ids: Iterable[InvestmentDecisionId],
-        known_at: datetime,
-        rationale: str | None = None,
-    ) -> None:
-        candidates = tuple(candidate_decision_ids)
-        if not isinstance(determination, DecisionInitiationDetermination):
-            raise TypeError("determination must be DecisionInitiationDetermination")
-        if any(type(value) is not InvestmentDecisionId for value in candidates):
-            raise InvalidDecisionIdentity(
-                "candidate_decision_ids must contain InvestmentDecisionId values"
-            )
-        if len(candidates) != len(set(candidates)):
-            raise InvalidDecisionHistory("candidate Decision IDs must be unique")
-        _aware(known_at, "DecisionInitiationContinuity.known_at")
-        clean = rationale.strip() if isinstance(rationale, str) else rationale
-        if rationale is not None and not clean:
-            raise InvalidDecisionHistory(
-                "Initiation continuity rationale cannot be empty"
-            )
-        if (
-            determination is DecisionInitiationDetermination.NO_CANDIDATES
-            and candidates
-        ):
-            raise InvalidDecisionHistory("NO_CANDIDATES cannot contain candidates")
-        if (
-            determination is DecisionInitiationDetermination.EXPLICIT_CREATE_NEW
-            and candidates
-            and clean is None
-        ):
-            raise InvalidDecisionHistory(
-                "EXPLICIT_CREATE_NEW with candidates requires a rationale"
-            )
-        object.__setattr__(self, "determination", determination)
-        object.__setattr__(self, "candidate_decision_ids", frozenset(candidates))
-        object.__setattr__(self, "known_at", known_at)
-        object.__setattr__(self, "rationale", clean)
-
-
-class DecisionContinuity(StrEnum):
-    SAME_COHERENT_CHOICE = "same_coherent_choice"
-    INDEPENDENT_CHOICE = "independent_choice"
-
-
-class DecisionLifecycleDisposition(StrEnum):
-    UNRESOLVED = "unresolved"
-    SUBSTANTIVELY_RESOLVED = "substantively_resolved"
-    EXTERNALLY_RESOLVED = "externally_resolved"
-    NEED_RETRACTED_UNSUPPORTED = "need_retracted_unsupported"
-
-
-class DecisionWorkPosture(StrEnum):
-    ACTIVE = "active"
-    DEFERRED = "deferred"
-    WITHDRAWN = "withdrawn"
-
-
-class DecisionApplicability(StrEnum):
-    OPERATIVE = "operative"
-    NON_OPERATIVE = "non_operative"
-    CONTESTED = "contested"
-
-
-class HumanInvestmentDecisionEffect(StrEnum):
-    DEFERRING = "deferring"
-    SUBSTANTIVELY_RESOLVING = "substantively_resolving"
-
-
-@dataclass(frozen=True, slots=True)
-class TrustedHumanInvestmentDecisionBasis:
-    decision_reference: str
-    effect: HumanInvestmentDecisionEffect
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "decision_reference",
-            _text(
-                self.decision_reference,
-                "TrustedHumanInvestmentDecisionBasis.decision_reference",
-                InvalidDecisionBasis,
-            ),
-        )
-        if not isinstance(self.effect, HumanInvestmentDecisionEffect):
-            raise InvalidDecisionBasis(
-                "Trusted Human Investment Decision effect is invalid"
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionWorkControlBasis:
-    reference: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "reference",
-            _text(
-                self.reference,
-                "DecisionWorkControlBasis.reference",
-                InvalidDecisionBasis,
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class ExternalResolutionBasis:
-    reference: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "reference",
-            _text(
-                self.reference,
-                "ExternalResolutionBasis.reference",
-                InvalidDecisionBasis,
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionLifecycleFactMetadata:
-    fact_id: DecisionLifecycleFactId
-    decision_id: InvestmentDecisionId
-    sequence: DecisionLifecycleSequence
-    decision_version: DecisionVersion
-    operation_id: OperationId
-    actor_attribution: ActorAttribution
-    trigger: TriggerProvenance
-    technical_provenance: TechnicalProvenance
-    effective_at: datetime
-    recorded_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionInitiated:
-    metadata: DecisionLifecycleFactMetadata
-    need: DecisionNeed
-    subject: DecisionSubject
-    scope: DecisionScope
-    continuity: DecisionInitiationContinuity
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionSubjectRevised:
-    metadata: DecisionLifecycleFactMetadata
-    subject: DecisionSubject
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionScopeEstablished:
-    metadata: DecisionLifecycleFactMetadata
-    scope: DecisionScope
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionScopeRevised:
-    metadata: DecisionLifecycleFactMetadata
-    scope: DecisionScope
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionDeferred:
-    metadata: DecisionLifecycleFactMetadata
-    basis: TrustedHumanInvestmentDecisionBasis
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionWorkWithdrawn:
-    metadata: DecisionLifecycleFactMetadata
-    basis: DecisionWorkControlBasis
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionWorkResumed:
-    metadata: DecisionLifecycleFactMetadata
-    basis: DecisionWorkControlBasis
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionSubstantivelyResolved:
-    metadata: DecisionLifecycleFactMetadata
-    basis: TrustedHumanInvestmentDecisionBasis
-
-
-@dataclass(frozen=True, slots=True)
-class DecisionExternallyResolved:
-    metadata: DecisionLifecycleFactMetadata
-    basis: ExternalResolutionBasis
-
-
-DecisionLifecycleFact = (
-    DecisionInitiated
-    | DecisionSubjectRevised
-    | DecisionScopeEstablished
-    | DecisionScopeRevised
-    | DecisionDeferred
-    | DecisionWorkWithdrawn
-    | DecisionWorkResumed
-    | DecisionSubstantivelyResolved
-    | DecisionExternallyResolved
+from .lifecycle import (
+    ContestedDecisionLifecycleInterpretation,
+    DecisionLifecycleInterpretation,
+    _disposition,
+    _interpret,
+    _posture,
 )
 
 
@@ -528,7 +71,8 @@ class InvestmentDecision:
     _subject: DecisionSubject
     _scope: DecisionScope
     _version: DecisionVersion
-    _disposition: DecisionLifecycleDisposition
+    lifecycle_interpretation: DecisionLifecycleInterpretation
+    _applicability: DecisionApplicability
     _work_posture: DecisionWorkPosture | None
 
     def __init__(self) -> None:
@@ -544,7 +88,8 @@ class InvestmentDecision:
         subject: DecisionSubject,
         scope: DecisionScope,
         version: DecisionVersion,
-        disposition: DecisionLifecycleDisposition,
+        interpretation: DecisionLifecycleInterpretation,
+        applicability: DecisionApplicability,
         work_posture: DecisionWorkPosture | None,
     ) -> InvestmentDecision:
         instance = object.__new__(cls)
@@ -552,7 +97,8 @@ class InvestmentDecision:
         object.__setattr__(instance, "_subject", subject)
         object.__setattr__(instance, "_scope", scope)
         object.__setattr__(instance, "_version", version)
-        object.__setattr__(instance, "_disposition", disposition)
+        object.__setattr__(instance, "lifecycle_interpretation", interpretation)
+        object.__setattr__(instance, "_applicability", applicability)
         object.__setattr__(instance, "_work_posture", work_posture)
         return instance
 
@@ -584,7 +130,7 @@ class InvestmentDecision:
 
     @property
     def disposition(self) -> DecisionLifecycleDisposition:
-        return self._disposition
+        return _disposition(self.lifecycle_interpretation)
 
     @property
     def work_posture(self) -> DecisionWorkPosture | None:
@@ -596,29 +142,30 @@ class InvestmentDecision:
 
     @property
     def history(self) -> tuple[DecisionLifecycleFact, ...]:
-        return self._history
+        return tuple(
+            f
+            for f in self._history
+            if f.metadata.recorded_at <= self.lifecycle_interpretation.known_at
+        )
 
+    def effective_at(
+        self,
+        effective_at: datetime,
+        *,
+        known_at: datetime,
+        applicability: DecisionApplicability,
+    ) -> InvestmentDecision:
+        return _view(self._history, effective_at, known_at, applicability)
 
-@dataclass(frozen=True, slots=True)
-class DecisionMutationContext:
-    fact_id: DecisionLifecycleFactId
-    operation_id: OperationId
-    actor_attribution: ActorAttribution
-    trigger: TriggerProvenance
-    effective_at: datetime
-    recorded_at: datetime
-    technical_provenance: TechnicalProvenance = EMPTY_TECHNICAL_PROVENANCE
-
-    def __post_init__(self) -> None:
-        _exact(self.fact_id, DecisionLifecycleFactId, "fact_id")
-        _exact(self.operation_id, OperationId, "operation_id")
-        _known_actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
-        _aware(self.effective_at, "effective_at")
-        _aware(self.recorded_at, "recorded_at")
+    def as_known_at(
+        self,
+        known_at: datetime,
+        *,
+        applicability: DecisionApplicability,
+    ) -> InvestmentDecision:
+        return self.effective_at(
+            known_at, known_at=known_at, applicability=applicability
+        )
 
 
 def _metadata(
@@ -707,7 +254,11 @@ def initiate_decision(
     fact = DecisionInitiated(
         _metadata(None, decision_id, mutation), need, subject, scope, continuity
     )
-    return reconstruct_decision((fact,))
+    return reconstruct_decision(
+        (fact,),
+        observed_at=mutation.recorded_at,
+        applicability=DecisionApplicability.OPERATIVE,
+    )
 
 
 def revise_subject(
@@ -718,19 +269,16 @@ def revise_subject(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     if subject == decision.subject:
         return decision
     _require_unresolved(decision)
     _require_operative(applicability)
     _same_choice(decision, continuity)
-    return reconstruct_decision(
-        (
-            *decision.history,
-            DecisionSubjectRevised(
-                _metadata(decision, decision.decision_id, mutation), subject
-            ),
-        )
+    fact = DecisionSubjectRevised(
+        _metadata(decision, decision.decision_id, mutation), subject
     )
+    return _append_ordinary(decision, fact, mutation)
 
 
 def establish_or_revise_scope(
@@ -741,6 +289,7 @@ def establish_or_revise_scope(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     if scope == decision.scope:
         return decision
     _require_unresolved(decision)
@@ -757,7 +306,7 @@ def establish_or_revise_scope(
         fact = DecisionScopeEstablished(meta, scope)
     else:
         fact = DecisionScopeRevised(meta, scope)
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def defer_decision(
@@ -767,6 +316,7 @@ def defer_decision(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     _require_unresolved(decision)
     _require_operative(applicability)
     _require_human_effect(basis, HumanInvestmentDecisionEffect.DEFERRING)
@@ -774,7 +324,7 @@ def defer_decision(
         _metadata(decision, decision.decision_id, mutation),
         basis,
     )
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def withdraw_decision_work(
@@ -784,6 +334,7 @@ def withdraw_decision_work(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     _require_unresolved(decision)
     _require_operative(applicability)
     if type(basis) is not DecisionWorkControlBasis:
@@ -794,7 +345,7 @@ def withdraw_decision_work(
         _metadata(decision, decision.decision_id, mutation),
         basis,
     )
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def resume_decision_work(
@@ -805,6 +356,7 @@ def resume_decision_work(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     _require_unresolved(decision)
     _require_operative(applicability)
     _same_choice(decision, continuity)
@@ -819,7 +371,7 @@ def resume_decision_work(
         _metadata(decision, decision.decision_id, mutation),
         basis,
     )
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def substantively_resolve_decision(
@@ -829,6 +381,7 @@ def substantively_resolve_decision(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, applicability)
     _require_unresolved(decision)
     _require_operative(applicability)
     _require_human_effect(
@@ -839,7 +392,7 @@ def substantively_resolve_decision(
         _metadata(decision, decision.decision_id, mutation),
         basis,
     )
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def externally_resolve_decision(
@@ -848,6 +401,7 @@ def externally_resolve_decision(
     basis: ExternalResolutionBasis,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    decision = _at_recording(decision, mutation, decision._applicability)
     _require_unresolved(decision)
     if type(basis) is not ExternalResolutionBasis:
         raise InvalidDecisionBasis(
@@ -857,24 +411,229 @@ def externally_resolve_decision(
         _metadata(decision, decision.decision_id, mutation),
         basis,
     )
-    return reconstruct_decision((*decision.history, fact))
+    return _append_ordinary(decision, fact, mutation)
 
 
 def reconstruct_decision(
     history: Iterable[DecisionLifecycleFact],
+    *,
+    observed_at: datetime,
+    applicability: DecisionApplicability,
 ) -> InvestmentDecision:
+    """Validate immutable admission history, then observe it at supplied T=K."""
     facts = tuple(history)
     initiation = _history_start(facts)
     _validate_metadata(facts, initiation.metadata.decision_id)
-    subject, scope, disposition, work_posture = _replay(facts, initiation)
+    _validate_initiation(initiation)
+    for index, fact in enumerate(facts[1:], 1):
+        prefix = facts[:index]
+        if isinstance(fact, DecisionLifecycleCorrected):
+            _validate_correction(prefix, fact)
+        else:
+            try:
+                _admit_ordinary(prefix, fact)
+            except InvalidDecisionTransition as error:
+                raise InvalidDecisionHistory(str(error)) from error
+    return _view(facts, observed_at, observed_at, applicability)
+
+
+def _view(
+    facts: tuple[DecisionLifecycleFact, ...],
+    effective_at: datetime,
+    known_at: datetime,
+    applicability: DecisionApplicability,
+) -> InvestmentDecision:
+    if type(applicability) is not DecisionApplicability:
+        raise InvalidDecisionTransition("Decision applicability is invalid")
+    interpretation = _interpret(facts, effective_at, known_at)
+    first = facts[0]
+    assert isinstance(first, DecisionInitiated)
+    subject, scope = first.subject, first.scope
+    known = tuple(f for f in facts if f.metadata.recorded_at <= known_at)
+    for fact in sorted(
+        known, key=lambda f: (f.metadata.effective_at, f.metadata.sequence)
+    ):
+        if fact.metadata.effective_at > effective_at:
+            continue
+        if isinstance(fact, DecisionSubjectRevised):
+            subject = fact.subject
+        elif isinstance(fact, (DecisionScopeEstablished, DecisionScopeRevised)):
+            scope = fact.scope
+    posture = (
+        _posture(known, interpretation)
+        if applicability is DecisionApplicability.OPERATIVE
+        else None
+    )
     return InvestmentDecision._from_validated(
         facts,
         subject,
         scope,
-        facts[-1].metadata.decision_version,
-        disposition,
-        work_posture,
+        known[-1].metadata.decision_version,
+        interpretation,
+        applicability,
+        posture,
     )
+
+
+def _at_recording(
+    decision: InvestmentDecision,
+    mutation: DecisionMutationContext,
+    applicability: DecisionApplicability,
+) -> InvestmentDecision:
+    if mutation.recorded_at < decision._history[-1].metadata.recorded_at:
+        raise InvalidDecisionHistory("recorded_at must be non-decreasing")
+    return _view(
+        decision._history, mutation.recorded_at, mutation.recorded_at, applicability
+    )
+
+
+def _append_ordinary(
+    decision: InvestmentDecision,
+    fact: DecisionLifecycleFact,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    _admit_ordinary(decision._history, fact)
+    return reconstruct_decision(
+        (*decision._history, fact),
+        observed_at=mutation.recorded_at,
+        applicability=decision._applicability,
+    )
+
+
+def _admit_ordinary(
+    prefix: tuple[DecisionLifecycleFact, ...],
+    fact: DecisionLifecycleFact,
+) -> None:
+    """Strict sequence prefix, even when recorded timestamps are equal."""
+    meta = fact.metadata
+    for instant in {meta.recorded_at, meta.effective_at}:
+        view = _view(prefix, instant, meta.recorded_at, DecisionApplicability.OPERATIVE)
+        _require_unresolved(view)
+        _validate_ordinary_payload(fact, view)
+    # Piecewise-constant lifecycle interpretation changes only at known effective
+    # boundaries. Test each affected interval, including already-known futures.
+    appended = (*prefix, fact)
+    boundaries = {f.metadata.effective_at for f in appended}
+    for instant in boundaries:
+        if instant < meta.effective_at:
+            continue
+        after = _interpret(appended, instant, meta.recorded_at)
+        if isinstance(after, ContestedDecisionLifecycleInterpretation) and (
+            after != _interpret(prefix, instant, meta.recorded_at)
+        ):
+            raise InvalidDecisionTransition(
+                "ordinary act introduces incompatible lifecycle"
+            )
+
+
+def _validate_ordinary_payload(
+    fact: DecisionLifecycleFact, view: InvestmentDecision
+) -> None:
+    if isinstance(fact, DecisionSubjectRevised):
+        if type(fact.subject) is not DecisionSubject or fact.subject == view.subject:
+            raise InvalidDecisionHistory("invalid or no-op Subject revision")
+    elif isinstance(fact, DecisionScopeEstablished):
+        _replay_establishment(view.scope, fact)
+    elif isinstance(fact, DecisionScopeRevised):
+        _replay_scope_revision(view.scope, fact)
+    else:
+        _replay_lifecycle_fact(fact, view.disposition, view.work_posture)
+
+
+def correct_decision_lifecycle(
+    decision: InvestmentDecision,
+    *,
+    target_fact_id: DecisionLifecycleFactId,
+    effect: DecisionLifecycleCorrectionEffect,
+    correction_basis: DecisionLifecycleCorrectionBasis,
+    mutation: DecisionMutationContext,
+    applicability: DecisionApplicability,
+    replacement_disposition: DecisionLifecycleDisposition | None = None,
+    replacement_basis: (
+        TrustedHumanInvestmentDecisionBasis
+        | ExternalResolutionBasis
+        | UnsupportedDecisionNeedBasis
+        | None
+    ) = None,
+) -> InvestmentDecision:
+    """Append a distinct correction act; Application owns exact replay receipts.
+
+    Corrections bypass ordinary lifecycle/applicability gates. Support changes at
+    this one recording boundary determine the committed version consequence.
+    """
+    decision = _at_recording(decision, mutation, applicability)
+    meta = _metadata(decision, decision.decision_id, mutation)
+    fact = DecisionLifecycleCorrected(
+        meta,
+        target_fact_id,
+        effect,
+        correction_basis,
+        replacement_disposition,
+        replacement_basis,
+    )
+    _validate_correction_target(decision._history, fact)
+    before = decision.lifecycle_interpretation
+    after = _interpret(
+        (*decision._history, fact), mutation.recorded_at, mutation.recorded_at
+    )
+    version = DecisionVersion(decision.version.value + (before != after))
+    fact = replace(fact, metadata=replace(meta, decision_version=version))
+    return reconstruct_decision(
+        (*decision._history, fact),
+        observed_at=mutation.recorded_at,
+        applicability=applicability,
+    )
+
+
+def _validate_correction_target(
+    prefix: tuple[DecisionLifecycleFact, ...],
+    fact: DecisionLifecycleCorrected,
+) -> None:
+    eligible = (
+        DecisionInitiated,
+        DecisionSubstantivelyResolved,
+        DecisionExternallyResolved,
+        DecisionLifecycleCorrected,
+    )
+    by_id = {f.metadata.fact_id: f for f in prefix}
+    target = by_id.get(fact.target_fact_id)
+    if not isinstance(target, eligible):
+        raise InvalidDecisionLifecycleCorrection(
+            "target must be an earlier same-Decision eligible fact"
+        )
+    if (
+        isinstance(target, DecisionInitiated)
+        and fact.effect is DecisionLifecycleCorrectionEffect.DISCONFIRM
+    ):
+        raise InvalidDecisionLifecycleCorrection(
+            "cannot directly disconfirm initiation"
+        )
+    root: DecisionLifecycleFact = target
+    while isinstance(root, DecisionLifecycleCorrected):
+        root = by_id[root.target_fact_id]
+    if (
+        fact.replacement_disposition
+        is DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+        and not isinstance(root, DecisionInitiated)
+    ):
+        raise InvalidDecisionLifecycleCorrection(
+            "unsupported Need correction requires initiation lineage"
+        )
+
+
+def _validate_correction(
+    prefix: tuple[DecisionLifecycleFact, ...],
+    fact: DecisionLifecycleCorrected,
+) -> None:
+    _validate_correction_target(prefix, fact)
+    instant = fact.metadata.recorded_at
+    before = _interpret(prefix, instant, instant)
+    after = _interpret((*prefix, fact), instant, instant)
+    expected = prefix[-1].metadata.decision_version.value + (before != after)
+    if fact.metadata.decision_version.value != expected:
+        raise InvalidDecisionHistory(
+            "correction version must reflect current interpretation change exactly once"
+        )
 
 
 def _history_start(facts: tuple[DecisionLifecycleFact, ...]) -> DecisionInitiated:
@@ -892,6 +651,7 @@ def _history_start(facts: tuple[DecisionLifecycleFact, ...]) -> DecisionInitiate
         DecisionWorkResumed,
         DecisionSubstantivelyResolved,
         DecisionExternallyResolved,
+        DecisionLifecycleCorrected,
     )
     if any(not isinstance(fact, supported) for fact in facts):
         raise InvalidDecisionHistory("Decision history contains unsupported fact type")
@@ -922,10 +682,12 @@ def _validate_metadata(
             )
         if index == 0 and meta.decision_version.value != 1:
             raise InvalidDecisionHistory("Decision initiation version must be 1")
-        if index and meta.decision_version.value <= previous_version:
-            raise InvalidDecisionHistory("Decision versions must strictly increase")
+        if index and meta.decision_version.value < previous_version:
+            raise InvalidDecisionHistory("Decision versions must be non-decreasing")
         if index and type(fact) is DecisionInitiated:
             raise InvalidDecisionHistory("Decision history may contain one initiation")
+        if index and meta.recorded_at < facts[index - 1].metadata.recorded_at:
+            raise InvalidDecisionHistory("recorded_at must be non-decreasing")
         previous_version = meta.decision_version.value
 
 
@@ -946,43 +708,6 @@ def _validate_meta_types(meta: object) -> None:
         raise InvalidDecisionHistory("technical_provenance must be TechnicalProvenance")
     _aware(meta.effective_at, "effective_at")
     _aware(meta.recorded_at, "recorded_at")
-
-
-def _replay(
-    facts: tuple[DecisionLifecycleFact, ...],
-    initiation: DecisionInitiated,
-) -> tuple[
-    DecisionSubject,
-    DecisionScope,
-    DecisionLifecycleDisposition,
-    DecisionWorkPosture | None,
-]:
-    _validate_initiation(initiation)
-    subject, scope = initiation.subject, initiation.scope
-    disposition = DecisionLifecycleDisposition.UNRESOLVED
-    work_posture: DecisionWorkPosture | None = DecisionWorkPosture.ACTIVE
-    for fact in facts[1:]:
-        if isinstance(fact, DecisionSubjectRevised):
-            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
-                raise InvalidDecisionHistory("resolved Decision cannot revise Subject")
-            if type(fact.subject) is not DecisionSubject or fact.subject == subject:
-                raise InvalidDecisionHistory("invalid or no-op Subject revision")
-            subject = fact.subject
-        elif isinstance(fact, DecisionScopeEstablished):
-            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
-                raise InvalidDecisionHistory("resolved Decision cannot establish Scope")
-            scope = _replay_establishment(scope, fact)
-        elif isinstance(fact, DecisionScopeRevised):
-            if disposition is not DecisionLifecycleDisposition.UNRESOLVED:
-                raise InvalidDecisionHistory("resolved Decision cannot revise Scope")
-            scope = _replay_scope_revision(scope, fact)
-        else:
-            disposition, work_posture = _replay_lifecycle_fact(
-                fact,
-                disposition,
-                work_posture,
-            )
-    return subject, scope, disposition, work_posture
 
 
 def _replay_lifecycle_fact(

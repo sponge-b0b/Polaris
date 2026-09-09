@@ -7,7 +7,7 @@ from polaris.domain.actors import (
 )
 from polaris.domain.portfolio import PortfolioId
 
-from .model import (
+from .facts import (
     DecisionApplicability,
     DecisionApplicabilityContested,
     DecisionContinuity,
@@ -16,16 +16,21 @@ from .model import (
     DecisionInitiated,
     DecisionInitiationContinuity,
     DecisionInitiationDetermination,
+    DecisionLifecycleCorrected,
+    DecisionLifecycleCorrectionBasis,
+    DecisionLifecycleCorrectionEffect,
     DecisionLifecycleDisposition,
     DecisionLifecycleFactId,
     DecisionLifecycleFactMetadata,
+    DecisionLifecycleInterpretationContested,
+    DecisionLifecycleNotYetEffective,
     DecisionLifecycleSequence,
     DecisionMutationContext,
     DecisionNeed,
     DecisionNeedAlreadyGrounded,
     DecisionNeedId,
+    DecisionNotKnownAtCutoff,
     DecisionNotOperative,
-    DecisionReconciliationRequired,
     DecisionScope,
     DecisionScopeCompleteness,
     DecisionScopeEstablished,
@@ -44,11 +49,11 @@ from .model import (
     InvalidDecisionBasis,
     InvalidDecisionHistory,
     InvalidDecisionIdentity,
+    InvalidDecisionLifecycleCorrection,
     InvalidDecisionNeed,
     InvalidDecisionScope,
     InvalidDecisionSubject,
     InvalidDecisionTransition,
-    InvestmentDecision,
     InvestmentDecisionError,
     InvestmentDecisionId,
     OperationId,
@@ -58,6 +63,18 @@ from .model import (
     TriggerKind,
     TriggerProvenance,
     TrustedHumanInvestmentDecisionBasis,
+    UnsupportedDecisionNeedBasis,
+)
+from .lifecycle import (
+    ContestedDecisionLifecycleInterpretation,
+    DecisionLifecycleInterpretation,
+    DeterminateDecisionLifecycleInterpretation,
+    NotYetEffectiveDecisionLifecycleInterpretation,
+)
+from .model import (
+    DecisionReconciliationRequired,
+    InvestmentDecision,
+    correct_decision_lifecycle,
     defer_decision,
     establish_or_revise_scope,
     externally_resolve_decision,
@@ -71,6 +88,19 @@ from .model import (
 )
 
 __all__ = [
+    "DecisionLifecycleCorrected",
+    "DecisionLifecycleCorrectionEffect",
+    "DecisionLifecycleCorrectionBasis",
+    "UnsupportedDecisionNeedBasis",
+    "InvalidDecisionLifecycleCorrection",
+    "DecisionLifecycleNotYetEffective",
+    "DecisionLifecycleInterpretationContested",
+    "DecisionNotKnownAtCutoff",
+    "DecisionLifecycleInterpretation",
+    "NotYetEffectiveDecisionLifecycleInterpretation",
+    "DeterminateDecisionLifecycleInterpretation",
+    "ContestedDecisionLifecycleInterpretation",
+    "correct_decision_lifecycle",
     "ActorAttribution",
     "ActorId",
     "ContestedActorAttribution",

@@ -237,7 +237,12 @@ def test_live_mutation_requires_known_actor_but_reconstruction_allows_unknown() 
         DecisionScope.unresolved(),
         continuity(),
     )
-    assert reconstruct_decision([fact]).decision_id == identity
+    assert (
+        reconstruct_decision(
+            [fact], observed_at=NOW, applicability=DecisionApplicability.OPERATIVE
+        ).decision_id
+        == identity
+    )
 
 
 def test_need_subject_time_and_scope_contracts() -> None:
@@ -320,7 +325,7 @@ def test_subject_revision_noop_change_and_independent_choice() -> None:
             applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
-        is decision
+        == decision
     )
     revised = revise_subject(
         decision,
@@ -368,7 +373,7 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
             applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
-        is established
+        == established
     )
     with pytest.raises(InvalidDecisionTransition, match="cannot become unresolved"):
         establish_or_revise_scope(
@@ -394,7 +399,9 @@ def test_sequence_and_decision_version_are_distinct_and_version_may_gap() -> Non
         metadata(identity=identity, sequence=2, version=4),
         DecisionSubject("Whether to modestly change SPY exposure."),
     )
-    rebuilt = reconstruct_decision([first, second])
+    rebuilt = reconstruct_decision(
+        [first, second], observed_at=NOW, applicability=DecisionApplicability.OPERATIVE
+    )
     assert rebuilt.version == DecisionVersion(4)
     assert rebuilt.history[-1].metadata.sequence == DecisionLifecycleSequence(2)
 
@@ -404,7 +411,9 @@ def test_reconstruction_rejects_invalid_identity_fact_and_sequence_history() -> 
     first_meta = metadata(identity=identity, sequence=1, version=1)
     with pytest.raises(InvalidDecisionHistory, match="start with"):
         reconstruct_decision(
-            [DecisionSubjectRevised(first_meta, DecisionSubject("changed"))]
+            [DecisionSubjectRevised(first_meta, DecisionSubject("changed"))],
+            observed_at=NOW,
+            applicability=DecisionApplicability.OPERATIVE,
         )
     initiation = DecisionInitiated(
         first_meta,
@@ -418,13 +427,21 @@ def test_reconstruction_rejects_invalid_identity_fact_and_sequence_history() -> 
         DecisionSubject("changed"),
     )
     with pytest.raises(InvalidDecisionHistory, match="same Investment Decision"):
-        reconstruct_decision([initiation, mixed])
+        reconstruct_decision(
+            [initiation, mixed],
+            observed_at=NOW,
+            applicability=DecisionApplicability.OPERATIVE,
+        )
     gap = DecisionSubjectRevised(
         metadata(identity=identity, sequence=3, version=2),
         DecisionSubject("changed"),
     )
     with pytest.raises(InvalidDecisionHistory, match="contiguous"):
-        reconstruct_decision([initiation, gap])
+        reconstruct_decision(
+            [initiation, gap],
+            observed_at=NOW,
+            applicability=DecisionApplicability.OPERATIVE,
+        )
 
 
 def test_public_aggregate_construction_is_closed_and_values_are_immutable() -> None:

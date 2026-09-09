@@ -1,16 +1,16 @@
 ---
 name: repowise
-description: Queries local repository code, structural overviews, dead code references, and file risk markers via Repowise tools. Use before editing python files or when exploring existing codebase implementations or when the user asks questions about architecture, code structure, imports, or file relationships.
+description: Queries local repository code, structural overviews, dead-code references, file risk markers, and historical rationale via Repowise tools when those questions are materially useful.
 ---
 
 # Repowise Queries Skill
 
 ## Objective
-Safely locate behavior, map source contexts, sweep for dead code, evaluate file brittleness, estimate change blast radiuses before modifying any Python files, and to answer structural questions about the project codebase without reading heavy raw files into the active LLM context.
+Safely locate behavior, map source contexts, sweep for dead code, evaluate file brittleness, estimate change blast radiuses before modifying Python files when relevant, and answer structural questions about the project codebase without reading heavy raw files into the active LLM context.
 
 ## Context Inputs
-- **Authoritative Cache Map:** `.claude/CLAUDE.md`.
-- Before executing any lookup tool, reference this cached markdown segment to evaluate system summaries, file page indices, and pre-calculated hotspots.
+- **Cached discovery map:** `.claude/CLAUDE.md` when present.
+- Consult it only when its cached summaries, file-page indices, or hotspot metadata materially help choose or interpret the current query. Do not preload it merely because Repowise is being used.
 
 ## Guardrail Constraints
 - **Safety Alert Invariant:** You MUST alert the user explicitly before adding code to a file flagged as highly brittle or designated as a high-risk hotspot.
@@ -18,29 +18,29 @@ Safely locate behavior, map source contexts, sweep for dead code, evaluate file 
 
 ## Execution Steps
 
-When investigating existing Python functionality or assessing change risks, run the Repowise tools sequentially based on your investigative intent:
+Choose only the Repowise operations that answer the current material question. The capabilities below are independent, not a mandatory sequence. Do not invoke one merely because another was used. Use any combination when distinct material questions require it, and broaden when the initial evidence is insufficient.
 
 ### 1. Repository Scopes & High-Level Architecture
-Before diving into code blocks, establish the high-level boundaries of the module or repository layer:
+When repository/module boundaries are not already known and high-level orientation is materially useful:
 - Run: `get_overview()` to inspect package trees, boundaries, and macro file distributions.
 
 ### 2. Behavior Location & Semantic Search
-Locate specific code strings, definitions, or architectural concepts across the repository:
-- Run: `get_answer()` or `search_codebase()`
+When the question is where behavior, definitions, or architectural concepts live:
+- Run: `get_answer()` or `search_codebase()`.
 
 ### 3. Context & Structural Cleanliness Isolation
-Extract exact, bounded code blocks and symbol trees while ensuring you are not adding code to abandoned or orphaned logic branches:
-- Run: `get_context()` and `get_symbol()` to isolate active implementation code.
-- Run: `get_dead_code()` to verify that the functions, classes, or files you are touching are actively used and have not been abandoned.
+When exact bounded code or symbol structure is needed:
+- Run: `get_context()` or `get_symbol()` to isolate active implementation code.
+- Run: `get_dead_code()` only when whether the touched function, class, or file is abandoned/orphaned is materially relevant.
 
 ### 4. Structural Risk Assessment
-Check the target destination for maintenance hazards and unexpected system coupling to ensure safe modification:
-- Run: `get_health` to evaluate target-file biomarkers.
+When maintenance hazards, hotspot status, or blast radius materially affect the planned change:
+- Run: `get_health()` to evaluate target-file biomarkers.
 - Run: `get_risk()` to isolate hotspots, hidden structural coupling, and change blast radius.
 
 ### 5. Intent & Architecture Verification
-Verify the historical rationale or architectural choice behind the file layout before deviating from established repo patterns:
-- Run: `get_why()`
+When historical rationale is materially needed to understand or challenge the current implementation choice:
+- Run: `get_why()`.
 
 ## Examples
 

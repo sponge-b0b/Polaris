@@ -238,6 +238,26 @@ Standard read-only discovery and diagnostic shell commands are allowed.
 
 ---
 
+## Context and Discovery Efficiency
+
+Treat context and discovery as engineering resources. Load the smallest authoritative context and use the smallest discovery operation sufficient to answer the current material question or proof obligation.
+
+This is a sufficiency rule, not a scarcity rule:
+
+* tool selection is question-driven, not sequence-driven;
+* no discovery tool has a repository-wide mandatory order, priority, or call-count merely because it is available or because code is changing;
+* use or combine any available tools when distinct material questions require them;
+* broaden discovery or context whenever bounded evidence leaves a material ambiguity, conflict, incomplete authoritative domain, or required proof unresolved;
+* efficiency never authorizes skipping evidence required for correctness, closure, fail-closed behavior, or an owning workflow's transition.
+
+Durable checkpoints, receipts, manifests, known comment IDs/markers, and explicit obligation mappings are routing/recovery indexes. Use them to locate the exact underlying authority needed for the current decision rather than reconstructing unrelated lifecycle archaeology. They do not replace the underlying authority when that authority must be independently validated.
+
+Do not dump complete comment histories, large raw API payloads, entire parent artifacts, or broad file contents into active model context when marker/ID/section filtering, exact excerpts, graph/snippet queries, or local deterministic reduction can preserve the required authority. When a large paginated/raw payload is necessary, prefer fetching it to scratch and reducing it before semantic inspection; broaden to the full source only when the bounded result is insufficient.
+
+Reuse still-valid discovery/evidence within the same lifecycle when its target, candidate, and governing authority have not materially changed. Re-query or re-read when staleness, a new material question, or a transition-specific rule requires it.
+
+---
+
 ## Repository Analysis
 
 Use the smallest discovery tool sufficient for the question rather than broad manual scanning.
@@ -246,6 +266,8 @@ Use the smallest discovery tool sufficient for the question rather than broad ma
 * `$graphify` — broad structural/dependency relationships.
 * `$codegraph` — implicit/dynamic call paths and dispatch.
 * `$codebase-memory-mcp` — graph-backed discovery, architecture, impact, dead-code, and cross-service analysis.
+
+These tools are complementary capabilities, not a mandatory pipeline. A tool skill's broad local preference such as `always prefer`, `any codebase question`, or similar automatic-routing language does not override **Context and Discovery Efficiency** above. Explicit human invocation or a transition owner that specifically requires a tool remains authoritative.
 
 Exact literal searches remain appropriate when graph analysis provides no advantage.
 

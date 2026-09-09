@@ -77,6 +77,8 @@ After `$implement-ticket` writes and reads back an exact `<!-- implement-ticket-
 
 Only that fresh subagent executes the certification procedure below. Before doing so it must recover/validate the supplied durable checkpoint and require exact ticket/mode/branch/baseline/contract/lineage/root/candidate binding.
 
+The supplied checkpoint, Proposed Closure Evidence, changed-surface/check summaries, and authority pointers are a compact **retrieval map**, not semantic authority. The verifier independently validates the durable sources needed for each claim and expands retrieval whenever bounded evidence is insufficient. It does not inherit or require the implementation actor's exploratory transcript.
+
 The `$implement-ticket` main agent remains the orchestration owner. The fresh verifier returns one complete verdict to that parent; it does not repair, persist lifecycle state, close the ticket, or spawn another semantic verifier.
 
 ### Direct / recovery invocation
@@ -111,16 +113,20 @@ Candidate mutation, verifier mutation/delegation, or unrecoverable authoritative
 
 ## 1. Recover the Immutable Contract
 
-Independently read:
+Recover the smallest authoritative context sufficient to construct and certify the complete ticket acceptance universe. Start from the dispatch/checkpoint retrieval map, but independently validate every durable source that materially contributes to the verdict.
 
-* full ticket and comments;
+Read:
+
+* the full ticket body plus machine-managed or explicitly referenced ticket comments required by its current contract; do **not** ingest the complete ticket comment history by default — resolve known markers/IDs first and broaden only when needed to establish completeness, provenance, or resolve ambiguity;
 * native parent and declared lineage;
 * `Ticket branch`, pinned `Ticket baseline`, exact current candidate state;
 * durable v2 closure checkpoint used for dispatch;
 * ticket-governed durable tracker state when applicable;
-* parent Spec and exact `Spec obligations` carried by the ticket when present;
-* current architecture/Standards/policy authority required by the ticket;
-* Proposed Closure Evidence as claims to challenge, never authority.
+* the exact parent-Spec clauses identified by the ticket's `Spec obligations`, plus any specifically referenced completion/architecture section needed to interpret them; do **not** read unrelated parent-Spec sections by default, but broaden when the carried clauses depend on a cross-cutting rule or otherwise cannot be interpreted completely in isolation;
+* current architecture/Standards/policy authority materially required by the ticket's acceptance cells or candidate;
+* Proposed Closure Evidence as claims and evidence pointers to challenge, never authority.
+
+For large paginated tracker payloads or comment histories, fetch/filter by marker, ID, section, or another deterministic selector before exposing content for semantic inspection when that bounded reduction preserves the required authority. Expand to the larger source when the bounded result cannot establish the required universe or resolve contradictory state.
 
 Determine ticket mode: ordinary or Spec Review remediation.
 
@@ -133,7 +139,7 @@ For remediation also recover:
 * same-root preservation obligations;
 * previously satisfied other roots whose governed contracts intersect the candidate.
 
-Missing, ambiguous, contradictory, or stale contract/candidate state invalidates verification.
+Missing, ambiguous, contradictory, or stale contract/candidate state invalidates verification. Context efficiency never authorizes omitting authority required to close a material claim or domain.
 
 ## 2. Build the Authoritative Acceptance Universe
 
@@ -287,7 +293,7 @@ Existing owner skills provide evidence but do not become semantic closure author
 
 Examples:
 
-* `$verify-code` owns targeted code checks and its contract transition/consumer closure;
+* `$verify-code` owns targeted code checks and constructs Contract Transition / Consumer Closure manifests as supporting technical evidence; when those manifests report `prepared for ticket certification`, independently certify their semantic universe completeness here rather than requiring another verifier;
 * documentation/wiki workflows own their validations;
 * migration/database workflows own required schema/database proof;
 * deterministic tracker rereads own exact relationship/state facts.

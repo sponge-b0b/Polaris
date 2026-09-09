@@ -6,7 +6,7 @@ This README documents **cross-skill architecture and governance**. It explains h
 
 Individual `SKILL.md` files remain authoritative for their own executable procedure. Do not duplicate detailed commands, templates, or skill-specific algorithms here.
 
-If this README and a `SKILL.md` disagree, treat that as a workflow defect to reconcile rather than guessing which behavior to follow.
+If this README and a `SKILL.md` disagree, treat that as a workflow defect to reconcile rather than guessing which behavior to follow, except where this README or `AGENTS.md` explicitly marks a repository-wide supersession rule for older narrower wording.
 
 ## Sources of Authority
 
@@ -214,8 +214,9 @@ $spec-merge-cleanup
     ├─ merge or directly close the Spec
     ├─ close the conventional Spec Review issue
     ├─ clean the Spec branch when applicable
-    └─ reconcile every governing Wayfinder
-           └─ close only when no unresolved decision/fog remains
+    ├─ reconcile every governing Wayfinder
+    └─ reconstruct + batch-sync the completed Spec lineage to the GitHub Project
+           └─ close Wayfinder only when no unresolved decision/fog remains
               and all governed Derived/Remediation Specs are complete
            ↓
        Spec lifecycle complete
@@ -386,7 +387,8 @@ It requires the exact current **Spec Review Exit Receipt** and owns:
 * merge or direct Spec closure;
 * branch cleanup when applicable;
 * closure of the conventional Spec Review issue;
-* reconciliation of every current Wayfinder governing the completing Spec.
+* reconciliation of every current Wayfinder governing the completing Spec;
+* reconstruction and one-batch GitHub Project reconciliation of the completed Spec lineage.
 
 Once review reaches a persistence point, a missing or duplicate conventional Spec Review issue is workflow drift; cleanup must fail closed rather than infer review authority.
 
@@ -419,7 +421,7 @@ Do not infer lifecycle authority merely from hierarchy or dependency edges. Do n
 
 ## GitHub Project Tracking
 
-The public Polaris GitHub Project is an **operational projection** of the workflow, not a correctness authority or workflow engine.
+The public Polaris GitHub Project is an **operational projection** of the workflow, not a correctness authority or workflow engine. It is intentionally **eventually consistent during active delivery**.
 
 The Project may expose fields such as:
 
@@ -442,11 +444,14 @@ Cross-skill rules:
 * **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
 * **Project-delivery authorization overlays, rather than replaces, lifecycle routing.** Eligible-unfocused Wayfinder Maps use `Next Skill=$project-delivery-management`; Wayfinder-managed descendants preserve the lifecycle `Next Skill` for `In Focus`, `Eligible`, and `Denied`, while lifecycle-owned `None` remains `None`. `Delivery State` carries project-delivery authorization independently of `Workflow State` and `Next Skill`.
 * **Intentionally Independent Specs and descendants are not enrolled into Wayfinder delivery focus merely because they enter architecture remediation.** Their lifecycle projection remains governed by the Spec/ticket workflow itself.
-* **Durable tracker/repository artifacts remain authoritative.** Project fields must be derived from or reconciled against the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills.
-* **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection rather than changing the underlying lifecycle to match the board.
-* **Project synchronization happens after the corresponding durable transition succeeds.** Do not let a board update create authority that the owning skill has not established.
-* **Area and Priority are presentation metadata, not workflow authority.** A lifecycle owner supplies either only when it independently owns an intentional presentation change; otherwise `$project-tracking` preserves the current Project value verbatim, including blank.
-* **Project synchronization failure is projection drift, not semantic rollback.** Report it and preserve the authoritative tracker/repository result; later workflow entry should reconcile the board from durable state.
+* **Durable tracker/repository artifacts remain authoritative.** Project fields are derived from the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills; they may lag those authorities until an authorized projection boundary.
+* **Routine lifecycle work does not synchronize the Project.** `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, and internal `$project-delivery-management` transitions persist authoritative state and continue without invoking `$project-tracking`.
+* **Mandatory projection happens at the Spec completion boundary.** `$spec-merge-cleanup` reconstructs the complete completed-Spec lineage from authoritative state and invokes `$project-tracking` once for that whole set. It must not depend on earlier board membership or field freshness.
+* **Explicit human-requested reconciliation is the mid-Spec escape hatch.** When the human explicitly asks for the board to be refreshed, reconstruct the requested authoritative artifact universe and synchronize it in one batch. A focus/dependency operation alone is not an implicit board-refresh request.
+* **Do not persist projection debt.** Never create a pending-update queue, flag, label, ledger, or comment stream. Missing rows and stale fields are projection lag, not workflow authority.
+* **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection at an authorized boundary rather than changing the underlying lifecycle to match the board.
+* **Area and Priority are presentation metadata, not workflow authority.** A reconciliation owner supplies either only when it independently owns an intentional presentation change; otherwise `$project-tracking` preserves the current Project value verbatim, including blank.
+* **Project synchronization failure is projection drift, not semantic rollback.** Report it and preserve the authoritative tracker/repository result; a later authorized reconciliation reconstructs the board from durable state.
 * A lightweight auto-add label such as `workflow:tracked` may provide discovery/safety-net behavior, but labels and auto-add rules do not determine lifecycle correctness.
 
 Do not configure generic issue-closed automation to mean `Workflow State = Complete` or `Work Status = Done` for Polaris.
@@ -482,7 +487,7 @@ This owner is not an additional lifecycle stage. Human invocations make discreti
 
 Helpers perform part of an already-authorized parent workflow and normally return their result to that parent. Examples include remediation helpers, tracker relationship helpers, architecture reviewers, wiki/document helpers, formatting, targeted verification, database migration support, and code-analysis utilities.
 
-Examples:
+Examples include:
 
 ```text
 $to-remediation-specs
@@ -496,7 +501,10 @@ $database-migrations
 $format-code
 $verify-code
 $deduplicate-code
+$project-tracking
 ```
+
+`$project-tracking` is an internal helper but has an intentionally narrow invocation cadence: mandatory from `$spec-merge-cleanup`, explicit human-requested reconciliation, or separately authorized bootstrap/migration. It is not routine internal composition for every lifecycle mutation.
 
 A helper should not jump directly into another lifecycle owner unless its contract explicitly owns that transition. Prefer returning structured state to the parent so the lifecycle owner performs any required Human Handoff.
 
@@ -637,7 +645,7 @@ A durable intermediate artifact may remain valuable even when both producing and
 
 Do not remove durable state merely because a former Human Handoff was removed. First determine whether the artifact also provides recovery, isolation, exact-state binding, auditability, or provenance.
 
-GitHub Project fields are intentionally **not** correctness-critical durable authority. They are a synchronized operational view over the artifacts above.
+GitHub Project fields are intentionally **not** correctness-critical durable authority. They are an eventually consistent operational view over the artifacts above and may legitimately lag until an authorized projection boundary.
 
 ## Parent / Child Ownership
 
@@ -692,7 +700,7 @@ Before adding or changing a cross-skill edge, answer these questions in order:
 9. **Who owns repository/tracker mutations and commits?** Keep ownership explicit.
 10. **Who owns lifecycle routing when the child detects a blocker?** Prefer the parent lifecycle owner.
 11. **Does the change preserve reviewer/verifier independence?** Never trade independence for convenience.
-12. **Does Project tracking need synchronization?** Update it only as a projection of the durable transition and never make it the semantic source of truth.
+12. **Is this an authorized Project projection boundary?** Routine lifecycle transitions defer Project synchronization. Only `$spec-merge-cleanup`, an explicit human-requested board reconciliation, or separately authorized bootstrap/migration should invoke `$project-tracking`.
 13. **Does the transition preserve the durable artifact ownership contract?** In particular, reuse the one conventional Spec Review issue across clean review, remediation, and re-review rather than omitting it or creating one issue per pass.
 14. **Does this transition respect the parent Spec's governance mode?** Never create or require a Wayfinder solely because an intentionally Independent Spec encountered architecture remediation.
 15. **Can the destination recover the complete transition after total session loss?** If not, persist the missing handoff state before presenting the command.
@@ -733,7 +741,7 @@ Do not create one review issue per pass, omit the conventional review issue on a
 
 Do not use Project fields, board columns, labels, or generic automation as proof that a receipt, baseline, blocker, approval, verification, or lifecycle transition exists.
 
-Reconcile Project state from durable workflow artifacts instead.
+Reconcile Project state from durable workflow artifacts only at an authorized projection boundary. Do not create shadow state merely to track that the board is stale.
 
 ### GitHub Open / Closed as Lifecycle State
 

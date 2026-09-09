@@ -1,587 +1,667 @@
 ---
-name: project-tracking
-description: Invoked by Polaris lifecycle owners after a durable workflow transition to reconcile the public GitHub Project projection. Internal helper only; never determines workflow truth.
+name: project-delivery-management
+description: Coordinate project-level delivery across Polaris Wayfinder efforts by owning durable focus and exact parallel-focus authorization, deriving the Wayfinder frontier from canonical tracker state, and providing fail-closed guard, cross-Wayfinder dependency, and reconciliation operations without becoming a delivery executor or GitHub Project authority.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
 
-# Project Tracking
+# Project Delivery Management
 
-Reconcile the public Polaris GitHub Project after the owning lifecycle has already established authoritative durable state.
+Coordinate delivery **at the Polaris project level** across independent Wayfinder efforts.
 
-`$project-tracking` is an internal projection helper. It does not own lifecycle state, delivery focus, scheduling, or correctness.
+This skill owns project-level delivery coordination that has no lower authoritative owner. It does not own Wayfinder decisions, Specs, tickets, implementation, verification, review, merge work, or GitHub Project truth.
+
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover every correctness-critical input from explicit invocation arguments and durable GitHub tracker state. Prior-session summaries or remembered conclusions are routing context only.
+
+Never derive delivery truth from GitHub Project fields, Priority, issue age/order, assignees, branch activity, recent activity, or conversation state.
 
 ## Invocation Boundary
 
-`$project-tracking` supports two internal modes.
+`$project-delivery-management` supports two invocation modes.
 
-### Formal Artifact Projection
+### Human Management Operations
 
-Invoke only:
+Only an explicit human invocation may make a discretionary focus choice:
 
-* from an already-authorized Polaris lifecycle owner after its authoritative tracker/repository transition succeeds; or
-* from an explicit reconciliation flow that independently recovered the authoritative durable state.
+* `focus <Wayfinder>` — establish focus when none exists;
+* `switch-focus <Wayfinder>` — replace the current focused set with one eligible Wayfinder;
+* `parallel-focus <Wayfinder>...` — authorize the exact eligible Wayfinder set for parallel delivery;
+* `status` — inspect canonical project-delivery state without mutation;
+* `reconcile` — apply only deterministic consequences already forced by canonical state.
 
-The caller supplies one or more desired **base formal artifact projections**. For each artifact provide:
+Every focus-changing operation must identify exact Wayfinder issue numbers or URLs.
 
-* GitHub issue URL;
-* `Artifact Type`;
-* `Workflow State`;
-* `Next Skill` — ordinary lifecycle next action before project-delivery overlay;
-* `Work Status` — ordinary lifecycle status before project-delivery overlay;
-* `Area` only when the caller intentionally owns an Area presentation change;
-* `Root Blocker` as `RB-n` or `None`;
-* `Completed On` as `YYYY-MM-DD` only when `Workflow State = Complete`, otherwise `None`;
-* `Priority` only when the caller intentionally owns a priority change;
-* after project-delivery bootstrap, `Project Delivery State` for every active formal artifact whose `Workflow State` is neither `Complete` nor `Superseded`: `in-focus | eligible | blocked | independent`.
+Do not infer a focus change from an invocation of `$wayfinder`, `$to-specs`, `$implement-ticket`, or another lifecycle owner.
 
-`Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
+### Internal Composition
 
-### Delivery Overlay Sync
+An already-authorized lifecycle owner may invoke this skill internally for:
 
-Only `$project-delivery-management` may invoke this mode.
+* `guard <Wayfinder>` — determine whether substantive work on that exact Wayfinder delivery scope is currently authorized;
+* `dependency ensure <consumer> blocked-by <blocker>` — validate and establish an exact cross-Wayfinder semantic prerequisite;
+* `dependency remove <consumer> blocked-by <blocker>` — remove an exact cross-Wayfinder prerequisite only when authoritative evidence says it no longer applies;
+* `reconcile` — reduce canonical tracker state after an authoritative transition already succeeded.
 
-The caller supplies one or more exact open Wayfinder-managed formal artifact URLs plus their current authoritative `Project Delivery State`: `in-focus | eligible | blocked`.
+Internal composition may never:
 
-This mode does not determine or change lifecycle state. It reads the existing Project row, requires `Artifact Type` to be one of `Wayfinder Map`, `Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, or `Review Remediation Ticket`, preserves the current projected `Workflow State`, and reconstructs only the base `Work Status` and base `Next Skill` required to re-apply the delivery overlay.
+* establish focus from an empty set;
+* switch focus;
+* add a Wayfinder to parallel focus;
+* broaden an existing parallel authorization;
+* invent a dependency from prose, Project state, similarity, or architectural overlap.
 
-For these exact supplied open artifacts, read their complete current native `blocked by` state once from GitHub Issues before reconstructing base `Work Status`. This is dependency-status evidence only: do not decide whether an edge is semantically correct, add/remove relationships, or promote a lower-level blocker into project-delivery state. Require `blockedBy.nodes` count to equal `blockedBy.totalCount` for every supplied artifact; unreadable, missing, or truncated blocker data fails closed.
+Deterministic removal of completed or directly ineligible focused Wayfinders is reconciliation, not a discretionary focus choice.
 
-Derive the base route from **Base Artifact Route Compatibility** below:
+If an internal operation returns a **Human Focus Handoff** defined by this skill, the caller must surface that handoff to the human unchanged in meaning. The caller must not execute the suggested focus operation implicitly or replace it with an inferred downstream lifecycle action.
 
-* `Workflow State = Blocked` → base `Work Status = Blocked`;
-* otherwise, one or more open native blockers → base `Work Status = Blocked`;
-* otherwise, `Wayfinder Map / Spec Delivery` → base `Work Status = In Progress`;
-* every other listed active route → base `Work Status = Ready`;
-* base `Next Skill` is the allowed route value for the exact `Artifact Type` + `Workflow State`;
-* for `Spec Review / Review Remediation`, read its native remediation-ticket children to choose `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action.
+## Authority Model
 
-Native blockers affect `Work Status` only in this sync mode. They do not rewrite `Workflow State`, suppress or replace the base `Next Skill`, or determine `Delivery State`.
+Keep each fact at its lowest authoritative owner.
 
-Any unlisted artifact/route combination, missing required context, ambiguous `Spec Review / Review Remediation` child state, incomplete blocker data, or terminal `Workflow State = Complete` / `Superseded` in this open-artifact sync mode is projection drift and fails closed.
-
-This mode may repair `Delivery State`, final `Work Status`, and final `Next Skill` only; it never rewrites `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
-
-Do not hand `$project-tracking` itself to the human. Return its result to the caller.
-
-## Authority Rules
-
-The caller's base projection and project-delivery context must come from durable workflow evidence already recovered by the caller.
-
-Never infer workflow or delivery truth from:
-
-* GitHub issue Open/Closed state alone;
-* current Project fields;
-* labels;
-* saved-view position;
-* hierarchy/sub-issue position alone;
-* prior conversation/session memory.
-
-Project state may be read only to detect and repair projection drift.
-
-Project-delivery focus is authoritative only through `$project-delivery-management` and canonical tracker state. `$project-tracking` never derives focus from Project values.
-
-After project-delivery bootstrap, every formal artifact has exactly one visible delivery relationship:
-
-* `Workflow State = Complete` → `Released`; no caller-supplied project-delivery context is required;
-* `Workflow State = Superseded` → `Superseded`; no caller-supplied project-delivery context is required;
-* active Wayfinder-managed artifact governed by at least one currently focused Wayfinder → caller supplies `in-focus`;
-* active Wayfinder-managed artifact governed by no focused Wayfinder but at least one frontier-eligible Wayfinder → caller supplies `eligible`;
-* active Wayfinder-managed artifact for which no governing Wayfinder is currently frontier-eligible → caller supplies `blocked`;
-* active formal artifact durably established as intentionally outside Wayfinder delivery governance → caller supplies `independent`.
-
-For multiple governing Wayfinders, one focused eligible governor is sufficient for `in-focus`; otherwise one eligible governor is sufficient for `eligible`.
-
-`independent` is an explicit durable classification, not a fallback for missing or ambiguous Wayfinder provenance. A Wayfinder-managed artifact with unresolved governance is invalid rather than `independent`.
-
-Before project-delivery bootstrap, `Delivery State` is outside this helper's required projection contract.
-
-If caller-supplied durable state is contradictory or ambiguous, reject it. Do not repair semantic state from the Project.
-
-### Visible Delivery State Projection
-
-Map authoritative context into the Project's universal `Delivery State` field:
-
-| Authoritative context | Project `Delivery State` |
+| Concern | Authority |
 | --- | --- |
-| `in-focus` | In Focus |
-| `eligible` | Eligible |
-| `blocked` | Denied |
-| `independent` | Independent |
-| `Workflow State = Complete` | Released |
-| `Workflow State = Superseded` | Superseded |
+| Wayfinder identity, destination, decisions, handoffs | individual Wayfinder artifacts |
+| Wayfinder membership | canonical `wayfinder:map` issues |
+| same-lineage dependency semantics | existing lifecycle owner for that lineage |
+| cross-Wayfinder dependency semantics/writer authority | `$project-delivery-management` |
+| native dependency relationship mechanics | `$github-issue-dependencies` |
+| focused Wayfinder set | Project Delivery Management singleton |
+| exact parallel-focus authorization | Project Delivery Management singleton + authorization comment |
+| frontier / eligible / queued / blocked classification | derived here |
+| GitHub Project fields | downstream projection only |
 
-`Delivery State` answers only the artifact's current relationship to project-level delivery authorization. `Denied` means current project-delivery authorization forbids advancement; it is distinct from lifecycle/execution `Blocked` in `Workflow State` or `Work Status`. `Superseded` is a terminal non-completion disposition: the artifact was retired from active delivery because newer product or architecture authority replaced it, not successfully delivered or released. The field never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
+Do not maintain a duplicate registry of Wayfinder maps or a persisted dependency/frontier/queue registry.
 
-A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness is reported by its owning lifecycle and must not create a separate Delivery State value.
+Native GitHub `blocked by` relationships are the durable dependency truth. This skill decides and reconciles only relationships that cross Wayfinder lineages; it delegates the native relationship mutation to `$github-issue-dependencies`.
 
-## Projection Invariants
+## Deferred Project Projection
 
-Validate the base lifecycle projection before any Project mutation:
+The GitHub Project is an eventually consistent downstream projection. This skill never invokes `$project-tracking` as a side effect of focus, dependency, guard, or deterministic reconciliation operations.
 
-* `Workflow State = Complete` requires base `Work Status = Done`, base `Next Skill = None`, and non-empty `Completed On`;
-* `Workflow State = Superseded` requires base `Work Status = Done`, base `Next Skill = None`, and `Completed On = None`;
-* non-`Complete` requires `Completed On = None`;
-* non-empty `Root Blocker` is valid only for `Artifact Type = Review Remediation Ticket` and must match `RB-[0-9]+`;
-* `Area` and `Priority` are preserved when omitted; either may be blank;
-* requested single-select values must exist in the Project schema;
-* `Artifact Type`, `Workflow State`, and base `Next Skill` must satisfy **Base Artifact Route Compatibility**.
+Canonical focus and dependency truth must still be persisted and verified immediately. Project projection is deferred to:
 
-Never infer `Completed On` from issue closure.
+* mandatory completed-Spec reconstruction in `$spec-merge-cleanup`;
+* an explicit human request to refresh/reconcile the board; or
+* separately authorized bootstrap/migration.
 
-A caller-supplied `Superseded` projection requires explicit durable retirement authority recovered outside the Project. Issue closure or the current Project row alone is never sufficient. Ordinary new work must not silently reactivate a superseded artifact merely because a similar capability is required later; create or use a current lifecycle artifact and retain the superseded artifact as historical provenance. Correcting an erroneous supersession must first change the authoritative tracker state outside this helper.
+A human invocation of `focus`, `switch-focus`, `parallel-focus`, `dependency ...`, `status`, or `reconcile` is **not** by itself a board-refresh request. If the human also explicitly asks for the Project to be refreshed, the active workflow performs that as a separate authorized projection operation after this skill returns canonical state.
 
-When an artifact legitimately re-enters from `Complete`, clear `Completed On` and require its current active `Project Delivery State` to be re-established from durable authority.
+Do not persist pending Project updates, descendant-sync worklists, or another delivery-overlay registry. The authoritative singleton, native dependencies, Wayfinder lineage, and lifecycle artifacts are sufficient to reconstruct the board later.
 
-### Base Artifact Route Compatibility
+Project lag never changes focus, frontier eligibility, dependency truth, or lifecycle authorization.
 
-`Next Skill` names the next human-invocable lifecycle/HITL entry point for that Project row before delivery authorization is considered. Never copy a descendant's next action onto its parent.
+## Cross-Wayfinder Dependency Reconciliation
 
-`None` is correct when the artifact remains active while child/downstream work owns the next executable action.
+A **cross-Wayfinder dependency** is an exact semantic prerequisite between artifacts governed by different Wayfinder lineages.
 
-| Artifact Type | Workflow State | Allowed base `Next Skill` |
-| --- | --- | --- |
-| Wayfinder Map | Architecture Decision | `$wayfinder` |
-| Wayfinder Map | Ready to Spec | `$to-specs` |
-| Wayfinder Map | Spec Delivery | None |
-| Wayfinder Map | Architecture Remediation | `$wayfinder` |
-| Wayfinder Map | Blocked | None |
-| Wayfinder Map | Complete | None |
-| Wayfinder Decision | Architecture Decision | `$wayfinder` |
-| Wayfinder Decision | Blocked | None |
-| Wayfinder Decision | Complete | None |
-| Spec | Ready to Ticket | `$to-tickets` |
-| Spec | Ready to Implement | None |
-| Spec | Ready to Verify | `$verify-spec` |
-| Spec | Ready to Review | `$review-spec` |
-| Spec | Review Remediation | None |
-| Spec | Architecture Remediation | `$architecture-remediation` |
-| Spec | Ready to Merge | `$spec-merge-cleanup` |
-| Spec | Blocked | None |
-| Spec | Complete | None |
-| Implementation Ticket | Ready to Implement | `$implement-ticket` |
-| Implementation Ticket | Architecture Remediation | `$architecture-remediation` |
-| Implementation Ticket | Blocked | None |
-| Implementation Ticket | Complete | None |
-| Spec Review | Review Remediation | `$to-tickets` or None |
-| Spec Review | Architecture Remediation | `$architecture-remediation` |
-| Spec Review | Blocked | None |
-| Spec Review | Complete | None |
-| Review Remediation Ticket | Ready to Implement | `$implement-ticket` |
-| Review Remediation Ticket | Awaiting Root Verification | `$verify-root-closure` |
-| Review Remediation Ticket | Architecture Remediation | `$architecture-remediation` |
-| Review Remediation Ticket | Blocked | None |
-| Review Remediation Ticket | Complete | None |
+Dependency means:
 
-For every formal `Artifact Type` listed above, `Workflow State = Superseded` is additionally valid only with base `Next Skill = None`.
+> The consumer artifact may not advance until the blocker artifact completes through its own authoritative lifecycle.
 
-Context-sensitive `None` cases:
+The blocker artifact's lifecycle completion supplies the satisfaction boundary. Do not introduce a second dependency type such as planning-vs-delivery.
 
-* `Spec / Ready to Implement` waits on implementation-ticket children;
-* `Spec / Review Remediation` waits on Spec Review/remediation lineage;
-* `Spec Review / Review Remediation` uses `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action;
-* `Wayfinder Map / Spec Delivery` means durable Derived/Remediation Spec handoffs exist and at least one governed Spec remains open; those Specs own the next executable action.
+### Recover and Validate Lineage
 
-`Wayfinder Map / Ready to Spec` means specification itself is next. Once durable Spec handoffs exist with active governed Specs, do not leave the map in `Ready to Spec`.
+Before deciding ownership, recover the exact governing Wayfinder for both consumer and blocker from durable tracker relationships/provenance.
 
-Reject any unlisted combination.
+Use the artifact's existing lifecycle lineage:
 
-### Project Delivery Overlay
+* Wayfinder map → itself;
+* Wayfinder decision → its native Wayfinder parent;
+* Spec → its durable Wayfinder source/remediation governance applicable to the requested relationship;
+* implementation/review artifacts → their parent Spec/Spec Review lineage and that artifact's governing Wayfinder.
 
-Validate the base route first. Then apply delivery coordination without changing `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
+The caller may supply the expected lineage as routing context, but this skill must validate it against durable tracker evidence.
 
-For `Workflow State = Complete` project exactly:
+If an artifact currently has multiple plausible governing Wayfinders and the relationship context does not establish exactly one, fail closed. Do not choose a lineage heuristically.
 
-```text
-Work Status = Done
-Next Skill = None
-Delivery State = Released
-```
+If consumer and blocker resolve to the same Wayfinder lineage, do not mutate the edge here. Return the relationship to the existing same-lineage lifecycle owner.
 
-For `Workflow State = Superseded` project exactly:
+### Lowest Accurate Semantic Boundary
 
-```text
-Work Status = Done
-Next Skill = None
-Delivery State = Superseded
-Completed On = None
-```
+For `dependency ensure`, require durable semantic evidence for this exact prerequisite. A title similarity, broad architectural reference, Project field, label, or prose such as “Map B depends on Map A” is candidate evidence only.
 
-Do not require or apply a caller-supplied `Project Delivery State` to either terminal workflow state.
+Choose the **narrowest authoritative consumer and blocker artifacts whose lifecycle boundaries make the prerequisite true**.
 
-For an active artifact with `Project Delivery State = independent`, preserve base `Work Status` and base `Next Skill` and project `Delivery State = Independent`.
+Normal shapes include:
 
-For a **Wayfinder Map**:
+* decision blocked by decision;
+* Spec blocked by Spec;
+* implementation ticket blocked by implementation ticket.
 
-| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
-| --- | --- | --- | --- |
-| `in-focus` | In Progress | preserve base | In Focus |
-| `eligible` | Ready | `$project-delivery-management` | Eligible |
-| `blocked` | Blocked | None | Denied |
+Same-level symmetry is not mandatory. Use a cross-level relationship when it is genuinely the narrower accurate completion boundary.
 
-Rules:
+Before accepting the pair, ask both:
 
-* `in-focus` and `eligible` are invalid with `Workflow State = Blocked`;
-* an eligible Wayfinder never advertises `$wayfinder` or `$to-specs`;
-* a focused-but-stalled Wayfinder remains `in-focus` / `In Focus` and `In Progress`.
+1. Does completion of this blocker fully satisfy the prerequisite represented by this edge?
+2. Is there a narrower authoritative consumer or blocker artifact that expresses the prerequisite without blocking unrelated work?
 
-For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, `Review Remediation Ticket`):
+If either answer is unresolved, fail closed with `AMBIGUOUS DEPENDENCY PLACEMENT` and do not mutate.
 
-| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
-| --- | --- | --- | --- |
-| `in-focus` | preserve base | preserve base | In Focus |
-| `eligible` | preserve base | preserve base | Eligible |
-| `blocked` | Blocked | preserve base | Denied |
+### Whole-Map Dependency Gate
 
-Delivery authorization never suppresses a descendant's lifecycle route. `Next Skill` continues to name the lifecycle owner even when delivery is currently `Eligible` or `Denied`; that lifecycle owner must enforce its existing project-delivery guard before substantive work. `None` appears only when the base lifecycle route itself is `None`.
+Wayfinder → Wayfinder is valid only when **the downstream destination as a whole** cannot safely advance until the upstream Wayfinder is delivery-complete and no narrower authoritative prerequisite is sufficient.
 
-A lifecycle- or dependency-blocked descendant may therefore be `Delivery State = In Focus` or `Eligible` while `Work Status = Blocked`; the columns describe different facts.
+If any legitimate portion of the downstream map can proceed independently, do not create the map-level edge. Place the prerequisite lower or reject the proposal as unresolved.
 
-`$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
+The #188/#194 relationship is the standing counterexample: broad prose says the background-ingestion worker consumes incremental-ingestion semantics, but #195 can proceed independently while #196 depends narrowly on #189/#190 and #198 depends narrowly on #193. Never translate that evidence into `#194 blocked by #188`.
 
-### Terminal Disposition Checks
+### Cycle Guard
 
-A caller-supplied `Complete` projection requires durable lifecycle authority. Tracker relationships may only prove that completion is impossible; they never establish completion by absence.
+Before adding `consumer blocked-by blocker`:
 
-Before accepting `Complete`:
+1. reject consumer = blocker;
+2. recover the complete native `blocked by` graph reachable from the blocker;
+3. require blocker data to be complete at every visited artifact;
+4. reject the edge if the consumer is reachable from the blocker.
 
-* Wayfinder Map — reject if any currently governed Derived/Remediation Spec remains open, any unresolved Wayfinder decision remains, or in-scope `Not yet specified` fog remains;
-* preserve original `wayfinder-source` versus additive `wayfinder-remediation` provenance while checking governed Specs;
-* Spec — reject if any implementation-ticket child or associated Spec Review remains open;
-* Spec Review — reject if any review-remediation ticket remains open.
+That reachability means the new edge would create a dependency cycle.
 
-A caller-supplied `Superseded` projection is not completion and must not use the completion contradiction checks as proof. Require explicit durable retirement authority from the owning lifecycle or reconciliation operation. Supersession may intentionally retire unfinished descendants, so their historical incompleteness does not convert the parent into `Blocked` or `Complete`.
+Do not interpret an unreadable/truncated graph as acyclic. Fail closed.
 
-If route compatibility, delivery overlay, or terminal-disposition validation fails, do not mutate the Project:
+### Ensure an Edge
+
+For `dependency ensure <consumer> blocked-by <blocker>`:
+
+1. recover/validate both lineages;
+2. require they are different;
+3. validate durable semantic evidence and lowest accurate placement;
+4. pass the Whole-Map Dependency Gate when both artifacts are Wayfinder maps;
+5. run the Cycle Guard;
+6. re-read the consumer's native blockers immediately before mutation;
+7. if the exact edge already exists, verify it and return idempotent success;
+8. when both artifacts are Wayfinder maps, capture the current focused set before adding the edge;
+9. invoke `$github-issue-dependencies` to add only that native `blocked by` relationship;
+10. re-read the consumer and require the exact blocker relationship to exist;
+11. run deterministic focus reconciliation because a newly added direct map blocker may invalidate current focus;
+12. if this new open map-level blocker caused a previously focused consumer to be removed from focus, emit the **Dependency Focus Handoff** below.
+
+Do not create parent/sub-issue hierarchy here. Do not invoke `$project-tracking`; board projection is deferred under **Deferred Project Projection**.
+
+#### Dependency Focus Handoff
+
+This handoff reports a forced loss of focus; it never chooses the replacement.
+
+If the newly established open blocker caused the consumer to leave focus, report:
 
 ```text
-PROJECT TRACKING: INVALID PROJECTION
-Artifact: <title / URL>
-Rejected projection: <field=value summary>
-Reason: <concise invariant failure>
+PROJECT DELIVERY: FOCUS RELEASED BY DEPENDENCY
+Previously focused: #<consumer>
+Now blocked by: #<blocker>
+Current focus: <None | exact focused set>
 ```
 
-## Execution Contract
+Then re-read the blocker as a Wayfinder map and its complete direct blocker set.
 
-Use the deterministic command path below for steady-state projection and overlay sync.
-
-Do **not**:
-
-* probe `gh` capabilities with `--help`;
-* try alternate command/flag combinations;
-* retry a failed command using a different interface;
-* inspect or repair Project views, workflows, auto-add rules, or schema;
-* narrate successful intermediate discovery, field edits, waits, or no-op checks.
-
-The supported baseline is GitHub CLI `gh 2.97.0` or newer with authenticated `project` scope.
-
-If a prescribed command is unsupported or fails because of CLI/API compatibility, return `PROJECT TRACKING: DRIFT`. Do not discover another interface during the lifecycle run.
-
-For `gh 2.97.0`, **never combine** `gh project item-list --format json` with `--field` / `--field-id`.
-
-Steady-state execution is:
+If current focus is `None` and the blocker is frontier-eligible, append exactly:
 
 ```text
-validate projection
-→ resolve Project once
-→ read supplied native blocker state once in Delivery Overlay Sync
-→ read schema once
-→ read affected current rows once
-→ add only missing members
-→ compute field deltas
-→ submit one batched GraphQL mutation
-→ verify affected rows once
+Next human action:
+$project-delivery-management focus #<blocker>
 ```
 
-If no membership or field delta exists, skip mutation and return `SYNCED` after verification.
+If the blocker is not frontier-eligible, list its open direct map blockers and state that no focus command for the blocker is currently valid. Do not traverse the dependency graph to select another Wayfinder.
 
-## 1. Resolve the Existing Project
+If another Wayfinder remains focused, report the blocker as frontier-eligible or blocked and list only the valid explicit human choices (`switch-focus` or an exact `parallel-focus` set when eligible). Do not mutate the remaining focus.
 
-Resolve repository owner once:
+### Remove an Edge
+
+Absence of prose or a closed blocker is not evidence that a dependency should be deleted. A closed blocker satisfies the existing edge; reopening it must make the edge blocking again.
+
+For `dependency remove <consumer> blocked-by <blocker>` require authoritative evidence that the semantic prerequisite itself no longer applies or was established in error.
+
+Then:
+
+1. recover/validate both lineages and confirm this skill owns the cross-lineage relationship;
+2. re-read the exact current edge;
+3. if absent, return idempotent success;
+4. invoke `$github-issue-dependencies` to remove only that native relationship;
+5. re-read and require the relationship to be absent;
+6. run deterministic focus reconciliation. Newly eligible maps are never auto-focused.
+
+Do not invoke `$project-tracking`; board projection is deferred.
+
+### Dependency Failure Result
+
+On cycle, ambiguous placement/lineage, unsupported inference, incomplete graph data, mutation failure, or post-mutation verification failure, return:
+
+```text
+PROJECT DELIVERY DEPENDENCY: INVALID
+Consumer: <issue>
+Blocker: <issue>
+Reason: <cycle | ambiguous placement | ambiguous lineage | unsupported inference | incomplete graph | mutation/verification failure>
+```
+
+Do not partially rewrite another dependency, focus state, hierarchy, or Project projection to compensate.
+
+## Canonical Singleton
+
+The durable control artifact is exactly one long-lived GitHub issue carrying the label:
+
+```text
+project-delivery:management
+```
+
+The label is the canonical discovery and **bootstrap activation** key. The title `Project Delivery Management` is presentation, not identity.
+
+The singleton:
+
+* is not a `wayfinder:map`;
+* is not the native parent of Wayfinder maps;
+* must not carry `workflow:tracked`;
+* is not workflow truth because of any GitHub Project membership.
+
+Bootstrap/migration owns creating the label and singleton.
+
+### Bootstrap Activation Boundary
+
+Project-delivery focus enforcement has two durable phases so the workflow can implement its own cutover without a circular dependency.
+
+**Pre-bootstrap** means the repository does not yet contain the canonical `project-delivery:management` label.
+
+In pre-bootstrap mode:
+
+* no singleton is expected and no focused-set state exists;
+* `guard <Wayfinder>` still validates that the target is a canonical open Wayfinder with no open direct map blocker;
+* an eligible target returns `PROJECT DELIVERY GUARD: ALLOWED` with `Mode: pre-bootstrap`;
+* a directly blocked target still returns `PROJECT DELIVERY GUARD: BLOCKED`;
+* `reconcile` performs no focus mutation because focus authority is not activated yet;
+* `status` reports `PROJECT DELIVERY MANAGEMENT: NOT BOOTSTRAPPED` plus the derivable Wayfinder frontier;
+* human `focus`, `switch-focus`, and `parallel-focus` operations are unavailable because there is no durable focus owner yet;
+* cross-Wayfinder dependency validation/mutation may still operate because native dependency semantics do not depend on the singleton focused set.
+
+This is a temporary cutover compatibility mode, not an alternate scheduler. Do not infer or persist focus while pre-bootstrap.
+
+**Activation begins when the canonical label exists.** From that point forward, require exactly one matching open singleton. Zero, multiple, or closed matching control issues fail closed. A partially applied migration that created the label but not a valid singleton is therefore invalid rather than silently treated as pre-bootstrap.
+
+Migration should create the label and singleton in one audited cutover sequence and initialize:
+
+```text
+Focused Wayfinders: None
+Parallel authorization: None
+```
+
+An already-running lifecycle that entered with `PROJECT DELIVERY GUARD: ALLOWED` in `Mode: pre-bootstrap` may finish **only that current atomic bootstrap/cutover lifecycle** if it is the operation activating project delivery. Activation during that invocation does not retroactively invalidate the authorization that was required to perform the cutover itself.
+
+That inherited pre-bootstrap authorization:
+
+* may not authorize a new human lifecycle after cutover;
+* may not establish, switch, or broaden focus;
+* may not be used to emit a downstream lifecycle handoff that requires focused delivery after activation.
+
+Every later human lifecycle observes the activated singleton and normal focus rules.
+
+When activation is in effect, discover across open and closed issues so a mistakenly closed singleton cannot be bypassed by creating another:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
-OWNER=${REPO%%/*}
+
+gh issue list \
+  --repo "$REPO" \
+  --state all \
+  --label project-delivery:management \
+  --limit 100 \
+  --json number,title,url,state,labels,body
 ```
 
-For **Delivery Overlay Sync** only, read open issue blocker state exactly once after resolving `REPO`:
+Require exactly one result and require it to be open.
+
+### Current-State Contract
+
+The singleton body contains exactly one current-state block:
+
+```markdown
+## Current Delivery State
+
+**Focused Wayfinders:** None
+**Parallel authorization:** None
+```
+
+Canonical focused-set representation:
+
+* `None` for the empty set;
+* otherwise issue references sorted by issue number, comma-separated: `#53, #188`.
+
+`Parallel authorization` is:
+
+* `None` when the focused set has cardinality `0..1`;
+* the URL of the durable authorization comment when the focused set has cardinality greater than one.
+
+Do not persist frontier, queue order, blocked state, Priority, lifecycle stage, Project fields, or deferred Project projection state in this block.
+
+Preserve historical focus decisions as issue comments rather than accumulating history in the current-state block.
+
+### Focus Authorization Comment
+
+Before a human focus-changing operation updates the current-state block, append:
+
+```markdown
+## Project Delivery Focus Authorization
+
+**Operation:** focus | switch-focus | parallel-focus
+**Focused Wayfinders:** #<n>[, #<n>...]
+**Authorization source:** explicit human invocation
+```
+
+The GitHub comment author and timestamp provide durable attribution. For `parallel-focus`, store that comment URL in `Parallel authorization`.
+
+If the comment cannot be persisted, do not mutate current focus.
+
+## Recover Canonical Wayfinders
+
+Wayfinder membership is discovered, never registered here.
 
 ```bash
 gh issue list \
   --repo "$REPO" \
   --state open \
+  --label wayfinder:map \
   --limit 1000 \
-  --json number,url,blockedBy
+  --json number,title,url,state,blockedBy
 ```
 
-Locate every supplied artifact by issue number/URL. Require each supplied artifact to be present and require `blockedBy.nodes` count to equal `blockedBy.totalCount`. Record only its open native blockers for base `Work Status` derivation. Do not interpret dependency semantics or mutate relationships from this read.
+For every returned map:
 
-Resolve exactly one open Project titled `Polaris` once:
+1. require `blockedBy.nodes` count to equal `blockedBy.totalCount`; otherwise fail closed because blocker data is truncated;
+2. inspect blocker state from the native relationship;
+3. classify the map as frontier-eligible only when it is open and has zero open direct blockers.
 
-```bash
-gh project list --owner "$OWNER" --format json
-```
+The **Wayfinder frontier** is exactly the set of open canonical Wayfinder maps with no open direct native blockers.
 
-Capture its Project number and GraphQL node ID. Fail closed if unreadable, missing, or ambiguous.
+Do not consult Priority, Project fields, issue ordering, issue age, assignee state, branch state, recency, or lower-level Spec/ticket blockers when determining the map frontier.
 
-Do not hard-code the Project number or node ID.
+Lower-level blockers remain lower-level.
 
-Do not run `gh auth status` or `gh auth refresh` during normal reconciliation. Authentication failure is Project drift; the operator may repair auth outside this helper.
+## Validate Current Focus
 
-## 2. Read and Validate Schema Once
+When bootstrap activation is in effect, parse the singleton current-state block and validate it against canonical tracker state.
 
-Run exactly once per invocation:
+Require:
 
-```bash
-gh project field-list "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --limit 100 \
-  --format json
-```
+1. every focused issue is a canonical Wayfinder map;
+2. every focused Wayfinder is currently in the Wayfinder frontier;
+3. focused-set cardinality `0..1` has `Parallel authorization: None`;
+4. focused-set cardinality `>1` has a valid authorization comment whose exact sorted Wayfinder set matches the current focused set.
 
-Require existing fields:
+If cardinality is greater than one without matching durable authorization, return invalid control state. Do not choose which Wayfinder to keep.
 
-* `Artifact Type` — single select;
-* `Workflow State` — single select;
-* `Next Skill` — single select;
-* `Work Status` — single select;
-* `Intake State` — single select;
-* `Priority` — single select;
-* `Area` — single select;
-* `Root Blocker` — text;
-* `Completed On` — date.
+If current state is malformed or ambiguous, fail closed.
 
-When project-delivery bootstrap is active, additionally require:
+## Deterministic Reconciliation
 
-* `Delivery State` — single select with `In Focus`, `Eligible`, `Denied`, `Independent`, `Released`, `Superseded`;
-* `Workflow State` options `Spec Delivery` and `Superseded`;
-* `Next Skill` option `$project-delivery-management`.
+In pre-bootstrap mode, `reconcile` reports the derivable Wayfinder frontier and performs no focus mutation.
 
-If these projection additions are missing, return drift and report the exact missing Project schema. Steady-state `$project-tracking` never mutates schema.
+After activation, `reconcile` may change focus only when canonical state forces the consequence.
 
-From this one response capture:
+1. Re-read the singleton.
+2. Re-read canonical `wayfinder:map` issues and their direct blockers.
+3. Derive the current Wayfinder frontier.
+4. Remove from the focused set any Wayfinder that:
+   * is closed; or
+   * has an open direct map blocker; or
+   * is no longer a canonical `wayfinder:map`.
+5. Record which focused Wayfinders were removed because they are closed.
+6. Never add a replacement.
+7. If a previously parallel set shrinks to one or zero, set `Parallel authorization: None`. Historical authorization remains in comments.
+8. Persist the new current-state block only when its value changed.
+9. Re-read and verify the exact persisted state.
+10. For each closed focused Wayfinder removed in step 5, derive open canonical Wayfinders that directly list it in `blocked by` and are now frontier-eligible. If any exist, emit the **Prerequisite Completion Handoff** below.
 
-* each required field's GraphQL node ID;
-* every requested single-select option ID.
+A newly eligible Wayfinder never joins the focused set automatically. Project projection is not part of reconciliation.
 
-Validate only the fields/options required by the supplied projections. Do not inspect unrelated Project configuration.
+### Prerequisite Completion Handoff
 
-## 3. Read Affected Current Rows Once
+This handoff identifies downstream work that became eligible because a focused prerequisite completed. It never chooses among multiple successors.
 
-Read Project items once for all supplied artifacts:
-
-```bash
-gh project item-list "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --limit 1000 \
-  --field "Artifact Type" \
-  --field "Workflow State" \
-  --field "Delivery State" \
-  --field "Next Skill" \
-  --field "Work Status" \
-  --field "Intake State" \
-  --field "Priority" \
-  --field "Area" \
-  --field "Root Blocker" \
-  --field "Completed On"
-```
-
-Do not add `--format json` to this command on `gh 2.97.0`.
-
-Locate each supplied artifact by repository + issue number/URL and capture:
-
-* Project item node ID;
-* current required field values.
-
-### Missing Membership
-
-Direct Project membership is the synchronization mechanism.
-
-If an artifact is absent, add it once:
-
-```bash
-gh project item-add "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --url "$ISSUE_URL" \
-  --format json
-```
-
-Capture the returned item ID when available.
-
-If any item was added, rerun the affected-row read once after all additions so every target has a current item ID/value snapshot.
-
-Do not maintain or depend on the `workflow:tracked` label. Existing auto-add automation may remain a safety net, but `$project-tracking` neither waits for it nor mutates issue labels.
-
-Never archive/delete formal workflow artifacts merely because they completed or were superseded.
-
-## 4. Compute the Minimal Field Delta
-
-Compare each final projection against its current Project row.
-
-Write only differences.
-
-Rules:
-
-* `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, and final `Work Status` → set only when different;
-* after project-delivery bootstrap, never intentionally leave `Delivery State` empty for a formal artifact;
-* `Area` → preserve unless caller supplied it; then set only when different;
-* `Priority` → preserve unless caller supplied it; then set only when different;
-* `Root Blocker = RB-n` → set text only when different;
-* `Root Blocker = None` → clear only when currently populated;
-* `Completed On` → set date only for `Complete` and only when different; otherwise clear only when populated;
-* `Intake State` → clear only when populated.
-
-If delta count is zero, skip Section 5 and verify.
-
-## 5. Apply All Field Deltas in One GraphQL Request
-
-Do not use one `gh project item-edit` process per field.
-
-GitHub's `updateProjectV2ItemFieldValue` still updates one field value per mutation field, but a GraphQL mutation operation may contain multiple aliased top-level mutation fields. Batch **all** field deltas for **all supplied artifacts** into one `gh api graphql` request.
-
-Use:
-
-* `updateProjectV2ItemFieldValue` to set single-select, text, or date values;
-* `clearProjectV2ItemFieldValue` to clear values.
-
-Example shape:
-
-```graphql
-mutation {
-  u1: updateProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<FIELD_ID>"
-      value: { singleSelectOptionId: "<OPTION_ID>" }
-    }
-  ) {
-    projectV2Item { id }
-  }
-
-  u2: updateProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<ROOT_BLOCKER_FIELD_ID>"
-      value: { text: "RB-17" }
-    }
-  ) {
-    projectV2Item { id }
-  }
-
-  c1: clearProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<INTAKE_STATE_FIELD_ID>"
-    }
-  ) {
-    projectV2Item { id }
-  }
-}
-```
-
-Submit the complete generated operation exactly once:
-
-```bash
-gh api graphql -f query="$MUTATION"
-```
-
-Top-level GraphQL mutation fields execute serially, so preserve a deterministic alias/order.
-
-Requirements:
-
-* one alias per delta;
-* use captured Project/item/field/option IDs rather than field-name discovery during mutation;
-* interpolate only controlled Project values, `RB-n`, and ISO dates; GraphQL-escape any text value;
-* require a successful API response with no GraphQL `errors`;
-* require every mutation alias to return a non-empty `projectV2Item.id`.
-
-If the batch returns any error or incomplete result, report drift. Do not retry failed fields individually through `gh project item-edit`.
-
-GitHub Projects v2 does not provide a REST endpoint that replaces this Project-field mutation. Do not use repository issue-field REST endpoints as Project fields.
-
-## 6. Verify Once
-
-Re-run the exact affected-row command from Section 3 once after mutation.
-
-Require exact agreement with every final projection:
-
-* every artifact is a Project member;
-* required lifecycle/delivery fields equal final projected values;
-* after project-delivery bootstrap, every formal artifact has exactly one valid `Delivery State` value;
-* `Root Blocker` is set/cleared as requested;
-* `Completed On` is set/cleared as requested;
-* `Area` and `Priority` equal supplied values when supplied and otherwise equal their pre-mutation values;
-* `Intake State` is empty.
-
-Do not infer success from mutation exit status alone.
-
-## Operational Output
-
-Keep successful reconciliation silent internally until final verification.
-
-Do not emit progress narration for:
-
-* Project discovery;
-* schema reads;
-* current-row reads;
-* individual membership adds;
-* delta construction;
-* individual GraphQL mutation aliases;
-* waiting for API calls;
-* successful no-op checks.
-
-Return only the final synchronization result to the lifecycle owner unless an invalid projection or drift requires early return.
-
-On success:
+When one or more downstream Wayfinders become frontier-eligible through a closed focused prerequisite, report:
 
 ```text
-PROJECT TRACKING: SYNCED
-Artifact: <title / URL>
-Projection: <field=value summary>
+PROJECT DELIVERY: PREREQUISITE COMPLETE
+Completed prerequisite: #<closed Wayfinder>
+Resumable Wayfinders: #<n>[, #<n>...]
+Current focus: <None | exact focused set>
 ```
 
-For multiple artifacts, return one result per artifact and aggregate `PROJECT TRACKING: SYNCED` only when every artifact verifies.
+Sort resumable Wayfinders by issue number only for stable presentation, not priority.
+
+If current focus is `None` and exactly one resumable Wayfinder exists, append exactly:
+
+```text
+Next human action:
+$project-delivery-management focus #<Wayfinder>
+```
+
+If current focus is `None` and multiple resumable Wayfinders exist, list the exact valid `focus` command for each and, when all are frontier-eligible, the exact `parallel-focus` command for the full sorted set. State that no successor was selected.
+
+If another Wayfinder remains focused, list the resumable Wayfinders and only the exact valid `switch-focus` / `parallel-focus` choices. Do not alter the remaining focus.
+
+An internal caller that triggered reconciliation after authoritative completion must surface this handoff to the human rather than auto-running a resumed Wayfinder lifecycle.
+
+### Focused-but-Stalled
+
+Lack of lower-level actionable work does **not** remove an otherwise frontier-eligible focused Wayfinder.
+
+When a downstream lifecycle owner has authoritatively established that a focused, map-eligible Wayfinder currently has no actionable lower-level work because narrower decision/Spec/ticket blockers remain, report:
+
+```text
+PROJECT DELIVERY: FOCUSED-BUT-STALLED
+```
+
+Retain focus, surface the lower-level blockers, and do not promote those blockers to a synthetic map blocker or silently switch/release focus. The Project may continue to show an older projection until the next authorized board reconciliation.
+
+Lower-level lifecycle owners recover their exact decision/Spec/ticket frontiers at their own boundaries and supply the resulting blockers here.
+
+## Human Focus Operations
+
+Human focus operations are unavailable in pre-bootstrap mode. Bootstrap/cutover activates the singleton with empty focus; a later explicit human invocation may then choose focus.
+
+After activation, always re-read canonical state immediately before mutation.
+
+### `focus <Wayfinder>`
+
+Require:
+
+* current focused set is empty;
+* target is a canonical Wayfinder;
+* target is in the current Wayfinder frontier.
+
+If any check fails, do not mutate focus.
+
+Persist an authorization comment, then set and verify:
+
+```text
+Focused Wayfinders: #<target>
+Parallel authorization: None
+```
+
+Do not invoke `$project-tracking` unless the human separately requested a board refresh.
+
+### `switch-focus <Wayfinder>`
+
+Require the target is a canonical frontier-eligible Wayfinder.
+
+This is an explicit replacement operation. The previously focused Wayfinder remains open and simply becomes eligible-but-unfocused when still in the frontier. Do not create a blocker between the two maps.
+
+Persist an authorization comment, replace and verify the focused set with the target, and clear current parallel authorization. Do not invoke `$project-tracking` unless separately requested.
+
+### `parallel-focus <Wayfinder>...`
+
+Require:
+
+* at least two distinct exact Wayfinder identities;
+* every target is canonical;
+* every target is currently frontier-eligible.
+
+Do not implicitly include an existing focus that the human omitted.
+
+Persist one authorization comment naming the exact sorted set, then set and verify:
+
+```text
+Focused Wayfinders: #<n>, #<n>...
+Parallel authorization: <authorization comment URL>
+```
+
+Later eligible maps are not members unless a new explicit `parallel-focus` invocation authorizes a new exact set. Do not invoke `$project-tracking` unless separately requested.
+
+## Internal `guard <Wayfinder>`
+
+The caller must supply or durably resolve the exact governing Wayfinder before calling this operation.
+
+Re-read canonical map state first.
+
+If pre-bootstrap, return:
+
+```text
+PROJECT DELIVERY GUARD: ALLOWED
+Mode: pre-bootstrap
+```
+
+only when the target is a canonical open Wayfinder with zero open direct map blockers. A directly blocked target returns `PROJECT DELIVERY GUARD: BLOCKED` even before focus activation.
+
+After activation, re-read and reconcile current singleton state first.
+
+Return:
+
+```text
+PROJECT DELIVERY GUARD: ALLOWED
+```
+
+only when the target is both:
+
+* in the current Wayfinder frontier; and
+* in the current focused set.
+
+If the target has an open direct map blocker, return:
+
+```text
+PROJECT DELIVERY GUARD: BLOCKED
+```
+
+and list the open direct blockers.
+
+If the target is frontier-eligible but not focused, return:
+
+```text
+PROJECT DELIVERY GUARD: FOCUS REQUIRED
+```
+
+and report:
+
+* current focused Wayfinder set;
+* target Wayfinder;
+* allowed human management choices: establish focus when empty, switch focus, or authorize an exact parallel set.
+
+Do not mutate focus from an internal guard.
+
+## `status`
+
+`status` is read-only.
+
+In pre-bootstrap mode, report:
+
+* `PROJECT DELIVERY MANAGEMENT: NOT BOOTSTRAPPED`;
+* current Wayfinder frontier;
+* directly blocked open Wayfinders and their open direct blockers;
+* that no focused-set authority exists yet.
+
+After activation, report:
+
+* singleton identity;
+* current focused Wayfinder set;
+* current parallel authorization state;
+* current Wayfinder frontier;
+* eligible-but-unfocused Wayfinders;
+* directly blocked open Wayfinders and their open direct blockers;
+* invalid control-state findings, if any.
+
+Do not order eligible-but-unfocused Wayfinders by Priority, age, number, Project position, or recency.
 
 ## Failure Semantics
 
-Project synchronization happens after authoritative workflow/project-delivery state is durable. A synchronization failure never rolls back, rewrites, reopens, recloses, refocuses, or otherwise changes authoritative workflow state merely to match the Project.
+Fail closed without semantic mutation when:
 
-On membership, auth, schema, network, API, mutation, CLI-contract, or verification failure:
+* bootstrap activation exists but the singleton is missing;
+* more than one singleton exists;
+* the singleton is closed;
+* the current-state block is missing, duplicated, malformed, or references non-Wayfinder issues;
+* focused-set cardinality is greater than one without matching durable parallel authorization;
+* native blocker data is truncated or cannot be read;
+* a requested focus target is not frontier-eligible;
+* cross-Wayfinder dependency lineage or placement is ambiguous;
+* a proposed dependency would create a cycle or is supported only by inference;
+* required dependency/focus persistence cannot be verified.
+
+Use:
 
 ```text
-PROJECT TRACKING: DRIFT
-Artifact: <title / URL>
-Desired projection: <field=value summary>
-Unreconciled: <membership or exact field mismatches>
-Cause: <concise failure>
+PROJECT DELIVERY MANAGEMENT: INVALID STATE
+Reason: <exact durable-state, dependency, or eligibility failure>
 ```
 
-The lifecycle owner continues to treat durable tracker/repository state as authoritative and reports the drift.
+The absence of the canonical activation label is the one valid pre-bootstrap condition; once the label exists, a missing singleton is invalid.
+
+Project drift is never a reason to rewrite canonical focus or dependency state. Because routine operations do not project the board, stale Project fields are not an error result from this skill.
 
 ## Scope Boundary
 
-This helper may:
+This skill may:
 
-* ensure formal issue membership in the existing Polaris Project;
-* validate caller-supplied project-delivery context;
-* read complete native blocker state for supplied open artifacts solely to derive dependency-blocked `Work Status`;
-* apply the deterministic delivery overlay;
-* project the universal visible `Delivery State` field;
-* set/clear existing Project field values;
-* verify final projection.
+* identify pre-bootstrap versus activated project-delivery state from the canonical label boundary;
+* discover the singleton and canonical Wayfinder maps;
+* derive the Wayfinder frontier from direct native blockers;
+* own and persist the focused Wayfinder set after activation;
+* own and persist exact human parallel-focus authorization after activation;
+* guard map-level substantive delivery authorization;
+* own semantic validation/write reconciliation for cross-Wayfinder dependencies;
+* delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
+* deterministically shrink invalid/completed focus membership;
+* report deterministic human focus handoffs after dependency-driven focus release or focused prerequisite completion;
+* report canonical status and focused-but-stalled state.
 
-This helper must not:
+This skill must not:
 
-* determine lifecycle state or project focus;
-* infer delivery state from Project fields or incidental tracker metadata;
-* interpret, create, remove, or otherwise mutate native dependency semantics/relationships while projecting `Work Status`;
-* modify GitHub issue labels or issue content;
-* open/close issues;
-* create/change parent, sub-issue, or blocking relationships;
-* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation;
-* archive/delete formal workflow history;
-* modify repository files;
-* perform another lifecycle Human Handoff.
+* create/bootstrap or migrate the live singleton during steady-state operation;
+* infer or persist focus in pre-bootstrap mode;
+* own same-lineage dependency semantics;
+* create parent/sub-issue hierarchy while reconciling cross-Wayfinder dependencies;
+* infer dependencies from broad prose, Project state, labels, priority, similarity, or architectural overlap;
+* write Wayfinder decisions, Specs, tickets, implementation, verification, review, or merge artifacts;
+* own detailed Spec/ticket frontier semantics;
+* directly mutate GitHub Project state during routine focus/dependency/reconciliation operations;
+* persist Project projection debt or descendant synchronization worklists;
+* auto-run downstream lifecycle skills;
+* auto-select a successor Wayfinder.
+
+GitHub Project projection mechanics remain with `$project-tracking` at authorized projection boundaries.
+
+## Transition-Bound Dependency Authorization
+
+Cross-Wayfinder dependency mutation requires explicit semantic authorization state before the mechanical `$github-issue-dependencies` call. Native relationship mechanics and successful rereads cannot compensate for an unproven semantic edge.
+
+For every `dependency ensure` or `dependency remove`, create one working **Dependency Authorization Record**:
+
+```text
+Consumer: <artifact>
+Blocker: <artifact>
+Consumer lineage: <validated Wayfinder>
+Blocker lineage: <validated Wayfinder>
+Semantic prerequisite: <exact durable evidence>
+Blocker-completion test: <pass | fail | unresolved> — <does completion fully satisfy this prerequisite?>
+Narrower-boundary test: <pass | fail | unresolved> — <is this the narrowest authoritative placement?>
+Whole-map gate: <pass | fail | not-applicable>
+Cycle proof: <pass | fail | unresolved>
+Operation authority: <ensure-authorized | remove-authorized | reject | ambiguous>
+Evidence: <exact authority/current state>
+```
+
+For `ensure`, mutation is legal only with `ensure-authorized`, both semantic placement tests `pass`, applicable Whole-Map gate `pass`, and Cycle proof `pass`. A broad prose dependency, title similarity, Project state, or convenience cannot fill one of these fields.
+
+For `remove`, mutation is legal only with `remove-authorized` and authoritative evidence that the semantic prerequisite no longer applies or was established in error. Blocker closure, absence of recent prose, or current non-blocking behavior is not removal authority.
+
+`reject` performs no mutation. Any unresolved required field produces `ambiguous`, fails closed, and returns the existing dependency failure result. The record is per-operation working state; do not persist it as a parallel dependency registry.
+
+The existing exact post-mutation relationship reread remains mandatory after authorization. Semantic authorization and mechanical verification are separate gates and both must pass.

@@ -1,6 +1,6 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and any remediation Spec Review, and reconciles completion with every governing Wayfinder map.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and any remediation Spec Review, reconciles completion with every governing Wayfinder map, and reconstructs the completed Spec lineage into the GitHub Project in one batch.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -279,32 +279,100 @@ Failure to determine a governing relationship is not permission to guess and is 
 
 ## Mandatory Project Reconciliation
 
-After authoritative Spec completion, optional Spec Review cleanup, dependent-Spec actionability recovery, Wayfinder Completion Reconciliation, and required `$project-delivery-management` reconciliation are durable, invoke `$project-tracking` as prescribed internal composition **before** successful return.
+This is the normal automatic Project synchronization boundary for Polaris delivery. Earlier lifecycle skills intentionally allow Project membership and fields to lag; therefore **reconstruct the completed Spec lineage from authoritative durable state rather than replaying remembered Project deltas or assuming the board is already mostly current**.
 
-First re-read the completed Spec's direct native dependents because Spec closure may change their actionability without removing the dependency relationship. For each open direct dependent, read its complete native `blocked by` set. Do not delete the historical dependency edge.
+Run this section only after authoritative Spec completion, optional Spec Review cleanup, dependent-Spec actionability recovery, Wayfinder Completion Reconciliation, and required `$project-delivery-management` reconciliation are durable.
 
-When an open dependent is durably a Spec whose current `Blocked` lifecycle is dependency-derived:
+### 1. Reconstruct the authoritative lineage universe
 
-* one or more open native Spec blockers → keep base `Spec / Blocked / None / Blocked`;
-* zero open native Spec blockers → advance to base `Spec / Ready to Ticket / $to-tickets / Ready`.
+Build one working **Project Reconstruction Manifest** from repository/tracker authority. It is temporary execution state, not another durable registry.
 
-Do not overwrite a dependent that has another durable lifecycle owner/state; ambiguous restoration fails closed and is reported rather than guessed.
+The candidate universe must include:
 
-Build one completion reconciliation set containing every affected formal artifact:
+* the completed parent Spec;
+* **every** native Implementation Ticket child of that Spec, open or closed;
+* the one conventional Spec Review when it exists;
+* **every** native Review Remediation Ticket child of that Spec Review;
+* **every** current governing Wayfinder recovered for the completed Spec;
+* the Wayfinder Decision children of those governing maps that are needed to make the current governing-map lineage projection complete, including closed historical decisions when their current formal projection has never been guaranteed by another authorized boundary;
+* every open direct dependent Spec whose actionability may have changed because the completed Spec's native blocker is now closed;
+* any other formal artifact whose current authoritative lifecycle/dependency state is necessary to make the reconstructed completed lineage internally consistent.
 
-* completed parent Spec → base `Spec / Complete / None / Done` with `Completed On` set to the authoritative Spec completion date;
-* conventional Spec Review when this skill closes it → base `Spec Review / Complete / None / Done` with authoritative `Completed On`;
-* each governing Wayfinder map closed by this skill → base `Wayfinder Map / Complete / None / Done` with authoritative `Completed On`;
-* each direct dependent Spec whose dependency-derived base projection changed after this Spec closed;
-* any other formal artifact whose lifecycle or open-blocker projection this cleanup durably changed.
+Do not use current Project membership or fields to define this universe. A missing Project row is valid input to reconstruction and will be added by `$project-tracking`.
 
-A governing Wayfinder that remains open and whose base lifecycle projection did not change need not be rewritten merely because one governed Spec completed. If its lifecycle projection did change, derive that state from its durable Wayfinder lifecycle rather than from Project fields.
+For the finite hierarchy sets above, require complete native reads before projection. Do not let an artifact disappear because it was completed earlier, created before Project enrollment, or was never synchronized during active work.
 
-For `Complete` artifacts, Project delivery is `Released`; for non-complete affected artifacts, supply current authoritative Project Delivery State separately. Preserve `Area` and `Priority` unless separately authorized.
+Record compact working totals:
 
-`$spec-merge-cleanup` owns the completion/dependent/Wayfinder state supplied to `$project-tracking`; `$project-tracking` owns validation, delivery overlay, and Project mutation. Project state never determines whether the merge, close, cleanup, dependency satisfaction, or Wayfinder completion succeeded.
+```text
+Project reconstruction source: Spec #<n>
+Spec: 1
+Implementation Tickets: <expected>/<reconstructed>
+Spec Review: 0|1
+Review Remediation Tickets: <expected>/<reconstructed>
+Governing Wayfinders: <expected>/<reconstructed>
+Wayfinder Decisions: <expected>/<reconstructed>
+Direct dependent Specs considered: <n>
+Other required formal artifacts: <n>
+Unresolved lifecycle projections: 0
+```
 
-If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not reopen the Spec or Spec Review, restore deleted branches, reopen completed Wayfinders, or otherwise roll back authoritative completion.
+Any missing/ambiguous authoritative member or unresolved lifecycle projection makes Project reconstruction incomplete. Since the Spec may already be authoritatively complete, report `PROJECT TRACKING: DRIFT` rather than rolling back completion.
+
+### 2. Derive every current base projection from authority
+
+For each reconstructed formal artifact derive its **current** base projection from its owning durable lifecycle evidence, not from historical Project state.
+
+Use, as applicable:
+
+* issue hierarchy and current native blocker sets;
+* Ticket branch/baseline and durable ticket closure checkpoints/evidence;
+* Spec Verification / Review Exit receipts;
+* Spec Review Root Blocker/remediation state;
+* Wayfinder decisions, handoffs, current decision/fog state, and completion evidence;
+* canonical project-delivery focus/frontier state;
+* explicit supersession/retirement authority.
+
+For terminal `Complete` artifacts, recover `Completed On` from lifecycle-authoritative completion evidence. **Do not infer it merely from issue `closed_at`.** If the authoritative completion date cannot be recovered, that artifact's projection is unresolved and Project reconciliation drifts without changing lifecycle truth.
+
+For open direct dependent Specs, re-read the complete native `blocked by` set because Spec closure may change actionability without removing the historical dependency edge:
+
+* one or more open native Spec blockers → base `Spec / Blocked / None / Blocked` when that Blocked state is dependency-derived;
+* zero open native Spec blockers → base `Spec / Ready to Ticket / $to-tickets / Ready` when dependency completion is the authoritative reason it becomes actionable.
+
+Do not overwrite a dependent with another durable lifecycle owner/state. Ambiguity fails projection closed.
+
+For governing Wayfinders, derive their current projection after **Wayfinder Completion Reconciliation**. A map that remains open because another governed Spec/decision/fog remains must be projected from that current durable lifecycle; a map closed by this cleanup is `Complete`. Do not infer map state from the board.
+
+### 3. Reconstruct project-delivery context
+
+For every active reconstructed artifact, derive current `Project Delivery State` from canonical `$project-delivery-management` state and validated governance:
+
+* Wayfinder-managed → `in-focus | eligible | blocked` as currently authoritative;
+* Independent Spec lineage → `independent`;
+* `Complete` / `Superseded` → terminal delivery projection is derived by `$project-tracking` and needs no caller-supplied active delivery state.
+
+Do not infer delivery state from existing Project rows.
+
+### 4. Reconcile once
+
+Invoke `$project-tracking` **once** with the complete reconstructed projection set. It may add every missing Project member and apply all field deltas in one batch.
+
+Preserve `Area` and `Priority` unless separately authorized. Do not create a Project-update-pending marker before or after this call.
+
+`$spec-merge-cleanup` owns:
+
+* reconstruction-universe completeness;
+* base lifecycle derivation;
+* authoritative completion dates;
+* dependency/actionability recovery;
+* current project-delivery inputs.
+
+`$project-tracking` owns only projection validation, missing membership, delivery overlay, field mutation, and final Project readback.
+
+Project state never determines whether the merge, close, cleanup, dependency satisfaction, or Wayfinder completion succeeded.
+
+If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not reopen the Spec or Spec Review, restore deleted branches, reopen completed Wayfinders, or otherwise roll back authoritative completion. A later explicit human-requested reconciliation may reconstruct the same authoritative state again.
 
 ## Step 0 — Route: Pre-completion vs. Recovery
 
@@ -507,7 +575,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
 
    Recovery must tolerate already-correct completion state: an already-closed Wayfinder whose invariant still holds and an already-released project focus are successful no-op reconciliation results, not errors.
 
-7. **Reconcile Project Projection**
+7. **Reconstruct and Reconcile Project Projection**
 
    Perform **Mandatory Project Reconciliation** from the final durable completion/dependency/Wayfinder state before returning success.
 
@@ -522,7 +590,7 @@ Cleanup is complete only when the applicable path has:
 * for a branch-backed Spec, confirmed the exact reviewed HEAD was merged to `main` and removed any still-existing local/remote Spec branch without deleting drifted post-merge work;
 * reconciled every unambiguously recovered governing Wayfinder against its full Derived+Remediation governed Spec set and decision/fog state;
 * invoked project-delivery reconciliation after authoritative completion transitions, with already-correct reconciled state accepted as a no-op;
-* invoked `$project-tracking` for the completed Spec and every other formal artifact whose lifecycle/open-blocker projection changed, with Project drift reported but never treated as workflow authority.
+* reconstructed the complete completed-Spec Project lineage from authoritative state and invoked `$project-tracking` once for that full set, with Project drift reported but never treated as workflow authority.
 
 A failed cleanup step after successful Spec completion does not invalidate the completed merge/direct close. A later invocation must recover from durable completion evidence and resume the remaining idempotent cleanup instead of requiring the Spec to be open, re-establishing focus, or repeating the completion transition.
 

@@ -358,15 +358,23 @@ When a skill prescribes another repository skill as internal composition:
 
 ### Workflow Project tracking
 
-The public Polaris GitHub Project is an operational projection, not workflow authority.
+The public Polaris GitHub Project is an operational projection, not workflow authority. **Authoritative repository/tracker state is immediate; Project projection is intentionally eventually consistent.**
 
-Every formal lifecycle owner must carry an explicit **Project Reconciliation** step in its own `SKILL.md`. That local step identifies the artifacts affected by the transition, supplies their desired base lifecycle projection, and invokes `$project-tracking` as prescribed internal composition **after** the authoritative tracker/repository transition succeeds and **before** Human Handoff or ordinary return.
+Routine lifecycle transitions do **not** invoke `$project-tracking`. This repository-wide cadence rule explicitly supersedes narrower existing skill wording that still requires automatic Project synchronization after ordinary `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, or internal `$project-delivery-management` transitions.
 
-This applies to `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$spec-merge-cleanup`, and `$architecture-remediation`.
+Project projection is authorized only at:
 
-This section establishes the global invariant; it is not a substitute for the lifecycle owner's local call-site instruction. If one transition changes multiple artifacts, the owning skill must synchronize every affected artifact in one reconciliation set.
+1. **Spec completion** — `$spec-merge-cleanup` reconstructs the complete completed-Spec lineage from current durable authority and invokes `$project-tracking` once for the whole reconciliation set before successful cleanup return;
+2. **explicit human-requested board reconciliation** — the active workflow independently reconstructs the requested authoritative artifact universe and refreshes it in one batch;
+3. **separately authorized bootstrap/migration** — one-time Project/schema setup may synchronize state under its own contract.
 
-Follow `.agents/skills/project-tracking/WIRING.md` for the cross-skill call contract and `$project-tracking` for projection mechanics. Internal helpers return their result to the lifecycle owner; independent verifiers do not synchronize Project state. Project synchronization failure is projection drift and must never roll back or rewrite the authoritative workflow transition or suppress an otherwise-authorized downstream handoff.
+Do not create a pending-Project-update queue, flag, comment ledger, label, or other shadow registry. Missing Project membership or stale Project fields during active Spec work are expected projection lag and never substitute for or alter authoritative workflow state.
+
+`$project-delivery-management` continues to persist canonical focus/dependency truth immediately. Focus, switch, parallel-focus, dependency mutation, guard, and deterministic reconciliation do not imply a board refresh unless the human explicitly requested one. A board refresh is a separate projection operation.
+
+At the mandatory Spec boundary, `$spec-merge-cleanup` must not assume earlier skills kept the board current. It reconstructs the complete lineage from hierarchy, dependencies, receipts/checkpoints, issue state, provenance, and canonical project-delivery state, then lets `$project-tracking` add missing Project members and apply one batch of field deltas. Reconstruction is working state only; do not persist another projection registry.
+
+Follow `.agents/skills/project-tracking/WIRING.md` for this cadence and `$project-tracking` for projection mechanics. Independent verifiers never synchronize Project state. `PROJECT TRACKING: DRIFT` never rolls back or rewrites authoritative workflow state or suppresses an otherwise-authorized downstream handoff.
 
 ### Issue tracker
 

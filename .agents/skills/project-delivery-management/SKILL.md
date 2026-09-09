@@ -78,45 +78,21 @@ Do not maintain a duplicate registry of Wayfinder maps or a persisted dependency
 
 Native GitHub `blocked by` relationships are the durable dependency truth. This skill decides and reconciles only relationships that cross Wayfinder lineages; it delegates the native relationship mutation to `$github-issue-dependencies`.
 
-## Project Projection Synchronization
+## Deferred Project Projection
 
-The GitHub Project is a downstream view of the canonical state owned here. Every durable focus transition must be projected after authority is already committed.
+The GitHub Project is an eventually consistent downstream projection. This skill never invokes `$project-tracking` as a side effect of focus, dependency, guard, or deterministic reconciliation operations.
 
-After an activated-state operation establishes, replaces, broadens, shrinks, or releases focus, invoke `$project-tracking` in **Delivery Overlay Sync** mode for every affected open Wayfinder-managed formal artifact, not only the Wayfinder Map rows.
+Canonical focus and dependency truth must still be persisted and verified immediately. Project projection is deferred to:
 
-An **affected delivery scope** is a Wayfinder whose focus membership or map-frontier eligibility changed, including:
+* mandatory completed-Spec reconstruction in `$spec-merge-cleanup`;
+* an explicit human request to refresh/reconcile the board; or
+* separately authorized bootstrap/migration.
 
-* old and new focused maps for `focus`, `switch-focus`, and `parallel-focus`;
-* focused maps removed by deterministic reconciliation;
-* Wayfinder consumer/blocker maps whose map-level dependency mutation changes eligibility or focus;
-* newly resumable direct Wayfinder dependents identified after a focused prerequisite completes.
+A human invocation of `focus`, `switch-focus`, `parallel-focus`, `dependency ...`, `status`, or `reconcile` is **not** by itself a board-refresh request. If the human also explicitly asks for the Project to be refreshed, the active workflow performs that as a separate authorized projection operation after this skill returns canonical state.
 
-For each affected delivery scope, recover its open formal artifacts from durable tracker lineage, never from Project fields:
+Do not persist pending Project updates, descendant-sync worklists, or another delivery-overlay registry. The authoritative singleton, native dependencies, Wayfinder lineage, and lifecycle artifacts are sufficient to reconstruct the board later.
 
-* the canonical Wayfinder Map itself;
-* open native Wayfinder Decision children;
-* open Specs named by validated `Derived Spec` / `Remediation Spec` handoffs or matching durable `wayfinder-source` / `wayfinder-remediation` provenance;
-* open Implementation Ticket children of those Specs;
-* the open conventional Spec Review, when present, resolved by its exact parent-Spec contract;
-* open Review Remediation Ticket children of that Spec Review.
-
-Deduplicate artifacts shared by multiple governing Wayfinders. Ambiguous provenance, conflicting parentage, or multiple conventional review candidates fails Project synchronization closed; do not guess lineage to make the Project agree.
-
-For each recovered open formal artifact, derive its current authoritative `Project Delivery State` from **all** governing Wayfinders:
-
-* at least one governor focused and frontier-eligible → `in-focus`;
-* otherwise at least one governor frontier-eligible → `eligible`;
-* otherwise every governor currently map-ineligible → `blocked`.
-
-For a Wayfinder Map, the artifact governs itself and the same mapping applies.
-
-A focused Wayfinder with narrower stalled work remains `in-focus`; stalledness is an execution condition reported by the owning lifecycle, not a distinct project-delivery authorization state.
-
-`$project-tracking` preserves each artifact's current projected lifecycle state and reconstructs only the base route needed to re-apply the delivery overlay. This skill must not derive or rewrite `Workflow State` merely to synchronize focus.
-
-Projection synchronization happens **after** authoritative focus/dependency persistence and verification. A Project sync failure is `PROJECT TRACKING: DRIFT`; never roll back or rewrite canonical focus/dependency state to make the Project agree.
-
-When a human `reconcile` is invoked explicitly, recover and synchronize every open Wayfinder-managed formal artifact under every open canonical Wayfinder in one batched `$project-tracking` invocation after canonical reconciliation, even when canonical focus did not change. This is the idempotent repair path for stale universal `Delivery State`, `Work Status`, and `Next Skill` overlay without making the Project authoritative.
+Project lag never changes focus, frontier eligibility, dependency truth, or lifecycle authorization.
 
 ## Cross-Wayfinder Dependency Reconciliation
 
@@ -202,10 +178,9 @@ For `dependency ensure <consumer> blocked-by <blocker>`:
 9. invoke `$github-issue-dependencies` to add only that native `blocked by` relationship;
 10. re-read the consumer and require the exact blocker relationship to exist;
 11. run deterministic focus reconciliation because a newly added direct map blocker may invalidate current focus;
-12. synchronize the affected delivery scopes through **Project Projection Synchronization**;
-13. if this new open map-level blocker caused a previously focused consumer to be removed from focus, emit the **Dependency Focus Handoff** below.
+12. if this new open map-level blocker caused a previously focused consumer to be removed from focus, emit the **Dependency Focus Handoff** below.
 
-Do not create parent/sub-issue hierarchy here.
+Do not create parent/sub-issue hierarchy here. Do not invoke `$project-tracking`; board projection is deferred under **Deferred Project Projection**.
 
 #### Dependency Focus Handoff
 
@@ -246,8 +221,9 @@ Then:
 3. if absent, return idempotent success;
 4. invoke `$github-issue-dependencies` to remove only that native relationship;
 5. re-read and require the relationship to be absent;
-6. run deterministic focus reconciliation. Newly eligible maps are never auto-focused;
-7. synchronize affected delivery scopes through **Project Projection Synchronization**.
+6. run deterministic focus reconciliation. Newly eligible maps are never auto-focused.
+
+Do not invoke `$project-tracking`; board projection is deferred.
 
 ### Dependency Failure Result
 
@@ -355,7 +331,7 @@ Canonical focused-set representation:
 * `None` when the focused set has cardinality `0..1`;
 * the URL of the durable authorization comment when the focused set has cardinality greater than one.
 
-Do not persist frontier, queue order, blocked state, Priority, lifecycle stage, or Project fields in this block.
+Do not persist frontier, queue order, blocked state, Priority, lifecycle stage, Project fields, or deferred Project projection state in this block.
 
 Preserve historical focus decisions as issue comments rather than accumulating history in the current-state block.
 
@@ -417,7 +393,7 @@ If current state is malformed or ambiguous, fail closed.
 
 ## Deterministic Reconciliation
 
-In pre-bootstrap mode, `reconcile` reports the derivable Wayfinder frontier and performs no focus mutation or Project delivery projection.
+In pre-bootstrap mode, `reconcile` reports the derivable Wayfinder frontier and performs no focus mutation.
 
 After activation, `reconcile` may change focus only when canonical state forces the consequence.
 
@@ -433,10 +409,9 @@ After activation, `reconcile` may change focus only when canonical state forces 
 7. If a previously parallel set shrinks to one or zero, set `Parallel authorization: None`. Historical authorization remains in comments.
 8. Persist the new current-state block only when its value changed.
 9. Re-read and verify the exact persisted state.
-10. Synchronize affected delivery scopes through **Project Projection Synchronization**. For an explicit human `reconcile`, synchronize every open Wayfinder-managed formal artifact under every open canonical Wayfinder in one batch even when canonical focus did not change.
-11. For each closed focused Wayfinder removed in step 5, derive open canonical Wayfinders that directly list it in `blocked by` and are now frontier-eligible. If any exist, synchronize those delivery scopes and emit the **Prerequisite Completion Handoff** below.
+10. For each closed focused Wayfinder removed in step 5, derive open canonical Wayfinders that directly list it in `blocked by` and are now frontier-eligible. If any exist, emit the **Prerequisite Completion Handoff** below.
 
-A newly eligible Wayfinder never joins the focused set automatically.
+A newly eligible Wayfinder never joins the focused set automatically. Project projection is not part of reconciliation.
 
 ### Prerequisite Completion Handoff
 
@@ -476,7 +451,7 @@ When a downstream lifecycle owner has authoritatively established that a focused
 PROJECT DELIVERY: FOCUSED-BUT-STALLED
 ```
 
-Retain focus, synchronize `Delivery State = In Focus`, surface the lower-level blockers, and do not promote those blockers to a synthetic map blocker or silently switch/release focus.
+Retain focus, surface the lower-level blockers, and do not promote those blockers to a synthetic map blocker or silently switch/release focus. The Project may continue to show an older projection until the next authorized board reconciliation.
 
 Lower-level lifecycle owners recover their exact decision/Spec/ticket frontiers at their own boundaries and supply the resulting blockers here.
 
@@ -503,7 +478,7 @@ Focused Wayfinders: #<target>
 Parallel authorization: None
 ```
 
-Then synchronize the target delivery scope through **Project Projection Synchronization**.
+Do not invoke `$project-tracking` unless the human separately requested a board refresh.
 
 ### `switch-focus <Wayfinder>`
 
@@ -511,7 +486,7 @@ Require the target is a canonical frontier-eligible Wayfinder.
 
 This is an explicit replacement operation. The previously focused Wayfinder remains open and simply becomes eligible-but-unfocused when still in the frontier. Do not create a blocker between the two maps.
 
-Persist an authorization comment, replace and verify the focused set with the target, clear current parallel authorization, then synchronize the old and new focused delivery scopes through **Project Projection Synchronization**.
+Persist an authorization comment, replace and verify the focused set with the target, and clear current parallel authorization. Do not invoke `$project-tracking` unless separately requested.
 
 ### `parallel-focus <Wayfinder>...`
 
@@ -530,9 +505,7 @@ Focused Wayfinders: #<n>, #<n>...
 Parallel authorization: <authorization comment URL>
 ```
 
-Synchronize the union of the prior and new focused delivery scopes through **Project Projection Synchronization**.
-
-Later eligible maps are not members unless a new explicit `parallel-focus` invocation authorizes a new exact set.
+Later eligible maps are not members unless a new explicit `parallel-focus` invocation authorizes a new exact set. Do not invoke `$project-tracking` unless separately requested.
 
 ## Internal `guard <Wayfinder>`
 
@@ -631,7 +604,7 @@ Reason: <exact durable-state, dependency, or eligibility failure>
 
 The absence of the canonical activation label is the one valid pre-bootstrap condition; once the label exists, a missing singleton is invalid.
 
-Project drift is never a reason to rewrite canonical focus or dependency state. When `$project-tracking` fails after authoritative state is durable, report that drift separately and preserve canonical state.
+Project drift is never a reason to rewrite canonical focus or dependency state. Because routine operations do not project the board, stale Project fields are not an error result from this skill.
 
 ## Scope Boundary
 
@@ -646,8 +619,6 @@ This skill may:
 * own semantic validation/write reconciliation for cross-Wayfinder dependencies;
 * delegate native cross-Wayfinder dependency mechanics to `$github-issue-dependencies`;
 * deterministically shrink invalid/completed focus membership;
-* recover open Wayfinder-managed formal descendants from durable lineage for Project overlay synchronization;
-* invoke `$project-tracking` after authoritative delivery changes so universal Project delivery state and lifecycle routing remain visibly synchronized;
 * report deterministic human focus handoffs after dependency-driven focus release or focused prerequisite completion;
 * report canonical status and focused-but-stalled state.
 
@@ -660,11 +631,12 @@ This skill must not:
 * infer dependencies from broad prose, Project state, labels, priority, similarity, or architectural overlap;
 * write Wayfinder decisions, Specs, tickets, implementation, verification, review, or merge artifacts;
 * own detailed Spec/ticket frontier semantics;
-* directly mutate GitHub Project schema or use Project fields as authority;
+* directly mutate GitHub Project state during routine focus/dependency/reconciliation operations;
+* persist Project projection debt or descendant synchronization worklists;
 * auto-run downstream lifecycle skills;
 * auto-select a successor Wayfinder.
 
-Those responsibilities remain with their existing lifecycle owners; `$project-tracking` owns GitHub Project projection mechanics.
+GitHub Project projection mechanics remain with `$project-tracking` at authorized projection boundaries.
 
 ## Transition-Bound Dependency Authorization
 

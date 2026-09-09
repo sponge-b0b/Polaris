@@ -1,38 +1,52 @@
 # Project Tracking Wiring
 
-`$project-tracking` is internal composition for Polaris lifecycle owners.
+`$project-tracking` is an internal projection helper whose normal automatic synchronization boundary is `$spec-merge-cleanup`.
 
-For every durable lifecycle transition that creates a formal workflow artifact or changes an existing artifact's Project projection, the owning lifecycle skill must invoke `$project-tracking` after the authoritative tracker/repository mutation succeeds and before the owner's Human Handoff or ordinary return.
+The GitHub Project is intentionally **eventually consistent during active delivery**. Formal lifecycle owners must persist authoritative repository/tracker state immediately, but they must not invoke `$project-tracking` merely because one lifecycle transition created, changed, closed, reopened, blocked, or unblocked a formal artifact.
 
-This applies to `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$spec-merge-cleanup`, and `$architecture-remediation`.
+This deferred cadence applies to routine `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, and `$architecture-remediation` transitions. It also applies to internal `$project-delivery-management` focus/dependency reconciliation. Any older narrower skill wording that requires automatic Project synchronization at those ordinary boundaries is superseded by this cross-skill cadence rule.
+
+Authorized Project projection occurs only at these boundaries:
+
+1. **Mandatory Spec completion reconciliation** — `$spec-merge-cleanup` reconstructs the complete completed-Spec lineage from authoritative durable state and invokes `$project-tracking` once for the whole reconciliation set.
+2. **Explicit human-requested board reconciliation** — when the human explicitly asks to refresh/reconcile the Project, the active workflow independently reconstructs the requested authoritative artifact universe and invokes `$project-tracking` once for that batch.
+3. **Bootstrap/migration** — separately authorized one-time Project/schema setup may project state as required by its own migration contract.
+
+Do not create a `Project update pending` flag, queue, ledger, label, comment stream, or other shadow bookkeeping merely to remember deferred projection. The repository/tracker already owns the facts needed to reconstruct the board. Missing Project membership and stale Project fields during active Spec work are therefore projection lag, not workflow-state loss.
 
 ## Project-delivery overlay
 
-Before project-delivery bootstrap activation, existing lifecycle owners may send their ordinary base projection directly to `$project-tracking`.
+Before project-delivery bootstrap activation, an authorized reconciliation may send ordinary base projections directly to `$project-tracking`.
 
-After activation, every Wayfinder-managed projection must first recover current project-delivery context from `$project-delivery-management` canonical state. The lifecycle owner supplies:
+After activation, every Wayfinder-managed projection must recover current project-delivery context from `$project-delivery-management` canonical state. The authorized reconciliation owner supplies:
 
-* its ordinary lifecycle `Workflow State`, `Next Skill`, and `Work Status`;
+* the artifact's authoritative lifecycle `Workflow State`, `Next Skill`, and `Work Status`;
 * the current `Project Delivery State` classification required by `$project-tracking`.
 
 `$project-tracking` validates the ordinary lifecycle route first, then applies only the focus-aware `Work Status` / `Next Skill` overlay. It never rewrites `Workflow State` to represent focus.
 
 This keeps ownership separated:
 
-* lifecycle owner → artifact lifecycle stage and ordinary next action;
-* `$project-delivery-management` → focus/eligibility truth;
-* `$project-tracking` → deterministic non-authoritative projection of those already-established facts.
+* lifecycle owner → authoritative artifact lifecycle and ordinary next action;
+* `$project-delivery-management` → canonical focus/eligibility truth;
+* `$project-tracking` → deterministic non-authoritative projection of those already-established facts at an authorized reconciliation boundary.
 
 A Wayfinder with multiple governors is project-delivery `focused` when at least one current eligible governor is focused. Do not ask `$project-tracking` to choose among governors or infer focus from Project fields.
 
-The lifecycle owner supplies the desired base projection from the durable state it just established. If one transition changes multiple artifacts, synchronize every affected artifact in the same reconciliation step. An artifact is affected when the authoritative transition changes its lifecycle state, parent/frontier state, or its set of **open native blockers**, even when the native dependency edge itself remains unchanged. Examples include ticket closure changing its parent Spec frontier and directly dependent ticket actionability, issue reopening making direct dependents blocked again, review remediation changing both Spec and Spec Review state, and merge cleanup completing a Spec, optional Spec Review, or one or more governing Wayfinders.
+## Mandatory Spec-boundary reconstruction
 
-When a child transition can change decomposition/frontier state, the lifecycle owner must derive the complete post-transition frontier **before** Project synchronization. The same recovered frontier must drive both the affected parent/frontier projections and any downstream Human Handoff. Do not synchronize the child first and derive its affected parent/frontier afterward, and do not perform a second independent frontier derivation merely to choose the handoff.
+At `$spec-merge-cleanup`, do not assume earlier lifecycle skills kept Project rows or membership current. Reconstruct the complete current Spec lineage from authoritative state before projection, including the completed Spec, all of its implementation tickets, its conventional Spec Review when one exists, all review-remediation tickets, every governing Wayfinder whose projection is required for a coherent lineage, relevant Wayfinder decisions, direct dependent Specs whose actionability changed, and any other formal artifact whose current projection is necessary to make the completed lineage internally consistent.
 
-When an open/close or reopen transition changes another artifact's open-blocker set, the lifecycle owner must re-read that dependent's complete native `blocked by` state and include its corrected projection in the same reconciliation. Do not remove a dependency merely because its blocker is closed, and do not leave `Workflow State` / `Work Status` stale because the historical edge still exists. `$project-tracking` consumes the owner's recovered durable state; it does not crawl dependency graphs or infer these transitions itself.
+When a child transition changed decomposition/frontier state earlier in the Spec lifecycle, derive the final current frontier now from authoritative hierarchy/dependency state. Do not replay historical Project deltas. When an open/close or reopen transition affects another artifact's blocker state, re-read the dependent's complete native `blocked by` state; never remove a historical dependency merely because its blocker closed.
 
-Do not invoke `$project-tracking` before the semantic transition succeeds, and do not use Project state to decide the transition. Internal helpers return their result to the lifecycle owner; the owner performs Project synchronization unless an explicit reconciliation flow already owns it. Independent verifiers never synchronize Project state.
+The reconstructed reconciliation set is working state only. Do not persist it as another workflow registry.
 
-`PROJECT TRACKING: DRIFT` never rolls back or rewrites the authoritative workflow transition, recovered frontier, downstream handoff eligibility, or project-delivery focus. Report the drift and continue to treat durable tracker/repository state as authoritative. A projection failure alone must not suppress a downstream Human Handoff whose actionability is otherwise proven by authoritative lifecycle and project-delivery state.
+## Explicit human refresh
+
+An explicit human request to refresh/reconcile the board is the only ordinary mid-Spec escape hatch. Reconstruct the requested artifact universe from current repository/tracker authority, not from existing Project rows, and perform one batch. A human focus/dependency operation is **not** implicitly a board-refresh request unless the human also asks for the Project to be refreshed.
+
+Do not use Project state to decide an authoritative transition. Independent verifiers never synchronize Project state.
+
+`PROJECT TRACKING: DRIFT` never rolls back or rewrites the authoritative workflow transition, recovered frontier, downstream handoff eligibility, or project-delivery focus. Report the drift and continue to treat durable tracker/repository state as authoritative.
 
 The required `$project-delivery-management` `Next Skill` option is provisioned once during migration. Steady-state `$project-tracking` requires the existing option and never creates, alters, or repairs Project schema.

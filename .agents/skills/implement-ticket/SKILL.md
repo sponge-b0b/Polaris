@@ -169,18 +169,84 @@ Do not use Project fields, labels, local scratch files, prior conversation, or s
 
 ## Candidate State
 
-Before verifier dispatch compute one deterministic candidate state over all repository mutations since `TICKET_BASELINE`, including untracked files:
+Before verifier dispatch compute one deterministic candidate state over the **final Git-relevant path state** of every repository path that differs from `TICKET_BASELINE` or is currently untracked.
+
+Candidate identity must not depend on whether identical final bytes are currently untracked, staged, or committed. For each candidate path hash the raw path plus exactly one final state:
+
+* regular file → final Git mode `100644` or `100755` plus SHA-256 of file bytes;
+* symlink → final Git mode `120000` plus SHA-256 of symlink-target bytes;
+* absent path → `DELETED`.
+
+Use `--no-renames` so a rename is canonically represented by the old path's deletion plus the new path's final state rather than by Git's similarity heuristic.
+
+Use this exact procedure:
 
 ```bash
 TICKET_CLOSURE_STATE=$(
-  {
-    git diff --binary "$TICKET_BASELINE" --
-    git ls-files --others --exclude-standard -z \
-      | sort -z \
-      | xargs -0 -r sha256sum
-  } | sha256sum | awk '{print $1}'
+  TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
+import hashlib
+import os
+import stat
+import subprocess
+
+baseline = os.environ["TICKET_BASELINE"]
+
+
+def git_paths(*args: str) -> list[bytes]:
+    result = subprocess.run(
+        ["git", *args],
+        check=True,
+        stdout=subprocess.PIPE,
+    )
+    return [path for path in result.stdout.split(b"\0") if path]
+
+
+paths = set(
+    git_paths("diff", "--no-renames", "--name-only", "-z", baseline, "--")
+)
+paths.update(git_paths("ls-files", "--others", "--exclude-standard", "-z"))
+
+candidate = hashlib.sha256()
+
+for raw_path in sorted(paths):
+    path = os.fsdecode(raw_path)
+    candidate.update(b"path\0")
+    candidate.update(raw_path)
+    candidate.update(b"\0")
+
+    try:
+        metadata = os.lstat(path)
+    except FileNotFoundError:
+        candidate.update(b"state\0DELETED\0")
+        continue
+
+    if stat.S_ISLNK(metadata.st_mode):
+        mode = b"120000"
+        content_hash = hashlib.sha256(
+            os.fsencode(os.readlink(path))
+        ).hexdigest()
+    elif stat.S_ISREG(metadata.st_mode):
+        mode = b"100755" if metadata.st_mode & stat.S_IXUSR else b"100644"
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        content_hash = digest.hexdigest()
+    else:
+        raise SystemExit(f"unsupported candidate path type: {path}")
+
+    candidate.update(b"mode\0")
+    candidate.update(mode)
+    candidate.update(b"\0sha256\0")
+    candidate.update(content_hash.encode("ascii"))
+    candidate.update(b"\0")
+
+print(candidate.hexdigest())
+PY
 )
 ```
+
+This manifest is representation-independent across the commit boundary: committing the exact candidate does not change `TICKET_CLOSURE_STATE` merely because new files became tracked.
 
 Use this exact hash procedure for dispatch, verifier-integrity rechecks, persistence rechecks, and stale-PASS detection.
 
@@ -861,11 +927,11 @@ Report:
 
 For Spec Review remediation also report Root Blocker ID/invariant, authoritative path/boundary, sibling surfaces audited, Root Invariant Sweep, carried acceptance proof, protected-root preservation, Root Closure Evidence persistence, and Root Closure Reconciliation persistence.
 
-After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` after closure is durable. Ticket closure remains authoritative even if reconciliation fails; report projection/coordination drift and do not present a downstream lifecycle handoff that depends on stale project-delivery state.
+After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` after closure is durable. Ticket closure remains authoritative even if reconciliation fails; report coordination drift and do not present a downstream lifecycle handoff that depends on stale project-delivery state.
 
 ### Deterministic Post-Closure Frontier
 
-After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier **before** post-transition Project reconciliation. The same recovered frontier must drive both affected parent/frontier projections and the final Human Handoff.
+After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier. The same recovered frontier must drive parent/frontier lifecycle reconciliation and the final Human Handoff.
 
 Use the already recovered repository and decomposition parent:
 
@@ -921,7 +987,7 @@ Execution rules:
 
 ### Parent / Frontier Lifecycle Reconciliation
 
-Derive parent/frontier lifecycle state from this same post-closure snapshot before Project reconciliation.
+Derive parent/frontier lifecycle state from this same post-closure snapshot.
 
 For an ordinary Implementation Ticket:
 
@@ -931,7 +997,7 @@ For an ordinary Implementation Ticket:
 For a Review Remediation Ticket:
 
 * re-read the latest durable Spec Review Root Blocker Ledger after ticket-local Root Closure Reconciliation;
-* if remediation children remain open or the ledger still establishes `open` / `regressed` implementation remediation, preserve the parent Spec's `Review Remediation` lifecycle and derive the Spec Review projection from that durable remediation state;
+* if remediation children remain open or the ledger still establishes `open` / `regressed` implementation remediation, preserve the parent Spec's `Review Remediation` lifecycle and derive the Spec Review state from that durable remediation state;
 * if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, advance the durable `Parent Spec` to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;
 * include the Spec Review itself as an affected artifact only when its own durable remediation state changes. Never infer `Spec Review = Complete` merely because its child count reached zero.
 
@@ -980,30 +1046,19 @@ For an open direct dependent that is durably an ordinary Implementation Ticket o
 
 Do not overwrite another durable lifecycle state such as Architecture Remediation or an independently owned closure-verification state. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
 
-### Post-Closure Project Reconciliation
+### Deferred Project Projection
 
-After frontier and dependent state are recovered, assemble one post-transition Project reconciliation set containing every affected artifact:
+Do not invoke `$project-tracking` after ticket closure. Ticket, parent/frontier, dependency, project-delivery, receipt/checkpoint, commit, and handoff state remain authoritative and must be reconciled immediately as described above; the public GitHub Project may intentionally lag.
 
-* the completed ticket;
-* every direct dependent whose base projection changed;
-* every parent/frontier artifact whose lifecycle projection changed from the recovered post-closure frontier;
-* for remediation, the Spec Review when its durable remediation projection changed and the durable Parent Spec when its lifecycle changed.
-
-For the completed ticket, use its actual artifact type with base `Workflow State = Complete`, `Work Status = Done`, `Next Skill = None`, `Root Blocker` preserved only for a Review Remediation Ticket, and `Completed On` set to the authoritative closure date.
-
-Recover current project-delivery context before submitting that set. Then invoke `$project-tracking` as prescribed internal composition with the **complete** set **before** `Handoff From the Recovered Frontier`. Do not synchronize the completed ticket first and derive its affected parent/frontier afterward. Project reconciliation consumes the already-recovered dependency/frontier truth; it must not discover dependents or infer lifecycle transitions from Project fields.
-
-`$implement-ticket` owns the affected-artifact set and all base lifecycle states derived above. `$project-tracking` owns validation, delivery overlay, and Project mutation.
+Do not persist a pending Project-update record. `$spec-merge-cleanup` later reconstructs the complete Spec lineage from authoritative state and performs the mandatory one-batch Project reconciliation. An explicit human-requested board refresh remains the only ordinary mid-Spec projection path.
 
 If authoritative frontier, blocker, lineage, or remediation-ledger reads cannot be completed, the completed ticket remains authoritatively closed. Report the exact unreadable state and do not advertise a downstream lifecycle handoff whose actionability cannot be proven.
-
-Project synchronization failure by itself is projection drift: it never rolls back authoritative ticket closure or changes the recovered native frontier. Report `PROJECT TRACKING: DRIFT`; do not suppress an otherwise-proven downstream handoff solely because the non-authoritative Project projection failed to update.
 
 Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again. If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
 
 ### Handoff From the Recovered Frontier
 
-Emit the normal frontier handoff from the **same** recovered post-closure snapshot used for parent/frontier Project reconciliation. Do not perform a second frontier read for handoff selection.
+Emit the normal frontier handoff from the **same** recovered post-closure snapshot used for parent/frontier lifecycle reconciliation. Do not perform a second frontier read for handoff selection.
 
 * exactly one open unblocked ticket → emit exactly one copy-ready line:
 

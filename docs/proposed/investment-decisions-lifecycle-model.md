@@ -28,6 +28,8 @@ The owner-approved foundation public-contract document explicitly refines this e
 
 For R2 lifecycle-disposition correction and temporal interpretation, the later owner-approved [lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls. It freezes target-lineage eligibility, recursive independent activation, exact surviving support, cross-root compatibility, append-time validation, explicit observation boundaries, and correction replay/version behavior. It supersedes broader historical Subject/Scope correction wording and requires unsupported-Need qualification on initiation's lineage, not a separate forward `DecisionNeedRetractedUnsupported` fact. Earlier temporal/reconstruction shorthand below does not permit a domain wall clock, an implicit now derived from fact timestamps, or a public lifecycle interpretation without its explicit `(T,K)` boundary.
 
+For R2 renewal, Supersession, relationship correction/support, historical admission, relationship-driven `DecisionVersion`, and temporal graph-consumption semantics, the later owner-approved [Investment Decision Relationship Model](investment-decisions-decision-relationship-model.md) controls. Relationship admission truth is preserved separately from later endpoint lifecycle interpretation; relationship correction owns relationship-semantic change. Relationship facts have no lifecycle-style monotonic sequence, and relationship append, current version change, and clock/query passage are distinct. Where Sections 11–14 summarize these concerns, they are consumer summaries of that relationship authority rather than a second reducer.
+
 ---
 
 # 1. Design objective
@@ -191,9 +193,10 @@ DecisionWorkWithdrawn
 DecisionWorkResumed
 DecisionSubstantivelyResolved
 DecisionExternallyResolved
-DecisionNeedRetractedUnsupported
 DecisionLifecycleCorrected
 ```
+
+Unsupported-Need correction is represented through the approved initiation-lineage lifecycle correction contract rather than a separate forward lifecycle fact.
 
 `DecisionScopeEstablished` and `DecisionScopeRevised` are distinct fact meanings. Establishment records the transition from incomplete applicability to sufficiently established Scope; later revision records a change to an already established Scope. Implementations must not collapse the two merely because their payloads look similar.
 
@@ -309,21 +312,26 @@ Neither path fabricates another owner's judgment/authority fact.
 
 ---
 
-# 11. Supersession
+# 11. Renewal and Supersession consumption
 
-- source/target IDs differ;
-- unresolved/resolved targets allowed;
-- no one-to-one cardinality assumption;
-- target lifecycle facts never rewritten;
-- unresolved supported target becomes non-operative;
-- contested Supersession support yields contested operative applicability and ordinary work fails closed;
-- supported `RENEWED_FROM` + `SUPERSEDES` lineage remains acyclic.
+Relationship truth is owned by [`investment-decisions-decision-relationship-model.md`](investment-decisions-decision-relationship-model.md). This lifecycle model consumes it as follows:
+
+- renewal creates a distinct Decision/Need and may establish one or more `RENEWED_FROM` relationships only when their historical admission predicates are satisfied; “resolved at renewal” is checked at admission and is not continuously re-evaluated as relationship validity later;
+- a genuinely omitted renewal relationship may be recorded later against the existing source/Need when the original historical prerequisites and explicit renewal basis are proven;
+- predecessor identity, Need, lifecycle/work history, and immutable facts are never reopened or rewritten, although its current `DecisionVersion` may advance when incoming renewal interpretation changes;
+- Supersession may target unresolved or resolved Decisions without changing their lifecycle facts;
+- any `SUPPORTED` incoming Supersession makes an otherwise unresolved target non-operative for ordinary work;
+- any relevant incoming `CONTESTED` Supersession makes applicability contested even alongside clean supported incoming Supersession;
+- `WITHDRAWN` and `NOT_EFFECTIVE` relationship groups contribute no current Supersession edge/effect;
+- `RENEWED_FROM` has no Supersession applicability effect;
+- later endpoint lifecycle/applicability changes do not erase admitted relationship truth; current work still consumes current lifecycle/applicability independently;
+- lifecycle-lineage graph admission consumes the relationship model's complete known-timeline conservative cycle predicate.
 
 ---
 
 # 12. Temporal and correction model
 
-Every lifecycle/relationship fact has effective time plus recorded time/monotonic sequence.
+Lifecycle facts preserve effective time, recorded time, and contiguous `DecisionLifecycleSequence`. Relationship facts/corrections preserve their own effective/recorded times and explicit target ancestry but **do not** acquire a lifecycle-style relationship sequence; request-list, insertion, UUID, or timestamp-tie order confers no relationship precedence.
 
 `as_known_at(K)` is defined as the lifecycle/operative state **effective at K using only facts and corrections recorded no later than K**. Semantically it is equivalent to:
 
@@ -339,6 +347,8 @@ Therefore a fact already recorded by K but explicitly effective only after K is 
 
 If typed support cannot reconcile competing interpretations, Decision Memory exposes **contested/indeterminate** lifecycle interpretation rather than last-writer-wins.
 
+Relationship correction follows its separate recursive `QUALIFY`/`DISCONFIRM`, four-state support, admission, and temporal rules in the relationship model. Lifecycle correction never implicitly rewrites or restores a relationship, and relationship correction never fabricates lifecycle facts.
+
 Example:
 
 ```text
@@ -351,16 +361,24 @@ Preserve human act + originally recorded Decisions fact; append correction suppo
 
 ---
 
-# 13. Version/idempotency and invalid outcomes
+# 13. Version, idempotency, and invalid outcomes
 
-- initiation version 1;
-- each committed Decisions mutation increments version once;
-- existing-Decision mutation uses expected version;
-- same operation/same request replays result;
-- same operation/different request conflicts;
-- different operations still require continuity protection.
+- initiation starts `DecisionVersion` at 1;
+- lifecycle mutation follows the frozen lifecycle current-interpretation comparison contract;
+- relationship mutation follows the frozen both-endpoint complete-current-relationship-interpretation comparison contract;
+- one atomic command advances each already-existing affected Decision at most once even when lifecycle and multiple relationship dimensions change together;
+- a distinct valid relationship act may append without a version change when it affects only history/future and leaves protected current meaning unchanged;
+- a support-only or basis-only relationship change may advance source and target versions even when coarse applicability/result is unchanged;
+- relationship mutation never advances `DecisionLifecycleSequence`;
+- existing-Decision mutation uses expected version, but matching versions are not sufficient for temporal relationship/graph safety;
+- Application/persistence must transactionally protect every material history/path/absence dependency through commit, including future-only or non-endpoint facts whose DecisionVersion does not advance;
+- same operation/same semantic request replays result with no append/version;
+- same operation/different semantic request conflicts;
+- every distinct valid attributable relationship assertion/correction appends a fresh fact even when equivalent to existing support;
+- time passage and queries create no facts or versions;
+- higher optimistic-concurrency contention from both-endpoint support-sensitive relationship versions is an accepted correctness tradeoff; coordination may be optimized later without weakening protected semantics.
 
-Callers distinguish not-found, invalid/reused Decision Need, non-operative/operative-contested, non-unresolved, invalid trusted basis, invalid Scope, invalid work transition, stale version, idempotency conflict, continuity conflict/ambiguity, relationship/cycle conflict, and contested lifecycle interpretation when deterministic state is required.
+Callers distinguish not-found, invalid/reused Decision Need, non-operative/operative-contested, non-unresolved, invalid trusted basis, invalid Scope, invalid work transition, stale/concurrency conflict, idempotency conflict, continuity conflict/ambiguity, relationship conflict/cycle, indeterminate cycle safety, invalid/incomplete relationship history, and contested lifecycle/relationship interpretation when deterministic state is required.
 
 ---
 
@@ -387,19 +405,25 @@ Callers distinguish not-found, invalid/reused Decision Need, non-operative/opera
 19. candidates + explicit create -> preserve candidate IDs and attributable continuity rationale;
 20. candidates + missing/contradictory determination -> ambiguity/no creation;
 21. different-operation race -> no silent duplicate;
-22. competing corrections -> contested interpretation, not newest-wins;
+22. competing lifecycle corrections -> contested interpretation, not newest-wins;
 23. `as_known_at` excludes later-recorded facts and does not prematurely apply future-effective known facts;
-24. `effective_at` applies currently supported correction;
-25. runtime/job/model/report IDs never determine Decision identity.
+24. `effective_at` applies currently supported lifecycle correction;
+25. runtime/job/model/report IDs never determine Decision identity;
+26. renewal admission proves predecessor resolution at new-episode start and relationship effective instant, while later lifecycle correction does not silently rewrite the relationship;
+27. recursive relationship correction/restoration preserves independent sibling support and distinguishes `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE`;
+28. distinct equivalent relationship acts append fresh support while exact replay does not;
+29. relationship support/basis-only current changes advance both affected endpoint versions once, while future-only unchanged-current meaning may retain versions;
+30. relationship graph admission rejects definite and possible mixed cycles across historical and every known future topology interval, including correction restoration;
+31. matching endpoint versions alone cannot authorize a command when a material relationship/path/absence dependency changed.
 
 ---
 
 # 15. R2 implementation scope / Spec gate
 
-R2 implements Decision/Need/Subject/Scope semantics, lifecycle/work posture, immutable facts/corrections, explicit and durable continuity arbitration, trusted human-judgment seams, External/unsupported correction, renewal/Supersession, dual-time queries, and contested interpretation.
+R2 implements Decision/Need/Subject/Scope semantics, lifecycle/work posture, immutable facts/corrections, explicit and durable continuity arbitration, trusted human-judgment seams, External/unsupported correction, renewal/Supersession, dual-time queries, contested interpretation, and the relationship contract consumed from the relationship model.
 
 R2 excludes Attention, Evidence/full Decision Context, Intelligence/Recommendation, Governance implementation, Action Continuity, Learning, contextual prior-Decision retrieval, and generic graph infrastructure.
 
-Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
+Specs may choose code organization, private helper/algorithm choices, libraries, schema mechanics, locking/serialization, and test mechanics only when those choices are semantically equivalent under the frozen contracts.
 
-Specs and implementation may not redefine the completed foundation public contract, lifecycle semantics above, or another owner boundary by implementation convenience. The earlier foundation blockers are resolved; downstream tickets must consume the completed contract rather than reopen it.
+Specs and implementation may not redefine the completed foundation public contract, lifecycle correction semantics, relationship interpretation/admission/version/graph-consumption semantics above, or another owner boundary by implementation convenience. The earlier foundation/#296/#297 architecture blockers are resolved; downstream tickets must consume the completed contracts rather than reopen them.

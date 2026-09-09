@@ -26,7 +26,9 @@ Application coordinates owner behavior; it does not create a second domain model
 
 The later owner-approved [R2 lifecycle correction support contract](investment-decisions-r2-lifecycle-correction-support-contract.md) controls lifecycle-disposition correction and temporal interpretation. Application supplies current observation time and trusted command recording time; every public lifecycle interpretation exposes `(effective_at=T, known_at=K)`. Unknown-at-K is not found, while a known Decision with zero effective positive claims is `NOT_YET_EFFECTIVE`, with no effective support or work posture. Commands reconstruct at their recording boundary and consume the domain's append-time validation, branch-local compatibility, and exact surviving support rules.
 
-Every distinct valid attributable correction act appends, even when its claim is equivalent; exact operation/request replay is the only correction append no-op, and changed-request reuse conflicts through Application/persistence receipts. Compare preceding and appended history at the same recording boundary to determine the version consequence, including support-only changes. Future-only append may retain version, and clock/query execution creates no version. These rules supersede older two-state temporal-result and unconditional correction-version shorthand below. Corrections bypass the ordinary work gate but retain correction-specific eligibility; #296 does not implement Subject/Scope/work-posture correction or a domain receipt framework.
+Every distinct valid attributable lifecycle correction act appends, even when its claim is equivalent; exact operation/request replay is the only correction append no-op, and changed-request reuse conflicts through Application/persistence receipts. Compare preceding and appended history at the same recording boundary to determine the version consequence, including support-only changes. Future-only append may retain version, and clock/query execution creates no version. These rules supersede older two-state temporal-result and unconditional correction-version shorthand below. Corrections bypass the ordinary work gate but retain correction-specific eligibility; #296 does not implement Subject/Scope/work-posture correction or a domain receipt framework.
+
+The owner-approved [Investment Decision Relationship Model](investment-decisions-decision-relationship-model.md) now controls R2 renewal/Supersession relationship correction, four-state support interpretation, historical admission, same-command correction ancestry, relationship-driven `DecisionVersion`, distinct attributable acts versus replay, and temporal graph-admission semantics. Application consumes that authority; it does not implement another reducer. In particular, relationship validity established at admission is not silently rewritten by later endpoint lifecycle change, while current work/applicability consumers still evaluate current lifecycle independently. Relationship version checks are necessary but not sufficient: Application must transactionally revalidate every material history, ancestry, graph path, future-effective fact, and absence predicate relied upon through commit.
 
 ---
 
@@ -221,7 +223,7 @@ It appends correction/retraction, preserves all prior acts, and recomputes suppo
 
 `record_lifecycle_correction` is internal/privileged. Inputs include target fact/interpretation, correction kind, effective time, typed trusted basis, truthful Actor Attribution, Trigger Provenance, optional Technical Provenance, expected version, and Operation ID.
 
-It preserves original fact, appends correction with a new `DecisionLifecycleFactId` and next `DecisionLifecycleSequence`, increments Decision version once for the committed current-state mutation, recomputes supported interpretation, and exposes contested/indeterminate state when typed semantics cannot reconcile competing support. Recorded order alone never gives precedence.
+It preserves original fact and appends a correction with a new `DecisionLifecycleFactId` and next `DecisionLifecycleSequence`. `DecisionVersion` advances only when the frozen lifecycle current-interpretation comparison at the command's trusted recording boundary requires it; a distinct valid correction may therefore append while leaving the version unchanged when it affects only historical/future interpretation. Recorded order alone never gives precedence, and typed semantic conflict yields contested interpretation rather than newest-write-wins.
 
 No generic public “set lifecycle status” path is allowed.
 
@@ -229,21 +231,40 @@ No generic public “set lifecycle status” path is allowed.
 
 # 11. Renewal
 
-Creates a new Decision after one/more prior Decisions were supportably substantively or externally resolved and a **new Decision Need** exists.
+Ordinary renewal creates a new Decision after one/more prior Decisions were supportably substantively or externally resolved and a **new Decision Need** exists.
 
-Performs normal initiation continuity arbitration, persists its continuity basis, creates the new Need/Decision, establishes supported `RENEWED_FROM` relationship fact(s), and invokes domain lineage validation. Predecessors remain unchanged.
+Application performs normal initiation continuity arbitration, persists its continuity basis, creates the new Need/Decision, and proposes one/more `RENEWED_FROM` relationship facts with explicit renewal bases.
 
-Every immutable relationship fact receives its own `DecisionRelationshipFactId`; relationship identity is not derived from source/type/target content or persistence rows.
+For each predecessor, admission must establish substantive/external resolution under command knowledge both when the source's new judgment episode begins and at the relationship claim's effective instant. The relationship cannot predate the new episode. Each predecessor is checked independently.
+
+A later attributable assertion of genuinely omitted renewal lineage may target the already-established source Decision/Need without recreating or reopening either identity when those same historical predicates and an explicit renewal basis are proven.
+
+Predecessor identity, Need, lifecycle disposition/work history, and immutable facts remain unchanged. Its `DecisionVersion` may nevertheless advance when the protected incoming renewal interpretation changes.
+
+Later endpoint lifecycle correction does not silently invalidate or rewrite the admitted renewal relationship. If later knowledge requires relationship-semantic change, use explicit relationship correction. Current lifecycle/applicability may independently affect downstream work under its current-time rules.
 
 ---
 
-# 12. Supersession
+# 12. Supersession and relationship correction
 
-May create successor + one/many edges or establish edges among existing Decisions.
+Supersession may create successor + one/many edges or establish edges among existing Decisions. Positive relationship claims are admitted using the historical endpoint eligibility contract in the relationship model rather than ordinary current unresolved/operative work gates.
 
-Target may be unresolved/resolved; lifecycle unchanged; unresolved supported target becomes non-operative; many-to-many allowed; one semantic command atomic; cycle check uses currently supported lineage; contested edge support fails closed when cycle/operative safety cannot be established.
+For incoming Supersession groups:
 
-Relationship qualification/correction is append-only. `record_relationship_correction` preserves the original relationship fact, records a new immutable correction fact with its own `DecisionRelationshipFactId` and explicit target fact reference, and recomputes support. Newest-recorded correction does not automatically win; irreconcilable typed support is contested/indeterminate. Relationship-only committed mutation may advance `DecisionVersion` without inventing a lifecycle fact or advancing `DecisionLifecycleSequence`.
+- `SUPPORTED` contributes its effective edge; an unresolved target is non-operative for ordinary work;
+- relevant `CONTESTED` support makes applicability contested even alongside clean support;
+- `WITHDRAWN` and `NOT_EFFECTIVE` contribute no positive current edge;
+- renewal alone has no Supersession effect.
+
+`record_relationship_correction` preserves immutable history and accepts purpose-specific `QUALIFY`/`DISCONFIRM` correction acts. A correction targets exactly one committed or valid same-command base/correction fact in the same lineage. Same-command target ancestry is an explicit acyclic dependency chain; request-list, insertion, UUID, and timestamp order grant no semantic precedence.
+
+`QUALIFY` supplies a complete replacement positive claim with its own relationship basis plus a separate correction basis and distinct correction/replacement effective instants. `DISCONFIRM` supplies no replacement positive and carries its correction basis. Recursive disconfirmation can restore the immediately preceding positive/qualification/withdrawal interpretation; sibling branches remain independent.
+
+Application consumes the domain's exact `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE` combined interpretation, complete support-ID membership, and role-associated bases. It does not reduce raw facts independently or infer positive edges from explanatory support.
+
+Every distinct valid attributable relationship assertion/correction appends a fresh fact even when equivalent to existing support. Exact same-operation/same-request replay is the only append no-op; same-operation/different-request reuse conflicts.
+
+Temporal graph admission is evaluated against the complete proposed post-command relationship history across every materially distinct historical and known-future topology interval. Supported edges plus all surviving positive possibilities under contest must be acyclic for the mixed `RENEWED_FROM`/`SUPERSEDES` graph. Definite cycles and cycles possible only under contest have distinct typed rejection semantics. An atomic correction batch may repair relationships together when its complete final history passes; no intermediate insertion order is a public graph state. Ticket #298 owns enforcement implementation; Application coordinates the command/transaction around the frozen predicate.
 
 ---
 
@@ -252,7 +273,7 @@ Relationship qualification/correction is append-only. `record_relationship_corre
 ```text
 ordinary mutation:
   lifecycle fact/correction
-  + current projection/version
+  + current projection/version when required by current-interpretation comparison
   + receipt
 
 new initiation:
@@ -260,25 +281,38 @@ new initiation:
   + atomic candidate-basis revalidation
   + new Decision Need + Investment Decision + DecisionInitiated
   + optional lineage edges
+  + relationship graph/admission validation when edges exist
   + receipt
 
 relationship command:
-  all requested relationship facts/corrections
-  + operative projections/guards as needed
+  complete atomic set of requested relationship facts/corrections
+  + same-command target-ancestry validation
+  + historical endpoint/relationship admission validation
+  + complete known-timeline graph certification
+  + protected endpoint version updates when current relationship interpretation changes
+  + transactional protection/revalidation of all materially read histories, ancestry, paths, future facts, and absence predicates
   + receipt
 ```
 
 No partial semantic success. Initiation must also enforce one-Need/one-Decision uniqueness atomically.
 
+Tentative same-command validation stages are never public/durable. A command either commits its complete semantic result or commits nothing.
+
 ---
 
 # 14. Concurrency and idempotency
 
-Existing-Decision mutation uses expected version/CAS. Stale version commits nothing.
+Existing directly touched pre-existing Decisions require expected-version checks even when the proposed relationship act would not itself advance their versions. Stale version commits nothing.
 
-Same operation + same request replays result. Same operation + different request conflicts. Different operation IDs still require continuity protection.
+Relationship-driven version comparison protects both source and target current incident relationship interpretation: group state, surviving effective claims/effective instants, complete support IDs, and role-associated bases. Support/basis-only current changes count; raw append count does not. A Decision touched by several lifecycle/relationship changes advances at most once for the atomic command. New Decisions start at version 1 including same-command initial relationships. Relationship mutation never advances `DecisionLifecycleSequence`.
 
-Relationship commands touching several Decisions require sufficient guards on all semantically affected state.
+Version equality is necessary but insufficient. Before commit, Application/persistence must establish against authoritative committed knowledge that every material endpoint/admission history, relationship fact/correction ancestry, potential return path, and absence predicate relied on remains valid. This includes same-group/cross-group changes, non-endpoint path changes, and future/history-only facts that may not advance any endpoint version. Failed predicate revalidation commits nothing and returns explicit semantic concurrency/relationship conflict.
+
+Physical locking, snapshot/isolation, serialization, or equivalent coordination is adapter-owned; observable correctness must equal validation against the complete applicable committed predecessor state at the final trusted recording boundary followed by atomic commit.
+
+Same operation + same semantic request replays the stored result without append/version. Same operation + different semantic request conflicts. A different operation is a distinct act and still passes every admission/concurrency rule.
+
+Both-endpoint support-sensitive versioning intentionally accepts higher optimistic-concurrency contention to preserve complete relationship meaning. If contention becomes significant, optimize coordination/transaction mechanics rather than weakening protected endpoint/support/basis semantics.
 
 ---
 
@@ -292,7 +326,7 @@ Current view returns identity/Need/Subject/Scope, determinate lifecycle or conte
 
 History returns raw immutable facts/corrections + typed support relationships and initiation continuity basis; it never hides disconfirmed historical facts.
 
-Lineage returns typed renewal/Supersession relationship facts with effective/recorded time and correction/support status.
+Lineage/relationship reads preserve exact `(T,K)`, relationship group identity, `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE`, surviving positive claims/effective instants, complete support IDs, role-associated bases, and not-found/invalid-history distinctions. Explanatory support is not silently converted into a graph edge. Traversal uses supported edges unless a consumer explicitly performs the conservative contested-possibility graph-safety projection.
 
 ---
 
@@ -314,6 +348,9 @@ ContinuityConflict
 ContinuityAmbiguous
 RelationshipConflict
 RelationshipCycle
+RelationshipCycleSafetyIndeterminate
+RelationshipHistoryInvalidOrIncomplete
+RelationshipInterpretationContested
 LifecycleInterpretationContested
 PersistenceUnavailable
 ```
@@ -347,9 +384,19 @@ Concrete application outcome names are optional. Domain failures use the complet
 - unsupported Need retraction allowed after prior resolution/human acts;
 - resolved target superseded without lifecycle mutation;
 - many-target Supersession atomic;
-- relationship correction preserves original fact and can yield contested support;
+- relationship correction preserves original fact, supports recursive correction/restoration, and can yield contested support;
+- renewal admission proves predecessor resolution at new-episode start and relationship effective instant; late omitted lineage is historical attachment rather than identity recreation;
+- later endpoint lifecycle correction does not silently rewrite an admitted relationship while current work/applicability may change independently;
+- same-command relationship correction ancestry is explicit/acyclic and independent of request-list/insertion/timestamp order;
+- `QUALIFY` preserves distinct correction and replacement effective instants and distinct correction/relationship bases;
+- exact four-state relationship interpretation and complete support/basis association are consumed without an application-side reducer;
+- distinct equivalent relationship acts append; exact replay appends nothing; changed-request OperationId reuse conflicts;
+- support/basis-only current relationship changes can advance both endpoint versions; future-only unchanged-current facts may not;
+- complete historical/known-future graph validation rejects definite or possible cycles and permits acyclic contest;
+- atomic correction batch can repair several relationships with no visible intermediate graph state;
+- concurrent path/future/absence change is rejected even if expected endpoint versions still match;
 - `as_known_at` does not apply later-recorded or future-effective facts prematurely;
-- competing corrections -> contested interpretation;
+- competing lifecycle corrections -> contested interpretation;
 - Actor Attribution, Trigger Provenance, and Technical Provenance remain separate.
 
 ---
@@ -358,4 +405,4 @@ Concrete application outcome names are optional. Domain failures use the complet
 
 No Attention service, Evidence assembly, model orchestration, Governance implementation, arbitrary trusted-basis injection, Action Continuity, generic event/workflow runtime, generic graph service, or platform-wide UoW framework.
 
-The foundation public-contract blockers are resolved. Specs may choose classes/functions, transaction/lock implementation, private realization helpers, and test mechanics only when those choices preserve the completed foundation/lifecycle/relationship/application contracts. They may not redefine command meanings, Need/Decision cardinality, identity representation/generation, Scope semantics, durable continuity provenance, operative-state guards, trusted Governance seams, append-only correction/support semantics, Actor/Trigger/Technical Provenance separation, historical query semantics, or public/domain contracts by implementation convenience.
+The foundation, lifecycle-correction, and #297 relationship architecture blockers are resolved. Specs may choose classes/functions, transaction/lock implementation, private realization helpers, and test mechanics only when those choices preserve the completed foundation/lifecycle/relationship/application contracts. They may not redefine command meanings, Need/Decision cardinality, identity representation/generation, Scope semantics, durable continuity provenance, operative-state guards, trusted Governance seams, append-only lifecycle/relationship correction/support semantics, relationship admission/version/graph predicates, Actor/Trigger/Technical Provenance separation, historical query semantics, or public/domain contracts by implementation convenience.

@@ -278,6 +278,8 @@ def test_relationship_and_correction_basis_roles_are_not_interchangeable():
         )
 
 
+# duplicate-code: the equivalent-support proof intentionally keeps the baseline admission inline; the later protection-requirements test owns a distinct contract and should remain independently scanned.
+# arid: disable
 def test_distinct_equivalent_assertions_append_and_union_support():
     source = initiate()
     target = initiate()
@@ -308,6 +310,7 @@ def test_distinct_equivalent_assertions_append_and_union_support():
     )
     assert len(result.surviving_positive_claims) == 1
     assert len(two.history) == 2
+# arid: enable
 
 
 def test_same_operation_replay_is_separate_from_distinct_append():
@@ -472,6 +475,8 @@ def test_sibling_positive_and_withdrawal_branches_are_contested():
 # arid: enable
 
 
+# duplicate-code: this withdrawn-plus-future interpretation is an independent state-partition proof; sharing its correction setup with protection/version tests would couple different contracts.
+# arid: disable
 def test_withdrawn_plus_future_lineage_is_not_effective_not_withdrawn():
     source = initiate()
     target = initiate()
@@ -488,6 +493,7 @@ def test_withdrawn_plus_future_lineage_is_not_effective_not_withdrawn():
     assert result.state is DecisionRelationshipState.NOT_EFFECTIVE
     assert withdrawal.metadata.relationship_fact_id in result.support_fact_ids
     assert second.metadata.relationship_fact_id not in result.support_fact_ids
+# arid: enable
 
 
 def test_missing_correction_ancestry_is_explicit_invalid_history():
@@ -592,8 +598,6 @@ def test_same_command_correction_cycle_is_rejected():
 # arid: enable
 
 
-# duplicate-code: this endpoint-admission falsifier deliberately uses the same one-edge command shape as successful admissions so only lifecycle eligibility differs; a helper would conceal that admission boundary.
-# arid: disable
 def test_positive_admission_rejects_unsupported_need_endpoint():
     source = initiate()
     target = unsupported(initiate(), recorded=10)
@@ -605,7 +609,6 @@ def test_positive_admission_rejects_unsupported_need_endpoint():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
-# arid: enable
 
 
 def test_renewal_creates_new_episode_and_preserves_predecessor_history():
@@ -883,6 +886,8 @@ def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
 # arid: enable
 
 
+# duplicate-code: command admission and raw-history validation intentionally exercise the same malformed QUALIFY shape through different boundaries; keeping this command-path proof local preserves that distinction.
+# arid: disable
 def test_qualify_replacement_basis_must_match_root_relationship_type():
     source = initiate()
     target = initiate()
@@ -903,6 +908,7 @@ def test_qualify_replacement_basis_must_match_root_relationship_type():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
+# arid: enable
 
 
 # duplicate-code: DISCONFIRM admission deliberately mirrors correction/protection setup while changing endpoint eligibility semantics; sharing the setup would obscure the rule that DISCONFIRM bypasses later endpoint ineligibility.
@@ -1484,8 +1490,6 @@ def test_renewed_from_requires_source_own_new_decision_need():
 # arid: enable
 
 
-# duplicate-code: these empty-history calls intentionally repeat the public applicability query with one invalid boundary at a time; a helper would hide validation order, which is the contract under test.
-# arid: disable
 def test_applicability_validates_identity_and_time_before_empty_fast_path():
     decision = initiate()
 
@@ -1524,4 +1528,3 @@ def test_applicability_validates_identity_and_time_before_empty_fast_path():
         )
         is DecisionApplicability.OPERATIVE
     )
-# arid: enable

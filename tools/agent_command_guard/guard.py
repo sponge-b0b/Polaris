@@ -352,7 +352,9 @@ def _classify_pytest(args: Sequence[str]) -> GuardDecision:
 
     broad_targets = [target for target in positional if _is_broad_pytest_target(target)]
     if broad_targets:
-        return _blocked("pytest", f"pytest target is too broad: {', '.join(broad_targets)}")
+        return _blocked(
+            "pytest", f"pytest target is too broad: {', '.join(broad_targets)}"
+        )
 
     return GuardDecision(
         allowed=True, reason="pytest target is scoped", command_kind="pytest"

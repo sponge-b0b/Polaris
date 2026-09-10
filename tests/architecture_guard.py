@@ -244,9 +244,7 @@ class _Guard(ast.NodeVisitor):
                     "ARCH-LEGACY-DYNAMIC",
                     f"runtime loader {loader!r} references {legacy!r}",
                 )
-                self._fail_migration_legacy(
-                    node, f"migration runtime-loads {legacy!r}"
-                )
+                self._fail_migration_legacy(node, f"migration runtime-loads {legacy!r}")
         self.generic_visit(node)
 
     def visit_assign(self, node: ast.Assign) -> None:

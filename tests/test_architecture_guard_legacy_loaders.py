@@ -173,6 +173,8 @@ def test_function_local_import_shadow_still_masks_outer_loader(
         ),
     )
     assert check_repository(tmp_path) == ()
+
+
 # arid: enable
 
 
@@ -208,6 +210,8 @@ def test_bound_legacy_target_in_migration_emits_both_violations(
     rules = _rules(tmp_path)
     assert "ARCH-LEGACY-DYNAMIC" in rules
     assert "ARCH-MIGRATION-LEGACY" in rules
+
+
 # arid: enable
 
 
@@ -302,4 +306,6 @@ def test_method_does_not_inherit_class_literal_binding(tmp_path: Path) -> None:
         ),
     )
     assert check_repository(tmp_path) == ()
+
+
 # arid: enable

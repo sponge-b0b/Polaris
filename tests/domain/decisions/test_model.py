@@ -172,6 +172,8 @@ def metadata(*, identity, sequence, version, attribution=None):
         effective_at=NOW,
         recorded_at=NOW,
     )
+
+
 # arid: enable
 
 
@@ -388,6 +390,8 @@ def test_scope_transition_fact_meanings_and_noop() -> None:
             applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
+
+
 # arid: enable
 
 
@@ -736,6 +740,8 @@ def test_resolved_decisions_reject_ordinary_work_and_changed_subject_scope() -> 
             applicability=DecisionApplicability.OPERATIVE,
             mutation=mutation(),
         )
+
+
 # arid: enable
 
 
@@ -756,4 +762,6 @@ def test_new_lifecycle_facts_preserve_separate_attribution_and_provenance() -> N
     assert metadata.technical_provenance == context.technical_provenance
     assert metadata.actor_attribution != metadata.trigger
     assert metadata.trigger != metadata.technical_provenance
+
+
 # arid: enable

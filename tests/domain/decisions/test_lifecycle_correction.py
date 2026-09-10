@@ -120,6 +120,8 @@ def initiate(*, recorded=0, effective=0):
         ),
         mutation=context,
     )
+
+
 # arid: enable
 
 
@@ -515,6 +517,8 @@ def test_posture_orders_effective_time_then_sequence_separately_from_admission()
         mutation=mutation(50, 20),
     )
     assert decision.work_posture is DecisionWorkPosture.WITHDRAWN
+
+
 # arid: enable
 
 
@@ -761,6 +765,8 @@ def test_every_ineligible_lifecycle_fact_kind_rejects_correction(kind):
     decision = rebuild((*decision.history, target), observed=2)
     with pytest.raises(InvalidDecisionLifecycleCorrection, match="eligible"):
         correct(decision, target, 3, disposition=UNRESOLVED)
+
+
 # arid: enable
 
 
@@ -807,6 +813,8 @@ def test_foreign_self_forward_duplicate_and_wrong_identity_targets_rejected():
         replace(correction, target_fact_id=OperationId(uuid4()))
     with pytest.raises(InvalidDecisionBasis):
         replace(correction, correction_basis=ExternalResolutionBasis("wrong purpose"))
+
+
 # arid: enable
 
 

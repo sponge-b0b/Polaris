@@ -155,6 +155,8 @@ class DecisionRelationshipCorrectionBasis:
             "references",
             _basis_references(references, "DecisionRelationshipCorrectionBasis"),
         )
+
+
 # arid: enable
 
 
@@ -225,6 +227,7 @@ class DecisionRelationshipFactMetadata:
             self.recorded_at,
             require_known_actor=False,
         )
+
     # arid: enable
 
 

@@ -456,6 +456,8 @@ class ExternalResolutionBasis:
             "reference",
             _basis_reference(self.reference, "ExternalResolutionBasis.reference"),
         )
+
+
 # arid: enable
 
 
@@ -562,6 +564,8 @@ class UnsupportedDecisionNeedBasis:
             "reference",
             _basis_reference(self.reference, "UnsupportedDecisionNeedBasis.reference"),
         )
+
+
 # arid: enable
 
 

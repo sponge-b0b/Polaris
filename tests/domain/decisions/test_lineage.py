@@ -213,6 +213,8 @@ def test_every_correction_path_rechecks_final_history(action):
     validate_decision_lifecycle_lineage(history, known_at=at(4))
     with pytest.raises(DecisionLifecycleLineageCycle):
         apply(history, [proposed], {a.decision_id: a, b.decision_id: b}, boundary=5)
+
+
 # arid: enable
 
 
@@ -401,6 +403,8 @@ def test_parallel_lineage_types_preserve_one_direction_without_false_cycle():
     )
     assert {f.relationship_type for f in result.history} == {RENEWED_FROM, SUPERSEDES}
     assert len(result.history) == 2
+
+
 # arid: enable
 
 

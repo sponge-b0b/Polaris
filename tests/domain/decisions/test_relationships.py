@@ -310,6 +310,8 @@ def test_distinct_equivalent_assertions_append_and_union_support():
     )
     assert len(result.surviving_positive_claims) == 1
     assert len(two.history) == 2
+
+
 # arid: enable
 
 
@@ -378,6 +380,8 @@ def test_different_effective_instants_contest_without_recency_precedence():
             second.metadata.relationship_fact_id,
         }
     )
+
+
 # arid: enable
 
 
@@ -472,6 +476,8 @@ def test_sibling_positive_and_withdrawal_branches_are_contested():
     assert result.state is DecisionRelationshipState.CONTESTED
     assert positive.metadata.relationship_fact_id in result.support_fact_ids
     assert withdrawal.metadata.relationship_fact_id in result.support_fact_ids
+
+
 # arid: enable
 
 
@@ -493,6 +499,8 @@ def test_withdrawn_plus_future_lineage_is_not_effective_not_withdrawn():
     assert result.state is DecisionRelationshipState.NOT_EFFECTIVE
     assert withdrawal.metadata.relationship_fact_id in result.support_fact_ids
     assert second.metadata.relationship_fact_id not in result.support_fact_ids
+
+
 # arid: enable
 
 
@@ -595,6 +603,8 @@ def test_same_command_correction_cycle_is_rejected():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
+
+
 # arid: enable
 
 
@@ -701,6 +711,8 @@ def test_renewal_rejects_unresolved_predecessor_at_episode_start():
             initiation_mutation=initiation,
             expected_versions={predecessor.decision_id: predecessor.version},
         )
+
+
 # arid: enable
 
 
@@ -805,6 +817,8 @@ def test_same_command_lifecycle_and_relationship_version_only_once():
     assert command.versioned_decision_ids == frozenset(
         {source.decision_id, target.decision_id}
     )
+
+
 # arid: enable
 
 
@@ -825,6 +839,8 @@ def test_supersession_changes_version_not_lifecycle_sequence_or_disposition():
     assert changed_target.version == DecisionVersion(target.version.value + 1)
     assert changed_target.history[-1].metadata.sequence == sequence
     assert changed_target.disposition is DecisionLifecycleDisposition.UNRESOLVED
+
+
 # arid: enable
 
 
@@ -883,6 +899,8 @@ def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
     assert two.decision(target.decision_id).version == DecisionVersion(
         target.version.value + 1
     )
+
+
 # arid: enable
 
 
@@ -908,6 +926,8 @@ def test_qualify_replacement_basis_must_match_root_relationship_type():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
+
+
 # arid: enable
 
 
@@ -940,6 +960,8 @@ def test_disconfirm_bypasses_later_endpoint_lifecycle_ineligibility():
     )
     result = query(command.history, source, target, 10)
     assert result.state is DecisionRelationshipState.WITHDRAWN
+
+
 # arid: enable
 
 
@@ -999,6 +1021,8 @@ def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_sepa
     assert metadata.actor_attribution is not metadata.trigger
     assert metadata.trigger is not metadata.technical_provenance
     assert not hasattr(source, "related_decisions")
+
+
 # arid: enable
 
 
@@ -1019,6 +1043,8 @@ def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     )
     with pytest.raises(InvalidDecisionRelationshipBasis):
         query((base, correction), source, target, 10)
+
+
 # arid: enable
 
 
@@ -1046,6 +1072,8 @@ def test_qualify_replacement_may_precede_or_equal_correction_activation(
         claim.relationship_effective_at for claim in result.surviving_positive_claims
     } == {at(replacement_effective)}
     assert correction.metadata.relationship_fact_id in result.support_fact_ids
+
+
 # arid: enable
 
 
@@ -1133,6 +1161,8 @@ def test_renewal_allows_equal_resolution_episode_and_relationship_instants():
         expected_versions={predecessor.decision_id: predecessor.version},
     )
     assert result.decision.version == DecisionVersion(1)
+
+
 # arid: enable
 
 
@@ -1177,6 +1207,8 @@ def test_withdrawn_and_not_effective_supersession_do_not_reduce_applicability():
         known_at=at(10),
     )
     assert applicability is DecisionApplicability.OPERATIVE
+
+
 # arid: enable
 
 
@@ -1332,6 +1364,8 @@ def test_renewal_rejects_resolved_start_but_unresolved_relationship_instant():
             initiation_mutation=initiation,
             expected_versions={predecessor.decision_id: predecessor.version},
         )
+
+
 # arid: enable
 
 
@@ -1487,6 +1521,8 @@ def test_renewed_from_requires_source_own_new_decision_need():
             },
             boundary=10,
         )
+
+
 # arid: enable
 
 

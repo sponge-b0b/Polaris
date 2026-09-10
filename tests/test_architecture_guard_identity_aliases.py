@@ -162,6 +162,8 @@ def test_class_scope_type_alias_id_rejects_imported_technical_alias(
         """,
     )
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
+
+
 # arid: enable
 
 
@@ -277,6 +279,8 @@ def test_method_local_id_can_remain_technical_provenance(
     )
 
     assert _rules(tmp_path) == set()
+
+
 # arid: enable
 
 
@@ -376,4 +380,6 @@ def test_semantic_annotated_initializer_remains_allowed(
         """,
     )
     assert _rules(tmp_path) == set()
+
+
 # arid: enable

@@ -321,6 +321,8 @@ def test_interface_cannot_bypass_application_through_infrastructure_vendor(
         and module in item.detail
         for item in violations
     )
+
+
 # arid: enable
 
 
@@ -391,6 +393,8 @@ def test_investment_decision_local_alias_cannot_hide_runtime_identity(
         ),
     )
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
+
+
 # arid: enable
 
 
@@ -446,6 +450,8 @@ def test_current_migration_cannot_runtime_load_legacy_lineage(tmp_path: Path) ->
     rules = _rules(tmp_path)
     assert "ARCH-LEGACY-DYNAMIC" in rules
     assert "ARCH-MIGRATION-LEGACY" in rules
+
+
 # arid: enable
 
 

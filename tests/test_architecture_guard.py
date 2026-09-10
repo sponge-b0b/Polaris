@@ -375,6 +375,8 @@ def test_investment_decision_id_field_cannot_use_runtime_identity(
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
 
 
+# duplicate-code: direct runtime-typed fields and class-local runtime aliases are separate identity-boundary falsifiers; sharing one AST fixture would couple the two detection paths.
+# arid: disable
 def test_investment_decision_local_alias_cannot_hide_runtime_identity(
     tmp_path: Path,
 ) -> None:
@@ -389,6 +391,7 @@ def test_investment_decision_local_alias_cannot_hide_runtime_identity(
         ),
     )
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
+# arid: enable
 
 
 def test_decision_identity_alias_chain_cannot_hide_runtime_identity(

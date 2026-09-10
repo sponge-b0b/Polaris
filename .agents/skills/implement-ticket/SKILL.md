@@ -1137,3 +1137,59 @@ Reason: <why current authority is sufficient or why invention/change is required
 Every candidate must be dispositioned. `implementation` requires current authority to determine the durable semantic without invention. `architecture-blocker` requires a concrete unresolved durable choice or authority conflict. A concern may not disappear merely because implementation found a convenient mechanism, and ordinary missing wiring may not be promoted to architecture merely to halt.
 
 These working records need not be copied verbatim into the final human response; they are mandatory transition state that must exist before the corresponding lifecycle transition is legal.
+
+## Context-Efficient Helper Loading and Candidate-Frozen Final Verification
+
+This section is authoritative for helper-context loading and the timing of final local/delegated verification. It supersedes only earlier wording that could be read to authorize eager helper ingestion or final verification before candidate freeze. All applicability, semantic proof, certification, persistence, and closure requirements above remain unchanged.
+
+### Helper Context Loading
+
+The existing applicability plan is also the authority for helper-skill context loading.
+
+* Do not preload or concatenate multiple helper `SKILL.md` files merely because they may become relevant later in the ticket.
+* A helper classified `not-applicable` must not be loaded for ordinary execution.
+* For an `applicable` helper, defer loading its detailed contract until the first transition that actually requires that helper.
+* When only one exact cross-skill rule is needed to make a routing or ownership decision, read the smallest heading-bounded excerpt that resolves that question; broaden to the complete helper skill only when the helper is being executed directly or the bounded excerpt is insufficient.
+* When a child/helper invocation itself loads its authoritative skill contract, the parent must not duplicate that complete read merely to mirror the child's context. Pass the required routing inputs and consume the child's returned contract/result.
+* Reuse an already loaded, still-current helper contract within the same ticket lifecycle. Re-read only when the helper file changed, session/re-entry state no longer contains the required contract, a new material question requires a previously unread section, or returned state creates a concrete ambiguity that requires exact contract validation.
+* Do not bulk `cat` helper skills as a convenience. Applicability and the current transition determine each load independently.
+
+These rules implement the repository-wide Context and Discovery Efficiency policy locally without weakening any helper's authority once that helper becomes applicable.
+
+### Iterative Evidence Is Not Final Verification
+
+During active implementation, run only the minimum direct checks and discovery needed to guide the next edit, falsify the current design, or establish implementation scope. Focused unit tests, syntax checks, contract-consumer discovery, and similarly narrow probes may run as needed.
+
+Do not run a complete final `$verify-code` lifecycle, delegated repository-wide invariant gate, full documentation/workflow/database verification set, or equivalent final gate merely to obtain an early green result while substantive mutation is still expected. Any such early result is iterative evidence only and cannot satisfy the final verification requirement.
+
+Complete all known mutating finalization before freeze, including applicable `$format-code`, post-implementation `$wiki-sync` edits, generated artifacts/migrations, deterministic auto-fixes, and other authorized repository mutations. Claim/falsifier construction and semantic discovery are not deferred; only final verification execution is.
+
+Interpret `local / delegated implementation verification` in the Core Authority Invariant as the final candidate-bound verification phase below. Iterative checks do not satisfy that transition.
+
+### Final Verification Candidate Freeze
+
+When implementation, applicability reconciliation, semantic discovery, and all known mutating finalization are complete, freeze the candidate **before** running final verification:
+
+1. compute `FINAL_VERIFY_STATE` using the exact `TICKET_CLOSURE_STATE` hash procedure in **Candidate State**;
+2. bind any tracker-only or mixed durable tracker state required by the ticket at the same boundary;
+3. record that no known substantive repository/tracker mutation remains before final verification;
+4. run every applicable final verification owner/gate once against that frozen state, including `$verify-code` and any applicable delegated invariant gate;
+5. recompute the same candidate/tracker state after final verification and require exact equality with the freeze.
+
+Final verification is evidence for one immutable candidate, not another implementation iteration.
+
+If a final gate fails and repair is required, or if a verification helper performs an authorized repair/auto-fix, the freeze is stale immediately. Do not count that run as final evidence. Return to implementation, complete the repair and mutating finalization, compute a new `FINAL_VERIFY_STATE`, and re-run every final gate whose evidence may have been invalidated. Reuse prior gate evidence only when deterministic fail-closed invalidation analysis proves the exact proof/evidence is unaffected; uncertainty requires rerun.
+
+Before building Proposed Closure Evidence or writing `Stage: awaiting-closure-verification`, require:
+
+```text
+Final verification candidate state: <FINAL_VERIFY_STATE>
+Applicable final gates: <n>
+Final gates complete for frozen state: <n>/<n>
+Candidate/tracker mutation during accepted final verification: 0
+Unresolved final gates: 0
+```
+
+Then require current `TICKET_CLOSURE_STATE` and applicable tracker binding to equal the frozen state and use that same candidate identity for Proposed Closure Evidence, durable checkpoint persistence, and fresh `$verify-ticket-closure` dispatch.
+
+This freeze is a local technical-evidence boundary, not semantic certification. The durable v2 checkpoint and fresh verifier remain the only ticket-closure certification path.

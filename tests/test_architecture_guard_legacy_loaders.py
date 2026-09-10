@@ -120,6 +120,8 @@ def test_root_complete_static_legacy_loader_matrix(
         )
 
 
+# duplicate-code: these tests preserve distinct loader-rebinding and lexical-shadowing source shapes; sharing their source scaffold would couple independent AST resolution proofs.
+# arid: disable
 @pytest.mark.parametrize("scope", ("module", "class"))
 def test_later_import_shadow_does_not_hide_earlier_legacy_loader(
     tmp_path: Path,
@@ -171,8 +173,11 @@ def test_function_local_import_shadow_still_masks_outer_loader(
         ),
     )
     assert check_repository(tmp_path) == ()
+# arid: enable
 
 
+# duplicate-code: bound-target cases intentionally vary provenance and migration context while retaining comparable loader syntax; a shared fixture would hide the target-binding distinction under test.
+# arid: disable
 def test_bound_legacy_target_survives_loader_alias_chain(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -203,8 +208,11 @@ def test_bound_legacy_target_in_migration_emits_both_violations(
     rules = _rules(tmp_path)
     assert "ARCH-LEGACY-DYNAMIC" in rules
     assert "ARCH-MIGRATION-LEGACY" in rules
+# arid: enable
 
 
+# duplicate-code: each lexical-scope case is an independent name-resolution falsifier whose exact local source must remain visible; extracting common setup would couple the semantics being proved.
+# arid: disable
 def test_bound_target_rebinding_to_nonlegacy_is_allowed(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -294,3 +302,4 @@ def test_method_does_not_inherit_class_literal_binding(tmp_path: Path) -> None:
         ),
     )
     assert check_repository(tmp_path) == ()
+# arid: enable

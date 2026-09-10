@@ -307,24 +307,43 @@ Also require:
 
 A contract with unresolved source-unit classification, counting, missing source items, missing mappings, or ambiguous mapping is invalid. Do not return a partial inventory or manifest as complete.
 
-Canonicalize each Source Unit Inventory row as exactly:
+### Deterministic Contract Hash Encoding
+
+The human-readable inventory and manifest row forms above are display forms. They are not the byte serialization used for `SPEC_CONTRACT_HASH`.
+
+For hashing, represent each Source Unit Inventory row as this five-element array, preserving the exact already-classified values:
 
 ```text
-<Source Unit>|<Source>|<Text Hash>|<Classification>|<manifest cell IDs sorted in stable cell-ID order or None>
+[Source Unit, Source, Text Hash, Classification, Manifest cells]
 ```
 
-The human-readable `Reason` is mandatory where required above but is deliberately excluded from the hash so equivalent explanatory wording does not make an unchanged contract stale.
+`Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array of cell IDs sorted in stable cell-ID order.
 
-Canonicalize inventory rows in `SU-*` order and manifest rows in stable cell-ID order. Compute:
+Represent each Spec Contract Manifest row as this four-element array:
 
 ```text
-SPEC_CONTRACT_HASH = SHA-256(
-    canonical ordered Source Unit Inventory rows
-    + canonical ordered Spec Contract Manifest rows
+[Cell, Source, Requirement, Named surfaces]
+```
+
+`Named surfaces` is JSON `null` when no surface is named; otherwise it is an array of the exact atomic named-surface strings sorted lexicographically by Unicode code point. Do not hash a prose summary in place of that list.
+
+Serialize every array independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Do not pretty-print, add a BOM, normalize Unicode code points, or otherwise rewrite field text. Then construct exactly this Unicode payload:
+
+```python
+payload = (
+    "SPEC-CONTRACT-V1\n"
+    + "\n".join(inventory_json_rows)
+    + "\n--MANIFEST--\n"
+    + "\n".join(manifest_json_rows)
+    + "\n"
 )
 ```
 
-The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, without binding incidental explanatory prose.
+Encode `payload` as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
+
+This encoding is the only canonical byte form for `SPEC_CONTRACT_HASH`. Inventory rows remain ordered by `SU-*`; manifest rows remain ordered by stable cell-ID order. A contract is invalid if an inventory/manifest value needed by this encoding is unresolved or if a named surface cannot be represented as one exact atomic string.
+
+The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, including the exact manifest obligation and named-surface boundary, without binding incidental explanatory `Reason` prose.
 
 ## 3. Classify Change Ownership
 

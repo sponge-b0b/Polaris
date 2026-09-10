@@ -34,6 +34,7 @@ from .facts import (
     _exact,
     _known_actor,
     _uuid4,
+    _validate_provenance,
 )
 from .model import InvestmentDecision, initiate_decision
 
@@ -118,6 +119,8 @@ def _basis_references(values: Iterable[str], field: str) -> frozenset[str]:
     return frozenset(clean)
 
 
+# duplicate-code: these purpose-specific basis types intentionally remain distinct domain values; sharing a base class would couple renewal, supersession, and correction semantics after their common validation is already centralized.
+# arid: disable
 @dataclass(frozen=True, slots=True, init=False)
 class RenewedFromRelationshipBasis:
     references: frozenset[str]
@@ -152,9 +155,28 @@ class DecisionRelationshipCorrectionBasis:
             "references",
             _basis_references(references, "DecisionRelationshipCorrectionBasis"),
         )
+# arid: enable
 
 
 DecisionRelationshipBasis = RenewedFromRelationshipBasis | SupersedesRelationshipBasis
+
+
+def _validate_relationship_context(
+    operation_id: object,
+    actor_attribution: object,
+    trigger: object,
+    technical_provenance: object,
+    recorded_at: object,
+    *,
+    require_known_actor: bool,
+) -> None:
+    _exact(operation_id, OperationId, "operation_id")
+    if require_known_actor:
+        _known_actor(actor_attribution)
+    else:
+        _actor(actor_attribution)
+    _validate_provenance(trigger, technical_provenance)
+    _aware(recorded_at, "recorded_at")
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,23 +190,27 @@ class DecisionRelationshipMutationContext:
 
     def __post_init__(self) -> None:
         _exact(self.fact_id, DecisionRelationshipFactId, "fact_id")
-        _exact(self.operation_id, OperationId, "operation_id")
-        _known_actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
-        _aware(self.recorded_at, "recorded_at")
+        _validate_relationship_context(
+            self.operation_id,
+            self.actor_attribution,
+            self.trigger,
+            self.technical_provenance,
+            self.recorded_at,
+            require_known_actor=True,
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class DecisionRelationshipFactMetadata:
     relationship_fact_id: DecisionRelationshipFactId
     operation_id: OperationId
+    # duplicate-code: lifecycle and relationship fact metadata deliberately remain separate typed envelopes even though both carry the same attribution/provenance tail.
+    # arid: disable
     actor_attribution: ActorAttribution
     trigger: TriggerProvenance
     technical_provenance: TechnicalProvenance
     recorded_at: datetime
+    # arid: enable
 
     def __post_init__(self) -> None:
         _exact(
@@ -192,13 +218,14 @@ class DecisionRelationshipFactMetadata:
             DecisionRelationshipFactId,
             "relationship_fact_id",
         )
-        _exact(self.operation_id, OperationId, "operation_id")
-        _actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
-        _aware(self.recorded_at, "recorded_at")
+        _validate_relationship_context(
+            self.operation_id,
+            self.actor_attribution,
+            self.trigger,
+            self.technical_provenance,
+            self.recorded_at,
+            require_known_actor=False,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1457,6 +1484,8 @@ def apply_relationship_command(
     _history_maps(before)
     post = (*before, *proposed)
     post_by_id, post_parent = _history_maps(post)
+    # duplicate-code: this aggregate admission boundary intentionally forwards the same command context used by per-fact admission; another forwarding wrapper would add no domain behavior and obscure the two validation phases.
+    # arid: disable
     _validate_proposed_admission(
         proposed,
         post_by_id=post_by_id,
@@ -1464,6 +1493,7 @@ def apply_relationship_command(
         decisions=decisions,
         recording_boundary=recording_boundary,
     )
+    # arid: enable
     validate_decision_lifecycle_lineage(post, known_at=recording_boundary)
     groups = _changed_groups(proposed, post_by_id, post_parent)
     touched = _touched_decisions(groups)

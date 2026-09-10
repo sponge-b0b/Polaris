@@ -432,6 +432,8 @@ class TrustedHumanInvestmentDecisionBasis:
             )
 
 
+# duplicate-code: these simple basis values share normalization but remain separate purpose-specific domain types; a common base would weaken their type distinction without removing any duplicated behavior.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class DecisionWorkControlBasis:
     reference: str
@@ -454,6 +456,7 @@ class ExternalResolutionBasis:
             "reference",
             _basis_reference(self.reference, "ExternalResolutionBasis.reference"),
         )
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -532,6 +535,8 @@ class DecisionLifecycleCorrectionEffect(StrEnum):
     DISCONFIRM = "disconfirm"
 
 
+# duplicate-code: correction and unsupported-Need bases are intentionally distinct semantic evidence types; both already reuse the shared basis-reference validator, so inheritance would only couple their identities.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class DecisionLifecycleCorrectionBasis:
     reference: str
@@ -557,6 +562,7 @@ class UnsupportedDecisionNeedBasis:
             "reference",
             _basis_reference(self.reference, "UnsupportedDecisionNeedBasis.reference"),
         )
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)

@@ -204,13 +204,12 @@ class DecisionRelationshipMutationContext:
 class DecisionRelationshipFactMetadata:
     relationship_fact_id: DecisionRelationshipFactId
     operation_id: OperationId
-    # duplicate-code: lifecycle and relationship fact metadata deliberately remain separate typed envelopes even though both carry the same attribution/provenance tail.
+    # duplicate-code: lifecycle and relationship fact metadata deliberately remain separate typed envelopes even though both carry the same attribution/provenance tail and validation forwarding shape.
     # arid: disable
     actor_attribution: ActorAttribution
     trigger: TriggerProvenance
     technical_provenance: TechnicalProvenance
     recorded_at: datetime
-    # arid: enable
 
     def __post_init__(self) -> None:
         _exact(
@@ -226,6 +225,7 @@ class DecisionRelationshipFactMetadata:
             self.recorded_at,
             require_known_actor=False,
         )
+    # arid: enable
 
 
 @dataclass(frozen=True, slots=True)

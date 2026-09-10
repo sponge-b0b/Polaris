@@ -192,6 +192,8 @@ def test_supported_cycle_stays_definite_beside_unrelated_contest():
         )
 
 
+# duplicate-code: each correction-path case keeps its full proposed history visible because the topology being mutated is the assertion; extracting the repeated apply/raises scaffold would obscure which final-history path must fail.
+# arid: disable
 @pytest.mark.parametrize("action", ["qualify", "restore", "recursive-restore"])
 def test_every_correction_path_rechecks_final_history(action):
     a, b = initiate(), initiate()
@@ -211,6 +213,7 @@ def test_every_correction_path_rechecks_final_history(action):
     validate_decision_lifecycle_lineage(history, known_at=at(4))
     with pytest.raises(DecisionLifecycleLineageCycle):
         apply(history, [proposed], {a.decision_id: a, b.decision_id: b}, boundary=5)
+# arid: enable
 
 
 def test_atomic_repair_accepts_only_final_history_independent_of_serialization_order():
@@ -378,6 +381,8 @@ def test_future_context_shape_keeps_exact_target_history_separate_from_lineage()
     assert DecisionRelationshipFactId(uuid4()) != used.target_decision_id
 
 
+# duplicate-code: this is the acyclic sibling of the mixed-type cycle proof above; both must retain the exact renewal/supersession construction so direction and graph outcome stay independently readable.
+# arid: disable
 def test_parallel_lineage_types_preserve_one_direction_without_false_cycle():
     old = resolve(initiate(), recorded=1)
     new = initiate(recorded=2, effective=2)
@@ -396,6 +401,7 @@ def test_parallel_lineage_types_preserve_one_direction_without_false_cycle():
     )
     assert {f.relationship_type for f in result.history} == {RENEWED_FROM, SUPERSEDES}
     assert len(result.history) == 2
+# arid: enable
 
 
 def test_positive_withdrawal_contest_rejects_possible_cycle_at_activation_boundary():

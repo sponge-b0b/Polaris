@@ -177,6 +177,8 @@ def _metadata(
         1 if decision is None else decision.history[-1].metadata.sequence.value + 1
     )
     version = 1 if decision is None else decision.version.value + 1
+    # duplicate-code: lifecycle and relationship metadata builders intentionally construct different typed fact envelopes; sharing the common provenance tail would erase that domain boundary for no behavioral reuse.
+    # arid: disable
     return DecisionLifecycleFactMetadata(
         context.fact_id,
         decision_id,
@@ -189,6 +191,7 @@ def _metadata(
         context.effective_at,
         context.recorded_at,
     )
+    # arid: enable
 
 
 def _same_choice(decision: InvestmentDecision, continuity: DecisionContinuity) -> None:
@@ -346,6 +349,8 @@ def withdraw_decision_work(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    # duplicate-code: withdrawal is a distinct work-control transition; its shared ordinary-work admission is already centralized, while the remaining typed basis/posture/fact sequence is the behavior this command owns.
+    # arid: disable
     decision = _at_recording(decision, mutation, applicability)
     _require_ordinary_work(decision, applicability)
     if type(basis) is not DecisionWorkControlBasis:
@@ -357,6 +362,7 @@ def withdraw_decision_work(
         basis,
     )
     return _append_ordinary(decision, fact, mutation)
+    # arid: enable
 
 
 def resume_decision_work(
@@ -390,6 +396,8 @@ def substantively_resolve_decision(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
+    # duplicate-code: substantive resolution is a distinct human-authority transition; its shared ordinary-work admission is already centralized, and a generic transition builder would couple its effect/basis semantics to work-control commands.
+    # arid: disable
     decision = _at_recording(decision, mutation, applicability)
     _require_ordinary_work(decision, applicability)
     _require_human_effect(
@@ -401,6 +409,7 @@ def substantively_resolve_decision(
         basis,
     )
     return _append_ordinary(decision, fact, mutation)
+    # arid: enable
 
 
 def externally_resolve_decision(

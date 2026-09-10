@@ -11,6 +11,34 @@ Verify a completed Spec as one integrated acceptance universe and record a passi
 
 This `SKILL.md` is the single authoritative procedure for `$verify-spec`. The preserved integration/gate/repair/finalization procedure later in this file remains normative except where the hardening sections immediately below explicitly supersede older wording.
 
+## Session-Stable Spec Contract Consumption
+
+This section is authoritative for contract reconstruction and supersedes preserved wording that treats model-authored manifest display prose as contract identity.
+
+`$spec-contract` owns structural contract identity. Its current V2 `SPEC_CONTRACT_HASH` binds the exact Spec body plus deterministic Source Unit identity/classification and source-unit-to-cell mapping; manifest `Source`, `Requirement`, `Named surfaces`, and inventory `Reason` prose are not contract identity.
+
+Consequences for `$verify-spec`:
+
+* loss of the ephemeral `CONTRACT_HANDOFF` is not loss of durable verification state;
+* after interruption, rebuild the handoff by invoking `$spec-contract` against the same durable Spec/baseline/branch/HEAD rather than recovering or recreating old model-authored display wording;
+* an unchanged Spec with the same source-unit boundaries, classifications, and cell mappings must reproduce the same V2 `SPEC_CONTRACT_HASH` even when explanatory/display wording differs;
+* a differing hash is meaningful only when structural contract identity changed or `$spec-contract` is invalid; do not attribute staleness to display-prose differences;
+* an old V1 contract hash is not comparable to V2 identity and must be rebuilt before semantic certification/finalization;
+* once a fresh V2 handoff is valid, use that exact handoff for the current invocation's certifier dispatch and finalizer; do not merge display rows from an older handoff or receipt into it.
+
+Before consuming a rebuilt handoff after interruption require:
+
+```text
+Spec body identity: unchanged or explicitly re-evaluated
+Source-unit universe: complete
+Unclassified source units: 0
+Normative source units without manifest mapping: 0
+Cell/source-unit mapping: complete and reconciled
+SPEC_CONTRACT_HASH encoding: V2
+```
+
+The parent does not need byte-identical historical `Requirement` prose to continue verification. It does need the same structural acceptance universe.
+
 ## Authorized Verification Scope and Repair Attribution
 
 This section is authoritative and supersedes preserved wording that treats Git-derived `Spec-owned/Mixed` labels as semantic ownership, uses repository-wide Ruff/Mypy scope by default, or allows a gate failure to authorize repair merely because the affected file changed on the Spec branch.

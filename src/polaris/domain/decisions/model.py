@@ -216,6 +216,23 @@ def _require_operative(applicability: DecisionApplicability) -> None:
         raise DecisionNotOperative("ordinary Decision work requires operative status")
 
 
+def _require_ordinary_work(
+    decision: InvestmentDecision,
+    applicability: DecisionApplicability,
+) -> None:
+    _require_unresolved(decision)
+    _require_operative(applicability)
+
+
+def _require_continuing_ordinary_work(
+    decision: InvestmentDecision,
+    continuity: DecisionContinuity,
+    applicability: DecisionApplicability,
+) -> None:
+    _require_ordinary_work(decision, applicability)
+    _same_choice(decision, continuity)
+
+
 def _require_human_effect(
     basis: TrustedHumanInvestmentDecisionBasis,
     expected: HumanInvestmentDecisionEffect,
@@ -272,9 +289,7 @@ def revise_subject(
     decision = _at_recording(decision, mutation, applicability)
     if subject == decision.subject:
         return decision
-    _require_unresolved(decision)
-    _require_operative(applicability)
-    _same_choice(decision, continuity)
+    _require_continuing_ordinary_work(decision, continuity, applicability)
     fact = DecisionSubjectRevised(
         _metadata(decision, decision.decision_id, mutation), subject
     )
@@ -292,9 +307,7 @@ def establish_or_revise_scope(
     decision = _at_recording(decision, mutation, applicability)
     if scope == decision.scope:
         return decision
-    _require_unresolved(decision)
-    _require_operative(applicability)
-    _same_choice(decision, continuity)
+    _require_continuing_ordinary_work(decision, continuity, applicability)
     if _established_to_unresolved(decision.scope, scope):
         raise InvalidDecisionTransition(
             "Established Decision Scope cannot become unresolved through ordinary "
@@ -317,8 +330,7 @@ def defer_decision(
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     decision = _at_recording(decision, mutation, applicability)
-    _require_unresolved(decision)
-    _require_operative(applicability)
+    _require_ordinary_work(decision, applicability)
     _require_human_effect(basis, HumanInvestmentDecisionEffect.DEFERRING)
     fact = DecisionDeferred(
         _metadata(decision, decision.decision_id, mutation),
@@ -335,8 +347,7 @@ def withdraw_decision_work(
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     decision = _at_recording(decision, mutation, applicability)
-    _require_unresolved(decision)
-    _require_operative(applicability)
+    _require_ordinary_work(decision, applicability)
     if type(basis) is not DecisionWorkControlBasis:
         raise InvalidDecisionBasis("work withdrawal requires a work-control basis")
     if decision.work_posture is DecisionWorkPosture.WITHDRAWN:
@@ -357,9 +368,7 @@ def resume_decision_work(
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     decision = _at_recording(decision, mutation, applicability)
-    _require_unresolved(decision)
-    _require_operative(applicability)
-    _same_choice(decision, continuity)
+    _require_continuing_ordinary_work(decision, continuity, applicability)
     if type(basis) is not DecisionWorkControlBasis:
         raise InvalidDecisionBasis("work resumption requires a work-control basis")
     if decision.work_posture not in (
@@ -382,8 +391,7 @@ def substantively_resolve_decision(
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
     decision = _at_recording(decision, mutation, applicability)
-    _require_unresolved(decision)
-    _require_operative(applicability)
+    _require_ordinary_work(decision, applicability)
     _require_human_effect(
         basis,
         HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,

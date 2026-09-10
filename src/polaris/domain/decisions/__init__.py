@@ -87,6 +87,8 @@ from .model import (
     withdraw_decision_work,
 )
 from .relationships import (
+    DecisionLifecycleLineageCycle,
+    DecisionLifecycleLineageSafetyIndeterminate,
     DecisionRelationshipAdmissionRejected,
     DecisionRelationshipBasis,
     DecisionRelationshipBasisContribution,
@@ -121,6 +123,7 @@ from .relationships import (
     relationship_fact,
     renew_decision,
     require_determinate_relationship_applicability,
+    validate_decision_lifecycle_lineage,
 )
 
 __all__ = [
@@ -203,6 +206,9 @@ __all__ = [
     "revise_subject",
     "substantively_resolve_decision",
     "withdraw_decision_work",
+    "DecisionLifecycleLineageCycle",
+    "DecisionLifecycleLineageSafetyIndeterminate",
+    "validate_decision_lifecycle_lineage",
     "DecisionRelationshipAdmissionRejected",
     "DecisionRelationshipBasis",
     "DecisionRelationshipBasisContribution",

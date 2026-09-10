@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,6 +48,16 @@ class InvalidDecisionRelationshipBasis(InvalidDecisionBasis):
 
 class DecisionRelationshipAdmissionRejected(InvalidDecisionTransition):
     pass
+
+
+class DecisionLifecycleLineageCycle(DecisionRelationshipAdmissionRejected):
+    """Supported lifecycle-lineage edges contain a definite directed cycle."""
+
+
+class DecisionLifecycleLineageSafetyIndeterminate(
+    DecisionRelationshipAdmissionRejected
+):
+    """A cycle is possible only with contested surviving positive edges."""
 
 
 class DecisionRelationshipNotKnownAtCutoff(InvestmentDecisionError):
@@ -205,7 +216,7 @@ class DecisionRelationshipFact:
         _exact(self.source_decision_id, InvestmentDecisionId, "source_decision_id")
         _exact(self.target_decision_id, InvestmentDecisionId, "target_decision_id")
         if self.source_decision_id == self.target_decision_id:
-            raise DecisionRelationshipAdmissionRejected(
+            raise DecisionLifecycleLineageCycle(
                 "Decision relationship source and target must differ"
             )
         if type(self.relationship_type) is not DecisionRelationshipType:
@@ -307,6 +318,14 @@ class DecisionRelationshipInterpretation:
 
 @dataclass(frozen=True, slots=True)
 class DecisionRelationshipProtectionRequirements:
+    """Commit must protect the complete known history, including absent edges.
+
+    Endpoint versions and the touched groups/ancestry below are not an exhaustive
+    read set. Revalidate lifecycle lineage over the authoritative complete final
+    relationship history at recording_boundary, including non-endpoint paths and
+    future-only facts that may not advance any endpoint version.
+    """
+
     endpoint_decision_ids: frozenset[InvestmentDecisionId]
     lifecycle_history_decision_ids: frozenset[InvestmentDecisionId]
     correction_ancestry_fact_ids: frozenset[DecisionRelationshipFactId]
@@ -922,6 +941,107 @@ def interpret_relationship(
     )
 
 
+def _lineage_effective_boundaries(
+    history: tuple[DecisionRelationshipHistoryFact, ...],
+) -> list[datetime]:
+    boundaries = set()
+    for fact in history:
+        if isinstance(fact, DecisionRelationshipFact):
+            boundaries.add(fact.relationship_effective_at)
+        else:
+            boundaries.add(fact.correction_effective_at)
+            if fact.replacement_relationship_effective_at is not None:
+                boundaries.add(fact.replacement_relationship_effective_at)
+    return sorted(boundaries)
+
+
+def _lineage_has_cycle(
+    interpretations: Iterable[DecisionRelationshipInterpretation],
+) -> bool:
+    # Parallel relationship types/claims share reachability, not domain meaning.
+    outgoing: dict[InvestmentDecisionId, set[InvestmentDecisionId]] = {}
+    incoming: dict[InvestmentDecisionId, int] = {}
+    for result in interpretations:
+        source, target = result.source_decision_id, result.target_decision_id
+        targets = outgoing.setdefault(source, set())
+        incoming.setdefault(source, 0)
+        if target not in targets:
+            targets.add(target)
+            incoming[target] = incoming.get(target, 0) + 1
+    ready = deque(identity for identity, count in incoming.items() if count == 0)
+    removed = 0
+    while ready:
+        identity = ready.popleft()
+        removed += 1
+        for target in outgoing.get(identity, ()):
+            incoming[target] -= 1
+            if incoming[target] == 0:
+                ready.append(target)
+    return removed != len(incoming)
+
+
+def validate_decision_lifecycle_lineage(
+    history: Iterable[DecisionRelationshipHistoryFact],
+    *,
+    known_at: datetime,
+) -> None:
+    """Certify the complete known historical and future lifecycle-lineage graph.
+
+    Supply the complete proposed final relationship history, never just incident
+    edges or a current-time projection. The combined relationship interpreter owns
+    correction/support semantics. Before the first effective boundary there are
+    no positive edges; between consecutive boundaries interpretation is constant,
+    and the last boundary covers the unbounded final interval.
+
+    Success is conditional on this input history and knowledge boundary. Application
+    and persistence must protect/revalidate that predicate (including future facts,
+    non-endpoint paths and absence) through commit; endpoint CAS cannot replace it.
+    This rule applies only to the RENEWED_FROM/SUPERSEDES fact contract. A future
+    purpose-specific context fact owns its own historical-target boundary and does
+    not enter lifecycle-lineage validation by merely being retrieved or referenced.
+    """
+    _aware(known_at, "known_at")
+    facts = tuple(history)
+    if any(
+        type(fact) not in {DecisionRelationshipFact, DecisionRelationshipCorrected}
+        for fact in facts
+    ):
+        raise InvalidDecisionRelationshipHistory(
+            "lifecycle lineage requires typed relationship facts/corrections"
+        )
+    known = _known_relationship_history(facts, known_at)
+    _history_maps(known)
+    groups = {
+        (fact.source_decision_id, fact.relationship_type, fact.target_decision_id)
+        for fact in known
+        if isinstance(fact, DecisionRelationshipFact)
+    }
+    for boundary in _lineage_effective_boundaries(known):
+        supported = []
+        possible = []
+        for source, kind, target in groups:
+            result = interpret_relationship(
+                known,
+                source_decision_id=source,
+                relationship_type=kind,
+                target_decision_id=target,
+                effective_at=boundary,
+                known_at=known_at,
+            )
+            if result.state is DecisionRelationshipState.SUPPORTED:
+                supported.append(result)
+            elif (
+                result.state is DecisionRelationshipState.CONTESTED
+                and result.surviving_positive_claims
+            ):
+                possible.append(result)
+        detail = f"effective_at={boundary.isoformat()}, known_at={known_at.isoformat()}"
+        if _lineage_has_cycle(supported):
+            raise DecisionLifecycleLineageCycle(detail)
+        if _lineage_has_cycle((*supported, *possible)):
+            raise DecisionLifecycleLineageSafetyIndeterminate(detail)
+
+
 def _group_for_fact(
     identity: DecisionRelationshipFactId,
     by_id: Mapping[DecisionRelationshipFactId, DecisionRelationshipHistoryFact],
@@ -1327,6 +1447,8 @@ def apply_relationship_command(
 
     Application/persistence owns receipt replay, transactional locking, and commit.
     Returned protection requirements identify predicates endpoint CAS cannot protect.
+    existing_history must include the complete relationship timeline known at the
+    trusted recording boundary. No tentative prefix is an admission result.
     """
     _aware(recording_boundary, "recording_boundary")
     before = tuple(existing_history)
@@ -1342,6 +1464,7 @@ def apply_relationship_command(
         decisions=decisions,
         recording_boundary=recording_boundary,
     )
+    validate_decision_lifecycle_lineage(post, known_at=recording_boundary)
     groups = _changed_groups(proposed, post_by_id, post_parent)
     touched = _touched_decisions(groups)
     new_ids = frozenset(new_decision_ids)

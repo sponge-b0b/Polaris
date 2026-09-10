@@ -276,6 +276,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 127
 
 
+def _advance_option(
+    args: Sequence[str],
+    index: int,
+    options_with_value: frozenset[str],
+) -> int:
+    token = args[index]
+    next_index = index + 1
+    if (
+        "=" not in token
+        and token.split("=", maxsplit=1)[0] in options_with_value
+        and next_index < len(args)
+    ):
+        next_index += 1
+    return next_index
+
+
 def _extract_uv_run_command(args: Sequence[str]) -> tuple[str, list[str]] | None:
     if not args or args[0] != "run":
         return None
@@ -288,14 +304,7 @@ def _extract_uv_run_command(args: Sequence[str]) -> tuple[str, list[str]] | None
             break
         if not token.startswith("-"):
             break
-        option_name = token.split("=", maxsplit=1)[0]
-        index += 1
-        if (
-            "=" not in token
-            and option_name in UV_RUN_OPTIONS_WITH_VALUE
-            and index < len(args)
-        ):
-            index += 1
+        index = _advance_option(args, index, UV_RUN_OPTIONS_WITH_VALUE)
 
     if index >= len(args):
         return None
@@ -323,34 +332,27 @@ def _extract_python_module_command(args: Sequence[str]) -> tuple[str, list[str]]
     return None
 
 
+def _blocked(command_kind: str, reason: str) -> GuardDecision:
+    return GuardDecision(allowed=False, reason=reason, command_kind=command_kind)
+
+
 def _classify_pytest(args: Sequence[str]) -> GuardDecision:
     if _contains_coverage_flag(args):
-        return GuardDecision(
-            allowed=False,
-            reason=(
-                "pytest coverage runs are broad verification and require "
-                "owner authorization"
-            ),
-            command_kind="pytest",
+        return _blocked(
+            "pytest",
+            "pytest coverage runs are broad verification and require owner authorization",
         )
 
     positional = _positionals(args, PYTEST_OPTIONS_WITH_VALUE)
     if not positional:
-        return GuardDecision(
-            allowed=False,
-            reason=(
-                "pytest without explicit test targets would run the broad default suite"
-            ),
-            command_kind="pytest",
+        return _blocked(
+            "pytest",
+            "pytest without explicit test targets would run the broad default suite",
         )
 
     broad_targets = [target for target in positional if _is_broad_pytest_target(target)]
     if broad_targets:
-        return GuardDecision(
-            allowed=False,
-            reason=f"pytest target is too broad: {', '.join(broad_targets)}",
-            command_kind="pytest",
-        )
+        return _blocked("pytest", f"pytest target is too broad: {', '.join(broad_targets)}")
 
     return GuardDecision(
         allowed=True, reason="pytest target is scoped", command_kind="pytest"
@@ -364,21 +366,16 @@ def _classify_static_tool(
 ) -> GuardDecision:
     positional = _positionals(args, frozenset(options_with_value))
     if not positional:
-        return GuardDecision(
-            allowed=False,
-            reason=(
-                f"{tool_name} without explicit file targets would run "
-                "broad verification"
-            ),
-            command_kind=tool_name,
+        return _blocked(
+            tool_name,
+            f"{tool_name} without explicit file targets would run broad verification",
         )
 
     broad_targets = [target for target in positional if _is_broad_static_target(target)]
     if broad_targets:
-        return GuardDecision(
-            allowed=False,
-            reason=f"{tool_name} target is too broad: {', '.join(broad_targets)}",
-            command_kind=tool_name,
+        return _blocked(
+            tool_name,
+            f"{tool_name} target is too broad: {', '.join(broad_targets)}",
         )
 
     return GuardDecision(
@@ -388,10 +385,9 @@ def _classify_static_tool(
 
 def _classify_ruff(args: Sequence[str]) -> GuardDecision:
     if not args:
-        return GuardDecision(
-            allowed=False,
-            reason="ruff without explicit file targets would run broad verification",
-            command_kind="ruff",
+        return _blocked(
+            "ruff",
+            "ruff without explicit file targets would run broad verification",
         )
 
     subcommand = args[0]
@@ -424,14 +420,7 @@ def _positionals(args: Sequence[str], options_with_value: frozenset[str]) -> lis
             positionals.extend(args[index + 1 :])
             break
         if token.startswith("-"):
-            option_name = token.split("=", maxsplit=1)[0]
-            index += 1
-            if (
-                "=" not in token
-                and option_name in options_with_value
-                and index < len(args)
-            ):
-                index += 1
+            index = _advance_option(args, index, options_with_value)
             continue
         positionals.append(token)
         index += 1

@@ -346,6 +346,8 @@ def test_future_base_is_not_effective_and_does_not_bump_versions():
     assert command.versioned_decision_ids == frozenset()
 
 
+# duplicate-code: this is the contested sibling of the equivalent-assertion proof above; both intentionally retain the two-step append sequence so effective-time disagreement stays visible at the test site.
+# arid: disable
 def test_different_effective_instants_contest_without_recency_precedence():
     source = initiate()
     target = initiate()
@@ -373,6 +375,7 @@ def test_different_effective_instants_contest_without_recency_precedence():
             second.metadata.relationship_fact_id,
         }
     )
+# arid: enable
 
 
 def test_qualify_keeps_correction_and_replacement_instants_distinct():
@@ -440,6 +443,8 @@ def test_disconfirming_future_correction_restores_without_premature_support():
     )
 
 
+# duplicate-code: sibling positive/withdrawal branches deliberately repeat correction construction so the competing branch topology is explicit; a correction fixture would hide which branch carries each semantic claim.
+# arid: disable
 def test_sibling_positive_and_withdrawal_branches_are_contested():
     source = initiate()
     target = initiate()
@@ -464,6 +469,7 @@ def test_sibling_positive_and_withdrawal_branches_are_contested():
     assert result.state is DecisionRelationshipState.CONTESTED
     assert positive.metadata.relationship_fact_id in result.support_fact_ids
     assert withdrawal.metadata.relationship_fact_id in result.support_fact_ids
+# arid: enable
 
 
 def test_withdrawn_plus_future_lineage_is_not_effective_not_withdrawn():
@@ -546,6 +552,8 @@ def test_same_command_ancestry_uses_explicit_ids_not_request_order():
     assert result.support_fact_ids == frozenset({base_id, second_id})
 
 
+# duplicate-code: the correction-cycle falsifier intentionally mirrors the valid same-command ancestry setup above; extracting their shared ID/correction scaffold would hide the one edge reversal that makes the ancestry invalid.
+# arid: disable
 def test_same_command_correction_cycle_is_rejected():
     source = initiate()
     target = initiate()
@@ -581,8 +589,11 @@ def test_same_command_correction_cycle_is_rejected():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
+# arid: enable
 
 
+# duplicate-code: this endpoint-admission falsifier deliberately uses the same one-edge command shape as successful admissions so only lifecycle eligibility differs; a helper would conceal that admission boundary.
+# arid: disable
 def test_positive_admission_rejects_unsupported_need_endpoint():
     source = initiate()
     target = unsupported(initiate(), recorded=10)
@@ -594,6 +605,7 @@ def test_positive_admission_rejects_unsupported_need_endpoint():
             {source.decision_id: source, target.decision_id: target},
             boundary=10,
         )
+# arid: enable
 
 
 def test_renewal_creates_new_episode_and_preserves_predecessor_history():
@@ -644,6 +656,8 @@ def test_renewal_creates_new_episode_and_preserves_predecessor_history():
     assert updated_predecessor.version == DecisionVersion(predecessor.version.value + 1)
 
 
+# duplicate-code: renewal rejection keeps the complete new-episode construction beside the successful renewal above because predecessor lifecycle state is the only intended difference; a renewal fixture would hide that predicate.
+# arid: disable
 def test_renewal_rejects_unresolved_predecessor_at_episode_start():
     predecessor = initiate()
     operation = OperationId(uuid4())
@@ -684,6 +698,7 @@ def test_renewal_rejects_unresolved_predecessor_at_episode_start():
             initiation_mutation=initiation,
             expected_versions={predecessor.decision_id: predecessor.version},
         )
+# arid: enable
 
 
 def test_late_omitted_renewal_can_link_existing_new_episode():
@@ -746,6 +761,8 @@ def test_relationship_applicability_fail_closed_errors_are_typed():
     require_determinate_relationship_applicability(DecisionApplicability.OPERATIVE)
 
 
+# duplicate-code: this proof intentionally repeats the resolved lifecycle command inside the relationship command to show aggregate DecisionVersion advances once; extracting the shared resolve call would hide the same-operation boundary.
+# arid: disable
 def test_same_command_lifecycle_and_relationship_version_only_once():
     source = initiate()
     target = initiate()
@@ -785,8 +802,11 @@ def test_same_command_lifecycle_and_relationship_version_only_once():
     assert command.versioned_decision_ids == frozenset(
         {source.decision_id, target.decision_id}
     )
+# arid: enable
 
 
+# duplicate-code: this version/sequence proof deliberately uses the canonical one-edge admission shape; sharing its apply scaffold with future-base or protection tests would couple distinct version semantics.
+# arid: disable
 def test_supersession_changes_version_not_lifecycle_sequence_or_disposition():
     source = initiate()
     target = initiate()
@@ -802,6 +822,7 @@ def test_supersession_changes_version_not_lifecycle_sequence_or_disposition():
     assert changed_target.version == DecisionVersion(target.version.value + 1)
     assert changed_target.history[-1].metadata.sequence == sequence
     assert changed_target.disposition is DecisionLifecycleDisposition.UNRESOLVED
+# arid: enable
 
 
 def test_supersession_allows_one_to_many_and_many_to_one():
@@ -818,6 +839,8 @@ def test_supersession_allows_one_to_many_and_many_to_one():
     assert len(command.history) == 3
 
 
+# duplicate-code: support-only versioning intentionally spells out two equivalent support facts and the baseline admission; abstracting the repeated edge construction would hide that duplicate support, not duplicate code, is the behavior under test.
+# arid: disable
 def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
     source = initiate()
     target = initiate()
@@ -857,6 +880,7 @@ def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
     assert two.decision(target.decision_id).version == DecisionVersion(
         target.version.value + 1
     )
+# arid: enable
 
 
 def test_qualify_replacement_basis_must_match_root_relationship_type():
@@ -881,6 +905,8 @@ def test_qualify_replacement_basis_must_match_root_relationship_type():
         )
 
 
+# duplicate-code: DISCONFIRM admission deliberately mirrors correction/protection setup while changing endpoint eligibility semantics; sharing the setup would obscure the rule that DISCONFIRM bypasses later endpoint ineligibility.
+# arid: disable
 def test_disconfirm_bypasses_later_endpoint_lifecycle_ineligibility():
     source = initiate()
     target = initiate()
@@ -908,6 +934,7 @@ def test_disconfirm_bypasses_later_endpoint_lifecycle_ineligibility():
     )
     result = query(command.history, source, target, 10)
     assert result.state is DecisionRelationshipState.WITHDRAWN
+# arid: enable
 
 
 def test_command_exposes_non_cas_protection_requirements():
@@ -948,6 +975,8 @@ def test_command_exposes_non_cas_protection_requirements():
     assert requirements.requires_absence_revalidation
 
 
+# duplicate-code: this provenance proof repeats relationship construction intentionally so it can inspect the exact emitted metadata object; extracting the setup would hide the boundary whose separation is asserted.
+# arid: disable
 def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_separate():
     source = initiate()
     target = initiate()
@@ -964,8 +993,11 @@ def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_sepa
     assert metadata.actor_attribution is not metadata.trigger
     assert metadata.trigger is not metadata.technical_provenance
     assert not hasattr(source, "related_decisions")
+# arid: enable
 
 
+# duplicate-code: raw-history validation intentionally reconstructs the same malformed QUALIFY shape used at command admission so the test proves immutable-history validation independently of command validation.
+# arid: disable
 def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     source = initiate()
     target = initiate()
@@ -981,8 +1013,11 @@ def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     )
     with pytest.raises(InvalidDecisionRelationshipBasis):
         query((base, correction), source, target, 10)
+# arid: enable
 
 
+# duplicate-code: the temporal QUALIFY matrix keeps the full replacement fact visible because the replacement instant is the parameter under test; extracting a correction fixture would hide the tested boundary.
+# arid: disable
 @pytest.mark.parametrize("replacement_effective", [5, 10])
 def test_qualify_replacement_may_precede_or_equal_correction_activation(
     replacement_effective,
@@ -1005,8 +1040,11 @@ def test_qualify_replacement_may_precede_or_equal_correction_activation(
         claim.relationship_effective_at for claim in result.surviving_positive_claims
     } == {at(replacement_effective)}
     assert correction.metadata.relationship_fact_id in result.support_fact_ids
+# arid: enable
 
 
+# duplicate-code: these renewal timing siblings intentionally repeat the complete episode/Need/relationship command so the predecessor resolution instant is the visible discriminant; a shared renewal fixture would erase that temporal proof.
+# arid: disable
 def test_renewal_requires_resolution_at_episode_start_not_only_claim_time():
     predecessor = resolve(initiate(), recorded=10, effective=25)
     operation = OperationId(uuid4())
@@ -1089,6 +1127,7 @@ def test_renewal_allows_equal_resolution_episode_and_relationship_instants():
         expected_versions={predecessor.decision_id: predecessor.version},
     )
     assert result.decision.version == DecisionVersion(1)
+# arid: enable
 
 
 def test_resolved_supersession_target_preserves_lifecycle_history():
@@ -1110,6 +1149,8 @@ def test_resolved_supersession_target_preserves_lifecycle_history():
     )
 
 
+# duplicate-code: withdrawn/future applicability intentionally repeats a correction-plus-supersession history so the lack of operative effect is explicit; sharing it with protection/contest fixtures would couple different applicability claims.
+# arid: disable
 def test_withdrawn_and_not_effective_supersession_do_not_reduce_applicability():
     source = initiate()
     future_source = initiate()
@@ -1130,6 +1171,7 @@ def test_withdrawn_and_not_effective_supersession_do_not_reduce_applicability():
         known_at=at(10),
     )
     assert applicability is DecisionApplicability.OPERATIVE
+# arid: enable
 
 
 def test_contested_incoming_supersession_wins_over_other_clean_support():
@@ -1216,6 +1258,8 @@ def test_no_known_relationship_base_is_not_found_not_not_effective():
         query((), source, target, 0)
 
 
+# duplicate-code: this later-knowledge renewal rejection intentionally repeats the complete renewal episode so the predecessor's state at episode start versus relationship time remains explicit; a shared fixture would hide that two-time predicate.
+# arid: disable
 def test_renewal_rejects_resolved_start_but_unresolved_relationship_instant():
     predecessor = resolve(initiate(), recorded=5, effective=5)
     resolution = predecessor.history[-1]
@@ -1282,6 +1326,7 @@ def test_renewal_rejects_resolved_start_but_unresolved_relationship_instant():
             initiation_mutation=initiation,
             expected_versions={predecessor.decision_id: predecessor.version},
         )
+# arid: enable
 
 
 def test_later_endpoint_correction_preserves_relationship_and_aggregate_version():
@@ -1398,6 +1443,8 @@ def test_live_command_requires_known_actor_but_raw_history_preserves_unknown():
         )
 
 
+# duplicate-code: own-Need renewal is a semantic admission falsifier, so the explicit Decision/relationship construction remains local instead of being routed through the successful renewal helper path it is intended to challenge.
+# arid: disable
 def test_renewed_from_requires_source_own_new_decision_need():
     predecessor = resolve(initiate(), recorded=5, effective=0)
 
@@ -1434,8 +1481,11 @@ def test_renewed_from_requires_source_own_new_decision_need():
             },
             boundary=10,
         )
+# arid: enable
 
 
+# duplicate-code: these empty-history calls intentionally repeat the public applicability query with one invalid boundary at a time; a helper would hide validation order, which is the contract under test.
+# arid: disable
 def test_applicability_validates_identity_and_time_before_empty_fast_path():
     decision = initiate()
 
@@ -1474,3 +1524,4 @@ def test_applicability_validates_identity_and_time_before_empty_fast_path():
         )
         is DecisionApplicability.OPERATIVE
     )
+# arid: enable

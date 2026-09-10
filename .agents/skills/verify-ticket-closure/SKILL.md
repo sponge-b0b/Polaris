@@ -182,6 +182,37 @@ Merged-distinct obligations: 0
 
 If the universe cannot be closed, affected cells are `unproven`.
 
+### Authority-first proof-plan freeze
+
+Before inspecting candidate implementation/tests or using Proposed Closure Evidence as proof, construct the semantic proof plan for every material acceptance cell from durable authority alone. The dispatch/checkpoint retrieval map may identify where authority lives, but implementation shape, existing tests, proposed evidence, and known defect patterns may not determine what the verifier decides to test.
+
+Freeze this compact transition state before evidence disposition begins:
+
+```text
+Acceptance: AC-<n>
+Subject: <semantic subject>
+Quantifier: <one | all | none | only | complete | other exact quantifier>
+Material conditions/exceptions: <authoritative conditions and exclusions>
+Domain authority: <durable source(s)>
+Membership predicate: <what belongs>
+Dimensions / authoritative partitions: <bounded semantic dimensions>
+Composition/order seams: <None | authoritative state/operation compositions to close>
+Falsifier families: <boundary states that would make the claim false>
+Generation / closure mechanism: <enumeration | Cartesian product | bounded exhaustive search | other independently checkable criterion>
+Proof-plan state: frozen-before-evidence
+```
+
+Rules:
+
+* derive the plan from the obligation and its governing authority before inspecting how the candidate chose to implement or test it;
+* when authority makes behavior depend on state, time, lifecycle, operation ordering, concurrency, correction, retry/replay, or another composition seam, include those material compositions as dimensions rather than proving only one convenient direction;
+* do not require a blind Cartesian product when a smaller authoritative partition or exhaustive mechanism closes the claim; use the smallest complete domain justified by authority;
+* later implementation/evidence inspection may change member dispositions and may discover additional candidates that satisfy the already-bound membership predicate, but it may not silently shrink or redefine the proof plan to fit the candidate;
+* any newly discovered in-domain candidate must be added and dispositioned in the same run; ambiguous membership remains `unproven` under the normal domain rules;
+* a material cell may not leave `unchecked` until its authority-first proof plan is frozen.
+
+This gate is the local enforcement of Transition-Bound Reasoning and Universe Closure. It prevents implementation-shaped verification while preserving lean, authority-bounded discovery.
+
 ### Authoritative domain membership
 
 Before proving any material cell whose domain can produce finite, discoverable, alternate, sibling, or adversarial candidates, bind the boundary that determines which candidates belong to that domain:
@@ -220,13 +251,17 @@ Every material cell binds compact certification state:
 Acceptance: AC-<n>
 Source: <exact ticket / Spec / root obligation>
 Claim: <exact semantic claim>
+Subject / quantifier / material conditions: <authority-derived proof-plan identity>
 Domain: <authoritative domain>
 Domain authority: <durable source(s) defining membership>
 Membership predicate: <what makes a candidate part of this domain>
+Dimensions / authoritative partitions: <bounded semantic dimensions>
+Composition/order seams: <None | required seams>
 Nested domains: <None | ND manifests>
 Predicate: <what must be true>
-Falsifier: <concrete state making the claim false>
-Evidence: <current evidence excluding the falsifier>
+Falsifier families: <concrete states making the claim false>
+Evidence: <current evidence excluding the falsifier families>
+Proof-plan state: frozen-before-evidence
 State: <unchecked | proven | violated | unproven>
 ```
 
@@ -335,7 +370,7 @@ Apply the disposition mechanically to the certification universe:
 
 Do not classify a candidate `in-domain` solely because it shares a symbol, subsystem, implementation mechanism, or semantic theme with the claim. A broader candidate belongs only when the durable authority or another authoritative carried obligation actually supplies that broader membership predicate.
 
-Finding one falsifier establishes that PASS is impossible for the current candidate, but it does not complete verification. Continue the same bounded generation and disposition procedure for every remaining acceptance cell, nested-domain member, sibling, alternate, and adversarial candidate already authorized by the domain manifests. Do not narrow the remaining sweep to the first defect or its implementation mechanism.
+Finding one falsifier establishes that PASS is impossible for the current candidate, but it does not complete verification. Latch verdict polarity to FAIL and continue the same bounded generation and disposition procedure for every remaining acceptance cell, nested-domain member, sibling, alternate, composition/order seam, and adversarial candidate already authorized by the proof plans/domain manifests. Do not narrow the remaining sweep to the first defect or its implementation mechanism.
 
 For remediation this is the Root Invariant Sweep and also re-proves applicable carried same-root cells/protected roots against current authority. Historical PASS/satisfied/unchanged state is evidence history, not current proof of member disposition; **the certified membership boundary itself remains authoritative under the finality rules above until its governing authority changes or an explicit closure-authority defect is reconciled.**
 
@@ -345,7 +380,7 @@ Do not broaden into unrelated review.
 
 After verifier integrity is established, do not fail fast on implementation/proof defects. Record each and complete the bounded universe so one run returns all independently observable closure failures.
 
-A first falsifier changes **verdict polarity** to FAIL; it does not establish **verification completion**. PASS and FAIL therefore require the same universe-construction and sweep-saturation gates. A violated parent cell remains open for search until every authoritative nested member and sibling has been generated and dispositioned.
+A first falsifier changes **verdict polarity** to FAIL; it does not establish **verification completion**. PASS and FAIL therefore require the same authority-first proof-plan, universe-construction, composition, and sweep-saturation gates. A violated parent cell remains open for search until every authoritative nested member, sibling, and required composition/order seam has been generated and dispositioned.
 
 Before either verdict require:
 
@@ -355,6 +390,12 @@ proven: <n>
 violated: <n>
 unproven: <n>
 unchecked: 0
+Material acceptance proof plans required: <n>
+Authority-first proof plans frozen: <n>/<n>
+Proof plans frozen after implementation/evidence inspection: 0
+Required composition/order seams: <n>
+Dispositioned composition/order seams: <n>
+Remaining composition/order seams: 0
 Nested domains required: <n>
 Domain construction manifests complete: <n>/<n>
 Nested domains closed: <n>
@@ -382,7 +423,7 @@ For a finite domain, generated/inspected/dispositioned counts must reconcile to 
 
 Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same acceptance cell. Derivative acceptance failures may reference the same root defect rather than duplicating it, but they do not replace independently actionable findings.
 
-Any violated/unproven/unchecked cell, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, unproven material assumption, missing required Certified Closure Domain record, or unresolved domain identity blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete verification result rather than a partial failure set.
+Any missing/late proof plan, undispositioned required composition/order seam, violated/unproven/unchecked cell, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, unproven material assumption, missing required Certified Closure Domain record, or unresolved domain identity blocks PASS. Any incomplete authority-first proof planning, construction, composition, or sweep also blocks FAIL; return an invalid/incomplete verification result rather than a partial failure set.
 
 ## 7. Verdict
 
@@ -398,6 +439,7 @@ Ticket baseline: <sha>
 Candidate state: <hash>
 Ticket contract identity: <durable identity>
 Acceptance: <n>; proven <n>; violated 0; unproven 0; unchecked 0
+Proof plans: <n>/<n> authority-first; remaining composition/order seams 0
 Nested domains: <n>; closed <n>; open 0
 Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
@@ -422,6 +464,7 @@ Mode: ordinary | remediation
 Ticket baseline: <sha>
 Candidate state: <hash>
 Acceptance: <n>; proven <n>; violated <n>; unproven <n>; unchecked 0
+Proof plans: <n>/<n> authority-first; remaining composition/order seams 0
 Nested domains: <n>; closed <n>; open <n>
 Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous <n>

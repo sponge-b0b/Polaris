@@ -482,8 +482,19 @@ def _at_recording(
 ) -> InvestmentDecision:
     if mutation.recorded_at < decision._history[-1].metadata.recorded_at:
         raise InvalidDecisionHistory("recorded_at must be non-decreasing")
-    return _view(
+    view = _view(
         decision._history, mutation.recorded_at, mutation.recorded_at, applicability
+    )
+    if view.version.value >= decision.version.value:
+        return view
+    return InvestmentDecision._from_validated(
+        view._history,
+        view._subject,
+        view._scope,
+        decision.version,
+        view.lifecycle_interpretation,
+        view._applicability,
+        view._work_posture,
     )
 
 
@@ -629,10 +640,11 @@ def _validate_correction(
     instant = fact.metadata.recorded_at
     before = _interpret(prefix, instant, instant)
     after = _interpret((*prefix, fact), instant, instant)
-    expected = prefix[-1].metadata.decision_version.value + (before != after)
-    if fact.metadata.decision_version.value != expected:
+    minimum = prefix[-1].metadata.decision_version.value + (before != after)
+    if fact.metadata.decision_version.value < minimum:
         raise InvalidDecisionHistory(
-            "correction version must reflect current interpretation change exactly once"
+            "correction version must preserve aggregate DecisionVersion and "
+            "advance when current interpretation changes"
         )
 
 

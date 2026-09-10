@@ -95,7 +95,9 @@ def mutation(recorded, effective=None):
     )
 
 
-# duplicate-code: this lifecycle correction suite keeps its own Decision builder because its recording/effective-time defaults are part of the correction proof DSL; sharing the relationship-suite builder would couple independent temporal fixtures.
+# duplicate-code: this lifecycle correction suite keeps its own Decision builder because
+# its recording/effective-time defaults are part of the correction proof DSL; sharing
+# the relationship-suite builder would couple independent temporal fixtures.
 # arid: disable
 def initiate(*, recorded=0, effective=0):
     context = mutation(recorded, effective)
@@ -472,7 +474,9 @@ def test_corrected_resolution_restores_independent_work_history(posture):
     )
 
 
-# duplicate-code: these adjacent tests intentionally spell out different temporal/posture histories; a shared command-sequence fixture would hide whether backdating or effective-time ordering is the property under proof.
+# duplicate-code: these adjacent tests intentionally spell out different
+# temporal/posture histories; a shared command-sequence fixture would hide whether
+# backdating or effective-time ordering is the property under proof.
 # arid: disable
 def test_backdated_correction_preserves_historical_admission_and_attribution():
     decision = defer_decision(
@@ -723,7 +727,9 @@ def test_unsupported_need_eligibility_is_initiation_lineage_only(
             correct(decision, root, 30, disposition=UNSUPPORTED)
 
 
-# duplicate-code: this explicit fact-kind matrix is the proof surface for correction eligibility; replacing the listed semantic fact classes with an extracted shared collection would couple the test to production dispatch structure.
+# duplicate-code: this explicit fact-kind matrix is the proof surface for correction
+# eligibility; replacing the listed semantic fact classes with an extracted shared
+# collection would couple the test to production dispatch structure.
 # arid: disable
 @pytest.mark.parametrize(
     "kind",
@@ -770,7 +776,9 @@ def test_every_ineligible_lifecycle_fact_kind_rejects_correction(kind):
 # arid: enable
 
 
-# duplicate-code: these malformed-history cases intentionally repeat replace/rebuild syntax so each rejected identity/ancestry mutation is visible at the assertion site; a helper would hide the exact invalid shape being tested.
+# duplicate-code: these malformed-history cases intentionally repeat replace/rebuild
+# syntax so each rejected identity/ancestry mutation is visible at the assertion site; a
+# helper would hide the exact invalid shape being tested.
 # arid: disable
 def test_foreign_self_forward_duplicate_and_wrong_identity_targets_rejected():
     decision = initiate()

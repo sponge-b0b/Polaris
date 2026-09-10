@@ -157,7 +157,10 @@ def create_decision(*, decision_need=None, scope=None) -> InvestmentDecision:
     )
 
 
-# duplicate-code: this raw metadata builder intentionally mirrors other provenance-bearing fixtures so malformed-history tests can construct exact lifecycle facts locally; sharing it with mutation/Need builders would couple different fixture semantics.
+# duplicate-code: this raw metadata builder intentionally mirrors other
+# provenance-bearing fixtures so malformed-history tests can construct exact lifecycle
+# facts locally; sharing it with mutation/Need builders would couple different fixture
+# semantics.
 # arid: disable
 def metadata(*, identity, sequence, version, attribution=None):
     return DecisionLifecycleFactMetadata(
@@ -351,7 +354,9 @@ def test_subject_revision_noop_change_and_independent_choice() -> None:
         )
 
 
-# duplicate-code: Subject and Scope continuity are separate public behaviors; this test keeps the full Scope command signatures visible rather than sharing an invocation scaffold with the Subject proof above.
+# duplicate-code: Subject and Scope continuity are separate public behaviors; this test
+# keeps the full Scope command signatures visible rather than sharing an invocation
+# scaffold with the Subject proof above.
 # arid: disable
 def test_scope_transition_fact_meanings_and_noop() -> None:
     first, second = portfolio_id(), portfolio_id()
@@ -678,7 +683,10 @@ def test_external_resolution_is_distinct_from_human_resolution() -> None:
     assert not isinstance(fact.basis, TrustedHumanInvestmentDecisionBasis)
 
 
-# duplicate-code: this fail-closed matrix intentionally invokes every public ordinary-work command explicitly so the command-specific arguments and terminal-state behavior remain independently visible; a callable table/helper would hide the API contract being proved.
+# duplicate-code: this fail-closed matrix intentionally invokes every public
+# ordinary-work command explicitly so the command-specific arguments and terminal-state
+# behavior remain independently visible; a callable table/helper would hide the API
+# contract being proved.
 # arid: disable
 def test_resolved_decisions_reject_ordinary_work_and_changed_subject_scope() -> None:
     decision = create_decision()
@@ -745,7 +753,9 @@ def test_resolved_decisions_reject_ordinary_work_and_changed_subject_scope() -> 
 # arid: enable
 
 
-# duplicate-code: this attribution/provenance proof repeats an ordinary command call intentionally so it can assert the exact metadata emitted by that boundary; extracting the setup would hide the object whose provenance is under test.
+# duplicate-code: this attribution/provenance proof repeats an ordinary command call
+# intentionally so it can assert the exact metadata emitted by that boundary; extracting
+# the setup would hide the object whose provenance is under test.
 # arid: disable
 def test_new_lifecycle_facts_preserve_separate_attribution_and_provenance() -> None:
     decision = create_decision()

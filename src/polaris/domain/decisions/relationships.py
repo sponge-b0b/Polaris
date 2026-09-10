@@ -119,7 +119,9 @@ def _basis_references(values: Iterable[str], field: str) -> frozenset[str]:
     return frozenset(clean)
 
 
-# duplicate-code: these purpose-specific basis types intentionally remain distinct domain values; sharing a base class would couple renewal, supersession, and correction semantics after their common validation is already centralized.
+# duplicate-code: these purpose-specific basis types intentionally remain distinct
+# domain values; sharing a base class would couple renewal, supersession, and correction
+# semantics after their common validation is already centralized.
 # arid: disable
 @dataclass(frozen=True, slots=True, init=False)
 class RenewedFromRelationshipBasis:
@@ -206,7 +208,9 @@ class DecisionRelationshipMutationContext:
 class DecisionRelationshipFactMetadata:
     relationship_fact_id: DecisionRelationshipFactId
     operation_id: OperationId
-    # duplicate-code: lifecycle and relationship fact metadata deliberately remain separate typed envelopes even though both carry the same attribution/provenance tail and validation forwarding shape.
+    # duplicate-code: lifecycle and relationship fact metadata deliberately remain
+    # separate typed envelopes even though both carry the same attribution/provenance
+    # tail and validation forwarding shape.
     # arid: disable
     actor_attribution: ActorAttribution
     trigger: TriggerProvenance
@@ -1487,7 +1491,9 @@ def apply_relationship_command(
     _history_maps(before)
     post = (*before, *proposed)
     post_by_id, post_parent = _history_maps(post)
-    # duplicate-code: this aggregate admission boundary intentionally forwards the same command context used by per-fact admission; another forwarding wrapper would add no domain behavior and obscure the two validation phases.
+    # duplicate-code: this aggregate admission boundary intentionally forwards the same
+    # command context used by per-fact admission; another forwarding wrapper would add
+    # no domain behavior and obscure the two validation phases.
     # arid: disable
     _validate_proposed_admission(
         proposed,

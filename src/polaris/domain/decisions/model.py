@@ -177,7 +177,9 @@ def _metadata(
         1 if decision is None else decision.history[-1].metadata.sequence.value + 1
     )
     version = 1 if decision is None else decision.version.value + 1
-    # duplicate-code: lifecycle and relationship metadata builders intentionally construct different typed fact envelopes; sharing the common provenance tail would erase that domain boundary for no behavioral reuse.
+    # duplicate-code: lifecycle and relationship metadata builders intentionally
+    # construct different typed fact envelopes; sharing the common provenance tail would
+    # erase that domain boundary for no behavioral reuse.
     # arid: disable
     return DecisionLifecycleFactMetadata(
         context.fact_id,
@@ -349,7 +351,9 @@ def withdraw_decision_work(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
-    # duplicate-code: withdrawal is a distinct work-control transition; its shared ordinary-work admission is already centralized, while the remaining typed basis/posture/fact sequence is the behavior this command owns.
+    # duplicate-code: withdrawal is a distinct work-control transition; its shared
+    # ordinary-work admission is already centralized, while the remaining typed
+    # basis/posture/fact sequence is the behavior this command owns.
     # arid: disable
     decision = _at_recording(decision, mutation, applicability)
     _require_ordinary_work(decision, applicability)
@@ -396,7 +400,10 @@ def substantively_resolve_decision(
     applicability: DecisionApplicability,
     mutation: DecisionMutationContext,
 ) -> InvestmentDecision:
-    # duplicate-code: substantive resolution is a distinct human-authority transition; its shared ordinary-work admission is already centralized, and a generic transition builder would couple its effect/basis semantics to work-control commands.
+    # duplicate-code: substantive resolution is a distinct human-authority transition;
+    # its shared ordinary-work admission is already centralized, and a generic
+    # transition builder would couple its effect/basis semantics to work-control
+    # commands.
     # arid: disable
     decision = _at_recording(decision, mutation, applicability)
     _require_ordinary_work(decision, applicability)

@@ -340,7 +340,8 @@ def _classify_pytest(args: Sequence[str]) -> GuardDecision:
     if _contains_coverage_flag(args):
         return _blocked(
             "pytest",
-            "pytest coverage runs are broad verification and require owner authorization",
+            "pytest coverage runs are broad verification and require "
+            "owner authorization",
         )
 
     positional = _positionals(args, PYTEST_OPTIONS_WITH_VALUE)

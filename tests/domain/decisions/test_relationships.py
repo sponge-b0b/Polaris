@@ -278,7 +278,9 @@ def test_relationship_and_correction_basis_roles_are_not_interchangeable():
         )
 
 
-# duplicate-code: the equivalent-support proof intentionally keeps the baseline admission inline; the later protection-requirements test owns a distinct contract and should remain independently scanned.
+# duplicate-code: the equivalent-support proof intentionally keeps the baseline
+# admission inline; the later protection-requirements test owns a distinct contract and
+# should remain independently scanned.
 # arid: disable
 def test_distinct_equivalent_assertions_append_and_union_support():
     source = initiate()
@@ -351,7 +353,9 @@ def test_future_base_is_not_effective_and_does_not_bump_versions():
     assert command.versioned_decision_ids == frozenset()
 
 
-# duplicate-code: this is the contested sibling of the equivalent-assertion proof above; both intentionally retain the two-step append sequence so effective-time disagreement stays visible at the test site.
+# duplicate-code: this is the contested sibling of the equivalent-assertion proof above;
+# both intentionally retain the two-step append sequence so effective-time disagreement
+# stays visible at the test site.
 # arid: disable
 def test_different_effective_instants_contest_without_recency_precedence():
     source = initiate()
@@ -450,7 +454,9 @@ def test_disconfirming_future_correction_restores_without_premature_support():
     )
 
 
-# duplicate-code: sibling positive/withdrawal branches deliberately repeat correction construction so the competing branch topology is explicit; a correction fixture would hide which branch carries each semantic claim.
+# duplicate-code: sibling positive/withdrawal branches deliberately repeat correction
+# construction so the competing branch topology is explicit; a correction fixture would
+# hide which branch carries each semantic claim.
 # arid: disable
 def test_sibling_positive_and_withdrawal_branches_are_contested():
     source = initiate()
@@ -481,7 +487,9 @@ def test_sibling_positive_and_withdrawal_branches_are_contested():
 # arid: enable
 
 
-# duplicate-code: this withdrawn-plus-future interpretation is an independent state-partition proof; sharing its correction setup with protection/version tests would couple different contracts.
+# duplicate-code: this withdrawn-plus-future interpretation is an independent
+# state-partition proof; sharing its correction setup with protection/version tests
+# would couple different contracts.
 # arid: disable
 def test_withdrawn_plus_future_lineage_is_not_effective_not_withdrawn():
     source = initiate()
@@ -566,7 +574,9 @@ def test_same_command_ancestry_uses_explicit_ids_not_request_order():
     assert result.support_fact_ids == frozenset({base_id, second_id})
 
 
-# duplicate-code: the correction-cycle falsifier intentionally mirrors the valid same-command ancestry setup above; extracting their shared ID/correction scaffold would hide the one edge reversal that makes the ancestry invalid.
+# duplicate-code: the correction-cycle falsifier intentionally mirrors the valid
+# same-command ancestry setup above; extracting their shared ID/correction scaffold
+# would hide the one edge reversal that makes the ancestry invalid.
 # arid: disable
 def test_same_command_correction_cycle_is_rejected():
     source = initiate()
@@ -669,7 +679,9 @@ def test_renewal_creates_new_episode_and_preserves_predecessor_history():
     assert updated_predecessor.version == DecisionVersion(predecessor.version.value + 1)
 
 
-# duplicate-code: renewal rejection keeps the complete new-episode construction beside the successful renewal above because predecessor lifecycle state is the only intended difference; a renewal fixture would hide that predicate.
+# duplicate-code: renewal rejection keeps the complete new-episode construction beside
+# the successful renewal above because predecessor lifecycle state is the only intended
+# difference; a renewal fixture would hide that predicate.
 # arid: disable
 def test_renewal_rejects_unresolved_predecessor_at_episode_start():
     predecessor = initiate()
@@ -776,7 +788,9 @@ def test_relationship_applicability_fail_closed_errors_are_typed():
     require_determinate_relationship_applicability(DecisionApplicability.OPERATIVE)
 
 
-# duplicate-code: this proof intentionally repeats the resolved lifecycle command inside the relationship command to show aggregate DecisionVersion advances once; extracting the shared resolve call would hide the same-operation boundary.
+# duplicate-code: this proof intentionally repeats the resolved lifecycle command inside
+# the relationship command to show aggregate DecisionVersion advances once; extracting
+# the shared resolve call would hide the same-operation boundary.
 # arid: disable
 def test_same_command_lifecycle_and_relationship_version_only_once():
     source = initiate()
@@ -822,7 +836,9 @@ def test_same_command_lifecycle_and_relationship_version_only_once():
 # arid: enable
 
 
-# duplicate-code: this version/sequence proof deliberately uses the canonical one-edge admission shape; sharing its apply scaffold with future-base or protection tests would couple distinct version semantics.
+# duplicate-code: this version/sequence proof deliberately uses the canonical one-edge
+# admission shape; sharing its apply scaffold with future-base or protection tests would
+# couple distinct version semantics.
 # arid: disable
 def test_supersession_changes_version_not_lifecycle_sequence_or_disposition():
     source = initiate()
@@ -858,7 +874,9 @@ def test_supersession_allows_one_to_many_and_many_to_one():
     assert len(command.history) == 3
 
 
-# duplicate-code: support-only versioning intentionally spells out two equivalent support facts and the baseline admission; abstracting the repeated edge construction would hide that duplicate support, not duplicate code, is the behavior under test.
+# duplicate-code: support-only versioning intentionally spells out two equivalent
+# support facts and the baseline admission; abstracting the repeated edge construction
+# would hide that duplicate support, not duplicate code, is the behavior under test.
 # arid: disable
 def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
     source = initiate()
@@ -904,7 +922,9 @@ def test_support_only_atomic_change_versions_each_endpoint_at_most_once():
 # arid: enable
 
 
-# duplicate-code: command admission and raw-history validation intentionally exercise the same malformed QUALIFY shape through different boundaries; keeping this command-path proof local preserves that distinction.
+# duplicate-code: command admission and raw-history validation intentionally exercise
+# the same malformed QUALIFY shape through different boundaries; keeping this
+# command-path proof local preserves that distinction.
 # arid: disable
 def test_qualify_replacement_basis_must_match_root_relationship_type():
     source = initiate()
@@ -931,7 +951,9 @@ def test_qualify_replacement_basis_must_match_root_relationship_type():
 # arid: enable
 
 
-# duplicate-code: DISCONFIRM admission deliberately mirrors correction/protection setup while changing endpoint eligibility semantics; sharing the setup would obscure the rule that DISCONFIRM bypasses later endpoint ineligibility.
+# duplicate-code: DISCONFIRM admission deliberately mirrors correction/protection setup
+# while changing endpoint eligibility semantics; sharing the setup would obscure the
+# rule that DISCONFIRM bypasses later endpoint ineligibility.
 # arid: disable
 def test_disconfirm_bypasses_later_endpoint_lifecycle_ineligibility():
     source = initiate()
@@ -1003,7 +1025,9 @@ def test_command_exposes_non_cas_protection_requirements():
     assert requirements.requires_absence_revalidation
 
 
-# duplicate-code: this provenance proof repeats relationship construction intentionally so it can inspect the exact emitted metadata object; extracting the setup would hide the boundary whose separation is asserted.
+# duplicate-code: this provenance proof repeats relationship construction intentionally
+# so it can inspect the exact emitted metadata object; extracting the setup would hide
+# the boundary whose separation is asserted.
 # arid: disable
 def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_separate():
     source = initiate()
@@ -1026,7 +1050,9 @@ def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_sepa
 # arid: enable
 
 
-# duplicate-code: raw-history validation intentionally reconstructs the same malformed QUALIFY shape used at command admission so the test proves immutable-history validation independently of command validation.
+# duplicate-code: raw-history validation intentionally reconstructs the same malformed
+# QUALIFY shape used at command admission so the test proves immutable-history
+# validation independently of command validation.
 # arid: disable
 def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     source = initiate()
@@ -1048,7 +1074,9 @@ def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
 # arid: enable
 
 
-# duplicate-code: the temporal QUALIFY matrix keeps the full replacement fact visible because the replacement instant is the parameter under test; extracting a correction fixture would hide the tested boundary.
+# duplicate-code: the temporal QUALIFY matrix keeps the full replacement fact visible
+# because the replacement instant is the parameter under test; extracting a correction
+# fixture would hide the tested boundary.
 # arid: disable
 @pytest.mark.parametrize("replacement_effective", [5, 10])
 def test_qualify_replacement_may_precede_or_equal_correction_activation(
@@ -1077,7 +1105,9 @@ def test_qualify_replacement_may_precede_or_equal_correction_activation(
 # arid: enable
 
 
-# duplicate-code: these renewal timing siblings intentionally repeat the complete episode/Need/relationship command so the predecessor resolution instant is the visible discriminant; a shared renewal fixture would erase that temporal proof.
+# duplicate-code: these renewal timing siblings intentionally repeat the complete
+# episode/Need/relationship command so the predecessor resolution instant is the visible
+# discriminant; a shared renewal fixture would erase that temporal proof.
 # arid: disable
 def test_renewal_requires_resolution_at_episode_start_not_only_claim_time():
     predecessor = resolve(initiate(), recorded=10, effective=25)
@@ -1185,7 +1215,10 @@ def test_resolved_supersession_target_preserves_lifecycle_history():
     )
 
 
-# duplicate-code: withdrawn/future applicability intentionally repeats a correction-plus-supersession history so the lack of operative effect is explicit; sharing it with protection/contest fixtures would couple different applicability claims.
+# duplicate-code: withdrawn/future applicability intentionally repeats a
+# correction-plus-supersession history so the lack of operative effect is explicit;
+# sharing it with protection/contest fixtures would couple different applicability
+# claims.
 # arid: disable
 def test_withdrawn_and_not_effective_supersession_do_not_reduce_applicability():
     source = initiate()
@@ -1296,7 +1329,10 @@ def test_no_known_relationship_base_is_not_found_not_not_effective():
         query((), source, target, 0)
 
 
-# duplicate-code: this later-knowledge renewal rejection intentionally repeats the complete renewal episode so the predecessor's state at episode start versus relationship time remains explicit; a shared fixture would hide that two-time predicate.
+# duplicate-code: this later-knowledge renewal rejection intentionally repeats the
+# complete renewal episode so the predecessor's state at episode start versus
+# relationship time remains explicit; a shared fixture would hide that two-time
+# predicate.
 # arid: disable
 def test_renewal_rejects_resolved_start_but_unresolved_relationship_instant():
     predecessor = resolve(initiate(), recorded=5, effective=5)
@@ -1483,7 +1519,9 @@ def test_live_command_requires_known_actor_but_raw_history_preserves_unknown():
         )
 
 
-# duplicate-code: own-Need renewal is a semantic admission falsifier, so the explicit Decision/relationship construction remains local instead of being routed through the successful renewal helper path it is intended to challenge.
+# duplicate-code: own-Need renewal is a semantic admission falsifier, so the explicit
+# Decision/relationship construction remains local instead of being routed through the
+# successful renewal helper path it is intended to challenge.
 # arid: disable
 def test_renewed_from_requires_source_own_new_decision_need():
     predecessor = resolve(initiate(), recorded=5, effective=0)

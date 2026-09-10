@@ -93,6 +93,14 @@ def _text(value: object, field: str, error: type[InvestmentDecisionError]) -> st
     return value.strip()
 
 
+def _history_reference(value: object, field: str) -> str:
+    return _text(value, field, InvalidDecisionHistory)
+
+
+def _basis_reference(value: object, field: str) -> str:
+    return _text(value, field, InvalidDecisionBasis)
+
+
 def _aware(value: object, field: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -227,9 +235,7 @@ class TriggerProvenance:
         object.__setattr__(
             self,
             "reference",
-            _text(
-                self.reference, "TriggerProvenance.reference", InvalidDecisionHistory
-            ),
+            _history_reference(self.reference, "TriggerProvenance.reference"),
         )
 
 
@@ -253,9 +259,7 @@ class TechnicalReference:
         object.__setattr__(
             self,
             "reference",
-            _text(
-                self.reference, "TechnicalReference.reference", InvalidDecisionHistory
-            ),
+            _history_reference(self.reference, "TechnicalReference.reference"),
         )
 
 
@@ -273,6 +277,16 @@ class TechnicalProvenance:
 
 
 EMPTY_TECHNICAL_PROVENANCE = TechnicalProvenance()
+
+
+def _validate_provenance(
+    trigger: object,
+    technical_provenance: object,
+) -> None:
+    if type(trigger) is not TriggerProvenance:
+        raise TypeError("trigger must be TriggerProvenance")
+    if type(technical_provenance) is not TechnicalProvenance:
+        raise TypeError("technical_provenance must be TechnicalProvenance")
 
 
 def _actor(value: object) -> None:
@@ -312,10 +326,7 @@ class DecisionNeed:
         _aware(self.recorded_at, "DecisionNeed.recorded_at")
         _exact(self.operation_id, OperationId, "operation_id")
         _actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
+        _validate_provenance(self.trigger, self.technical_provenance)
 
 
 class DecisionInitiationDetermination(StrEnum):
@@ -410,10 +421,9 @@ class TrustedHumanInvestmentDecisionBasis:
         object.__setattr__(
             self,
             "decision_reference",
-            _text(
+            _basis_reference(
                 self.decision_reference,
                 "TrustedHumanInvestmentDecisionBasis.decision_reference",
-                InvalidDecisionBasis,
             ),
         )
         if not isinstance(self.effect, HumanInvestmentDecisionEffect):
@@ -430,11 +440,7 @@ class DecisionWorkControlBasis:
         object.__setattr__(
             self,
             "reference",
-            _text(
-                self.reference,
-                "DecisionWorkControlBasis.reference",
-                InvalidDecisionBasis,
-            ),
+            _basis_reference(self.reference, "DecisionWorkControlBasis.reference"),
         )
 
 
@@ -446,11 +452,7 @@ class ExternalResolutionBasis:
         object.__setattr__(
             self,
             "reference",
-            _text(
-                self.reference,
-                "ExternalResolutionBasis.reference",
-                InvalidDecisionBasis,
-            ),
+            _basis_reference(self.reference, "ExternalResolutionBasis.reference"),
         )
 
 
@@ -538,10 +540,9 @@ class DecisionLifecycleCorrectionBasis:
         object.__setattr__(
             self,
             "reference",
-            _text(
+            _basis_reference(
                 self.reference,
                 "DecisionLifecycleCorrectionBasis.reference",
-                InvalidDecisionBasis,
             ),
         )
 
@@ -554,11 +555,7 @@ class UnsupportedDecisionNeedBasis:
         object.__setattr__(
             self,
             "reference",
-            _text(
-                self.reference,
-                "UnsupportedDecisionNeedBasis.reference",
-                InvalidDecisionBasis,
-            ),
+            _basis_reference(self.reference, "UnsupportedDecisionNeedBasis.reference"),
         )
 
 
@@ -644,9 +641,6 @@ class DecisionMutationContext:
         _exact(self.fact_id, DecisionLifecycleFactId, "fact_id")
         _exact(self.operation_id, OperationId, "operation_id")
         _known_actor(self.actor_attribution)
-        if type(self.trigger) is not TriggerProvenance:
-            raise TypeError("trigger must be TriggerProvenance")
-        if type(self.technical_provenance) is not TechnicalProvenance:
-            raise TypeError("technical_provenance must be TechnicalProvenance")
+        _validate_provenance(self.trigger, self.technical_provenance)
         _aware(self.effective_at, "effective_at")
         _aware(self.recorded_at, "recorded_at")

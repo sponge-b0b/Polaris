@@ -319,13 +319,13 @@ For hashing, represent each Source Unit Inventory row as this five-element array
 
 `Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array of cell IDs sorted in stable cell-ID order.
 
-Represent each Spec Contract Manifest row as this four-element array:
+Represent each persisted Spec Contract Manifest row as this three-element array:
 
 ```text
-[Cell, Source, Requirement, Named surfaces]
+[Cell, Source, Requirement]
 ```
 
-`Named surfaces` is JSON `null` when no surface is named; otherwise it is an array of the exact atomic named-surface strings sorted lexicographically by Unicode code point. Do not hash a prose summary in place of that list.
+This is intentionally the exact `cell` / `source` / `requirement` projection persisted in the build handoff and Spec Verification Receipt. `Named surfaces` remains working scope-discovery metadata and is not part of `SPEC_CONTRACT_HASH`; do not make hash validation depend on state the receipt does not persist.
 
 Serialize every array independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Do not pretty-print, add a BOM, normalize Unicode code points, or otherwise rewrite field text. Then construct exactly this Unicode payload:
 
@@ -341,9 +341,9 @@ payload = (
 
 Encode `payload` as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
 
-This encoding is the only canonical byte form for `SPEC_CONTRACT_HASH`. Inventory rows remain ordered by `SU-*`; manifest rows remain ordered by stable cell-ID order. A contract is invalid if an inventory/manifest value needed by this encoding is unresolved or if a named surface cannot be represented as one exact atomic string.
+This encoding is the only canonical byte form for `SPEC_CONTRACT_HASH`. Inventory rows remain ordered by `SU-*`; manifest rows remain ordered by stable cell-ID order. A contract is invalid if an inventory/manifest value needed by this encoding is unresolved.
 
-The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, including the exact manifest obligation and named-surface boundary, without binding incidental explanatory `Reason` prose.
+The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, including the exact persisted manifest obligation, without binding incidental explanatory `Reason` prose or non-persisted scope-discovery metadata.
 
 ## 3. Classify Change Ownership
 

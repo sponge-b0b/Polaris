@@ -327,6 +327,8 @@ Represent each persisted Spec Contract Manifest row as this three-element array:
 
 This is intentionally the exact `cell` / `source` / `requirement` projection persisted in the build handoff and Spec Verification Receipt. `Named surfaces` remains working scope-discovery metadata and is not part of `SPEC_CONTRACT_HASH`; do not make hash validation depend on state the receipt does not persist.
 
+Stable cell-ID order is defined by the tuple `(family_rank, number, suffix)`, where `family_rank` is exactly `US=0`, `ID=1`, `TD=2`, `OOS=3`, `NORM=4`; `number` is the base-10 integer after the family prefix; and `suffix` is the text after the first dot, with the unsuffixed parent sorting before any suffixed child and suffixed children ordered lexicographically by Unicode code point. A cell ID outside these five families or not matching `<family>-<positive integer>[.<non-empty suffix>]` makes the contract invalid rather than creating an implicit new ordering rule. Use this same order for manifest rows and for every non-null `Manifest cells` array.
+
 Serialize every array independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Do not pretty-print, add a BOM, normalize Unicode code points, or otherwise rewrite field text. Then construct exactly this Unicode payload:
 
 ```python

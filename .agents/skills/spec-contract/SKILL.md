@@ -63,6 +63,70 @@ Assume no prior conversational or agent-session state.
 
 Recover all inputs from the explicit invocation, repository, and durable tracker state. Do not use remembered requirement counts, prior reviewer conclusions, or Root Blocker history to construct the contract.
 
+## Reproducible Contract Identity
+
+This section is authoritative and supersedes later preserved wording that includes model-authored display prose in `SPEC_CONTRACT_HASH` or requires byte-identical explanatory manifest wording across independent builds.
+
+A valid contract must be reproducible from the unchanged originating Spec and the same semantic source-unit classification/mapping after all ephemeral handoff files have been lost. Contract identity therefore contains only deterministic source-derived identity plus semantic classification/mapping state; explanatory prose is never identity.
+
+For contract identity, canonicalize every Source Unit Inventory row as exactly:
+
+```text
+[Source Unit, Text Hash, Classification, Manifest cells]
+```
+
+Do **not** include the Source Unit display `Source` or `Reason` fields in contract identity. `Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array in the stable cell-ID order defined later in this file.
+
+Canonicalize every manifest cell as exactly:
+
+```text
+[Cell, Source unit IDs]
+```
+
+`Source unit IDs` is the complete array of originating `SU-*` identifiers for that cell in Source Unit Inventory order. Every manifest cell must bind at least one source unit. The reverse mapping must reconcile exactly with every inventory row's `Manifest cells`; disagreement, omission, duplication, or ambiguous membership makes the contract invalid.
+
+`Source` and `Requirement` remain mandatory human-readable manifest fields and must faithfully identify/preserve the originating Spec obligation. They are display/evidence text only. `Named surfaces` remains scope-discovery metadata only. None of these three fields participates in contract identity, and semantically equivalent explanatory wording in them must not make an unchanged contract stale.
+
+Serialize each identity row independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Construct exactly:
+
+```python
+payload = (
+    "SPEC-CONTRACT-V2\n"
+    + SPEC_BODY_HASH
+    + "\n--SOURCE-UNITS--\n"
+    + "\n".join(inventory_identity_json_rows)
+    + "\n--MANIFEST--\n"
+    + "\n".join(manifest_identity_json_rows)
+    + "\n"
+)
+```
+
+Encode that Unicode payload as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
+
+The `SPEC_BODY_HASH` is deliberately included even though source-unit text hashes are also present: it binds the complete original Spec bytes, including structural/non-normative material, while source-unit identity binds classification and obligation mapping.
+
+Fresh builds over an unchanged Spec must obey this falsifier set:
+
+```text
+same Spec + same source-unit boundaries/classifications/cell mappings + different Source/Requirement/Reason wording
+    -> SAME SPEC_CONTRACT_HASH
+
+same Spec + changed source-unit classification
+    -> DIFFERENT SPEC_CONTRACT_HASH
+
+same Spec + changed source-unit-to-cell mapping
+    -> DIFFERENT SPEC_CONTRACT_HASH
+
+changed Spec body
+    -> DIFFERENT SPEC_CONTRACT_HASH
+```
+
+If the first case produces a different hash, return `SPEC CONTRACT: INVALID`; the workflow has reintroduced session-dependent identity.
+
+In `validate` mode, rebuild the current structural identity under this section and compare its V2 hash with the persisted receipt. Persisted `Source`/`Requirement` display text remains usable evidence but is not replayed into the hash. Do not force current explanatory wording to match an older receipt merely to reproduce identity.
+
+The build handoff remains ephemeral. Losing it is not a contract-state loss: a later invocation must be able to rebuild an equivalent handoff and the same `SPEC_CONTRACT_HASH` from the durable Spec whenever structural contract identity is unchanged.
+
 ## Invocation
 
 The parent supplies:

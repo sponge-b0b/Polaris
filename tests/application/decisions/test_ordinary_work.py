@@ -47,8 +47,8 @@ from polaris.domain.decisions import (
     DecisionDeferred,
     DecisionInitiationContinuity,
     DecisionInitiationDetermination,
-    DecisionLifecycleFactId,
     DecisionLifecycleDisposition,
+    DecisionLifecycleFactId,
     DecisionMutationContext,
     DecisionNeed,
     DecisionNeedId,
@@ -600,7 +600,9 @@ def _ordinary_commands(
     | ResumeDecisionWorkCommand,
     ...,
 ]:
-    envelope = lambda: _envelope(decision)
+    def envelope() -> DecisionCommandEnvelope:
+        return _envelope(decision)
+
     return (
         ReviseDecisionSubjectCommand(
             envelope=envelope(),

@@ -424,16 +424,7 @@ class DecisionOrdinaryWorkService:
             technical_provenance=command.envelope.technical_provenance,
         )
 
-        try:
-            decision = apply(state, mutation)
-        except IndependentChoiceRequiresNewDecision as error:
-            raise ContinuityRequired(error.decision_id) from error
-        except (DecisionApplicabilityContested, DecisionNotOperative) as error:
-            raise RelationshipConflict(str(error)) from error
-        except InvalidDecisionBasis as error:
-            raise InvalidDecisionCommand(str(error)) from error
-        except (InvalidDecisionTransition, InvalidDecisionHistory) as error:
-            raise LifecycleConflict(str(error)) from error
+        decision = _apply_transition(apply, state, mutation)
 
         result = DecisionMutationResult(
             decision_id=decision.decision_id,
@@ -453,19 +444,7 @@ class DecisionOrdinaryWorkService:
                 decision=decision,
             )
         )
-        if isinstance(outcome, DecisionMutationCommitted):
-            return outcome.receipt.result
-        if isinstance(outcome, DecisionMutationReplayed):
-            return _replay(outcome.receipt, request, operation_id)
-        if isinstance(outcome, DecisionMutationIdempotencyConflict):
-            raise IdempotencyConflict(outcome.operation_id)
-        if isinstance(outcome, DecisionMutationConcurrencyConflict):
-            raise ConcurrencyConflict(
-                f"Decision {outcome.decision_id.value} changed before commit"
-            )
-        if isinstance(outcome, DecisionMutationUnavailable):
-            raise PersistenceUnavailable(outcome.reason)
-        raise AssertionError("Decision store returned an unsupported mutation outcome")
+        return _translate_commit_outcome(outcome, request, operation_id)
 
     @staticmethod
     def _defer(
@@ -486,6 +465,46 @@ class DecisionOrdinaryWorkService:
             applicability=state.applicability,
             mutation=mutation,
         )
+
+
+def _apply_transition(
+    apply: Callable[
+        [DecisionCommandState, DecisionMutationContext],
+        InvestmentDecision,
+    ],
+    state: DecisionCommandState,
+    mutation: DecisionMutationContext,
+) -> InvestmentDecision:
+    try:
+        return apply(state, mutation)
+    except IndependentChoiceRequiresNewDecision as error:
+        raise ContinuityRequired(error.decision_id) from error
+    except (DecisionApplicabilityContested, DecisionNotOperative) as error:
+        raise RelationshipConflict(str(error)) from error
+    except InvalidDecisionBasis as error:
+        raise InvalidDecisionCommand(str(error)) from error
+    except (InvalidDecisionTransition, InvalidDecisionHistory) as error:
+        raise LifecycleConflict(str(error)) from error
+
+
+def _translate_commit_outcome(
+    outcome: DecisionMutationCommitOutcome,
+    request: DecisionMutationSemanticRequest,
+    operation_id: OperationId,
+) -> DecisionMutationResult:
+    if isinstance(outcome, DecisionMutationCommitted):
+        return outcome.receipt.result
+    if isinstance(outcome, DecisionMutationReplayed):
+        return _replay(outcome.receipt, request, operation_id)
+    if isinstance(outcome, DecisionMutationIdempotencyConflict):
+        raise IdempotencyConflict(outcome.operation_id)
+    if isinstance(outcome, DecisionMutationConcurrencyConflict):
+        raise ConcurrencyConflict(
+            f"Decision {outcome.decision_id.value} changed before commit"
+        )
+    if isinstance(outcome, DecisionMutationUnavailable):
+        raise PersistenceUnavailable(outcome.reason)
+    raise AssertionError("Decision store returned an unsupported mutation outcome")
 
 
 def _recording_time(value: datetime) -> datetime:

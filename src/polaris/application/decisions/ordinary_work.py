@@ -1,0 +1,540 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Protocol
+from uuid import UUID, uuid4
+
+from polaris.domain.actors import KnownActorAttribution
+from polaris.domain.decisions import (
+    DecisionApplicability,
+    DecisionApplicabilityContested,
+    DecisionContinuity,
+    DecisionDeferred,
+    DecisionLifecycleFactId,
+    DecisionMutationContext,
+    DecisionNotOperative,
+    DecisionScope,
+    DecisionSubject,
+    DecisionVersion,
+    DecisionWorkControlBasis,
+    HumanInvestmentDecisionEffect,
+    IndependentChoiceRequiresNewDecision,
+    InvalidDecisionBasis,
+    InvalidDecisionHistory,
+    InvalidDecisionTransition,
+    InvestmentDecision,
+    InvestmentDecisionId,
+    OperationId,
+    TriggerProvenance,
+    TrustedHumanInvestmentDecisionBasis,
+    defer_decision,
+    establish_or_revise_scope,
+    resume_decision_work,
+    revise_subject,
+    withdraw_decision_work,
+)
+
+from .contracts import (
+    ConcurrencyConflict,
+    DecisionApplicationError,
+    DecisionCommandEnvelope,
+    DecisionCommandStore,
+    ExpectedDecisionVersion,
+    IdempotencyConflict,
+    InvalidDecisionCommand,
+    LifecycleConflict,
+    PersistenceUnavailable,
+    RelationshipConflict,
+)
+
+
+@dataclass(slots=True)
+class ContinuityRequired(DecisionApplicationError):
+    decision_id: InvestmentDecisionId
+
+
+@dataclass(slots=True)
+class DecisionNotFound(DecisionApplicationError):
+    decision_id: InvestmentDecisionId
+
+
+def _expected_version(
+    envelope: DecisionCommandEnvelope,
+    decision_id: InvestmentDecisionId,
+) -> ExpectedDecisionVersion:
+    if type(envelope) is not DecisionCommandEnvelope:
+        raise TypeError("envelope must be DecisionCommandEnvelope")
+    if type(decision_id) is not InvestmentDecisionId:
+        raise TypeError("decision_id must be InvestmentDecisionId")
+    if type(envelope.actor_attribution) is not KnownActorAttribution:
+        raise InvalidDecisionCommand(
+            "ordinary Decision mutation requires known Actor Attribution"
+        )
+    expected = tuple(envelope.expected_versions)
+    if len(expected) != 1 or expected[0].decision_id != decision_id:
+        raise InvalidDecisionCommand(
+            "ordinary Decision mutation requires exactly one expected version "
+            "for its target Decision"
+        )
+    return expected[0]
+
+
+@dataclass(frozen=True, slots=True)
+class ReviseDecisionSubjectCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    subject: DecisionSubject
+    continuity: DecisionContinuity
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.subject) is not DecisionSubject:
+            raise TypeError("subject must be DecisionSubject")
+        if type(self.continuity) is not DecisionContinuity:
+            raise TypeError("continuity must be DecisionContinuity")
+
+
+@dataclass(frozen=True, slots=True)
+class EstablishOrReviseDecisionScopeCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    scope: DecisionScope
+    continuity: DecisionContinuity
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.scope) is not DecisionScope:
+            raise TypeError("scope must be DecisionScope")
+        if type(self.continuity) is not DecisionContinuity:
+            raise TypeError("continuity must be DecisionContinuity")
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyHumanDeferralCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    basis: TrustedHumanInvestmentDecisionBasis
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.basis) is not TrustedHumanInvestmentDecisionBasis:
+            raise InvalidDecisionCommand(
+                "Deferral requires a trusted Human Investment Decision basis"
+            )
+        if self.basis.effect is not HumanInvestmentDecisionEffect.DEFERRING:
+            raise InvalidDecisionCommand(
+                "Deferral basis must have DEFERRING semantic effect"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawDecisionWorkCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    basis: DecisionWorkControlBasis
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.basis) is not DecisionWorkControlBasis:
+            raise InvalidDecisionCommand(
+                "work withdrawal requires a DecisionWorkControlBasis"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeDecisionWorkCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    basis: DecisionWorkControlBasis
+    continuity: DecisionContinuity
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.basis) is not DecisionWorkControlBasis:
+            raise InvalidDecisionCommand(
+                "work resumption requires a DecisionWorkControlBasis"
+            )
+        if type(self.continuity) is not DecisionContinuity:
+            raise TypeError("continuity must be DecisionContinuity")
+
+
+ExistingDecisionCommand = (
+    ReviseDecisionSubjectCommand
+    | EstablishOrReviseDecisionScopeCommand
+    | ApplyHumanDeferralCommand
+    | WithdrawDecisionWorkCommand
+    | ResumeDecisionWorkCommand
+)
+
+
+class DecisionMutationKind(StrEnum):
+    REVISE_SUBJECT = "revise_subject"
+    ESTABLISH_OR_REVISE_SCOPE = "establish_or_revise_scope"
+    APPLY_HUMAN_DEFERRAL = "apply_human_deferral"
+    WITHDRAW_WORK = "withdraw_work"
+    RESUME_WORK = "resume_work"
+
+
+@dataclass(frozen=True, slots=True)
+class SubjectRevisionPayload:
+    subject: DecisionSubject
+    continuity: DecisionContinuity
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeMutationPayload:
+    scope: DecisionScope
+    continuity: DecisionContinuity
+
+
+@dataclass(frozen=True, slots=True)
+class HumanDeferralPayload:
+    basis: TrustedHumanInvestmentDecisionBasis
+
+
+@dataclass(frozen=True, slots=True)
+class WorkWithdrawalPayload:
+    basis: DecisionWorkControlBasis
+
+
+@dataclass(frozen=True, slots=True)
+class WorkResumptionPayload:
+    basis: DecisionWorkControlBasis
+    continuity: DecisionContinuity
+
+
+DecisionMutationPayload = (
+    SubjectRevisionPayload
+    | ScopeMutationPayload
+    | HumanDeferralPayload
+    | WorkWithdrawalPayload
+    | WorkResumptionPayload
+)
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationSemanticRequest:
+    kind: DecisionMutationKind
+    decision_id: InvestmentDecisionId
+    actor_attribution: KnownActorAttribution
+    trigger: TriggerProvenance
+    effective_at: datetime
+    expected_version: DecisionVersion
+    payload: DecisionMutationPayload
+
+
+class DecisionMutationResultKind(StrEnum):
+    APPLIED = "applied"
+    NO_OP = "no_op"
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationResult:
+    decision_id: InvestmentDecisionId
+    version: DecisionVersion
+    kind: DecisionMutationResultKind
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationReceipt:
+    operation_id: OperationId
+    request: DecisionMutationSemanticRequest
+    result: DecisionMutationResult
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionCommandState:
+    decision: InvestmentDecision
+    applicability: DecisionApplicability
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationCommit:
+    operation_id: OperationId
+    request: DecisionMutationSemanticRequest
+    expected_version: DecisionVersion
+    result: DecisionMutationResult
+    decision: InvestmentDecision
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationCommitted:
+    receipt: DecisionMutationReceipt
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationReplayed:
+    receipt: DecisionMutationReceipt
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationIdempotencyConflict:
+    operation_id: OperationId
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationConcurrencyConflict:
+    decision_id: InvestmentDecisionId
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMutationUnavailable:
+    reason: str
+
+
+DecisionMutationCommitOutcome = (
+    DecisionMutationCommitted
+    | DecisionMutationReplayed
+    | DecisionMutationIdempotencyConflict
+    | DecisionMutationConcurrencyConflict
+    | DecisionMutationUnavailable
+)
+
+
+class DecisionOrdinaryWorkStore(DecisionCommandStore, Protocol):
+    async def get_mutation_receipt(
+        self, operation_id: OperationId
+    ) -> DecisionMutationReceipt | None: ...
+
+    async def load_decision_for_command(
+        self,
+        decision_id: InvestmentDecisionId,
+        *,
+        known_at: datetime,
+    ) -> DecisionCommandState | None: ...
+
+    async def commit_mutation(
+        self, commit: DecisionMutationCommit
+    ) -> DecisionMutationCommitOutcome: ...
+
+
+class DecisionOrdinaryWorkService:
+    def __init__(
+        self,
+        *,
+        store: DecisionOrdinaryWorkStore,
+        now: Callable[[], datetime] | None = None,
+        new_uuid: Callable[[], UUID] | None = None,
+    ) -> None:
+        self._store = store
+        self._now = now or (lambda: datetime.now(UTC))
+        self._new_uuid = new_uuid or uuid4
+
+    async def revise_subject(
+        self, command: ReviseDecisionSubjectCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: revise_subject(
+                state.decision,
+                subject=command.subject,
+                continuity=command.continuity,
+                applicability=state.applicability,
+                mutation=mutation,
+            ),
+        )
+
+    async def establish_or_revise_scope(
+        self, command: EstablishOrReviseDecisionScopeCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: establish_or_revise_scope(
+                state.decision,
+                scope=command.scope,
+                continuity=command.continuity,
+                applicability=state.applicability,
+                mutation=mutation,
+            ),
+        )
+
+    async def apply_human_deferral(
+        self, command: ApplyHumanDeferralCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: self._defer(state, command, mutation),
+        )
+
+    async def withdraw_work(
+        self, command: WithdrawDecisionWorkCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: withdraw_decision_work(
+                state.decision,
+                basis=command.basis,
+                applicability=state.applicability,
+                mutation=mutation,
+            ),
+        )
+
+    async def resume_work(
+        self, command: ResumeDecisionWorkCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: resume_decision_work(
+                state.decision,
+                basis=command.basis,
+                continuity=command.continuity,
+                applicability=state.applicability,
+                mutation=mutation,
+            ),
+        )
+
+    async def _execute(
+        self,
+        command: ExistingDecisionCommand,
+        apply: Callable[
+            [DecisionCommandState, DecisionMutationContext],
+            InvestmentDecision,
+        ],
+    ) -> DecisionMutationResult:
+        request = _semantic_request(command)
+        operation_id = command.envelope.operation_id
+        prior = await self._store.get_mutation_receipt(operation_id)
+        if prior is not None:
+            return _replay(prior, request, operation_id)
+
+        recorded_at = _recording_time(self._now())
+        state = await self._store.load_decision_for_command(
+            command.decision_id,
+            known_at=recorded_at,
+        )
+        if state is None:
+            raise DecisionNotFound(command.decision_id)
+        if state.decision.version != request.expected_version:
+            raise ConcurrencyConflict(
+                f"expected Decision version {request.expected_version.value}, "
+                f"found {state.decision.version.value}"
+            )
+
+        mutation = DecisionMutationContext(
+            fact_id=DecisionLifecycleFactId(self._new_uuid()),
+            operation_id=operation_id,
+            actor_attribution=command.envelope.actor_attribution,
+            trigger=command.envelope.trigger,
+            effective_at=command.envelope.effective_at,
+            recorded_at=recorded_at,
+            technical_provenance=command.envelope.technical_provenance,
+        )
+
+        try:
+            decision = apply(state, mutation)
+        except IndependentChoiceRequiresNewDecision as error:
+            raise ContinuityRequired(error.decision_id) from error
+        except (DecisionApplicabilityContested, DecisionNotOperative) as error:
+            raise RelationshipConflict(str(error)) from error
+        except InvalidDecisionBasis as error:
+            raise InvalidDecisionCommand(str(error)) from error
+        except (InvalidDecisionTransition, InvalidDecisionHistory) as error:
+            raise LifecycleConflict(str(error)) from error
+
+        result = DecisionMutationResult(
+            decision_id=decision.decision_id,
+            version=decision.version,
+            kind=(
+                DecisionMutationResultKind.NO_OP
+                if decision.history == state.decision.history
+                else DecisionMutationResultKind.APPLIED
+            ),
+        )
+        outcome = await self._store.commit_mutation(
+            DecisionMutationCommit(
+                operation_id=operation_id,
+                request=request,
+                expected_version=request.expected_version,
+                result=result,
+                decision=decision,
+            )
+        )
+        if isinstance(outcome, DecisionMutationCommitted):
+            return outcome.receipt.result
+        if isinstance(outcome, DecisionMutationReplayed):
+            return _replay(outcome.receipt, request, operation_id)
+        if isinstance(outcome, DecisionMutationIdempotencyConflict):
+            raise IdempotencyConflict(outcome.operation_id)
+        if isinstance(outcome, DecisionMutationConcurrencyConflict):
+            raise ConcurrencyConflict(
+                f"Decision {outcome.decision_id.value} changed before commit"
+            )
+        if isinstance(outcome, DecisionMutationUnavailable):
+            raise PersistenceUnavailable(outcome.reason)
+        raise AssertionError("Decision store returned an unsupported mutation outcome")
+
+    @staticmethod
+    def _defer(
+        state: DecisionCommandState,
+        command: ApplyHumanDeferralCommand,
+        mutation: DecisionMutationContext,
+    ) -> InvestmentDecision:
+        if any(
+            isinstance(fact, DecisionDeferred) and fact.basis == command.basis
+            for fact in state.decision.history
+        ):
+            raise InvalidDecisionCommand(
+                "re-Deferral requires a new trusted Human Investment Decision basis"
+            )
+        return defer_decision(
+            state.decision,
+            basis=command.basis,
+            applicability=state.applicability,
+            mutation=mutation,
+        )
+
+
+def _recording_time(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("application recording time must be timezone-aware")
+    return value
+
+
+def _semantic_request(
+    command: ExistingDecisionCommand,
+) -> DecisionMutationSemanticRequest:
+    expected = _expected_version(command.envelope, command.decision_id)
+    if isinstance(command, ReviseDecisionSubjectCommand):
+        kind = DecisionMutationKind.REVISE_SUBJECT
+        payload: DecisionMutationPayload = SubjectRevisionPayload(
+            command.subject,
+            command.continuity,
+        )
+    elif isinstance(command, EstablishOrReviseDecisionScopeCommand):
+        kind = DecisionMutationKind.ESTABLISH_OR_REVISE_SCOPE
+        payload = ScopeMutationPayload(command.scope, command.continuity)
+    elif isinstance(command, ApplyHumanDeferralCommand):
+        kind = DecisionMutationKind.APPLY_HUMAN_DEFERRAL
+        payload = HumanDeferralPayload(command.basis)
+    elif isinstance(command, WithdrawDecisionWorkCommand):
+        kind = DecisionMutationKind.WITHDRAW_WORK
+        payload = WorkWithdrawalPayload(command.basis)
+    else:
+        kind = DecisionMutationKind.RESUME_WORK
+        payload = WorkResumptionPayload(command.basis, command.continuity)
+
+    actor = command.envelope.actor_attribution
+    assert type(actor) is KnownActorAttribution
+    return DecisionMutationSemanticRequest(
+        kind=kind,
+        decision_id=command.decision_id,
+        actor_attribution=actor,
+        trigger=command.envelope.trigger,
+        effective_at=command.envelope.effective_at,
+        expected_version=expected.version,
+        payload=payload,
+    )
+
+
+def _replay(
+    receipt: DecisionMutationReceipt,
+    request: DecisionMutationSemanticRequest,
+    operation_id: OperationId,
+) -> DecisionMutationResult:
+    if receipt.request != request or receipt.operation_id != operation_id:
+        raise IdempotencyConflict(receipt.operation_id)
+    return replace(receipt.result, replayed=True)

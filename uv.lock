@@ -8,14 +8,14 @@ resolution-markers = [
 
 [[package]]
 name = "arid"
-version = "2.2.2"
+version = "2.2.3"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/ae/2b61595fddb74404fdaf98f5b776218a0993dcf5be36322583dabc2d0ef6/arid-2.2.2-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:e91a49fe05452ace275e73db840fcfa1cb99ac07748ec2bec01e1047c22dfdc9", size = 2447662, upload-time = "2026-09-06T08:34:44.842Z" },
-    { url = "https://files.pythonhosted.org/packages/4b/dc/4d73c2c26927cbea084d95a92b55b498557cc6a19d3bbb8356a48c9fce57/arid-2.2.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:2a34fcc47eef4a846624b3043fbbab4209413293953bbdc868115b4a07ca53ce", size = 2361188, upload-time = "2026-09-06T08:34:46.487Z" },
-    { url = "https://files.pythonhosted.org/packages/bc/73/2f360dccdf4e8e4f00aa600cd2e3c920ee5123a534703505b2550733628b/arid-2.2.2-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:70778f497667dd19f2e9d0ca9e45b4c242e07c24ca52194dc72f82fe51624b2b", size = 2466423, upload-time = "2026-09-06T08:34:48.16Z" },
-    { url = "https://files.pythonhosted.org/packages/4a/8e/48e40efb53071f50517cfdfde40da03eb30b630ebe066b26c305ae4644a2/arid-2.2.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1c8967534e8154a96619bd29a4497a994de233b6e24ef0594bf443e59276f7cf", size = 2567580, upload-time = "2026-09-06T08:34:50.004Z" },
-    { url = "https://files.pythonhosted.org/packages/3f/f5/c6935aeaff2b983d262c0fbd684082abdfe32041aa665093cb1289ba3fdf/arid-2.2.2-py3-none-win_amd64.whl", hash = "sha256:cc47f44a66ee225f6d0a2de1b048734d030c7958557376a3cde98b550474b0af", size = 2273494, upload-time = "2026-09-06T08:34:51.884Z" },
+    { url = "https://files.pythonhosted.org/packages/30/30/84aaa88c0de623ab38a637ea8a09fd614845e09473222b2263f4bbaa17e8/arid-2.2.3-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:71a342ee792970865db9a2ba91517da1417c72366df1bd1e11ddddfaab66e249", size = 2447654, upload-time = "2026-09-09T00:32:03.128Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/07/6abcab552a298255bd7716bde7b1d3a4754d5b6cdf6b06cc091393bbbc60/arid-2.2.3-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e3a7596978740f87bc77eeb755ae716512743581933b7f0076f90fd72ce41017", size = 2361208, upload-time = "2026-09-09T00:32:05.06Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/5c/cdcd6a415b67aa908ca7a2a8ff75b073058c48291a5e390ccccbb536599c/arid-2.2.3-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d0ef1fcda32a8b648675889dcd163f09d0a01363077ef7aa2ade49b4fa576a3d", size = 2466254, upload-time = "2026-09-09T00:32:06.724Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/74/11c0db61ab9006fc87bb8f4236f223c88e9130e8cd8fb72479caa3a7f52a/arid-2.2.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6b86e33116824c32e5152b69a236d04722a612f70b6f4895c2d886520b69831f", size = 2567615, upload-time = "2026-09-09T00:32:08.536Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/3f/4715a76c19328479bf50778d12a282cb39c888719e87b0e8ec43d35bb680/arid-2.2.3-py3-none-win_amd64.whl", hash = "sha256:01bdfd80945375cdd1c6c269d70e7bf21bced5fca42dbadb9a170ea39d796923", size = 2273523, upload-time = "2026-09-09T00:32:10.011Z" },
 ]
 
 [[package]]
@@ -408,7 +408,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "arid", specifier = ">=2.2.2" },
+    { name = "arid", specifier = ">=2.2.3" },
     { name = "mypy", specifier = ">=2.3.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },

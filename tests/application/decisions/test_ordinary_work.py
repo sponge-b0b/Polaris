@@ -479,9 +479,16 @@ def test_deferral_and_redeferral_require_distinct_trusted_bases() -> None:
             )
         )
 
-    assert len(
-        [fact for fact in store.decision.history if isinstance(fact, DecisionDeferred)]
-    ) == 2
+    assert (
+        len(
+            [
+                fact
+                for fact in store.decision.history
+                if isinstance(fact, DecisionDeferred)
+            ]
+        )
+        == 2
+    )
 
 
 def test_deferral_rejects_non_deferring_or_untrusted_basis() -> None:

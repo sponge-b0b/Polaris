@@ -172,6 +172,10 @@ class _Guard(ast.NodeVisitor):
         line = node.lineno if hasattr(node, "lineno") else 1
         self.violations.append(Violation(self.source, line, rule, detail))
 
+    def _fail_migration_legacy(self, node: ast.AST, detail: str) -> None:
+        if self.migration:
+            self.fail(node, "ARCH-MIGRATION-LEGACY", detail)
+
     def visit_import(self, node: ast.Import) -> None:
         for alias in node.names:
             self._check_import(node, alias.name)
@@ -196,12 +200,7 @@ class _Guard(ast.NodeVisitor):
     def _check_import(self, node: ast.AST, target: str) -> None:
         if _prefix(target, {"legacy"}):
             self.fail(node, "ARCH-LEGACY", f"current code depends on {target!r}")
-            if self.migration:
-                self.fail(
-                    node,
-                    "ARCH-MIGRATION-LEGACY",
-                    f"migration depends on {target!r}",
-                )
+            self._fail_migration_legacy(node, f"migration depends on {target!r}")
 
         imported_layer = _imported_layer(target)
         outward = self.layer and imported_layer in FORBIDDEN[self.layer]
@@ -245,12 +244,7 @@ class _Guard(ast.NodeVisitor):
                     "ARCH-LEGACY-DYNAMIC",
                     f"runtime loader {loader!r} references {legacy!r}",
                 )
-                if self.migration:
-                    self.fail(
-                        node,
-                        "ARCH-MIGRATION-LEGACY",
-                        f"migration runtime-loads {legacy!r}",
-                    )
+                self._fail_migration_legacy(node, f"migration runtime-loads {legacy!r}")
         self.generic_visit(node)
 
     def visit_assign(self, node: ast.Assign) -> None:
@@ -304,7 +298,7 @@ class _Guard(ast.NodeVisitor):
             self._check_identity(node, node.arg, node.annotation)
         self.generic_visit(node)
 
-    def visit_function_def(self, node: ast.FunctionDef) -> None:
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         previous_class_body = self.in_investment_decision_class_body
         self.in_investment_decision_class_body = False
         self._visit_scope(node, node.body)
@@ -313,14 +307,11 @@ class _Guard(ast.NodeVisitor):
         self._bind_identity_name(node.name, False)
         self._bind_literal_name(node.name, None)
 
+    def visit_function_def(self, node: ast.FunctionDef) -> None:
+        self._visit_function(node)
+
     def visit_async_function_def(self, node: ast.AsyncFunctionDef) -> None:
-        previous_class_body = self.in_investment_decision_class_body
-        self.in_investment_decision_class_body = False
-        self._visit_scope(node, node.body)
-        self.in_investment_decision_class_body = previous_class_body
-        self._mask_runtime_name(node.name)
-        self._bind_identity_name(node.name, False)
-        self._bind_literal_name(node.name, None)
+        self._visit_function(node)
 
     def visit_class_def(self, node: ast.ClassDef) -> None:
         class_is_technical = any(self._identity_technical(base) for base in node.bases)

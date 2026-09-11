@@ -62,6 +62,10 @@ def _substitution_source(technical_type: str, form: str) -> str:
     raise AssertionError(f"unknown substitution form: {form}")
 
 
+# duplicate-code: each case preserves an exact technical-identity binding form; sharing
+# the write/assert scaffold would couple distinct AST falsifiers and hide the syntax
+# under test.
+# arid: disable
 @pytest.mark.parametrize("technical_type", TECHNICAL_TYPES)
 @pytest.mark.parametrize("form", SUBSTITUTION_FORMS)
 def test_root_complete_identity_substitution_matrix(
@@ -162,6 +166,12 @@ def test_class_scope_type_alias_id_rejects_imported_technical_alias(
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
 
 
+# arid: enable
+
+
+# duplicate-code: these cases prove independent shadowing and local-scope allowances; a
+# shared source fixture would erase the binding-order distinctions each test owns.
+# arid: disable
 def test_semantic_import_as_investment_decision_id_is_allowed(
     tmp_path: Path,
 ) -> None:
@@ -274,6 +284,13 @@ def test_method_local_id_can_remain_technical_provenance(
     assert _rules(tmp_path) == set()
 
 
+# arid: enable
+
+
+# duplicate-code: inheritance and annotated-initializer cases must retain their exact
+# synthetic source forms; factoring the common scaffold would couple separate
+# identity-substitution proofs.
+# arid: disable
 @pytest.mark.parametrize(
     "decision_class",
     [
@@ -368,3 +385,6 @@ def test_semantic_annotated_initializer_remains_allowed(
         """,
     )
     assert _rules(tmp_path) == set()
+
+
+# arid: enable

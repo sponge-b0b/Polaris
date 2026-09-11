@@ -291,6 +291,9 @@ def test_inward_vendor_dependencies_fail(
     )
 
 
+# duplicate-code: this is the interface-specific sibling of the inward-vendor falsifier;
+# sharing the assertion body would couple two independently owned layer-boundary rules.
+# arid: disable
 @pytest.mark.parametrize(
     ("module", "family"),
     [
@@ -319,6 +322,9 @@ def test_interface_cannot_bypass_application_through_infrastructure_vendor(
         and module in item.detail
         for item in violations
     )
+
+
+# arid: enable
 
 
 def test_standard_library_and_internal_semantic_types_pass(tmp_path: Path) -> None:
@@ -372,6 +378,10 @@ def test_investment_decision_id_field_cannot_use_runtime_identity(
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
 
 
+# duplicate-code: direct runtime-typed fields and class-local runtime aliases are
+# separate identity-boundary falsifiers; sharing one AST fixture would couple the two
+# detection paths.
+# arid: disable
 def test_investment_decision_local_alias_cannot_hide_runtime_identity(
     tmp_path: Path,
 ) -> None:
@@ -386,6 +396,9 @@ def test_investment_decision_local_alias_cannot_hide_runtime_identity(
         ),
     )
     assert "ARCH-DECISION-IDENTITY" in _rules(tmp_path)
+
+
+# arid: enable
 
 
 def test_decision_identity_alias_chain_cannot_hide_runtime_identity(
@@ -426,6 +439,10 @@ def test_current_migration_cannot_import_legacy_lineage(tmp_path: Path) -> None:
     assert "ARCH-MIGRATION-LEGACY" in rules
 
 
+# duplicate-code: static-import and runtime-loader migration tests are independent
+# architecture falsifiers; sharing their exact source/assertion shape would blur the
+# distinct violation paths.
+# arid: disable
 def test_current_migration_cannot_runtime_load_legacy_lineage(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -438,6 +455,9 @@ def test_current_migration_cannot_runtime_load_legacy_lineage(tmp_path: Path) ->
     rules = _rules(tmp_path)
     assert "ARCH-LEGACY-DYNAMIC" in rules
     assert "ARCH-MIGRATION-LEGACY" in rules
+
+
+# arid: enable
 
 
 def test_migration_legacy_object_definition_alone_is_not_reuse(

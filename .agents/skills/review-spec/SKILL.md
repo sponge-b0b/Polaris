@@ -724,7 +724,7 @@ Domain Finality Reconciliation:
 
 Do not hand-build a parallel root-remediation packet that bypasses the deterministic renderer's existing checkpoint bindings.
 
-If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, reconcile Project state before presenting that handoff.
+If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, present that handoff from durable review/remediation state without eager GitHub Project projection; the repository-wide `$project-tracking` cadence remains authoritative.
 
 ## 14. Exit Gate
 

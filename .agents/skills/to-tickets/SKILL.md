@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Create tracer-bullet tickets using the publication workflow below, with hard boundaries for exhaustive source coverage and independently certified proposal readiness before human approval.
 
-This `SKILL.md` is the single authoritative procedure for `$to-tickets`. The preserved procedure later in this file remains normative for session recovery, project-delivery guards, codebase exploration, mode routing, `$to-remediation-tickets`, vertical slicing, user approval, Spec Branch Rule, tracker publication, native hierarchy/dependencies, ticket baseline/branch semantics, Project reconciliation, and handoff.
+This `SKILL.md` is the single authoritative procedure for `$to-tickets`. The preserved procedure later in this file remains normative for session recovery, project-delivery guards, codebase exploration, mode routing, `$to-remediation-tickets`, vertical slicing, user approval, Spec Branch Rule, tracker publication, native hierarchy/dependencies, ticket baseline/branch semantics, and handoff.
 
 The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, exact Spec provenance on ordinary tickets, conditional/deferred obligation routing, and the design-delegation guard. On conflict with older wording later in this file, these hardening sections win.
 
@@ -1045,31 +1045,9 @@ Never overwrite the Spec body to store workspace metadata.
 
 The original baseline remains the fixed point for the entire Spec lifecycle.
 
-## Mandatory Project Reconciliation
-
-After ticket publication/reconciliation and Spec branch metadata are durable, derive the complete ticket frontier and invoke `$project-tracking` as prescribed internal composition **before** the Implementation Human Handoff.
-
-Use one post-transition reconciliation set:
-
-* ordinary ticketing parent implementation-ready Spec → base `Spec / Ready to Implement / None / Ready`;
-* a parent Spec whose design/readiness gate is blocked → base `Spec / Blocked / None / Blocked` (or the repository's human-design state when owner judgment is required), with no implementation handoff;
-* Spec Review remediation parent Spec Review → base `Spec Review / Review Remediation / None / Ready` once executable remediation-ticket children exist; before such children exist its route remains `$to-tickets`;
-* the originating parent Spec in remediation remains `Spec / Review Remediation / None / Ready` when that lifecycle state is already established, and must be included when this invocation changes or re-establishes it;
-* every open frontier Implementation Ticket or Review Remediation Ticket with zero open native blockers **and valid implementation readiness** → base `Ready to Implement / $implement-ticket / Ready` for its artifact type;
-* every open ticket with one or more open native blockers or invalid implementation readiness → base `Blocked / None / Blocked` for its artifact type;
-* every updated/superseded formal ticket or other formal artifact whose lifecycle state or open-blocker set changed during this invocation.
-
-For Review Remediation Tickets, supply the durable `Root Blocker` value. For all non-complete artifacts, `Completed On = None`.
-
-Supply current Project Delivery State separately from these base lifecycle values. Preserve `Area` and `Priority` unless this invocation has separate authority to change them.
-
-`$to-tickets` owns the affected-artifact set, blocker/frontier reads, and base states. `$project-tracking` owns only projection validation, delivery overlay, and Project mutation.
-
-If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not roll back durable ticket/branch state and do not suppress an otherwise-authorized `$implement-ticket` handoff.
-
 ## Implementation Human Handoff
 
-After ticket publication/reconciliation, Spec branch metadata, and mandatory Project reconciliation are complete, identify every open, unblocked **implementation-ready** frontier ticket for the Spec.
+After ticket publication/reconciliation and Spec branch metadata are durable, identify every open, unblocked **implementation-ready** frontier ticket for the Spec.
 
 If one frontier ticket is available, halt with:
 

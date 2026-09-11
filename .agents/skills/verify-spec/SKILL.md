@@ -477,7 +477,7 @@ A passing receipt may short-circuit immutable work only when it matches the exac
 - `SPEC_BODY_HASH`;
 - `SPEC_CONTRACT_HASH`.
 
-Even then, revalidate mutable hierarchy/dependency/focus state, mutable/time-dependent gates, clean worktree, and Project projection. An ancestor receipt never carries proof forward across a changed `HEAD`.
+Even then, revalidate mutable hierarchy/dependency/focus state, mutable/time-dependent gates, and clean worktree. An ancestor receipt never carries proof forward across a changed `HEAD`.
 
 ## 4. Classify and Run Fail-Fast Gates
 
@@ -712,7 +712,7 @@ Exact byte equality proves persisted-body integrity because only a successful ca
 
 Never patch a malformed persisted receipt or create a second corrective receipt in the same invocation. If POST succeeds but readback differs, report `COMMENT_URL` and stop. Any later Spec-body change or candidate commit makes the receipt stale.
 
-## 10. Lifecycle Transition and Project Reconciliation
+## 10. Lifecycle Transition
 
 A successfully persisted receipt establishes:
 
@@ -725,7 +725,7 @@ Root Blocker: None
 Completed On: None
 ```
 
-Immediately invoke `$project-tracking` with that base projection. Recover Project Delivery State after receipt persistence; preserve `Area` and `Priority` unless separately authorized. `PROJECT TRACKING: DRIFT` does not invalidate the receipt or roll back `Ready to Review`.
+This lifecycle state is authoritative immediately. GitHub Project projection remains deferred to the repository-wide `$project-tracking` cadence and is not part of this transition.
 
 ## 11. Human Handoff
 
@@ -738,8 +738,7 @@ Report concisely:
 - proof-group count and Verification Hash;
 - repairs and unrelated inherited findings;
 - commit/push/final worktree;
-- receipt URL;
-- Project reconciliation result.
+- receipt URL.
 
 On success:
 

@@ -21,6 +21,245 @@ Codex agents do not need to consider or maintain the ChatGPT Session Ledger unle
 
 During a ChatGPT working session, the ChatGPT agent that reconstitutes the session owns subsequent ledger synchronization for the remainder of that active session.
 
+## ChatGPT Runtime Capability Contract
+
+This section records the **known mechanical capability baseline** for ChatGPT-hosted Polaris sessions. It is intentionally ChatGPT-specific and exists so a new session does not waste time rediscovering how to perform recurring repository and workflow operations.
+
+This is a capability contract, **not workflow authority**. Mechanical ability to mutate GitHub state never bypasses `AGENTS.md`, the active `SKILL.md`, human-approval gates, branch guards, or lifecycle sequencing.
+
+Treat the capabilities and methods below as already known after reconstitution. **Do not perform capability discovery for an operation listed here.** Do not spend turns enumerating tools, trying alternate transports, offering patches, or asking the repository owner to perform work that this contract says ChatGPT can perform. Re-evaluate a listed capability only when the canonical operation itself returns an unavailable/unsupported error or the runtime explicitly reports that the capability is absent.
+
+### Known ChatGPT-Side Capabilities
+
+The connected GitHub runtime can, without the repository owner's local checkout:
+
+- read repository files, blobs, commits, branches, diffs, commit status, issues, issue comments, pull requests, reviews, and GitHub Actions results;
+- search repository code and tracker artifacts;
+- compare exact commits/refs;
+- create and update repository files;
+- create Git blobs, trees, and commits and fast-forward an existing branch ref;
+- create temporary branches from an exact commit;
+- create/update issues and issue comments, labels, assignees, and ordinary tracker metadata exposed by the connector;
+- create/update pull requests, request/review PRs, and merge a PR with an expected-head guard;
+- inspect GitHub Actions runs, jobs, logs, and artifacts;
+- update the ChatGPT Session Ledger state comment and read it back exactly.
+
+The ChatGPT analysis/container runtime can also perform deterministic text/data transformation, hashing, JSON construction, and other scratch computation. It is **not** the repository owner's checkout and must not be treated as evidence of the owner's local Git/worktree/service state.
+
+### Known Local-Only or Connector-Missing Capabilities
+
+ChatGPT cannot directly observe or execute inside the repository owner's local Polaris checkout. Therefore ChatGPT cannot itself establish:
+
+- the owner's current `git status`, local branch, uncommitted files, unpushed commits, stash state, or locally generated files unless those facts become durable remotely or the owner returns command output;
+- repo-local `uv`, pytest, Ruff, Mypy, Arid, JSCPD, profiling, Docker/service probes, database/service state, or other environment-dependent commands against the owner's checkout;
+- local environment variables, credentials, sockets, services, or machine-specific filesystem state.
+
+The current connected GitHub runtime also does **not** expose remote Git-ref deletion and does not provide the GitHub Projects v2 mutation surface used by Polaris Project projection. Those operations remain local `git`/`gh` handoffs unless the runtime explicitly gains those capabilities in the future.
+
+Do not infer from these local-only boundaries that repository mutation generally belongs to the owner. It does not: remote repository/tracker work remains ChatGPT-owned whenever the operation is listed as available above.
+
+### Non-Discovery Rule
+
+For the recurring operations below, use the prescribed method immediately. Do not search for a different connector action, create a download, ask the owner to copy a patch, or experiment with multiple approaches first.
+
+A targeted capability check is permitted only when:
+
+1. the prescribed operation actually fails because the capability is unavailable or unsupported; or
+2. the task requires an operation not covered by this contract.
+
+When a new genuinely stable capability or limitation is discovered, update this section so later sessions inherit it instead of rediscovering it.
+
+### Canonical Mechanical Playbook
+
+The sequences below are the preferred ChatGPT-side mechanics. The active workflow still decides **whether and when** the operation is authorized.
+
+#### Read a repository file or exact revision
+
+Use:
+
+```text
+GitHub.fetch_file(repository_full_name=REPO, path=PATH, ref=REF)
+```
+
+For a large file, fetch bounded line ranges rather than repeatedly requesting the whole file. For repository search, use `GitHub.search` and then `GitHub.fetch_file` for the authoritative full context. Do not use public web search for Polaris repository content when the GitHub connector can read it directly.
+
+#### Read branch/commit state and exact deltas
+
+Use the GitHub branch/commit read followed by:
+
+```text
+GitHub.compare_commits(repo_full_name=REPO, base=BASE, head=HEAD)
+GitHub.fetch_commit(repo_full_name=REPO, commit_sha=HEAD)
+```
+
+Prefer the workflow's durable baseline/anchor → exact candidate `HEAD` comparison over a broad recent-history scan.
+
+#### Make a small single-file repository edit
+
+When the complete replacement content can be represented safely:
+
+```text
+GitHub.fetch_file(... path=PATH, ref=BRANCH)         # obtain current blob SHA/content
+GitHub.update_file(... path=PATH, content=CONTENT,
+                   sha=CURRENT_BLOB_SHA,
+                   branch=BRANCH,
+                   message=CONVENTIONAL_COMMIT)
+GitHub.fetch_file(... path=PATH, ref=RESULT_COMMIT)  # readback
+GitHub.fetch_commit(... commit_sha=RESULT_COMMIT)    # diff audit
+```
+
+Do not give the owner a patch/file to apply and do not ask the owner to commit/push this change.
+
+#### Make one atomic multi-file commit
+
+Do **not** serially call the contents API on the target branch when the intended change is one commit. Use Git data directly:
+
+```text
+1. Read exact target branch HEAD and its tree SHA.
+2. GitHub.create_blob(...) once per replacement/new file.
+3. GitHub.create_tree(base_tree_sha=BASE_TREE, tree_elements=[...]).
+4. GitHub.create_commit(message=CONVENTIONAL_COMMIT,
+                        tree_sha=NEW_TREE,
+                        parent_sha=OLD_HEAD).
+5. Re-read the target branch and require it still equals OLD_HEAD.
+6. GitHub.update_ref(branch_name=TARGET_BRANCH,
+                     sha=NEW_COMMIT,
+                     force=false).
+7. GitHub.compare_commits(base=OLD_HEAD, head=NEW_COMMIT).
+8. GitHub.fetch_commit(commit_sha=NEW_COMMIT) and audit the exact changed-file/diff surface.
+```
+
+This is the canonical method for cohesive multi-file Polaris changes made from ChatGPT.
+
+#### Make a surgical edit to a large file when full-content reconstruction is unsafe
+
+Preserve untouched bytes instead of manually reconstructing a large file from excerpts.
+
+Preferred fallback:
+
+```text
+1. GitHub.create_branch(SCRATCH_BRANCH, exact canonical BASE_HEAD).
+2. On SCRATCH_BRANCH only, GitHub.create_file(...) an ephemeral push-triggered workflow.
+3. The workflow checks out SCRATCH_BRANCH, applies a deterministic script with exact anchors/assertions,
+   runs `git diff --check`, prints/audits the diff, commits only the generated target file(s), and pushes SCRATCH_BRANCH.
+4. ChatGPT reads the Actions run/jobs/logs and the generated commit/diff.
+5. Reuse the generated target blob SHA(s) in a NEW CLEAN TREE based on the original canonical BASE_HEAD.
+6. Create the real conventional commit with parent=BASE_HEAD and fast-forward the real target branch with `GitHub.update_ref(force=false)`.
+7. Never merge the scratch branch and never include its workflow file in the real commit.
+8. Because remote ref deletion is connector-missing, give the owner only the scoped scratch-branch deletion command after the durable real commit succeeds.
+```
+
+Use this only when direct `update_file` or direct Git-data construction would risk accidental whole-file corruption. A scratch branch is transport/execution plumbing, never lifecycle state.
+
+#### Create/update GitHub issues and durable comments
+
+Use the connector directly:
+
+```text
+GitHub.fetch_issue(...)
+GitHub.fetch_issue_comments(...)
+GitHub.update_issue(...)
+GitHub.add_comment_to_issue(...)
+GitHub.update_issue_comment(...)
+```
+
+After any correctness-critical comment mutation, fetch the issue comments again and verify the exact marker/body/state expected by the governing workflow. The ChatGPT Session Ledger is always updated this way; never ask the owner to edit it manually.
+
+#### Create, inspect, and merge pull requests
+
+Use:
+
+```text
+GitHub.create_pull_request(...)
+GitHub.fetch_pr(...)
+GitHub.get_pr_diff(...) or GitHub.fetch_pr_patch(...)
+GitHub.merge_pull_request(... expected_head_sha=EXPECTED_HEAD)
+```
+
+Use the workflow's required merge method and guards. Do not hand ordinary PR creation/merge back to the owner merely because `gh` could also perform it.
+
+#### Run repository-local validation or other owner-machine commands
+
+This is a legitimate local handoff. Give only the missing operation in one fail-closed subshell, normally shaped as:
+
+```bash
+(
+  set -euo pipefail
+  ROOT="$(git rev-parse --show-toplevel)"
+  cd "$ROOT"
+
+  test "$(git branch --show-current)" = "<expected-branch>"
+  test "$(git rev-parse HEAD)" = "<expected-full-sha>"
+  test -z "$(git status --porcelain)"
+
+  <only the exact local command(s) required by the active workflow>
+)
+```
+
+Add only the guards needed by the owning skill. Do not hand the entire workflow to the owner. The owner returns the complete output; ChatGPT consumes it as evidence and resumes from the first incomplete stage.
+
+#### Persist canonical receipts that depend on a repo-local finalizer
+
+Do not create a downloadable ZIP, patch, or handoff file for the owner.
+
+When the governing skill requires a canonical repository-local script that ChatGPT cannot execute against the owner's checkout:
+
+1. ChatGPT prepares every remotely possible prerequisite and durable input itself;
+2. provide one scoped local subshell that reconstructs any transient inputs from durable state or inline deterministic data, runs the canonical script, performs its fixed-point guards, and when appropriate POSTs the resulting receipt through the owner's authenticated `gh` CLI;
+3. the owner returns command output only;
+4. ChatGPT independently reads the persisted receipt through the GitHub connector and completes the remaining durable lifecycle work.
+
+Do not ask the owner to download intermediate files merely to bridge ChatGPT to the local finalizer.
+
+#### Delete a temporary remote branch
+
+Remote ref deletion is local-only in this runtime. Use exactly this shape:
+
+```bash
+(
+  set -euo pipefail
+  ROOT="$(git rev-parse --show-toplevel)"
+  cd "$ROOT"
+  git push origin --delete <temporary-branch>
+  git fetch --prune origin
+)
+```
+
+Only ask for this after ChatGPT has verified that the temporary branch is not authoritative and is not required for recovery.
+
+#### Reconcile GitHub Project projection
+
+Routine lifecycle skills do not perform eager Project synchronization. Under current Polaris policy, normal automatic Project reconstruction is deferred to `$spec-merge-cleanup`; an explicit human-requested board refresh is the other ordinary entry.
+
+The current ChatGPT connector does not expose the required Projects v2 mutation surface. At an authorized `$project-tracking` boundary, read the current `$project-tracking` contract and provide its exact `gh`/GraphQL Project commands in one scoped local subshell. Do not rediscover Project mechanics during every intermediate skill, and do not project intermediate lifecycle state merely because the board can lag.
+
+#### Update the ChatGPT Session Ledger
+
+Use this exact mechanical sequence whenever Phase 2 requires synchronization:
+
+```text
+1. GitHub.fetch_issue_comments(Session Ledger issue).
+2. Require exactly one state-marker comment and read its Generation.
+3. Build the complete replacement body; increment Generation exactly once.
+4. GitHub.update_issue_comment(comment_id=STATE_COMMENT_ID, comment=NEW_BODY).
+5. GitHub.fetch_issue_comments(Session Ledger issue) again.
+6. Require the same comment ID, state marker, new Generation, and intended body/state.
+```
+
+Never create a new ledger comment for ordinary synchronization and never delegate this mutation to the owner.
+
+### User-Handoff Threshold
+
+The owner should receive shell commands only for work that is genuinely local-only or connector-missing, principally:
+
+- local checkout/worktree state;
+- repo-local tests, linters, profilers, scripts, Docker/services, or environment probes;
+- remote branch deletion;
+- authorized GitHub Projects v2 mutation;
+- another operation that the canonical ChatGPT-side method actually attempted and proved unavailable.
+
+Do **not** give the owner repository patches, replacement source files, ZIPs, generated downloads, copy/paste implementation, `git commit`, or `git push` instructions for work ChatGPT can mutate remotely. The standing collaboration model is: **ChatGPT does everything mechanically available on its side; the owner runs only the smallest scoped local subshell that ChatGPT cannot execute.**
+
 ## Core Principle
 
 Reconstitute from durable project state first, then restore the minimum necessary ephemeral state from the dedicated **ChatGPT Session Ledger** GitHub singleton.
@@ -529,7 +768,7 @@ During session reconstitution, if restored session-only evidence reveals valuabl
 
 ## Collaboration Boundary
 
-Perform work directly through available repository, GitHub, and other connected tooling whenever possible.
+Perform work directly through available repository, GitHub, and other connected tooling whenever possible. Apply the **ChatGPT Runtime Capability Contract** above before considering any user handoff. For operations listed there, capability discovery is already complete; only an actual unavailable/unsupported result justifies re-evaluating the mechanical path.
 
 Repository mutation ownership is explicit: when the available ChatGPT tooling can safely create, edit, delete, commit, push, or otherwise mutate repository/tracker state, the agent must perform that work directly, subject to the active workflow's own sequencing and guards. Do not substitute a patch, downloadable repository file, generated diff, copy/paste implementation, or instructions asking the user to apply/commit/push those changes merely because local execution would also be possible. Only provide such artifacts or mutation commands when the user explicitly asks for them or when the required mutation genuinely cannot be performed through the available tooling.
 

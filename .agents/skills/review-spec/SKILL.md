@@ -49,6 +49,36 @@ The compact coverage/effectiveness output required below remains required, but i
 
 Owner-overridden, scope-retired, Root Blocker, provenance, architecture-handoff, remediation, and lifecycle information remains governed by the procedure and may follow the three-axis findings as applicable.
 
+## Reviewer Execution Budget
+
+A normal `$review-spec` invocation may create exactly **one fresh semantic review sub-agent**. That one reviewer executes the applicable review axes sequentially in this fixed order:
+
+1. Standards, when applicable;
+2. Spec, always;
+3. Architecture, when applicable.
+
+Do not fan out Standards, Spec, and Architecture into separate reviewer agents. Do not automatically create additional challenger agents. Any second independent reviewer or challenger requires **explicit human authorization in the current invocation**.
+
+The three review axes remain semantically independent even though one fresh reviewer executes them:
+
+* freeze each axis's coverage, findings, and proof groups before starting the next axis;
+* shared factual repository evidence may be reused across axes;
+* another axis's disposition, finding, confidence, or absence of findings is never evidence for the current axis;
+* each axis must independently satisfy its own authority, universe, Claim-Proof Integrity, coverage, and invalidation-boundary requirements.
+
+Default execution accounting:
+
+```text
+Reviewer execution: single-fresh-subagent-three-axis-passes
+Reviewer execution override: None
+Automatic reviewer sub-agents: 1
+Automatic challenger sub-agents: 0
+Cross-axis contextual independence: reduced
+Semantic axis independence: required
+```
+
+Token/model cost is an execution constraint, never permission to omit coverage, skip required proof, weaken Domain Finality Reconciliation, bypass Attention, or relax the Exit Gate.
+
 ## Preserve the Adversarial Boundary
 
 `$review-spec` remains downstream of a passing independently certified `$verify-spec` result.
@@ -163,9 +193,9 @@ Likewise, a repository mutation that makes member proof stale does not by itself
 
 ### Domain Finality Reconciliation
 
-After primaries/challengers return provisional findings and **before accepting a Blocking finding that would reopen a previously satisfied/closed root or materially enlarge its acceptance domain**, recover the latest applicable Certified Closure Domain and reconcile the candidate.
+After the review agent and any explicitly owner-authorized independent challenger return provisional findings and **before accepting a Blocking finding that would reopen a previously satisfied/closed root or materially enlarge its acceptance domain**, recover the latest applicable Certified Closure Domain and reconcile the candidate.
 
-Do not expose Root Blocker history to primary reviewers. This gate runs only after provisional findings are returned, at the bounded root/provenance reconciliation stage.
+Do not expose Root Blocker history to the review agent during its primary axis passes. This gate runs only after provisional findings are returned, at the bounded root/provenance reconciliation stage.
 
 For each candidate record:
 
@@ -184,7 +214,7 @@ Finality disposition:
   domain-expansion
 ```
 
-If membership/authority judgment is semantic rather than mechanically decidable, use one targeted challenger limited to this reconciliation question. The parent may orchestrate and validate references; it must not invent a broader domain itself.
+If membership/authority judgment is semantic rather than mechanically decidable, require one bounded self-challenge by the existing review agent limited to this reconciliation question. Spawn a second independent challenger only after explicit human authorization for the current invocation. The parent may orchestrate and validate references; it must not invent a broader domain itself.
 
 #### `in-domain-falsifier`
 
@@ -223,8 +253,8 @@ For a root with an applicable Certified Closure Domain:
 * `missed prior finding` requires `in-domain-falsifier`;
 * `regression` requires an in-domain behavior whose previously proven disposition later changed;
 * `root-definition gap` may not expand the frozen domain under unchanged authority;
-* saturation challengers sweep only the frozen domain plus members newly admitted by an actual governing-authority change;
-* a challenger may discover additional **in-domain** siblings omitted by prior execution, but may not replace the membership predicate/source sets with a broader sibling universe;
+* saturation challenge coverage is limited to the frozen domain plus members newly admitted by an actual governing-authority change;
+* the bounded challenge may discover additional **in-domain** siblings omitted by prior execution, but may not replace the membership predicate/source sets with a broader sibling universe;
 * `domain-expansion` and `closure-authority-defect` observations are excluded from active remediation until their own finality disposition authorizes otherwise.
 
 A genuinely distinct current obligation not governed by an existing certified root/domain may still become a Candidate new root normally.
@@ -312,7 +342,7 @@ Deferred routing evidence: <Ticket Coverage Manifest / durable destination | Non
 
 A complete review may certify clean proof for later remediation reuse. Reuse never comes from the parent’s memory or from the mere fact that a cell was previously reported clean.
 
-Every primary/challenger that returns `checked-no-finding` or `not-applicable` must additionally certify a compact invalidation boundary for each group of clean cells sharing the same evidence/boundary:
+The review agent, and any explicitly owner-authorized independent challenger that returns `checked-no-finding` or `not-applicable`, must additionally certify a compact invalidation boundary for each group of clean cells sharing the same evidence/boundary:
 
 ```text
 Proof group: RPR-<axis>-<n>
@@ -373,7 +403,7 @@ Rules:
 * active remediation/root cells and any cell whose proof evidence was intentionally changed are stale;
 * a missing/malformed ledger or changed Spec contract requires full review for the affected universe rather than guessed reuse;
 * reused cells remain explicit members of the current review universe and count as currently dispositioned; omission is not reuse;
-* dispatch fresh axis reviewers only for stale/uncovered cells plus any new provisional Standards/Architecture candidates created by current provenance or authority;
+* dispatch the single fresh review agent only over stale/uncovered cells plus any new provisional Standards/Architecture candidates created by current provenance or authority, preserving the same sequential axis isolation;
 * current coverage = reused cells + freshly reviewed cells; require missing 0 and unchecked 0 across every axis;
 * a mutation never forces unrelated clean cells to be semantically rediscovered when their independently certified boundary is provably untouched;
 * uncertainty is fail-closed: stale, not reused.
@@ -398,8 +428,9 @@ This skill is review-only. `$verify-spec` owns verification and tool/gate execut
 - The newest passing Spec Verification Receipt for the exact current `HEAD` is the review contract.
 - Do not rerun Ruff, mypy, pytest, duplicate scanners, wiki lint, or other `$verify-spec` gates merely to strengthen a review finding.
 - Fresh current change provenance/semantic attribution is still required because the default branch may advance after verification.
-- One genuinely fresh primary reviewer per applicable axis is the default. Challengers are conditional, not ceremonial.
-- After primary dispatch, the parent orchestrates; it does not become a fourth semantic reviewer.
+- One genuinely fresh semantic review agent per invocation is the default; it performs the applicable Standards, Spec, and Architecture passes sequentially with axis isolation.
+- Automatic challenger sub-agents are forbidden; any second independent reviewer requires explicit human authorization for the current invocation.
+- After review-agent dispatch, the parent orchestrates; it does not become a second semantic reviewer.
 - Persist only provenance-valid, **domain-finality-valid** findings and compact lifecycle state.
 
 ## Finding Taxonomy
@@ -513,7 +544,7 @@ If a conventional Spec Review exists, recover privately:
 - prior reviewed/satisfied heads and Owner Overrides;
 - applicable durable ticket/root closure certifications sufficient to recover Certified Closure Domains.
 
-Do not expose root history/domain conclusions to primary reviewers. Domain Finality Reconciliation happens after provisional findings return.
+Do not expose root history/domain conclusions to the review agent during its primary axis passes. Domain Finality Reconciliation happens after provisional findings return.
 
 ### Scope Attribution Gate
 
@@ -548,12 +579,12 @@ Architecture universe construction does not itself override a Certified Closure 
 
 ## 6. Reviewer Execution Integrity
 
-A fresh reviewer is a genuinely separate context that did not participate in parent orchestration and receives only its axis authority, complete cells, and relevant evidence pointers.
+A fresh reviewer is a genuinely separate context that did not participate in parent orchestration and receives the bounded review inputs necessary to execute the three axis-isolated passes, without Root Blocker history, Certified Closure Domain conclusions, or prior reviewer conclusions.
 
 Default mode:
 
 ```text
-Reviewer execution: independent-subagents
+Reviewer execution: single-fresh-subagent-three-axis-passes
 Reviewer execution override: None
 ```
 
@@ -565,24 +596,25 @@ Canonical authorization:
 OWNER REVIEWER EXECUTION OVERRIDE: authorize same-agent reviewer fallback for this review
 ```
 
-Under fallback, execute roles sequentially and disclose reduced independence. Never describe same-context roles as fresh.
+Under fallback, execute the same axis-isolated passes sequentially in the parent context and disclose reduced reviewer independence. Never describe same-context execution as fresh.
 
-## 7. Dispatch Primaries
+## 7. Dispatch One Review Agent
 
-Execute exactly one primary per applicable axis:
+Dispatch exactly one fresh semantic review sub-agent for the invocation. It must execute the applicable axes sequentially in this fixed order:
 
-- Standards primary when applicable;
-- Spec primary always;
-- Architecture primary when applicable.
+1. Standards, when applicable;
+2. Spec, always;
+3. Architecture, when applicable.
 
-Give each primary only:
+Give the reviewer only:
 
-- axis authority;
-- complete cells;
+- the complete authority and cell universe for each applicable axis;
 - relevant evidence pointers/semantically current surfaces;
 - no Root Blocker history, Certified Closure Domain conclusions, or prior reviewer conclusions.
 
-Each primary must disposition every supplied cell and continue after discovering a blocker.
+Before starting the next axis, freeze the current axis's coverage, findings, and proof groups. Shared factual evidence may be reused, but a prior axis's semantic conclusion is never evidence for a later axis.
+
+The reviewer must disposition every supplied cell and continue after discovering a blocker. Do not fan out axes into separate agents.
 
 Coverage states:
 
@@ -596,7 +628,7 @@ checked-no-finding | blocking | advisory | not-applicable
 
 For every material cell, the reviewer must internally establish claim/predicate/domain/falsifier/evidence and exclude the falsifier before `checked-no-finding`. Material assumptions must themselves be proven.
 
-Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full provisional findings. A useful primary result is:
+Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full provisional findings. A useful per-axis result is:
 
 ```text
 Coverage: <cell IDs grouped by disposition>; missing 0; unchecked 0
@@ -610,12 +642,12 @@ Axis blocker authority remains necessary but is not sufficient for a finding tha
 
 ## 8. Parent Orchestration Boundary
 
-After primary dispatch, the parent is an **orchestrator**, not another reviewer.
+After review-agent dispatch, the parent is an **orchestrator**, not another reviewer.
 
-While reviewers run, the parent may:
+While the reviewer runs, the parent may:
 
-- wait/collect results;
-- recover tracker/remediation state not exposed to reviewers;
+- wait/collect the reviewer result;
+- recover tracker/remediation state not exposed to the reviewer;
 - prepare compact persistence metadata;
 - deduplicate returned records mechanically.
 
@@ -630,14 +662,14 @@ The parent must **not**:
 After results return, parent inspection is allowed only at these narrow boundaries:
 
 1. **Axis-Provenance validation** — confirm that the cited native authority exists and applies to the cited surface/cell;
-2. **concrete challenge trigger** — resolve ambiguity/contradiction through a targeted challenger, not an open-ended parent review;
+2. **concrete challenge trigger** — require the review agent to perform the bounded self-challenge defined below; use a second independent challenger only after explicit human authorization, never an open-ended parent review;
 3. **root/domain reconciliation** — inspect only historical root/Certified Closure Domain evidence implicated by provisional findings.
 
-If accepting/rejecting a finding would require broad semantic exploration, dispatch the targeted challenger instead.
+If accepting/rejecting a finding would require broad semantic exploration, require the bounded review-agent self-challenge instead. If genuine second-context independence is materially required, halt for explicit human authorization rather than spawning another agent automatically.
 
 ## 9. Conditional Challenge
 
-Dispatch one targeted challenger only for a concrete trigger:
+For a concrete trigger, require one bounded challenge over only the affected cell/question. By default the existing review agent performs that challenge as an axis-scoped self-challenge; do not create another sub-agent:
 
 1. coverage gap/materially omitted applicable cell;
 2. authority conflict/ambiguity;
@@ -645,7 +677,7 @@ Dispatch one targeted challenger only for a concrete trigger:
 4. Domain Finality Reconciliation requiring semantic membership/authority judgment;
 5. convergence trigger after finality-valid root reconciliation.
 
-Challenge only the affected cell/question. Do not intentionally give the challenger the primary conclusion. It applies the same Claim-Proof Integrity. If a required challenge remains unresolved, review is incomplete and nothing is persisted as PASS/remediation-ready.
+Challenge only the affected cell/question. For the default self-challenge, the reviewer must restate the question from governing authority/evidence and actively attempt to falsify its current disposition without treating its earlier conclusion as evidence. Apply the same Claim-Proof Integrity. A genuinely independent challenger may be spawned only after explicit human authorization for the current invocation and should not be given the primary conclusion intentionally. If a required challenge remains unresolved, review is incomplete and nothing is persisted as PASS/remediation-ready.
 
 ## 10. Freeze Findings and Validate Provenance
 
@@ -674,11 +706,11 @@ Previously satisfied sibling cells remain satisfied unless directly contradicted
 A finality-valid Missed prior finding proves incomplete prior **member disposition/execution** inside the frozen domain. Before persistence:
 
 1. recover the applicable Certified Closure Domain rather than deriving a broader root universe from scratch;
-2. execute exactly one saturation challenger under the originating axis over that frozen domain and any newly admitted members caused by an actual governing-authority change;
+2. execute exactly one bounded saturation self-challenge by the existing review agent under the originating axis over that frozen domain and any newly admitted members caused by an actual governing-authority change;
 3. require every authorized domain item checked and `unchecked 0`;
 4. provenance-validate new **in-domain** findings and merge them before persistence.
 
-A `root-definition gap` cannot broaden a frozen domain under unchanged authority. A challenger-discovered candidate outside the frozen predicate becomes a Domain Expansion Observation, not another remediation obligation.
+A second independent saturation challenger requires explicit human authorization for the current invocation. A `root-definition gap` cannot broaden a frozen domain under unchanged authority. A challenge-discovered candidate outside the frozen predicate becomes a Domain Expansion Observation, not another remediation obligation.
 
 Do not run another generic full-axis review.
 
@@ -816,4 +848,4 @@ Disposition
 
 `checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, no incomplete clean dispositions, and no unresolved Domain Finality Reconciliation before PASS/remediation handoff.
 
-These records are **working reasoning state**, not mandatory serialized output. Primaries/challengers should return compact grouped coverage and full findings rather than dumping one verbose proof object per clean cell. Fresh reviewer independence remains mandatory unless explicitly owner-overridden for the current invocation.
+These records are **working reasoning state**, not mandatory serialized output. The review agent and any explicitly owner-authorized independent challenger should return compact grouped coverage and full findings rather than dumping one verbose proof object per clean cell. Fresh reviewer independence remains mandatory unless explicitly owner-overridden for the current invocation.

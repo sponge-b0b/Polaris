@@ -116,19 +116,19 @@ for immutable internal models when a dataclass is the appropriate representation
 
 Do not introduce another model merely to satisfy this preference when an existing type already owns the concept.
 
-### Async Boundaries
+### Async and Parallel Execution Boundaries
 
-Use established asynchronous provider and client interfaces consistently.
+Polaris treats asynchronous I/O and multi-core execution as first-class runtime capabilities. Follow `docs/current/platform-architecture-0.2.0.md` and the accepted runtime-concurrency ADR for the governing execution model.
 
-Do not introduce:
+Use established asynchronous provider and client interfaces consistently. Do not introduce synchronous alternatives to canonical async boundaries, sync/async compatibility branches, or duplicate execution paths unless a real boundary requirement exists and is supported by the applicable architecture source. Do not preserve an incorrect synchronous path merely for compatibility.
 
-* synchronous alternatives to canonical async boundaries;
-* sync/async compatibility branches;
-* duplicate execution paths;
+Do not make pure deterministic domain calculations `async` when they perform no concurrent I/O or waiting. Keep async at boundaries that own waiting, orchestration, or concurrent I/O.
 
-unless a real boundary requirement exists and is supported by the applicable architecture source.
+For CPU-bound work, choose the smallest execution mechanism that satisfies the real isolation and sharing requirements: free-threaded threads for safe shared-memory parallelism, subinterpreters for isolated in-process parallelism, and processes only when hard isolation or dependency constraints require them. Do not leak that mechanism into domain/application contracts.
 
-Do not preserve an incorrect synchronous path merely for compatibility.
+No correctness guarantee may depend on the CPython GIL serializing access. Shared mutable state must have explicit ownership, synchronization, immutability, isolation, or another race-safe invariant that remains correct under genuinely parallel execution. Treat code that is only safe because ordinary CPython happens to serialize bytecode as defective.
+
+When adding or changing runtime dependencies, concurrency-sensitive code, worker execution, or application bootstrap/import surfaces, preserve free-threaded compatibility and run the repository's free-threaded qualification gate. A dependency that re-enables the GIL makes the free-threaded target fail until the dependency or design is corrected or explicitly re-architected.
 
 ### Observability
 

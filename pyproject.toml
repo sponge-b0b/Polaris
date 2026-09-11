@@ -7,7 +7,7 @@ name = "polaris"
 version = "0.2.0"
 description = "Decision-centered AI intelligence for trustworthy portfolio and investment decisions."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { file = "LICENSE" }
 dependencies = []
 
@@ -32,7 +32,7 @@ extend-exclude = [
     "*.md",
     "legacy/**",
 ]
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -64,7 +64,7 @@ exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 explicit_package_bases = true
 
 # Preserve Polaris's intentionally permissive/basic type-checking policy.

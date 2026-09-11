@@ -392,6 +392,29 @@ The application contract requires optimistic concurrency/version checks or equiv
 
 At-least-once technical execution is acceptable when business commands are idempotent and committed business facts remain singular.
 
+## Asynchronous and multi-core execution
+
+Asynchronous I/O and multi-core execution are first-class runtime capabilities for Polaris. The architecture must preserve both without making either execution mechanism part of domain identity.
+
+Use concurrency according to workload semantics:
+
+- `asyncio` and async interfaces for provider, persistence, messaging, scheduling, and other I/O-bound work where concurrency matters;
+- free-threaded CPython threads for shared-memory CPU parallelism when work is thread-safe and benefits from common in-process state;
+- `InterpreterPoolExecutor` or equivalent subinterpreter isolation when CPU-bound work benefits from multi-core execution but should not share mutable interpreter state;
+- processes only when hard process isolation, dependency incompatibility, or another concrete requirement earns the additional operational cost.
+
+Pure deterministic domain calculations do not become `async` merely because the platform is async-capable. Async boundaries belong where waiting or concurrent I/O exists; CPU-bound parallelism belongs where measured or structurally clear work can benefit.
+
+Polaris correctness must never depend on incidental serialization by the CPython GIL. Shared mutable state requires explicit ownership, synchronization, or an equivalent race-safe design. Prefer immutable values, isolated work inputs, idempotent operations, optimistic concurrency, and narrow synchronization over broad shared mutation.
+
+The supported Python baseline is CPython 3.14 or newer. The repository's default Python request uses the free-threaded 3.14 variant so ordinary development exercises the GIL-independent path. Standard GIL-enabled CPython remains a required compatibility target.
+
+Free-threaded qualification must verify both that the interpreter was built with free-threading support and that the GIL remains disabled after importing the supported Polaris runtime surface. A native extension that re-enables the GIL is a compatibility failure for the free-threaded target, not an acceptable invisible degradation.
+
+The next CPython minor release is qualified during its release-candidate window when practical. Promotion to the new baseline occurs after project dependencies, tests, static analysis, and free-threaded qualification pass; calendar release alone does not waive those gates.
+
+Application and domain contracts must remain independent of whether a concrete runtime uses an event loop, worker thread, subinterpreter, or process. Runtime mechanism is an adapter or coordination choice unless a future product requirement explicitly makes it semantic.
+
 ---
 
 # 5. Durable Decision Memory and business truth
@@ -683,9 +706,9 @@ Reports, PDFs, email, messaging, and MCP remain optional presentation/distributi
 
 # 11. Background work, scheduling, Attention, and durable follow-up
 
-Scheduled and asynchronous work are supporting runtime concerns, not business identity.
+Scheduled, asynchronous, and parallel work are supporting runtime concerns, not business identity.
 
-A scheduler or worker invokes normal application use cases with technical work identity and idempotency metadata.
+A scheduler or worker invokes normal application use cases with technical work identity and idempotency metadata. Workers may run many asynchronous tasks and CPU-bound work in parallel; idempotency, version checks, and state ownership therefore assume genuinely concurrent execution rather than process-wide serialization.
 
 A job identifier may answer:
 
@@ -894,7 +917,7 @@ If one of those mechanisms is later required, it should live under the architect
 
 # 16. Architecture enforcement
 
-R2 must establish executable architecture checks before substantial production code accumulates.
+R2 must establish executable architecture checks and runtime qualification gates before substantial production code accumulates.
 
 At minimum, checks must fail when:
 
@@ -908,6 +931,8 @@ At minimum, checks must fail when:
 8. current migrations or persistence adapters target legacy schema objects because they already exist.
 
 The exact enforcement tool is an implementation choice. A small custom import/AST test is preferred over adding a framework solely for architecture linting unless the framework earns its dependency.
+
+Free-threaded qualification is a separate executable runtime gate. When run under the supported free-threaded interpreter, it must fail if the build lacks free-threading support or if the GIL is enabled after importing the supported Polaris runtime surface.
 
 ---
 
@@ -949,7 +974,7 @@ external provider integrations as configured
 
 The initial/reference durable-store adapter is expected to be PostgreSQL. That is a deployment/adapter choice, not a requirement that application/domain contracts depend on PostgreSQL.
 
-Both processes execute the same application/domain code and use the same business truth.
+Both processes execute the same application/domain code and use the same business truth. Either role may use asynchronous I/O and free-threaded multi-core execution where the workload benefits, without changing domain or application semantics.
 
 This is not a microservice split. Worker/scheduler separation exists only to keep slow/background work from blocking interactive use.
 
@@ -983,7 +1008,7 @@ Acceptance tests must assert canonical business facts, not merely that a workflo
 
 ## Architecture tests
 
-Import/dependency, vendor-insulation, port-contract, and legacy-isolation checks run continuously from R2 onward.
+Import/dependency, vendor-insulation, port-contract, and legacy-isolation checks run continuously from R2 onward. Runtime qualification also covers the supported standard and free-threaded CPython targets; the free-threaded target must preserve a disabled GIL across the supported runtime import surface.
 
 ---
 
@@ -1109,15 +1134,15 @@ R1 is complete only when this architecture is approved and the following are acc
 6. Durable Decision Memory as cross-lifecycle composition of direct business facts;
 7. technology-neutral durable persistence boundary, with PostgreSQL as the initial/reference adapter rather than architectural identity;
 8. direct business persistence plus immutable history, not universal event sourcing;
-9. application-owned transaction/idempotency/concurrency boundaries;
+9. application-owned transaction/idempotency/concurrency boundaries, with asynchronous and multi-core execution treated as first-class capabilities and no correctness dependency on GIL serialization;
 10. technology-neutral durable asynchronous follow-up boundary whose adapters may use outbox, queue, broker, event bus, CDC, or another mechanism only if they satisfy durability/atomicity/idempotency/recovery guarantees;
 11. AI/model access as a bounded analytical adapter with no authority power;
 12. deterministic Policy/Formal Constraint results distinct from authority acts;
 13. external facts entering through observation ports with external authority preserved;
 14. inbound observation/reconciliation with no outbound execution port;
 15. thin presentation surfaces over shared application semantics;
-16. optional worker/scheduler runtime that does not become business identity;
-17. executable architecture, vendor-insulation, and legacy-isolation checks;
+16. optional worker/scheduler runtime that does not become business identity and may use async and multi-core execution where appropriate;
+17. executable architecture, vendor-insulation, legacy-isolation, and free-threaded runtime qualification checks;
 18. provisional decision-time operational targets;
 19. fresh greenfield persistence lineage for the selected initial adapter;
 20. requirement-family ownership as mapped above.

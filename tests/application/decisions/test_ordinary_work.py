@@ -24,7 +24,9 @@ from polaris.application.decisions import (
     DecisionMutationResult,
     DecisionMutationResultKind,
     DecisionMutationUnavailable,
+    DecisionNonOperative,
     DecisionNotFound,
+    DecisionOperativeStatusContested,
     DecisionOrdinaryWorkService,
     EstablishOrReviseDecisionScopeCommand,
     ExpectedDecisionVersion,
@@ -33,9 +35,9 @@ from polaris.application.decisions import (
     InitiationCommitOutcome,
     InitiationReceipt,
     InvalidDecisionCommand,
+    InvalidTrustedBasis,
     LifecycleConflict,
     PersistenceUnavailable,
-    RelationshipConflict,
     ResumeDecisionWorkCommand,
     ReviseDecisionSubjectCommand,
     WithdrawDecisionWorkCommand,
@@ -351,6 +353,27 @@ def test_subject_no_op_preserves_history_and_version() -> None:
     assert len(store.receipts) == 1
 
 
+def test_scope_no_op_preserves_history_and_version() -> None:
+    decision = _decision()
+    store = FakeDecisionStore(decision)
+
+    result = asyncio.run(
+        _service(store).establish_or_revise_scope(
+            EstablishOrReviseDecisionScopeCommand(
+                envelope=_envelope(decision),
+                decision_id=decision.decision_id,
+                scope=decision.scope,
+                continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+    )
+
+    assert result.kind is DecisionMutationResultKind.NO_OP
+    assert result.version == decision.version
+    assert store.decision.history == decision.history
+    assert len(store.receipts) == 1
+
+
 def test_scope_partial_establishment_and_revision_preserve_identity() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -498,14 +521,14 @@ def test_deferral_rejects_non_deferring_or_untrusted_basis() -> None:
         HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
     )
 
-    with pytest.raises(InvalidDecisionCommand):
+    with pytest.raises(InvalidTrustedBasis):
         ApplyHumanDeferralCommand(
             envelope=_envelope(decision),
             decision_id=decision.decision_id,
             basis=resolving,
         )
 
-    with pytest.raises(InvalidDecisionCommand):
+    with pytest.raises(InvalidTrustedBasis):
         ApplyHumanDeferralCommand(
             envelope=_envelope(decision),
             decision_id=decision.decision_id,
@@ -638,6 +661,28 @@ def _ordinary_commands(
     )
 
 
+def _ordinary_no_op_commands(
+    decision: InvestmentDecision,
+) -> tuple[
+    ReviseDecisionSubjectCommand | EstablishOrReviseDecisionScopeCommand,
+    ...,
+]:
+    return (
+        ReviseDecisionSubjectCommand(
+            envelope=_envelope(decision),
+            decision_id=decision.decision_id,
+            subject=decision.subject,
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        ),
+        EstablishOrReviseDecisionScopeCommand(
+            envelope=_envelope(decision),
+            decision_id=decision.decision_id,
+            scope=decision.scope,
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        ),
+    )
+
+
 def _run_command(
     service: DecisionOrdinaryWorkService,
     command: (
@@ -672,20 +717,61 @@ def test_resolved_decision_rejects_every_ordinary_work_command(index: int) -> No
     assert store.receipts == ()
 
 
+@pytest.mark.parametrize("index", range(2))
+def test_resolved_decision_rejects_subject_and_scope_no_ops(index: int) -> None:
+    decision = _resolved_decision()
+    store = FakeDecisionStore(decision)
+    command = _ordinary_no_op_commands(decision)[index]
+
+    with pytest.raises(LifecycleConflict):
+        _run_command(_service(store), command)
+
+    assert store.decision == decision
+    assert store.receipts == ()
+
+
 @pytest.mark.parametrize(
-    "applicability",
-    (DecisionApplicability.NON_OPERATIVE, DecisionApplicability.CONTESTED),
+    ("applicability", "error_type"),
+    (
+        (DecisionApplicability.NON_OPERATIVE, DecisionNonOperative),
+        (DecisionApplicability.CONTESTED, DecisionOperativeStatusContested),
+    ),
 )
 @pytest.mark.parametrize("index", range(5))
 def test_non_operative_or_contested_decision_fails_closed_for_all_ordinary_work(
     applicability: DecisionApplicability,
+    error_type: type[Exception],
     index: int,
 ) -> None:
     decision = _decision()
     store = FakeDecisionStore(decision, applicability=applicability)
     command = _ordinary_commands(decision)[index]
 
-    with pytest.raises(RelationshipConflict):
+    with pytest.raises(error_type):
+        _run_command(_service(store), command)
+
+    assert store.decision == decision
+    assert store.receipts == ()
+
+
+@pytest.mark.parametrize(
+    ("applicability", "error_type"),
+    (
+        (DecisionApplicability.NON_OPERATIVE, DecisionNonOperative),
+        (DecisionApplicability.CONTESTED, DecisionOperativeStatusContested),
+    ),
+)
+@pytest.mark.parametrize("index", range(2))
+def test_non_operative_or_contested_rejects_subject_and_scope_no_ops(
+    applicability: DecisionApplicability,
+    error_type: type[Exception],
+    index: int,
+) -> None:
+    decision = _decision()
+    store = FakeDecisionStore(decision, applicability=applicability)
+    command = _ordinary_no_op_commands(decision)[index]
+
+    with pytest.raises(error_type):
         _run_command(_service(store), command)
 
     assert store.decision == decision

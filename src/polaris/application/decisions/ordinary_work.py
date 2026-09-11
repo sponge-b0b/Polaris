@@ -13,6 +13,7 @@ from polaris.domain.decisions import (
     DecisionApplicabilityContested,
     DecisionContinuity,
     DecisionDeferred,
+    DecisionLifecycleDisposition,
     DecisionLifecycleFactId,
     DecisionMutationContext,
     DecisionNotOperative,
@@ -59,6 +60,18 @@ class ContinuityRequired(DecisionApplicationError):
 @dataclass(slots=True)
 class DecisionNotFound(DecisionApplicationError):
     decision_id: InvestmentDecisionId
+
+
+class DecisionNonOperative(RelationshipConflict):
+    pass
+
+
+class DecisionOperativeStatusContested(RelationshipConflict):
+    pass
+
+
+class InvalidTrustedBasis(InvalidDecisionCommand):
+    pass
 
 
 def _expected_version(
@@ -121,11 +134,11 @@ class ApplyHumanDeferralCommand:
     def __post_init__(self) -> None:
         _expected_version(self.envelope, self.decision_id)
         if type(self.basis) is not TrustedHumanInvestmentDecisionBasis:
-            raise InvalidDecisionCommand(
+            raise InvalidTrustedBasis(
                 "Deferral requires a trusted Human Investment Decision basis"
             )
         if self.basis.effect is not HumanInvestmentDecisionEffect.DEFERRING:
-            raise InvalidDecisionCommand(
+            raise InvalidTrustedBasis(
                 "Deferral basis must have DEFERRING semantic effect"
             )
 
@@ -414,6 +427,8 @@ class DecisionOrdinaryWorkService:
                 f"found {state.decision.version.value}"
             )
 
+        _require_ordinary_work_admission(state)
+
         mutation = DecisionMutationContext(
             fact_id=DecisionLifecycleFactId(self._new_uuid()),
             operation_id=operation_id,
@@ -467,6 +482,19 @@ class DecisionOrdinaryWorkService:
         )
 
 
+def _require_ordinary_work_admission(state: DecisionCommandState) -> None:
+    if state.decision.disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+        raise LifecycleConflict("resolved Decision cannot receive ordinary work")
+    if state.applicability is DecisionApplicability.CONTESTED:
+        raise DecisionOperativeStatusContested(
+            "ordinary Decision work requires determinate operative applicability"
+        )
+    if state.applicability is DecisionApplicability.NON_OPERATIVE:
+        raise DecisionNonOperative("ordinary Decision work requires operative status")
+    if state.applicability is not DecisionApplicability.OPERATIVE:
+        raise RelationshipConflict("Decision applicability is invalid")
+
+
 def _apply_transition(
     apply: Callable[
         [DecisionCommandState, DecisionMutationContext],
@@ -479,10 +507,12 @@ def _apply_transition(
         return apply(state, mutation)
     except IndependentChoiceRequiresNewDecision as error:
         raise ContinuityRequired(error.decision_id) from error
-    except (DecisionApplicabilityContested, DecisionNotOperative) as error:
-        raise RelationshipConflict(str(error)) from error
+    except DecisionApplicabilityContested as error:
+        raise DecisionOperativeStatusContested(str(error)) from error
+    except DecisionNotOperative as error:
+        raise DecisionNonOperative(str(error)) from error
     except InvalidDecisionBasis as error:
-        raise InvalidDecisionCommand(str(error)) from error
+        raise InvalidTrustedBasis(str(error)) from error
     except (InvalidDecisionTransition, InvalidDecisionHistory) as error:
         raise LifecycleConflict(str(error)) from error
 

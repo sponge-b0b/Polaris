@@ -782,7 +782,7 @@ Root Blocker: None
 Completed On: None
 ```
 
-Invoke `$project-tracking` after Exit persistence. Project drift does not invalidate the durable review receipt.
+GitHub Project projection is deferred to the repository-wide `$project-tracking` cadence, normally `$spec-merge-cleanup`, or an explicit human-requested board refresh. Project drift does not invalidate the durable review receipt.
 
 ## 15. Human Handoff
 

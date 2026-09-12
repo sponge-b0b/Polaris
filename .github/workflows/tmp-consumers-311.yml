@@ -1,0 +1,28 @@
+name: tmp-consumers-311
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-consumers-311.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a32dd01e56fe452911fbb7c6fb7a3e768a5033c7
+          fetch-depth: 0
+      - name: Inspect External Resolution consumers
+        run: |
+          set -euo pipefail
+          echo '=== helper references ==='
+          rg -n '_require_external_resolution_admission' src tests || true
+          echo '=== service operation references ==='
+          rg -n 'apply_external_resolution' src tests || true
+          echo '=== command references ==='
+          rg -n 'ApplyExternalResolutionCommand' src tests || true

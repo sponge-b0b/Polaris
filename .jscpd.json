@@ -1,0 +1,25 @@
+{
+  "threshold": 5,
+  "minLines": 15,
+  "minTokens": 50,
+  "format": ["python"],
+  "gitignore": true,
+  "reporters": ["console", "markdown", "html"],
+  "output": ".jscpd_report",
+  "ignore": [
+    "**/.git/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/tests/**",
+    "**/__pycache__/**",
+    "**/.jscpd_report/**",
+    "**/.mypy_cache/**",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
+    "**/build/**",
+    "**/migrations/**",
+    "**/.repowise/**",
+    "**/legacy/**",
+    "**/*.md"
+  ]
+}

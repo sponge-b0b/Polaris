@@ -1,7 +1,9 @@
 from pathlib import Path
+import subprocess
 
 path = Path('docs/process/session-reconstitution.md')
 text = path.read_text()
+changed = False
 
 old = '''#### Propagate repository-wide authority changes to the active working branch
 
@@ -15,8 +17,12 @@ Repository-wide workflow, process, governance, and architecture authority is mai
 
 If such an artifact is found changed only on the active branch, treat that as authority drift: compare it with the default branch, reconcile the generic change on the default branch first, then propagate the finalized authoritative version back into the active branch before resuming work. Use clean Git-data construction from the active branch HEAD and do not import temporary transport commits; resolve genuine branch-local divergence deliberately rather than overwriting it.
 '''
-assert text.count(old) == 1
-text = text.replace(old, new)
+if old in text:
+    assert text.count(old) == 1
+    text = text.replace(old, new)
+    changed = True
+else:
+    assert new in text
 
 old = '''#### Delete a temporary remote branch
 
@@ -54,7 +60,22 @@ Use one scoped deletion command for all verified disposable branches:
 
 If a temporary branch must be retained, record the exact recovery reason in the ChatGPT Session Ledger and revisit it at the next cleanup boundary.
 '''
-assert text.count(old) == 1
-text = text.replace(old, new)
+if old in text:
+    assert text.count(old) == 1
+    text = text.replace(old, new)
+    changed = True
+else:
+    assert new in text
+
+if not changed:
+    print('HOUSEKEEPING_HARDENING_ALREADY_APPLIED=1')
+    raise SystemExit(0)
 
 path.write_text(text)
+subprocess.run(['git', 'diff', '--check'], check=True)
+subprocess.run(['git', 'diff', '--', str(path)], check=True)
+subprocess.run(['git', 'config', 'user.name', 'Bob Taylor'], check=True)
+subprocess.run(['git', 'config', 'user.email', 'bobltaylorjr@gmail.com'], check=True)
+subprocess.run(['git', 'add', str(path)], check=True)
+subprocess.run(['git', 'commit', '-m', 'docs(process): harden authority and branch housekeeping'], check=True)
+subprocess.run(['git', 'push'], check=True)

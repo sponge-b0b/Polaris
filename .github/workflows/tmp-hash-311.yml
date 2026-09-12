@@ -1,0 +1,77 @@
+name: tmp-hash-311
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-hash-311.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: spec-279
+          fetch-depth: 0
+      - name: Compute ticket closure state
+        env:
+          TICKET_BASELINE: cbc7e9e43bc74daf6f45dcf6866eb125ce285017
+          EXPECTED_HEAD: a32dd01e56fe452911fbb7c6fb7a3e768a5033c7
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain)"
+          python - <<'PY'
+          import hashlib
+          import os
+          import stat
+          import subprocess
+
+          baseline = os.environ["TICKET_BASELINE"]
+
+          def git_paths(*args: str) -> list[bytes]:
+              result = subprocess.run(["git", *args], check=True, stdout=subprocess.PIPE)
+              return [path for path in result.stdout.split(b"\0") if path]
+
+          paths = set(git_paths("diff", "--no-renames", "--name-only", "-z", baseline, "--"))
+          paths.update(git_paths("ls-files", "--others", "--exclude-standard", "-z"))
+
+          candidate = hashlib.sha256()
+          for raw_path in sorted(paths):
+              path = os.fsdecode(raw_path)
+              candidate.update(b"path\0")
+              candidate.update(raw_path)
+              candidate.update(b"\0")
+              try:
+                  metadata = os.lstat(path)
+              except FileNotFoundError:
+                  candidate.update(b"state\0DELETED\0")
+                  continue
+              if stat.S_ISLNK(metadata.st_mode):
+                  mode = b"120000"
+                  content_hash = hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(metadata.st_mode):
+                  mode = b"100755" if metadata.st_mode & stat.S_IXUSR else b"100644"
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as handle:
+                      for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                          digest.update(chunk)
+                  content_hash = digest.hexdigest()
+              else:
+                  raise SystemExit(f"unsupported candidate path type: {path}")
+              candidate.update(b"mode\0")
+              candidate.update(mode)
+              candidate.update(b"\0sha256\0")
+              candidate.update(content_hash.encode("ascii"))
+              candidate.update(b"\0")
+
+          print(f"TICKET_CLOSURE_STATE={candidate.hexdigest()}")
+          print("CHANGED_PATHS")
+          for path in sorted(paths):
+              print(os.fsdecode(path))
+          PY

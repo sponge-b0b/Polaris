@@ -17,15 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Compare development branch visibility
+      - name: Inspect issue develop mechanics
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          echo "GH_VERSION=$(gh --version | awk 'NR==1 {print $3}')"
-          for issue in 277 278 279; do
-            echo "--- issue develop --list $issue ---"
-            gh issue develop --list "$issue" || true
-          done
+        run: gh issue develop --help

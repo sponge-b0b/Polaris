@@ -13,6 +13,8 @@ from polaris.domain.decisions import (
     DecisionApplicabilityContested,
     DecisionContinuity,
     DecisionDeferred,
+    DecisionLifecycleCorrectionBasis,
+    DecisionLifecycleCorrectionEffect,
     DecisionLifecycleDisposition,
     DecisionLifecycleFactId,
     DecisionMutationContext,
@@ -32,6 +34,7 @@ from polaris.domain.decisions import (
     OperationId,
     TriggerProvenance,
     TrustedHumanInvestmentDecisionBasis,
+    UnsupportedDecisionNeedBasis,
     defer_decision,
     establish_or_revise_scope,
     externally_resolve_decision,
@@ -87,12 +90,12 @@ def _expected_version(
         raise TypeError("decision_id must be InvestmentDecisionId")
     if type(envelope.actor_attribution) is not KnownActorAttribution:
         raise InvalidDecisionCommand(
-            "ordinary Decision mutation requires known Actor Attribution"
+            "Decision mutation requires known Actor Attribution"
         )
     expected = tuple(envelope.expected_versions)
     if len(expected) != 1 or expected[0].decision_id != decision_id:
         raise InvalidDecisionCommand(
-            "ordinary Decision mutation requires exactly one expected version "
+            "Decision mutation requires exactly one expected version "
             "for its target Decision"
         )
     return expected[0]
@@ -233,6 +236,8 @@ class DecisionMutationKind(StrEnum):
     APPLY_EXTERNAL_RESOLUTION = "apply_external_resolution"
     WITHDRAW_WORK = "withdraw_work"
     RESUME_WORK = "resume_work"
+    RECORD_LIFECYCLE_CORRECTION = "record_lifecycle_correction"
+    RETRACT_UNSUPPORTED_DECISION_NEED = "retract_unsupported_decision_need"
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +278,26 @@ class WorkResumptionPayload:
     continuity: DecisionContinuity
 
 
+@dataclass(frozen=True, slots=True)
+class LifecycleCorrectionPayload:
+    target_fact_id: DecisionLifecycleFactId
+    effect: DecisionLifecycleCorrectionEffect
+    correction_basis: DecisionLifecycleCorrectionBasis
+    replacement_disposition: DecisionLifecycleDisposition | None
+    replacement_basis: (
+        TrustedHumanInvestmentDecisionBasis
+        | ExternalResolutionBasis
+        | UnsupportedDecisionNeedBasis
+        | None
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class UnsupportedNeedRetractionPayload:
+    correction_basis: DecisionLifecycleCorrectionBasis
+    unsupported_need_basis: UnsupportedDecisionNeedBasis
+
+
 DecisionMutationPayload = (
     SubjectRevisionPayload
     | ScopeMutationPayload
@@ -281,6 +306,8 @@ DecisionMutationPayload = (
     | ExternalResolutionPayload
     | WorkWithdrawalPayload
     | WorkResumptionPayload
+    | LifecycleCorrectionPayload
+    | UnsupportedNeedRetractionPayload
 )
 
 
@@ -326,6 +353,7 @@ class DecisionMutationCommit:
     operation_id: OperationId
     request: DecisionMutationSemanticRequest
     expected_version: DecisionVersion
+    expected_history_tail_fact_id: DecisionLifecycleFactId
     result: DecisionMutationResult
     decision: InvestmentDecision
 
@@ -364,7 +392,7 @@ DecisionMutationCommitOutcome = (
 )
 
 
-class DecisionOrdinaryWorkStore(DecisionCommandStore, Protocol):
+class DecisionMutationStore(DecisionCommandStore, Protocol):
     async def get_mutation_receipt(
         self, operation_id: OperationId
     ) -> DecisionMutationReceipt | None: ...
@@ -385,7 +413,7 @@ class DecisionOrdinaryWorkService:
     def __init__(
         self,
         *,
-        store: DecisionOrdinaryWorkStore,
+        store: DecisionMutationStore,
         now: Callable[[], datetime] | None = None,
         new_uuid: Callable[[], UUID] | None = None,
     ) -> None:
@@ -535,6 +563,9 @@ class DecisionOrdinaryWorkService:
                 operation_id=operation_id,
                 request=request,
                 expected_version=request.expected_version,
+                expected_history_tail_fact_id=(
+                    state.decision.history[-1].metadata.fact_id
+                ),
                 result=result,
                 decision=decision,
             )

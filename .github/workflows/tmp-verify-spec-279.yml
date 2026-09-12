@@ -10,68 +10,38 @@ permissions:
   contents: read
 
 jobs:
-  jscpd:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: 68fac80b87984bff890570770f4c48cdcf033e13
           fetch-depth: 0
-      - name: Restore exact prior local JSCPD config
-        run: |
-          cat > .jscpd.json <<'JSON'
-          {
-            "threshold": 5,
-            "minLines": 15,
-            "minTokens": 50,
-            "format": ["python"],
-            "gitignore": true,
-            "reporters": ["console", "markdown", "html"],
-            "output": ".jscpd_report",
-            "ignore": [
-              "**/.git/**",
-              "**/.venv/**",
-              "**/venv/**",
-              "**/tests/**",
-              "**/__pycache__/**",
-              "**/.jscpd_report/**",
-              "**/.mypy_cache/**",
-              "**/.pytest_cache/**",
-              "**/.ruff_cache/**",
-              "**/build/**",
-              "**/migrations/**",
-              "**/.repowise/**",
-              "**/*.md"
-            ]
-          }
-          JSON
-          sha256sum .jscpd.json
-          test -z "$(git status --porcelain)"
-      - name: Run configured whole-project JSCPD gate
+      - uses: astral-sh/setup-uv@v6
+      - name: Run exact verify-spec root quality gates
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
         run: |
           set -euo pipefail
-          npm install --global jscpd@4.0.5 >/tmp/npm-jscpd.txt 2>&1
-          jscpd . | tee /tmp/jscpd.txt
-          grep -F 'Found 0 clones.' /tmp/jscpd.txt
+          test "$(git rev-parse HEAD)" = '68fac80b87984bff890570770f4c48cdcf033e13'
+          uv run --locked ruff format --check . | tee /tmp/ruff-format-root.txt
+          uv run --locked ruff check . | tee /tmp/ruff-check-root.txt
+          uv run --locked mypy . --explicit-package-bases | tee /tmp/mypy-root.txt
+          test -z "$(git status --porcelain)"
           python - <<'PY'
           from pathlib import Path
-          import json,re
-          text=Path('/tmp/jscpd.txt').read_text(encoding='utf-8', errors='replace')
-          m=re.search(r'Found (\d+) clones\.', text)
-          if not m or int(m.group(1)) != 0:
-              raise SystemExit('JSCPD nonzero clone count')
-          Path('/tmp/spec-279-jscpd-summary.json').write_text(json.dumps({
+          import json
+          summary={
               'head':'68fac80b87984bff890570770f4c48cdcf033e13',
-              'configured':True,
-              'command':'jscpd .',
-              'clones':0,
-              'output':text,
-          }, indent=2), encoding='utf-8')
+              'ruff_format':Path('/tmp/ruff-format-root.txt').read_text(encoding='utf-8', errors='replace').strip(),
+              'ruff_check':Path('/tmp/ruff-check-root.txt').read_text(encoding='utf-8', errors='replace').strip(),
+              'mypy':Path('/tmp/mypy-root.txt').read_text(encoding='utf-8', errors='replace').strip(),
+          }
+          Path('/tmp/spec-279-root-quality.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          print(json.dumps(summary, indent=2))
           PY
-          rm -rf .jscpd_report .jscpd.json
-          test -z "$(git status --porcelain)"
       - uses: actions/upload-artifact@v4
         with:
-          name: spec-279-jscpd-summary
-          path: /tmp/spec-279-jscpd-summary.json
+          name: spec-279-root-quality
+          path: /tmp/spec-279-root-quality.json
           if-no-files-found: error

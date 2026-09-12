@@ -1,0 +1,12 @@
+name: One-shot session reconstitution execution policy reconciliation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok

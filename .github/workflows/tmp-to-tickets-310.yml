@@ -13,13 +13,22 @@ permissions:
   issues: write
 
 jobs:
-  publish:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Publish certified remediation ticket
+      - name: Diagnose publication guard
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .tmp_to_tickets_310_publish.sh
+        run: |
+          set -euo pipefail
+          echo "GH_VERSION=$(gh --version | awk 'NR==1 {print $3}')"
+          echo '--- issue develop --list 279 ---'
+          gh issue develop --list 279 || true
+          echo '--- workspace metadata matches ---'
+          gh issue view 279 --repo sponge-b0b/Polaris --json comments --jq '.comments[].body' | grep -A2 -F '## Workspace Metadata' || true
+          echo '--- spec/review states ---'
+          gh issue view 279 --repo sponge-b0b/Polaris --json state --jq .state
+          gh issue view 310 --repo sponge-b0b/Polaris --json state --jq .state

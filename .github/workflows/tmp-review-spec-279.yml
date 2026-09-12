@@ -1,0 +1,60 @@
+name: tmp-review-spec-279
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-review-spec-279.yml'
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3bbc9ec745e4b451a56404d492290a41160353d8
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Build canonical review checkpoint and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO='sponge-b0b/Polaris'
+          SPEC=279
+          HEAD='3bbc9ec745e4b451a56404d492290a41160353d8'
+          BRANCH='spec-279'
+          VERIFY_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
+          REVIEW_TOOL=.agents/skills/review-spec/scripts/review_spec_artifacts.py
+          OWNERSHIP_TOOL=.agents/skills/spec-contract/scripts/classify_ownership.py
+
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(gh api repos/$REPO/branches/$BRANCH --jq .commit.sha)" = "$HEAD"
+
+          gh api --paginate --slurp -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "repos/$REPO/issues/$SPEC/comments?per_page=100" > /tmp/comments.json
+          python "$VERIFY_TOOL" comments --input /tmp/comments.json > /tmp/comments-summary.json
+          gh issue view "$SPEC" --repo "$REPO" --json body --jq .body > /tmp/spec-body.txt
+          python "$REVIEW_TOOL" checkpoint \
+            --comments-summary /tmp/comments-summary.json \
+            --spec-body /tmp/spec-body.txt \
+            --spec "$SPEC" \
+            --head "$HEAD" \
+            --branch "$BRANCH" > /tmp/review-checkpoint.json
+
+          BASE=$(jq -r .baseline /tmp/review-checkpoint.json)
+          python "$OWNERSHIP_TOOL" \
+            --baseline "$BASE" \
+            --branch "$BRANCH" \
+            --head "$HEAD" > /tmp/ownership.json
+
+          echo '--- REVIEW CHECKPOINT ---'
+          cat /tmp/review-checkpoint.json
+          echo '--- OWNERSHIP ---'
+          cat /tmp/ownership.json
+          echo '--- BRANCH STATUS ---'
+          git status --porcelain

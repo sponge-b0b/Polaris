@@ -13,16 +13,13 @@ permissions:
   issues: write
 
 jobs:
-  probe:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Probe publication runtime
+      - name: Publish certified remediation ticket
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh --version
-          git status --porcelain
+        run: bash .tmp_to_tickets_310_publish.sh

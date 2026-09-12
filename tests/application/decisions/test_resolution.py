@@ -343,47 +343,26 @@ def test_external_resolution_rejects_human_basis_substitute() -> None:
 # lifecycle versus relationship rejection remains independently visible.
 # arid: disable
 @pytest.mark.parametrize(
-    ("kind", "applicability", "error_type"),
+    ("applicability", "error_type"),
     (
+        (DecisionApplicability.NON_OPERATIVE, DecisionNonOperative),
         (
-            "substantive",
-            DecisionApplicability.NON_OPERATIVE,
-            DecisionNonOperative,
-        ),
-        (
-            "substantive",
-            DecisionApplicability.CONTESTED,
-            DecisionOperativeStatusContested,
-        ),
-        (
-            "external",
             DecisionApplicability.CONTESTED,
             DecisionOperativeStatusContested,
         ),
     ),
 )
-def test_nonoperative_and_contested_resolution_fail_closed(
-    kind: str,
+def test_substantive_resolution_nonoperative_and_contested_fail_closed(
     applicability: DecisionApplicability,
     error_type: type[Exception],
 ) -> None:
     decision = _decision()
     store = FakeDecisionStore(decision, applicability=applicability)
-    service = _service(store)
-    if kind == "substantive":
-        call = service.apply_substantive_resolution(
-            ApplySubstantiveResolutionCommand(
-                _envelope(decision), decision.decision_id, _resolving_basis()
-            )
+    call = _service(store).apply_substantive_resolution(
+        ApplySubstantiveResolutionCommand(
+            _envelope(decision), decision.decision_id, _resolving_basis()
         )
-    else:
-        call = service.apply_external_resolution(
-            ApplyExternalResolutionCommand(
-                _envelope(decision),
-                decision.decision_id,
-                ExternalResolutionBasis("external-elimination"),
-            )
-        )
+    )
 
     with pytest.raises(error_type):
         asyncio.run(call)
@@ -391,12 +370,15 @@ def test_nonoperative_and_contested_resolution_fail_closed(
     assert store.receipts == ()
 
 
-def test_external_resolution_accepts_nonoperative_unresolved_decision() -> None:
+@pytest.mark.parametrize(
+    "applicability",
+    (DecisionApplicability.NON_OPERATIVE, DecisionApplicability.CONTESTED),
+)
+def test_external_resolution_accepts_unresolved_regardless_of_applicability(
+    applicability: DecisionApplicability,
+) -> None:
     decision = _decision()
-    store = FakeDecisionStore(
-        decision,
-        applicability=DecisionApplicability.NON_OPERATIVE,
-    )
+    store = FakeDecisionStore(decision, applicability=applicability)
 
     result = asyncio.run(
         _service(store).apply_external_resolution(

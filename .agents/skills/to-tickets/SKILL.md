@@ -717,7 +717,7 @@ After approval, do not add, remove, merge, split, reinterpret, or reclassify tic
 
 After approval and before any mutation in Step 5, execute the complete **Spec Branch Rule** below through Step 4. Treat that rule as a hard precondition to publication even though its procedure is documented later in this file.
 
-Do not create, update, close, label, parent, or change dependencies for any ticket until branch identity, local/remote branch state, upstream tracking, GitHub Development linkage, and Spec baseline metadata have all been verified or persisted as required by that rule.
+Do not create, update, close, label, parent, or change dependencies for any ticket until branch identity, local/remote branch state, upstream tracking, GitHub Development linkage **or the qualified legacy pre-existing branch reconciliation below**, and Spec baseline metadata have all been verified or persisted as required by that rule.
 
 If any Spec Branch Rule check fails, halt before Step 5 with zero ticket-publication mutations. Do not weaken, bypass, or defer the guard merely because an existing branch is otherwise usable.
 
@@ -904,7 +904,7 @@ All tickets for a Spec — initial, Spec Review remediation, or amended-Spec del
 
 Each ticket has its own `Ticket baseline`.
 
-The Spec branch is a durable GitHub development branch, not a local-only workspace convenience. On first use, `$to-tickets` owns creating it on `origin`, linking it to the originating Spec's GitHub Development section, and establishing the local upstream. Later ticketing/remediation reuses that same linked branch.
+The Spec branch is a durable GitHub development branch, not a local-only workspace convenience. On first use, `$to-tickets` owns creating it on `origin`, linking it to the originating Spec's GitHub Development section, and establishing the local upstream. Later ticketing/remediation reuses that same linked branch. A historical Spec branch that already existed on `origin` before this linkage rule may use the narrow legacy reconciliation below when GitHub exposes no supported operation for attaching that already-existing branch; this does not weaken the first-use rule for new branches.
 
 The originating Spec's branch/baseline ownership does not make it the native parent of Spec Review remediation tickets. Native hierarchy follows direct decomposition ownership from Step 5.
 
@@ -952,7 +952,7 @@ BASELINE_COMMIT=$(git rev-parse main)
 
 This value is used only if the Spec branch does not already exist.
 
-### 3. Create or Reuse the Linked Spec Branch
+### 3. Create or Reuse the Spec Branch
 
 Require a clean worktree before branch setup. Do not carry unrelated work across this checkout.
 
@@ -1001,7 +1001,23 @@ fi
 
 Do not create another branch for remediation or amended-Spec ticket deltas. Do not silently fall back to a local-only branch if `gh issue develop`, the remote push, or Development linkage is unavailable.
 
-Verify branch identity, upstream, and GitHub Development linkage before continuing:
+#### Legacy pre-existing branch reconciliation
+
+A **legacy pre-existing Spec branch** may lack GitHub Development linkage only when the exact `spec-<spec_issue_number>` branch already existed on `origin` before this invocation and current GitHub tooling exposes no supported operation for attaching that already-existing branch. This is a narrow reconciliation path for historical repository state; it is not an alternate branch-creation path.
+
+When Development linkage is absent for an already-existing remote branch, require all of the following before publication:
+
+* the branch name is exactly `spec-<spec_issue_number>`;
+* local branch identity and upstream tracking resolve exactly to `origin/$SPEC_BRANCH`;
+* the originating Spec contains exactly one `## Workspace Metadata` comment;
+* that single comment records exactly `**Branch:** $SPEC_BRANCH` and one full 40-character `**Baseline Commit Hash:** <sha>`;
+* the recorded baseline commit exists and is an ancestor of the current Spec branch;
+* `gh issue develop --list "$spec_issue_number"` returns no conflicting linked branch;
+* the remote branch existed before the current invocation.
+
+If any condition fails, halt. Never delete/recreate, rename, or replace a durable existing Spec branch merely to manufacture Development linkage. Every newly created Spec branch continues to require `gh issue develop` so creation and linkage occur together.
+
+Verify branch identity, upstream, and Development linkage or qualified legacy reconciliation before continuing:
 
 ```bash
 if [ "$(git branch --show-current)" != "$SPEC_BRANCH" ]; then
@@ -1014,7 +1030,52 @@ if [ "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/nul
   exit 1
 fi
 
-if ! gh issue develop --list "$spec_issue_number" | grep -Fq "$SPEC_BRANCH"; then
+LINKED_BRANCHES=$(gh issue develop --list "$spec_issue_number")
+LEGACY_PREEXISTING_BRANCH=false
+
+if grep -Fq "$SPEC_BRANCH" <<<"$LINKED_BRANCHES"; then
+  :
+elif [ "$REMOTE_BRANCH_EXISTS" = true ]; then
+  if [ -n "$(printf '%s' "$LINKED_BRANCHES" | tr -d '[:space:]')" ]; then
+    echo "❌ Parent Spec has conflicting GitHub Development linkage; expected $SPEC_BRANCH."
+    exit 1
+  fi
+
+  WORKSPACE_METADATA=$(gh issue view "$spec_issue_number" --json comments -q \
+    '[.comments[].body | select(contains("## Workspace Metadata"))] | if length == 1 then .[0] else "" end')
+
+  if [ -z "$WORKSPACE_METADATA" ]; then
+    echo "❌ Unlinked pre-existing Spec branch requires exactly one Workspace Metadata comment."
+    exit 1
+  fi
+
+  if [ "$(printf '%s\n' "$WORKSPACE_METADATA" | grep -c '^\*\*Branch:\*\* ')" -ne 1 ] \
+    || [ "$(printf '%s\n' "$WORKSPACE_METADATA" | grep -c '^\*\*Baseline Commit Hash:\*\* ')" -ne 1 ]; then
+    echo "❌ Workspace Metadata must contain exactly one Branch and one Baseline Commit Hash line."
+    exit 1
+  fi
+
+  RECORDED_BRANCH=$(printf '%s\n' "$WORKSPACE_METADATA" | sed -n 's/^\*\*Branch:\*\* //p')
+  RECORDED_BASELINE=$(printf '%s\n' "$WORKSPACE_METADATA" | sed -n 's/^\*\*Baseline Commit Hash:\*\* //p')
+
+  if [ "$RECORDED_BRANCH" != "$SPEC_BRANCH" ]; then
+    echo "❌ Workspace Metadata branch does not match $SPEC_BRANCH."
+    exit 1
+  fi
+
+  if ! [[ "$RECORDED_BASELINE" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "❌ Workspace Metadata baseline must be one full 40-character commit SHA."
+    exit 1
+  fi
+
+  if ! git cat-file -e "$RECORDED_BASELINE^{commit}" 2>/dev/null \
+    || ! git merge-base --is-ancestor "$RECORDED_BASELINE" HEAD; then
+    echo "❌ Workspace Metadata baseline is not valid ancestry for the current Spec branch."
+    exit 1
+  fi
+
+  LEGACY_PREEXISTING_BRANCH=true
+else
   echo "❌ Spec branch is not linked to the parent Spec's GitHub Development section."
   exit 1
 fi

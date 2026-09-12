@@ -992,13 +992,13 @@ Derive parent/frontier lifecycle state from this same post-closure snapshot.
 For an ordinary Implementation Ticket:
 
 * if one or more implementation-ticket children remain open, preserve the parent Spec's current implementation lifecycle unless another durable lifecycle transition independently changed it;
-* if no implementation-ticket children remain open, advance the parent Spec to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.
+* if no implementation-ticket children remain open, establish `$verify-spec` as the parent Spec's next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.
 
 For a Review Remediation Ticket:
 
 * re-read the latest durable Spec Review Root Blocker Ledger after ticket-local Root Closure Reconciliation;
 * if remediation children remain open or the ledger still establishes `open` / `regressed` implementation remediation, preserve the parent Spec's `Review Remediation` lifecycle and derive the Spec Review state from that durable remediation state;
-* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, advance the durable `Parent Spec` to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;
+* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, establish `$verify-spec` as the durable `Parent Spec`'s next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;
 * include the Spec Review itself as an affected artifact only when its own durable remediation state changes. Never infer `Spec Review = Complete` merely because its child count reached zero.
 
 Child absence is frontier evidence, not sufficient authority to erase Architecture Remediation, unresolved durable remediation state, or another independently owned lifecycle state.
@@ -1042,15 +1042,13 @@ The native dependency edge remains authoritative history. Do **not** remove it m
 For an open direct dependent that is durably an ordinary Implementation Ticket or Review Remediation Ticket and whose current `Blocked` lifecycle state is dependency-derived:
 
 * one or more open native blockers → keep base `Workflow State = Blocked`, `Work Status = Blocked`, `Next Skill = None`;
-* zero open native blockers → advance the base ticket route to `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.
+* zero open native blockers → establish `$implement-ticket` as the ticket's next lifecycle action; derive base Project projection `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.
 
 Do not overwrite another durable lifecycle state such as Architecture Remediation or an independently owned closure-verification state. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
 
 ### Deferred Project Projection
 
-Do not invoke `$project-tracking` after ticket closure. Ticket, parent/frontier, dependency, project-delivery, receipt/checkpoint, commit, and handoff state remain authoritative and must be reconciled immediately as described above; the public GitHub Project may intentionally lag.
-
-Do not persist a pending Project-update record. `$spec-merge-cleanup` later reconstructs the complete Spec lineage from authoritative state and performs the mandatory one-batch Project reconciliation. An explicit human-requested board refresh remains the only ordinary mid-Spec projection path.
+Follow the repository-wide **Workflow Project tracking** policy in `AGENTS.md`. Do not invoke `$project-tracking` at ordinary ticket closure; derive authoritative lifecycle/actionability now and allow Project projection to lag until an authorized reconciliation boundary.
 
 If authoritative frontier, blocker, lineage, or remediation-ledger reads cannot be completed, the completed ticket remains authoritatively closed. Report the exact unreadable state and do not advertise a downstream lifecycle handoff whose actionability cannot be proven.
 
@@ -1067,7 +1065,7 @@ Emit the normal frontier handoff from the **same** recovered post-closure snapsh
   ```
 
 * multiple open unblocked tickets → emit one copy-ready line per ticket in stable issue-number order and let the user choose;
-* no open implementation/remediation tickets and the parent Spec is durably `Ready to Verify` → emit exactly one copy-ready line:
+* no open implementation/remediation tickets and lifecycle reconciliation establishes `$verify-spec` as the parent Spec's next action → emit exactly one copy-ready line:
 
   ```text
   $verify-spec - <Spec Title> (<Spec URL>)

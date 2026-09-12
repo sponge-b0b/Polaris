@@ -41,18 +41,27 @@ The connected GitHub runtime can, without the repository owner's local checkout:
 - create temporary branches from an exact commit;
 - create/update issues and issue comments, labels, assignees, and ordinary tracker metadata exposed by the connector;
 - create/update pull requests, request/review PRs, and merge a PR with an expected-head guard;
+- execute reproducible repository commands in GitHub Actions against an exact durable candidate/ref;
 - inspect GitHub Actions runs, jobs, logs, and artifacts;
 - update the ChatGPT Session Ledger state comment and read it back exactly.
 
 The ChatGPT analysis/container runtime can also perform deterministic text/data transformation, hashing, JSON construction, and other scratch computation. It is **not** the repository owner's checkout and must not be treated as evidence of the owner's local Git/worktree/service state.
+
+### Execution-Substrate Rule
+
+Repository-local or workspace-local command requirements do not imply owner-machine execution. When the exact candidate/ref and required prerequisites can be reproduced safely in GitHub Actions, ChatGPT owns that execution.
+
+GitHub Actions is only an execution substrate: the complete owning skill still governs baseline/candidate binding, preflights, delegated gates, fail-closed behavior, evidence readback, and terminal result. Prefer direct connector actions first, exact-candidate Actions second, and owner-machine handoff only for genuinely owner-local prerequisites.
 
 ### Known Local-Only or Connector-Missing Capabilities
 
 ChatGPT cannot directly observe or execute inside the repository owner's local Polaris checkout. Therefore ChatGPT cannot itself establish:
 
 - the owner's current `git status`, local branch, uncommitted files, unpushed commits, stash state, or locally generated files unless those facts become durable remotely or the owner returns command output;
-- repo-local `uv`, pytest, Ruff, Mypy, Arid, JSCPD, profiling, Docker/service probes, database/service state, or other environment-dependent commands against the owner's checkout;
+- commands or facts that depend on uncommitted owner-local state, owner-only credentials, machine-specific hardware, sockets, or services that cannot be safely reproduced remotely;
 - local environment variables, credentials, sockets, services, or machine-specific filesystem state.
+
+Ordinary tests, linters, type checks, repository scripts, and safely provisionable services are not owner-only merely because ChatGPT cannot execute inside the owner's checkout; run them against the exact durable candidate in GitHub Actions when the active workflow permits it.
 
 The current connected GitHub runtime also does **not** expose remote Git-ref deletion and does not provide the GitHub Projects v2 mutation surface used by Polaris Project projection. Those operations remain local `git`/`gh` handoffs unless the runtime explicitly gains those capabilities in the future.
 
@@ -150,17 +159,14 @@ For the current ChatGPT GitHub runtime, use this registered one-shot default-bra
 ```text
 1. Read and pin the exact default-branch HEAD; require the temporary workflow/script paths to be absent.
 2. GitHub.create_file(... branch=DEFAULT_BRANCH) a minimal push-triggered probe workflow, then require a successful probe run.
-3. GitHub.create_file(... branch=DEFAULT_BRANCH) a temporary deterministic edit script containing exact anchors/assertions.
-4. GitHub.update_file(...) the registered workflow to a minimal armed job that checks out DEFAULT_BRANCH,
-   runs the temporary script, runs `git diff --check`, audits the target diff, removes both temporary files,
-   commits the intended target edit plus both deletions, and pushes DEFAULT_BRANCH.
-5. Read the armed workflow run and require success.
-6. Re-read DEFAULT_BRANCH and fetch the resulting commit/diff; require only the intended target edit and
-   removal of the temporary workflow/script.
+3. GitHub.create_file(... branch=DEFAULT_BRANCH) a temporary deterministic, idempotent edit script containing exact anchors/assertions plus `git diff --check`, commit, and push.
+4. GitHub.update_file(...) the registered workflow to a minimal job that checks out DEFAULT_BRANCH and runs only the temporary script.
+5. Read the armed workflow run and require success; re-read DEFAULT_BRANCH and audit the resulting target commit/diff.
+6. Delete the temporary workflow through the connector first, then delete the temporary script; verify both paths are absent.
 7. Re-read the edited target file from the resulting commit.
 ```
 
-Keep substantive edit logic out of workflow YAML; the temporary script is the deterministic payload. Do not introduce the workflow only on a non-default scratch branch; that path did not schedule reliably in this runtime. This fallback intentionally uses temporary transport commits and leaves no workflow/script in the final tree. Use it only when direct `update_file` or direct Git-data construction would risk whole-file corruption.
+Keep substantive edit logic out of workflow YAML; the temporary script is the deterministic payload. Do not assume a newly introduced non-default scratch-only workflow will schedule. This fallback intentionally uses temporary transport commits but leaves no workflow/script in the final tree. Use it only when direct `update_file` or direct Git-data construction would risk whole-file corruption.
 
 For non-default target branches, use direct `update_file` or clean Git-data construction when safe. If neither can safely represent the edit, that case is not covered by this playbook and permits one targeted capability check under the Non-Discovery Rule.
 
@@ -191,9 +197,13 @@ GitHub.merge_pull_request(... expected_head_sha=EXPECTED_HEAD)
 
 Use the workflow's required merge method and guards. Do not hand ordinary PR creation/merge back to the owner merely because `gh` could also perform it.
 
-#### Run repository-local validation or other owner-machine commands
+#### Run reproducible repository commands
 
-This is a legitimate local handoff. Give only the missing operation in one fail-closed subshell, normally shaped as:
+Use GitHub Actions when the required command can be reproduced from the exact durable candidate/ref. Bind the candidate first, execute the complete owning-skill semantics rather than a convenient subset, inspect the run/jobs/logs, and treat the result as verification evidence unless the workflow explicitly promotes generated repository content. Use an already-registered/proven Actions path or the current capability playbook; do not assume a newly introduced scratch-only workflow will schedule.
+
+#### Run genuinely owner-machine-only commands
+
+Use a human shell handoff only when a required fact or command cannot be reproduced safely through the connector or GitHub Actions. Give only the missing operation in one fail-closed subshell, normally shaped as:
 
 ```bash
 (
@@ -205,17 +215,17 @@ This is a legitimate local handoff. Give only the missing operation in one fail-
   test "$(git rev-parse HEAD)" = "<expected-full-sha>"
   test -z "$(git status --porcelain)"
 
-  <only the exact local command(s) required by the active workflow>
+  <only the exact owner-local command(s) required by the active workflow>
 )
 ```
 
-Add only the guards needed by the owning skill. Do not hand the entire workflow to the owner. The owner returns the complete output; ChatGPT consumes it as evidence and resumes from the first incomplete stage.
+Legitimate reasons include required knowledge of uncommitted owner-local state, owner-only credentials, machine-specific hardware, or a required service that cannot be safely/reproducibly provisioned remotely. Add only the guards needed by the owning skill. Do not hand the entire workflow to the owner.
 
 #### Persist canonical receipts that depend on a repo-local finalizer
 
 Do not create a downloadable ZIP, patch, or handoff file for the owner.
 
-When the governing skill requires a canonical repository-local script that ChatGPT cannot execute against the owner's checkout:
+When the governing skill requires a canonical repository-local script that ChatGPT cannot execute in an available remote runtime because a genuine owner-local prerequisite remains:
 
 1. ChatGPT prepares every remotely possible prerequisite and durable input itself;
 2. provide one scoped local subshell that reconstructs any transient inputs from durable state or inline deterministic data, runs the canonical script, performs its fixed-point guards, and when appropriate POSTs the resulting receipt through the owner's authenticated `gh` CLI;
@@ -267,15 +277,17 @@ Never create a new ledger comment for ordinary synchronization and never delegat
 
 ### User-Handoff Threshold
 
-The owner should receive shell commands only for work that is genuinely local-only or connector-missing, principally:
+The owner should receive shell commands only for work that is genuinely owner-local or connector/runtime-missing, principally:
 
-- local checkout/worktree state;
-- repo-local tests, linters, profilers, scripts, Docker/services, or environment probes;
+- owner checkout/worktree state that the workflow specifically requires and cannot reconstruct from durable remote state;
+- commands whose required inputs depend on owner-only credentials, uncommitted local files, machine-specific hardware, sockets, or services that cannot be safely/reproducibly provisioned remotely;
 - remote branch deletion;
 - authorized GitHub Projects v2 mutation;
-- another operation that the canonical ChatGPT-side method actually attempted and proved unavailable.
+- another operation that the canonical connector/Actions method actually attempted and proved unavailable.
 
-Do **not** give the owner repository patches, replacement source files, ZIPs, generated downloads, copy/paste implementation, `git commit`, or `git push` instructions for work ChatGPT can mutate remotely. The standing collaboration model is: **ChatGPT does everything mechanically available on its side; the owner runs only the smallest scoped local subshell that ChatGPT cannot execute.**
+Ordinary repo-local tests, linters, type checks, repository scripts, and service-free verification are not human handoffs merely because ChatGPT cannot execute inside the owner's checkout.
+
+Do **not** give the owner repository patches, replacement source files, ZIPs, generated downloads, copy/paste implementation, `git commit`, or `git push` instructions for work ChatGPT can mutate or execute remotely. The standing collaboration model is: **ChatGPT does everything mechanically available on its side; the owner runs only the smallest scoped local subshell that genuinely cannot be executed or established remotely.**
 
 ## Core Principle
 

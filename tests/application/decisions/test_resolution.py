@@ -343,17 +343,29 @@ def test_external_resolution_rejects_human_basis_substitute() -> None:
 # lifecycle versus relationship rejection remains independently visible.
 # arid: disable
 @pytest.mark.parametrize(
-    ("applicability", "error_type"),
+    ("kind", "applicability", "error_type"),
     (
-        (DecisionApplicability.NON_OPERATIVE, DecisionNonOperative),
-        (DecisionApplicability.CONTESTED, DecisionOperativeStatusContested),
+        (
+            "substantive",
+            DecisionApplicability.NON_OPERATIVE,
+            DecisionNonOperative,
+        ),
+        (
+            "substantive",
+            DecisionApplicability.CONTESTED,
+            DecisionOperativeStatusContested,
+        ),
+        (
+            "external",
+            DecisionApplicability.CONTESTED,
+            DecisionOperativeStatusContested,
+        ),
     ),
 )
-@pytest.mark.parametrize("kind", ("substantive", "external"))
 def test_nonoperative_and_contested_resolution_fail_closed(
+    kind: str,
     applicability: DecisionApplicability,
     error_type: type[Exception],
-    kind: str,
 ) -> None:
     decision = _decision()
     store = FakeDecisionStore(decision, applicability=applicability)
@@ -377,6 +389,30 @@ def test_nonoperative_and_contested_resolution_fail_closed(
         asyncio.run(call)
     assert store.decision == decision
     assert store.receipts == ()
+
+
+def test_external_resolution_accepts_nonoperative_unresolved_decision() -> None:
+    decision = _decision()
+    store = FakeDecisionStore(
+        decision,
+        applicability=DecisionApplicability.NON_OPERATIVE,
+    )
+
+    result = asyncio.run(
+        _service(store).apply_external_resolution(
+            ApplyExternalResolutionCommand(
+                _envelope(decision),
+                decision.decision_id,
+                ExternalResolutionBasis("external-elimination"),
+            )
+        )
+    )
+
+    assert result.kind is DecisionMutationResultKind.APPLIED
+    assert (
+        store.decision.disposition is DecisionLifecycleDisposition.EXTERNALLY_RESOLVED
+    )
+    assert len(store.receipts) == 1
 
 
 @pytest.mark.parametrize("kind", ("substantive", "external"))

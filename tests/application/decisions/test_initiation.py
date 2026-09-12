@@ -46,6 +46,7 @@ from polaris.domain.decisions import (
     InvestmentDecisionId,
     KnownActorAttribution,
     OperationId,
+    PortfolioId,
     TechnicalProvenance,
     TechnicalReference,
     TechnicalReferenceKind,
@@ -170,6 +171,7 @@ def _command(
     actor_attribution: KnownActorAttribution | None = None,
     continuity: ContinuityDetermination | None = None,
     need_statement: str = "Decide whether to increase the SPY allocation",
+    scope: DecisionScope | None = None,
     technical_reference: str = "trace-1",
 ) -> InitiateDecisionCommand:
     return InitiateDecisionCommand(
@@ -190,7 +192,7 @@ def _command(
         ),
         need_statement=need_statement,
         subject=DecisionSubject("SPY allocation"),
-        scope=DecisionScope.unresolved(),
+        scope=scope if scope is not None else DecisionScope.unresolved(),
         continuity=continuity,
     )
 
@@ -384,6 +386,20 @@ def test_same_operation_replays_with_new_technical_attempt() -> None:
     assert (
         initiated.metadata.technical_provenance == first.envelope.technical_provenance
     )
+
+
+def test_partial_scope_initiation_persists_confirmed_portfolio() -> None:
+    portfolio_id = PortfolioId(uuid4())
+    scope = DecisionScope.unresolved(portfolio_id)
+    store = FakeDecisionStore()
+    service = _service(store, uuid4(), uuid4(), uuid4())
+
+    result = asyncio.run(service.initiate(_command(scope=scope)))
+
+    assert result.need_id is not None
+    decision = store.decision(result.decision_id)
+    assert decision.need_id == result.need_id
+    assert decision.scope == scope
 
 
 def test_same_operation_different_semantic_request_conflicts() -> None:

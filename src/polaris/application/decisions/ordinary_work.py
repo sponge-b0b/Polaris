@@ -505,6 +505,7 @@ class DecisionOrdinaryWorkService:
                 command,
                 mutation,
             ),
+            admit=_require_external_resolution_admission,
         )
 
     async def withdraw_work(
@@ -541,6 +542,8 @@ class DecisionOrdinaryWorkService:
             [DecisionCommandState, DecisionMutationContext],
             InvestmentDecision,
         ],
+        *,
+        admit: Callable[[DecisionCommandState], None] | None = None,
     ) -> DecisionMutationResult:
         return await _execute_mutation(
             store=self._store,
@@ -549,7 +552,7 @@ class DecisionOrdinaryWorkService:
             now=self._now,
             new_uuid=self._new_uuid,
             apply=lambda state, mutation: _apply_transition(apply, state, mutation),
-            admit=_require_ordinary_work_admission,
+            admit=admit or _require_ordinary_work_admission,
         )
 
     # arid: enable
@@ -630,6 +633,20 @@ def _require_ordinary_work_admission(state: DecisionCommandState) -> None:
     if state.applicability is DecisionApplicability.NON_OPERATIVE:
         raise DecisionNonOperative("ordinary Decision work requires operative status")
     if state.applicability is not DecisionApplicability.OPERATIVE:
+        raise RelationshipConflict("Decision applicability is invalid")
+
+
+def _require_external_resolution_admission(state: DecisionCommandState) -> None:
+    if state.decision.disposition is not DecisionLifecycleDisposition.UNRESOLVED:
+        raise LifecycleConflict("resolved Decision requires lifecycle correction")
+    if state.applicability is DecisionApplicability.CONTESTED:
+        raise DecisionOperativeStatusContested(
+            "External Resolution requires determinate Decision applicability"
+        )
+    if state.applicability not in (
+        DecisionApplicability.OPERATIVE,
+        DecisionApplicability.NON_OPERATIVE,
+    ):
         raise RelationshipConflict("Decision applicability is invalid")
 
 

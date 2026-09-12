@@ -1,0 +1,12 @@
+name: One-shot active branch policy propagation note
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok

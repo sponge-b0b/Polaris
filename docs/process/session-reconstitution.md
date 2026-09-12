@@ -135,6 +135,12 @@ Do **not** serially call the contents API on the target branch when the intended
 
 This is the canonical method for cohesive multi-file Polaris changes made from ChatGPT.
 
+#### Propagate repository-wide authority changes to the active working branch
+
+When ChatGPT changes repository-wide workflow/process authority on the default branch while a Spec/feature branch is active—including `AGENTS.md`, `.agents/skills/**`, process documentation, or comparable cross-cutting policy—propagate the finalized authoritative file versions into the active branch before resuming work there. Do not leave the active branch running stale workflow authority.
+
+Use clean Git-data construction from the active branch HEAD, replacing only the finalized authoritative blobs from the default branch; do not merge temporary transport commits. If the active branch has divergent edits to the same authority files, compare first and resolve deliberately rather than overwriting them.
+
 #### Make a surgical edit to a large file on the default branch when full-content reconstruction is unsafe
 
 Preserve untouched bytes instead of manually reconstructing a large file from excerpts.

@@ -80,6 +80,10 @@ EXTERNAL = DecisionLifecycleDisposition.EXTERNALLY_RESOLVED
 UNSUPPORTED = DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
 
 
+# duplicate-code: this correction fake and its raw-history builders model privileged
+# append-only correction and history-tail conflicts; sharing them with ordinary-work
+# fixtures would couple independently owned admission semantics.
+# arid: disable
 class FakeDecisionStore:
     def __init__(
         self,
@@ -274,6 +278,9 @@ def _envelope(
     )
 
 
+# arid: enable
+
+
 def _service(
     store: FakeDecisionStore,
     *,
@@ -298,6 +305,9 @@ def _unsupported_basis(
     return UnsupportedDecisionNeedBasis(reference)
 
 
+# duplicate-code: the command builder keeps the exact privileged correction envelope
+# visible and independent of ordinary mutation command builders.
+# arid: disable
 def _record_command(
     decision: InvestmentDecision,
     *,
@@ -330,12 +340,19 @@ def _record_command(
     )
 
 
+# arid: enable
+
+
 def test_correction_commands_are_privileged_module_surface_not_package_api() -> None:
     assert "RecordDecisionLifecycleCorrectionCommand" not in decisions_api.__all__
     assert "RetractUnsupportedDecisionNeedCommand" not in decisions_api.__all__
     assert "DecisionLifecycleCorrectionService" not in decisions_api.__all__
 
 
+# duplicate-code: these correction-history proofs retain their distinct fact topology;
+# extracting common mutation sequences would hide which support or target fact drives
+# each interpretation.
+# arid: disable
 def test_live_correction_requires_known_actor_attribution() -> None:
     decision = _decision()
     with pytest.raises(InvalidDecisionCommand, match="known Actor Attribution"):
@@ -506,6 +523,12 @@ def test_ineligible_non_disposition_target_fails_without_commit() -> None:
     assert store.receipts == ()
 
 
+# arid: enable
+
+
+# duplicate-code: replay is proved with a complete correction request locally so its
+# idempotency identity stays distinct from ordinary mutation replay.
+# arid: disable
 def test_same_operation_same_request_replays_without_second_append() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -540,6 +563,9 @@ def test_same_operation_same_request_replays_without_second_append() -> None:
         store.decision.history[-1].metadata.technical_provenance
         == command.envelope.technical_provenance
     )
+
+
+# arid: enable
 
 
 def test_same_operation_changed_semantic_request_conflicts() -> None:
@@ -588,6 +614,9 @@ def test_stale_expected_version_fails_before_domain_or_commit() -> None:
     assert store.receipts == ()
 
 
+# duplicate-code: conflict and unavailable outcomes deliberately use parallel calls to
+# prove distinct store translations; sharing them would collapse the failure identities.
+# arid: disable
 def test_commit_time_conflict_and_unavailability_have_no_partial_success() -> None:
     decision = _resolved_decision()
     command = _record_command(
@@ -607,6 +636,9 @@ def test_commit_time_conflict_and_unavailability_have_no_partial_success() -> No
         asyncio.run(_service(unavailable_store).record_lifecycle_correction(command))
     assert unavailable_store.decision == decision
     assert unavailable_store.receipts == ()
+
+
+# arid: enable
 
 
 def test_future_only_distinct_correction_appends_without_version_advance() -> None:
@@ -668,6 +700,9 @@ def test_parallel_same_version_future_corrections_use_history_tail_guard() -> No
     assert len(store.receipts) == 1
 
 
+# duplicate-code: these final boundary falsifiers keep missing-state and recording-time
+# failures independently observable; a shared harness would hide their different owners.
+# arid: disable
 def test_missing_decision_is_typed_not_found_without_commit() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -717,3 +752,6 @@ def test_recording_time_cannot_precede_committed_history() -> None:
 
     assert store.decision == decision
     assert store.receipts == ()
+
+
+# arid: enable

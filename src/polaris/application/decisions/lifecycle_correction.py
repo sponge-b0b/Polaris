@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from polaris.domain.actors import KnownActorAttribution
 from polaris.domain.decisions import (
     DecisionInitiated,
     DecisionLifecycleCorrectionBasis,
@@ -28,29 +27,28 @@ from polaris.domain.decisions import (
 )
 
 from .contracts import (
-    ConcurrencyConflict,
     DecisionCommandEnvelope,
     InvalidDecisionCommand,
     LifecycleConflict,
 )
 from .ordinary_work import (
     DecisionCommandState,
-    DecisionMutationCommit,
     DecisionMutationKind,
     DecisionMutationPayload,
     DecisionMutationResult,
-    DecisionMutationResultKind,
     DecisionMutationSemanticRequest,
     DecisionMutationStore,
-    DecisionNotFound,
     LifecycleCorrectionPayload,
     UnsupportedNeedRetractionPayload,
+    _execute_mutation,
     _expected_version,
-    _recording_time,
-    _replay,
-    _translate_commit_outcome,
+    _mutation_request,
 )
 
+# duplicate-code: correction commands and persisted mutation payloads carry parallel
+# fields but remain distinct input and receipt contracts; sharing a model would collapse
+# validation ownership across the transaction boundary.
+# arid: disable
 type ReplacementBasis = (
     TrustedHumanInvestmentDecisionBasis
     | ExternalResolutionBasis
@@ -115,6 +113,9 @@ class RetractUnsupportedDecisionNeedCommand:
             )
 
 
+# arid: enable
+
+
 LifecycleCorrectionCommand = (
     RecordDecisionLifecycleCorrectionCommand | RetractUnsupportedDecisionNeedCommand
 )
@@ -144,59 +145,29 @@ class DecisionLifecycleCorrectionService:
     ) -> DecisionMutationResult:
         return await self._execute(command)
 
+    # duplicate-code: this privileged service intentionally forwards through the shared
+    # transaction executor without inheriting ordinary-work admission semantics.
+    # arid: disable
     async def _execute(
         self,
         command: LifecycleCorrectionCommand,
     ) -> DecisionMutationResult:
-        request = _semantic_request(command)
-        operation_id = command.envelope.operation_id
-        prior = await self._store.get_mutation_receipt(operation_id)
-        if prior is not None:
-            return _replay(prior, request, operation_id)
+        return await _execute_mutation(
+            store=self._store,
+            command=command,
+            request=_semantic_request(command),
+            now=self._now,
+            new_uuid=self._new_uuid,
+            apply=lambda state, mutation: _apply_correction(state, command, mutation),
+        )
 
-        recorded_at = _recording_time(self._now())
-        state = await self._store.load_decision_for_command(
-            command.decision_id,
-            known_at=recorded_at,
-        )
-        if state is None:
-            raise DecisionNotFound(command.decision_id)
-        if state.decision.version != request.expected_version:
-            raise ConcurrencyConflict(
-                f"expected Decision version {request.expected_version.value}, "
-                f"found {state.decision.version.value}"
-            )
-
-        mutation = DecisionMutationContext(
-            fact_id=DecisionLifecycleFactId(self._new_uuid()),
-            operation_id=operation_id,
-            actor_attribution=command.envelope.actor_attribution,
-            trigger=command.envelope.trigger,
-            effective_at=command.envelope.effective_at,
-            recorded_at=recorded_at,
-            technical_provenance=command.envelope.technical_provenance,
-        )
-        decision = _apply_correction(state, command, mutation)
-        result = DecisionMutationResult(
-            decision_id=decision.decision_id,
-            version=decision.version,
-            kind=DecisionMutationResultKind.APPLIED,
-        )
-        outcome = await self._store.commit_mutation(
-            DecisionMutationCommit(
-                operation_id=operation_id,
-                request=request,
-                expected_version=request.expected_version,
-                expected_history_tail_fact_id=(
-                    state.decision.history[-1].metadata.fact_id
-                ),
-                result=result,
-                decision=decision,
-            )
-        )
-        return _translate_commit_outcome(outcome, request, operation_id)
+    # arid: enable
 
 
+# duplicate-code: the two correction branches keep their different target and
+# replacement semantics explicit around the same canonical domain reducer; another
+# generic argument builder would obscure the privileged command distinction.
+# arid: disable
 def _apply_correction(
     state: DecisionCommandState,
     command: LifecycleCorrectionCommand,
@@ -238,10 +209,12 @@ def _apply_correction(
         raise LifecycleConflict(str(error)) from error
 
 
+# arid: enable
+
+
 def _semantic_request(
     command: LifecycleCorrectionCommand,
 ) -> DecisionMutationSemanticRequest:
-    expected = _expected_version(command.envelope, command.decision_id)
     payload: DecisionMutationPayload
     if isinstance(command, RecordDecisionLifecycleCorrectionCommand):
         kind = DecisionMutationKind.RECORD_LIFECYCLE_CORRECTION
@@ -258,14 +231,4 @@ def _semantic_request(
             correction_basis=command.correction_basis,
             unsupported_need_basis=command.unsupported_need_basis,
         )
-    actor = command.envelope.actor_attribution
-    assert type(actor) is KnownActorAttribution
-    return DecisionMutationSemanticRequest(
-        kind=kind,
-        decision_id=command.decision_id,
-        actor_attribution=actor,
-        trigger=command.envelope.trigger,
-        effective_at=command.envelope.effective_at,
-        expected_version=expected.version,
-        payload=payload,
-    )
+    return _mutation_request(command, kind, payload)

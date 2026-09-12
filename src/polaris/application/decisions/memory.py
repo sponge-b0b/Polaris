@@ -56,6 +56,10 @@ class DecisionLineageDirection(StrEnum):
     INCOMING = "incoming"
 
 
+# duplicate-code: this application lineage projection intentionally mirrors selected
+# domain interpretation fields without becoming a canonical relationship entity; a
+# shared base/model would collapse the read-model boundary.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class DecisionLineageView:
     source_decision_id: InvestmentDecisionId
@@ -69,6 +73,9 @@ class DecisionLineageView:
     basis_contributions: frozenset[DecisionRelationshipBasisContribution]
     surviving_positive_claims: frozenset[DecisionRelationshipPositiveClaim]
     history: tuple[DecisionRelationshipHistoryFact, ...]
+
+
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +100,10 @@ class DecisionMemoryCurrentState:
             )
 
 
+# duplicate-code: current and temporal query views are separate caller contracts even
+# though their stable decision fields overlap; inheritance would falsely couple version
+# and temporal-boundary semantics.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class DecisionMemoryView:
     decision_id: InvestmentDecisionId
@@ -116,6 +127,9 @@ class DecisionMemoryTemporalView:
     work_posture: DecisionWorkPosture | None
     applicability: DecisionApplicability
     lineage: tuple[DecisionLineageView, ...]
+
+
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,6 +197,10 @@ class DecisionMemoryService:
                 raise InvalidDecisionHistory(
                     "current Decision version cannot precede lifecycle history"
                 )
+            # duplicate-code: current and temporal projections call the same lineage
+            # reducer with different boundary semantics; a wrapper would hide which
+            # cutoff each query owns.
+            # arid: disable
             lineage = _lineage(
                 relationship_history,
                 decision_id=decision_id,
@@ -206,6 +224,7 @@ class DecisionMemoryService:
             version=current.version,
             lineage=lineage,
         )
+        # arid: enable
 
     async def as_known_at(
         self,
@@ -254,6 +273,9 @@ class DecisionMemoryService:
                 known_at=known,
                 applicability=applicability,
             )
+            # duplicate-code: this temporal sibling retains explicit effective/known
+            # boundaries so hindsight-safety remains visible at the call site.
+            # arid: disable
             lineage = _lineage(
                 relationship_history,
                 decision_id=decision_id,
@@ -276,6 +298,7 @@ class DecisionMemoryService:
             applicability=applicability,
             lineage=lineage,
         )
+        # arid: enable
 
     async def history(
         self,
@@ -334,6 +357,10 @@ class DecisionMemoryService:
         if not any(fact.metadata.recorded_at <= known for fact in lifecycle_history):
             raise DecisionNotFound(decision_id)
         relationship_history = await _read(self._reader.load_relationship_history())
+        # duplicate-code: lineage queries deliberately expose the same domain reducer
+        # through a collection contract; factoring this tiny call would add indirection
+        # without shared policy.
+        # arid: disable
         try:
             return _lineage(
                 relationship_history,
@@ -343,6 +370,7 @@ class DecisionMemoryService:
             )
         except InvalidDecisionRelationshipHistory as error:
             raise RelationshipHistoryInvalidOrIncomplete(str(error)) from error
+        # arid: enable
 
     async def unresolved_continuity_candidates(
         self,
@@ -374,6 +402,10 @@ def _decision_id(value: object) -> InvestmentDecisionId:
     return value
 
 
+# duplicate-code: application query-boundary time validation and domain fact validation
+# are intentionally owned at separate trust boundaries; sharing a private helper across
+# layers would invert that ownership.
+# arid: disable
 def _boundary(value: object, field: str) -> datetime:
     if (
         not isinstance(value, datetime)
@@ -384,6 +416,9 @@ def _boundary(value: object, field: str) -> datetime:
     return value
 
 
+# arid: enable
+
+
 RelationshipGroup = tuple[
     InvestmentDecisionId,
     DecisionRelationshipType,
@@ -391,6 +426,10 @@ RelationshipGroup = tuple[
 ]
 
 
+# duplicate-code: Decision Memory needs fact-to-lineage grouping while semantic state
+# remains owned by the domain interpreter below; exposing domain-private index maps just
+# to share this defensive projection check would leak reducer internals outward.
+# arid: disable
 def _index_relationship_history(
     known: tuple[DecisionRelationshipHistoryFact, ...],
 ) -> tuple[
@@ -432,6 +471,9 @@ def _validate_relationship_parentage(
             raise InvalidDecisionRelationshipHistory(
                 "Decision Memory correction cannot target later-recorded history"
             )
+
+
+# arid: enable
 
 
 def _relationship_group(

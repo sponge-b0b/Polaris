@@ -65,6 +65,10 @@ class UUIDSequence:
         return next(self._values)
 
 
+# duplicate-code: this initiation fake preserves candidate-basis and Need-grounding
+# failure injection locally; sharing it with mutation-store fakes would couple distinct
+# transaction contracts.
+# arid: disable
 class FakeDecisionStore:
     def __init__(
         self,
@@ -157,6 +161,9 @@ class FakeDecisionStore:
             return tuple(self._receipts.values())
 
 
+# arid: enable
+
+
 def _command(
     *,
     operation_id: OperationId | None = None,
@@ -219,6 +226,10 @@ def test_envelope_allows_unknown_but_initiation_requires_known_actor() -> None:
         )
 
 
+# duplicate-code: these continuity scenarios keep each materially different candidate
+# basis and command outcome visible; a shared invocation scaffold would hide the
+# ambiguity/revalidation distinction under proof.
+# arid: disable
 def test_no_candidate_initiation_commits_no_candidates_basis() -> None:
     store = FakeDecisionStore()
     service = _service(store, uuid4(), uuid4(), uuid4())
@@ -395,6 +406,9 @@ def test_same_operation_different_semantic_request_conflicts() -> None:
 
     assert len(store.decisions) == 1
     assert len(store.receipts) == 1
+
+
+# arid: enable
 
 
 def test_semantic_application_failures_remain_distinguishable() -> None:

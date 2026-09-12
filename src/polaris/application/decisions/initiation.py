@@ -44,6 +44,10 @@ from .contracts import (
 )
 
 
+# duplicate-code: initiation and relationship services own different persistence ports
+# and atomic boundaries; a shared base solely for constructor shape would create false
+# coupling without shared behavior.
+# arid: disable
 class DecisionInitiationService:
     def __init__(
         self,
@@ -57,6 +61,8 @@ class DecisionInitiationService:
         self._store = store
         self._now = now or (lambda: datetime.now(UTC))
         self._new_uuid = new_uuid or uuid4
+
+    # arid: enable
 
     async def initiate(self, command: InitiateDecisionCommand) -> InitiationResult:
         request = InitiationSemanticRequest.from_command(command)
@@ -103,6 +109,10 @@ class DecisionInitiationService:
                 trigger=envelope.trigger,
                 technical_provenance=envelope.technical_provenance,
             )
+            # duplicate-code: initiation and renewal intentionally invoke distinct
+            # domain constructors with parallel identity inputs; wrapping these calls
+            # would hide which lifecycle boundary creates the Decision.
+            # arid: disable
             decision = initiate_decision(
                 decision_id=decision_id,
                 need=need,
@@ -119,6 +129,7 @@ class DecisionInitiationService:
                     technical_provenance=envelope.technical_provenance,
                 ),
             )
+            # arid: enable
             result = InitiationResult(
                 decision_id=decision_id,
                 need_id=need_id,

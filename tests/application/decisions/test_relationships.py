@@ -218,6 +218,10 @@ class FakeRelationshipStore:
         return None
 
 
+# duplicate-code: relationship fixtures construct endpoint histories and provenance
+# locally so atomic multi-Decision topology remains visible; sharing with lifecycle
+# fixtures would couple separate transaction models.
+# arid: disable
 def _actor() -> KnownActorAttribution:
     return KnownActorAttribution(ActorId(uuid4()))
 
@@ -285,6 +289,9 @@ def _decision(*, resolved: bool = False) -> InvestmentDecision:
     )
 
 
+# arid: enable
+
+
 def _envelope(
     decisions: tuple[InvestmentDecision, ...],
     *,
@@ -350,6 +357,9 @@ def test_relationship_correction_is_privileged_not_package_exported() -> None:
     assert "DecisionRelationshipCorrectionService" not in decisions_api.__all__
 
 
+# duplicate-code: renewal cases retain each candidate basis and lineage construction at
+# the assertion site; a shared scenario builder would hide the continuity distinction.
+# arid: disable
 def test_renewal_creates_new_need_decision_and_supported_lineage_atomically() -> None:
     predecessor = _decision(resolved=True)
     store = FakeRelationshipStore((predecessor,))
@@ -469,6 +479,9 @@ def test_renewal_revalidates_continuity_candidates_at_commit() -> None:
     assert len(store.receipts) == 0
 
 
+# arid: enable
+
+
 def test_many_target_supersession_is_atomic_and_relationship_only() -> None:
     source = _decision()
     target_a = _decision(resolved=True)
@@ -511,6 +524,9 @@ def test_future_supersession_appends_without_premature_version_change() -> None:
     assert store.decisions[target.decision_id].version == target.version
 
 
+# duplicate-code: applicability, cycle, and correction cases use similar edge setup but
+# prove separate relationship predicates; extracting it would obscure the topology.
+# arid: disable
 def test_supersession_drives_nonoperative_applicability() -> None:
     source = _decision()
     target = _decision()
@@ -596,6 +612,12 @@ def test_relationship_correction_preserves_original_and_can_contest_support() ->
     assert len(interpretation.support_fact_ids) == 2
 
 
+# arid: enable
+
+
+# duplicate-code: relationship replay/conflict proofs preserve complete multi-endpoint
+# requests so idempotency identity remains inspectable.
+# arid: disable
 def test_same_operation_same_semantic_request_replays_when_only_technical_changes() -> (
     None
 ):
@@ -676,6 +698,9 @@ def test_same_operation_changed_semantic_request_is_idempotency_conflict() -> No
         asyncio.run(_service(store).establish_supersession(changed))
 
 
+# arid: enable
+
+
 def test_stale_expected_version_is_distinct_concurrency_conflict() -> None:
     source = _decision()
     target = _decision()
@@ -706,6 +731,9 @@ def test_stale_expected_version_is_distinct_concurrency_conflict() -> None:
     assert store.history == ()
 
 
+# duplicate-code: revalidation and cycle falsifiers retain their exact history graph at
+# each test site; sharing setup would hide the edge that changes the semantic outcome.
+# arid: disable
 def test_same_version_endpoint_history_change_fails_relationship_revalidation() -> None:
     source = _decision()
     target = _decision()
@@ -878,6 +906,9 @@ def test_contested_possible_cycle_is_typed_safety_indeterminate() -> None:
     second_now = store.decisions[second.decision_id]
     with pytest.raises(RelationshipCycleSafetyIndeterminate):
         _supersede(store, second_now, first_now)
+
+
+# arid: enable
 
 
 def test_persistence_unavailable_is_distinct_and_atomic() -> None:

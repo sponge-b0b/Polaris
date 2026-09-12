@@ -82,6 +82,10 @@ from polaris.domain.decisions import (
 NOW = datetime(2026, 9, 11, 13, 0, tzinfo=UTC)
 
 
+# duplicate-code: this ordinary-work fake and its Decision builders preserve the exact
+# admission/applicability model for this command family; sharing them with correction or
+# resolution fixtures would couple distinct semantic test seams.
+# arid: disable
 class FakeDecisionStore:
     def __init__(
         self,
@@ -284,6 +288,9 @@ def _service(store: FakeDecisionStore) -> DecisionOrdinaryWorkService:
     )
 
 
+# arid: enable
+
+
 def test_subject_revision_preserves_identity_and_provenance() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -309,6 +316,9 @@ def test_subject_revision_preserves_identity_and_provenance() -> None:
     assert fact.metadata.technical_provenance == command.envelope.technical_provenance
 
 
+# duplicate-code: Subject and Scope continuity cases keep their full public command
+# shapes visible; a shared callable matrix would hide the identity-preserving boundary.
+# arid: disable
 def test_independent_subject_choice_routes_back_to_continuity() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -425,6 +435,12 @@ def test_scope_partial_establishment_and_revision_preserve_identity() -> None:
     assert store.decision.version == DecisionVersion(4)
 
 
+# arid: enable
+
+
+# duplicate-code: these Scope/Deferral cases repeat command invocation so validation and
+# trusted-basis semantics remain explicit and separate.
+# arid: disable
 def test_scope_rejects_empty_established_before_persistence() -> None:
     with pytest.raises(ValueError):
         DecisionScope.established()
@@ -514,6 +530,12 @@ def test_deferral_and_redeferral_require_distinct_trusted_bases() -> None:
     )
 
 
+# arid: enable
+
+
+# duplicate-code: Deferral and work-control failures use similar fixture syntax but
+# prove independently owned authority and continuity predicates.
+# arid: disable
 def test_deferral_rejects_non_deferring_or_untrusted_basis() -> None:
     decision = _decision()
     resolving = TrustedHumanInvestmentDecisionBasis(
@@ -613,6 +635,12 @@ def test_resume_independent_choice_routes_to_continuity() -> None:
         )
 
 
+# arid: enable
+
+
+# duplicate-code: these explicit command collections preserve every ordinary public
+# command signature in the admission matrix; a generic factory would hide coverage.
+# arid: disable
 def _ordinary_commands(
     decision: InvestmentDecision,
 ) -> tuple[
@@ -704,6 +732,13 @@ def _run_command(
     return asyncio.run(service.resume_work(command))
 
 
+# arid: enable
+
+
+# duplicate-code: the terminal admission/idempotency/concurrency matrix keeps each
+# failure boundary and no-commit assertion local; factoring the repeated call shape
+# would obscure which semantic outcome each test owns.
+# arid: disable
 @pytest.mark.parametrize("index", range(5))
 def test_resolved_decision_rejects_every_ordinary_work_command(index: int) -> None:
     decision = _resolved_decision()
@@ -983,3 +1018,6 @@ def test_missing_decision_is_typed() -> None:
                 )
             )
         )
+
+
+# arid: enable

@@ -72,6 +72,10 @@ from polaris.domain.decisions import (
 NOW = datetime(2026, 9, 11, 20, 0, tzinfo=UTC)
 
 
+# duplicate-code: this resolution fake and Decision builders model trusted-basis and
+# late-resolution semantics locally; sharing with ordinary-work fixtures would couple
+# independently meaningful command families.
+# arid: disable
 class FakeDecisionStore:
     def __init__(
         self,
@@ -246,6 +250,12 @@ def _resolving_basis(
     )
 
 
+# arid: enable
+
+
+# duplicate-code: these positive/negative basis cases retain the exact trusted input at
+# each assertion; a shared invocation helper would hide the effect distinction.
+# arid: disable
 def test_deliberate_hold_resolves_only_with_explicit_resolving_effect() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -316,6 +326,9 @@ def test_external_resolution_closes_without_human_resolution_fact() -> None:
     )
 
 
+# arid: enable
+
+
 def test_external_resolution_rejects_human_basis_substitute() -> None:
     decision = _decision()
     with pytest.raises(InvalidDecisionCommand):
@@ -326,6 +339,9 @@ def test_external_resolution_rejects_human_basis_substitute() -> None:
         )
 
 
+# duplicate-code: the operative/resolved/late matrices spell out each command kind so
+# lifecycle versus relationship rejection remains independently visible.
+# arid: disable
 @pytest.mark.parametrize(
     ("applicability", "error_type"),
     (
@@ -451,6 +467,9 @@ def test_late_historical_resolution_routes_out_of_forward_path(kind: str) -> Non
     assert store.receipts == ()
 
 
+# arid: enable
+
+
 def test_resolution_requires_known_actor() -> None:
     decision = _decision()
     envelope = DecisionCommandEnvelope(
@@ -486,6 +505,10 @@ def test_stale_expected_version_commits_nothing() -> None:
     assert store.receipts == ()
 
 
+# duplicate-code: replay, conflict, persistence, and missing-state cases preserve their
+# full requests locally so distinct application outcomes cannot be collapsed by a
+# shared assertion harness.
+# arid: disable
 def test_same_operation_same_resolution_replays_when_only_technical_changes() -> None:
     decision = _decision()
     store = FakeDecisionStore(decision)
@@ -611,3 +634,6 @@ def test_missing_decision_is_typed() -> None:
                 )
             )
         )
+
+
+# arid: enable

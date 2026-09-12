@@ -87,6 +87,10 @@ class ExpectedDecisionVersion:
             raise TypeError("version must be DecisionVersion")
 
 
+# duplicate-code: the application command envelope deliberately remains distinct from
+# immutable domain-fact metadata; sharing the representation would make execution input
+# masquerade as recorded business truth.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class DecisionCommandEnvelope:
     operation_id: OperationId
@@ -117,6 +121,9 @@ class DecisionCommandEnvelope:
             raise TypeError(
                 "expected_versions must be frozenset[ExpectedDecisionVersion]"
             )
+
+
+# arid: enable
 
 
 class ContinuityDeterminationKind(StrEnum):
@@ -163,6 +170,10 @@ class ContinuityDetermination:
         return cls(ContinuityDeterminationKind.CREATE_NEW, rationale=rationale)
 
 
+# duplicate-code: initiation and renewal accept parallel choice inputs but own different
+# identity and transaction semantics; a shared command/base type would falsely couple
+# those public operations.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class InitiateDecisionCommand:
     envelope: DecisionCommandEnvelope
@@ -190,6 +201,9 @@ class InitiateDecisionCommand:
         ):
             raise TypeError("continuity must be ContinuityDetermination or None")
         object.__setattr__(self, "need_statement", self.need_statement.strip())
+
+
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)

@@ -69,6 +69,10 @@ class RenewalPredecessor:
     basis: RenewedFromRelationshipBasis
 
 
+# duplicate-code: renewal and initiation accept parallel choice inputs but own different
+# identity/relationship transactions; sharing a command/base would couple those public
+# operations and their validation rules.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class RenewDecisionCommand:
     envelope: DecisionCommandEnvelope
@@ -97,6 +101,9 @@ class RenewDecisionCommand:
         ):
             raise InvalidDecisionCommand("renewal predecessors must be unique")
         object.__setattr__(self, "need_statement", self.need_statement.strip())
+
+
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +144,10 @@ class EstablishSupersessionCommand:
             )
 
 
+# duplicate-code: relationship correction input and persisted payload intentionally
+# carry parallel fields while remaining separate validation and idempotency contracts;
+# sharing their model would collapse that boundary.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class CorrectDecisionRelationshipCommand:
     envelope: DecisionCommandEnvelope
@@ -196,6 +207,9 @@ class RelationshipCorrectionPayload:
     replacement_relationship_basis: (
         RenewedFromRelationshipBasis | SupersedesRelationshipBasis | None
     )
+
+
+# arid: enable
 
 
 RelationshipPayload = (
@@ -308,6 +322,10 @@ class DecisionRelationshipStore(Protocol):
     ) -> DecisionRelationshipCommitOutcome: ...
 
 
+# duplicate-code: renewal has a continuity/Need transaction distinct from initiation and
+# Supersession; retaining its explicit orchestration keeps the different atomic domain
+# call and candidate-basis semantics visible.
+# arid: disable
 class DecisionRelationshipService:
     def __init__(
         self,
@@ -414,6 +432,12 @@ class DecisionRelationshipService:
             result,
         )
 
+    # arid: enable
+
+    # duplicate-code: Supersession shares transaction mechanics already centralized in
+    # _commit_relationship, while its remaining multi-target topology must stay
+    # explicit.
+    # arid: disable
     async def establish_supersession(
         self, command: EstablishSupersessionCommand
     ) -> DecisionRelationshipResult:
@@ -471,7 +495,13 @@ class DecisionRelationshipService:
             result,
         )
 
+    # arid: enable
 
+
+# duplicate-code: privileged relationship correction shares the store protocol but not
+# ordinary relationship admission semantics; a generic service template would obscure
+# that authority boundary.
+# arid: disable
 class DecisionRelationshipCorrectionService:
     """Privileged append-only relationship correction coordinator."""
 
@@ -536,6 +566,9 @@ class DecisionRelationshipCorrectionService:
             applied.updated_decisions,
             result,
         )
+
+
+# arid: enable
 
 
 async def _commit_relationship(

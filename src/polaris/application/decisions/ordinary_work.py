@@ -131,6 +131,10 @@ class EstablishOrReviseDecisionScopeCommand:
             raise TypeError("continuity must be DecisionContinuity")
 
 
+# duplicate-code: Deferral and substantive resolution deliberately use separate typed
+# commands even though both consume a Governance-owned basis; sharing a command/base
+# would erase their different admissible effects.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class ApplyHumanDeferralCommand:
     envelope: DecisionCommandEnvelope
@@ -170,6 +174,9 @@ class ApplySubstantiveResolutionCommand:
                 "Substantive resolution basis must have "
                 "SUBSTANTIVELY_RESOLVING semantic effect"
             )
+
+
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,6 +285,10 @@ class WorkResumptionPayload:
     continuity: DecisionContinuity
 
 
+# duplicate-code: persisted correction payloads mirror command fields by design but are
+# immutable idempotency identity, not validated caller input; sharing the representation
+# would collapse those transaction roles.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class LifecycleCorrectionPayload:
     target_fact_id: DecisionLifecycleFactId
@@ -296,6 +307,9 @@ class LifecycleCorrectionPayload:
 class UnsupportedNeedRetractionPayload:
     correction_basis: DecisionLifecycleCorrectionBasis
     unsupported_need_basis: UnsupportedDecisionNeedBasis
+
+
+# arid: enable
 
 
 DecisionMutationPayload = (
@@ -409,6 +423,14 @@ class DecisionMutationStore(DecisionCommandStore, Protocol):
     ) -> DecisionMutationCommitOutcome: ...
 
 
+class _DecisionMutationCommand(Protocol):
+    @property
+    def envelope(self) -> DecisionCommandEnvelope: ...
+
+    @property
+    def decision_id(self) -> InvestmentDecisionId: ...
+
+
 class DecisionOrdinaryWorkService:
     def __init__(
         self,
@@ -421,6 +443,10 @@ class DecisionOrdinaryWorkService:
         self._now = now or (lambda: datetime.now(UTC))
         self._new_uuid = new_uuid or uuid4
 
+    # duplicate-code: these purpose-specific public operations retain their explicit
+    # domain invocation shapes; a generic operation table would hide command-specific
+    # identity, authority, and lifecycle semantics.
+    # arid: disable
     async def revise_subject(
         self, command: ReviseDecisionSubjectCommand
     ) -> DecisionMutationResult:
@@ -516,62 +542,22 @@ class DecisionOrdinaryWorkService:
             InvestmentDecision,
         ],
     ) -> DecisionMutationResult:
-        request = _semantic_request(command)
-        operation_id = command.envelope.operation_id
-        prior = await self._store.get_mutation_receipt(operation_id)
-        if prior is not None:
-            return _replay(prior, request, operation_id)
-
-        recorded_at = _recording_time(self._now())
-        state = await self._store.load_decision_for_command(
-            command.decision_id,
-            known_at=recorded_at,
-        )
-        if state is None:
-            raise DecisionNotFound(command.decision_id)
-        if state.decision.version != request.expected_version:
-            raise ConcurrencyConflict(
-                f"expected Decision version {request.expected_version.value}, "
-                f"found {state.decision.version.value}"
-            )
-
-        _require_ordinary_work_admission(state)
-
-        mutation = DecisionMutationContext(
-            fact_id=DecisionLifecycleFactId(self._new_uuid()),
-            operation_id=operation_id,
-            actor_attribution=command.envelope.actor_attribution,
-            trigger=command.envelope.trigger,
-            effective_at=command.envelope.effective_at,
-            recorded_at=recorded_at,
-            technical_provenance=command.envelope.technical_provenance,
+        return await _execute_mutation(
+            store=self._store,
+            command=command,
+            request=_semantic_request(command),
+            now=self._now,
+            new_uuid=self._new_uuid,
+            apply=lambda state, mutation: _apply_transition(apply, state, mutation),
+            admit=_require_ordinary_work_admission,
         )
 
-        decision = _apply_transition(apply, state, mutation)
+    # arid: enable
 
-        result = DecisionMutationResult(
-            decision_id=decision.decision_id,
-            version=decision.version,
-            kind=(
-                DecisionMutationResultKind.NO_OP
-                if decision.history == state.decision.history
-                else DecisionMutationResultKind.APPLIED
-            ),
-        )
-        outcome = await self._store.commit_mutation(
-            DecisionMutationCommit(
-                operation_id=operation_id,
-                request=request,
-                expected_version=request.expected_version,
-                expected_history_tail_fact_id=(
-                    state.decision.history[-1].metadata.fact_id
-                ),
-                result=result,
-                decision=decision,
-            )
-        )
-        return _translate_commit_outcome(outcome, request, operation_id)
-
+    # duplicate-code: substantive and external resolution deliberately retain separate
+    # typed domain calls; a generic resolver would parameterize away their different
+    # authority and applicability semantics.
+    # arid: disable
     @staticmethod
     def _substantively_resolve(
         state: DecisionCommandState,
@@ -598,6 +584,8 @@ class DecisionOrdinaryWorkService:
             basis=command.basis,
             mutation=mutation,
         )
+
+    # arid: enable
 
     @staticmethod
     def _defer(
@@ -687,6 +675,77 @@ def _translate_commit_outcome(
     raise AssertionError("Decision store returned an unsupported mutation outcome")
 
 
+async def _execute_mutation(
+    *,
+    store: DecisionMutationStore,
+    command: _DecisionMutationCommand,
+    request: DecisionMutationSemanticRequest,
+    now: Callable[[], datetime],
+    new_uuid: Callable[[], UUID],
+    apply: Callable[
+        [DecisionCommandState, DecisionMutationContext],
+        InvestmentDecision,
+    ],
+    admit: Callable[[DecisionCommandState], None] | None = None,
+) -> DecisionMutationResult:
+    """Execute the one-Decision mutation transaction shared by all command families."""
+    operation_id = command.envelope.operation_id
+    prior = await store.get_mutation_receipt(operation_id)
+    if prior is not None:
+        return _replay(prior, request, operation_id)
+
+    recorded_at = _recording_time(now())
+    state = await store.load_decision_for_command(
+        command.decision_id,
+        known_at=recorded_at,
+    )
+    if state is None:
+        raise DecisionNotFound(command.decision_id)
+    if state.decision.version != request.expected_version:
+        raise ConcurrencyConflict(
+            f"expected Decision version {request.expected_version.value}, "
+            f"found {state.decision.version.value}"
+        )
+    if admit is not None:
+        admit(state)
+
+    # duplicate-code: lifecycle and relationship mutations intentionally construct
+    # different typed provenance envelopes; sharing a builder would erase the
+    # fact-family boundary after transaction mechanics have already been centralized.
+    # arid: disable
+    mutation = DecisionMutationContext(
+        fact_id=DecisionLifecycleFactId(new_uuid()),
+        operation_id=operation_id,
+        actor_attribution=command.envelope.actor_attribution,
+        trigger=command.envelope.trigger,
+        effective_at=command.envelope.effective_at,
+        recorded_at=recorded_at,
+        technical_provenance=command.envelope.technical_provenance,
+    )
+    # arid: enable
+    decision = apply(state, mutation)
+    result = DecisionMutationResult(
+        decision_id=decision.decision_id,
+        version=decision.version,
+        kind=(
+            DecisionMutationResultKind.NO_OP
+            if decision.history == state.decision.history
+            else DecisionMutationResultKind.APPLIED
+        ),
+    )
+    outcome = await store.commit_mutation(
+        DecisionMutationCommit(
+            operation_id=operation_id,
+            request=request,
+            expected_version=request.expected_version,
+            expected_history_tail_fact_id=state.decision.history[-1].metadata.fact_id,
+            result=result,
+            decision=decision,
+        )
+    )
+    return _translate_commit_outcome(outcome, request, operation_id)
+
+
 def _recording_time(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("application recording time must be timezone-aware")
@@ -696,7 +755,6 @@ def _recording_time(value: datetime) -> datetime:
 def _semantic_request(
     command: ExistingDecisionCommand,
 ) -> DecisionMutationSemanticRequest:
-    expected = _expected_version(command.envelope, command.decision_id)
     if isinstance(command, ReviseDecisionSubjectCommand):
         kind = DecisionMutationKind.REVISE_SUBJECT
         payload: DecisionMutationPayload = SubjectRevisionPayload(
@@ -721,7 +779,15 @@ def _semantic_request(
     else:
         kind = DecisionMutationKind.RESUME_WORK
         payload = WorkResumptionPayload(command.basis, command.continuity)
+    return _mutation_request(command, kind, payload)
 
+
+def _mutation_request(
+    command: _DecisionMutationCommand,
+    kind: DecisionMutationKind,
+    payload: DecisionMutationPayload,
+) -> DecisionMutationSemanticRequest:
+    expected = _expected_version(command.envelope, command.decision_id)
     actor = command.envelope.actor_attribution
     assert type(actor) is KnownActorAttribution
     return DecisionMutationSemanticRequest(

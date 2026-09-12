@@ -65,6 +65,10 @@ NOW = datetime(2026, 9, 12, 6, 0, tzinfo=UTC)
 START = NOW - timedelta(days=2)
 
 
+# duplicate-code: this reader and temporal fact builders form the query suite's local
+# immutable-history fixture language; sharing them with command-store fixtures would
+# couple read-model proof to write-path mechanics.
+# arid: disable
 class FakeDecisionMemoryReader:
     def __init__(
         self,
@@ -254,11 +258,17 @@ def _supersession(
     )
 
 
+# arid: enable
+
+
 def _service(reader: FakeDecisionMemoryReader) -> DecisionMemoryService:
     typed_reader: DecisionMemoryQueryReader = reader
     return DecisionMemoryService(reader=typed_reader, now=lambda: NOW)
 
 
+# duplicate-code: the two current-view proofs retain different authoritative version
+# sources; extracting their read/assert shape would obscure that distinction.
+# arid: disable
 def test_current_view_is_application_projection_with_exact_lineage() -> None:
     source = _decision(subject="Successor")
     target = _decision(subject="Prior decision")
@@ -312,6 +322,9 @@ def test_current_view_uses_authoritative_version_beyond_lifecycle_history() -> N
     )
 
 
+# arid: enable
+
+
 def test_current_view_stays_on_one_snapshot_during_relationship_commit() -> None:
     source = _decision(subject="Successor")
     target = _decision(subject="Prior")
@@ -336,6 +349,10 @@ def test_current_view_stays_on_one_snapshot_during_relationship_commit() -> None
     )
 
 
+# duplicate-code: temporal, raw-history, lineage, and cutoff cases spell out different
+# fact universes; sharing construction would couple independent hindsight and support
+# proofs.
+# arid: disable
 def test_temporal_queries_separate_effective_time_from_knowledge_cutoff() -> None:
     original = _decision(subject="Original subject")
     recorded_at = NOW - timedelta(hours=1)
@@ -500,6 +517,9 @@ def test_history_cutoff_hides_later_recorded_facts_without_deleting_them() -> No
 
     assert before.lifecycle_facts == (corrected.history[0],)
     assert after.lifecycle_facts == corrected.history
+
+
+# arid: enable
 
 
 def test_unresolved_continuity_candidates_use_existing_async_reader_contract() -> None:

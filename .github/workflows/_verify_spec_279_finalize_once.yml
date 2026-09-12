@@ -9,9 +9,17 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
-  probe:
+  finalize:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "VERIFY_SPEC_279_FINALIZER_PROBE=PASS"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Finalize and persist Spec 279 verification receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POLARIS_DEFAULT_HEAD: ${{ github.sha }}
+        run: python .github/_tmp_verify_spec_279_finalize.py

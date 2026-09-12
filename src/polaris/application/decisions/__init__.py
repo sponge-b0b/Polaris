@@ -33,6 +33,16 @@ from .contracts import (
     RelationshipHistoryInvalidOrIncomplete,
 )
 from .initiation import DecisionInitiationService
+from .memory import (
+    DecisionHistoryView,
+    DecisionLineageDirection,
+    DecisionLineageView,
+    DecisionMemoryCurrentState,
+    DecisionMemoryQueryReader,
+    DecisionMemoryService,
+    DecisionMemoryTemporalView,
+    DecisionMemoryView,
+)
 from .ordinary_work import (
     ApplyExternalResolutionCommand,
     ApplyHumanDeferralCommand,
@@ -97,8 +107,16 @@ __all__ = [
     "DecisionCommandEnvelope",
     "DecisionCommandState",
     "DecisionCommandStore",
+    "DecisionHistoryView",
     "DecisionInitiationService",
+    "DecisionLineageDirection",
+    "DecisionLineageView",
+    "DecisionMemoryCurrentState",
+    "DecisionMemoryQueryReader",
     "DecisionMemoryReader",
+    "DecisionMemoryService",
+    "DecisionMemoryTemporalView",
+    "DecisionMemoryView",
     "DecisionMutationCommit",
     "DecisionMutationCommitOutcome",
     "DecisionMutationCommitted",

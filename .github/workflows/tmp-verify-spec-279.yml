@@ -1,0 +1,210 @@
+name: tmp-verify-spec-279
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-verify-spec-279.yml'
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 68fac80b87984bff890570770f4c48cdcf033e13
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Fresh contract inventory and change provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
+          BRANCH: spec-279
+          HEAD_SHA: 68fac80b87984bff890570770f4c48cdcf033e13
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git checkout -B "$BRANCH" "$HEAD_SHA"
+          test "$(git branch --show-current)" = "$BRANCH"
+          test -z "$(git status --porcelain)"
+
+          gh api repos/sponge-b0b/Polaris/issues/279 --jq .body > /tmp/spec-279.md
+          sha256sum /tmp/spec-279.md | awk '{print "SPEC_BODY_SHA256=" $1}'
+
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, re
+          from pathlib import Path
+
+          text = Path('/tmp/spec-279.md').read_text(encoding='utf-8').replace('\r\n','\n').replace('\r','\n')
+          lines = text.splitlines()
+          heading = ''
+          units = []
+          i = 0
+          def add(kind, section, raw):
+              norm='\n'.join(line.rstrip() for line in raw.split('\n')).rstrip()
+              if not norm:
+                  return
+              units.append({
+                  'source_unit': f'SU-{len(units)+1:04d}',
+                  'section': section,
+                  'kind': kind,
+                  'text': norm,
+                  'text_hash': hashlib.sha256(norm.encode()).hexdigest(),
+              })
+          while i < len(lines):
+              line = lines[i]
+              if re.match(r'^#{1,6}\s+', line):
+                  heading = re.sub(r'^#{1,6}\s+', '', line).strip()
+                  i += 1; continue
+              if not line.strip() or re.match(r'^\s*([-*_])\1\1+\s*$', line):
+                  i += 1; continue
+              if line.startswith('```') or line.startswith('~~~'):
+                  fence=line[:3]; block=[line]; i+=1
+                  while i < len(lines):
+                      block.append(lines[i]);
+                      if lines[i].startswith(fence):
+                          i+=1; break
+                      i+=1
+                  add('code', heading, '\n'.join(block)); continue
+              if line.lstrip().startswith('>'):
+                  block=[]
+                  while i < len(lines) and lines[i].lstrip().startswith('>'):
+                      block.append(lines[i]); i+=1
+                  add('blockquote', heading, '\n'.join(block)); continue
+              if re.match(r'^\s*(?:[-+*]|\d+\.)\s+', line):
+                  add('list-item', heading, line.strip()); i+=1; continue
+              if '|' in line and line.strip().startswith('|') and line.strip().endswith('|'):
+                  if re.match(r'^\s*\|(?:\s*:?-+:?\s*\|)+\s*$', line):
+                      i+=1; continue
+                  add('table-row', heading, line.strip()); i+=1; continue
+              if line.lstrip().startswith('<!--'):
+                  block=[line]; i+=1
+                  while i < len(lines) and '-->' not in block[-1]:
+                      block.append(lines[i]); i+=1
+                  # workflow/provenance-only HTML markers are structural, not units
+                  continue
+              block=[line]; i+=1
+              while i < len(lines):
+                  nxt=lines[i]
+                  if (not nxt.strip() or re.match(r'^#{1,6}\s+', nxt) or nxt.startswith('```') or nxt.startswith('~~~')
+                      or nxt.lstrip().startswith('>') or re.match(r'^\s*(?:[-+*]|\d+\.)\s+', nxt)
+                      or (nxt.strip().startswith('|') and nxt.strip().endswith('|')) or nxt.lstrip().startswith('<!--')):
+                      break
+                  block.append(nxt); i+=1
+              add('paragraph', heading, '\n'.join(block))
+          Path('/tmp/source-units.json').write_text(json.dumps(units, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f'SOURCE_UNITS={len(units)}')
+          from collections import Counter
+          print('SOURCE_UNIT_KINDS=' + json.dumps(Counter(u['kind'] for u in units), sort_keys=True))
+          for u in units:
+              print(f"{u['source_unit']}|{u['section']}|{u['kind']}|{u['text'][:180].replace(chr(10),' ')}")
+          PY
+
+          python .agents/skills/spec-contract/scripts/classify_ownership.py \
+            --baseline "$BASELINE" --branch "$BRANCH" --head "$HEAD_SHA" \
+            | tee /tmp/provenance.json
+      - name: Service preflight and parent quality gates
+        env:
+          HEAD_SHA: 68fac80b87984bff890570770f4c48cdcf033e13
+          BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git diff --check "$BASELINE"...HEAD
+
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          scopes=[Path('tests/application/decisions')]
+          files=sorted(p for s in scopes for p in s.rglob('*.py'))
+          conftests=sorted(Path('tests').rglob('conftest.py'))
+          service_modules={'psycopg','asyncpg','qdrant_client','neo4j','redis','requests','httpx','docker'}
+          seen=set()
+          for p in files+conftests:
+              tree=ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+              for n in ast.walk(tree):
+                  if isinstance(n, ast.Import):
+                      seen.update(a.name.split('.')[0] for a in n.names)
+                  elif isinstance(n, ast.ImportFrom) and n.module:
+                      seen.add(n.module.split('.')[0])
+          bad=sorted(seen & service_modules)
+          print('APPLICATION_PREFLIGHT_FILES=' + str(len(files)))
+          print('APPLICATION_PREFLIGHT_CONFTESTS=' + ','.join(map(str,conftests)) if conftests else 'APPLICATION_PREFLIGHT_CONFTESTS=None')
+          print('APPLICATION_PREFLIGHT_SERVICE_IMPORTS=' + ','.join(bad) if bad else 'APPLICATION_PREFLIGHT_SERVICE_IMPORTS=None')
+          if bad: raise SystemExit('service-backed imports require readiness proof')
+          print('APPLICATION_SERVICE_PREFLIGHT=service-free')
+          PY
+
+          targets=(
+            src/polaris/application/__init__.py
+            src/polaris/application/decisions/__init__.py
+            src/polaris/application/decisions/contracts.py
+            src/polaris/application/decisions/initiation.py
+            src/polaris/application/decisions/lifecycle_correction.py
+            src/polaris/application/decisions/memory.py
+            src/polaris/application/decisions/ordinary_work.py
+            src/polaris/application/decisions/relationships.py
+            tests/application/decisions/test_initiation.py
+            tests/application/decisions/test_lifecycle_correction.py
+            tests/application/decisions/test_memory.py
+            tests/application/decisions/test_ordinary_work.py
+            tests/application/decisions/test_relationships.py
+            tests/application/decisions/test_resolution.py
+          )
+          uv run --locked ruff format --check "${targets[@]}"
+          uv run --locked ruff check "${targets[@]}"
+          uv run --locked mypy --explicit-package-bases "${targets[@]}"
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked pytest -q tests/application/decisions/
+
+          python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
+      - name: Delegated architecture invariant gate
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          files=[Path('tests/test_architecture_guard.py'),Path('tests/test_architecture_guard_identity_aliases.py'),Path('tests/test_architecture_guard_legacy_loaders.py')]
+          service_modules={'psycopg','asyncpg','qdrant_client','neo4j','redis','requests','httpx','docker'}
+          seen=set()
+          for p in files:
+              tree=ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+              for n in ast.walk(tree):
+                  if isinstance(n, ast.Import): seen.update(a.name.split('.')[0] for a in n.names)
+                  elif isinstance(n, ast.ImportFrom) and n.module: seen.add(n.module.split('.')[0])
+          bad=sorted(seen & service_modules)
+          print('ARCHITECTURE_PREFLIGHT_SERVICE_IMPORTS=' + (','.join(bad) if bad else 'None'))
+          if bad: raise SystemExit('architecture scope requires service readiness proof')
+          print('ARCHITECTURE_SERVICE_PREFLIGHT=service-free')
+          PY
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+            uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+          echo 'ARCHITECTURE INVARIANT: PASS'
+      - name: Delegated repository-wide deduplication gate
+        run: |
+          set -euo pipefail
+          uv run --locked arid . --fail-on-stale --suppression-summary
+          npm install --global jscpd@4.0.5 >/tmp/npm-jscpd.log 2>&1
+          jscpd .
+          echo 'DEDUPLICATION: PASS'
+      - name: Fixed-point guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '68fac80b87984bff890570770f4c48cdcf033e13'
+          test -z "$(git status --porcelain)"
+          echo 'FIXED_POINT=PASS'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spec-279-contract-evidence
+          path: |
+            /tmp/spec-279.md
+            /tmp/source-units.json
+            /tmp/provenance.json
+          if-no-files-found: error

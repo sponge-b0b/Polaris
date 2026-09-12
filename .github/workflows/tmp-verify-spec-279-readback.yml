@@ -25,7 +25,7 @@ jobs:
           EXPECTED_HEAD='3bbc9ec745e4b451a56404d492290a41160353d8'
           EXPECTED_VERIFICATION_HASH='4f235b3ee8975cece1edc9912bdf425a44060ac8437df0f87c4e7ca15a8372b3'
 
-          gh api "repos/$REPO/actions/jobs/$SOURCE_JOB/logs" > /tmp/source-job.log
+          gh api --allow-escape-sequences "repos/$REPO/actions/jobs/$SOURCE_JOB/logs" > /tmp/source-job.log
 
           python - <<'PY'
           from pathlib import Path

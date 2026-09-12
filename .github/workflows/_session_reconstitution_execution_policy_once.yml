@@ -5,8 +5,15 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
-  probe:
+  reconcile:
     runs-on: ubuntu-latest
     steps:
-      - run: echo ok
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: python .github/_tmp_session_reconstitution_execution_policy.py

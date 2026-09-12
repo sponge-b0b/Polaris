@@ -1,0 +1,65 @@
+name: tmp-implement-311
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-implement-311.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply and verify ticket 311
+        run: |
+          set -euo pipefail
+          cp .tmp_implement_311.py /tmp/implement_311.py
+          git fetch origin spec-279
+          git checkout -B spec-279 origin/spec-279
+
+          BASELINE=cbc7e9e43bc74daf6f45dcf6866eb125ce285017
+          test "$(git rev-parse HEAD)" = "$BASELINE"
+          test -z "$(git status --porcelain)"
+
+          python /tmp/implement_311.py
+          git diff --check "$BASELINE"
+
+          changed="$(git diff --name-only "$BASELINE")"
+          expected=$'src/polaris/application/decisions/ordinary_work.py\ntests/application/decisions/test_resolution.py'
+          test "$changed" = "$expected"
+
+          uv run --locked ruff format --check \
+            src/polaris/application/decisions/ordinary_work.py \
+            tests/application/decisions/test_resolution.py
+          uv run --locked ruff check \
+            src/polaris/application/decisions/ordinary_work.py \
+            tests/application/decisions/test_resolution.py
+          uv run --locked mypy --explicit-package-bases \
+            src/polaris/application/decisions/ordinary_work.py \
+            tests/application/decisions/test_resolution.py
+          UV_CACHE_DIR=/tmp/uv-cache uv run --locked pytest -q \
+            tests/application/decisions/test_resolution.py
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+            uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+
+          git diff --check "$BASELINE"
+          test "$(git diff --name-only "$BASELINE")" = "$expected"
+          test "$(git ls-remote origin refs/heads/spec-279 | awk '{print $1}')" = "$BASELINE"
+
+          git config user.name "Bob Taylor"
+          git config user.email "bobltaylorjr@gmail.com"
+          git add \
+            src/polaris/application/decisions/ordinary_work.py \
+            tests/application/decisions/test_resolution.py
+          git commit -m "fix(application): allow contested external resolution"
+          git push origin HEAD:spec-279

@@ -19,4 +19,14 @@ jobs:
       - name: Persist review packet and proof reuse ledger
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python .github/_tmp_review_spec_279_pending.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/_tmp_review_spec_279_pending.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'hashlib.sha256(spec["body"].encode("utf-8"))'
+          new = 'hashlib.sha256((spec["body"] + "\\n").encode("utf-8"))'
+          assert old in text
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python .github/_tmp_review_spec_279_pending.py

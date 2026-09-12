@@ -1,0 +1,25 @@
+name: tmp-publish-review-310-ticket
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-publish-review-310-ticket.yml'
+      - '.tmp_publish_review_310_ticket.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish approved Spec Review remediation ticket
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .tmp_publish_review_310_ticket.sh

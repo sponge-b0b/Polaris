@@ -1,0 +1,26 @@
+name: tmp-harden-to-tickets-legacy-branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-harden-to-tickets-legacy-branch.yml'
+      - '.tmp_harden_to_tickets_legacy_branch.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Probe main edit runtime
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          test -z "$(git status --porcelain)"
+          git diff --check

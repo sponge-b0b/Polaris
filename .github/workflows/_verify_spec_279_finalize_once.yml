@@ -1,0 +1,17 @@
+name: One-shot verify-spec 279 finalizer
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/_verify_spec_279_finalize_once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "VERIFY_SPEC_279_FINALIZER_PROBE=PASS"

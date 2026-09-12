@@ -59,6 +59,18 @@ class RelationshipConflict(DecisionApplicationError):
     pass
 
 
+class RelationshipCycle(RelationshipConflict):
+    pass
+
+
+class RelationshipCycleSafetyIndeterminate(RelationshipConflict):
+    pass
+
+
+class RelationshipHistoryInvalidOrIncomplete(RelationshipConflict):
+    pass
+
+
 class PersistenceUnavailable(DecisionApplicationError):
     pass
 

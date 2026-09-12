@@ -1,0 +1,28 @@
+name: tmp-to-tickets-310
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-to-tickets-310.yml'
+      - '.tmp_to_tickets_310_publish.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Probe publication runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh --version
+          git status --porcelain

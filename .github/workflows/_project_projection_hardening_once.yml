@@ -5,9 +5,59 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
-  probe:
+  harden:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe
-        run: echo ok
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply hardening and remove transport
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('AGENTS.md')
+          s = p.read_text()
+          anchor = 'The public Polaris GitHub Project is an operational projection, not workflow authority. **Authoritative repository/tracker state is immediate; Project projection is intentionally eventually consistent.**\n'
+          addition = '\nWhen a workflow derives base `Workflow State`, `Work Status`, or `Next Skill` while projection is deferred, those values describe the later Project projection; authoritative lifecycle/actionability remains established by the owning workflow\'s durable evidence. Do not persist a substitute copy merely because the Project is stale.\n'
+          assert s.count(anchor) == 1
+          p.write_text(s.replace(anchor, anchor + addition))
+
+          p = Path('.agents/skills/implement-ticket/SKILL.md')
+          s = p.read_text()
+          pairs = [
+              ('* if no implementation-ticket children remain open, advance the parent Spec to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.', '* if no implementation-ticket children remain open, establish `$verify-spec` as the parent Spec\'s next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.'),
+              ('* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, advance the durable `Parent Spec` to base `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;', '* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, establish `$verify-spec` as the durable `Parent Spec`\'s next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;'),
+              ('* zero open native blockers → advance the base ticket route to `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.', '* zero open native blockers → establish `$implement-ticket` as the ticket\'s next lifecycle action; derive base Project projection `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.'),
+              ('* no open implementation/remediation tickets and the parent Spec is durably `Ready to Verify` → emit exactly one copy-ready line:', '* no open implementation/remediation tickets and lifecycle reconciliation establishes `$verify-spec` as the parent Spec\'s next action → emit exactly one copy-ready line:'),
+          ]
+          for old, new in pairs:
+              assert s.count(old) == 1, old
+              s = s.replace(old, new)
+
+          old = (
+              '### Deferred Project Projection\n\n'
+              'Do not invoke `$project-tracking` after ticket closure. Ticket, parent/frontier, dependency, project-delivery, receipt/checkpoint, commit, and handoff state remain authoritative and must be reconciled immediately as described above; the public GitHub Project may intentionally lag.\n\n'
+              'Do not persist a pending Project-update record. `$spec-merge-cleanup` later reconstructs the complete Spec lineage from authoritative state and performs the mandatory one-batch Project reconciliation. An explicit human-requested board refresh remains the only ordinary mid-Spec projection path.\n'
+          )
+          new = (
+              '### Deferred Project Projection\n\n'
+              'Follow the repository-wide **Workflow Project tracking** policy in `AGENTS.md`. Do not invoke `$project-tracking` at ordinary ticket closure; derive authoritative lifecycle/actionability now and allow Project projection to lag until an authorized reconciliation boundary.\n'
+          )
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new))
+          PY
+
+          rm .github/workflows/_project_projection_hardening_once.yml
+          git diff --check
+          git config user.name 'Bob Taylor'
+          git config user.email 'bobltaylorjr@gmail.com'
+          git add AGENTS.md .agents/skills/implement-ticket/SKILL.md .github/workflows/_project_projection_hardening_once.yml
+          git commit -m 'fix(workflow): separate lifecycle authority from project projection'
+          git push

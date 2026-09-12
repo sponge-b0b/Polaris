@@ -1,0 +1,22 @@
+name: One-shot review-spec 279 pending persistence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/_review_spec_279_pending_once.yml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  persist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Persist review packet and proof reuse ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/_tmp_review_spec_279_pending.py

@@ -10,101 +10,68 @@ permissions:
   contents: read
 
 jobs:
-  summarize:
+  jscpd:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: 68fac80b87984bff890570770f4c48cdcf033e13
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v6
-      - name: Re-run exact candidate gates and emit compact evidence
+      - name: Restore exact prior local JSCPD config
+        run: |
+          cat > .jscpd.json <<'JSON'
+          {
+            "threshold": 5,
+            "minLines": 15,
+            "minTokens": 50,
+            "format": ["python"],
+            "gitignore": true,
+            "reporters": ["console", "markdown", "html"],
+            "output": ".jscpd_report",
+            "ignore": [
+              "**/.git/**",
+              "**/.venv/**",
+              "**/venv/**",
+              "**/tests/**",
+              "**/__pycache__/**",
+              "**/.jscpd_report/**",
+              "**/.mypy_cache/**",
+              "**/.pytest_cache/**",
+              "**/.ruff_cache/**",
+              "**/build/**",
+              "**/migrations/**",
+              "**/.repowise/**",
+              "**/*.md"
+            ]
+          }
+          JSON
+          sha256sum .jscpd.json
+          test -z "$(git status --porcelain)"
+      - name: Run configured whole-project JSCPD gate
         run: |
           set -euo pipefail
-          HEAD_SHA=68fac80b87984bff890570770f4c48cdcf033e13
-          BASELINE=4daed9034891600597a47c01b6c39d5ebd9914ca
-          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
-          git diff --check "$BASELINE"...HEAD
-
-          python - <<'PY' > /tmp/preflight.txt
-          from pathlib import Path
-          import ast
-          service_modules={'psycopg','asyncpg','qdrant_client','neo4j','redis','requests','httpx','docker'}
-          def inspect(files):
-              seen=set()
-              for p in files:
-                  tree=ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
-                  for n in ast.walk(tree):
-                      if isinstance(n, ast.Import): seen.update(a.name.split('.')[0] for a in n.names)
-                      elif isinstance(n, ast.ImportFrom) and n.module: seen.add(n.module.split('.')[0])
-              return sorted(seen & service_modules)
-          app=sorted(Path('tests/application/decisions').rglob('*.py')) + sorted(Path('tests').rglob('conftest.py'))
-          arch=[Path('tests/test_architecture_guard.py'),Path('tests/test_architecture_guard_identity_aliases.py'),Path('tests/test_architecture_guard_legacy_loaders.py')]
-          app_bad=inspect(app); arch_bad=inspect(arch)
-          print('application_preflight=service-free' if not app_bad else 'application_preflight=requires:' + ','.join(app_bad))
-          print('architecture_preflight=service-free' if not arch_bad else 'architecture_preflight=requires:' + ','.join(arch_bad))
-          if app_bad or arch_bad: raise SystemExit(1)
-          PY
-
-          targets=(
-            src/polaris/application/__init__.py
-            src/polaris/application/decisions/__init__.py
-            src/polaris/application/decisions/contracts.py
-            src/polaris/application/decisions/initiation.py
-            src/polaris/application/decisions/lifecycle_correction.py
-            src/polaris/application/decisions/memory.py
-            src/polaris/application/decisions/ordinary_work.py
-            src/polaris/application/decisions/relationships.py
-            tests/application/decisions/test_initiation.py
-            tests/application/decisions/test_lifecycle_correction.py
-            tests/application/decisions/test_memory.py
-            tests/application/decisions/test_ordinary_work.py
-            tests/application/decisions/test_relationships.py
-            tests/application/decisions/test_resolution.py
-          )
-          uv run --locked ruff format --check "${targets[@]}" > /tmp/ruff-format.txt
-          uv run --locked ruff check "${targets[@]}" > /tmp/ruff-check.txt
-          uv run --locked mypy --explicit-package-bases "${targets[@]}" > /tmp/mypy.txt
-          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked pytest -q tests/application/decisions/ > /tmp/application-pytest.txt
-          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run --locked pytest -q \
-            tests/test_architecture_guard.py \
-            tests/test_architecture_guard_identity_aliases.py \
-            tests/test_architecture_guard_legacy_loaders.py > /tmp/architecture-pytest.txt
-          uv run --locked arid . --fail-on-stale --suppression-summary > /tmp/arid.txt
           npm install --global jscpd@4.0.5 >/tmp/npm-jscpd.txt 2>&1
-          jscpd . > /tmp/jscpd.txt
-          python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test > /tmp/artifact-selftest.txt
-          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
-          test -z "$(git status --porcelain)"
-
+          jscpd . | tee /tmp/jscpd.txt
+          grep -F 'Found 0 clones.' /tmp/jscpd.txt
           python - <<'PY'
           from pathlib import Path
           import json,re
-          def text(name): return Path('/tmp/'+name).read_text(encoding='utf-8', errors='replace').strip()
-          def count_passed(s):
-              m=re.findall(r'(\d+) passed',s)
-              return int(m[-1]) if m else None
-          summary={
-            'head':'68fac80b87984bff890570770f4c48cdcf033e13',
-            'baseline':'4daed9034891600597a47c01b6c39d5ebd9914ca',
-            'preflight':text('preflight.txt').splitlines(),
-            'ruff_format':text('ruff-format.txt'),
-            'ruff_check':text('ruff-check.txt'),
-            'mypy':text('mypy.txt'),
-            'application_pytest':text('application-pytest.txt'),
-            'application_passed':count_passed(text('application-pytest.txt')),
-            'architecture_pytest':text('architecture-pytest.txt'),
-            'architecture_passed':count_passed(text('architecture-pytest.txt')),
-            'arid':text('arid.txt'),
-            'jscpd':text('jscpd.txt'),
-            'artifact_selftest':text('artifact-selftest.txt'),
-            'fixed_point':'PASS',
-          }
-          Path('/tmp/spec-279-verification-summary.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
-          print(json.dumps({k:v for k,v in summary.items() if k not in {'application_pytest','architecture_pytest','arid','jscpd'}},indent=2))
+          text=Path('/tmp/jscpd.txt').read_text(encoding='utf-8', errors='replace')
+          m=re.search(r'Found (\d+) clones\.', text)
+          if not m or int(m.group(1)) != 0:
+              raise SystemExit('JSCPD nonzero clone count')
+          Path('/tmp/spec-279-jscpd-summary.json').write_text(json.dumps({
+              'head':'68fac80b87984bff890570770f4c48cdcf033e13',
+              'configured':True,
+              'command':'jscpd .',
+              'clones':0,
+              'output':text,
+          }, indent=2), encoding='utf-8')
           PY
+          rm -rf .jscpd_report .jscpd.json
+          test -z "$(git status --porcelain)"
       - uses: actions/upload-artifact@v4
         with:
-          name: spec-279-verification-summary
-          path: /tmp/spec-279-verification-summary.json
+          name: spec-279-jscpd-summary
+          path: /tmp/spec-279-jscpd-summary.json
           if-no-files-found: error

@@ -21,8 +21,8 @@ jobs:
         run: |
           set -euo pipefail
           echo '=== helper references ==='
-          rg -n '_require_external_resolution_admission' src tests || true
+          grep -RIn --include='*.py' -- '_require_external_resolution_admission' src tests
           echo '=== service operation references ==='
-          rg -n 'apply_external_resolution' src tests || true
+          grep -RIn --include='*.py' -- 'apply_external_resolution' src tests
           echo '=== command references ==='
-          rg -n 'ApplyExternalResolutionCommand' src tests || true
+          grep -RIn --include='*.py' -- 'ApplyExternalResolutionCommand' src tests

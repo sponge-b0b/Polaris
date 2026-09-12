@@ -382,6 +382,8 @@ When a skill prescribes another repository skill as internal composition:
 
 The public Polaris GitHub Project is an operational projection, not workflow authority. **Authoritative repository/tracker state is immediate; Project projection is intentionally eventually consistent.**
 
+When a workflow derives base `Workflow State`, `Work Status`, or `Next Skill` while projection is deferred, those values describe the later Project projection; authoritative lifecycle/actionability remains established by the owning workflow's durable evidence. Do not persist a substitute copy merely because the Project is stale.
+
 Routine lifecycle transitions do **not** invoke `$project-tracking`. This repository-wide cadence rule explicitly supersedes narrower existing skill wording that still requires automatic Project synchronization after ordinary `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, or internal `$project-delivery-management` transitions.
 
 Project projection is authorized only at:

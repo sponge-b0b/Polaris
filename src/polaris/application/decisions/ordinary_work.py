@@ -639,10 +639,13 @@ def _require_ordinary_work_admission(state: DecisionCommandState) -> None:
 def _require_external_resolution_admission(state: DecisionCommandState) -> None:
     if state.decision.disposition is not DecisionLifecycleDisposition.UNRESOLVED:
         raise LifecycleConflict("resolved Decision requires lifecycle correction")
+    if state.applicability is DecisionApplicability.CONTESTED:
+        raise DecisionOperativeStatusContested(
+            "External Resolution requires determinate Decision applicability"
+        )
     if state.applicability not in (
         DecisionApplicability.OPERATIVE,
         DecisionApplicability.NON_OPERATIVE,
-        DecisionApplicability.CONTESTED,
     ):
         raise RelationshipConflict("Decision applicability is invalid")
 

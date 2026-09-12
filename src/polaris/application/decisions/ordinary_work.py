@@ -21,6 +21,7 @@ from polaris.domain.decisions import (
     DecisionSubject,
     DecisionVersion,
     DecisionWorkControlBasis,
+    ExternalResolutionBasis,
     HumanInvestmentDecisionEffect,
     IndependentChoiceRequiresNewDecision,
     InvalidDecisionBasis,
@@ -33,8 +34,10 @@ from polaris.domain.decisions import (
     TrustedHumanInvestmentDecisionBasis,
     defer_decision,
     establish_or_revise_scope,
+    externally_resolve_decision,
     resume_decision_work,
     revise_subject,
+    substantively_resolve_decision,
     withdraw_decision_work,
 )
 
@@ -144,6 +147,43 @@ class ApplyHumanDeferralCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class ApplySubstantiveResolutionCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    basis: TrustedHumanInvestmentDecisionBasis
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.basis) is not TrustedHumanInvestmentDecisionBasis:
+            raise InvalidTrustedBasis(
+                "Substantive resolution requires a trusted Human Investment "
+                "Decision basis"
+            )
+        if (
+            self.basis.effect
+            is not HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING
+        ):
+            raise InvalidTrustedBasis(
+                "Substantive resolution basis must have "
+                "SUBSTANTIVELY_RESOLVING semantic effect"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyExternalResolutionCommand:
+    envelope: DecisionCommandEnvelope
+    decision_id: InvestmentDecisionId
+    basis: ExternalResolutionBasis
+
+    def __post_init__(self) -> None:
+        _expected_version(self.envelope, self.decision_id)
+        if type(self.basis) is not ExternalResolutionBasis:
+            raise InvalidDecisionCommand(
+                "External Resolution requires an ExternalResolutionBasis"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class WithdrawDecisionWorkCommand:
     envelope: DecisionCommandEnvelope
     decision_id: InvestmentDecisionId
@@ -178,6 +218,8 @@ ExistingDecisionCommand = (
     ReviseDecisionSubjectCommand
     | EstablishOrReviseDecisionScopeCommand
     | ApplyHumanDeferralCommand
+    | ApplySubstantiveResolutionCommand
+    | ApplyExternalResolutionCommand
     | WithdrawDecisionWorkCommand
     | ResumeDecisionWorkCommand
 )
@@ -187,6 +229,8 @@ class DecisionMutationKind(StrEnum):
     REVISE_SUBJECT = "revise_subject"
     ESTABLISH_OR_REVISE_SCOPE = "establish_or_revise_scope"
     APPLY_HUMAN_DEFERRAL = "apply_human_deferral"
+    APPLY_SUBSTANTIVE_RESOLUTION = "apply_substantive_resolution"
+    APPLY_EXTERNAL_RESOLUTION = "apply_external_resolution"
     WITHDRAW_WORK = "withdraw_work"
     RESUME_WORK = "resume_work"
 
@@ -209,6 +253,16 @@ class HumanDeferralPayload:
 
 
 @dataclass(frozen=True, slots=True)
+class SubstantiveResolutionPayload:
+    basis: TrustedHumanInvestmentDecisionBasis
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalResolutionPayload:
+    basis: ExternalResolutionBasis
+
+
+@dataclass(frozen=True, slots=True)
 class WorkWithdrawalPayload:
     basis: DecisionWorkControlBasis
 
@@ -223,6 +277,8 @@ DecisionMutationPayload = (
     SubjectRevisionPayload
     | ScopeMutationPayload
     | HumanDeferralPayload
+    | SubstantiveResolutionPayload
+    | ExternalResolutionPayload
     | WorkWithdrawalPayload
     | WorkResumptionPayload
 )
@@ -373,6 +429,30 @@ class DecisionOrdinaryWorkService:
             lambda state, mutation: self._defer(state, command, mutation),
         )
 
+    async def apply_substantive_resolution(
+        self, command: ApplySubstantiveResolutionCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: self._substantively_resolve(
+                state,
+                command,
+                mutation,
+            ),
+        )
+
+    async def apply_external_resolution(
+        self, command: ApplyExternalResolutionCommand
+    ) -> DecisionMutationResult:
+        return await self._execute(
+            command,
+            lambda state, mutation: self._externally_resolve(
+                state,
+                command,
+                mutation,
+            ),
+        )
+
     async def withdraw_work(
         self, command: WithdrawDecisionWorkCommand
     ) -> DecisionMutationResult:
@@ -462,6 +542,33 @@ class DecisionOrdinaryWorkService:
         return _translate_commit_outcome(outcome, request, operation_id)
 
     @staticmethod
+    def _substantively_resolve(
+        state: DecisionCommandState,
+        command: ApplySubstantiveResolutionCommand,
+        mutation: DecisionMutationContext,
+    ) -> InvestmentDecision:
+        _require_forward_resolution_order(state, mutation.effective_at)
+        return substantively_resolve_decision(
+            state.decision,
+            basis=command.basis,
+            applicability=state.applicability,
+            mutation=mutation,
+        )
+
+    @staticmethod
+    def _externally_resolve(
+        state: DecisionCommandState,
+        command: ApplyExternalResolutionCommand,
+        mutation: DecisionMutationContext,
+    ) -> InvestmentDecision:
+        _require_forward_resolution_order(state, mutation.effective_at)
+        return externally_resolve_decision(
+            state.decision,
+            basis=command.basis,
+            mutation=mutation,
+        )
+
+    @staticmethod
     def _defer(
         state: DecisionCommandState,
         command: ApplyHumanDeferralCommand,
@@ -479,6 +586,18 @@ class DecisionOrdinaryWorkService:
             basis=command.basis,
             applicability=state.applicability,
             mutation=mutation,
+        )
+
+
+def _require_forward_resolution_order(
+    state: DecisionCommandState,
+    effective_at: datetime,
+) -> None:
+    if any(
+        fact.metadata.effective_at > effective_at for fact in state.decision.history
+    ):
+        raise LifecycleConflict(
+            "late historical resolution requires append-only lifecycle correction"
         )
 
 
@@ -559,6 +678,12 @@ def _semantic_request(
     elif isinstance(command, ApplyHumanDeferralCommand):
         kind = DecisionMutationKind.APPLY_HUMAN_DEFERRAL
         payload = HumanDeferralPayload(command.basis)
+    elif isinstance(command, ApplySubstantiveResolutionCommand):
+        kind = DecisionMutationKind.APPLY_SUBSTANTIVE_RESOLUTION
+        payload = SubstantiveResolutionPayload(command.basis)
+    elif isinstance(command, ApplyExternalResolutionCommand):
+        kind = DecisionMutationKind.APPLY_EXTERNAL_RESOLUTION
+        payload = ExternalResolutionPayload(command.basis)
     elif isinstance(command, WithdrawDecisionWorkCommand):
         kind = DecisionMutationKind.WITHDRAW_WORK
         payload = WorkWithdrawalPayload(command.basis)

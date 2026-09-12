@@ -31,7 +31,9 @@ from .contracts import (
 )
 from .initiation import DecisionInitiationService
 from .ordinary_work import (
+    ApplyExternalResolutionCommand,
     ApplyHumanDeferralCommand,
+    ApplySubstantiveResolutionCommand,
     ContinuityRequired,
     DecisionCommandState,
     DecisionMutationCommit,
@@ -59,7 +61,9 @@ from .ordinary_work import (
 )
 
 __all__ = [
+    "ApplyExternalResolutionCommand",
     "ApplyHumanDeferralCommand",
+    "ApplySubstantiveResolutionCommand",
     "ConcurrencyConflict",
     "ContinuityAmbiguous",
     "ContinuityConflict",

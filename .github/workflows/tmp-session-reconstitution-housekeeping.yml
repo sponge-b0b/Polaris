@@ -1,0 +1,16 @@
+name: tmp-session-reconstitution-housekeeping
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hosted runner
+        run: echo "session-reconstitution edit transport available"

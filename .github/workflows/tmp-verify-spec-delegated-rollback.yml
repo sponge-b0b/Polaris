@@ -6,9 +6,17 @@ on:
     paths:
       - .github/workflows/tmp-verify-spec-delegated-rollback.yml
 
+permissions:
+  contents: write
+
 jobs:
-  probe:
+  apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe hosted runner
-        run: echo "verify-spec-delegated-rollback-probe-ok"
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply exact delegated rollback
+        run: python .github/tmp-verify-spec-delegated-rollback.py

@@ -1,0 +1,55 @@
+name: Temporary ChatGPT verify-spec data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-verify-spec-data.yml
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  contract-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute exact Spec body and source-unit hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/issues/279" > /tmp/issue.json
+          python - <<'PY'
+          import hashlib, json, re
+          issue = json.load(open('/tmp/issue.json', encoding='utf-8'))
+          body = issue['body']
+          body_hash = hashlib.sha256((body + '\n').encode('utf-8')).hexdigest()
+          lines = body.splitlines()
+          units = []
+          paragraph = []
+          def flush():
+              if paragraph:
+                  units.append(' '.join(x.rstrip() for x in paragraph))
+                  paragraph.clear()
+          for line in lines:
+              s = line.rstrip()
+              if not s:
+                  flush(); continue
+              if re.match(r'^#{1,6}\s+', s):
+                  flush(); continue
+              if s.strip() == '---':
+                  flush(); continue
+              m = re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)(.*)$', s)
+              if m:
+                  flush(); units.append(m.group(1).rstrip()); continue
+              paragraph.append(s)
+          flush()
+          out = {
+              'body_hash': body_hash,
+              'source_unit_count': len(units),
+              'source_unit_hashes': [hashlib.sha256(u.encode('utf-8')).hexdigest() for u in units],
+              'source_unit_lengths': [len(u) for u in units],
+          }
+          print('CHATGPT_VERIFY_SPEC_DATA=' + json.dumps(out, separators=(',', ':')))
+          PY

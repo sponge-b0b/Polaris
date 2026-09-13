@@ -569,26 +569,6 @@ Inherited-only unrelated failures are report-only only after **Observed Failure 
 
 ### Delegated Gate Ownership
 
-#### Child-Owned Execution Requirement
-
-A required delegated gate is **not invoked** merely because the parent reads the child `SKILL.md` and runs commands that resemble its procedure. The owning skill must execute as an actual child/nested skill operation and must return its own current terminal result.
-
-Use either a distinct child context or a native nested-skill mechanism that preserves the complete owner-skill contract. Execute mutation-capable delegated gates sequentially when they share the same worktree. The parent may prepare inputs and consume returned evidence, but it may not substitute its own abbreviated implementation of the child gate.
-
-A direct parent command may provide supporting evidence, but it cannot satisfy the delegated gate unless the owner skill itself explicitly defines that command output as its terminal result and the owner skill invocation returns that result.
-
-Before finalization require:
-
-```text
-Required delegated gates: <n>
-Owner-skill invocations completed: <n>
-Valid owner terminal results captured: <n>
-Parent-substituted delegated gates: 0
-Required delegated gates without owner terminal result: 0
-```
-
-If a required child skill was only read, paraphrased, or manually emulated by the parent, classify that delegated gate `unresolved` and block PASS.
-
 When this workflow requires another skill to decide or execute a gate, that child skill owns the procedure and terminal result. The parent must not search for a same-named script, recreate a subset of the child procedure with shell commands, or substitute its own ad hoc audit and then report the delegated gate as passed.
 
 Maintain a working delegated-gate inventory:

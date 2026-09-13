@@ -1,4 +1,4 @@
-name: Temporary ChatGPT verify-spec wiki repair
+name: Temporary ChatGPT verify-spec contract dump
 
 on:
   push:
@@ -7,47 +7,51 @@ on:
       - .github/workflows/tmp-chatgpt-verify-spec-data.yml
 
 permissions:
-  contents: write
+  contents: read
+  issues: read
 
 jobs:
-  repair:
+  contract-dump:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out exact candidate
-        uses: actions/checkout@v4
-        with:
-          ref: spec-279
-          fetch-depth: 0
-
-      - name: Apply bounded wiki realization repair
+      - name: Dump exact Spec source units
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "22825af0fce1a39d1037a3c07abba6a5ed6304dc"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/279" > /tmp/issue.json
           python - <<'PY'
-          from pathlib import Path
-
-          index = Path('wiki/index.md')
-          text = index.read_text()
-          old = '| [Application Use Cases](entities/application-use-cases.md) | Application | pending | — | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |'
-          new = '| [Application Use Cases](entities/application-use-cases.md) | Application | present | `src/polaris/application/decisions/` | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |'
-          if text.count(old) != 1:
-              raise SystemExit(f'expected exactly one Application Use Cases pending row, found {text.count(old)}')
-          index.write_text(text.replace(old, new, 1))
-
-          log = Path('wiki/log.md')
-          original = log.read_text()
-          header = '# wiki/log.md\n\n'
-          if not original.startswith(header):
-              raise SystemExit('wiki/log.md header mismatch')
-          entry = '''## [2026-09-13] R2 application use cases | #279 implementation realized\n\nSpec #279 established the first greenfield Application Use Cases implementation under `src/polaris/application/decisions/`, including Decision commands, Decision Memory queries, transaction/idempotency and concurrency contracts, and inward-owned ports. Updated the active entity registry from `pending` to `present` with the coarse application routing anchor. R2-specific entity-page entries remain Planned because their governing architectural documents remain proposed; implementation realization does not promote proposed authority into Strict Invariants.\n\n'''
-          log.write_text(header + entry + original[len(header):])
+          import hashlib, json, re
+          issue = json.load(open('/tmp/issue.json', encoding='utf-8'))
+          body = issue['body']
+          section = None
+          units = []
+          paragraph = []
+          paragraph_section = None
+          def flush():
+              global paragraph, paragraph_section
+              if paragraph:
+                  units.append((paragraph_section, ' '.join(x.rstrip() for x in paragraph)))
+                  paragraph = []
+                  paragraph_section = None
+          for line in body.splitlines():
+              s = line.rstrip()
+              hm = re.match(r'^##\s+(.*)$', s)
+              if hm:
+                  flush(); section = hm.group(1).strip(); continue
+              if re.match(r'^#{1,6}\s+', s):
+                  flush(); continue
+              if not s or s.strip() == '---':
+                  flush(); continue
+              m = re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)(.*)$', s)
+              if m:
+                  flush(); units.append((section, m.group(1).rstrip())); continue
+              if not paragraph:
+                  paragraph_section = section
+              paragraph.append(s)
+          flush()
+          print('BODY_HASH=' + hashlib.sha256((body + '\n').encode()).hexdigest())
+          print('UNIT_COUNT=' + str(len(units)))
+          for i,(sec,text) in enumerate(units,1):
+              print(f'UNIT|{i:04d}|{sec}|{text}')
           PY
-          git diff --check -- wiki/index.md wiki/log.md
-          test "$(git diff --name-only | sort)" = $'wiki/index.md\nwiki/log.md'
-          git config user.name "Bob Taylor"
-          git config user.email "bobltaylorjr@gmail.com"
-          git add wiki/index.md wiki/log.md
-          git diff --cached --check
-          test "$(git diff --cached --name-only | sort)" = $'wiki/index.md\nwiki/log.md'
-          git commit -m "fix(wiki): record application realization"
-          git push origin HEAD:spec-279

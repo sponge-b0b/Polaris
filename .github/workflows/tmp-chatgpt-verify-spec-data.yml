@@ -1,4 +1,4 @@
-name: Temporary ChatGPT verify-spec receipt export
+name: Temporary ChatGPT verify-spec receipt persistence
 
 on:
   push:
@@ -9,12 +9,13 @@ on:
 permissions:
   actions: read
   contents: read
+  issues: write
 
 jobs:
-  export:
+  persist:
     runs-on: ubuntu-latest
     steps:
-      - name: Export canonical Spec 279 receipt
+      - name: Persist exact Spec 279 receipt once
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -40,16 +41,43 @@ jobs:
           if not payload or payload[0] != '## Spec Verification Receipt':
               raise SystemExit('canonical receipt markers were not recovered')
           receipt = '\n'.join(payload) + '\n'
-          if '**Verification Hash:** 7a496efb24f13aa79c04c9f57d7981e45c0d396a950116b99010c0ed6955f274' not in receipt:
-              raise SystemExit('verification hash mismatch')
-          if '**Verified HEAD:** 4c566154257df5439345cbe299c1e75ce87c2ded' not in receipt:
-              raise SystemExit('verified HEAD mismatch')
-          Path('/tmp/spec-279-verification-receipt.md').write_text(receipt, encoding='utf-8')
+          required = (
+              '**Verification Hash:** 7a496efb24f13aa79c04c9f57d7981e45c0d396a950116b99010c0ed6955f274',
+              '**Verified HEAD:** 4c566154257df5439345cbe299c1e75ce87c2ded',
+              '**Spec Contract Hash:** b5362e04efd559e0a96a47ba0c1c55813aad8bdb0d1b2dbfc3d4a357036a7dc8',
+          )
+          if any(value not in receipt for value in required):
+              raise SystemExit('canonical receipt identity mismatch')
+          Path('/tmp/receipt.md').write_text(receipt, encoding='utf-8')
           PY
-      - name: Upload receipt
-        uses: actions/upload-artifact@v4
-        with:
-          name: spec-279-verification-receipt
-          path: /tmp/spec-279-verification-receipt.md
-          if-no-files-found: error
-          retention-days: 1
+
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/279/comments?per_page=100" > /tmp/comments.json
+          EXISTING=$(python - <<'PY'
+          import json
+          comments=json.load(open('/tmp/comments.json'))
+          needle='**Verification Hash:** 7a496efb24f13aa79c04c9f57d7981e45c0d396a950116b99010c0ed6955f274'
+          matches=[str(c['id']) for c in comments if needle in (c.get('body') or '')]
+          if len(matches) > 1:
+              raise SystemExit('duplicate canonical verification receipts already exist')
+          print(matches[0] if matches else '')
+          PY
+          )
+
+          if [ -n "$EXISTING" ]; then
+            COMMENT_ID="$EXISTING"
+          else
+            jq -n --rawfile body /tmp/receipt.md '{body:$body}' > /tmp/payload.json
+            COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/279/comments" --method POST --input /tmp/payload.json --jq .id)
+          fi
+
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" > /tmp/readback.json
+          COMMENT_ID="$COMMENT_ID" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          expected=Path('/tmp/receipt.md').read_text(encoding='utf-8')
+          actual=json.load(open('/tmp/readback.json', encoding='utf-8'))['body']
+          if actual != expected:
+              raise SystemExit('persisted receipt failed exact body readback')
+          print('RECEIPT_COMMENT_ID=' + os.environ['COMMENT_ID'])
+          print('RECEIPT_READBACK=EXACT')
+          PY

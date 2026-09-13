@@ -63,6 +63,60 @@ Assume no prior conversational or agent-session state.
 
 Recover all inputs from the explicit invocation, repository, and durable tracker state. Do not use remembered requirement counts, prior reviewer conclusions, or Root Blocker history to construct the contract.
 
+### Build-Mode Isolation Gate
+
+This section is authoritative for `build` mode. It supersedes any later preserved wording that permits an independent build attempt to reuse or overwrite a prior handoff path.
+
+A `build` result is admissible only when contract construction occurs in a **genuinely fresh agent/process context** that has not seen any prior representation of the same Spec contract. The caller supplies only:
+
+* originating Spec issue/URL;
+* fixed `BASELINE_COMMIT`;
+* current Spec branch;
+* current `HEAD`;
+* `mode=build`;
+* a newly allocated invocation-owned `handoff-output` path that **does not exist before dispatch**.
+
+For a fresh build, create an invocation-owned directory and pass a nonexistent child path, for example:
+
+```bash
+CONTRACT_BUILD_DIR=$(mktemp -d)
+CONTRACT_HANDOFF="$CONTRACT_BUILD_DIR/contract.json"
+test ! -e "$CONTRACT_HANDOFF"
+```
+
+Before returning terminal `SPEC CONTRACT: VALID`, the builder must **not** receive, search for, enumerate, read, compare against, or reconstruct from any of the following:
+
+* a prior or expected `SPEC_CONTRACT_HASH`;
+* a prior Source Unit Inventory, manifest, structural identity row set, or source-to-cell mapping;
+* a prior `CONTRACT_HANDOFF` or `CONTRACT_HANDOFF_DIGEST`;
+* a prior verification receipt, review proof, proof-reuse ledger, or rendered contract table used as construction input;
+* pre-existing `/tmp`, workspace, cache, artifact, transcript, or other scratch files containing prior contract state;
+* conversational or agent-session memory of prior contract counts, source-unit boundaries, mappings, or hashes.
+
+Durable repository/tracker state needed to resolve the originating Spec, fixed baseline, branch, current `HEAD`, default branch, and change provenance remains valid input. A historical representation of the contract itself is not.
+
+The caller may retain a historical hash or receipt **outside the fresh builder context**, but it must not reveal or compare that state until after the fresh builder has returned its complete terminal result. Reproducibility is tested by post-build comparison; an expected value is never a construction target.
+
+If the builder becomes contaminated before completing construction—for example by inspecting a prior handoff, prior manifest, expected hash, or scratch contract artifact—the attempt is invalid. Return:
+
+```text
+SPEC CONTRACT: INVALID
+Reason: build isolation contaminated by prior contract state
+```
+
+Discard that attempt's handoff. Do not continue in the same context by promising to ignore what was seen. A new build requires a new fresh context and a new nonexistent handoff path.
+
+Every valid build terminal result must include:
+
+```text
+Build isolation: PASS
+Prior contract representations supplied or inspected: 0
+Pre-existing scratch contract artifacts inspected: 0
+Handoff path existed before build: no
+```
+
+Missing or contradictory isolation evidence makes the build invalid even if its resulting hash matches a historical value.
+
 ## Reproducible Contract Identity
 
 This section is authoritative and supersedes later preserved wording that includes model-authored display prose in `SPEC_CONTRACT_HASH` or requires byte-identical explanatory manifest wording across independent builds.

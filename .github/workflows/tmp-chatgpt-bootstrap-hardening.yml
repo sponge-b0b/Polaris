@@ -6,9 +6,17 @@ on:
     paths:
       - .github/workflows/tmp-chatgpt-bootstrap-hardening.yml
 
+permissions:
+  contents: write
+
 jobs:
-  probe:
+  apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe hosted runner
-        run: echo "bootstrap-hardening-probe-ok"
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply bounded bootstrap hardening
+        run: python .github/tmp-chatgpt-bootstrap-hardening.py

@@ -468,6 +468,41 @@ A stale coordinate does not authorize guessing a replacement from the rest of th
 
 ## Phase 1 — Session Reconstitution
 
+### 0. Bootstrap Policy Admission Gate
+
+This gate is the **first operational step** of every ChatGPT-hosted Polaris session, including continuation sessions where prior conversation, summaries, or Session Ledger state are available. Complete it before interpreting workflow authority, treating recovered state as actionable, or performing any repository/tracker mutation.
+
+1. Resolve the current default branch and its exact `HEAD`.
+2. Read the complete root `AGENTS.md` from that exact default-branch `HEAD`.
+3. Retain its Git blob SHA as `LAST_LOADED_AGENTS_BLOB` and the default-branch `HEAD` as `LAST_POLICY_HEAD`.
+4. Only after that read may the session continue to repository-state reconstruction, narrower process/skill loading, or Session Ledger recovery.
+
+Prior conversation, model memory, a context/session summary, Session Ledger prose, a previous-session `AGENTS.md` read, or quoted excerpts do **not** satisfy this gate. Missing or unreadable `AGENTS.md` fails closed for workflow continuation and mutation.
+
+#### Policy Freshness Before Mutation
+
+Before **every** repository or tracker mutation during the active ChatGPT session:
+
+1. re-resolve the current default-branch `HEAD` and current root `AGENTS.md` blob SHA;
+2. require the current blob SHA to equal `LAST_LOADED_AGENTS_BLOB`; if it differs, re-read the complete current `AGENTS.md`, update `LAST_LOADED_AGENTS_BLOB` / `LAST_POLICY_HEAD`, and restart mandate/scope evaluation for the proposed mutation;
+3. if only the default-branch `HEAD` changed while the `AGENTS.md` blob is unchanged, update `LAST_POLICY_HEAD` without treating unchanged policy bytes as stale;
+4. apply the current `AGENTS.md` **Mandate Boundary and Structural Mutation Guard** to the exact proposed delta;
+5. do not mutate until the authorized delta is explicit and no optional structural/design change remains without owner approval.
+
+A mutation already performed cannot be justified retroactively by reading `AGENTS.md` afterward. Conversation summaries and prior-session policy knowledge are recovery aids only; they never substitute for current policy admission.
+
+Before each mutation, the session must be able to establish:
+
+```text
+AGENTS.md loaded this session: yes
+Loaded AGENTS.md blob: <sha>
+Current AGENTS.md blob: <same sha>
+Policy freshness at mutation admission: PASS
+Mandate delta reconciled before mutation: PASS
+```
+
+These are in-session admission facts, not a new receipt or Session Ledger schema. Do not persist them merely for bookkeeping.
+
 ### 1. Establish repository state
 
 Inspect the current default branch and recent relevant commits.
@@ -476,9 +511,9 @@ When the active workflow has a durable branch and baseline/anchor, compare that 
 
 Determine whether the user's local working tree may contain uncommitted or unpushed state that cannot be observed remotely. Never assume remote repository state includes those changes.
 
-### 2. Load repository operating policy
+### 2. Load narrower repository operating context
 
-Read `AGENTS.md` before interpreting project state or making changes.
+`AGENTS.md` is already loaded by the Step 0 admission gate. Do not defer that read to this stage. Load only the additional process and skill context required by the active work.
 
 #### Mandatory workflow hardening context
 

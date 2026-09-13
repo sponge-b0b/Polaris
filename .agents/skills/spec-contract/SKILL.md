@@ -4,3 +4,5 @@ description: Build or validate the deterministic Spec obligation manifest and cl
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
+
+# Specification Contract

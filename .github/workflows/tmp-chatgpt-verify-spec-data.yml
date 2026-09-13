@@ -1,4 +1,4 @@
-name: Temporary ChatGPT verify-spec finalizer
+name: Temporary ChatGPT verify-spec receipt export
 
 on:
   push:
@@ -7,261 +7,50 @@ on:
       - .github/workflows/tmp-chatgpt-verify-spec-data.yml
 
 permissions:
+  actions: read
   contents: read
-  issues: read
 
 jobs:
-  finalize:
+  export:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out exact verified candidate
-        uses: actions/checkout@v4
-        with:
-          ref: spec-279
-          fetch-depth: 0
-
-      - name: Build exact contract and canonical receipt
+      - name: Export canonical Spec 279 receipt
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "4c566154257df5439345cbe299c1e75ce87c2ded"
-          gh api "repos/${GITHUB_REPOSITORY}/issues/279" > /tmp/issue.json
-          DEFAULT_BRANCH=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)
-          DEFAULT_HEAD=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${DEFAULT_BRANCH}" --jq .sha)
-          export DEFAULT_BRANCH DEFAULT_HEAD
+          gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/103717234946/logs" > /tmp/job.log
           python - <<'PY'
-          import hashlib, json, os, re
+          import re
           from pathlib import Path
 
-          issue = json.load(open('/tmp/issue.json', encoding='utf-8'))
-          body = issue['body']
-          body_hash = hashlib.sha256((body + '\n').encode('utf-8')).hexdigest()
-          if body_hash != '5f59ee666c65e9e93fe3b69403dbf4bc5328332d14d6339fc55b067755e4eb17':
-              raise SystemExit(f'unexpected Spec body hash: {body_hash}')
-
-          section = None
-          units = []
-          paragraph = []
-          paragraph_section = None
-
-          def flush():
-              global paragraph, paragraph_section
-              if paragraph:
-                  units.append((paragraph_section, ' '.join(x.rstrip() for x in paragraph)))
-                  paragraph = []
-                  paragraph_section = None
-
-          for line in body.splitlines():
-              s = line.rstrip()
-              hm = re.match(r'^##\s+(.*)$', s)
-              if hm:
-                  flush(); section = hm.group(1).strip(); continue
-              if re.match(r'^#{1,6}\s+', s):
-                  flush(); continue
-              if not s or s.strip() == '---':
-                  flush(); continue
-              m = re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)(.*)$', s)
-              if m:
-                  flush(); units.append((section, m.group(1).rstrip())); continue
-              if not paragraph:
-                  paragraph_section = section
-              paragraph.append(s)
-          flush()
-          if len(units) != 143:
-              raise SystemExit(f'expected 143 source units, found {len(units)}')
-
-          order = {}
-          cells = []
-          for prefix, count in [('US',45),('ID',32),('TD',29),('OOS',12),('NORM',2)]:
-              for n in range(1, count + 1):
-                  cell = f'{prefix}-{n}'
-                  order[cell] = len(cells)
-                  cells.append(cell)
-
-          def sorted_cells(values):
-              return sorted(values, key=order.__getitem__)
-
-          def mapping(i):
-              if i == 1:
-                  return 'normative-represented', sorted_cells(['US-43','ID-1','ID-2','ID-24'])
-              if i == 2:
-                  return 'normative-represented', sorted_cells(['US-3','US-4','US-5','US-6','US-7','US-8','ID-6','ID-7','ID-8','ID-9'])
-              if i == 3:
-                  return 'normative-represented', sorted_cells(['NORM-1','ID-1','ID-2','ID-10','ID-11','ID-12','ID-13','ID-16','ID-17','ID-18','ID-20','ID-21','ID-24','ID-26'])
-              if i == 4:
-                  return 'normative-represented', sorted_cells(['US-44','ID-24','ID-29','ID-30','ID-31','ID-32','OOS-1','OOS-11','OOS-12'])
-              if i == 5:
-                  return 'normative-new', ['NORM-1']
-              if i == 6:
-                  return 'normative-new', ['NORM-2']
-              if 7 <= i <= 13:
-                  return 'normative-represented', ['NORM-2']
-              if i == 14:
-                  return 'normative-represented', ['NORM-1']
-              if 15 <= i <= 59:
-                  return 'normative-new', [f'US-{i-14}']
-              if i in (60, 61, 64, 139):
-                  return 'non-normative', None
-              if i == 62:
-                  return 'normative-represented', ['NORM-2']
-              if i == 63:
-                  return 'normative-represented', sorted_cells(['NORM-1','NORM-2'])
-              if 65 <= i <= 96:
-                  return 'normative-new', [f'ID-{i-64}']
-              if 97 <= i <= 125:
-                  return 'normative-new', [f'TD-{i-96}']
-              if 126 <= i <= 137:
-                  return 'normative-new', [f'OOS-{i-125}']
-              if i == 138:
-                  return 'normative-represented', ['NORM-1']
-              if i in (140, 141):
-                  return 'normative-represented', ['NORM-2']
-              if i == 142:
-                  return 'normative-represented', sorted_cells(['ID-8','ID-9','ID-24','OOS-1'])
-              if i == 143:
-                  return 'normative-represented', sorted_cells(['NORM-2','ID-29','ID-30','ID-31','ID-32'])
-              raise AssertionError(i)
-
-          source_rows = []
-          reverse = {cell: [] for cell in cells}
-          for i, (sec, text) in enumerate(units, 1):
-              classification, mapped = mapping(i)
-              su = f'SU-{i:04d}'
-              text_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
-              source_rows.append([su, text_hash, classification, mapped])
-              if mapped:
-                  for cell in mapped:
-                      reverse[cell].append(su)
-
-          if any(not reverse[cell] for cell in cells):
-              missing = [cell for cell in cells if not reverse[cell]]
-              raise SystemExit(f'manifest cells without source units: {missing}')
-
-          manifest = []
-          for n in range(1, 46):
-              manifest.append({'cell':f'US-{n}','source':f'User Stories {n}','requirement':units[14+n-1][1]})
-          for n in range(1, 33):
-              manifest.append({'cell':f'ID-{n}','source':f'Implementation Decisions {n}','requirement':units[64+n-1][1]})
-          for n in range(1, 30):
-              manifest.append({'cell':f'TD-{n}','source':f'Testing Decisions {n}','requirement':units[96+n-1][1]})
-          for n in range(1, 13):
-              manifest.append({'cell':f'OOS-{n}','source':f'Out of Scope {n}','requirement':units[125+n-1][1]})
-          manifest += [
-              {
-                  'cell':'NORM-1',
-                  'source':'Implementation readiness / Blocked by',
-                  'requirement':'#278 must be certified and closed before implementation proceeds, and #279 must have an exact implementation baseline before it is implementation-ready.'
-              },
-              {
-                  'cell':'NORM-2',
-                  'source':'Implementation readiness / Architecture Impact / Further Notes',
-                  'requirement':'The application implementation must consume rather than redefine the completed #278 Investment Decision domain contract and conform to the listed synchronized R2 design authorities plus accepted ADR 0004.'
-              },
-          ]
-
-          identity_manifest = [[cell, reverse[cell]] for cell in cells]
-          payload = (
-              'SPEC-CONTRACT-V2\n' + body_hash + '\n--SOURCE-UNITS--\n'
-              + '\n'.join(json.dumps(row, ensure_ascii=False, separators=(',',':')) for row in source_rows)
-              + '\n--MANIFEST--\n'
-              + '\n'.join(json.dumps(row, ensure_ascii=False, separators=(',',':')) for row in identity_manifest)
-              + '\n'
-          )
-          contract_hash = hashlib.sha256(payload.encode('utf-8')).hexdigest()
-          contract = {
-              'spec_issue':279,
-              'head':'4c566154257df5439345cbe299c1e75ce87c2ded',
-              'baseline':'4daed9034891600597a47c01b6c39d5ebd9914ca',
-              'branch':'spec-279',
-              'spec_body_hash':body_hash,
-              'spec_contract_hash':contract_hash,
-              'default_branch':os.environ['DEFAULT_BRANCH'],
-              'default_head':os.environ['DEFAULT_HEAD'],
-              'source_counts':{
-                  'user_stories':45,
-                  'implementation_decisions':32,
-                  'testing_decisions':29,
-                  'out_of_scope':12,
-                  'other_normative':2,
-              },
-              'manifest':manifest,
-              'contract_identity':{
-                  'source_units':source_rows,
-                  'manifest':identity_manifest,
-              },
-          }
-          contract_bytes = json.dumps(contract, ensure_ascii=False, separators=(',',':')).encode('utf-8')
-          Path('/tmp/contract.json').write_bytes(contract_bytes)
-          Path('/tmp/contract_digest.txt').write_text(hashlib.sha256(contract_bytes).hexdigest())
-          Path('/tmp/contract_hash.txt').write_text(contract_hash)
-
-          proofs = [
-              {
-                  'cells':[f'US-{n}' for n in range(1,46)],
-                  'state':'proven',
-                  'evidence':['Owner-authorized in-session substitute $verify-spec-closure saturated all User Story obligations at exact HEAD 4c566154257df5439345cbe299c1e75ce87c2ded; parent acceptance suites passed 123/123.'],
-              },
-              {
-                  'cells':[f'ID-{n}' for n in range(1,33)],
-                  'state':'proven',
-                  'evidence':['Independent semantic closure inspected initiation, ordinary work, resolution/correction, relationship, Decision Memory, public API, async/executor neutrality, idempotency, concurrency, and persistence-neutral application contracts at the exact candidate.'],
-              },
-              {
-                  'cells':[f'TD-{n}' for n in range(1,30)],
-                  'state':'proven',
-                  'evidence':['Six application acceptance-test files passed 123/123 with service-free deterministic fake ports, including race/concurrency and temporal-history coverage.'],
-              },
-              {
-                  'cells':[f'OOS-{n}' for n in range(1,13)],
-                  'state':'proven',
-                  'evidence':['Semantic closure and architecture inspection confirmed the candidate remains within the stated R2 application boundary and does not implement the excluded persistence, Governance, AI/recommendation, Action Continuity, workflow/runtime, presentation, platform-UoW, or executor-policy surfaces.'],
-              },
-              {
-                  'cells':['NORM-1'],
-                  'state':'proven',
-                  'evidence':['#278 was certified/closed before #279 implementation and Workspace Metadata fixes #279 baseline at 4daed9034891600597a47c01b6c39d5ebd9914ca.'],
-              },
-              {
-                  'cells':['NORM-2'],
-                  'state':'proven',
-                  'evidence':['Exact-candidate semantic closure confirmed the application consumes the completed Investment Decision kernel and governing synchronized R2 authorities; $verify-architecture passed 305/305 and ADR 0004 execution constraints are preserved.'],
-              },
-          ]
-          Path('/tmp/proofs.json').write_text(json.dumps(proofs, ensure_ascii=False, separators=(',',':')))
-
-          gates = [
-              {'name':'Ruff format','status':'PASS','evidence':'Authorized Python target scope passed in GitHub Actions run 34753513257; the later repair changed only wiki/index.md and wiki/log.md.'},
-              {'name':'Ruff lint','status':'PASS','evidence':'Authorized Python target scope passed in GitHub Actions run 34753513257; application/test bytes are unchanged at final HEAD.'},
-              {'name':'Mypy','status':'PASS','evidence':'Authorized application/test target scope passed in GitHub Actions run 34753513257; application/test bytes are unchanged at final HEAD.'},
-              {'name':'Verifier artifact self-test','status':'PASS','evidence':'verify_spec_artifacts.py self-test passed before finalization.'},
-              {'name':'$verify-architecture','status':'PASS','evidence':'Locked architecture suite passed 305/305 with zero live violations; application/test bytes are unchanged by the wiki-only repair.'},
-              {'name':'Spec acceptance tests','status':'PASS','evidence':'Six #279 application acceptance-test files passed 123/123 after service-free preflight.'},
-              {'name':'$deduplicate-code','status':'PASS','evidence':'Repository-wide Arid scan reported 0 duplicate groups, 0 stale suppressions, 0 errors; JSCPD reported 0 clones/errors.'},
-              {'name':'$wiki-lint','status':'PASS','evidence':'#279-owned Application Use Cases realization drift was repaired at 4c566154257df5439345cbe299c1e75ce87c2ded; remaining wiki findings are causally inherited/report-only and are listed below.'},
-              {'name':'$attention','status':'PASS','evidence':'No unresolved #279 blocker after bounded wiki repair. The persisted 118-cell Ticket Coverage Manifest remains stale decomposition provenance; the fresh 120-cell contract is the verification acceptance universe.'},
-              {'name':'$verify-spec-closure','status':'PASS','evidence':'Owner-authorized in-session substitute at exact HEAD: 120/120 manifest cells proven; 11/11 nested domains closed; 60/60 generated authoritative members inspected/dispositioned; 0 ambiguous members, 0 unexplored siblings, 0 unproven assumptions, 0 actionable semantic findings.'},
-          ]
-          Path('/tmp/gates.json').write_text(json.dumps(gates, ensure_ascii=False, separators=(',',':')))
+          lines = Path('/tmp/job.log').read_text(encoding='utf-8-sig').splitlines()
+          payload = []
+          collecting = False
+          for line in lines:
+              match = re.match(r'^\d{4}-\d{2}-\d{2}T[^ ]+Z (.*)$', line)
+              text = match.group(1) if match else line
+              if text == '---RECEIPT-BEGIN---':
+                  collecting = True
+                  continue
+              if text == '---RECEIPT-END---':
+                  collecting = False
+                  break
+              if collecting:
+                  payload.append(text)
+          if not payload or payload[0] != '## Spec Verification Receipt':
+              raise SystemExit('canonical receipt markers were not recovered')
+          receipt = '\n'.join(payload) + '\n'
+          if '**Verification Hash:** 7a496efb24f13aa79c04c9f57d7981e45c0d396a950116b99010c0ed6955f274' not in receipt:
+              raise SystemExit('verification hash mismatch')
+          if '**Verified HEAD:** 4c566154257df5439345cbe299c1e75ce87c2ded' not in receipt:
+              raise SystemExit('verified HEAD mismatch')
+          Path('/tmp/spec-279-verification-receipt.md').write_text(receipt, encoding='utf-8')
           PY
-
-          python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
-          DIGEST=$(cat /tmp/contract_digest.txt)
-          python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py finalize-parts \
-            --contract-input /tmp/contract.json \
-            --contract-digest "$DIGEST" \
-            --proofs-input /tmp/proofs.json \
-            --gates-input /tmp/gates.json \
-            --mode full \
-            --repair '4c566154257df5439345cbe299c1e75ce87c2ded — fix(wiki): record application realization' \
-            --inherited-finding 'wiki/index.md still marks Investment Decisions as pending despite inherited #278 implementation; report-only for #279.' \
-            --inherited-finding 'wiki/index.md still marks Portfolio & Risk as pending despite inherited canonical Portfolio identity implementation; report-only for #279.' \
-            --inherited-finding 'Governance & Authority Strict Invariants contain four citations to docs/proposed sources that are invalid for Strict Invariants under wiki/_schema.md; inherited/report-only for #279.' \
-            --inherited-finding 'Accepted ADR 0004 has broader Living Entity Wiki synchronization drift outside the #279-owned Application Use Cases realization repaired here; inherited/report-only for #279.' \
-            --receipt-output /tmp/receipt.md
-
-          echo "SPEC_CONTRACT_HASH=$(cat /tmp/contract_hash.txt)"
-          echo "CONTRACT_HANDOFF_DIGEST=$(cat /tmp/contract_digest.txt)"
-          echo '---RECEIPT-BEGIN---'
-          cat /tmp/receipt.md
-          echo '---RECEIPT-END---'
+      - name: Upload receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-279-verification-receipt
+          path: /tmp/spec-279-verification-receipt.md
+          if-no-files-found: error
+          retention-days: 1

@@ -72,6 +72,20 @@ Passing tests, satisfying an explicit checklist, or lacking authority to fix the
 
 A formal Attention result does not create a new blocking authority. The owning workflow determines whether a surfaced concern is already resolved, blocking, deferred, or informational under its existing rules.
 
+### Collaborative Judgment
+
+Polaris agents are expected to contribute substantive engineering judgment, not merely execute instructions mechanically. Think broadly, challenge assumptions, surface material concerns, propose better alternatives, and give clear recommendations when warranted—even when those observations extend beyond the immediate task.
+
+The mandate boundary governs **mutation, not thought or discussion**. An agent should not suppress a material recommendation merely because implementing it would require separate authorization. Surface it, explain why it matters, recommend a direction, and discuss it with the owner before acting.
+
+The intended collaboration model is:
+
+```text
+think broadly → speak broadly → discuss material choices → act within the agreed mandate
+```
+
+Attention therefore encourages initiative in analysis and recommendation while preserving explicit owner authority over material scope expansion, structural change, and repository mutation.
+
 ### Mandate Boundary and Structural Mutation Guard
 
 An instruction authorizes the smallest correct change necessary to satisfy that instruction. It does not implicitly authorize adjacent refactoring, cleanup, generalization, reorganization, or architectural improvement.

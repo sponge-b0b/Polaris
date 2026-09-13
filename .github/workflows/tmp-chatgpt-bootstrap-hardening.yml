@@ -1,0 +1,14 @@
+name: Temporary ChatGPT bootstrap hardening
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-bootstrap-hardening.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hosted runner
+        run: echo "bootstrap-hardening-probe-ok"

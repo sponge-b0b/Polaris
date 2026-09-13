@@ -19,7 +19,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/103717234946/logs" > /tmp/job.log
+          gh api --allow-escape-sequences "repos/${GITHUB_REPOSITORY}/actions/jobs/103717234946/logs" > /tmp/job.log
           python - <<'PY'
           import re
           from pathlib import Path
@@ -34,7 +34,6 @@ jobs:
                   collecting = True
                   continue
               if text == '---RECEIPT-END---':
-                  collecting = False
                   break
               if collecting:
                   payload.append(text)

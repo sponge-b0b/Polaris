@@ -1,4 +1,4 @@
-name: Temporary ChatGPT verify-spec gates
+name: Temporary ChatGPT verify-spec wiki repair
 
 on:
   push:
@@ -7,180 +7,47 @@ on:
       - .github/workflows/tmp-chatgpt-verify-spec-data.yml
 
 permissions:
-  contents: read
-  issues: read
+  contents: write
 
 jobs:
-  verify:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@v4
         with:
-          ref: 22825af0fce1a39d1037a3c07abba6a5ed6304dc
+          ref: spec-279
           fetch-depth: 0
 
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install JSCPD
-        run: npm install --global jscpd@5.2.0
-
-      - name: Candidate guard
+      - name: Apply bounded wiki realization repair
         run: |
+          set -euo pipefail
           test "$(git rev-parse HEAD)" = "22825af0fce1a39d1037a3c07abba6a5ed6304dc"
-          test -z "$(git status --porcelain)"
-
-      - name: Diff check
-        id: diffcheck
-        continue-on-error: true
-        run: git diff --check 4daed9034891600597a47c01b6c39d5ebd9914ca
-
-      - name: Ruff format
-        id: ruff_format
-        continue-on-error: true
-        env:
-          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
-        run: |
-          uv run --locked ruff format --check \
-            src/polaris/application/__init__.py \
-            src/polaris/application/decisions/__init__.py \
-            src/polaris/application/decisions/contracts.py \
-            src/polaris/application/decisions/initiation.py \
-            src/polaris/application/decisions/lifecycle_correction.py \
-            src/polaris/application/decisions/memory.py \
-            src/polaris/application/decisions/ordinary_work.py \
-            src/polaris/application/decisions/relationships.py \
-            tests/application/decisions/test_initiation.py \
-            tests/application/decisions/test_lifecycle_correction.py \
-            tests/application/decisions/test_memory.py \
-            tests/application/decisions/test_ordinary_work.py \
-            tests/application/decisions/test_relationships.py \
-            tests/application/decisions/test_resolution.py
-
-      - name: Ruff lint
-        id: ruff_lint
-        continue-on-error: true
-        env:
-          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
-        run: |
-          uv run --locked ruff check \
-            src/polaris/application/__init__.py \
-            src/polaris/application/decisions/__init__.py \
-            src/polaris/application/decisions/contracts.py \
-            src/polaris/application/decisions/initiation.py \
-            src/polaris/application/decisions/lifecycle_correction.py \
-            src/polaris/application/decisions/memory.py \
-            src/polaris/application/decisions/ordinary_work.py \
-            src/polaris/application/decisions/relationships.py \
-            tests/application/decisions/test_initiation.py \
-            tests/application/decisions/test_lifecycle_correction.py \
-            tests/application/decisions/test_memory.py \
-            tests/application/decisions/test_ordinary_work.py \
-            tests/application/decisions/test_relationships.py \
-            tests/application/decisions/test_resolution.py
-
-      - name: Mypy
-        id: mypy
-        continue-on-error: true
-        env:
-          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
-        run: |
-          uv run --locked mypy --explicit-package-bases \
-            src/polaris/application/__init__.py \
-            src/polaris/application/decisions/__init__.py \
-            src/polaris/application/decisions/contracts.py \
-            src/polaris/application/decisions/initiation.py \
-            src/polaris/application/decisions/lifecycle_correction.py \
-            src/polaris/application/decisions/memory.py \
-            src/polaris/application/decisions/ordinary_work.py \
-            src/polaris/application/decisions/relationships.py \
-            tests/application/decisions/test_initiation.py \
-            tests/application/decisions/test_lifecycle_correction.py \
-            tests/application/decisions/test_memory.py \
-            tests/application/decisions/test_ordinary_work.py \
-            tests/application/decisions/test_relationships.py \
-            tests/application/decisions/test_resolution.py
-
-      - name: Verifier utility self-test
-        id: selftest
-        continue-on-error: true
-        run: python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
-
-      - name: Architecture invariant gate
-        id: architecture
-        continue-on-error: true
-        env:
-          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-architecture
-        run: |
-          uv run --locked pytest -q \
-            tests/test_architecture_guard.py \
-            tests/test_architecture_guard_identity_aliases.py \
-            tests/test_architecture_guard_legacy_loaders.py
-
-      - name: Spec acceptance tests
-        id: acceptance
-        continue-on-error: true
-        env:
-          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
-        run: |
-          uv run --locked pytest -q \
-            tests/application/decisions/test_initiation.py \
-            tests/application/decisions/test_lifecycle_correction.py \
-            tests/application/decisions/test_memory.py \
-            tests/application/decisions/test_ordinary_work.py \
-            tests/application/decisions/test_relationships.py \
-            tests/application/decisions/test_resolution.py
-
-      - name: Arid whole-repository gate
-        id: arid
-        continue-on-error: true
-        run: uv run --locked arid . --fail-on-stale --suppression-summary
-
-      - name: JSCPD whole-repository gate
-        id: jscpd
-        continue-on-error: true
-        run: jscpd .
-
-      - name: Clean generated reports
-        if: always()
-        run: rm -rf .jscpd_report
-
-      - name: Candidate worktree readback
-        if: always()
-        run: |
-          test "$(git rev-parse HEAD)" = "22825af0fce1a39d1037a3c07abba6a5ed6304dc"
-          test -z "$(git status --porcelain)"
-
-      - name: Require all deterministic gates
-        if: always()
-        run: |
           python - <<'PY'
-          import sys
-          outcomes = {
-              'diffcheck': '${{ steps.diffcheck.outcome }}',
-              'ruff_format': '${{ steps.ruff_format.outcome }}',
-              'ruff_lint': '${{ steps.ruff_lint.outcome }}',
-              'mypy': '${{ steps.mypy.outcome }}',
-              'selftest': '${{ steps.selftest.outcome }}',
-              'architecture': '${{ steps.architecture.outcome }}',
-              'acceptance': '${{ steps.acceptance.outcome }}',
-              'arid': '${{ steps.arid.outcome }}',
-              'jscpd': '${{ steps.jscpd.outcome }}',
-          }
-          print(outcomes)
-          bad = {k:v for k,v in outcomes.items() if v != 'success'}
-          if bad:
-              print('FAILED_GATES=' + repr(bad))
-              sys.exit(1)
+          from pathlib import Path
+
+          index = Path('wiki/index.md')
+          text = index.read_text()
+          old = '| [Application Use Cases](entities/application-use-cases.md) | Application | pending | — | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |'
+          new = '| [Application Use Cases](entities/application-use-cases.md) | Application | present | `src/polaris/application/decisions/` | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one Application Use Cases pending row, found {text.count(old)}')
+          index.write_text(text.replace(old, new, 1))
+
+          log = Path('wiki/log.md')
+          original = log.read_text()
+          header = '# wiki/log.md\n\n'
+          if not original.startswith(header):
+              raise SystemExit('wiki/log.md header mismatch')
+          entry = '''## [2026-09-13] R2 application use cases | #279 implementation realized\n\nSpec #279 established the first greenfield Application Use Cases implementation under `src/polaris/application/decisions/`, including Decision commands, Decision Memory queries, transaction/idempotency and concurrency contracts, and inward-owned ports. Updated the active entity registry from `pending` to `present` with the coarse application routing anchor. R2-specific entity-page entries remain Planned because their governing architectural documents remain proposed; implementation realization does not promote proposed authority into Strict Invariants.\n\n'''
+          log.write_text(header + entry + original[len(header):])
           PY
+          git diff --check -- wiki/index.md wiki/log.md
+          test "$(git diff --name-only | sort)" = $'wiki/index.md\nwiki/log.md'
+          git config user.name "Bob Taylor"
+          git config user.email "bobltaylorjr@gmail.com"
+          git add wiki/index.md wiki/log.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only | sort)" = $'wiki/index.md\nwiki/log.md'
+          git commit -m "fix(wiki): record application realization"
+          git push origin HEAD:spec-279

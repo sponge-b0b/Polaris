@@ -1,0 +1,14 @@
+name: Temporary verify-spec delegated rollback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-verify-spec-delegated-rollback.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hosted runner
+        run: echo "verify-spec-delegated-rollback-probe-ok"

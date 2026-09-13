@@ -1,4 +1,4 @@
-name: Temporary ChatGPT verify-spec data
+name: Temporary ChatGPT verify-spec gates
 
 on:
   push:
@@ -11,45 +11,176 @@ permissions:
   issues: read
 
 jobs:
-  contract-data:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Compute exact Spec body and source-unit hashes
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 22825af0fce1a39d1037a3c07abba6a5ed6304dc
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install JSCPD
+        run: npm install --global jscpd@5.2.0
+
+      - name: Candidate guard
         run: |
-          set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/issues/279" > /tmp/issue.json
+          test "$(git rev-parse HEAD)" = "22825af0fce1a39d1037a3c07abba6a5ed6304dc"
+          test -z "$(git status --porcelain)"
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check 4daed9034891600597a47c01b6c39d5ebd9914ca
+
+      - name: Ruff format
+        id: ruff_format
+        continue-on-error: true
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
+        run: |
+          uv run --locked ruff format --check \
+            src/polaris/application/__init__.py \
+            src/polaris/application/decisions/__init__.py \
+            src/polaris/application/decisions/contracts.py \
+            src/polaris/application/decisions/initiation.py \
+            src/polaris/application/decisions/lifecycle_correction.py \
+            src/polaris/application/decisions/memory.py \
+            src/polaris/application/decisions/ordinary_work.py \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_initiation.py \
+            tests/application/decisions/test_lifecycle_correction.py \
+            tests/application/decisions/test_memory.py \
+            tests/application/decisions/test_ordinary_work.py \
+            tests/application/decisions/test_relationships.py \
+            tests/application/decisions/test_resolution.py
+
+      - name: Ruff lint
+        id: ruff_lint
+        continue-on-error: true
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
+        run: |
+          uv run --locked ruff check \
+            src/polaris/application/__init__.py \
+            src/polaris/application/decisions/__init__.py \
+            src/polaris/application/decisions/contracts.py \
+            src/polaris/application/decisions/initiation.py \
+            src/polaris/application/decisions/lifecycle_correction.py \
+            src/polaris/application/decisions/memory.py \
+            src/polaris/application/decisions/ordinary_work.py \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_initiation.py \
+            tests/application/decisions/test_lifecycle_correction.py \
+            tests/application/decisions/test_memory.py \
+            tests/application/decisions/test_ordinary_work.py \
+            tests/application/decisions/test_relationships.py \
+            tests/application/decisions/test_resolution.py
+
+      - name: Mypy
+        id: mypy
+        continue-on-error: true
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
+        run: |
+          uv run --locked mypy --explicit-package-bases \
+            src/polaris/application/__init__.py \
+            src/polaris/application/decisions/__init__.py \
+            src/polaris/application/decisions/contracts.py \
+            src/polaris/application/decisions/initiation.py \
+            src/polaris/application/decisions/lifecycle_correction.py \
+            src/polaris/application/decisions/memory.py \
+            src/polaris/application/decisions/ordinary_work.py \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_initiation.py \
+            tests/application/decisions/test_lifecycle_correction.py \
+            tests/application/decisions/test_memory.py \
+            tests/application/decisions/test_ordinary_work.py \
+            tests/application/decisions/test_relationships.py \
+            tests/application/decisions/test_resolution.py
+
+      - name: Verifier utility self-test
+        id: selftest
+        continue-on-error: true
+        run: python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
+
+      - name: Architecture invariant gate
+        id: architecture
+        continue-on-error: true
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-architecture
+        run: |
+          uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Spec acceptance tests
+        id: acceptance
+        continue-on-error: true
+        env:
+          POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-279
+        run: |
+          uv run --locked pytest -q \
+            tests/application/decisions/test_initiation.py \
+            tests/application/decisions/test_lifecycle_correction.py \
+            tests/application/decisions/test_memory.py \
+            tests/application/decisions/test_ordinary_work.py \
+            tests/application/decisions/test_relationships.py \
+            tests/application/decisions/test_resolution.py
+
+      - name: Arid whole-repository gate
+        id: arid
+        continue-on-error: true
+        run: uv run --locked arid . --fail-on-stale --suppression-summary
+
+      - name: JSCPD whole-repository gate
+        id: jscpd
+        continue-on-error: true
+        run: jscpd .
+
+      - name: Clean generated reports
+        if: always()
+        run: rm -rf .jscpd_report
+
+      - name: Candidate worktree readback
+        if: always()
+        run: |
+          test "$(git rev-parse HEAD)" = "22825af0fce1a39d1037a3c07abba6a5ed6304dc"
+          test -z "$(git status --porcelain)"
+
+      - name: Require all deterministic gates
+        if: always()
+        run: |
           python - <<'PY'
-          import hashlib, json, re
-          issue = json.load(open('/tmp/issue.json', encoding='utf-8'))
-          body = issue['body']
-          body_hash = hashlib.sha256((body + '\n').encode('utf-8')).hexdigest()
-          lines = body.splitlines()
-          units = []
-          paragraph = []
-          def flush():
-              if paragraph:
-                  units.append(' '.join(x.rstrip() for x in paragraph))
-                  paragraph.clear()
-          for line in lines:
-              s = line.rstrip()
-              if not s:
-                  flush(); continue
-              if re.match(r'^#{1,6}\s+', s):
-                  flush(); continue
-              if s.strip() == '---':
-                  flush(); continue
-              m = re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)(.*)$', s)
-              if m:
-                  flush(); units.append(m.group(1).rstrip()); continue
-              paragraph.append(s)
-          flush()
-          out = {
-              'body_hash': body_hash,
-              'source_unit_count': len(units),
-              'source_unit_hashes': [hashlib.sha256(u.encode('utf-8')).hexdigest() for u in units],
-              'source_unit_lengths': [len(u) for u in units],
+          import sys
+          outcomes = {
+              'diffcheck': '${{ steps.diffcheck.outcome }}',
+              'ruff_format': '${{ steps.ruff_format.outcome }}',
+              'ruff_lint': '${{ steps.ruff_lint.outcome }}',
+              'mypy': '${{ steps.mypy.outcome }}',
+              'selftest': '${{ steps.selftest.outcome }}',
+              'architecture': '${{ steps.architecture.outcome }}',
+              'acceptance': '${{ steps.acceptance.outcome }}',
+              'arid': '${{ steps.arid.outcome }}',
+              'jscpd': '${{ steps.jscpd.outcome }}',
           }
-          print('CHATGPT_VERIFY_SPEC_DATA=' + json.dumps(out, separators=(',', ':')))
+          print(outcomes)
+          bad = {k:v for k,v in outcomes.items() if v != 'success'}
+          if bad:
+              print('FAILED_GATES=' + repr(bad))
+              sys.exit(1)
           PY

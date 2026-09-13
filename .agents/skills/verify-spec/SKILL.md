@@ -46,6 +46,40 @@ Keep these identities separate:
 
 The parent does not need byte-identical historical `Requirement` prose to continue verification. It does need the same structural acceptance universe.
 
+### Fresh Contract Builder Isolation
+
+This section is authoritative for every `$spec-contract` **build** consumed by `$verify-spec` and supersedes later wording that implies the parent may itself reconstruct the deterministic Spec contract.
+
+The `$verify-spec` parent owns **dispatch and admission** of contract construction; a genuinely fresh `$spec-contract` builder owns the construction itself.
+
+For every build used for semantic certification or finalization:
+
+1. Resolve only the originating Spec identity, fixed baseline, Spec branch, and exact current `HEAD` needed to dispatch the builder. Do **not** inspect prior scratch contract files or reconstruct a prior contract in the parent first.
+2. Allocate a new invocation-owned temporary directory and a handoff path that does not yet exist.
+3. Spawn exactly one genuinely fresh, non-mutating builder context and require it to execute `$spec-contract` in `build` mode.
+4. Pass only the inputs allowed by `$spec-contract` **Build-Mode Isolation Gate**. Do not pass an expected/prior contract hash, prior manifest/source-unit inventory, prior handoff/digest, prior receipt contract table, proof-reuse material, or scratch artifact.
+5. Require terminal `SPEC CONTRACT: VALID`, the exact `CONTRACT_HANDOFF_DIGEST`, and the complete Build-Mode Isolation attestation before consuming the handoff.
+6. **Only after the fresh builder returns** may the parent recover or compare a historical/persisted `SPEC_CONTRACT_HASH` for reproducibility/staleness checks. A match proves reproduction; it must never guide construction.
+7. The parent must not replace a failed or inconvenient child build with ad hoc Python, manual manifest reconstruction, reverse-parsing of a receipt, or inspection of old `/tmp` contract artifacts.
+8. If repair changes `HEAD`, or if the certified handoff is lost, dispatch a new fresh builder with a new nonexistent handoff path and follow the existing recertification rules.
+
+A parent that already knows a historical hash from durable lifecycle state does not contaminate the build **provided that value is not passed into or exposed to the fresh builder before its terminal result**.
+
+If a fresh builder primitive is unavailable, the contract build is unresolved and verification fails closed. The same-instance substitute-agent allowance for independent review does not authorize reconstructing a supposedly fresh contract after that same context has already seen prior contract state.
+
+Before any semantic-certifier dispatch require:
+
+```text
+Fresh contract builder dispatched: 1
+Fresh builder terminal result: SPEC CONTRACT: VALID
+Build isolation: PASS
+Prior contract representations supplied or inspected by builder: 0
+Pre-existing scratch contract artifacts inspected by builder: 0
+Handoff path existed before build: no
+Historical hash comparison performed before builder terminal result: no
+Parent-side substitute contract construction: 0
+```
+
 ## Authorized Verification Scope and Repair Attribution
 
 This section is authoritative and supersedes preserved wording that treats Git-derived `Spec-owned/Mixed` labels as semantic ownership, uses repository-wide Ruff/Mypy scope by default, or allows a gate failure to authorize repair merely because the affected file changed on the Spec branch.
@@ -534,6 +568,26 @@ Run other deterministic checks only when their artifact classes apply.
 Inherited-only unrelated failures are report-only only after **Observed Failure Disposition** below proves that causal classification. Surface ownership alone is not causal evidence.
 
 ### Delegated Gate Ownership
+
+#### Child-Owned Execution Requirement
+
+A required delegated gate is **not invoked** merely because the parent reads the child `SKILL.md` and runs commands that resemble its procedure. The owning skill must execute as an actual child/nested skill operation and must return its own current terminal result.
+
+Use either a distinct child context or a native nested-skill mechanism that preserves the complete owner-skill contract. Execute mutation-capable delegated gates sequentially when they share the same worktree. The parent may prepare inputs and consume returned evidence, but it may not substitute its own abbreviated implementation of the child gate.
+
+A direct parent command may provide supporting evidence, but it cannot satisfy the delegated gate unless the owner skill itself explicitly defines that command output as its terminal result and the owner skill invocation returns that result.
+
+Before finalization require:
+
+```text
+Required delegated gates: <n>
+Owner-skill invocations completed: <n>
+Valid owner terminal results captured: <n>
+Parent-substituted delegated gates: 0
+Required delegated gates without owner terminal result: 0
+```
+
+If a required child skill was only read, paraphrased, or manually emulated by the parent, classify that delegated gate `unresolved` and block PASS.
 
 When this workflow requires another skill to decide or execute a gate, that child skill owns the procedure and terminal result. The parent must not search for a same-named script, recreate a subset of the child procedure with shell commands, or substitute its own ad hoc audit and then report the delegated gate as passed.
 

@@ -1,0 +1,37 @@
+name: tmp-harden-spec-receipt-runner
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-harden-spec-receipt-runner.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Execute staged hardening script verbatim
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('.github/workflows/tmp-harden-spec-receipt-v2.yml').read_text()
+          marker = '      - name: Harden Spec receipt boundary\n        run: |\n'
+          if text.count(marker) != 1:
+              raise SystemExit('could not locate staged hardening run block')
+          block = text.split(marker, 1)[1]
+          # The staged workflow has no later step; every line in the run block is
+          # indented by ten spaces. Preserve its shell/heredoc bytes otherwise.
+          lines = block.splitlines()
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          Path('/tmp/harden.sh').write_text(script)
+          PY
+          bash /tmp/harden.sh

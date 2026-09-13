@@ -6,11 +6,39 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  probe:
+  edit:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe hosted runner
-        run: echo "session-reconstitution edit transport available"
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Require fixed-point main before edit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - name: Apply deterministic reconstitution edit
+        run: python .github/tmp-session-reconstitution-housekeeping.py
+      - name: Validate authorized delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only)" = "docs/process/session-reconstitution.md"
+      - name: Commit and push exact edit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Bob Taylor"
+          git config user.email "bobltaylorjr@gmail.com"
+          git add docs/process/session-reconstitution.md
+          git commit -m "docs(process): refine ChatGPT session operations"
+          git fetch origin main
+          test "$(git rev-parse HEAD^)" = "$(git rev-parse origin/main)"
+          git push origin HEAD:main

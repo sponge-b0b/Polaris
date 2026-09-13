@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-13] R2 application use cases | #279 implementation realized
+
+Spec #279 established the first greenfield Application Use Cases implementation under `src/polaris/application/decisions/`, including Decision commands, Decision Memory queries, transaction/idempotency and concurrency contracts, and inward-owned ports. Updated the active entity registry from `pending` to `present` with the coarse application routing anchor. R2-specific entity-page entries remain Planned because their governing architectural documents remain proposed; implementation realization does not promote proposed authority into Strict Invariants.
+
 ## [2026-09-08] Independent R2 relationship remediation | support, admission, version, and temporal graph contract completed
 
 Completed the owner-guided #297 relationship architecture after bounded adversarial closure: recursive same-lineage `QUALIFY`/`DISCONFIRM`, four-state `SUPPORTED | CONTESTED | WITHDRAWN | NOT_EFFECTIVE` interpretation, complete support/basis membership, distinct correction and replacement effective instants, historical endpoint/renewal admission, same-command acyclic correction ancestry, distinct attributable append versus exact replay, support-sensitive both-endpoint `DecisionVersion`, and complete historical/known-future conservative graph admission with transactional protection beyond endpoint versions. Preserved the explicit tradeoff that stronger relationship version protection may increase optimistic-concurrency contention and must be optimized without weakening semantics. Reconciled Planned knowledge for `investment-decisions`, `application-use-cases`, and `durable-persistence`. This is architecture completion for Independent Spec #278 and Ticket #297, not implementation certification.

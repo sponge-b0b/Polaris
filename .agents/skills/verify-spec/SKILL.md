@@ -24,7 +24,8 @@ Consequences for `$verify-spec`:
 * an unchanged Spec with the same source-unit boundaries, classifications, and cell mappings must reproduce the same V2 `SPEC_CONTRACT_HASH` even when explanatory/display wording differs;
 * a differing hash is meaningful only when structural contract identity changed or `$spec-contract` is invalid; do not attribute staleness to display-prose differences;
 * an old V1 contract hash is not comparable to V2 identity and must be rebuilt before semantic certification/finalization;
-* once a fresh V2 handoff is valid, use that exact handoff for the current invocation's certifier dispatch and finalizer; do not merge display rows from an older handoff or receipt into it.
+* once a fresh V2 handoff is valid, use that exact handoff for the current invocation's certifier dispatch and finalizer; do not merge display rows from an older handoff or receipt into it;
+* require the handoff to carry the deterministic V2 `contract_identity` rows and retain the `CONTRACT_HANDOFF_DIGEST` returned by that exact `$spec-contract` build.
 
 Before consuming a rebuilt handoff after interruption require:
 
@@ -36,6 +37,12 @@ Normative source units without manifest mapping: 0
 Cell/source-unit mapping: complete and reconciled
 SPEC_CONTRACT_HASH encoding: V2
 ```
+
+Keep these identities separate:
+
+1. `SPEC_CONTRACT_HASH` — durable cross-run semantic/structural identity, reproduced only from deterministic V2 structural rows plus `SPEC_BODY_HASH`. Human-readable display/evidence prose never participates.
+2. `CONTRACT_HANDOFF_DIGEST` — SHA-256 of the exact ephemeral handoff bytes used in one certification/finalization transaction. It is invocation-local only, is never persisted as contract authority, and must never be compared across independent builds.
+3. `Verification Hash` — checksum of one finalized verification record. Because that record includes human-readable evidence, it may legitimately differ across independent valid verification runs and is not cross-run contract identity.
 
 The parent does not need byte-identical historical `Requirement` prose to continue verification. It does need the same structural acceptance universe.
 
@@ -196,7 +203,7 @@ At the point where older wording below would establish semantic proof itself:
 2. require a clean worktree;
 3. pin exact `BASELINE_COMMIT`, branch, current `HEAD`, Spec body hash, Spec contract hash, current change provenance/scope state, architecture impact, and native gate/test evidence;
 4. rebuild/refresh the `$spec-contract` handoff if prior repair changed HEAD;
-5. treat that exact state as the immutable semantic-certification candidate.
+5. retain that exact handoff together with the `CONTRACT_HANDOFF_DIGEST` returned by the same build and treat the pair as the immutable semantic-certification candidate.
 
 The parent may prepare **evidence pointers** for each manifest cell, but it must not mark the semantic cell proven/not-applicable from its own judgment.
 
@@ -213,7 +220,8 @@ It may only:
 3. pass:
    * Spec issue/body identity;
    * exact baseline/branch/HEAD;
-   * deterministic `$spec-contract` handoff/manifest and hashes;
+   * deterministic `$spec-contract` handoff/manifest, deterministic V2 structural identity rows, and hashes;
+   * the invocation-local `CONTRACT_HANDOFF_DIGEST` for those exact handoff bytes;
    * change-provenance and Verification Scope Manifest state;
    * applicable current architecture authority/context;
    * native deterministic/delegated gate results;
@@ -221,14 +229,14 @@ It may only:
    * observed-failure disposition state;
    * concise evidence pointers collected by the parent;
 4. require that subagent to execute `$verify-spec-closure` as a non-mutating leaf;
-5. receive one complete `SPEC CLOSURE: PASS | FAIL` or one explicit invalid/incomplete certification result;
+5. receive one complete `SPEC CLOSURE: PASS | FAIL` or one explicit invalid/incomplete certification result and require every consumable verdict to echo the exact same `CONTRACT_HANDOFF_DIGEST`;
 6. re-read exact HEAD/worktree and mutable contract-critical state needed to establish the verifier did not mutate the candidate;
 7. mechanically validate the returned saturation witness below before consuming PASS or FAIL;
 8. consume a complete verdict without semantic override.
 
 While dispatcher-only, the parent must not perform a parallel semantic proof, search for evidence to overturn the verifier, mutate the candidate, repair findings, or dispatch shadow certifiers/reviewers.
 
-A verifier-integrity failure or incomplete saturation witness invalidates the attempt and must be resolved before certification can continue.
+A verifier-integrity failure, handoff-digest mismatch, or incomplete saturation witness invalidates the attempt and must be resolved before certification can continue.
 
 ## Certifier Proof Contract
 
@@ -305,6 +313,7 @@ If a finding requires a new durable architecture decision, use the architecture-
 Accept `SPEC CLOSURE: PASS` only when:
 
 * Spec/baseline/branch/HEAD/body hash/contract hash match dispatch exactly;
+* returned `CONTRACT_HANDOFF_DIGEST` matches the exact digest supplied at dispatch;
 * candidate and required mutable authority did not change unexpectedly during certification;
 * certifier was genuinely fresh, non-mutating, and non-delegating;
 * the Certifier Saturation Witness is present, internally reconciled, and complete;
@@ -325,7 +334,7 @@ The parent may mechanically group cells only when the certifier returned the sam
 
 `GATES_INPUT` remains parent-owned and follows the procedure below.
 
-Then execute the unchanged finalization and receipt persistence mechanics.
+Finalization must consume the same exact `CONTRACT_HANDOFF` bytes and `CONTRACT_HANDOFF_DIGEST` that the certifier saw. Do not rerun `$spec-contract` merely to finalize after PASS. If the handoff/digest pair is lost or changed, rebuild through `$spec-contract` and obtain fresh semantic certification before finalization.
 
 The receipt should identify the semantic certification owner/result concisely, for example in a gate/evidence line:
 
@@ -340,6 +349,8 @@ Do not serialize private reasoning transcripts.
 Any repair that changes repository HEAD invalidates prior semantic certification.
 
 A mutable architecture/tracker authority change that affects a certified cell also invalidates that cell/certification.
+
+Any candidate mutation that invalidates semantic certification also invalidates the current contract handoff/digest pair. Rebuild through `$spec-contract` and recertify; do not carry an old digest onto new bytes.
 
 Reuse is legal only when a prior independent certifier established an explicit invalidation boundary and deterministic fail-closed delta analysis proves the exact proof remains valid. Otherwise recertify.
 
@@ -383,10 +394,12 @@ It owns only:
 
 - paginated Spec-comment normalization, canonical Workspace Metadata parsing, and latest-receipt extraction;
 - contract/proof/gate final-state assembly from the exact `$spec-contract` handoff;
+- exact handoff-byte digest validation for finalization;
+- independent reproduction of V2 `SPEC_CONTRACT_HASH` from deterministic structural identity rows;
 - compact finalization validation;
 - complete manifest-to-proof coverage validation;
-- one canonical Verification Hash;
-- compact receipt rendering.
+- one canonical per-receipt Verification Hash;
+- compact human-readable receipt rendering and producer→`$review-spec` manifest round-trip validation.
 
 Do not recreate those mechanics with ad hoc Python, custom parsers, multi-stage `jq`, or a model-authored final-state wrapper. If the utility cannot represent a required invariant, fix it rather than bypassing it.
 
@@ -444,12 +457,16 @@ A tracker-only Spec may have an empty diff only when durable evidence proves no 
 Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, current `HEAD`, and `handoff-output = CONTRACT_HANDOFF`. Require `SPEC CONTRACT: VALID`, a non-empty `CONTRACT_HANDOFF`, and retain exactly the returned:
 
 - `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
+- `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes from this build;
+- deterministic V2 `contract_identity` rows embedded in `CONTRACT_HANDOFF`;
 - ordered manifest;
 - source counts/integrity counts;
 - ownership classifications;
 - immutable default branch/head.
 
-`$spec-contract` owns serialization of the finalizer-facing contract handoff while the canonical manifest is already in context. Do not independently recreate, pretty-print, copy, or re-key the manifest/source-count payload later in this workflow.
+`$spec-contract` owns serialization of the finalizer-facing contract handoff while the canonical manifest is already in context. Do not independently recreate, pretty-print, copy, or re-key the manifest/source-count/identity payload later in this workflow.
+
+Retain the exact `CONTRACT_HANDOFF` file and `CONTRACT_HANDOFF_DIGEST` as one pair. If either is lost, rebuild through `$spec-contract`; do not reconstruct them from a prior receipt, independent Spec parsing, or conversational state.
 
 Do not independently refresh or reinterpret default-branch ownership.
 
@@ -633,8 +650,8 @@ If verification changes the repository, verify branch, stage only verification-o
 
 At stable candidate `HEAD`, after valid `SPEC CLOSURE: PASS`:
 
-1. rerun `$spec-contract` in `build` mode with the same `handoff-output = CONTRACT_HANDOFF`, replacing the handoff only after the refreshed contract is valid;
-2. require valid body/contract and reconciled ownership;
+1. retain the **same exact** `CONTRACT_HANDOFF` and `CONTRACT_HANDOFF_DIGEST` supplied to and echoed by the certifier; do not rerun `$spec-contract` merely for finalization. If the pair is lost or changed, rebuild through `$spec-contract` and obtain fresh semantic certification before finalization;
+2. require valid body/contract and reconciled ownership from that certified handoff;
 3. require every applicable gate PASS or NOT APPLICABLE;
 4. require Delegated Gate Ownership closure complete;
 5. require Observed Failure Disposition closure complete;
@@ -667,6 +684,7 @@ RECEIPT_FILE=$(mktemp)
 
 python "$ARTIFACT_TOOL" finalize-parts \
   --contract-input "$CONTRACT_HANDOFF" \
+  --contract-digest "$CONTRACT_HANDOFF_DIGEST" \
   --proofs-input "$PROOFS_INPUT" \
   --gates-input "$GATES_INPUT" \
   --mode <full|checkpoint> \
@@ -676,11 +694,17 @@ python "$ARTIFACT_TOOL" finalize-parts \
   [--inherited-finding <finding>]...
 ```
 
-`finalize-parts` assembles the already-owned contract/proof/gate pieces, validates bindings/coverage/gates through the same canonical finalizer, rejects unresolved cells, computes one Verification Hash, and renders the receipt. There is no model-authored wrapper, separate packet admission, final-state validation, receipt rendering, or pre-persistence receipt-validation phase.
+`finalize-parts` first requires the exact contract-input bytes to match the certifier-bound `CONTRACT_HANDOFF_DIGEST`, independently recomputes V2 `SPEC_CONTRACT_HASH` from deterministic `contract_identity` rows, then assembles the already-owned proof/gate pieces, validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, renders the human-readable receipt, and requires the rendered manifest to round-trip exactly through the current `$review-spec` parser before writing the receipt file. There is no model-authored wrapper, reconstructed manifest, separate packet admission, or second receipt renderer.
+
+Direct `finalize` is not a valid lifecycle path.
 
 ## 9. Persist the Compact Receipt
 
-The receipt is a checkpoint/binding record, not a transcript of semantic reasoning. It retains the manifest/source counts needed by `$review-spec`, compact derived coverage, gate outcomes, repairs, inherited findings, and one Verification Hash. It omits proof prose, proof hashes, duplicate coverage structures, and commands already visible in the transcript.
+The receipt is a checkpoint/binding record, not a transcript of semantic reasoning. It remains deliberately human-readable. It retains the manifest/source counts needed by `$review-spec`, compact derived coverage, gate outcomes, repairs, inherited findings, and one per-receipt Verification Hash. It omits proof prose, proof hashes, duplicate coverage structures, and commands already visible in the transcript.
+
+`Verification Hash` is a checksum of this one finalized verification record and may differ across independent valid runs because human-readable evidence may differ. It is not cross-run contract identity and must never be compared as though it were `SPEC_CONTRACT_HASH`.
+
+The receipt renderer owns Markdown-safe display encoding. Callers must never pre-escape receipt fields or reconstruct manifest display rows from a previous receipt.
 
 Immediately before persistence, invoke `$project-delivery-management` `guard <Wayfinder>` again for the already-resolved governing Wayfinders. This is revalidation, not a second delivery-analysis phase: do not explicitly invoke another `reconcile`, rediscover lineage, inspect Project schema, or repeat broader frontier analysis before the guard unless repository/tracker mutation since the prior guard invalidated those inputs. The guard remains authoritative for its own canonical reads and any reconciliation it requires.
 

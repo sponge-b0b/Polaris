@@ -168,15 +168,27 @@ Write exactly one compact JSON object with these keys and no others:
   },
   "manifest": [
     {"cell": "US-1", "source": "<exact source>", "requirement": "<exact requirement>"}
-  ]
+  ],
+  "contract_identity": {
+    "source_units": [
+      ["SU-0001", "<text sha256>", "normative-new", ["US-1"]]
+    ],
+    "manifest": [
+      ["US-1", ["SU-0001"]]
+    ]
+  }
 }
 ```
 
-The example values are illustrative; write the actual current contract. `manifest` rows are the exact `cell` / `source` / `requirement` projection of the same canonical manifest returned by this invocation. Do not rephrase, reorder, summarize, or re-derive them for the handoff. `source_counts` uses the five canonical lowercase keys shown above.
+The example values are illustrative; write the actual current contract. `manifest` rows are the exact `cell` / `source` / `requirement` projection of the same canonical manifest returned by this invocation. Do not rephrase, reorder, summarize, or re-derive them for the handoff. `source_counts` uses the five canonical lowercase keys shown above. `contract_identity.source_units` and `contract_identity.manifest` are the exact deterministic V2 identity rows already used to compute `SPEC_CONTRACT_HASH`; they contain no model-authored display prose.
 
 Serialize compactly without pretty-printing. Write to a sibling temporary path first and atomically replace `handoff-output` only after every contract and ownership gate has passed. If handoff persistence fails, return `SPEC CONTRACT: INVALID` rather than leaving an older handoff at a path the caller may trust.
 
+After the atomic replace, compute SHA-256 over the exact `handoff-output` bytes and return it as `CONTRACT_HANDOFF_DIGEST`. This digest is **invocation-local transport binding only**. It is not `SPEC_CONTRACT_HASH`, is not durable contract identity, is not persisted to the tracker, and must never be compared across independent builds. Human-readable `Source`/`Requirement` display text may legitimately differ between structurally equivalent builds; therefore a later build may legitimately produce a different `CONTRACT_HANDOFF_DIGEST` while reproducing the same V2 `SPEC_CONTRACT_HASH`.
+
 The handoff is ephemeral execution state. Do not commit it, post it to GitHub, include it in the human-readable return, or create a second handoff representation. When `build` is rerun at a new candidate `HEAD`, overwrite the same caller-supplied path with the newly validated contract state.
+
+The caller must retain the exact handoff file and its returned digest as one pair. If either is lost, rebuild through `$spec-contract`; do not reconstruct either value from a prior receipt, independent Spec-body parsing, conversational state, or another representation.
 
 ## 1. Pin the Spec Source
 
@@ -536,6 +548,8 @@ Source Unit Inventory:
 Spec Contract Manifest:
 <ordered complete manifest rows>
 ```
+
+When `build` mode received `handoff-output`, also return `Contract handoff digest: <sha256>` immediately after `Spec Contract Hash`. That digest binds only the exact handoff bytes from this invocation and is not cross-run contract identity.
 
 Do not return `SPEC CONTRACT: VALID` when any source-universe, manifest-integrity, or ownership-boundary requirement is unresolved.
 

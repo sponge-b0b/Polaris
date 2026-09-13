@@ -67,6 +67,8 @@ For canonical skill, process, governance, architecture, policy, or comparable au
 
 Attention must surface such a proposal when material, but Attention remains report-only. The owning mandate or explicit owner approval determines whether the structural change may proceed.
 
+Mandate discipline must not be interpreted as suppressing initiative: agents are expected to exercise and surface broad engineering judgment; the boundary constrains unauthorized action, not analysis, challenge, or recommendation.
+
 Transition owners should enforce this boundary before mutation and reconcile the resulting repository delta against the authorized delta before persistence.
 
 ### 4. Implementation executes frozen design

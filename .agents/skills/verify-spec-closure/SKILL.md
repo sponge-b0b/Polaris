@@ -63,12 +63,14 @@ Execute only in one genuinely fresh non-mutating verifier subagent dispatched by
 The verifier:
 
 * did not implement or repair the candidate;
-* receives the immutable Spec contract handoff, exact baseline/branch/HEAD, ownership, and already-executed gate/test evidence;
+* receives the immutable Spec contract handoff, its invocation-local `CONTRACT_HANDOFF_DIGEST`, exact baseline/branch/HEAD, ownership, and already-executed gate/test evidence;
 * independently proves semantic cells rather than accepting parent proof conclusions;
 * may read/search/inspect and run narrowly necessary non-mutating checks;
 * must not edit repository/tracker/Git state, invoke remediation, or delegate.
 
 Candidate mutation or verifier mutation invalidates the run. Do not emit PASS/FAIL from an invalid run.
+
+`CONTRACT_HANDOFF_DIGEST` is SHA-256 of the exact ephemeral handoff bytes supplied by `$verify-spec` for this certification transaction. It is transport binding only: it is not semantic identity, is not persisted as contract authority, and must never be compared across independent `$spec-contract` builds.
 
 ## 1. Recover and Bind the Spec Contract
 
@@ -78,7 +80,8 @@ Require exact:
 * fixed baseline;
 * `spec-<n>` branch;
 * stable candidate HEAD;
-* deterministic `$spec-contract` manifest and contract hash;
+* deterministic `$spec-contract` manifest, deterministic V2 structural identity rows, and contract hash;
+* invocation-local `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes supplied by the parent;
 * Spec-owned/Mixed/inherited ownership classifications;
 * current architecture impact/authority needed by manifest cells;
 * executed deterministic/delegated gate evidence and acceptance-test evidence supplied by `$verify-spec`.
@@ -257,6 +260,8 @@ Any `violated`, `unproven`, `unchecked`, incomplete domain construction, incompl
 
 Return one semantic verdict only after Section 4 saturation is complete.
 
+Every consumable verdict must echo the exact `CONTRACT_HANDOFF_DIGEST` received from `$verify-spec`. A missing or changed digest makes the result invalid/incomplete rather than PASS or FAIL.
+
 ### PASS
 
 ```text
@@ -267,6 +272,7 @@ Branch: spec-<n>
 HEAD: <sha>
 Spec body hash: <hash>
 Spec contract hash: <hash>
+Contract handoff digest: <sha256>
 Manifest: <n>; proven <n>; not-applicable <n>; violated 0; unproven 0; unchecked 0
 Nested domains: <n>; closed <n>; open 0
 Domain construction: <n>/<n> complete; remaining authoritative members 0
@@ -286,6 +292,7 @@ Branch: spec-<n>
 HEAD: <sha>
 Spec body hash: <hash>
 Spec contract hash: <hash>
+Contract handoff digest: <sha256>
 Manifest: <n>; proven <n>; not-applicable <n>; violated <n>; unproven <n>; unchecked 0
 Nested domains: <n>; closed <n>; open <n>
 Domain construction: <n>/<n> complete; remaining authoritative members 0
@@ -302,7 +309,9 @@ Return the verdict to `$verify-spec`. Do not repair or persist a Spec Verificati
 
 ## 6. Binding and Reuse
 
-Certification applies only to the exact baseline, Spec body/contract hashes, branch, HEAD, and authoritative mutable inputs certified.
+Certification applies only to the exact baseline, Spec body/contract hashes, branch, HEAD, authoritative mutable inputs, and exact contract handoff bytes certified. Echo `CONTRACT_HANDOFF_DIGEST` unchanged in the verdict so the parent can bind finalization to those same bytes.
+
+The digest is invocation-local transport binding only. It does not replace `SPEC_CONTRACT_HASH`, does not become durable contract identity, and must never be compared across independent `$spec-contract` builds.
 
 Any repository repair changes HEAD and makes prior semantic certification stale. Mutable architecture/tracker authority changes may also invalidate affected cells.
 

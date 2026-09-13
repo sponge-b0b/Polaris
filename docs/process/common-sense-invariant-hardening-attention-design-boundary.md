@@ -51,7 +51,25 @@ mutation only after applicable authority permits it
 
 A concern blocks only when an existing governing rule makes it blocking.
 
-### 3. Implementation executes frozen design
+### 3. Mandate does not expand through engineering judgment
+
+Engineering judgment governs the implementation of authorized work; it does not enlarge the authorization itself.
+
+A correctness principle, architecture principle, earliest-owner rule, inside-out/bottom-up repair rule, maintainability concern, or apparently better design must not be used to convert an optional adjacent change into an implicitly authorized mutation.
+
+Use this necessity test:
+
+> **Can the explicit requirement be satisfied correctly without the additional structural or design change?**
+
+If yes, that additional change requires separate owner authorization before mutation.
+
+For canonical skill, process, governance, architecture, policy, or comparable authority artifacts, creating, deleting, renaming, moving, splitting, merging, wrapping, introducing a delegation/abstraction layer, or relocating authority is a material structural decision rather than an incidental implementation mechanic.
+
+Attention must surface such a proposal when material, but Attention remains report-only. The owning mandate or explicit owner approval determines whether the structural change may proceed.
+
+Transition owners should enforce this boundary before mutation and reconcile the resulting repository delta against the authorized delta before persistence.
+
+### 4. Implementation executes frozen design
 
 `$implement-ticket` is not a design phase.
 
@@ -61,17 +79,17 @@ Such a choice is an upstream design gap and fails closed before implementation s
 
 Private semantically equivalent mechanics remain implementation-owned.
 
-### 4. Readiness is stronger than coverage
+### 5. Readiness is stronger than coverage
 
 Spec/ticket obligation coverage is necessary but insufficient.
 
 Before implementation handoff, upstream authority must establish every material contract on which implementation or downstream consumers will rely, including identity/generation semantics, public type meaning, cardinality, lifecycle/temporal behavior, authority/provenance meaning, persistence-visible identity/reference contracts, and externally observable failure semantics where applicable.
 
-### 5. Independent verification checks ownership of design
+### 6. Independent verification checks ownership of design
 
 A ticket candidate may not pass semantic closure merely because tests and written acceptance criteria pass if implementation introduced a material public/domain contract that current authority never established.
 
-### 6. Naming participates in domain correctness
+### 7. Naming participates in domain correctness
 
 Exported domain/public names must carry enough bounded-context meaning to remain understandable at their import/use site. Generic names such as `Fact`, `Record`, `Data`, `Metadata`, `State`, or `Manager` require qualification when the owning concept is necessary to understand the type.
 

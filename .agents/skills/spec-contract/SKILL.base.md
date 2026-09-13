@@ -1,0 +1,546 @@
+---
+name: spec-contract
+description: Build or validate the deterministic Spec obligation manifest and classify repository change provenance without inferring semantic lifecycle ownership from Git history.
+compatibility: product=codex product=claude-code system=git system=python system=gh network=required
+disable-model-invocation: true
+---
+
+# Spec Contract
+
+`$spec-contract` is an internal, non-lifecycle helper for `$verify-spec` and `$review-spec`.
+
+It owns two shared facts that must not be independently reinvented by those callers:
+
+1. the complete **Spec Contract Manifest** of normative obligations;
+2. the complete **Spec Change Provenance** universe separating branch-local, mixed-provenance, inherited-only, and unchanged/named repository surfaces.
+
+It does not verify implementation, review implementation, create findings, mutate tracker state, edit repository files, commit, push, decide remediation, or decide semantic lifecycle ownership from Git position. A caller-supplied temporary contract-handoff file is permitted working state, not a repository artifact.
+
+## Change Provenance Is Not Semantic Ownership
+
+This section is authoritative and supersedes every preserved section below that equates branch-local Git history with `Spec-owned` or `Mixed` semantic ownership.
+
+The deterministic provenance helper and this skill may establish only where a repository change sits relative to the fixed Spec baseline, current `HEAD`, and immutable default-branch head. They must not infer that a change is owned by the current Spec merely because it is reachable only from the Spec branch.
+
+Canonical repository provenance states are:
+
+* **branch-local** — changed on the current branch relative to the immutable default-branch head and not also changed by inherited default-branch integration;
+* **mixed-provenance** — the same surface changed in both inherited default-branch history and current branch-local history;
+* **inherited-only** — present in fixed-baseline → `HEAD` integration history but absent from the current branch-local delta;
+* **unchanged/named** — unchanged by the branch but explicitly named by a Spec obligation or governing authority and therefore potentially relevant to proof.
+
+The complete branch/integration surface universe must be materialized before callers reason about scope. Every provenance candidate must appear in exactly one mechanical provenance state; missing/ambiguous provenance fails closed.
+
+Use `.agents/skills/spec-contract/scripts/classify_ownership.py` only as a **change-provenance** helper. Its canonical output fields are:
+
+```text
+branch_local_commits
+integration_surfaces
+branch_local_surfaces
+mixed_provenance_surfaces
+inherited_only_surfaces
+```
+
+The helper intentionally emits no `spec_owned_*` field.
+
+Semantic attribution is a separate transition-bound judgment owned by the lifecycle transition that needs it. A caller may classify a surface as in-scope for the current Spec only from durable contract/architecture/tracker authority, not from its path, commit author, branch locality, directory class, or timing alone. A path is never globally in-scope or out-of-scope by category.
+
+For later preserved wording in this file:
+
+* read `Spec Change Ownership` as `Spec Change Provenance`;
+* read Git-derived `Spec-owned` as `branch-local`;
+* read Git-derived `Mixed` as `mixed-provenance`;
+* read `Spec-owned commits` as `branch-local commits`;
+* `SPEC OWNERSHIP: AMBIGUOUS` becomes `SPEC CHANGE PROVENANCE: AMBIGUOUS` when the unresolved fact is mechanical provenance.
+
+These substitutions do **not** grant semantic Spec ownership. `$verify-spec` and `$review-spec` must perform their own explicit scope attribution before a repository-standard failure, repair, or Standards finding can be assigned to the Spec.
+
+Tracker attribution remains mechanically tied to formal lifecycle identity: the Spec itself, direct artifacts created by its lifecycle, and their native hierarchy/receipt state may be treated as current-Spec tracker state. Unrelated global Project/repository policy state is never acquired merely because it changed while the Spec branch was active.
+
+## Session Independence
+
+Assume no prior conversational or agent-session state.
+
+Recover all inputs from the explicit invocation, repository, and durable tracker state. Do not use remembered requirement counts, prior reviewer conclusions, or Root Blocker history to construct the contract.
+
+## Reproducible Contract Identity
+
+This section is authoritative and supersedes later preserved wording that includes model-authored display prose in `SPEC_CONTRACT_HASH` or requires byte-identical explanatory manifest wording across independent builds.
+
+A valid contract must be reproducible from the unchanged originating Spec and the same semantic source-unit classification/mapping after all ephemeral handoff files have been lost. Contract identity therefore contains only deterministic source-derived identity plus semantic classification/mapping state; explanatory prose is never identity.
+
+For contract identity, canonicalize every Source Unit Inventory row as exactly:
+
+```text
+[Source Unit, Text Hash, Classification, Manifest cells]
+```
+
+Do **not** include the Source Unit display `Source` or `Reason` fields in contract identity. `Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array in the stable cell-ID order defined later in this file.
+
+Canonicalize every manifest cell as exactly:
+
+```text
+[Cell, Source unit IDs]
+```
+
+`Source unit IDs` is the complete array of originating `SU-*` identifiers for that cell in Source Unit Inventory order. Every manifest cell must bind at least one source unit. The reverse mapping must reconcile exactly with every inventory row's `Manifest cells`; disagreement, omission, duplication, or ambiguous membership makes the contract invalid.
+
+`Source` and `Requirement` remain mandatory human-readable manifest fields and must faithfully identify/preserve the originating Spec obligation. They are display/evidence text only. `Named surfaces` remains scope-discovery metadata only. None of these three fields participates in contract identity, and semantically equivalent explanatory wording in them must not make an unchanged contract stale.
+
+Serialize each identity row independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Construct exactly:
+
+```python
+payload = (
+    "SPEC-CONTRACT-V2\n"
+    + SPEC_BODY_HASH
+    + "\n--SOURCE-UNITS--\n"
+    + "\n".join(inventory_identity_json_rows)
+    + "\n--MANIFEST--\n"
+    + "\n".join(manifest_identity_json_rows)
+    + "\n"
+)
+```
+
+Encode that Unicode payload as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
+
+The `SPEC_BODY_HASH` is deliberately included even though source-unit text hashes are also present: it binds the complete original Spec bytes, including structural/non-normative material, while source-unit identity binds classification and obligation mapping.
+
+Fresh builds over an unchanged Spec must obey this falsifier set:
+
+```text
+same Spec + same source-unit boundaries/classifications/cell mappings + different Source/Requirement/Reason wording
+    -> SAME SPEC_CONTRACT_HASH
+
+same Spec + changed source-unit classification
+    -> DIFFERENT SPEC_CONTRACT_HASH
+
+same Spec + changed source-unit-to-cell mapping
+    -> DIFFERENT SPEC_CONTRACT_HASH
+
+changed Spec body
+    -> DIFFERENT SPEC_CONTRACT_HASH
+```
+
+If the first case produces a different hash, return `SPEC CONTRACT: INVALID`; the workflow has reintroduced session-dependent identity.
+
+In `validate` mode, rebuild the current structural identity under this section and compare its V2 hash with the persisted receipt. Persisted `Source`/`Requirement` display text remains usable evidence but is not replayed into the hash. Do not force current explanatory wording to match an older receipt merely to reproduce identity.
+
+The build handoff remains ephemeral. Losing it is not a contract-state loss: a later invocation must be able to rebuild an equivalent handoff and the same `SPEC_CONTRACT_HASH` from the durable Spec whenever structural contract identity is unchanged.
+
+## Invocation
+
+The parent supplies:
+
+* originating Spec issue/URL;
+* fixed `BASELINE_COMMIT`;
+* current Spec branch;
+* current `HEAD`;
+* mode: `build` or `validate`;
+* in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**;
+* optionally in `build` mode, a caller-owned temporary `handoff-output` path for the finalizer-facing contract handoff.
+
+The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
+
+Default-branch ownership resolution is an ordered gate owned by this helper. Callers must not preflight, probe, fetch, or independently compare the GitHub-pinned default head before this helper completes Section 1 and returns `DEFAULT_REF`. If ownership must be refreshed because the default branch advanced, invoke `$spec-contract` again rather than reproducing its pin/fetch logic in the caller.
+
+### Build Handoff
+
+When `build` mode receives `handoff-output`, write the finalizer-facing contract state directly while the canonical manifest is already in working context. The caller must not reconstruct this state later.
+
+Write exactly one compact JSON object with these keys and no others:
+
+```json
+{
+  "spec_issue": 68,
+  "head": "<40-char HEAD>",
+  "baseline": "<40-char baseline>",
+  "branch": "spec-68",
+  "spec_body_hash": "<sha256>",
+  "spec_contract_hash": "<sha256>",
+  "default_branch": "main",
+  "default_head": "<40-char default HEAD>",
+  "source_counts": {
+    "user_stories": 0,
+    "implementation_decisions": 0,
+    "testing_decisions": 0,
+    "out_of_scope": 0,
+    "other_normative": 0
+  },
+  "manifest": [
+    {"cell": "US-1", "source": "<exact source>", "requirement": "<exact requirement>"}
+  ]
+}
+```
+
+The example values are illustrative; write the actual current contract. `manifest` rows are the exact `cell` / `source` / `requirement` projection of the same canonical manifest returned by this invocation. Do not rephrase, reorder, summarize, or re-derive them for the handoff. `source_counts` uses the five canonical lowercase keys shown above.
+
+Serialize compactly without pretty-printing. Write to a sibling temporary path first and atomically replace `handoff-output` only after every contract and ownership gate has passed. If handoff persistence fails, return `SPEC CONTRACT: INVALID` rather than leaving an older handoff at a path the caller may trust.
+
+The handoff is ephemeral execution state. Do not commit it, post it to GitHub, include it in the human-readable return, or create a second handoff representation. When `build` is rerun at a new candidate `HEAD`, overwrite the same caller-supplied path with the newly validated contract state.
+
+## 1. Pin the Spec Source
+
+Read the current Spec body from GitHub and capture:
+
+```bash
+SPEC_BODY_HASH=$(
+  gh issue view <spec_issue_number> --json body --jq .body \
+    | sha256sum | awk '{print $1}'
+)
+```
+
+Resolve the repository default branch and the exact GitHub head used for ownership. Execute this block as one ordered unit. The silenced `git cat-file -e` inside the block is the only permitted pre-fetch local object probe. If the pinned object is absent, fetch immediately through the canonical HTTPS path before running any `git diff`, `git rev-list`, unsilenced object probe, or other ownership command against that SHA.
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+
+DEFAULT_BRANCH=$(gh api "repos/$REPO" --jq .default_branch)
+DEFAULT_HEAD=$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq .sha)
+
+if [ -z "$DEFAULT_BRANCH" ] || [ -z "$DEFAULT_HEAD" ]; then
+  echo "SPEC OWNERSHIP: AMBIGUOUS"
+  echo "Reason: repository default branch or head could not be resolved from GitHub"
+  exit 1
+fi
+
+if ! git cat-file -e "${DEFAULT_HEAD}^{commit}" 2>/dev/null; then
+  git fetch --quiet "https://github.com/${REPO}.git" "refs/heads/${DEFAULT_BRANCH}"
+  FETCHED_HEAD=$(git rev-parse FETCH_HEAD)
+
+  if [ "$FETCHED_HEAD" != "$DEFAULT_HEAD" ]; then
+    echo "SPEC OWNERSHIP: AMBIGUOUS"
+    echo "Reason: default branch advanced while ownership head was being pinned"
+    exit 1
+  fi
+fi
+
+git cat-file -e "${DEFAULT_HEAD}^{commit}"
+DEFAULT_REF="$DEFAULT_HEAD"
+```
+
+Do not fall back from this procedure to SSH, a configured remote URL, a stale `origin/<branch>` ref, or another transport. If the canonical HTTPS fetch fails or the fetched head differs from the GitHub-pinned SHA, return ambiguous rather than improvising another refresh path.
+
+Only after `DEFAULT_REF` is set may Section 3 run ownership comparison commands. Do not resolve, fetch, or probe the default branch again later in the same helper invocation.
+
+Require the supplied branch, `BASELINE_COMMIT`, and `HEAD` to resolve.
+
+If the Spec body is missing, malformed, or cannot be read completely, return:
+
+```text
+SPEC CONTRACT: INVALID
+Reason: <missing/unreadable source>
+```
+
+## 2. Build the Spec Contract Manifest
+
+Construct the contract only from the current originating Spec.
+
+Completeness has two distinct gates:
+
+```text
+complete Spec source-unit universe
+        ↓
+complete normative obligation mapping
+```
+
+Do not treat `Unmapped source items: 0` as proof that every normative source item was discovered. A source item that never entered the candidate universe is still an omission.
+
+### 2.1 Build the Source Unit Inventory
+
+Before creating manifest cells, partition the complete Spec body into a deterministic ordered **Source Unit Inventory**.
+
+Headings establish section identity but are not source units. Blank lines, Markdown separators, syntactic table-separator rows, and recognized workflow/provenance-only HTML markers are structural metadata and are not source units.
+
+Every other content-bearing Markdown block is a source unit, including:
+
+* each paragraph;
+* each numbered or bulleted list item, including nested items;
+* each table data row;
+* each blockquote block;
+* each fenced code block;
+* each non-provenance HTML block.
+
+Do not pre-filter source units by words such as `must`, `should`, `only`, or `cannot`. Keyword discovery may help classification but must never define the universe.
+
+Assign stable document-order IDs:
+
+```text
+SU-0001
+SU-0002
+...
+```
+
+For every source unit record:
+
+```text
+Source Unit: SU-<n>
+Source: <section + deterministic item/bullet/paragraph/table/code identity>
+Text Hash: <sha256 of normalized source-unit text>
+Classification: normative-new | normative-represented | non-normative
+Manifest cells: <cell IDs | None>
+Reason: <None | concise classification/mapping reason>
+```
+
+Use structured item numbers where the Spec supplies them. Otherwise identify the unit by its section and stable document-order unit position; do not invent a semantic label whose wording may vary between runs.
+
+Normalize source-unit text only for hashing by normalizing line endings and removing trailing line-ending whitespace. Do not rewrite semantic text before hashing.
+
+Classifications mean:
+
+* **normative-new** — the unit establishes one or more contract obligations and must map to newly created manifest cell(s);
+* **normative-represented** — the unit contains normative meaning already fully represented by identified manifest cell(s); it must name those cells and explain the equivalence/reference rather than silently disappearing;
+* **non-normative** — the unit is contextual, explanatory, descriptive, illustrative, historical, or otherwise does not establish a Spec acceptance/exclusion obligation; it requires a concise reason.
+
+A unit containing several materially independent obligations may map to several manifest cells. A unit containing both normative and explanatory text is normative; do not classify the whole unit non-normative merely because part of it is context.
+
+A unit cannot be omitted because it appears duplicative, obvious, inherited from a template, already discussed elsewhere, or unlikely to affect implementation. Those are dispositions, not absence from the inventory.
+
+Before manifest construction may complete require:
+
+```text
+Source units: <n>
+Classified source units: <n>
+Unclassified source units: 0
+Normative source units without manifest mapping: 0
+Non-normative source units without reason: 0
+```
+
+If any source unit cannot be classified confidently, the contract is invalid. Do not guess merely to reach zero.
+
+### 2.2 Create Manifest Cells
+
+Use stable source-derived IDs:
+
+* numbered User Stories → `US-<number>`;
+* Implementation Decision bullets → `ID-<number>`;
+* Testing Decision bullets → `TD-<number>`;
+* Out of Scope bullets → `OOS-<number>`;
+* materially unique normative requirements elsewhere → `NORM-<number>`.
+
+If one source item contains materially independent obligations that must be proven separately, use stable suffixes such as `US-22.a`, `US-22.b`. The parent source item remains mapped and counts once in source-item integrity.
+
+Do not create a `NORM-*` cell when the same normative obligation is already represented by a User Story, Implementation Decision, Testing Decision, or Out of Scope cell. Classify the corresponding source unit as `normative-represented` and name the existing cell(s).
+
+A manifest row contains:
+
+```text
+Cell: <stable ID>
+Source: <exact section + item number/bullet identity>
+Requirement: <concise normative obligation preserving MUST / MUST NOT / ONLY / CANNOT / fail-closed semantics>
+Named surfaces: <explicitly named boundary/path/entity when present, otherwise None>
+```
+
+### Required Source Coverage
+
+Enumerate and count independently:
+
+* numbered User Stories;
+* Implementation Decision bullets;
+* Testing Decision bullets;
+* Out of Scope bullets;
+* other materially unique normative source units classified from the complete Source Unit Inventory.
+
+Every normative source unit must map to at least one manifest cell, either as `normative-new` or `normative-represented`.
+
+Do not collapse distinct positive and negative obligations merely because they concern the same subsystem.
+
+### Manifest Integrity Gate
+
+Before returning a manifest require:
+
+```text
+Unclassified source units: 0
+Normative source units without manifest mapping: 0
+Non-normative source units without reason: 0
+Unmapped source items: 0
+Duplicate source mappings: 0
+Ambiguous source items: 0
+```
+
+Also require:
+
+* the number of distinct `US-*` source mappings exactly equals the number of numbered User Stories;
+* the number of distinct `ID-*` source mappings exactly equals the number of Implementation Decision bullets;
+* the number of distinct `TD-*` source mappings exactly equals the number of Testing Decision bullets;
+* the number of distinct `OOS-*` source mappings exactly equals the number of Out of Scope bullets;
+* every `normative-new` source unit names every manifest cell created from it;
+* every `normative-represented` source unit names at least one existing manifest cell and explains why that mapping is complete;
+* every `non-normative` source unit has a concise reason;
+* every additional `NORM-*` cell cites exact source text/section identity;
+* every manifest cell is traceable to the originating Spec and no manifest cell is inferred from ADRs, current architecture docs, repository standards, Root Blocker history, or implementation accidents.
+
+A contract with unresolved source-unit classification, counting, missing source items, missing mappings, or ambiguous mapping is invalid. Do not return a partial inventory or manifest as complete.
+
+### Deterministic Contract Hash Encoding
+
+The human-readable inventory and manifest row forms above are display forms. They are not the byte serialization used for `SPEC_CONTRACT_HASH`.
+
+For hashing, represent each Source Unit Inventory row as this five-element array, preserving the exact already-classified values:
+
+```text
+[Source Unit, Source, Text Hash, Classification, Manifest cells]
+```
+
+`Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array of cell IDs sorted in stable cell-ID order.
+
+Represent each persisted Spec Contract Manifest row as this three-element array:
+
+```text
+[Cell, Source, Requirement]
+```
+
+This is intentionally the exact `cell` / `source` / `requirement` projection persisted in the build handoff and Spec Verification Receipt. `Named surfaces` remains working scope-discovery metadata and is not part of `SPEC_CONTRACT_HASH`; do not make hash validation depend on state the receipt does not persist.
+
+Stable cell-ID order is defined by the tuple `(family_rank, number, suffix)`, where `family_rank` is exactly `US=0`, `ID=1`, `TD=2`, `OOS=3`, `NORM=4`; `number` is the base-10 integer after the family prefix; and `suffix` is the text after the first dot, with the unsuffixed parent sorting before any suffixed child and suffixed children ordered lexicographically by Unicode code point. A cell ID outside these five families or not matching `<family>-<positive integer>[.<non-empty suffix>]` makes the contract invalid rather than creating an implicit new ordering rule. Use this same order for manifest rows and for every non-null `Manifest cells` array.
+
+Serialize every array independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Do not pretty-print, add a BOM, normalize Unicode code points, or otherwise rewrite field text. Then construct exactly this Unicode payload:
+
+```python
+payload = (
+    "SPEC-CONTRACT-V1\n"
+    + "\n".join(inventory_json_rows)
+    + "\n--MANIFEST--\n"
+    + "\n".join(manifest_json_rows)
+    + "\n"
+)
+```
+
+Encode `payload` as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
+
+This encoding is the only canonical byte form for `SPEC_CONTRACT_HASH`. Inventory rows remain ordered by `SU-*`; manifest rows remain ordered by stable cell-ID order. A contract is invalid if an inventory/manifest value needed by this encoding is unresolved.
+
+The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, including the exact persisted manifest obligation, without binding incidental explanatory `Reason` prose or non-persisted scope-discovery metadata.
+
+## 3. Classify Change Ownership
+
+The fixed Spec baseline remains the integration origin, but it does not by itself establish ownership.
+
+Capture the complete integration history:
+
+```bash
+git diff --name-status "$BASELINE_COMMIT"...HEAD
+git log "$BASELINE_COMMIT"..HEAD --oneline
+```
+
+Capture commits/files unique to the current Spec branch relative to the immutable default-branch head pinned in Section 1:
+
+```bash
+git rev-list --reverse HEAD --not "$DEFAULT_REF"
+git diff --name-status "$DEFAULT_REF"...HEAD
+```
+
+If `BASELINE_COMMIT` is not in a usable ancestry relationship for bounded integration history, or the default-branch relationship cannot be resolved without ambiguity, return `SPEC OWNERSHIP: AMBIGUOUS` rather than guessing.
+
+Classify repository surfaces as:
+
+* **Spec-owned** — changed by current branch work not reachable from the current default branch;
+* **Mixed** — changed by both inherited default-branch work and Spec-owned work;
+* **Inherited-only** — present in fixed-baseline→`HEAD` integration history but absent from the Spec-owned branch delta;
+* **Unchanged/named** — not changed by the Spec but explicitly named by a Spec obligation or governing architecture and therefore potentially relevant to behavioral proof.
+
+For review/verification attribution:
+
+* Spec-owned and Mixed surfaces are owned change surfaces.
+* Inherited-only surfaces are integration context, not automatically current-Spec Standards scope.
+* An inherited-only surface may still be inspected when an exact Spec obligation or applicable architecture authority requires current behavior through that surface.
+* A deterministic repository-standard defect that is inherited-only and has no direct Spec/architecture obligation is not a Blocking finding owned by this Spec.
+* Pre-existing code is not exempt from a Spec or Architecture obligation merely because it is inherited. Ownership limits unrelated repository-policy attribution; it does not weaken required product/architecture behavior.
+
+### Tracker Ownership
+
+Classify as Spec-owned tracker state only formal artifacts/transitions belonging to this Spec lifecycle, such as:
+
+* the Spec itself;
+* its implementation tickets;
+* its Spec Review and remediation tickets;
+* native hierarchy/dependency state owned by those artifacts;
+* verification/review receipts and lifecycle state durably written for this Spec.
+
+Global project-delivery state, unrelated Wayfinders/Specs, repository-wide policy issues, and unrelated Project items are not Spec-owned merely because they changed while this Spec was active. They may still be mutable authorization inputs revalidated by their owning lifecycle guards.
+
+## 4. Validate Mode
+
+In `validate` mode:
+
+1. recompute `SPEC_BODY_HASH`;
+2. require it to equal the passing verification receipt;
+3. rebuild the deterministic Source Unit Inventory boundaries from the current Spec body;
+4. classify every current source unit and require the complete source-unit integrity gate to pass;
+5. require the persisted source counts and canonical manifest rows to satisfy the Manifest Integrity Gate;
+6. require current source-unit mappings to resolve only to cells present in the persisted manifest;
+7. canonicalize the current Source Unit Inventory plus persisted manifest rows and recompute `SPEC_CONTRACT_HASH`;
+8. require that hash to equal the passing verification receipt;
+9. require the receipt's baseline/branch/Verified HEAD to match the current invocation;
+10. recompute Spec Change Ownership fresh against the immutable current default-branch head resolved in Section 1.
+
+Do not silently rebuild a different manifest when validation fails. Do not make a new source-unit classification merely to force the old contract hash to match.
+
+Return:
+
+```text
+SPEC CONTRACT: STALE
+Reason: <body/source-universe/classification/hash/count/baseline/branch/HEAD mismatch>
+```
+
+and let the parent require fresh `$verify-spec`.
+
+A default-branch advance that changes only ownership classification does not rewrite the source inventory or manifest. Return the fresh ownership classification to the caller.
+
+## Return Contract
+
+Return exactly one complete result containing:
+
+```text
+SPEC CONTRACT: VALID
+
+Spec: #<n>
+Spec Body Hash: <sha256>
+Spec Contract Hash: <sha256>
+Baseline: <sha>
+Branch: <branch>
+HEAD: <sha>
+Default branch: <name>
+Default branch ref: <sha>
+
+Source unit integrity:
+- Source units: <n>
+- Classified source units: <n>
+- Normative-new source units: <n>
+- Normative-represented source units: <n>
+- Non-normative source units: <n>
+- Unclassified source units: 0
+- Normative source units without manifest mapping: 0
+- Non-normative source units without reason: 0
+
+Source counts:
+- User Stories: <n>
+- Implementation Decisions: <n>
+- Testing Decisions: <n>
+- Out of Scope: <n>
+- Other normative source items: <n>
+
+Manifest cells: <n>
+Unmapped source items: 0
+Duplicate source mappings: 0
+Ambiguous source items: 0
+
+Spec-owned commits: <n>
+Spec-owned repository surfaces: <summary/list>
+Mixed repository surfaces: <summary/list>
+Inherited-only integration surfaces: <summary/list>
+Spec-owned tracker surfaces: <summary/list>
+
+Source Unit Inventory:
+<ordered complete SU-* rows>
+
+Spec Contract Manifest:
+<ordered complete manifest rows>
+```
+
+Do not return `SPEC CONTRACT: VALID` when any source-universe, manifest-integrity, or ownership-boundary requirement is unresolved.
+
+## Authorized Decomposition Caller
+
+`$to-tickets` is also an authorized internal caller of `$spec-contract` in `build` mode for the sole purpose of constructing the exact current Spec obligation universe before ticket decomposition.
+
+This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, hashes, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged. `$to-tickets` does not request or consume the `$verify-spec` contract handoff unless its own workflow explicitly gains such a need.

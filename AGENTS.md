@@ -72,6 +72,41 @@ Passing tests, satisfying an explicit checklist, or lacking authority to fix the
 
 A formal Attention result does not create a new blocking authority. The owning workflow determines whether a surfaced concern is already resolved, blocking, deferred, or informational under its existing rules.
 
+### Mandate Boundary and Structural Mutation Guard
+
+An instruction authorizes the smallest correct change necessary to satisfy that instruction. It does not implicitly authorize adjacent refactoring, cleanup, generalization, reorganization, or architectural improvement.
+
+Correctness, architecture, inside-out/bottom-up repair, earliest-owner placement, and similar engineering principles determine **how an authorized change should be implemented**. They do not expand the mandate or authorize otherwise-optional changes.
+
+Before broadening a repository mutation, apply this test:
+
+> **Can the explicit requirement be satisfied correctly without this additional structural or design change?**
+
+If **yes**, the additional change is optional and outside the current mandate unless the owner explicitly authorizes it.
+
+Treat the following as material structural changes when they affect canonical skill, process, governance, architecture, policy, or comparable authority artifacts:
+
+* creating or deleting an artifact;
+* renaming, moving, splitting, or merging an artifact;
+* introducing a wrapper, base file, delegation layer, helper architecture, or new organizational convention;
+* relocating authority or responsibility between artifacts;
+* otherwise changing artifact structure rather than only the authorized behavior within the existing structure.
+
+Before the first such mutation, compare the intended structural delta with the explicit mandate. Any unrequested structural change must be surfaced through Attention and must receive owner approval before mutation.
+
+Before committing or persisting repository-wide workflow/process/governance changes, reconcile the actual delta against the authorized delta:
+
+```text
+Authorized files/surfaces: <n>
+Actual changed files/surfaces: <n>
+Unauthorized structural additions/deletions/renames: 0
+Optional design changes performed without approval: 0
+```
+
+Any mismatch blocks persistence until the extra change is removed or explicitly approved.
+
+This guard does not prohibit structural improvements. It separates **necessary correctness work** from **optional design improvement** and preserves owner authority over the latter.
+
 ### Design-to-Implementation Boundary
 
 Implementation executes frozen design; it is not a design phase.

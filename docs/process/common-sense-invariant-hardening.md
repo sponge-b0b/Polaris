@@ -35,6 +35,7 @@ Current generic hardening principles include:
 * Local Enforcement;
 * Preserve Lean Workflows;
 * Polaris-Wide Meta-Level Attention;
+* Mandate-Bound Structural Change;
 * Downstream Contract Propagation Attention;
 * independent semantic certification at the earliest candidate-owned completion transition;
 * per-obligation evidence entailment;
@@ -46,5 +47,7 @@ Current generic hardening principles include:
 * clean review proof may be reused only through certifier-approved invalidation boundaries and fail-closed delta analysis;
 * independently certified semantic closure domains remain the membership authority while their governing contract/architecture authority is unchanged;
 * later review may reopen a closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicitly demonstrated closure-authority contradiction—not by silently adopting a broader plausible interpretation.
+
+**Mandate-Bound Structural Change** means that engineering principles govern how authorized work is performed but do not expand its scope. Optional refactors or structural changes to canonical authority artifacts require explicit owner authorization, with a pre-mutation mandate check and post-change authorized-delta reconciliation.
 
 Do not add defect-specific workflow rules until the failure has first been tested against these generic principles and enforced at the earliest authoritative transition owner.

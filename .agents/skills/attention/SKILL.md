@@ -82,9 +82,10 @@ At a formal checkpoint:
 3. Compare the current observation with relevant upstream, downstream, sibling, product, domain, architecture, persistence, public-contract, documentation/wiki, workflow, and tracker/governance assumptions where a material dependency is plausible.
 4. Ask what a competent architect, reviewer, downstream consumer, domain owner, or future maintainer could reasonably find surprising, ambiguous, inconsistent, under-specified, unsafe, unnecessarily constraining, or product-wrong.
 5. Check whether the observation exposes drift, duplicate truth, stale authority, missing ownership, a repeated symptom of an earlier defect, or a material opportunity outside the immediate task.
-6. For every candidate concern, determine whether current authority already resolves it.
-7. Do not invent a resolution when authority is silent.
-8. Report every material concern before the owning workflow crosses the checkpoint, and route/defer it without silently expanding mutation scope.
+6. Apply the mandate test to any contemplated broader change: could the explicit requirement be satisfied correctly without that structural/refactor/design change? If yes, surface the broader change as optional and do not treat Attention as authorization to perform it.
+7. For every candidate concern, determine whether current authority already resolves it.
+8. Do not invent a resolution when authority is silent.
+9. Report every material concern before the owning workflow crosses the checkpoint, and route/defer it without silently expanding mutation scope.
 
 Useful challenge questions include:
 
@@ -102,6 +103,8 @@ Useful challenge questions include:
 * Are we repeatedly repairing symptoms while an earlier lifecycle, ownership, architecture, or workflow defect remains?
 * Is the work locally correct but materially wrong for Polaris's product intent?
 * Is a valid concern being silently treated as out of scope instead of surfaced and, when warranted, durably deferred?
+* Am I treating an optional refactor, reorganization, abstraction, helper, rename, split/merge, or cleanup as though it were necessary correctness work?
+* Would this change alter the structure or authority organization of a canonical artifact even though the explicit requirement can be satisfied within the existing structure?
 
 ## Workflow Checkpoint Profiles
 

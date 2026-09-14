@@ -1,0 +1,72 @@
+name: Temporary ChatGPT Spec 279 replacement reviewer
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  review:
+    if: "${{ github.event.head_commit.message == 'chore(review): arm replacement Spec 279 reviewer' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: 8a4bc57399acb3f565c86d8743329c00fa368c9f
+          path: helper
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: spec-279
+          path: candidate
+          fetch-depth: 0
+
+      - name: Pin execution identities
+        run: |
+          set -euo pipefail
+          test "$(git -C transport rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C helper rev-parse HEAD)" = "8a4bc57399acb3f565c86d8743329c00fa368c9f"
+          test "$(git -C candidate branch --show-current)" = "spec-279"
+          test "$(git -C candidate rev-parse HEAD)" = "4baa54445e0bcd9f19bb75277a9abc84bea3008c"
+          test -z "$(git -C candidate status --porcelain)"
+          test "$(git -C transport show HEAD:AGENTS.md | git hash-object --stdin)" = "66a1be7f0498f92ac9574d258443ec4cb8a15059"
+          test -f helper/.github/tmp/review_spec_279_fresh.py
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Run owner-authorized replacement fresh reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: "false"
+          COPILOT_MCP_TOOL_CACHE: "false"
+        run: |
+          set -euo pipefail
+          python helper/.github/tmp/review_spec_279_fresh.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-spec-279-replacement-review
+          path: |
+            ${{ env.REVIEW_ROOT }}/review-result.json
+            ${{ env.REVIEW_ROOT }}/review-summary.json
+            ${{ env.REVIEW_ROOT }}/checkpoint.json
+            ${{ env.REVIEW_ROOT }}/provenance.json
+            ${{ env.REVIEW_ROOT }}/standards-universe.json
+            ${{ env.REVIEW_ROOT }}/architecture-universe.json
+          if-no-files-found: warn
+          retention-days: 1

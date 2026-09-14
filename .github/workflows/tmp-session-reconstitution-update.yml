@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   update:
-    if: ${{ github.event.head_commit.message == 'chore(process): arm session reconstitution update' }}
+    if: "${{ github.event.head_commit.message == 'chore(process): arm session reconstitution update' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

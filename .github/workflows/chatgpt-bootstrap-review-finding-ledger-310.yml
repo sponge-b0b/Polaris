@@ -1,0 +1,135 @@
+name: bootstrap-review-finding-ledger-310
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/chatgpt-bootstrap-review-finding-ledger-310.yml
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  bootstrap:
+    if: "${{ github.event.head_commit.message == 'chore(workflow): bootstrap review finding ledger 310' }}"
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: "${{ github.token }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Render and persist finding ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing=$(gh api --paginate repos/sponge-b0b/Polaris/issues/310/comments --jq '.[] | select((.body // "") | contains("<!-- review-spec-finding-ledger:v1 -->")) | .id')
+          test -z "$existing"
+
+          cat > /tmp/finding-ledger.json <<'JSON'
+          {
+            "parent_spec": 279,
+            "spec_review": 310,
+            "head": "4baa54445e0bcd9f19bb75277a9abc84bea3008c",
+            "spec_body_hash": "5f59ee666c65e9e93fe3b69403dbf4bc5328332d14d6339fc55b067755e4eb17",
+            "spec_contract_hash": "3044b039742306f1c0ed10085479c7c823ed463443e8d11d761f45de564fb334",
+            "findings": [
+              {
+                "id": "RF-1",
+                "severity": "blocking",
+                "axes": ["Standards", "Spec", "Architecture"],
+                "invariant": "Command-side persistence reads must expose a technology-neutral application-owned persistence-failure contract so raw infrastructure failures cannot escape the application boundary.",
+                "status": "open",
+                "routing": "ordinary-remediation",
+                "authority": "Spec #279 ID-24, ID-26, TD-21; application design section 16; persistence sections 2 and 16.",
+                "evidence": "Legacy bootstrap from Spec Review #310 comment 5658537881. That durable Pending packet validated B1 as an actionable in-domain Blocking finding and identified contracts.py read ports plus ordinary_work.py and relationships.py command-side reads as the affected surfaces.",
+                "invalidation_boundary": [
+                  "src/polaris/application/decisions/contracts.py command-side read-port failure contract",
+                  "src/polaris/application/decisions/ordinary_work.py and src/polaris/application/decisions/relationships.py read-failure translation/admission behavior",
+                  "Spec #279 ID-24/ID-26/TD-21 and governing application/persistence failure authority"
+                ],
+                "origin": "Spec Review #310 comment 5658537881; originally reviewed at 4c566154257df5439345cbe299c1e75ce87c2ded.",
+                "disposition_evidence": ""
+              },
+              {
+                "id": "RF-2",
+                "severity": "blocking",
+                "axes": ["Standards", "Spec", "Architecture"],
+                "invariant": "Relationship-construction domain failures must cross the application-owned relationship error-translation boundary rather than leaking raw domain exceptions.",
+                "status": "open",
+                "routing": "ordinary-remediation",
+                "authority": "Spec #279 ID-26, TD-21; application design section 16; persistence section 16.",
+                "evidence": "Legacy bootstrap from Spec Review #310 comment 5658537881. That durable Pending packet validated B2 as an actionable in-domain Blocking finding: relationship_fact() and relationship_correction() construction occurred outside the _RELATIONSHIP_ERRORS translation guard.",
+                "invalidation_boundary": [
+                  "src/polaris/application/decisions/relationships.py relationship_fact()/relationship_correction() construction placement and _RELATIONSHIP_ERRORS translation boundary",
+                  "governing domain relationship-constructor failure semantics",
+                  "Spec #279 ID-26/TD-21 and governing application/persistence failure-translation authority"
+                ],
+                "origin": "Spec Review #310 comment 5658537881; originally reviewed at 4c566154257df5439345cbe299c1e75ce87c2ded.",
+                "disposition_evidence": ""
+              },
+              {
+                "id": "RF-3",
+                "severity": "blocking",
+                "axes": ["Architecture"],
+                "invariant": "Architecture-required atomic multi-relationship correction must be represented in decomposition and executable ticket coverage rather than silently omitted.",
+                "status": "open",
+                "routing": "decomposition-defect",
+                "authority": "Application design sections 287-296 and 396; relationship model section 5.4; persistence sections 66, 225-234, and 452, as durably cited by Spec Review #310 comment 5658537881.",
+                "evidence": "Legacy bootstrap from durable C observation in Spec Review #310 comment 5658537881. The record states that #305 certification/decomposition omitted atomic multi-correction while CorrectDecisionRelationshipCommand/current correction processing represented one correction.",
+                "invalidation_boundary": [
+                  "parent Spec #279 Architecture/Design Obligation Disposition Manifest and active ticket mapping for atomic multi-relationship correction",
+                  "src/polaris/application/decisions/relationships.py correction command/cardinality and application correction path",
+                  "the cited governing application/relationship/persistence architecture authority"
+                ],
+                "origin": "Spec Review #310 comment 5658537881; originally recorded as Closure Authority Defect C at 4c566154257df5439345cbe299c1e75ce87c2ded and migrated under the repository-wide decomposition-defect routing rule.",
+                "disposition_evidence": ""
+              },
+              {
+                "id": "RF-4",
+                "severity": "blocking",
+                "axes": ["Architecture"],
+                "invariant": "Architecture-required late attachment of genuinely omitted renewal lineage to an already-established Decision/Need must be represented in decomposition and executable ticket coverage rather than silently omitted.",
+                "status": "open",
+                "routing": "decomposition-defect",
+                "authority": "Application design sections 240 and 388; relationship model sections 2.1 and 6.8; persistence section 302, as durably cited by Spec Review #310 comment 5658537881.",
+                "evidence": "Legacy bootstrap from durable D observation in Spec Review #310 comment 5658537881. The record states that #305 renewal certification/decomposition was bounded to new-identity renewal while unchanged authority required later omitted-lineage attachment to the existing Decision/Need.",
+                "invalidation_boundary": [
+                  "parent Spec #279 Architecture/Design Obligation Disposition Manifest and active ticket mapping for late omitted-renewal-lineage attachment",
+                  "src/polaris/application/decisions/relationships.py renewal/lineage application path",
+                  "the cited governing application/relationship/persistence architecture authority"
+                ],
+                "origin": "Spec Review #310 comment 5658537881; originally recorded as Closure Authority Defect D at 4c566154257df5439345cbe299c1e75ce87c2ded and migrated under the repository-wide decomposition-defect routing rule.",
+                "disposition_evidence": ""
+              }
+            ]
+          }
+          JSON
+
+          python .agents/skills/review-spec/scripts/review_spec_artifacts.py render-finding-ledger \
+            --input /tmp/finding-ledger.json \
+            --output /tmp/finding-ledger.md
+
+          jq -Rs '{body: .}' /tmp/finding-ledger.md > /tmp/comment.json
+          gh api --method POST repos/sponge-b0b/Polaris/issues/310/comments \
+            --input /tmp/comment.json > /tmp/created.json
+          comment_id=$(jq -r .id /tmp/created.json)
+          comment_url=$(jq -r .html_url /tmp/created.json)
+          test -n "$comment_id" && test "$comment_id" != null
+          gh api repos/sponge-b0b/Polaris/issues/comments/$comment_id --jq .body > /tmp/readback.md
+          printf '\n' >> /tmp/readback.md
+          cmp -s /tmp/finding-ledger.md /tmp/readback.md
+          echo "FINDING_LEDGER_COMMENT_ID=$comment_id"
+          echo "FINDING_LEDGER_COMMENT_URL=$comment_url"
+
+      - name: Remove bootstrap transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Bob Taylor'
+          git config user.email 'bobltaylorjr@gmail.com'
+          git rm .github/workflows/chatgpt-bootstrap-review-finding-ledger-310.yml
+          git commit -m 'chore(workflow): remove finding ledger bootstrap transport'
+          git push origin main

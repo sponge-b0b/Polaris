@@ -60,9 +60,26 @@ PASS is illegal when a required material domain was used to establish semantic c
 
 ## Later Domain Challenge Reconciliation
 
-Before a later review/remediation transition may reopen a previously satisfied root/cell from a proposed new candidate, it must reconcile that candidate against the latest applicable certified closure domain.
+Before a later review/remediation transition reopens a previously satisfied root/cell from a proposed candidate, distinguish **upstream decomposition integrity** from **downstream semantic-domain finality**.
 
-Use:
+### Upstream decomposition takes precedence
+
+A ticket/root Certified Closure Domain freezes membership only inside the implementation obligation that was correctly decomposed to that ticket/root.
+
+If current governing architecture/design contains a material implementation obligation that is absent from, incompletely represented by, or misrouted in the current parent-Spec Architecture/Design Obligation Disposition Manifest or ticket mapping, the condition is a **decomposition defect**.
+
+A historical ticket/Spec PASS cannot suppress that upstream obligation and does not need to be rewritten before forward remediation.
+
+Route the defect to the current `$to-tickets` source owner:
+
+* no active conventional Spec Review remediation owner → canonical `DD-*` record on the parent Spec → `$to-tickets #<Spec>`;
+* active conventional Spec Review remediation owner → canonical `DD-*` record on that Spec Review → `$to-tickets #<Spec Review>`.
+
+`$to-tickets` independently validates the defect report against current architecture/design authority and the parent manifest before creating/reconciling ticket coverage.
+
+### Correctly decomposed semantic domains
+
+When decomposition is complete for the affected obligation, reconcile later candidates against the latest applicable Certified Closure Domain:
 
 ```text
 Candidate: <finding surface/member>
@@ -75,63 +92,35 @@ Exact explicit authority contradiction to frozen predicate: <None | exact clause
 Disposition:
   in-domain-falsifier
   authority-changed-domain-stale
-  closure-authority-defect
+  explicit-authority-invalidates-prior-domain
   domain-expansion
 ```
 
-### `in-domain-falsifier`
+#### `in-domain-falsifier`
 
-The candidate satisfies the frozen membership predicate. A current defect/regression may become Blocking normally.
+The candidate satisfies the frozen membership predicate. A current defect/regression may become Blocking normally. Prior certification is process provenance, not suppression authority.
 
-The fact that prior verification passed is process provenance, not suppression authority.
-
-### `authority-changed-domain-stale`
+#### `authority-changed-domain-stale`
 
 The governing Spec/root/architecture/contract authority materially changed after certification. The prior domain is stale for the affected claim. Rebuild and certify the domain under the new authority before closure.
 
-### `closure-authority-defect`
+#### `explicit-authority-invalidates-prior-domain`
 
-Unchanged durable authority contains an **explicit, mechanically identifiable contradiction** to the frozen membership predicate or source set—for example, an exact enumerated member/source clause was omitted even though the certification claimed that exact enumeration as authoritative.
+Unchanged durable authority explicitly contradicts the frozen membership predicate/source set. The prior finality claim is invalid for the affected claim.
 
-This is a semantic-certification integrity failure. It does not silently become current implementation remediation. Halt only the affected certified domain/cell and route it to the semantic completion owner that created that domain for **Certified Closure Domain Reconciliation**. For ticket/root domains created by `$verify-ticket-closure`, that skill owns the reconciliation. Preserve the implementation observation while reconciliation runs, but do not authorize `$to-tickets` from that observation until reconciliation makes it actionable. Unrelated finality-surviving remediation remains actionable and must not be globally held.
+If that contradiction proves an architecture/design obligation was omitted or misrouted during decomposition, classify it as `decomposition-defect` and route it to `$to-tickets`.
 
-A broader plausible reading, lexical sibling, thematic similarity, implementation adjacency, or reviewer preference is **not** an explicit authority contradiction.
+Otherwise the later current finding may proceed as an ordinary Blocking missed-prior-finding under the explicit authority. Preserve the historical PASS as historical evidence; do not rewrite it.
 
-### `domain-expansion`
+#### `domain-expansion`
 
-The candidate does not satisfy the frozen predicate, current authority is unchanged, and no explicit authority contradiction invalidates the frozen domain.
+The candidate does not satisfy the frozen predicate, current authority is unchanged, and no explicit authority contradiction invalidates the boundary. Preserve it as non-actionable planning/advisory input; do not reopen the satisfied root merely because a later actor prefers a broader reading.
 
-The candidate is non-actionable for the current closed domain. Preserve it as a domain-expansion observation; it may become Advisory, future planning input, workflow-hardening evidence, or owner-directed new scope. It cannot reopen the satisfied root or create current remediation by itself.
+#### Ambiguous membership
 
-### Ambiguous membership
+If the old domain record is malformed or membership cannot be resolved, do not silently expand it. Review/closure remains unresolved until current authority can determine the boundary.
 
-If the old domain record is malformed or membership cannot be resolved, do not silently expand it. Treat the situation as certification/process-integrity debt and require explicit reconciliation. The ambiguity itself does not authorize implementation remediation.
-
-## Certified Closure Domain Reconciliation
-
-A `closure-authority-defect` is a transitional certification-integrity state, not a terminal lifecycle dead end and not a new public workflow stage.
-
-The domain's semantic completion owner independently reconciles the exact prior certification against the exact unchanged authority it claimed to represent. The reconciliation has exactly three terminal results:
-
-```text
-defect-confirmed
-defect-rejected
-reconciliation-unresolved
-```
-
-### `defect-confirmed`
-
-The prior membership predicate/source set is explicitly contradicted by its own unchanged authority. Reconstruct the **complete affected domain** authority-first from that same authority; do not merely append the candidate that exposed the defect. Persist a superseding membership record that preserves the historical PASS as historical truth while marking the defective prior membership boundary as no longer finality authority. A later/current review then reruns Domain Finality Reconciliation against the superseding domain. If the implementation observation is in-domain under the corrected boundary, it may become ordinary Blocking remediation.
-
-### `defect-rejected`
-
-The claimed contradiction is not explicit authority evidence sufficient to invalidate the frozen boundary. The prior Certified Closure Domain remains finality authority and the observation is handled as `domain-expansion` unless another ordinary finality disposition applies.
-
-### `reconciliation-unresolved`
-
-The authority/certification relationship cannot be resolved without guesswork. Hold only the affected certified domain/cell. Unrelated current Blocking remediation may continue, but review PASS remains illegal while any required reconciliation is unresolved.
-
-Reconciliation must be independently certified under the same no-self-certification principle as the original semantic completion transition. It may supersede membership authority; it does not rewrite historical evidence, retroactively recertify the historical implementation candidate, or create implementation work by itself.
+This model keeps semantic completion monotonic without letting an erroneous ticket decomposition erase an explicit upstream obligation.
 
 ## Root and Review Convergence
 
@@ -168,9 +157,11 @@ If those cannot be recovered, do not invent a legacy domain from memory or from 
 
 Apply locally:
 
-* `$verify-ticket-closure` — freeze every material ticket/root closure domain at semantic PASS;
-* `$review-spec` — reconcile proposed findings against applicable frozen domains before accepting them as Blocking/root-reopening evidence;
-* `$review-spec-remediation` — consume only findings that survived domain-finality reconciliation; never turn a domain-expansion observation into a `root-definition gap`;
+* `$to-tickets` — own the complete Architecture/Design Obligation Disposition Manifest and reconcile decomposition defects forward without rewriting closed historical tickets;
+* `$verify-ticket-closure` — freeze material semantic domains at PASS only inside correctly decomposed ticket obligations, while independently checking architecture/design decomposition integrity;
+* `$verify-spec` / `$verify-spec-closure` — independently compare the integrated Spec's bounded architecture/design authority against the shared parent manifest and route decomposition defects back to `$to-tickets`;
+* `$review-spec` — perform the same decomposition challenge as the final defense, then reconcile correctly decomposed findings against applicable frozen semantic domains;
+* `$review-spec-remediation` — preserve decomposition defects for `$to-tickets` and consume ordinary findings that survived semantic-domain finality; never turn a domain-expansion observation into a `root-definition gap`;
 * future semantic completion/review skills that create/consume bounded certified domains should adopt the same pattern at their own transition boundary.
 
 Do not build a universal helper that replaces local transition ownership.

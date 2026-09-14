@@ -88,6 +88,7 @@ Persist:
 **Ticket baseline:** <sha>
 **Parent Spec:** #<Spec>
 **Spec obligations:** <IDs | None>
+**Architecture obligations:** <ARCHSRC IDs | None>
 **Remediation parent:** <Spec Review #n | None>
 **Root:** <RB-n — invariant | None>
 **Candidate state:** <TICKET_CLOSURE_STATE>
@@ -352,6 +353,33 @@ Then exit dispatcher-only mode and resume implementation **in the same invocatio
 All verifier findings remain mandatory until corrected or superseded by explicit authoritative contract change.
 
 After correction, any prior PASS/FAIL is candidate-stale; build a new awaiting attempt and automatically dispatch a new fresh verifier. Continue this lifecycle while work remains actionable; stop only at **Completed**, another genuinely required **Human Handoff**, or a **Hard Blocker**.
+
+#### Decomposition-defect FAIL routing
+
+A valid `TICKET CLOSURE: FAIL` may contain one or more findings classified:
+
+```text
+Finding classification: decomposition-defect
+Finding owner: $to-tickets
+```
+
+This means the ticket contract/decomposition is incomplete relative to current governing architecture/design. It is not permission for `$implement-ticket` to enlarge the ticket, choose missing scope, or repair code against an unowned requirement.
+
+After persisting the complete FAIL in the durable checkpoint:
+
+1. preserve every verifier finding, including ordinary implementation findings;
+2. determine the current decomposition owner for the parent Spec:
+   * active conventional Spec Review remediation owner exists → that Spec Review;
+   * otherwise → the parent Spec;
+3. create or update that owner's single `<!-- decomposition-defects:v1 -->` record with stable `DD-*` entries for every decomposition finding, exact source/requirement/current manifest state, the discovering ticket/verifier provenance, and `Status: unresolved`;
+4. read back the record exactly;
+5. stop at **Human Handoff** with:
+
+```text
+$to-tickets #<current decomposition owner>
+```
+
+When any decomposition defect is present, do not continue local implementation correction first: the executable contract is incomplete. After `$to-tickets` reconciles ticket scope, resume `$implement-ticket` only after re-reading the ticket/branch/baseline/lineage and treating any changed contract or candidate binding as stale closure-checkpoint state that requires a new proposed-evidence/certification attempt.
 
 ### PASS
 

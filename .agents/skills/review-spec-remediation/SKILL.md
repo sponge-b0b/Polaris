@@ -13,78 +13,28 @@ It converts already validated review findings and scope corrections into durable
 
 It does not review source, create new findings, fix implementation, or independently change finding scope/axis authority.
 
-## Certified Domain Reconciliation Gate
+## Decomposition Integrity Gate
 
-This section is authoritative and supersedes preserved wording below that allows a later review to enlarge a previously certified semantic root/domain merely by labeling the new surface a `root-definition gap` or `missed prior finding`.
+This skill consumes review findings already validated by `$review-spec`; it does not independently rediscover architecture/design obligations or repair ticket decomposition.
 
-For every current Blocking finding mapped to a previously `satisfied`/`closed` root, the Pending packet must include one current `$review-spec` **Domain Finality Reconciliation** disposition:
-
-```text
-Candidate: <finding/member>
-Prior certified domain: <domain ID / durable certification reference>
-Authority changed: yes | no
-Membership under frozen predicate: in-domain | out-of-domain | ambiguous
-Explicit authority contradiction: <None | exact source>
-Finality disposition:
-  in-domain-falsifier
-  authority-changed-domain-stale
-  closure-authority-defect
-  domain-expansion
-```
-
-Consume that disposition mechanically:
-
-* `in-domain-falsifier` — eligible for ordinary current remediation reconciliation (`missed prior finding` or `regression` as provenance proves);
-* `authority-changed-domain-stale` — eligible only after the Pending packet identifies the actual changed authority and the current review rebuilt the affected domain from that new authority;
-* `closure-authority-defect` — **not** implementation remediation while unresolved. Preserve the observation and hold only the affected root/cell. `$review-spec` owns invoking the certified-domain reconciliation transition and must supply any confirmed/rejected result before this skill can treat that observation differently; do not pass an unresolved defect to `$to-tickets`;
-* `domain-expansion` — non-actionable for the current certified domain. Preserve the observation historically but do not create/open a remediation cell or root from it.
-
-A full fresh re-review, missing review-proof reuse ledger, stronger challenger, or broader plausible interpretation does not invalidate a certified closure domain by itself.
-
-### Reconciliation locality
-
-A certification-integrity hold is local to the affected certified domain/cell. It must never suppress unrelated finality-surviving Blocking findings.
-
-`$review-spec` may supply durable reconciliation provenance showing that a prior `closure-authority-defect` was confirmed and the affected domain superseded. By the time such an observation enters this skill as actionable remediation, `$review-spec` must already have rerun Domain Finality Reconciliation and classified it through an ordinary actionable disposition such as `in-domain-falsifier`. This skill does not reinterpret or rebuild certified domains itself.
-
-Track unresolved reconciliation state separately from active remediation:
+Track separately:
 
 ```text
-Unresolved certification reconciliations: <n>
-Active architecture-conforming Blocking findings: <n>
+Active ordinary Blocking findings: <n>
+Active decomposition defects: <n>
 ```
 
-### Domain-excluded acceptance state
+For every current finding classified `decomposition-defect`:
 
-The cumulative matrix may use:
+* preserve the originating review axis/severity and exact governing source;
+* preserve the missing/incomplete/misrouted manifest/ticket evidence;
+* do not reinterpret it as a Root Blocker implementation symptom merely to pass it through ordinary remediation;
+* ensure the current conventional Spec Review's single `<!-- decomposition-defects:v1 -->` record contains one stable unresolved `DD-*` entry for it;
+* exclude that `DD-*` from ordinary implementation-root synthesis until `$to-tickets` independently validates/reconciles it.
 
-```text
-domain-excluded
-```
+Ordinary finality-surviving Blocking findings continue through the Root Blocker model and `$to-tickets` remediation delta normally. Decomposition defects do not suppress unrelated ordinary remediation; `$to-tickets #<Spec Review>` consumes both the Root Blocker delta and unresolved `DD-*` records in one source-owned reconciliation.
 
-for a historical/current observation that a corrected Domain Finality Reconciliation proves lies outside the applicable frozen semantic domain under unchanged authority.
-
-`domain-excluded` means:
-
-* the observation remains durable;
-* the underlying implementation behavior is not claimed false or desirable;
-* it is not an active obligation of that certified root/domain;
-* it does not count as Blocking remediation;
-* it is excluded from `$to-tickets` for the current lifecycle unless durable authority later changes.
-
-Do not use `scope-retired` for this case unless the entire Spec/root ownership itself was also corrected. Scope and domain membership are distinct.
-
-### Root-definition integrity under finality
-
-For a root with an applicable certified closure domain:
-
-* `missed prior finding` requires `in-domain-falsifier`;
-* `regression` requires an in-domain behavior whose previously proven disposition later changed;
-* `root-definition gap` may not enlarge the frozen domain under unchanged authority;
-* saturation evidence may add newly discovered **in-domain** members, but may not replace the certified predicate/source sets with a broader sibling universe;
-* `domain-expansion` and `closure-authority-defect` do not create a new root merely to bypass domain finality.
-
-When no applicable certified domain exists, use the ordinary reconciliation rules below.
+A prior ticket/Spec certification is historical provenance, not authority to erase a current explicit architecture/design decomposition obligation.
 
 ## Invocation Preconditions
 
@@ -315,7 +265,8 @@ Exclude:
 * owner-overridden cells;
 * scope-retired cells/roots;
 * domain-excluded cells;
-* unresolved `closure-authority-defect` observations and `domain-expansion` observations excluded from current implementation remediation.
+* unresolved decomposition defects, which `$to-tickets` must validate/reconcile through the canonical `DD-*` record before they become ticket scope;
+* domain-expansion observations excluded from current implementation remediation.
 
 For each actionable root pass to `$to-tickets`:
 
@@ -344,9 +295,9 @@ ACTIVE_BLOCKING_FINDINGS
 
 mean current independently validated Blocking findings that remain active after validated scope corrections **and Certified Domain Reconciliation**.
 
-Unresolved certification reconciliations do not change this count and do not block a `$to-tickets` handoff for unrelated active remediation. Include their count as supplemental state so they cannot disappear.
+Active decomposition defects are tracked separately from ordinary Root Blocker findings. They do not block a `$to-tickets` handoff for unrelated active remediation; instead the same `$to-tickets #<Spec Review>` invocation consumes both categories.
 
-If no active architecture-conforming remediation remains but one or more certification reconciliations are unresolved, return control to `$review-spec` with those affected domain/cell identities. Do not emit `$to-tickets`, do not mark the review clean, and do not manufacture an implementation root from the unresolved process-integrity state.
+If no ordinary architecture-conforming remediation remains but one or more decomposition defects remain unresolved, still hand off to `$to-tickets #<Spec Review>`; do not mark the review clean and do not manufacture an implementation root from the decomposition defect before `$to-tickets` validates it.
 
 If active architecture-conforming remediation remains, halt using:
 

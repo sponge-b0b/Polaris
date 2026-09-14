@@ -193,16 +193,16 @@ $verify-spec
     └─ passing Spec Verification Receipt
            ↓ HUMAN
 $review-spec
-    ├─ zero Blocking findings and zero unresolved certification reconciliations
+    ├─ zero Blocking findings and zero unresolved decomposition defects
     │      ├─ create or reuse the one conventional Spec Review issue
     │      ├─ persist Spec Review Exit Receipt on that review issue
     │      └─ HUMAN → $spec-merge-cleanup
     │
-    ├─ closure-authority defect against a ticket/root Certified Closure Domain
-    │      ├─ internal → $verify-ticket-closure [Certified Domain Reconciliation mode]
-    │      ├─ confirmed → supersede membership boundary; re-run affected finality disposition
-    │      ├─ rejected → domain-expansion/non-actionable unless another disposition applies
-    │      └─ unresolved → hold affected domain/cell only; unrelated remediation may proceed
+    ├─ architecture/design decomposition defect
+    │      ├─ persist/update the canonical decomposition-defect record
+    │      ├─ current owner = parent Spec until active Spec Review remediation exists
+    │      ├─ current owner = active conventional Spec Review once remediation exists
+    │      └─ HUMAN → $to-tickets <current owner> → $implement-ticket → $verify-spec → $review-spec
     │
     ├─ Blocking findings; no new architecture decision required
     │      ├─ create or reuse the Spec Review issue
@@ -262,7 +262,7 @@ Clean first review:
 
 ```text
 $review-spec
-    ↓ zero Blocking findings and zero unresolved certification reconciliations
+    ↓ zero Blocking findings and zero unresolved decomposition defects
 create or reuse the one conventional Spec Review issue
     ↓
 persist Spec Review Exit Receipt on that review issue
@@ -272,7 +272,7 @@ $spec-merge-cleanup
 
 The conventional Spec Review issue remains the durable review owner even when no remediation is required.
 
-When review discovers an explicit contradiction between an unchanged authority and a ticket/root Certified Closure Domain, `$review-spec` invokes `$verify-ticket-closure` internally in **Certified Domain Reconciliation mode**. This is not a new public lifecycle stage and does not recertify the historical candidate. A confirmed reconciliation rebuilds and durably supersedes only the defective membership boundary, after which the affected review observation is re-dispositioned normally. A rejected contradiction remains governed by the prior boundary. An unresolved reconciliation holds only its affected domain/cell and prevents Review PASS, but it does not globally suppress unrelated active remediation.
+When any downstream verifier or review discovers that current governing architecture/design contains a material implementation obligation absent from or misrouted by the current Architecture/Design Obligation Disposition Manifest, that condition is a **decomposition defect** owned by `$to-tickets`. Historical ticket/Spec certification remains provenance; it does not suppress the missing upstream obligation and does not need to be rewritten before the missing work is decomposed correctly.
 
 When architecture-conforming Blocking findings remain:
 
@@ -299,6 +299,26 @@ The same Spec Review issue is reused across remediation/re-review cycles. Do not
 The **Pending Review Remediation** packet remains intentionally durable even though the transition into `$review-spec-remediation` is internal. It provides an explicit, recoverable contract between independent review/reconciliation and remediation synthesis.
 
 The review loop ends only when the review Exit Gate passes and `$review-spec` persists a current **Spec Review Exit Receipt** on the one conventional Spec Review issue.
+
+### Decomposition Defect Routing
+
+Architecture/design decomposition is owned by `$to-tickets`; discovery may occur later.
+
+Use one canonical machine-managed record on the artifact that is currently the public `$to-tickets` source:
+
+```text
+<!-- decomposition-defects:v1 -->
+```
+
+Ownership is deterministic:
+
+* before an active conventional Spec Review owns remediation, the record lives on the parent Spec and the handoff is `$to-tickets #<Spec>`;
+* once an active conventional Spec Review owns the remediation lifecycle, the record lives on that Spec Review and the handoff is `$to-tickets #<Spec Review>`;
+* the parent Spec remains the durable owner of the current `Ticket Coverage Manifest` and its Architecture/Design Obligation Disposition Manifest even when the defect record lives on a Spec Review.
+
+`$verify-ticket-closure`, `$verify-spec`, and `$review-spec` may discover a decomposition defect, but none may create or rewrite implementation-ticket scope directly. The discovering lifecycle parent persists or updates the canonical record with a stable `DD-*` identity, exact governing source, missing/misrouted obligation, current manifest/ticket state, discovery provenance, and `Status: unresolved`, then stops at the Human Handoff to `$to-tickets`.
+
+`$to-tickets` independently validates each unresolved `DD-*` against current architecture/design authority and the current parent-Spec manifest. A report is a falsifier candidate, not ticketing authority. Confirmed defects reconcile the manifest and active ticket coverage forward; rejected reports receive an explicit terminal disposition. Closed historical tickets are never rewritten merely to make the past appear complete.
 
 ### Architecture Escalation and Re-entry
 

@@ -453,7 +453,79 @@ Deferred obligations without durable existing owner: 0
 
 Call this the **Architecture/Design Obligation Disposition Manifest**. The fresh proposal certifier independently validates its source-unit completeness from the bounded authority sources; the drafting parent may not self-certify that every relevant architecture clause was noticed.
 
-Extend the parent `## Ticket Coverage Manifest` with a compact `Architecture / Design Obligation Coverage` subsection containing each `ARCHSRC-*` source anchor, disposition, and ticket/destination. These rows are decomposition provenance, not new Spec Contract cells and not architecture decisions.
+Extend the parent `## Ticket Coverage Manifest` with a compact `Architecture / Design Obligation Coverage` subsection containing each `ARCHSRC-*` source anchor, requirement, disposition, and ticket/destination. Preserve the exact current manifest body as durable decomposition authority and record enough stable source identity for downstream consumers to detect staleness. These rows are decomposition provenance, not new Spec Contract cells and not architecture decisions.
+
+Before publication require every proposed ticket's `Architecture obligations` IDs to match exactly the `implementation-ticket` rows routed to that ticket. Missing, extra, stale, or duplicate IDs fail proposal readiness.
+
+## Decomposition Defect Reconciliation
+
+`$to-tickets` is the sole owner of architecture/design decomposition defects.
+
+A decomposition defect means current governing architecture/design contains a material implementation obligation that is absent from, incompletely represented by, or misrouted in the current parent Spec `Architecture/Design Obligation Disposition Manifest` or active ticket mapping.
+
+### Source-owner routing
+
+Resolve the public source before reconciliation:
+
+* if no active conventional Spec Review currently owns remediation for the parent Spec, the canonical `<!-- decomposition-defects:v1 -->` record must be on the parent Spec and the public invocation is `$to-tickets #<Spec>`;
+* if an active conventional Spec Review owns the remediation lifecycle, the canonical record must be on that Spec Review and the public invocation is `$to-tickets #<Spec Review>`;
+* if invoked with a Spec while an active conventional Spec Review already owns the remediation lifecycle, fail closed and return the canonical `$to-tickets #<Spec Review>` handoff rather than creating competing decomposition state.
+
+The defect record and the ticket-coverage artifact intentionally have different durable owners: the current `$to-tickets` source owns the unresolved `DD-*` record; the parent Spec owns the current `Ticket Coverage Manifest` and Architecture/Design Obligation Disposition Manifest.
+
+### Canonical record
+
+Consume exactly one machine-managed comment per current source artifact:
+
+```text
+<!-- decomposition-defects:v1 -->
+## Decomposition Defects
+
+### DD-<n>
+Status: unresolved | reconciled | rejected
+Discovery workflow: $verify-ticket-closure | $verify-spec | $review-spec | other authorized owner
+Discovery artifact: <durable identity>
+Governing architecture/design source: <durable source + section/anchor>
+Missing/misrouted obligation: <compact exact requirement>
+Current manifest state: absent | incomplete | misrouted
+Affected ticket coverage: <tickets | None>
+Disposition owner: $to-tickets
+Reconciliation: <None | ARCHSRC-* + ticket/destination + manifest reference | rejection reason>
+```
+
+Stable `DD-*` identities are append/reconcile state; omission is not resolution.
+
+### Independent validation
+
+The report is a falsifier candidate, not authority. For every unresolved `DD-*`, independently re-read the cited architecture/design source and the bounded surrounding authority needed to interpret it, then compare it with the current parent-Spec Architecture/Design Obligation Disposition Manifest and ticket mappings.
+
+Classify each report exactly once:
+
+```text
+confirmed-decomposition-defect
+rejected-no-decomposition-defect
+unresolved-source-or-ownership
+```
+
+* `confirmed-decomposition-defect` → add or reconcile the missing `ARCHSRC-*` obligation in the complete bounded architecture/design universe, map it through the normal ticket/deferred/verification dispositions, supersede the parent manifest, and mark the `DD-*` reconciled only after exact persistence/readback;
+* `rejected-no-decomposition-defect` → preserve the report and mark it rejected with exact authority/reason;
+* `unresolved-source-or-ownership` → fail closed; do not publish speculative ticket scope.
+
+Do not create one ticket per report automatically. Ticket slicing remains root/tracer-bullet driven. Multiple distinct architecture obligations may share one cohesive ticket or require separate tickets; each obligation must still have its own complete `ARCHSRC-*` disposition.
+
+Closed historical tickets remain historical evidence. Missing work is reconciled forward through current open/new remediation tickets rather than reopening or rewriting a closed ticket.
+
+### Shared downstream contract
+
+Every current implementation ticket must carry:
+
+```markdown
+## Architecture obligations
+
+<comma-separated ARCHSRC-* IDs, or `None` when the current manifest proves no direct architecture/design implementation obligation>
+```
+
+The parent Spec's current Architecture/Design Obligation Disposition Manifest is the shared routing/accounting artifact reused by `$verify-ticket-closure`, `$verify-spec`, and `$review-spec`. Reuse is not blind trust: each downstream semantic verifier/reviewer independently validates the applicable bounded architecture/design source coverage before relying on the manifest.
 
 ## Ticket Provenance
 
@@ -463,6 +535,10 @@ Every ordinary Implementation Ticket created from a Spec must contain:
 ## Spec obligations
 
 <comma-separated stable Spec contract IDs, or `None` only when the disposition manifest proves this ticket is intentionally supporting/mechanical work with no direct Spec cell>
+
+## Architecture obligations
+
+<comma-separated `ARCHSRC-*` IDs, or `None` only when the Architecture/Design Obligation Disposition Manifest proves the ticket carries no direct architecture/design implementation obligation>
 ```
 
 The IDs are exact provenance, not a replacement for good ticket acceptance criteria.

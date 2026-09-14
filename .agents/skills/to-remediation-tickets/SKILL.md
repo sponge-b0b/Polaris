@@ -158,6 +158,31 @@ Do not reconstruct an older revision.
 
 Existing linked tickets represent previously sliced work.
 
+### Decomposition Defect Input
+
+When `$to-tickets` invokes this remediation path with validated decomposition defects, consume the parent's independently validated `DD-*` set in addition to ordinary Root Blocker state.
+
+Do not independently turn an unvalidated defect report into ticket scope. `$to-tickets` must first classify the report against current architecture/design authority and the parent Spec Architecture/Design Obligation Disposition Manifest.
+
+For every confirmed decomposition defect supplied by `$to-tickets`:
+
+* preserve its stable `DD-*` identity and exact governing source;
+* carry the reconciled `ARCHSRC-*` obligation and required destination;
+* reuse/update an applicable open ticket or create a new remediation ticket;
+* never reopen or rewrite a closed historical ticket merely because its historical scope omitted the obligation;
+* include the mapped `ARCHSRC-*` IDs in the remediation ticket's `## Architecture obligations` field;
+* return a complete `DD-* → ARCHSRC-* → ticket/destination` delta to `$to-tickets`.
+
+Before returning the remediation delta require:
+
+```text
+Confirmed decomposition defects supplied: <n>
+Decomposition defects dispositioned: <n>
+Unmapped decomposition defects: 0
+Ambiguous decomposition destinations: 0
+Architecture obligations without active ticket/authorized non-ticket destination: 0
+```
+
 ## 3. Reconcile Existing Tickets
 
 Read relevant open and closed tickets, including body, acceptance criteria, dependencies, execution metadata, and closing context when needed.
@@ -242,6 +267,8 @@ Prefer one ticket when one fresh implementation context can remediate and prove 
 
 Each remediation ticket must carry:
 
+* exact `Architecture obligations` (`ARCHSRC-*` IDs or `None`) from the reconciled parent manifest;
+* applicable decomposition-defect provenance (`DD-*`) when the ticket exists because of a confirmed decomposition gap;
 * Root Blocker ID and stable invariant;
 * governing Architecture context when applicable;
 * affected semantic sibling surfaces/reference kinds;

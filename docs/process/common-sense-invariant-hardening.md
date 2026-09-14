@@ -45,8 +45,9 @@ Current generic hardening principles include:
 * verification scope must be explicitly authorized from the active change/impact universe;
 * conditional obligations must preserve both trigger state and durable destination;
 * clean review proof may be reused only through certifier-approved invalidation boundaries and fail-closed delta analysis;
-* independently certified semantic closure domains remain the membership authority while their governing contract/architecture authority is unchanged;
-* later review may reopen a closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicitly demonstrated closure-authority contradiction—not by silently adopting a broader plausible interpretation.
+* independently certified semantic closure domains remain the membership authority for correctly decomposed obligations while their governing authority is unchanged;
+* a certified ticket/root domain cannot suppress an explicit upstream architecture/design obligation that `$to-tickets` omitted or misrouted; that condition is a decomposition defect routed back to `$to-tickets`;
+* later review may reopen a correctly decomposed closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicit authority contradiction—not by silently adopting a broader plausible interpretation.
 
 **Mandate-Bound Structural Change** means that engineering principles govern how authorized work is performed but do not expand its scope. Optional refactors or structural changes to canonical authority artifacts require explicit owner authorization, with a pre-mutation mandate check and post-change authorized-delta reconciliation.
 

@@ -36,10 +36,23 @@ Consume that disposition mechanically:
 
 * `in-domain-falsifier` — eligible for ordinary current remediation reconciliation (`missed prior finding` or `regression` as provenance proves);
 * `authority-changed-domain-stale` — eligible only after the Pending packet identifies the actual changed authority and the current review rebuilt the affected domain from that new authority;
-* `closure-authority-defect` — **not** implementation remediation. Preserve the observation and halt the affected root/cell behind explicit authority/domain reconciliation; do not pass it to `$to-tickets`;
+* `closure-authority-defect` — **not** implementation remediation while unresolved. Preserve the observation and hold only the affected root/cell. `$review-spec` owns invoking the certified-domain reconciliation transition and must supply any confirmed/rejected result before this skill can treat that observation differently; do not pass an unresolved defect to `$to-tickets`;
 * `domain-expansion` — non-actionable for the current certified domain. Preserve the observation historically but do not create/open a remediation cell or root from it.
 
 A full fresh re-review, missing review-proof reuse ledger, stronger challenger, or broader plausible interpretation does not invalidate a certified closure domain by itself.
+
+### Reconciliation locality
+
+A certification-integrity hold is local to the affected certified domain/cell. It must never suppress unrelated finality-surviving Blocking findings.
+
+`$review-spec` may supply durable reconciliation provenance showing that a prior `closure-authority-defect` was confirmed and the affected domain superseded. By the time such an observation enters this skill as actionable remediation, `$review-spec` must already have rerun Domain Finality Reconciliation and classified it through an ordinary actionable disposition such as `in-domain-falsifier`. This skill does not reinterpret or rebuild certified domains itself.
+
+Track unresolved reconciliation state separately from active remediation:
+
+```text
+Unresolved certification reconciliations: <n>
+Active architecture-conforming Blocking findings: <n>
+```
 
 ### Domain-excluded acceptance state
 
@@ -302,7 +315,7 @@ Exclude:
 * owner-overridden cells;
 * scope-retired cells/roots;
 * domain-excluded cells;
-* closure-authority-defect/domain-expansion observations awaiting or excluded from current implementation remediation.
+* unresolved `closure-authority-defect` observations and `domain-expansion` observations excluded from current implementation remediation.
 
 For each actionable root pass to `$to-tickets`:
 
@@ -330,6 +343,10 @@ ACTIVE_BLOCKING_FINDINGS
 ```
 
 mean current independently validated Blocking findings that remain active after validated scope corrections **and Certified Domain Reconciliation**.
+
+Unresolved certification reconciliations do not change this count and do not block a `$to-tickets` handoff for unrelated active remediation. Include their count as supplemental state so they cannot disappear.
+
+If no active architecture-conforming remediation remains but one or more certification reconciliations are unresolved, return control to `$review-spec` with those affected domain/cell identities. Do not emit `$to-tickets`, do not mark the review clean, and do not manufacture an implementation root from the unresolved process-integrity state.
 
 If active architecture-conforming remediation remains, halt using:
 

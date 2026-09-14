@@ -246,6 +246,7 @@ For a **fresh Spec** proposal, independently validate against:
 
 * the exact deterministic `$spec-contract` manifest;
 * the Spec Obligation Disposition Manifest;
+* the Architecture/Design Obligation Disposition Manifest when the Spec/tickets consume governing architecture/design sources;
 * the proposed ticket `Spec obligations` mappings;
 * the applicable parent Spec, branch, workspace metadata, and current implementation-readiness/design-completeness state.
 
@@ -270,6 +271,8 @@ Source implementation readiness: pass
 Material design choices delegated to implementation: 0
 Attention design-gap findings unresolved: 0
 Source obligations/root cells complete: yes
+Architecture/design obligation coverage complete: yes
+Architecture/design obligations missing or ambiguous: 0
 Proposal coverage complete: yes
 Missing obligations/cells: 0
 Ambiguous dispositions: 0
@@ -408,6 +411,50 @@ Non-ticket dispositions without reason/authority: 0
 
 If reconciliation changes ticket scope, acceptance criteria, blocking edges, or disposition semantics, update the proposal and request approval again under Step 4.
 
+## Architecture / Design Obligation Coverage
+
+Spec cells remain the primary decomposition universe, but they are not permission to drop an explicit architecture/design obligation that materially constrains the implementation slice and is not represented by its own Spec cell. For a fresh Spec proposal, close this second bounded source universe before proposal certification.
+
+### Build the bounded source set
+
+Start from architecture/design authority explicitly named by the Spec's Architecture Impact/readiness state and by the proposed tickets' Architecture context. Reduce to the exact sections/anchors materially required to implement those ticket slices; do not sweep unrelated architecture documents merely because they are linked somewhere in the repository.
+
+Classify every materially normative obligation in that bounded source set that is not already completely represented by a Spec Contract cell:
+
+```text
+Architecture obligation: ARCHSRC-<n>
+Source: <durable path/ADR/doc + section/anchor>
+Requirement: <compact normative obligation>
+Disposition: implementation-ticket | verification-only | deferred-existing-owner | not-applicable
+Tickets/destination: <ticket(s) | durable existing owner | None>
+Reason/authority: <required for non-ticket dispositions>
+```
+
+Rules:
+
+* `implementation-ticket` obligations must be explicit in the mapped ticket's build/acceptance/preservation contract; a broad `Architecture context` citation is not sufficient coverage;
+* `verification-only` requires an explicit later proof owner;
+* `deferred-existing-owner` requires a durable existing ticket/Spec/lifecycle owner already established by authority; `$to-tickets` may not invent one to close the table;
+* `not-applicable` requires exact source/scope authority;
+* when one obligation is already fully represented by a Spec cell, record the Spec-cell reference instead of duplicating implementation responsibility;
+* implementation shape, existing tests, and proposed ticket wording do not define the architecture-obligation universe.
+
+Before proposal-readiness certification require:
+
+```text
+Bounded architecture/design sources: <n>
+Material non-duplicated architecture obligations: <n>
+Architecture disposition rows: <n>
+Unmapped architecture obligations: 0
+Ambiguous architecture obligations: 0
+Implementation architecture obligations without ticket coverage: 0
+Deferred obligations without durable existing owner: 0
+```
+
+Call this the **Architecture/Design Obligation Disposition Manifest**. The fresh proposal certifier independently validates its source-unit completeness from the bounded authority sources; the drafting parent may not self-certify that every relevant architecture clause was noticed.
+
+Extend the parent `## Ticket Coverage Manifest` with a compact `Architecture / Design Obligation Coverage` subsection containing each `ARCHSRC-*` source anchor, disposition, and ticket/destination. These rows are decomposition provenance, not new Spec Contract cells and not architecture decisions.
+
 ## Ticket Provenance
 
 Every ordinary Implementation Ticket created from a Spec must contain:
@@ -467,6 +514,7 @@ Immediately before Step 5 publication, require all of the following together:
 * Spec Branch Rule passed;
 * `$spec-contract` manifest still matches retained body/contract hashes when applicable;
 * Spec Obligation Disposition Manifest is complete when applicable;
+* Architecture/Design Obligation Disposition Manifest is complete when applicable, with missing/ambiguous obligations 0;
 * every ticket's `Spec obligations` set equals its approved mapping when applicable;
 * material design choices delegated to implementation remain zero;
 * blocking edges/hierarchy still match the approved proposal.

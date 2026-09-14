@@ -67,9 +67,83 @@ Lexical similarity, sibling APIs, implementation adjacency, subsystem proximity,
 
 A historical verifier result without these explicit records is not retroactively strengthened by this rule; later consumers may treat it as an equivalent frozen domain only when its durable record already contains enough authority, membership, construction, and boundary state to reconstruct the same interpretation without guesswork.
 
+## Certified Closure Domain Reconciliation Mode
+
+`$verify-ticket-closure` also owns bounded reconciliation of a Certified Closure Domain that this skill previously created when `$review-spec` has established a provisional `closure-authority-defect`. This is **membership-authority reconciliation**, not re-verification of the historical ticket candidate.
+
+### Invocation and inputs
+
+This mode is prescribed internal composition from `$review-spec`. The review parent supplies only durable retrieval coordinates:
+
+* originating ticket and parent Spec;
+* exact historical closure checkpoint/verdict;
+* affected Certified Closure Domain ID(s);
+* recorded prior authority identity;
+* current identity of the same authority;
+* exact explicit contradiction source(s);
+* the review observation that exposed the contradiction.
+
+The fresh reconciler independently rereads the prior domain record and exact authority. The observation is a falsifier candidate, not authority and not the definition of the corrected domain.
+
+### Reconciler integrity
+
+Use one genuinely fresh, non-mutating, non-delegating semantic verifier. It must not have implemented the historical candidate or participated in the current review finding. It may not repair code, rewrite the ticket, mutate tracker state, or recertify historical member correctness.
+
+When the active host cannot create a separate verifier and repository owner authorization explicitly supplies an equivalent in-session substitute under the repository session-reconstitution contract, preserve every other integrity requirement and identify the result as that substitute.
+
+### Reconciliation procedure
+
+1. Validate the exact historical domain record, authority identity, and current unchanged/changed authority identity.
+2. Decide whether the cited contradiction is explicit and mechanically identifiable in the same authority the prior domain claimed to cover. A broader plausible interpretation or adjacent sibling is insufficient.
+3. If the contradiction is confirmed, reconstruct the **entire affected membership universe authority-first** using the same Domain Construction Manifest rules in this skill. Do not seed or bound reconstruction from the reviewer's discovered candidate.
+4. Close every nested finite/discoverable domain required to establish the corrected membership boundary.
+5. Return one terminal result below.
+
+### Terminal results
+
+Confirmed:
+
+```text
+DOMAIN RECONCILIATION: DEFECT CONFIRMED
+Originating ticket: <#n>
+Prior certification: <durable reference>
+Prior domain: <ND/root ID>
+Authority identity: <exact identity>
+Explicit contradiction: <exact source>
+Corrected membership predicate: <predicate>
+Corrected dimensions/source sets: <sets>
+Expected/generated/inspected/dispositioned: <counts or open-world criterion>
+Prior membership finality superseded: yes
+Historical PASS preserved: yes
+```
+
+Rejected:
+
+```text
+DOMAIN RECONCILIATION: DEFECT REJECTED
+Originating ticket: <#n>
+Prior certification: <durable reference>
+Prior domain: <ND/root ID>
+Authority identity: <exact identity>
+Reason: <why the claimed contradiction does not invalidate the frozen predicate/source set>
+Prior membership finality superseded: no
+```
+
+Unresolved:
+
+```text
+DOMAIN RECONCILIATION: UNRESOLVED
+Originating ticket: <#n>
+Prior certification: <durable reference>
+Prior domain: <ND/root ID>
+Unresolved state: <missing/ambiguous/contradictory authority or certification evidence>
+```
+
+The reconciler returns the terminal record to `$review-spec`. The review parent persists a confirmed/rejected result durably on the originating ticket as one `<!-- certified-domain-reconciliation:v1 -->` record, verifies exact readback, and then reruns only the affected Domain Finality Reconciliation. `UNRESOLVED` is preserved on the Spec Review state and holds only the affected domain/cell.
+
 ## Invocation Semantics
 
-`$verify-ticket-closure` has two execution modes. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
+For ordinary ticket-candidate certification, `$verify-ticket-closure` has two entry modes. The Certified Closure Domain Reconciliation mode above is a separate prescribed internal-composition path and terminates after its reconciliation result; it does not enter the ordinary candidate-certification procedure below. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
 
 ### Fresh verifier leaf — normal path
 
@@ -100,7 +174,7 @@ A direct ad hoc execution outside the `$implement-ticket` checkpoint lifecycle i
 
 ## Verifier Integrity
 
-Only the fresh dispatched verifier executes the remaining sections.
+For ordinary ticket-candidate certification, only the fresh dispatched verifier executes the remaining sections. Certified Closure Domain Reconciliation uses its own Reconciler Integrity contract above and stops before this ordinary certification path.
 
 A valid verifier is:
 
@@ -140,6 +214,53 @@ For remediation also recover:
 * previously satisfied other roots whose governed contracts intersect the candidate.
 
 Missing, ambiguous, contradictory, or stale contract/candidate state invalidates verification. Context efficiency never authorizes omitting authority required to close a material claim or domain.
+
+### Authority Source Coverage Manifest
+
+Before acceptance-cell construction, close the bounded **authority-source universe** that materially defines this ticket's promised slice. This prevents a verifier from proving every obligation it noticed while silently omitting an explicit requirement from an architecture/design source the ticket claims to consume.
+
+Start from:
+
+* the ticket's normative body and acceptance/verification/preservation obligations;
+* the carried parent-Spec clauses identified by `Spec obligations`;
+* the exact architecture/design sections required to interpret the ticket's promised slice, including sources named by the ticket/Spec as governing that slice.
+
+Do not ingest unrelated sections merely because a large design document is referenced. Broaden only when a bounded section depends on another source or cannot be interpreted completely in isolation.
+
+Classify every materially normative source unit in that bounded authority-source set:
+
+```text
+Authority unit: AUTH-<n>
+Source: <durable source + section/anchor>
+Requirement: <compact normative obligation>
+Disposition: current-ticket | preservation | verification-only | deferred-existing-owner | not-applicable
+Destination: <AC/ND ID | durable other ticket/Spec/owner | None>
+Reason/authority: <required for every non-current-ticket disposition>
+```
+
+Rules:
+
+* `current-ticket` obligations must enter the acceptance universe;
+* `preservation` obligations must enter the preservation proof universe;
+* `verification-only` obligations must have an explicit proof destination in this verifier;
+* `deferred-existing-owner` requires durable authority naming the other owner; do not invent a future destination to make the manifest close;
+* `not-applicable` requires exact authority/reason;
+* a broad statement that the ticket "consumes" a design source does not permit cherry-picking only the clauses already reflected in implementation/tests;
+* implementation shape, existing tests, Proposed Closure Evidence, and known findings may help locate evidence but may not define which authority units exist.
+
+Before continuing require:
+
+```text
+Bounded authority sources: <n>
+Material normative authority units: <n>
+Authority disposition rows: <n>
+Unmapped authority units: 0
+Ambiguous authority units: 0
+Current-ticket authority units absent from acceptance cells: 0
+Deferred units without durable existing owner: 0
+```
+
+Any non-zero value leaves the affected ticket acceptance universe unproven and prohibits PASS.
 
 ## 2. Build the Authoritative Acceptance Universe
 

@@ -49,6 +49,17 @@ The compact coverage/effectiveness output required below remains required, but i
 
 Owner-overridden, scope-retired, Root Blocker, provenance, architecture-handoff, remediation, and lifecycle information remains governed by the procedure and may follow the three-axis findings as applicable.
 
+### Certification Integrity Projection
+
+When Domain Finality Reconciliation detects or resolves certification-integrity state, add a compact supplemental section **after** the three review axes:
+
+```markdown
+## Certification Integrity
+- <domain/reconciliation result or unresolved affected cell>
+```
+
+This section is supplemental process state, not a fourth review axis. A provisional `closure-authority-defect` is not presented as an active axis `Blocking` finding until reconciliation makes the underlying implementation observation actionable. If reconciliation is confirmed and the observation becomes an `in-domain-falsifier`, return the actionable finding to its original Standards/Spec/Architecture axis and preserve the reconciliation summary here.
+
 ## Reviewer Execution Budget
 
 A normal `$review-spec` invocation may create exactly **one fresh semantic review sub-agent**. That one reviewer executes the applicable review axes sequentially in this fixed order:
@@ -79,6 +90,24 @@ Semantic axis independence: required
 
 Token/model cost is an execution constraint, never permission to omit coverage, skip required proof, weaken Domain Finality Reconciliation, bypass Attention, or relax the Exit Gate.
 
+A `$verify-ticket-closure` Certified Domain Reconciliation invoked by the finality gate is delegated semantic certification, not an additional review/challenger pass. Its fresh-verifier requirement is governed by that skill and does not authorize any extra review agents or challengers.
+
+## Review Execution Efficiency
+
+Correctness coverage is mandatory; repeated retrieval and transcript volume are not. Use the following execution discipline for every review:
+
+1. **Build one Review Context Index before reviewer dispatch.** Record the exact verified receipt/HEAD, Spec Contract identity, change-provenance artifact, Architecture Impact/source identities, current Spec Review issue, known machine-managed comment IDs/markers, Ticket Coverage Manifest, and prior Review Proof Reuse Ledger when present. Reuse this index while those identities remain unchanged.
+2. **Retrieve by durable coordinate first.** Prefer exact issue/comment IDs, markers, source sections, hashes, and domain IDs. Do not fetch/search complete historical issue sets or comment histories when the required provenance is already directly addressable. Broaden only to resolve a material ambiguity or completeness question.
+3. **Reduce mechanically before semantic inspection.** Use deterministic filtering/counting/hashing/grouping for large JSON, manifests, comments, and proof ledgers. Give the reviewer the compact authoritative rows plus exact drill-down coordinates; expand raw payloads only when the compact form cannot settle the claim.
+4. **Do not dump scratch construction artifacts into the human transcript.** Raw proof-group JSON, long source inventories, and machine manifests remain working state unless the user requests them or a durable workflow record requires them. Present compact counts/findings and persist only the canonical required artifact.
+5. **Freeze findings once per axis.** After an axis freezes, upstream-certification provenance and Domain Finality work are bounded to those frozen findings. Do not re-search unrelated historical tickets/issues merely to look for more provenance.
+6. **Reuse factual evidence across axes, never semantic conclusions.** The one reviewer may reuse an exact file excerpt, hash, test result, or authority source already loaded; it must still make each axis's disposition independently.
+7. **No automatic retry/challenger churn.** A failed deterministic query is corrected against the actual schema; it does not justify spraying alternate broad searches. The existing reviewer performs the one bounded finality self-challenge when required. Additional semantic reviewers/challengers still require explicit human authorization.
+8. **Use certified review-proof reuse on re-review.** Re-evaluate only stale/invalidated proof groups plus active remediation/finality cells. Do not rerun clean groups whose certifier-approved invalidation boundaries remain untouched.
+9. **Avoid status-noise polling.** Waiting for the single reviewer or deterministic operation must not create repeated "no result yet" transcript entries or duplicate semantic work.
+
+Efficiency never permits incomplete universe construction, omitted falsifiers, weakened finality reconciliation, or skipped Attention.
+
 ## Preserve the Adversarial Boundary
 
 `$review-spec` remains downstream of a passing independently certified `$verify-spec` result.
@@ -86,7 +115,7 @@ Token/model cost is an execution constraint, never permission to omit coverage, 
 Do not:
 
 * verify ordinary ticket closure here;
-* rerun `$verify-ticket-closure` or `$verify-spec-closure` merely to confirm a review finding;
+* rerun ordinary `$verify-ticket-closure` or `$verify-spec-closure` merely to confirm a review finding; Certified Closure Domain Reconciliation mode is the sole exception and reconciles membership authority rather than recertifying the historical candidate;
 * repair upstream verifier policy during the review;
 * weaken a current **in-domain** finding because an earlier verifier reported PASS.
 
@@ -232,9 +261,15 @@ The Pending packet must name the actual authority change; “reviewer now interp
 
 Unchanged durable authority contains an **exact explicit contradiction** to the certified membership predicate/source set, such as an authoritative enumerated member omitted from a certification that claimed that exact enumeration.
 
-This is process-integrity evidence about semantic certification. Do not convert it silently into current implementation remediation. Halt the affected root/cell behind explicit authority/domain reconciliation; preserve the implementation observation separately.
+This is process-integrity evidence about semantic certification. Do not convert it silently into implementation remediation and do not globally hold unrelated current findings. Hold only the affected domain/cell while performing **Certified Closure Domain Reconciliation** through the semantic completion owner that created the domain. For ticket/root domains created by `$verify-ticket-closure`, invoke that skill internally in its Certified Closure Domain Reconciliation mode.
 
-A broader plausible reading, thematic similarity, sibling implementation mechanism, lexical adjacency, or reviewer preference is not an explicit authority contradiction.
+Consume the result immediately in the same review lifecycle:
+
+* `DOMAIN RECONCILIATION: DEFECT CONFIRMED` — persist/read back the superseding membership record on the originating ticket, then rerun Domain Finality Reconciliation only for the affected observation against that corrected domain. If it is now in-domain, it becomes an ordinary `in-domain-falsifier` and may return to its originating review axis as Blocking.
+* `DOMAIN RECONCILIATION: DEFECT REJECTED` — keep the prior domain as finality authority and disposition the observation as `domain-expansion` unless another ordinary finality disposition applies.
+* `DOMAIN RECONCILIATION: UNRESOLVED` — preserve an unresolved certification-integrity hold for only the affected domain/cell. It does not suppress unrelated actionable findings, but it prevents Review PASS.
+
+A broader plausible reading, thematic similarity, sibling implementation mechanism, lexical adjacency, or reviewer preference is not an explicit authority contradiction. Reconciliation must rebuild the complete affected domain authority-first when a defect is confirmed; it may not merely append the candidate that exposed the defect.
 
 #### `domain-expansion`
 
@@ -261,9 +296,16 @@ A genuinely distinct current obligation not governed by an existing certified ro
 
 ### Pending/aggregate state
 
-Only findings that survive Domain Finality Reconciliation count as current Blocking findings, Root Blocker reopenings, convergence triggers, or `$to-tickets` inputs.
+Track these independently:
 
-Persist non-actionable domain-expansion/process-integrity observations in the Pending packet's provenance/scope/finality section so history is not erased.
+```text
+ACTIVE_BLOCKING_FINDINGS: <n>
+UNRESOLVED_CERTIFICATION_RECONCILIATIONS: <n>
+```
+
+Only findings that survive Domain Finality Reconciliation count as current Blocking findings, Root Blocker reopenings, convergence triggers, or `$to-tickets` inputs. An unresolved certification reconciliation holds only its affected domain/cell and does not prevent unrelated `ACTIVE_BLOCKING_FINDINGS` from entering normal remediation.
+
+Review PASS/Exit Receipt requires both counts to be zero. Persist non-actionable domain-expansion/process-integrity observations and any unresolved reconciliation in the Pending packet's provenance/scope/finality section so history is not erased.
 
 ## Semantic Attribution and Certified Review Reuse
 

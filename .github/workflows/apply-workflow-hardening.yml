@@ -1,0 +1,38 @@
+name: Apply workflow hardening
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded workflow patch
+        run: python .github/scripts/apply_workflow_hardening.py
+      - name: Remove transport files and validate authorized delta
+        run: |
+          git rm .github/scripts/apply_workflow_hardening.py .github/workflows/apply-workflow-hardening.yml
+          test "$(git diff --name-only 793c9e1c046d4b9a6b531b1b645c131af50a7bbb | sort)" = "$(printf '%s\n' \
+            .agents/skills/README.md \
+            .agents/skills/review-spec-remediation/SKILL.md \
+            .agents/skills/review-spec/SKILL.md \
+            .agents/skills/to-tickets/SKILL.md \
+            .agents/skills/verify-ticket-closure/SKILL.md \
+            docs/process/common-sense-invariant-hardening-semantic-domain-finality-addendum.md | sort)"
+          git diff --check 793c9e1c046d4b9a6b531b1b645c131af50a7bbb
+      - name: Persist workflow hardening
+        run: |
+          git config user.name "Bob Taylor"
+          git config user.email "bobltaylorjr@gmail.com"
+          git add -A
+          git commit -m "fix(workflow): reconcile certified domain defects"
+          git push origin HEAD:main

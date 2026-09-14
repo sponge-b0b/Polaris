@@ -256,7 +256,7 @@ All tickets for one Spec share the same Spec branch and fixed Spec baseline. Eac
 
 `$review-spec` owns independent review and parent reconciliation.
 
-Every reviewed Spec has exactly one conventional **Spec Review issue** as the durable owner of review state. `$review-spec` creates it at the first persistence point when none exists and reuses it across clean review, remediation, and re-review. Do not create one issue per pass.
+Every reviewed Spec has exactly one conventional **Spec Review issue** as the durable owner of review state. `$review-spec` creates it before the first semantic review dispatch when none exists and reuses it across clean review, remediation, and re-review. Do not create one issue per pass. The issue owns one cumulative `<!-- review-spec-finding-ledger:v1 -->` Review Finding Continuity Ledger; unresolved Blocking findings remain there until an explicit terminal disposition is durably proven.
 
 Clean first review:
 
@@ -264,6 +264,8 @@ Clean first review:
 $review-spec
     ↓ zero Blocking findings and zero unresolved decomposition defects
 create or reuse the one conventional Spec Review issue
+    ↓
+persist/validate the cumulative Review Finding Continuity Ledger
     ↓
 persist Spec Review Exit Receipt on that review issue
     ↓ HUMAN
@@ -299,6 +301,22 @@ The same Spec Review issue is reused across remediation/re-review cycles. Do not
 The **Pending Review Remediation** packet remains intentionally durable even though the transition into `$review-spec-remediation` is internal. It provides an explicit, recoverable contract between independent review/reconciliation and remediation synthesis.
 
 The review loop ends only when the review Exit Gate passes and `$review-spec` persists a current **Spec Review Exit Receipt** on the one conventional Spec Review issue.
+
+### Review Finding Continuity
+
+Clean proof and unresolved findings are dual durable state:
+
+```text
+review-spec-proof-reuse:v1
+    clean/N/A proof survives until its certified invalidation boundary is crossed
+
+review-spec-finding-ledger:v1
+    validated Blocking findings survive until an explicit terminal disposition is proven
+```
+
+A changed Spec Contract or a fresh review that does not rediscover a finding never erases a prior nonterminal finding by itself. Re-review must classify every open finding against its own invalidation boundary: unchanged findings carry forward; changed/ambiguous findings receive a bounded continuity review cell; every prior row receives an explicit current state.
+
+Before PASS require zero unaccounted prior findings, zero unresolved continuity cells, and zero open Blocking finding rows. The deterministic Exit renderer consumes the exact current finding ledger and refuses to emit PASS otherwise. The final Exit Receipt is owned by the conventional Spec Review and is cryptographically bound to the exact finding-ledger body; `$spec-merge-cleanup` consumes that review-owned receipt, never a parent-Spec copy.
 
 ### Decomposition Defect Routing
 

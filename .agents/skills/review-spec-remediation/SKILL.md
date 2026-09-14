@@ -36,6 +36,32 @@ Ordinary finality-surviving Blocking findings continue through the Root Blocker 
 
 A prior ticket/Spec certification is historical provenance, not authority to erase a current explicit architecture/design decomposition obligation.
 
+## Review Finding Continuity Gate
+
+`$review-spec-remediation` consumes the current `review-spec-finding-ledger:v1` alongside the exact Pending packet. It does not create, delete, or semantically rediscover findings.
+
+Require every current ordinary Blocking finding in the Pending packet to name one `RF-*` row whose current ledger state is `open` and whose routing is `ordinary-remediation`.
+
+Require exact accounting before any `$to-tickets` handoff:
+
+```text
+Open ordinary-remediation RF rows: <n>
+RF rows mapped to active Root Blockers: <n>
+Open ordinary RF rows without root mapping: 0
+Root mappings to unknown/terminal RF rows: 0
+Open decomposition-defect RF rows: <n>
+```
+
+Rules:
+
+* every open ordinary-remediation `RF-*` must map to exactly one existing or newly synthesized stable Root Blocker in this invocation;
+* unrelated decomposition defects never defer, suppress, or prevent ordinary `RF-*` root synthesis;
+* open decomposition-defect rows remain outside Root Blocker synthesis and continue through the canonical `DD-*` / `$to-tickets` path;
+* satisfied/invalidated/owner-overridden/scope-retired finding rows cannot create active remediation roots;
+* persist the contributing `RF-*` IDs in Root Blocker evidence so later re-review can trace finding → root → remediation without conversational memory.
+
+If exact RF/root accounting cannot be established, return a remediation-state error to `$review-spec`; do not hand off an incomplete delta.
+
 ## Invocation Preconditions
 
 Recover:
@@ -43,6 +69,7 @@ Recover:
 * Spec Review issue;
 * exact `**Parent Spec:** #<n>` line;
 * latest Pending Review Remediation packet;
+* current `review-spec-finding-ledger:v1` comment;
 * current `HEAD`, branch, Spec baseline;
 * current passing verification receipt.
 
@@ -203,7 +230,7 @@ Do not let helper/unit proof establish completion when an obligation requires a 
 
 When no ledger exists:
 
-1. synthesize current accepted Blocking findings into stable roots;
+1. synthesize every current open `ordinary-remediation` `RF-*` into stable roots with exact RF mapping;
 2. build initial cumulative matrix;
 3. apply architecture-conformance gate;
 4. persist the ledger/matrix.
@@ -217,7 +244,7 @@ Preserve the exact `**Parent Spec:**` line.
 When durable state exists:
 
 1. recover complete ledger/matrix;
-2. preserve every active prior obligation;
+2. preserve every active prior obligation and every open ordinary-remediation `RF-*`;
 3. apply explicit Scope Corrections first;
 4. consume the current `$review-spec` decomposition-integrity and semantic-domain-finality disposition for every finding against a previously satisfied/closed root;
 5. reconcile only finality-surviving current Blocking findings;
@@ -225,7 +252,8 @@ When durable state exists:
 7. mark corrected out-of-domain historical/current observations `domain-excluded` rather than deleting them;
 8. update root status/evidence;
 9. apply architecture-conformance gate;
-10. persist updated cumulative state.
+10. require every open ordinary-remediation `RF-*` to map to exactly one active root;
+11. persist updated cumulative state.
 
 Do not resurrect historical findings unless they remain active cells or are independently validated in the current Pending packet.
 

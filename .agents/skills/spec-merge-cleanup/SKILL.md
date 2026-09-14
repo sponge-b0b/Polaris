@@ -1,6 +1,6 @@
 ---
 name: spec-merge-cleanup
-description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and any remediation Spec Review, reconciles completion with every governing Wayfinder map, and reconstructs the completed Spec lineage into the GitHub Project in one batch.
+description: Invoked only by `$review-spec` when its Exit Gate authorizes progression. Merges the spec branch into `main` or directly closes branchless Specs, resumes interrupted post-completion cleanup safely, cleans up the branch and the conventional Spec Review, reconciles completion with every governing Wayfinder map, and reconstructs the completed Spec lineage into the GitHub Project in one batch.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -23,36 +23,13 @@ Never assume an invocation is pre-merge merely because cleanup work remains. Det
 
 ## Review Exit Authorization
 
-Before closing or merging anything, and before resuming interrupted post-completion cleanup, recover the latest **Spec Review Exit Receipt** from the parent Spec issue. The parent Spec owns workspace metadata, Spec Verification Receipts, and the final review Exit Receipt. A conventional Spec Review issue is optional remediation history and must not be required for a clean first-pass review.
+Before closing or merging anything, and before resuming interrupted post-completion cleanup, recover the exactly one conventional **Spec Review** issue for the parent Spec. That review issue owns the cumulative Review Finding Continuity Ledger and the final Spec Review Exit Receipt. The parent Spec continues to own workspace metadata and Spec Verification Receipts.
 
-Read the parent Spec's complete durable comment history once:
+Resolve the conventional Spec Review from one paginated issues read and the exact body marker:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 SPEC_NUMBER=<parent Spec issue number>
-
-SPEC_COMMENT_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
-)
-
-REVIEW_EXIT_RECEIPT_JSON=$(
-  printf '%s\n' "$SPEC_COMMENT_PAGES" \
-    | jq -c '
-        [.[][]
-         | select((.body // "") | contains("## Spec Review Exit Receipt"))
-         | {id, created_at, html_url, body}]
-        | sort_by(.created_at, .id)
-        | last // empty'
-)
-```
-
-That newest parent-Spec receipt is the only review-authorization candidate. Do not use a receipt copied onto a Spec Review issue, an unpaginated comment read, or walk backward to an older receipt when the newest one is malformed or stale.
-
-Resolve an optional conventional Spec Review issue separately for remediation cleanup:
-
-```bash
 PARENT_MARKER="**Parent Spec:** #$SPEC_NUMBER"
 
 REVIEW_PAGES=$(
@@ -72,56 +49,95 @@ REVIEW_MATCHES=$(
 )
 
 REVIEW_COUNT=$(printf '%s\n' "$REVIEW_MATCHES" | jq 'length')
-
-if [ "$REVIEW_COUNT" -gt 1 ]; then
-  echo "❌ More than one conventional Spec Review identifies parent Spec #$SPEC_NUMBER."
+[ "$REVIEW_COUNT" -eq 1 ] || {
+  echo "❌ Exactly one conventional Spec Review is required for Spec #$SPEC_NUMBER."
   exit 1
-elif [ "$REVIEW_COUNT" -eq 1 ]; then
-  SPEC_REVIEW_ISSUE_NUMBER=$(printf '%s\n' "$REVIEW_MATCHES" | jq -r '.[0].number')
-else
-  SPEC_REVIEW_ISSUE_NUMBER=""
-fi
+}
+SPEC_REVIEW_ISSUE_NUMBER=$(printf '%s\n' "$REVIEW_MATCHES" | jq -r '.[0].number')
 ```
 
-Zero conventional Spec Review matches is valid: it means the review passed without entering blocker/remediation state. More than one remains ambiguous durable remediation ownership and fails closed.
+Read the parent Spec's complete comment history for verification authority and the Spec Review's complete comment history for review authority:
 
-The parent-Spec receipt must have been persisted by `$review-spec` only after its Exit Gate passed and must match the current producer schema:
+```bash
+SPEC_COMMENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100"
+)
+
+REVIEW_COMMENT_PAGES=$(
+  gh api --paginate --slurp \
+    -H "X-GitHub-Api-Version: 2026-03-10" \
+    "repos/$REPO/issues/$SPEC_REVIEW_ISSUE_NUMBER/comments?per_page=100"
+)
+
+REVIEW_EXIT_RECEIPT_JSON=$(
+  printf '%s\n' "$REVIEW_COMMENT_PAGES" \
+    | jq -c '
+        [.[][]
+         | select((.body // "") | contains("## Spec Review Exit Receipt"))
+         | {id, created_at, html_url, body}]
+        | sort_by(.created_at, .id)
+        | last // empty'
+)
+
+FINDING_LEDGER_MATCHES=$(
+  printf '%s\n' "$REVIEW_COMMENT_PAGES" \
+    | jq -c '[.[][] | select((.body // "") | contains("<!-- review-spec-finding-ledger:v1 -->")) | {id, body}]'
+)
+[ "$(printf '%s\n' "$FINDING_LEDGER_MATCHES" | jq 'length')" -eq 1 ] || {
+  echo "❌ Exactly one Review Finding Continuity Ledger is required."
+  exit 1
+}
+FINDING_LEDGER_BODY=$(printf '%s\n' "$FINDING_LEDGER_MATCHES" | jq -r '.[0].body')
+CURRENT_FINDING_LEDGER_HASH=$(printf '%s' "$FINDING_LEDGER_BODY" | sha256sum | awk '{print $1}')
+```
+
+The newest **Spec Review-owned** Exit Receipt is the only review-authorization candidate. Ignore historical/copied Exit Receipts on the parent Spec; they are not merge authority.
+
+The receipt must match the current producer schema, including:
 
 ```markdown
 ## Spec Review Exit Receipt
 
 **Status:** passed
+**Spec Review:** #<review issue>
 **Reviewed HEAD:** <full SHA>
 **Reviewed Baseline:** <full Spec baseline SHA>
 **Branch:** spec-<spec_issue_number>
 **Spec Body Hash:** <hash>
 **Spec Contract Hash:** <hash>
+**Finding Ledger Hash:** <sha256 of exact managed ledger body>
 **Blocking findings:** 0
+**Open blocking findings:** 0
+**Unaccounted prior findings:** 0
+**Unresolved continuity cells:** 0
+**Unresolved decomposition defects:** 0
 **Root blockers:** satisfied/owner-overridden/scope-retired
 **Candidate new roots:** 0
 **Review coverage:** complete
 **Unchecked coverage cells:** 0
 ```
 
-Recover the current Spec baseline from its durable workspace metadata and the latest passing Spec Verification Receipt from `SPEC_COMMENT_PAGES` for the same candidate HEAD.
+Recover the current Spec baseline from durable workspace metadata and the latest passing Spec Verification Receipt from `SPEC_COMMENT_PAGES` for the same candidate HEAD.
 
 Require:
 
-* `Status` is `passed`;
+* `Status` is `passed` and `Spec Review` equals `#$SPEC_REVIEW_ISSUE_NUMBER`;
+* `Finding Ledger Hash` equals `CURRENT_FINDING_LEDGER_HASH` exactly;
 * `Reviewed Baseline` equals the current Spec baseline;
 * `Spec Body Hash` and `Spec Contract Hash` equal the parent Spec's latest passing Spec Verification Receipt for the same `Reviewed HEAD`;
-* `Blocking findings` is `0`;
+* `Blocking findings`, `Open blocking findings`, `Unaccounted prior findings`, `Unresolved continuity cells`, `Unresolved decomposition defects`, `Candidate new roots`, and `Unchecked coverage cells` are all `0`;
 * `Root blockers` is exactly `satisfied/owner-overridden/scope-retired`;
-* `Candidate new roots` is `0`;
-* `Review coverage` is `complete` and `Unchecked coverage cells` is `0`;
+* `Review coverage` is `complete`;
 * before merge, when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`;
 * during post-merge recovery, `Reviewed HEAD` exactly equals the matching merged PR's recorded head SHA.
 
-Any commit after the receipt and before merge makes the authorization stale.
+Any commit after the receipt and before merge makes the authorization stale. Any mutation of the managed Finding Continuity Ledger after the receipt also makes authorization stale through the hash mismatch.
 
 A later commit on a still-existing Spec branch **after** the reviewed HEAD was merged does not retroactively invalidate the completed merge, but it makes that branch unsafe to delete automatically. Post-merge cleanup must fail closed on branch-tip drift rather than deleting unmerged work.
 
-If the parent-Spec receipt is missing, malformed, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
+If the conventional Spec Review, its managed finding ledger, or its Exit Receipt is missing/malformed/stale, or cannot be bound either to the current pre-merge branch or to the exact merged PR used for recovery, halt:
 
 > ⚠️ **Spec cleanup requires durable review authorization.**
 >
@@ -131,7 +147,7 @@ If the parent-Spec receipt is missing, malformed, or cannot be bound either to t
 > $review-spec - <Spec Title> (<Spec URL>)
 > ```
 
-Do not invoke `$review-spec` implicitly and do not copy/recreate the receipt on a Spec Review issue merely to satisfy cleanup.
+Do not invoke `$review-spec` implicitly and do not copy/recreate a receipt on another issue merely to satisfy cleanup.
 
 ### Canonical Lifecycle Reads
 

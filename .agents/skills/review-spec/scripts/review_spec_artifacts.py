@@ -15,8 +15,15 @@ from typing import Any
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 CELL_RE = re.compile(r"^(?:US|ID|TD|OOS|NORM)-\d+(?:\.[A-Za-z0-9_-]+)?$")
+RF_RE = re.compile(r"^RF-\d+$")
 VERIFY_HEADER = "## Spec Verification Receipt"
 EXIT_HEADER = "## Spec Review Exit Receipt"
+FINDING_LEDGER_MARKER = "<!-- review-spec-finding-ledger:v1 -->"
+FINDING_LEDGER_HEADER = "## Review Finding Continuity Ledger"
+FINDING_STATUSES = {"open", "satisfied", "invalidated", "owner-overridden", "scope-retired"}
+TERMINAL_FINDING_STATUSES = FINDING_STATUSES - {"open"}
+FINDING_SEVERITIES = {"blocking", "advisory"}
+FINDING_ROUTINGS = {"ordinary-remediation", "decomposition-defect", "architecture-remediation", "advisory"}
 RECEIPT_FORMAT_V2 = "manifest-table-v2"
 SOURCE_LABELS = {
     "User Stories": "user_stories",
@@ -310,6 +317,136 @@ def _bullets(items: list[str]) -> list[str]:
     return lines
 
 
+
+
+def _positive_int(value: Any, label: str) -> int:
+    _require(type(value) is int and value > 0, f"{label} must be a positive integer")
+    return value
+
+
+def _nonnegative_int(value: Any, label: str) -> int:
+    _require(type(value) is int and value >= 0, f"{label} must be a non-negative integer")
+    return value
+
+
+def _finding_rows(value: Any) -> list[dict[str, Any]]:
+    _require(isinstance(value, list), "findings must be a list")
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in value:
+        _require(isinstance(raw, dict), "finding row must be an object")
+        finding_id = _text(raw.get("id"), "finding id")
+        _require(bool(RF_RE.fullmatch(finding_id)), f"invalid finding id {finding_id}")
+        _require(finding_id not in seen, f"duplicate finding id {finding_id}")
+        seen.add(finding_id)
+        severity = _text(raw.get("severity"), f"{finding_id} severity")
+        _require(severity in FINDING_SEVERITIES, f"invalid {finding_id} severity")
+        axes = _list(raw.get("axes"), f"{finding_id} axes")
+        _require(bool(axes), f"{finding_id} axes must be non-empty")
+        _require(
+            all(axis in {"Standards", "Spec", "Architecture"} for axis in axes),
+            f"invalid {finding_id} axis",
+        )
+        status = _text(raw.get("status"), f"{finding_id} status")
+        _require(status in FINDING_STATUSES, f"invalid {finding_id} status")
+        routing = _text(raw.get("routing"), f"{finding_id} routing")
+        _require(routing in FINDING_ROUTINGS, f"invalid {finding_id} routing")
+        boundary = _list(raw.get("invalidation_boundary"), f"{finding_id} invalidation boundary")
+        if severity == "blocking":
+            _require(bool(boundary), f"{finding_id} Blocking finding requires invalidation boundary")
+        disposition = str(raw.get("disposition_evidence") or "").strip()
+        if status in TERMINAL_FINDING_STATUSES:
+            _require(bool(disposition), f"{finding_id} terminal status requires disposition evidence")
+        rows.append(
+            {
+                "id": finding_id,
+                "severity": severity,
+                "axes": axes,
+                "invariant": _text(raw.get("invariant"), f"{finding_id} invariant"),
+                "status": status,
+                "routing": routing,
+                "authority": _text(raw.get("authority"), f"{finding_id} authority"),
+                "evidence": _text(raw.get("evidence"), f"{finding_id} evidence"),
+                "invalidation_boundary": boundary,
+                "origin": _text(raw.get("origin"), f"{finding_id} origin"),
+                "disposition_evidence": disposition,
+            }
+        )
+    return sorted(rows, key=lambda row: int(row["id"].split("-", 1)[1]))
+
+
+def parse_finding_ledger(body: str) -> dict[str, Any]:
+    lines = body.splitlines()
+    _require(FINDING_LEDGER_MARKER in lines, "finding ledger marker missing")
+    _require(FINDING_LEDGER_HEADER in lines, "finding ledger header missing")
+    parent = _text(_field(lines, "Parent Spec"), "Parent Spec")
+    review = _text(_field(lines, "Spec Review"), "Spec Review")
+    _require(parent.startswith("#") and parent[1:].isdigit(), "invalid Parent Spec")
+    _require(review.startswith("#") and review[1:].isdigit(), "invalid Spec Review")
+    head = _sha(_field(lines, "Reviewed HEAD"), "finding ledger Reviewed HEAD")
+    body_hash = _digest(_field(lines, "Spec Body Hash"), "finding ledger Spec Body Hash")
+    contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
+    try:
+        start = lines.index("```json") + 1
+        end = lines.index("```", start)
+    except ValueError as exc:
+        raise ArtifactError("finding ledger JSON block missing") from exc
+    payload = json.loads("\n".join(lines[start:end]))
+    rows = _finding_rows(payload)
+    return {
+        "parent_spec": int(parent[1:]),
+        "spec_review": int(review[1:]),
+        "head": head,
+        "spec_body_hash": body_hash,
+        "spec_contract_hash": contract_hash,
+        "findings": rows,
+    }
+
+
+def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
+    _require(isinstance(raw, dict), "finding ledger input must be an object")
+    parent_spec = _positive_int(raw.get("parent_spec"), "parent_spec")
+    spec_review = _positive_int(raw.get("spec_review"), "spec_review")
+    head = _sha(raw.get("head"), "finding ledger reviewed HEAD")
+    body_hash = _digest(raw.get("spec_body_hash"), "finding ledger Spec Body Hash")
+    contract_hash = _digest(raw.get("spec_contract_hash"), "finding ledger Spec Contract Hash")
+    rows = _finding_rows(raw.get("findings"))
+
+    if prior_body is not None:
+        prior = parse_finding_ledger(prior_body)
+        _require(prior["parent_spec"] == parent_spec, "finding ledger Parent Spec changed")
+        _require(prior["spec_review"] == spec_review, "finding ledger Spec Review changed")
+        current_by_id = {row["id"]: row for row in rows}
+        prior_rows = prior["findings"]
+        prior_max = max((int(row["id"].split("-", 1)[1]) for row in prior_rows), default=0)
+        for old in prior_rows:
+            _require(old["id"] in current_by_id, f"prior finding omitted: {old['id']}")
+            new = current_by_id[old["id"]]
+            for stable in ("severity", "axes", "invariant", "origin"):
+                _require(new[stable] == old[stable], f"{old['id']} changed stable field {stable}")
+            if old["status"] in TERMINAL_FINDING_STATUSES:
+                _require(new["status"] == old["status"], f"terminal finding reopened: {old['id']}")
+        for row in rows:
+            number = int(row["id"].split("-", 1)[1])
+            if row["id"] not in {old["id"] for old in prior_rows}:
+                _require(number > prior_max, f"new finding ID reuses historical range: {row['id']}")
+
+    lines = [
+        FINDING_LEDGER_MARKER,
+        FINDING_LEDGER_HEADER,
+        "",
+        f"**Parent Spec:** #{parent_spec}",
+        f"**Spec Review:** #{spec_review}",
+        f"**Reviewed HEAD:** {head}",
+        f"**Spec Body Hash:** {body_hash}",
+        f"**Spec Contract Hash:** {contract_hash}",
+        "",
+        "```json",
+        json.dumps(rows, indent=2, sort_keys=True),
+        "```",
+    ]
+    return "\n".join(lines) + "\n"
+
 def render_pending(raw: Any) -> str:
     _require(isinstance(raw, dict), "pending input must be an object")
     head = _sha(raw.get("head"), "reviewed HEAD")
@@ -385,23 +522,63 @@ def render_pending(raw: Any) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_exit(raw: Any) -> str:
+def render_exit(raw: Any, finding_ledger_body: str) -> str:
     _require(isinstance(raw, dict), "exit input must be an object")
     head = _sha(raw.get("head"), "reviewed HEAD")
     baseline = _sha(raw.get("baseline"), "reviewed baseline")
     branch = _text(raw.get("branch"), "branch")
     body_hash = _digest(raw.get("spec_body_hash"), "Spec Body Hash")
     contract_hash = _digest(raw.get("spec_contract_hash"), "Spec Contract Hash")
+    parent_spec = _positive_int(raw.get("parent_spec"), "parent_spec")
+    spec_review = _positive_int(raw.get("spec_review"), "spec_review")
+    ledger = parse_finding_ledger(finding_ledger_body)
+    _require(ledger["parent_spec"] == parent_spec, "finding ledger Parent Spec mismatch")
+    _require(ledger["spec_review"] == spec_review, "finding ledger Spec Review mismatch")
+    _require(ledger["head"] == head, "finding ledger HEAD mismatch")
+    _require(ledger["spec_body_hash"] == body_hash, "finding ledger Spec Body Hash mismatch")
+    _require(ledger["spec_contract_hash"] == contract_hash, "finding ledger Spec Contract Hash mismatch")
+
+    open_blocking = [
+        row for row in ledger["findings"]
+        if row["severity"] == "blocking" and row["status"] == "open"
+    ]
+    open_decomposition = [
+        row for row in open_blocking if row["routing"] == "decomposition-defect"
+    ]
+    _require(not open_blocking, "open Blocking findings prevent Exit Receipt")
+    _require(not open_decomposition, "unresolved decomposition defects prevent Exit Receipt")
+
+    unaccounted = _nonnegative_int(raw.get("unaccounted_prior_findings"), "unaccounted prior findings")
+    unresolved_continuity = _nonnegative_int(raw.get("unresolved_continuity_cells"), "unresolved continuity cells")
+    active_roots = _nonnegative_int(raw.get("active_root_blockers"), "active root blockers")
+    candidate_roots = _nonnegative_int(raw.get("candidate_new_roots"), "candidate new roots")
+    unchecked = _nonnegative_int(raw.get("unchecked_coverage_cells"), "unchecked coverage cells")
+    unresolved_challenges = _nonnegative_int(raw.get("unresolved_challenges"), "unresolved challenges")
+    _require(unaccounted == 0, "unaccounted prior findings prevent Exit Receipt")
+    _require(unresolved_continuity == 0, "unresolved continuity cells prevent Exit Receipt")
+    _require(active_roots == 0, "active root blockers prevent Exit Receipt")
+    _require(candidate_roots == 0, "candidate new roots prevent Exit Receipt")
+    _require(unchecked == 0, "unchecked coverage cells prevent Exit Receipt")
+    _require(unresolved_challenges == 0, "unresolved challenges prevent Exit Receipt")
+    _require(_text(raw.get("review_coverage"), "review coverage") == "complete", "review coverage is incomplete")
+
+    ledger_hash = hashlib.sha256(finding_ledger_body.encode("utf-8")).hexdigest()
     lines = [
         EXIT_HEADER,
         "",
         "**Status:** passed",
+        f"**Spec Review:** #{spec_review}",
         f"**Reviewed HEAD:** {head}",
         f"**Reviewed Baseline:** {baseline}",
         f"**Branch:** {branch}",
         f"**Spec Body Hash:** {body_hash}",
         f"**Spec Contract Hash:** {contract_hash}",
+        f"**Finding Ledger Hash:** {ledger_hash}",
         "**Blocking findings:** 0",
+        "**Open blocking findings:** 0",
+        "**Unaccounted prior findings:** 0",
+        "**Unresolved continuity cells:** 0",
+        "**Unresolved decomposition defects:** 0",
         "**Root blockers:** satisfied/owner-overridden/scope-retired",
         "**Candidate new roots:** 0",
         "**Review coverage:** complete",
@@ -418,16 +595,10 @@ def render_exit(raw: Any) -> str:
         ),
         (
             "**Reviewer execution override:** "
-            f"{
-                _text(
-                    raw.get('reviewer_execution_override'),
-                    'reviewer execution override',
-                )
-            }"
+            f"{_text(raw.get('reviewer_execution_override'), 'reviewer execution override')}"
         ),
     ]
     return "\n".join(lines) + "\n"
-
 
 def self_test() -> None:
     legacy = "\n".join(
@@ -474,6 +645,85 @@ def self_test() -> None:
         raise AssertionError("double-escaped legacy manifest row was accepted")
 
 
+    ledger_input = {
+        "parent_spec": 1,
+        "spec_review": 2,
+        "head": "a" * 40,
+        "spec_body_hash": "b" * 64,
+        "spec_contract_hash": "c" * 64,
+        "findings": [
+            {
+                "id": "RF-1",
+                "severity": "blocking",
+                "axes": ["Spec"],
+                "invariant": "required behavior remains intact",
+                "status": "open",
+                "routing": "ordinary-remediation",
+                "authority": "Spec ID-1",
+                "evidence": "current implementation violates the invariant",
+                "invalidation_boundary": ["src/example.py", "Spec ID-1"],
+                "origin": "review comment 1",
+                "disposition_evidence": "",
+            }
+        ],
+    }
+    open_ledger = render_finding_ledger(ledger_input)
+    exit_input = {
+        "parent_spec": 1,
+        "spec_review": 2,
+        "head": "a" * 40,
+        "baseline": "d" * 40,
+        "branch": "spec-1",
+        "spec_body_hash": "b" * 64,
+        "spec_contract_hash": "c" * 64,
+        "unaccounted_prior_findings": 0,
+        "unresolved_continuity_cells": 0,
+        "active_root_blockers": 0,
+        "candidate_new_roots": 0,
+        "unchecked_coverage_cells": 0,
+        "unresolved_challenges": 0,
+        "review_coverage": "complete",
+        "primary_reviewers": "1",
+        "targeted_challengers": 0,
+        "saturation_challengers": 0,
+        "reviewer_execution": "test",
+        "reviewer_execution_override": "None",
+    }
+    try:
+        render_exit(exit_input, open_ledger)
+    except ArtifactError:
+        pass
+    else:
+        raise AssertionError("Exit Receipt accepted an open Blocking finding")
+
+    closed_input = json.loads(json.dumps(ledger_input))
+    closed_input["findings"][0]["status"] = "satisfied"
+    closed_input["findings"][0]["disposition_evidence"] = "current proof excludes the falsifier"
+    closed_ledger = render_finding_ledger(closed_input, open_ledger)
+    receipt = render_exit(exit_input, closed_ledger)
+    assert "**Open blocking findings:** 0" in receipt
+    assert "**Spec Review:** #2" in receipt
+
+    omitted_input = dict(closed_input)
+    omitted_input["findings"] = []
+    try:
+        render_finding_ledger(omitted_input, closed_ledger)
+    except ArtifactError:
+        pass
+    else:
+        raise AssertionError("finding ledger accepted omitted prior row")
+
+    reopened_input = json.loads(json.dumps(closed_input))
+    reopened_input["findings"][0]["status"] = "open"
+    reopened_input["findings"][0]["disposition_evidence"] = ""
+    try:
+        render_finding_ledger(reopened_input, closed_ledger)
+    except ArtifactError:
+        pass
+    else:
+        raise AssertionError("finding ledger reopened terminal row")
+
+
 def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -486,8 +736,13 @@ def _args() -> argparse.Namespace:
     pending = sub.add_parser("render-pending")
     pending.add_argument("--input", required=True)
     pending.add_argument("--output", required=True)
+    finding = sub.add_parser("render-finding-ledger")
+    finding.add_argument("--input", required=True)
+    finding.add_argument("--output", required=True)
+    finding.add_argument("--prior-ledger")
     exit_parser = sub.add_parser("render-exit")
     exit_parser.add_argument("--input", required=True)
+    exit_parser.add_argument("--finding-ledger", required=True)
     exit_parser.add_argument("--output", required=True)
     sub.add_parser("self-test")
     return parser.parse_args()
@@ -510,9 +765,22 @@ def main() -> int:
                 render_pending(_read_json(args.input)),
                 encoding="utf-8",
             )
+        elif args.command == "render-finding-ledger":
+            prior_body = (
+                Path(args.prior_ledger).read_text(encoding="utf-8")
+                if args.prior_ledger
+                else None
+            )
+            Path(args.output).write_text(
+                render_finding_ledger(_read_json(args.input), prior_body),
+                encoding="utf-8",
+            )
         elif args.command == "render-exit":
             Path(args.output).write_text(
-                render_exit(_read_json(args.input)),
+                render_exit(
+                    _read_json(args.input),
+                    Path(args.finding_ledger).read_text(encoding="utf-8"),
+                ),
                 encoding="utf-8",
             )
         elif args.command == "self-test":

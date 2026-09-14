@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Review the **exact verified state** of a completed Spec along the applicable independent axes. This `SKILL.md` is the single authoritative procedure for `$review-spec`.
 
-The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance, semantic scope attribution, certified review-proof reuse, certified semantic-domain finality, and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
+The preserved procedure below remains normative. The hardening sections immediately below strengthen frozen-finding provenance, semantic scope attribution, certified review-proof reuse, durable review-finding continuity, certified semantic-domain finality, and the human-facing aggregate format; where those rules conflict with older wording later in this file, the hardening rules win.
 
 ## Human-Facing Aggregate Format
 
@@ -96,14 +96,14 @@ Token/model cost is an execution constraint, never permission to omit coverage, 
 
 Correctness coverage is mandatory; repeated retrieval and transcript volume are not. Use the following execution discipline for every review:
 
-1. **Build one Review Context Index before reviewer dispatch.** Record the exact verified receipt/HEAD, Spec Contract identity, change-provenance artifact, Architecture Impact/source identities, current Spec Review issue, known machine-managed comment IDs/markers, Ticket Coverage Manifest, and prior Review Proof Reuse Ledger when present. Reuse this index while those identities remain unchanged.
+1. **Build one Review Context Index before reviewer dispatch.** Record the exact verified receipt/HEAD, Spec Contract identity, change-provenance artifact, Architecture Impact/source identities, current Spec Review issue, known machine-managed comment IDs/markers, Ticket Coverage Manifest, prior Review Proof Reuse Ledger, and current Review Finding Continuity Ledger when present. Reuse this index while those identities remain unchanged.
 2. **Retrieve by durable coordinate first.** Prefer exact issue/comment IDs, markers, source sections, hashes, and domain IDs. Do not fetch/search complete historical issue sets or comment histories when the required provenance is already directly addressable. Broaden only to resolve a material ambiguity or completeness question.
 3. **Reduce mechanically before semantic inspection.** Use deterministic filtering/counting/hashing/grouping for large JSON, manifests, comments, and proof ledgers. Give the reviewer the compact authoritative rows plus exact drill-down coordinates; expand raw payloads only when the compact form cannot settle the claim.
 4. **Do not dump scratch construction artifacts into the human transcript.** Raw proof-group JSON, long source inventories, and machine manifests remain working state unless the user requests them or a durable workflow record requires them. Present compact counts/findings and persist only the canonical required artifact.
 5. **Freeze findings once per axis.** After an axis freezes, upstream-certification provenance and Domain Finality work are bounded to those frozen findings. Do not re-search unrelated historical tickets/issues merely to look for more provenance.
 6. **Reuse factual evidence across axes, never semantic conclusions.** The one reviewer may reuse an exact file excerpt, hash, test result, or authority source already loaded; it must still make each axis's disposition independently.
 7. **No automatic retry/challenger churn.** A failed deterministic query is corrected against the actual schema; it does not justify spraying alternate broad searches. The existing reviewer performs the one bounded finality self-challenge when required. Additional semantic reviewers/challengers still require explicit human authorization.
-8. **Use certified review-proof reuse on re-review.** Re-evaluate only stale/invalidated proof groups plus active remediation/finality cells. Do not rerun clean groups whose certifier-approved invalidation boundaries remain untouched.
+8. **Use certified clean-proof reuse and review-finding continuity on re-review.** Re-evaluate only stale/invalidated clean proof groups plus stale open-finding continuity cells. Carry forward every unresolved finding whose own invalidation boundary is untouched; a fresh reviewer's silence is never a terminal disposition.
 9. **Avoid status-noise polling.** Waiting for the single reviewer or deterministic operation must not create repeated "no result yet" transcript entries or duplicate semantic work.
 
 Efficiency never permits incomplete universe construction, omitted falsifiers, weakened finality reconciliation, or skipped Attention.
@@ -416,7 +416,85 @@ Duplicate proof-reuse cells: 0
 Proof groups without invalidation boundary: 0
 ```
 
+### Review Finding Continuity Ledger
+
+Clean proof and unresolved findings are dual durable review state.
+
+Every conventional Spec Review owns exactly one machine-managed cumulative comment:
+
+```text
+<!-- review-spec-finding-ledger:v1 -->
+## Review Finding Continuity Ledger
+```
+
+The ledger preserves every independently validated review finding that can affect lifecycle closure. At minimum every Blocking finding, including every `decomposition-defect`, must have a stable `RF-<n>` row before Pending or Exit persistence. Advisory findings may also be recorded, but only nonterminal Blocking rows gate review closure.
+
+Each row preserves:
+
+```text
+Finding: RF-<n>
+Severity: blocking | advisory
+Axes: <Standards | Spec | Architecture; one or more>
+Invariant: <stable violated/reviewed invariant>
+Status: open | satisfied | invalidated | owner-overridden | scope-retired
+Routing: ordinary-remediation | decomposition-defect | architecture-remediation | advisory
+Authority: <governing durable authority>
+Current evidence: <compact evidence/proof>
+Invalidation boundary:
+- <repository surfaces/predicates whose change can alter this finding>
+- <contract/authority/decomposition inputs whose change can alter this finding>
+Origin: <durable review comment/HEAD>
+Disposition evidence: <required for every terminal transition>
+```
+
+Rules:
+
+* `RF-*` identity is stable. Never renumber, delete, or silently replace a prior row.
+* `open` is nonterminal. `satisfied`, `invalidated`, `owner-overridden`, and `scope-retired` are terminal for that historical finding row.
+* terminal rows are monotonic and remain in the cumulative ledger. A later regression/new violation receives a new `RF-*` row rather than reopening/re-writing history.
+* an `open` row remains open until an explicit current transition proves a legal terminal disposition. Omission from a later fresh review is not evidence.
+* a changed Spec Contract hash may invalidate clean proof reuse, but it does not erase an open finding. Finding staleness is determined by that finding's own invalidation boundary.
+* every Blocking row requires a non-empty invalidation boundary sufficient to decide whether current implementation/authority/decomposition changes could affect it.
+* the deterministic review utility renders/validates the complete ledger. Updating an existing ledger requires the prior exact ledger body; the utility rejects omission of prior rows, ID reuse, terminal-row reopening, and terminal transitions without disposition evidence.
+* the parent persists one canonical managed comment, then GETs that exact comment and requires byte equality. Later passes update that same comment rather than creating competing ledgers.
+
+### Legacy review-state bootstrap
+
+A Spec Review created before `review-spec-finding-ledger:v1` may already contain durable Pending packets, Root Blocker history, or decomposition-defect evidence.
+
+Before reviewer dispatch, reconstruct the initial ledger from those durable review artifacts only:
+
+* include every previously validated Blocking finding that lacks a proven terminal disposition;
+* preserve stable invariants, governing authority, durable origin, and the smallest defensible invalidation boundary from the persisted record;
+* do not manufacture findings from chat memory;
+* do not treat a missing ledger as evidence that prior findings were resolved;
+* if complete legacy reconstruction cannot be established, review closure is unresolved and PASS is forbidden.
+
+Persist/read back the bootstrapped ledger before continuing the re-review.
+
 ### Remediation re-review
+
+Recover and validate the current `review-spec-finding-ledger:v1` **before** deciding semantic reviewer scope.
+
+For every nonterminal Blocking `RF-*` row compare the complete current delta against that row's own invalidation boundary:
+
+```text
+Prior finding: RF-<n>
+Boundary intersection: zero | non-zero | ambiguous
+Continuity state: carried-open | stale-review-required
+Evidence: <deterministic delta/authority witness>
+```
+
+Rules:
+
+* `zero` intersection means the finding remains `open` without semantic rediscovery; fresh-review non-mention cannot close it;
+* `non-zero` or `ambiguous` means create one `RFC-RF-<n>` continuity cell for the fresh reviewer;
+* a continuity cell supplies the stable invariant, governing authority, and current evidence surfaces needed to test the claim, but never supplies the prior review's conclusion as evidence;
+* the fresh reviewer must disposition every supplied continuity cell as current violation, satisfied current behavior, or authority/scope invalidation with proof;
+* merge any independently rediscovered current finding with its existing `RF-*` row rather than allocating a duplicate;
+* a terminal ledger transition is legal only from explicit current proof and must carry disposition evidence;
+* prior terminal rows remain historical and are never silently reopened; a later regression/new violation gets a new `RF-*` row;
+* before persistence require `Unaccounted prior findings: 0` and `Unresolved continuity cells: 0`.
 
 If a canonical Spec Review already contains a valid latest `review-spec-proof-reuse:v1` ledger whose Spec body/contract identity matches the current checkpoint, do not automatically dispatch a fresh reviewer over every prior clean cell.
 
@@ -558,7 +636,7 @@ Immediately before Pending or Exit persistence, invoke `guard <Wayfinder>` again
 
 ## 4. Recover Durable Review State
 
-A conventional **Spec Review** issue exists only for blocker/remediation history. A clean first-pass review does not create one; the parent Spec owns the final Exit Receipt.
+Every reviewed Spec has exactly one conventional **Spec Review** issue. It is the durable owner of cumulative review state, including the Review Finding Continuity Ledger, optional review-proof-reuse state, remediation history, and the final Spec Review Exit Receipt. A clean first-pass review still creates/reuses this issue after the verified checkpoint and governance guard succeed.
 
 Resolve an existing conventional Spec Review from one paginated issues read and the exact body marker:
 
@@ -568,7 +646,7 @@ Resolve an existing conventional Spec Review from one paginated issues read and 
 
 There must be zero or one matching issue titled `Spec Review: ...`; multiple matches fail closed. Do not infer review identity from Project fields, labels, title similarity alone, or prior conversation.
 
-When Blocking findings require first-time remediation, create the conventional Spec Review **once**, then boundedly re-resolve the same canonical query. Never POST a second review issue because of read-after-write delay.
+When no conventional Spec Review exists, create it **once** before reviewer dispatch, then boundedly re-resolve the same canonical query. Never POST a second review issue because of read-after-write delay.
 
 If a conventional Spec Review exists, recover privately:
 
@@ -576,6 +654,7 @@ If a conventional Spec Review exists, recover privately:
 - active/satisfied/owner-overridden/scope-retired/domain-excluded cells;
 - cumulative acceptance matrix and semantic surfaces;
 - prior reviewed/satisfied heads and Owner Overrides;
+- the current `review-spec-finding-ledger:v1`, bootstrapping it from durable legacy review state when required;
 - applicable durable ticket/root closure certifications sufficient to recover Certified Closure Domains.
 
 Do not expose root history/domain conclusions to the review agent during its primary axis passes. Domain Finality Reconciliation happens after provisional findings return.
@@ -643,6 +722,7 @@ Dispatch exactly one fresh semantic review sub-agent for the invocation. It must
 Give the reviewer only:
 
 - the complete authority and cell universe for each applicable axis;
+- every required `RFC-RF-*` continuity cell derived from a stale open finding, expressed as an invariant/current-proof question rather than a prior conclusion;
 - relevant evidence pointers/semantically current surfaces;
 - no Root Blocker history, Certified Closure Domain conclusions, or prior reviewer conclusions.
 
@@ -721,6 +801,32 @@ First freeze/deduplicate **provisional** findings and validate their axis author
 
 Only findings that survive the applicable decomposition-integrity and semantic-domain-finality gates become ordinary current Blocking findings. Preserve rejected `domain-expansion` observations explicitly; preserve `decomposition-defect` findings as Blocking routing state until `$to-tickets` reconciles them.
 
+### Finding continuity reconciliation
+
+After current provisional findings survive axis provenance/decomposition/finality gates, reconcile them with the cumulative Review Finding Continuity Ledger before Root Blocker mutation:
+
+1. carry every `carried-open` prior row forward unchanged as `open`;
+2. apply the fresh reviewer result for every `RFC-RF-*` stale continuity cell;
+3. deduplicate current rediscovery against existing `RF-*` invariants;
+4. allocate new monotonically increasing `RF-*` IDs for genuinely new validated findings;
+5. record explicit terminal disposition evidence for every prior row that becomes `satisfied`, `invalidated`, `owner-overridden`, or `scope-retired`;
+6. preserve every prior terminal row unchanged;
+7. render/validate the complete new ledger against the prior exact ledger body;
+8. persist/update the one managed ledger comment and require byte-for-byte readback.
+
+Before Root Blocker reconciliation require:
+
+```text
+Prior ledger rows: <n>
+Current ledger rows: <n>
+Prior rows omitted: 0
+Open Blocking findings: <n>
+Unaccounted prior findings: 0
+Unresolved continuity cells: 0
+```
+
+A fresh review result with zero newly discovered findings does not make `Open Blocking findings` zero when an unchanged prior `RF-*` remains open.
+
 ## 11. Reconcile Durable Roots
 
 Only after findings survive axis provenance, decomposition-integrity routing, **and semantic-domain finality** may the parent use ordinary findings to mutate Root Blocker state.
@@ -763,7 +869,9 @@ Saturation challengers: <n>
 Primary validated findings: <n>
 Finality-surviving Blocking findings: <n>
 Domain-expansion observations: <n>
-Closure-authority defects: <n>
+Active decomposition defects: <n>
+Unaccounted prior findings: <n>
+Unresolved continuity cells: <n>
 Targeted-only validated findings: <n>
 Saturation-only in-domain findings: <n>
 ```
@@ -772,14 +880,15 @@ If any finality-surviving Blocking Architecture finding requires an architecture
 
 ## 13. Pending Review Remediation
 
-If architecture-conforming finality-surviving Blocking findings remain, Scope corrections must update existing durable review state, or prior persisted findings require Domain Finality correction:
+If ordinary Blocking findings remain, decomposition defects remain, Scope corrections update existing durable review state, or prior persisted findings require a continuity/finality transition:
 
 1. revalidate Project Delivery guard for the already-resolved governor(s);
 2. require `HEAD` still equals the verification checkpoint;
-3. create/re-resolve the conventional Spec Review only when Blocking remediation requires one;
-4. render/persist the Pending packet through the deterministic review utility where possible; fold Domain Finality Reconciliation into existing provenance/root/scope/saturation text when the utility has no dedicated field rather than changing its schema solely for this hardening;
-5. POST once, GET that exact comment, and require byte-for-byte equality;
-6. invoke `$review-spec-remediation` only after persistence succeeds.
+3. require the already-resolved conventional Spec Review and current Finding Continuity Ledger;
+4. require every current Blocking finding in the Pending packet to name its stable `RF-*` row and persist/read back the updated Finding Continuity Ledger before remediation synthesis;
+5. render/persist the Pending packet through the deterministic review utility where possible; fold Domain Finality Reconciliation into existing provenance/root/scope/saturation text when the utility has no dedicated field rather than changing its schema solely for this hardening;
+6. POST once, GET that exact comment, and require byte-for-byte equality;
+7. invoke `$review-spec-remediation` only after persistence succeeds.
 
 The Pending packet must make the active/non-actionable distinction recoverable:
 
@@ -794,22 +903,29 @@ If remediation remains active and `$review-spec-remediation` returns `$to-ticket
 
 ## 14. Exit Gate
 
-PASS requires:
+PASS requires all of the following simultaneously:
 
 - current `HEAD` and Spec body still match the checkpoint;
 - reviewer execution integrity satisfied;
 - every Spec/Standards/Architecture review cell dispositioned;
 - no unresolved targeted/domain-finality/saturation coverage;
-- zero finality-surviving current Blocking findings;
+- the current Review Finding Continuity Ledger is valid, complete, and bound to this Spec Review/current checkpoint;
+- `Unaccounted prior findings: 0`;
+- `Unresolved continuity cells: 0`;
+- zero `open` Blocking `RF-*` rows;
+- zero unresolved decomposition defects;
+- zero finality-surviving current Blocking findings outside the ledger;
 - all existing roots `satisfied`, `owner-overridden`, or `scope-retired` after domain-excluded cells are ignored for active remediation;
 - zero Candidate new roots;
-- zero unresolved Closure Authority Defects.
+- zero unresolved architecture decisions/challenges that block review closure.
 
-The immutable contract itself does not need to be rebuilt again at Exit. Re-read current `HEAD`, clean worktree, Spec body hash, and mutable delivery guard; if any checkpoint binding changed, require fresh `$verify-spec`.
+The immutable Spec contract itself does not need to be rebuilt again at Exit. Re-read current `HEAD`, clean worktree, Spec body hash, current Spec Review identity, exact Finding Continuity Ledger body, and mutable delivery guard; if any checkpoint binding changed, require fresh `$verify-spec` or repeat the affected review transition as prescribed.
+
+The deterministic Exit renderer is a **fail-closed gate**, not a formatter. It must consume the exact current Finding Continuity Ledger and reject output when any Blocking row is nonterminal, any prior finding is omitted/unaccounted, any continuity cell remains unresolved, any decomposition defect remains unresolved, any active Root Blocker/candidate root remains, or review coverage/challenges are incomplete.
 
 ### Persist Exit Receipt
 
-Revalidate Project Delivery guard, render the Exit Receipt through the same deterministic utility, POST it to the **parent Spec**, GET the exact comment, and require byte equality.
+Revalidate Project Delivery guard, render the Exit Receipt through the deterministic utility against the exact current Finding Continuity Ledger, POST it to the **conventional Spec Review issue**, GET the exact comment, and require byte equality.
 
 ```bash
 EXIT_INPUT=$(mktemp)
@@ -817,14 +933,18 @@ EXIT_FILE=$(mktemp)
 EXIT_JSON=$(mktemp)
 COMMENT_JSON=$(mktemp)
 READBACK_FILE=$(mktemp)
+FINDING_LEDGER_FILE=$(mktemp)
 
+# FINDING_LEDGER_FILE is the exact read-back body of the one current
+# <!-- review-spec-finding-ledger:v1 --> comment on SPEC_REVIEW_ISSUE_NUMBER.
 python "$REVIEW_TOOL" render-exit \
   --input "$EXIT_INPUT" \
+  --finding-ledger "$FINDING_LEDGER_FILE" \
   --output "$EXIT_FILE"
 
 jq -Rs '{body: .}' "$EXIT_FILE" > "$EXIT_JSON"
 gh api --method POST \
-  "repos/$REPO/issues/$SPEC_NUMBER/comments" \
+  "repos/$REPO/issues/$SPEC_REVIEW_ISSUE_NUMBER/comments" \
   --input "$EXIT_JSON" > "$COMMENT_JSON"
 
 COMMENT_ID=$(jq -r .id "$COMMENT_JSON")
@@ -835,7 +955,7 @@ gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
 cmp -s "$EXIT_FILE" "$READBACK_FILE"
 ```
 
-Do not create a conventional Spec Review on a clean PASS path.
+The receipt includes the conventional Spec Review identity and SHA-256 of the exact Finding Continuity Ledger body. A later ledger mutation therefore invalidates that receipt for merge authorization.
 
 A persisted Exit Receipt establishes the parent Spec base lifecycle:
 
@@ -880,6 +1000,6 @@ Material assumptions
 Disposition
 ```
 
-`checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, no incomplete clean dispositions, and no unresolved Domain Finality Reconciliation before PASS/remediation handoff.
+`checked-no-finding` requires excluded falsifier and no unproven material assumption. The parent must require complete universe coverage, no unknown/missing/unresolved cells, no incomplete clean dispositions, no unresolved Domain Finality Reconciliation, `Unaccounted prior findings: 0`, and `Unresolved continuity cells: 0` before PASS/remediation handoff.
 
 These records are **working reasoning state**, not mandatory serialized output. The review agent and any explicitly owner-authorized independent challenger should return compact grouped coverage and full findings rather than dumping one verbose proof object per clean cell. Fresh reviewer independence remains mandatory unless explicitly owner-overridden for the current invocation.

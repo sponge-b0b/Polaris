@@ -45,6 +45,8 @@ Current generic hardening principles include:
 * verification scope must be explicitly authorized from the active change/impact universe;
 * conditional obligations must preserve both trigger state and durable destination;
 * clean review proof may be reused only through certifier-approved invalidation boundaries and fail-closed delta analysis;
+* independently validated nonterminal review findings are durable transition state: ## Review Finding Continuity them, and every prior finding must receive an explicit terminal disposition before review PASS;
+* review Exit must fail closed mechanically against the cumulative finding ledger, with zero unaccounted prior findings and zero unresolved continuity cells;
 * independently certified semantic closure domains remain the membership authority for correctly decomposed obligations while their governing authority is unchanged;
 * a certified ticket/root domain cannot suppress an explicit upstream architecture/design obligation that `$to-tickets` omitted or misrouted; that condition is a decomposition defect routed back to `$to-tickets`;
 * later review may reopen a correctly decomposed closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicit authority contradiction—not by silently adopting a broader plausible interpretation.

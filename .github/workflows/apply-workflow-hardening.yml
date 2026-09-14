@@ -37,7 +37,7 @@ jobs:
         run: python .github/scripts/apply_workflow_hardening.py
       - name: Remove transport files and validate authorized delta
         run: |
-          git rm .github/scripts/apply_workflow_hardening.py .github/workflows/apply-workflow-hardening.yml
+          git rm -f .github/scripts/apply_workflow_hardening.py .github/workflows/apply-workflow-hardening.yml
           test "$(git diff --name-only 793c9e1c046d4b9a6b531b1b645c131af50a7bbb | sort)" = "$(printf '%s\n' \
             .agents/skills/README.md \
             .agents/skills/review-spec-remediation/SKILL.md \
